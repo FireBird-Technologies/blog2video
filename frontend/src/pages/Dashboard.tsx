@@ -243,7 +243,7 @@ export default function Dashboard() {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
-    videoLength?: "auto" | "short" | "medium" | "detailed",
+    videoLength?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
     contentLanguage?: string | null
   ) => {
     setCreating(true);

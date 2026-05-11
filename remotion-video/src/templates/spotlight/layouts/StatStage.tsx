@@ -16,8 +16,9 @@ import type { SpotlightLayoutProps } from "../types";
 export const StatStage: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
-  metrics,
-  imageUrl,
+  metrics,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -102,6 +103,9 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
               }}
             />
           </div>
@@ -175,3 +179,4 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

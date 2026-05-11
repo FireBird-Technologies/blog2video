@@ -55,8 +55,8 @@ def remove_failed_generation_project(
     decrement_user_video_quota: bool = True,
 ) -> None:
     """
-    Delete project row (ORM cascades scenes/assets/etc.), remove local + R2 files,
-    and optionally decrement the user's per-period video counter (reverses create-time increment).
+    Soft-delete project and remove rendered video artifacts only, then optionally
+    decrement the user's per-period video counter (reverses create-time increment).
     """
     pid = project.id
     uid = project.user_id
@@ -71,12 +71,12 @@ def remove_failed_generation_project(
             extra={"project_id": pid, "user_id": uid},
         )
 
-    if r2_storage.is_r2_configured():
+    if r2_storage.is_r2_configured() and project.r2_video_key:
         try:
-            r2_storage.delete_project_files(uid, pid)
+            r2_storage.delete_object(project.r2_video_key)
         except Exception as e:
             logger.warning(
-                "[PROJECT_CLEANUP] R2 cleanup failed for project %s: %s",
+                "[PROJECT_CLEANUP] R2 video cleanup failed for project %s: %s",
                 pid,
                 e,
                 extra={"project_id": pid, "user_id": uid},
@@ -96,15 +96,17 @@ def remove_failed_generation_project(
     if os.path.isdir(project_media):
         shutil.rmtree(project_media, ignore_errors=True)
 
-    db.query(ProjectTemplateChangeJob).filter(ProjectTemplateChangeJob.project_id == pid).delete(
-        synchronize_session=False
-    )
+    db.query(ProjectTemplateChangeJob).filter(
+        ProjectTemplateChangeJob.project_id == pid
+    ).delete(synchronize_session=False)
     db.query(Subscription).filter(Subscription.project_id == pid).update(
         {Subscription.project_id: None},
         synchronize_session=False,
     )
 
-    db.delete(project)
+    project.is_active = False
+    project.r2_video_key = None
+    project.r2_video_url = None
 
     # Atomic decrement so concurrent pipeline failures (e.g. bulk URLs) each refund
     # one credit. Read-modify-write on User in separate sessions loses updates.

@@ -14,6 +14,8 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
   word,
   title,
   imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   aspectRatio,
@@ -103,7 +105,9 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
           >
             <Img
               src={imageUrl!}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%" }}
             />
           </div>
         )}

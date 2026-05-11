@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 const CIPHER_CHARS = "0123456789ABCDEF!@#$%ΔΣΩλ";
 
@@ -19,8 +20,9 @@ function seededRandom(seed: number): number {
 export const CipherMetric: React.FC<MatrixLayoutProps> = ({
   title,
   narration,
-  metrics,
-  imageUrl,
+  metrics,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -120,9 +122,10 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
               border: `1px solid ${accent}33`,
             }}
           >
-            <Img
+            <ZoomCropImg
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
             />
           </div>
         )}
@@ -193,3 +196,4 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

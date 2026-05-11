@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import asyncio
 import logging
@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
@@ -31,7 +32,15 @@ from app.schemas.schemas import (
 )
 from app.config import settings
 from app.services.scraper import scrape_blog
-from app.services.table_extraction import build_table_context_hint, extract_tables_from_content
+from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content
+from app.services.chart_planner import (
+    get_chartable_tables_from_visual_hint,
+    get_line_chartable_tables_from_visual_hint,
+    _build_chart_props_from_table,
+    is_candlestick_table,
+    is_ticker_snapshot_table,
+    extract_ticker_items_from_blog,
+)
 from app.services.scraper import scrape_blog, BlogScrapeFailed
 from app.services.project_cleanup import (
     remove_failed_generation_project,
@@ -66,9 +75,13 @@ from app.services.template_service import (
     validate_template_id,
     get_layout_prompt,
     get_valid_layouts,
+    get_hero_layout,
+    get_fallback_layout,
     is_custom_template,
+    is_crafted_template,
     _load_custom_template_data,
 )
+from app.services.crafted_template_service import validate_crafted_template_access
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -94,6 +107,94 @@ _pipelines_failed = _meter.create_counter(
     unit="1",
     description="Number of pipelines that failed",
 )
+
+
+def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
+    """Extract effective layout from descriptor payload."""
+    if is_custom_template(template_id):
+        cfg = descriptor.get("layoutConfig") if isinstance(descriptor, dict) else None
+        if isinstance(cfg, dict):
+            name = cfg.get("arrangement")
+            return name if isinstance(name, str) else None
+        return None
+    name = descriptor.get("layout") if isinstance(descriptor, dict) else None
+    return name if isinstance(name, str) else None
+
+
+def _normalize_layout_id(value: str | None) -> str:
+    return (value or "").strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _sanitize_script_layouts(
+    template_id: str,
+    scenes_raw: list[dict],
+    *,
+    include_ending_socials: bool,
+) -> list[dict]:
+    """Ensure script-stage preferred_layout is valid + diverse for template.
+
+    - Keeps only template-valid layout IDs.
+    - Forces hero layout on first scene and ending_socials only on last scene (when enabled).
+    - Replaces invalid/random picks with diverse valid alternatives.
+    """
+    if not scenes_raw:
+        return scenes_raw
+    if is_custom_template(template_id):
+        return scenes_raw
+
+    valid = {x for x in get_valid_layouts(template_id) if isinstance(x, str) and x.strip()}
+    if not valid:
+        return scenes_raw
+
+    hero_layout = _normalize_layout_id(get_hero_layout(template_id))
+    fallback_layout = _normalize_layout_id(get_fallback_layout(template_id))
+    if fallback_layout not in valid:
+        fallback_layout = next(iter(valid))
+
+    supports_ending = "ending_socials" in valid and include_ending_socials
+    last_idx = len(scenes_raw) - 1
+    usage: dict[str, int] = {}
+    prev_layout: str | None = None
+
+    def _pick_diverse(exclude: set[str] | None = None) -> str:
+        banned = set(exclude or set())
+        candidates = [l for l in valid if l not in banned]
+        if not candidates:
+            candidates = list(valid)
+        # least-used first, deterministic tie-breaker by name
+        candidates.sort(key=lambda l: (usage.get(l, 0), l))
+        return candidates[0] if candidates else fallback_layout
+
+    for i, scene in enumerate(scenes_raw):
+        desired = _normalize_layout_id(scene.get("preferred_layout"))
+        if i == 0 and hero_layout in valid:
+            desired = hero_layout
+        elif supports_ending and i == last_idx:
+            desired = "ending_socials"
+        elif desired not in valid:
+            desired = ""
+        elif desired == "ending_socials":
+            # ending_socials is reserved for final scene only.
+            desired = ""
+
+        if not desired:
+            excludes = set()
+            if prev_layout:
+                excludes.add(prev_layout)
+            if supports_ending:
+                excludes.add("ending_socials")
+            desired = _pick_diverse(excludes)
+
+        # Try to avoid consecutive duplicates even when valid was provided.
+        if prev_layout and desired == prev_layout and i != 0 and not (supports_ending and i == last_idx):
+            alt = _pick_diverse({prev_layout, "ending_socials"} if supports_ending else {prev_layout})
+            desired = alt or desired
+
+        scene["preferred_layout"] = desired
+        usage[desired] = usage.get(desired, 0) + 1
+        prev_layout = desired
+
+    return scenes_raw
 
 
 # ─── Single async generate endpoint ──────────────────────────
@@ -487,11 +588,42 @@ async def _generate_script(project: Project, db: Session):
     hero_image = image_paths[0] if image_paths else ""
 
     # Determine template and load its layout prompt (layout-only catalog).
-    template_id = validate_template_id(project.template if project.template else "default")
+    template_id = validate_template_id(
+        project.template if project.template else "default",
+        db=db,
+        user_id=project.user_id,
+    )
     try:
-        layout_catalog = get_layout_prompt(template_id)
+        layout_catalog = get_layout_prompt(template_id, db=db, user_id=project.user_id)
     except Exception:
         layout_catalog = ""
+
+    # For bloomberg: extract tables once upfront — reused for both constraint-building and
+    # table bindings below, avoiding a second parse of the same blog_content string.
+    _bloomberg_pre_tables: list[dict] = []
+    if template_id == "bloomberg":
+        _blog_text = getattr(project, "blog_content", None) or ""
+        _bloomberg_pre_tables = extract_tables_from_content(_blog_text) if _blog_text else []
+
+    # For bloomberg: probe scraped content and append data-availability constraints so the
+    # script generator only picks data-driven layouts when the underlying data actually exists.
+    if template_id == "bloomberg" and layout_catalog:
+        _ticker_items = extract_ticker_items_from_blog(_blog_text, max_items=2)
+        _has_ohlcv = any(is_candlestick_table(t) for t in _bloomberg_pre_tables)
+        _constraints: list[str] = []
+        if not _ticker_items:
+            _constraints.append(
+                "- `terminal_ticker` MUST NOT be used: no ticker/price data was found in the scraped content."
+            )
+        if not _has_ohlcv:
+            _constraints.append(
+                "- `terminal_chart` MUST NOT be used: no OHLCV candlestick table was found in the scraped content."
+            )
+        if _constraints:
+            layout_catalog = layout_catalog.rstrip() + (
+                "\n\nData availability constraints (STRICT — do not override):\n"
+                + "\n".join(_constraints)
+            )
 
     content_language = get_content_language_for_project(project)
     requested_video_length = getattr(project, "video_length", "auto") or "auto"
@@ -502,30 +634,39 @@ async def _generate_script(project: Project, db: Session):
     ) -> str:
         """Prevent hallucination: if content is short, downshift scene count.
 
-        Only applies when user explicitly requests a longer video length.
+        Word thresholds per tier (content must meet minimum to justify the length):
+          short        — no minimum
+          medium       — 5 00 words  (else → short)
+          detailed     — 1 500 words  (else → medium or short)
+          more_detailed— 2 000 words  (else → detailed, medium, or short)
         """
         req = (requested or "auto").strip().lower()
-        if req not in {"detailed", "medium", "short", "auto"}:
+        if req not in {"mdetailed", "detailed", "medium", "short", "auto"}:
             return "auto"
         if req in {"auto", "short"}:
             return req
 
         text = (blog_content or "").strip()
-        # Count words in prose-ish content; keep it simple and robust.
         words = len([w for w in re.split(r"\s+", text) if w])
 
-        # Heuristic thresholds:
-        # - Very short posts can't support 15–20 distinct scenes without invention.
-        # - This keeps output grounded in the actual source.
         if req == "medium":
-            return "short" if words < 250 else "medium"
+            return "short" if words < 500 else "medium"
 
-        # req == "detailed"
-        if words < 250:
+        if req == "detailed":
+            if words < 500:
+                return "short"
+            if words < 1500:
+                return "medium"
+            return "detailed"
+
+        # req == "more_detailed"
+        if words < 500:
             return "short"
-        if words < 600:
+        if words < 1500:
             return "medium"
-        return "detailed"
+        if words < 2000:
+            return "detailed"
+        return "mdetailed"
 
     effective_video_length = _effective_video_length_for_content(
         getattr(project, "blog_content", None), requested_video_length, video_style
@@ -555,41 +696,252 @@ async def _generate_script(project: Project, db: Session):
     generator = ScriptGenerator()
     # Only append an ending / follow-along scene when the template declares `ending_socials`
     # in meta.json (e.g. newscast has no EndingSocials layout — forcing it would map to a fallback).
-    include_ending_socials = (
-        not is_custom_template(template_id)
-        and "ending_socials" in get_valid_layouts(template_id)
-    )
+    # For custom templates: enable CTA ending when the template has an "outro" archetype.
+    if is_custom_template(template_id):
+        include_ending_socials = True
+    else:
+        include_ending_socials = "ending_socials" in get_valid_layouts(template_id)
+
+    # Pre-compute table bindings for templates that have dedicated data/table layouts.
+    # Each template block builds `chartable_tables_json` (passed to ScriptGenerator) and
+    # `_all_extracted_tables` (used in the scene-save loop to embed single-table hints).
+    chartable_tables_json = ""
+    _all_extracted_tables: list[dict] = []
+
+    if template_id == "newscast":
+        # newscast: dedicate scenes to data_visualization for any chartable table (line/bar/histogram).
+        # Requires ≥2 chartable tables; caps at 3 scenes.
+        _all_extracted_tables = extract_tables_from_content(
+            getattr(project, "blog_content", None) or ""
+        )
+        if len(_all_extracted_tables) >= 2:
+            _tmp_hint = build_table_context_hint(_all_extracted_tables, max_tables=len(_all_extracted_tables))
+            _chartable = get_chartable_tables_from_visual_hint(_tmp_hint)
+            _capped = _chartable[: min(3, len(_chartable))]
+            if len(_capped) >= 2:
+                _chart_type_by_idx = {
+                    orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                    for orig_idx, t in _capped
+                }
+                chartable_tables_json = build_chartable_tables_payload(
+                    _capped, chart_type_by_index=_chart_type_by_idx
+                )
+
+    elif template_id == "bloomberg":
+        # bloomberg: one scene per qualifying table — layout depends on table type:
+        #   terminal_chart   → OHLCV candlestick tables only
+        #   terminal_dataviz → non-OHLCV time-series / line-chartable tables
+        #   terminal_ticker  → multi-symbol snapshot tables
+        #   terminal_table   → all remaining tables with headers + ≥1 row
+        # Reuse the tables already extracted during the constraint-check above.
+        _all_extracted_tables = _bloomberg_pre_tables
+        if _all_extracted_tables:
+            _tmp_hint = build_table_context_hint(
+                _all_extracted_tables, max_tables=len(_all_extracted_tables)
+            )
+
+            # The three classification passes are independent — run them concurrently
+            # in the thread pool so CPU-bound numeric parsing doesn't serialize.
+            _loop = asyncio.get_event_loop()
+
+            def _classify_candlestick() -> list[tuple[int, dict]]:
+                return [
+                    (idx, t) for idx, t in enumerate(_all_extracted_tables)
+                    if is_candlestick_table(t)
+                ]
+
+            def _classify_dataviz(hint: str) -> list[tuple[int, dict]]:
+                return get_line_chartable_tables_from_visual_hint(hint)
+
+            def _classify_ticker(tables: list[dict]) -> list[tuple[int, dict]]:
+                return [
+                    (idx, t) for idx, t in enumerate(tables)
+                    if is_ticker_snapshot_table(t)
+                ]
+
+            (
+                _candlestick_tables,
+                _dataviz_tables_raw,
+                _ticker_tables_all,
+            ) = await asyncio.gather(
+                _loop.run_in_executor(None, _classify_candlestick),
+                _loop.run_in_executor(None, _classify_dataviz, _tmp_hint),
+                _loop.run_in_executor(None, _classify_ticker, _all_extracted_tables),
+            )
+
+            _candlestick_indices = {idx for idx, _ in _candlestick_tables}
+
+            # terminal_dataviz: non-OHLCV tables that produce a line chart
+            _dataviz_tables: list[tuple[int, dict]] = [
+                (idx, t) for idx, t in _dataviz_tables_raw
+                if idx not in _candlestick_indices
+            ]
+            _dataviz_indices = {idx for idx, _ in _dataviz_tables}
+
+            _used_indices = _candlestick_indices | _dataviz_indices
+
+            # terminal_ticker: filter out already-claimed indices
+            _ticker_tables: list[tuple[int, dict]] = [
+                (idx, t) for idx, t in _ticker_tables_all
+                if idx not in _used_indices
+            ]
+            _ticker_indices = {idx for idx, _ in _ticker_tables}
+            _used_indices |= _ticker_indices
+
+            # terminal_table: every remaining table with headers + ≥1 row gets its own scene.
+            # Exclude tables where every row has only a single cell (e.g. HTML scraper dropped
+            # all value columns, leaving only a date/label column with no data to show).
+            def _table_has_multi_col_rows(t: dict) -> bool:
+                rows = t.get("rows") or []
+                return any(isinstance(r, list) and len(r) >= 2 for r in rows)
+
+            _table_tables: list[tuple[int, dict]] = [
+                (idx, t)
+                for idx, t in enumerate(_all_extracted_tables)
+                if idx not in _used_indices
+                and (t.get("headers") or [])
+                and len(t.get("rows") or []) >= 1
+                and _table_has_multi_col_rows(t)
+            ]
+
+            # Cap total table-bound scenes at 4 (candlestick first, then dataviz, ticker, table).
+            # Prevents token bloat and keeps scene count reasonable for table-heavy blogs.
+            _MAX_BLOOMBERG_TABLE_SCENES = 4
+            _bindings = (
+                _candlestick_tables + _dataviz_tables + _ticker_tables + _table_tables
+            )[:_MAX_BLOOMBERG_TABLE_SCENES]
+
+            if _bindings:
+                # Rebuild index sets from the capped list so layout mapping stays correct.
+                _bound_candlestick = {idx for idx, _ in _bindings if idx in _candlestick_indices}
+                _bound_dataviz = {idx for idx, _ in _bindings if idx in _dataviz_indices}
+                _bound_ticker = {idx for idx, _ in _bindings if idx in _ticker_indices}
+
+                _chart_type_by_idx = {
+                    orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                    for orig_idx, t in _bindings
+                }
+                _layout_by_idx = {
+                    orig_idx: (
+                        "terminal_chart" if orig_idx in _bound_candlestick
+                        else "terminal_dataviz" if orig_idx in _bound_dataviz
+                        else "terminal_ticker" if orig_idx in _bound_ticker
+                        else "terminal_table"
+                    )
+                    for orig_idx, _ in _bindings
+                }
+                chartable_tables_json = build_chartable_tables_payload(
+                    _bindings,
+                    chart_type_by_index=_chart_type_by_idx,
+                    preferred_layout_by_index=_layout_by_idx,
+                    max_rows=20,
+                )
+
+    # Release the DB connection during the long-running DSPy/LLM calls below.
+    # Neon (serverless PostgreSQL) closes idle connections, and pool_pre_ping
+    # only verifies liveness on checkout — a session already holding a
+    # connection through a 30-60s LLM await can't be re-pinged, so the next
+    # commit fails with "server closed the connection unexpectedly". We
+    # capture the values we'll need post-LLM, drop the connection, run both
+    # LLM calls cold, then re-attach the project to a fresh connection.
+    _project_id = project.id
+    _project_aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
+    _project_blog_content = project.blog_content
+    db.close()
+
     result = await generator.generate(
-        blog_content=project.blog_content,
+        blog_content=_project_blog_content,
         blog_images=image_paths,
         hero_image=hero_image,
-        aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
+        aspect_ratio=_project_aspect_ratio,
         video_style=video_style,
         video_length=effective_video_length,
         layout_catalog=layout_catalog,
         content_language=content_language,
         include_ending_socials=include_ending_socials,
+        chartable_tables_json=chartable_tables_json,
+        template_id=template_id or "",
     )
 
-    project.name = result["title"]
-
-    # Clear existing scenes for this project
-    db.query(Scene).filter(Scene.project_id == project.id).delete()
-    db.flush()
-
-    # Template-aware display text generation
-    video_style = getattr(project, "video_style", None) or "explainer"
+    # Template-aware display text generation (second LLM call — still no DB held)
     scenes_raw: list[dict] = result["scenes"]
-
+    scenes_raw = _sanitize_script_layouts(
+        template_id,
+        scenes_raw,
+        include_ending_socials=include_ending_socials,
+    )
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
+    # Re-attach the original project instance to a fresh connection.
+    # add() on a detached-but-previously-persistent instance issues UPDATE on
+    # next flush (not INSERT), and pool_pre_ping verifies the new checkout.
+    db.add(project)
+    project.name = result["title"]
+
+    # Clear existing scenes for this project (moved here so it runs in the
+    # same fresh transaction as the new scene inserts).
+    db.query(Scene).filter(Scene.project_id == project.id).delete()
+    db.flush()
+
+    is_custom = is_custom_template(template_id)
     for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
         vd = scene_data["visual_description"]
-        if scene_data.get("preferred_layout") == "ending_socials":
+        preferred = scene_data.get("preferred_layout")
+        if preferred == "ending_socials":
             cta = (scene_data.get("cta_button_text") or "").strip()
             if cta:
                 vd = prepend_b2v_cta_to_visual(cta, vd)
+            # Custom templates don't have an ending_socials layout — clear it so
+            # archetype matching assigns the outro slot during scene generation.
+            if is_custom:
+                preferred = None
+        elif (
+            scene_data.get("preferred_layout") in {
+                "data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz"
+            }
+            and _all_extracted_tables
+        ):
+            # Embed only the single bound table so scene_gen has exactly one table to use.
+            bound_idx = scene_data.get("data_table_index")
+            # For terminal_chart with no bound index, auto-find the first OHLCV table.
+            if scene_data.get("preferred_layout") == "terminal_chart" and not isinstance(bound_idx, int):
+                for _ci, _ct in enumerate(_all_extracted_tables):
+                    if is_candlestick_table(_ct):
+                        bound_idx = _ci
+                        break
+            if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
+                _bound_table = _all_extracted_tables[bound_idx]
+                _mr = 60 if is_candlestick_table(_bound_table) else 20
+                hint = build_table_context_hint([_bound_table], max_tables=1, max_rows=_mr)
+                if hint:
+                    vd = (vd.rstrip() + "\n\n" + hint).strip()
+        elif (
+            # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
+            # the table binding was supposed to force terminal_dataviz/terminal_table.
+            # Embed the table hint so scene_gen has the data and can produce the right chart.
+            template_id == "bloomberg"
+            and scene_data.get("data_table_index") is not None
+            and _all_extracted_tables
+        ):
+            _fallback_idx = scene_data.get("data_table_index")
+            if isinstance(_fallback_idx, int) and 0 <= _fallback_idx < len(_all_extracted_tables):
+                _fb_table = _all_extracted_tables[_fallback_idx]
+                _fb_hint = build_table_context_hint([_fb_table], max_tables=1, max_rows=20)
+                if _fb_hint:
+                    vd = (vd.rstrip() + "\n\n" + _fb_hint).strip()
+                # Also upgrade the preferred_layout so scene_gen uses the right component.
+                if not is_candlestick_table(_fb_table):
+                    scene_data["preferred_layout"] = "terminal_dataviz"
+                else:
+                    scene_data["preferred_layout"] = "terminal_chart"
+        elif scene_data.get("preferred_layout") == "terminal_ticker":
+            # Inject real scraped ticker data so scene_gen overrides LLM-hallucinated values.
+            _blog_text = getattr(project, "blog_content", None) or ""
+            _ticker_items = extract_ticker_items_from_blog(_blog_text, max_items=10)
+            if _ticker_items:
+                hint = "═══ SCRAPED_TICKER_ROWS ═══\n" + "\n".join(_ticker_items) + "\n═══ END_SCRAPED_TICKER_ROWS ═══"
+                vd = (vd.rstrip() + "\n\n" + hint).strip()
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -598,7 +950,7 @@ async def _generate_script(project: Project, db: Session):
             visual_description=vd,
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
-            preferred_layout=scene_data.get("preferred_layout"),
+            preferred_layout=preferred,
         )
         db.add(scene)
 
@@ -614,17 +966,48 @@ async def _generate_scenes(project: Project, db: Session):
     title/narration/visual_description which don't change during TTS generation.
     Running them concurrently via asyncio.gather cuts wall-clock time significantly.
     """
-    scenes = project.scenes
-    extracted_tables = extract_tables_from_content(getattr(project, "blog_content", None) or "")
-    # Provide up to 3 tables so newscast can build 2-3 data visualization scenes.
-    table_context_hint = build_table_context_hint(extracted_tables, max_tables=3)
+    # Force a fresh DB checkout at the start of this step. Pipeline-step
+    # boundaries (script → scenes) leave a connection that may have been
+    # silently dropped by Neon during the previous LLM call. pool_pre_ping
+    # can miss SSL/Windows-10053 failures because they manifest mid-query
+    # rather than on the SELECT-1 probe. Closing here releases any stale
+    # connection back to the pool; the next query checks out a fresh one.
+    _project_id = project.id
+    try:
+        db.close()
+    except OperationalError as close_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on db.close() before scene generation; invalidating session and retrying query: %s",
+            _project_id,
+            close_err,
+        )
+        try:
+            db.invalidate()
+        except Exception:
+            pass
 
-    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
+    try:
+        project = db.query(Project).filter(Project.id == _project_id).first()
+    except OperationalError as query_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on pre-scenes reload; invalidating and retrying once: %s",
+            _project_id,
+            query_err,
+        )
+        db.invalidate()
+        project = db.query(Project).filter(Project.id == _project_id).first()
+
+    if project is None:
+        raise RuntimeError(f"Project {_project_id} disappeared before scene generation")
+
+    scenes = project.scenes
+
+    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields).
+    # Each data_visualization scene already carries its single bound TABLE_DATA_HINT_JSON
+    # (embedded during _generate_script); no blanket append needed here.
     scenes_data = []
     for s in scenes:
         _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
-        if table_context_hint:
-            vis = (vis.rstrip() + "\n\n" + table_context_hint).strip()
         scenes_data.append(
             {
                 "title": s.title,
@@ -636,7 +1019,11 @@ async def _generate_scenes(project: Project, db: Session):
 
     # Prepare scene descriptor generator
     db.refresh(project)
-    template_id = validate_template_id(project.template if project.template else "default")
+    template_id = validate_template_id(
+        project.template if project.template else "default",
+        db=db,
+        user_id=project.user_id,
+    )
     logger.info("[PIPELINE] Project %s: template='%s', validated='%s'", project.id, project.template, template_id)
     supports_ending_socials = "ending_socials" in get_valid_layouts(template_id)
     scene_gen = TemplateSceneGenerator(template_id)
@@ -681,6 +1068,8 @@ async def _generate_scenes(project: Project, db: Session):
 
             # Build descriptors in the format the rest of the pipeline expects
             # layoutConfig must be present so downstream checks detect custom template scenes
+            # Note: imageBoxAspectRatio is injected per-scene later in remotion.py once
+            # the actual content variant index is known (via match_scenes_to_archetypes).
             descriptors = []
             for sc in structured_contents:
                 descriptors.append({
@@ -706,10 +1095,45 @@ async def _generate_scenes(project: Project, db: Session):
     # Run both concurrently
     _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())
 
-    # Re-load scenes to pick up voiceover changes from per-thread DB sessions
-    # CRITICAL: We MUST explicitly expire the existing Scene objects in the Identity Map, 
-    # otherwise SQLAlchemy will return the stale `duration_seconds` (e.g. 10.0 or 5.0) 
-    # instead of the newly calculated audio lengths, overwriting them when we commit `remotion_code`.
+    # Force a fresh DB checkout. The descriptor task is a long LLM call that
+    # runs concurrently with the voiceover task — if voiceovers finish first,
+    # the main session sits idle through the rest of the descriptor await and
+    # Neon may silently drop the connection. Closing here releases any stale
+    # connection back to the pool; the next query checks out a fresh one.
+    # On Windows + SSL this close can itself raise OperationalError if the TCP
+    # socket is already severed; handle it and invalidate the session so we can
+    # continue with a fresh checkout instead of aborting the whole pipeline.
+    _pid = project.id
+    try:
+        db.close()
+    except OperationalError as close_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on db.close() after scene tasks; invalidating session and retrying query: %s",
+            _pid,
+            close_err,
+        )
+        try:
+            db.invalidate()
+        except Exception:
+            pass
+
+    try:
+        project = db.query(Project).filter(Project.id == _pid).first()
+    except OperationalError as query_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on post-close reload; invalidating and retrying once: %s",
+            _pid,
+            query_err,
+        )
+        db.invalidate()
+        project = db.query(Project).filter(Project.id == _pid).first()
+
+    if project is None:
+        raise RuntimeError(f"Project {_pid} disappeared during scene generation")
+
+    # Re-load scenes to pick up voiceover changes from per-thread DB sessions.
+    # expire_all is now redundant (db.close already cleared the identity map),
+    # but kept as a no-op safeguard in case future code re-fetches before this.
     db.expire_all()
     scenes = project.scenes
 
@@ -800,6 +1224,9 @@ async def _generate_scenes(project: Project, db: Session):
             except (json.JSONDecodeError, TypeError):
                 pass
         scene.remotion_code = json.dumps(descriptor)
+        resolved_layout = _descriptor_layout_name(template_id, descriptor)
+        if resolved_layout:
+            scene.preferred_layout = resolved_layout
         if has_layout_config:
             lc = descriptor["layoutConfig"]
             logger.info(
@@ -807,10 +1234,16 @@ async def _generate_scenes(project: Project, db: Session):
                 i, lc.get("arrangement"), len(lc.get("elements", [])), lc.get("decorations"),
             )
         else:
+            lp_keys = list(descriptor.get("layoutProps", {}).keys())
             logger.info(
                 "[PIPELINE] Scene %s stored: legacy layout=%s, layoutProps keys=%s",
-                i, descriptor.get("layout"), list(descriptor.get("layoutProps", {}).keys()),
+                i, descriptor.get("layout"), lp_keys,
             )
+            if descriptor.get("layout") == "terminal_dataviz":
+                logger.info(
+                    "[PIPELINE] Scene %s terminal_dataviz full layoutProps=%s",
+                    i, json.dumps(descriptor.get("layoutProps", {})),
+                )
     db.commit()
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 
@@ -1011,10 +1444,19 @@ async def render_video_endpoint(
             "r2_video_url": project.r2_video_url,
         }
 
-    if is_custom_template(project.template) and _load_custom_template_data(project.template, db=db) is None:
+    if (is_custom_template(project.template) or is_crafted_template(project.template)) and _load_custom_template_data(
+        project.template,
+        db=db,
+        user_id=project.user_id,
+    ) is None:
         raise HTTPException(
             status_code=409,
-            detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
+            detail="This project uses a missing template. Rendering is blocked because the template is unavailable.",
+        )
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, project.user_id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This project no longer has access to its crafted template.",
         )
 
     # Align per-video credits with Stripe (same as project creation) before any limit check.
@@ -1353,4 +1795,9 @@ def _get_project(project_id: int, user_id: int, db: Session) -> Project:
     )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, user_id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="Access to this project's crafted template has been revoked.",
+        )
     return project

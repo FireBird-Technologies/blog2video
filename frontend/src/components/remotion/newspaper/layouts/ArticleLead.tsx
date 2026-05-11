@@ -15,8 +15,9 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
-  stats,
-  imageUrl,
+  stats,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -167,6 +168,9 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   width: "100%",
                   height: "100%",
                   objectFit: "cover",
+                objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
                   filter: "grayscale(0.7) contrast(1.1)",
                 }}
               />
@@ -406,3 +410,4 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     </AbsoluteFill>
   );
 };
+

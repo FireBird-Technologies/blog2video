@@ -14,11 +14,18 @@ from app.models.custom_voice import CustomVoice
 from app.models.prebuilt_voice import PrebuiltVoice
 from app.models.review import Review
 from app.models.project_template_change_job import ProjectTemplateChangeJob
+from app.models.blast_campaign import BlastCampaign
+from app.models.update_email import UpdateEmail
+from app.models.update_email_send import UpdateEmailSend
+from app.models.referral import Referral, ReferralSignup
+from app.models.crafted_template import CraftedTemplate
+from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
 
 __all__ = [
-    
+
     "User", "Project", "Scene", "Asset", "ChatMessage",
     "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
     "ProjectEditHistory", "SceneEditHistory", "Review", "TemplateVersion",
-    "ProjectTemplateChangeJob",
+    "ProjectTemplateChangeJob", "BlastCampaign", "UpdateEmail", "UpdateEmailSend",
+    "Referral", "ReferralSignup", "CraftedTemplate", "CraftedTemplateEntitlement",
 ]

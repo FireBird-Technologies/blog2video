@@ -1,6 +1,7 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * ForkChoice — Red Pill / Blue Pill Split
@@ -15,8 +16,9 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
   leftLabel,
   rightLabel,
   leftDescription,
-  rightDescription,
-  imageUrl,
+  rightDescription,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -93,9 +95,10 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
               border: `1px solid ${accent}33`,
             }}
           >
-            <Img
+            <ZoomCropImg
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} // Image fills 100% of its container
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
             />
           </div>
         </div>
@@ -243,3 +246,4 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

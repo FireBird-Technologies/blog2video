@@ -1,8 +1,9 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, Easing } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Easing } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 // Default features if none provided
 const DEFAULT_FEATURES = [
@@ -14,8 +15,9 @@ const DEFAULT_FEATURES = [
 export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
   features,
   dataPoints,
-  highlightIndex = 0,
-  imageUrl,
+  highlightIndex = 0,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   textColor,
   aspectRatio,
   titleFontSize,
@@ -79,9 +81,10 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
             boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           }}
         >
-          <Img
+          <ZoomCropImg
             src={imageUrl}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={imageZoom}
           />
         </div>
       )}
@@ -160,3 +163,4 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
     </div>
   );
 };
+

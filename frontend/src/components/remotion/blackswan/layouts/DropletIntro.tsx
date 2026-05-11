@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Swan } from "../components/Swan";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 import type { BlackswanLayoutProps } from "../types";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { NeonWater } from "./neonWater";
@@ -121,7 +122,20 @@ const DropletImpact: React.FC<{ t: number; iy: number; accentColor: string }> = 
 };
 
 export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
-  const { title, narration, accentColor = "#00E5FF", bgColor = "#000000", textColor = "#FFFFFF", titleFontSize, descriptionFontSize, fontFamily, aspectRatio = "landscape", imageUrl } = props;
+  const {
+    title,
+    narration,
+    accentColor = "#00E5FF",
+    bgColor = "#000000",
+    textColor = "#FFFFFF",
+    titleFontSize,
+    descriptionFontSize,
+    fontFamily,
+    aspectRatio = "landscape",
+    imageUrl,
+    imageObjectPosition,
+    imageZoom,
+  } = props;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const t = frame / fps;
@@ -152,10 +166,12 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
 
       {/* Full-screen image — behind neon water only */}
       {hasImage && (
-        <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 1 }}>
-          <img
+        <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 1, overflow: "hidden" }}>
+          <ZoomCropImg
             src={imageUrl}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={imageZoom}
+            alt=""
           />
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }} />
           <div style={{ position: "absolute", inset: 0 }}>

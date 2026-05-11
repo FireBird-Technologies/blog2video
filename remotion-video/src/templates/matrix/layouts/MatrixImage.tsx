@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * MatrixImage — Image Revealed Through Digital Rain
@@ -12,8 +13,9 @@ import type { MatrixLayoutProps } from "../types";
  */
 export const MatrixImage: React.FC<MatrixLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -61,9 +63,10 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
             clipPath: `inset(${50 - revealPercent / 2}% 0 ${50 - revealPercent / 2}% 0)`,
           }}
         >
-          <Img
+          <ZoomCropImg
             src={imageUrl}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={imageZoom}
           />
           {/* Scanline overlay */}
           <div
@@ -189,3 +192,4 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

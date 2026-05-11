@@ -37,11 +37,11 @@ export default function ErrorModal({
         <div className="flex items-start gap-4">
           <div
             className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-              variant === "pipeline" ? "bg-amber-100" : "bg-red-100"
+              variant === "pipeline" || showUpgrade ? "bg-amber-100" : "bg-red-100"
             }`}
           >
             <svg
-              className={`w-5 h-5 ${variant === "pipeline" ? "text-amber-700" : "text-red-600"}`}
+              className={`w-5 h-5 ${variant === "pipeline" || showUpgrade ? "text-amber-700" : "text-red-600"}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -57,7 +57,7 @@ export default function ErrorModal({
           </div>
           <div className="flex-1 min-w-0">
             <h3 id="error-modal-title" className="text-base font-semibold text-gray-900 mb-1">
-              {variant === "pipeline" ? PIPELINE_HEADING : "Error"}
+              {variant === "pipeline" || showUpgrade ? PIPELINE_HEADING : "Error"}
             </h3>
             <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">
               {message}
@@ -89,6 +89,20 @@ export default function ErrorModal({
             OK
           </button>
         </div>
+        {showUpgrade && (
+          <div className="mt-4 pt-4 border-t border-gray-100 flex justify-center">
+            <a
+              href="/invite-others"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700 hover:bg-purple-100 hover:border-purple-400 transition-all relative"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" />
+                <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+              </svg>
+              Share B2V to get 3 videos free
+            </a>
+          </div>
+        )}
       </div>
     </div>,
     document.body

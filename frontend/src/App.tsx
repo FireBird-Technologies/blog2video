@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
 import Landing from "./pages/Landing";
@@ -8,9 +9,16 @@ import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
+import InviteOthers from "./pages/InviteOthers";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
+import HelpIndex from "./pages/HelpIndex";
+import HelpPostPage from "./pages/HelpPostPage";
+import ToolsHub from "./pages/ToolsHub";
+import ToolPage from "./pages/ToolPage";
+import SubstackDirectoryNichePage from "./pages/SubstackDirectoryNichePage";
+import SubstackPublicationPage from "./pages/SubstackPublicationPage";
 import TemplateStudio from "./pages/TemplateStudio";
 import Navbar from "./components/layout/navbar";
 import MarketingPageView from "./pages/MarketingPageView";
@@ -18,6 +26,10 @@ import TemplatePageView from "./pages/TemplatePageView";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
+import ScrollToTop from "./components/layout/ScrollToTop";
+import EmbedPreviewPage from "./pages/EmbedPreviewPage";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import { trackPageView } from "./gtag";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -57,6 +69,7 @@ function AppRoutes() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
+      <ScrollToTop />
       {user && <Navbar />}
 
       <Routes>
@@ -69,6 +82,24 @@ function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/blogs" element={<Blog />} />
         <Route path="/blogs/:slug" element={<BlogPostPage />} />
+        <Route path="/help" element={<HelpIndex />} />
+        <Route path="/help/:slug" element={<HelpPostPage />} />
+        <Route path="/tools" element={<ToolsHub />} />
+        <Route
+          path="/tools/substack-directory/publication/:publicationSlug"
+          element={<SubstackPublicationPage />}
+        />
+        <Route
+          path="/tools/substack-directory/:nicheSlug/pricing/:pricingSlug"
+          element={<SubstackDirectoryNichePage />}
+        />
+        <Route
+          path="/tools/substack-directory/:nicheSlug"
+          element={<SubstackDirectoryNichePage />}
+        />
+        <Route path="/tools/:slug" element={<ToolPage />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         {marketingPages.map((page) => (
           <Route
             key={page.path}
@@ -109,6 +140,16 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/invite-others"
+          element={
+            <ProtectedRoute>
+              <main className="max-w-7xl mx-auto px-6 py-8">
+                <InviteOthers />
+              </main>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/template-studio-editing-feature"
           element={
             <ProtectedRoute>
@@ -118,6 +159,9 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+
+        {/* Public embed preview — no auth required */}
+        <Route path="/preview/:token" element={<EmbedPreviewPage />} />
 
         {/* Catch-all */}
         <Route path="*" element={<NotFoundPage />} />
@@ -129,11 +173,13 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <ErrorModalProvider>
-        <NoticeModalProvider>
-          <AppRoutes />
-        </NoticeModalProvider>
-      </ErrorModalProvider>
+      <CraftedTemplatesProvider>
+        <ErrorModalProvider>
+          <NoticeModalProvider>
+            <AppRoutes />
+          </NoticeModalProvider>
+        </ErrorModalProvider>
+      </CraftedTemplatesProvider>
     </AuthProvider>
   );
 }

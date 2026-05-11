@@ -11,6 +11,8 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
     titleFontSize,
     descriptionFontSize,
     imageUrl, // New Prop
+    imageObjectPosition,
+    imageZoom,
     fontFamily,
     ...extra
   } = props;
@@ -62,6 +64,9 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
               }}
             />
             {/* Subtle Gradient Overlay to blend with text side */}

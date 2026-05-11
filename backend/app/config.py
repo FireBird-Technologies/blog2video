@@ -6,6 +6,9 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
+    # Environment: "production" uses Claude Sonnet; anything else uses DeepSeek
+    ENVIRONMENT: str = os.environ.get("ENVIRONMENT", "local")
+
     # API Keys
     ANTHROPIC_API_KEY: str = ""
     ELEVENLABS_API_KEY: str = ""
@@ -13,6 +16,7 @@ class Settings(BaseSettings):
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
+    OPEN_ROUTER_KEY: str = ""
     GEMINI_API_KEY: str = ""
     GEMINI_CODE_MODEL: str = "gemini-2.5-flash"
     # Used automatically when an image is attached (vision-guided layout editing).
@@ -47,6 +51,7 @@ class Settings(BaseSettings):
 
     # App
     FRONTEND_URL: str = "http://localhost:5173"
+    BACKEND_URL: str = "http://localhost:8000"
 
     # Database
     DATABASE_URL: str = "sqlite:///./blog2video.db"
@@ -73,6 +78,13 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
 
+    # Crafted templates (separate from built-ins and user custom templates)
+    CRAFTED_TEMPLATES_ENABLED: bool = False
+    CRAFTED_TEMPLATE_R2_PREFIX: str = ""  # optional namespace, e.g. "dev" | "staging" | "prod"
+    CRAFTED_TEMPLATE_CACHE_TTL_SECONDS: int = 86400
+    CRAFTED_TEMPLATE_MAX_PACKAGE_BYTES: int = 25 * 1024 * 1024
+    CRAFTED_TEMPLATE_MAX_FILE_BYTES: int = 8 * 1024 * 1024
+
     # Render reliability/progress controls
     RENDER_MAX_SECONDS: int = int(os.environ.get("RENDER_MAX_SECONDS", "2700"))
     RENDER_STALL_SECONDS: int = int(os.environ.get("RENDER_STALL_SECONDS", "300"))
@@ -88,8 +100,11 @@ class Settings(BaseSettings):
     # Email
     EMAIL_PROVIDER: str = "resend"              # currently only "resend" is supported
     RESEND_API_KEY: str = ""
+    UNOSEND_API_KEY: str = ""  # reserved — blast email uses Resend; Unosend path commented in email.py
     FROM_EMAIL: str = "sales@blog2video.app"    # contact/internal emails
     NOREPLY_EMAIL: str = "noreply@blog2video.app"  # user-facing notifications
+    # Automated update email scheduler: UTC hour (0-23) to run the daily batch
+    UPDATE_EMAIL_SEND_HOUR: int = 9
 
     class Config:
         env_file = ".env"

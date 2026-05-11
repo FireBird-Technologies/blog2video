@@ -94,6 +94,8 @@ export interface NewscastLayoutProps {
 
   /** Optional full-bleed background image URL; supported on all newscast layouts. */
   imageUrl?: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
 
   fontFamily?: string;
 

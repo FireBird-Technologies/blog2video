@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * DataStream — Incoming Data Packets
@@ -12,8 +13,9 @@ import type { MatrixLayoutProps } from "../types";
  */
 export const DataStream: React.FC<MatrixLayoutProps> = ({
   title,
-  items,
-  imageUrl,
+  items,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor, // Not used but kept in props for consistency
@@ -105,16 +107,20 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
               transform: `translateX(${imageTranslateX}px) scale(${imageScale})`,
             }}
           >
-            <Img
-              src={imageUrl}
+            <div
               style={{
                 width: "100%",
-                height: "auto",
-                maxHeight: p ? 260 : 300,
-                objectFit: "contain",
+                height: p ? 260 : 300,
                 borderRadius: 8,
+                overflow: "hidden",
               }}
-            />
+            >
+              <ZoomCropImg
+                src={imageUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+              />
+            </div>
           </div>
         )}
 
@@ -230,3 +236,4 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

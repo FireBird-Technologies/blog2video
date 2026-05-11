@@ -19,8 +19,9 @@ import { random } from "remotion";
 
 export const GlassImage: React.FC<NightfallLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -118,11 +119,13 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                objectPosition: imageObjectPosition ?? "50% 50%",
                 opacity: imageOpacity,
                 transform: `
-                  scale(${kenBurnsScale})
+                  scale(${Math.max(1, imageZoom ?? 1) * kenBurnsScale})
                   translate(${kenBurnsPanX}%, ${kenBurnsPanY}%)
                 `,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
                 zIndex: 1,
               }}
             />
@@ -282,3 +285,4 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

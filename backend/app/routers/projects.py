@@ -4,9 +4,12 @@ import logging
 import os
 import shutil
 import time
+import requests
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
@@ -18,6 +21,9 @@ from app.models.project import Project, ProjectStatus
 from app.models.review import Review
 from app.models.scene import Scene
 from app.models.project_template_change_job import ProjectTemplateChangeJob
+from app.models.crafted_template import CraftedTemplate
+from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
+from app.models.custom_template import CustomTemplate
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
@@ -31,13 +37,26 @@ from app.services.remotion import (
     safe_remove_workspace,
     get_workspace_dir,
     cancel_running_render,
+    render_still,
+    write_remotion_data,
 )
 from app.services.doc_extractor import extract_from_documents
 from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
 )
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
+from app.services.template_service import (
+    validate_template_id,
+    get_preview_colors,
+    get_valid_layouts,
+    get_layouts_without_image,
+    is_custom_template,
+    is_crafted_template,
+    _load_custom_template_data,
+    get_meta,
+)
+from app.services.crafted_template_service import validate_crafted_template_access
+from app.services.crafted_template_service import is_crafted_templates_enabled
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 from app.services.language_detection import normalize_preferred_language_code
 from app.services.social_content_signals import detect_social_platforms_in_text
@@ -48,24 +67,77 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 logger = get_logger(__name__)
 
 
+import threading as _threading
+
+# URL → (expires_at_epoch, is_reachable). Avoids HEAD-ing the same brand-logo
+# URL on every project serialization (_inject_custom_theme runs on every GET).
+_BRAND_LOGO_URL_CHECK_TTL_S = 3600.0
+_brand_logo_url_check: dict[str, tuple[float, bool]] = {}
+_brand_logo_url_check_lock = _threading.Lock()
+
+
+def _is_brand_logo_url_reachable(url: str) -> bool:
+    """HEAD-check a brand-kit logo URL, cached for 1 hour.
+    Falls back to a single-byte GET when servers reject HEAD (403/405/501).
+    """
+    if not url or not url.startswith(("http://", "https://")):
+        return False
+    now = time.time()
+    with _brand_logo_url_check_lock:
+        cached = _brand_logo_url_check.get(url)
+        if cached and cached[0] > now:
+            return cached[1]
+    ok = False
+    try:
+        resp = requests.head(url, timeout=3, allow_redirects=True)
+        ok = resp.status_code < 400
+        if not ok and resp.status_code in (403, 405, 501):
+            resp = requests.get(
+                url, timeout=3, stream=True,
+                headers={"Range": "bytes=0-0"},
+            )
+            ok = resp.status_code < 400
+    except Exception:
+        ok = False
+    with _brand_logo_url_check_lock:
+        _brand_logo_url_check[url] = (now + _BRAND_LOGO_URL_CHECK_TTL_S, ok)
+    return ok
+
+
+def _pick_reachable_brand_logo_url(logos: list) -> str | None:
+    """Return the first brand-kit logo URL that is actually reachable, else None."""
+    for entry in logos or []:
+        url = (
+            entry.get("url", "") if isinstance(entry, dict)
+            else (entry if isinstance(entry, str) else "")
+        )
+        if url and _is_brand_logo_url_reachable(url):
+            return url
+    return None
+
+
 def _inject_custom_theme(project: Project, db: Session | None = None) -> Project:
     """Attach custom_theme to a project so ProjectOut serialization includes it."""
-    if is_custom_template(project.template):
-        data = _load_custom_template_data(project.template, db=db)
+    if is_custom_template(project.template) or is_crafted_template(project.template):
+        data = _load_custom_template_data(project.template, db=db, user_id=project.user_id)
         project.custom_theme = data["theme"] if data else None
+        project.custom_image_box_aspect_ratios = (
+            data.get("image_box_aspect_ratios") if data else None
+        )
         project.custom_template_missing = data is None
-        # Expose BrandKit logo URL so the frontend preview can show it
+        # Expose BrandKit logo URL so the frontend preview can show it.
+        # Skip entries that don't actually resolve — a scraped /favicon.ico
+        # fallback often 404s on SPAs, and serving a broken URL to the
+        # frontend just renders a broken-image icon in the preview.
         brand_logo_url = None
         if data:
             bk = data.get("brand_kit")
             if bk:
-                logos = bk.get("logos") or []
-                if logos:
-                    first = logos[0]
-                    brand_logo_url = first.get("url", "") if isinstance(first, dict) else first
+                brand_logo_url = _pick_reachable_brand_logo_url(bk.get("logos") or [])
         project.brand_logo_url = brand_logo_url or None
     else:
         project.custom_theme = None
+        project.custom_image_box_aspect_ratios = None
         project.custom_template_missing = False
         project.brand_logo_url = None
     return project
@@ -129,10 +201,53 @@ _ALLOWED_MIME_TYPES = {
 }
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"}
 _VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
-_VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
+_VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed", "mdetailed"}
 _MIN_PLAYBACK_SPEED = 0.5
 _MAX_PLAYBACK_SPEED = 2.5
 _ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
+
+
+@router.get("/template-availability")
+def get_template_availability_signal(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Lightweight signal for new-project UI.
+    Returns whether this user has custom and/or crafted templates available,
+    without loading full template payloads.
+    """
+    has_custom_templates = (
+        db.query(CustomTemplate.id)
+        .filter(CustomTemplate.user_id == user.id)
+        .first()
+        is not None
+    )
+
+    has_crafted_templates = False
+    if is_crafted_templates_enabled():
+        now = datetime.utcnow()
+        has_crafted_templates = (
+            db.query(CraftedTemplateEntitlement.id)
+            .join(
+                CraftedTemplate,
+                CraftedTemplateEntitlement.crafted_template_id == CraftedTemplate.id,
+            )
+            .filter(
+                CraftedTemplate.status == "active",
+                CraftedTemplateEntitlement.user_id == user.id,
+                CraftedTemplateEntitlement.status == "active",
+                (CraftedTemplateEntitlement.starts_at.is_(None) | (CraftedTemplateEntitlement.starts_at <= now)),
+                (CraftedTemplateEntitlement.expires_at.is_(None) | (CraftedTemplateEntitlement.expires_at >= now)),
+            )
+            .first()
+            is not None
+        )
+
+    return {
+        "has_custom_templates": has_custom_templates,
+        "has_crafted_templates": has_crafted_templates,
+    }
 
 
 def _sanitize_data_viz_layout_props(layout: str | None, layout_props: dict | None) -> dict:
@@ -173,10 +288,18 @@ def _normalize_video_length(video_length: str | None) -> str:
     raw = (video_length or "").strip().lower()
     if not raw:
         return "auto"
+    # Frontend label uses "more_detailed"; DB/domain uses compact "mdetailed"
+    # (projects.video_length was introduced as VARCHAR(10)).
+    aliases = {
+        "more_detailed": "mdetailed",
+        "more-detailed": "mdetailed",
+        "more detailed": "mdetailed",
+    }
+    raw = aliases.get(raw, raw)
     if raw not in _VALID_VIDEO_LENGTHS:
         raise HTTPException(
             status_code=422,
-            detail="video_length must be one of: auto, short, medium, detailed",
+            detail="video_length must be one of: auto, short, medium, detailed, more detailed",
         )
     return raw
 
@@ -216,6 +339,17 @@ def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
     return normalized[:10]
 
 
+def _crafted_template_pk(template_id: str, db: Session) -> int | None:
+    if not is_crafted_template(template_id):
+        return None
+    row = (
+        db.query(CraftedTemplate.id)
+        .filter(CraftedTemplate.public_template_id == template_id, CraftedTemplate.status == "active")
+        .first()
+    )
+    return int(row[0]) if row else None
+
+
 def _extract_scene_layout_from_descriptor(scene: Scene, template_id: str) -> str | None:
     if not scene.remotion_code:
         return None
@@ -235,6 +369,50 @@ def _extract_layout_from_descriptor_obj(descriptor: object, template_id: str) ->
         return None
     layout = descriptor.get("layout") if isinstance(descriptor, dict) else None
     return layout if isinstance(layout, str) else None
+
+
+def _clamp_image_focus(value: object | None) -> float:
+    try:
+        num = float(value)
+    except Exception:
+        return 50.0
+    if num < 0:
+        return 0.0
+    if num > 100:
+        return 100.0
+    return round(num, 2)
+
+
+def _clamp_image_zoom(value: object | None) -> float:
+    try:
+        num = float(value)
+    except Exception:
+        return 1.0
+    if num < 1:
+        return 1.0
+    if num > 12:
+        return 12.0
+    return round(num, 2)
+
+
+def _ensure_layout_props_dict(descriptor: dict) -> dict:
+    lp = descriptor.get("layoutProps")
+    if not isinstance(lp, dict):
+        lp = {}
+    descriptor["layoutProps"] = lp
+    return lp
+
+
+def _apply_default_focus(lp: dict) -> None:
+    lp["imageFocusX"] = _clamp_image_focus(lp.get("imageFocusX", 50))
+    lp["imageFocusY"] = _clamp_image_focus(lp.get("imageFocusY", 50))
+
+
+def _clear_image_assignment(lp: dict) -> None:
+    lp.pop("assignedImage", None)
+    lp.pop("imageFocusX", None)
+    lp.pop("imageFocusY", None)
+    lp.pop("imageZoom", None)
 
 
 def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
@@ -406,6 +584,7 @@ def _run_project_template_change_job(job_id: int) -> None:
                 db.commit()
 
         project.template = target_template
+        project.crafted_template_id = _crafted_template_pk(target_template, db)
         template_colors = get_preview_colors(target_template) or {}
         if isinstance(template_colors, dict):
             project.accent_color = template_colors.get("accent") or project.accent_color
@@ -452,12 +631,18 @@ def create_project(
         raise HTTPException(status_code=400, detail="blog_url is required for URL-based project creation.")
 
     name = data.name or _name_from_url(data.blog_url)
-    template_id = validate_template_id(data.template)
+    template_id = validate_template_id(data.template, db=db, user_id=user.id)
     if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
             detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
         )
+    if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this crafted template.",
+        )
+    crafted_pk = _crafted_template_pk(template_id, db)
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(data.video_style)
     project = Project(
@@ -465,6 +650,7 @@ def create_project(
         name=name,
         blog_url=data.blog_url,
         template=template_id,
+        crafted_template_id=crafted_pk,
         voice_gender=data.voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
         accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
@@ -555,13 +741,18 @@ async def change_project_template_regenerate_layouts(
             status_code=403,
             detail=f"Video limit reached ({user.video_limit}). Upgrade to continue regenerating videos.",
         )
-    target_template = validate_template_id(body.template)
+    target_template = validate_template_id(body.template, db=db, user_id=user.id)
     if target_template == project.template:
         raise HTTPException(status_code=400, detail="Project is already using this template.")
     if is_custom_template(target_template) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
             detail="Custom templates require a Pro or Standard subscription.",
+        )
+    if is_crafted_template(target_template) and not validate_crafted_template_access(target_template, user.id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this crafted template.",
         )
 
     active_job = (
@@ -738,7 +929,12 @@ def create_projects_bulk(
         if not (data.blog_url and data.blog_url.strip()):
             continue
         name = (data.name or "").strip() or _name_from_url(data.blog_url)
-        template_id = validate_template_id(data.template)
+        template_id = validate_template_id(data.template, db=db, user_id=user.id)
+        if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to one or more crafted templates in this bulk request.",
+            )
         colors = get_preview_colors(template_id)
         normalized_video_style = _normalize_video_style(data.video_style)
         project = Project(
@@ -746,6 +942,7 @@ def create_projects_bulk(
             name=name,
             blog_url=data.blog_url.strip(),
             template=template_id,
+            crafted_template_id=_crafted_template_pk(template_id, db),
             voice_gender=data.voice_gender or "female",
             voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
             accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
@@ -843,11 +1040,16 @@ def create_project_from_upload(
 
     # ── Create project ────────────────────────────────────
     project_name = name or _name_from_files(files)
-    template_id = validate_template_id(template)
+    template_id = validate_template_id(template, db=db, user_id=user.id)
     if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
             detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
+        )
+    if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this crafted template.",
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(video_style)
@@ -862,6 +1064,7 @@ def create_project_from_upload(
         name=project_name,
         blog_url="upload://documents",
         template=template_id,
+        crafted_template_id=_crafted_template_pk(template_id, db),
         voice_gender=voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(voice_accent),
         accent_color=accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
@@ -1064,6 +1267,32 @@ def get_project(
     return _prepare_project_response(project, user, db)
 
 
+@router.get("/{project_id}/render-still")
+def render_project_still(
+    project_id: int,
+    frame: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Render and return a single PNG frame via Remotion for pixel-perfect slide exports."""
+    if frame < 0:
+        raise HTTPException(status_code=400, detail="frame must be >= 0")
+    project = _get_user_project(project_id, user.id, db)
+    try:
+        # Keep still-render workspace in sync with the latest DB scene state.
+        write_remotion_data(project, list(project.scenes), db)
+        output_path = render_still(project, frame)
+    except Exception as exc:
+        logger.exception("render-still failed project=%s frame=%s", project_id, frame)
+        raise HTTPException(status_code=500, detail=f"Could not render still frame: {exc}") from exc
+
+    return FileResponse(
+        output_path,
+        media_type="image/png",
+        filename=f"project_{project_id}_frame_{frame}.png",
+    )
+
+
 @router.post("/{project_id}/review", response_model=ReviewSubmitResponse)
 def submit_project_review(
     project_id: int,
@@ -1105,7 +1334,7 @@ def delete_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a project and all related data (local + R2 storage)."""
+    """Manually delete a project row from DB and remove all project storage."""
     project = _get_user_project(project_id, user.id, db)
 
     # Ensure any active render subprocess is terminated before deleting files/DB row.
@@ -1119,7 +1348,7 @@ def delete_project(
             extra={"project_id": project.id, "user_id": user.id},
         )
 
-    # Delete R2 files
+    # Delete all project files from R2 (images/audio/video/logo)
     if r2_storage.is_r2_configured():
         try:
             r2_storage.delete_project_files(project.user_id, project.id)
@@ -1132,11 +1361,7 @@ def delete_project(
         safe_remove_workspace(get_workspace_dir(project.id))
         shutil.rmtree(project_media, ignore_errors=True)
 
-    project.is_active = False
-    project.r2_video_key = None
-    project.r2_video_url = None
-    project.logo_r2_key = None
-    project.logo_r2_url = None
+    db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
 
@@ -1216,38 +1441,29 @@ def delete_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
+    local_path = asset.local_path
+    r2_key = asset.r2_key
+
     # If this is an image, clear assignedImage from scenes that reference it
     # and mark those scenes as hideImage=true so they won't get a new generic
     # image auto-assigned later.
     if asset.asset_type.value == "image":
         deleted_filename = asset.filename
         scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
-        scenes_updated = False
-        
         for scene in scenes:
             if not scene.remotion_code:
                 continue
-            
             try:
                 desc = json.loads(scene.remotion_code)
                 layout_props = desc.get("layoutProps", {}) or {}
                 assigned_image = layout_props.get("assignedImage")
-                
-                # If this scene has the deleted image assigned, clear it and lock it to no image
                 if assigned_image == deleted_filename:
-                    layout_props.pop("assignedImage", None)
+                    _clear_image_assignment(layout_props)
                     layout_props["hideImage"] = True
                     desc["layoutProps"] = layout_props
                     scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(desc))
-                    scenes_updated = True
             except (json.JSONDecodeError, TypeError):
                 continue
-        
-        if scenes_updated:
-            db.commit()
-
-    local_path = asset.local_path
-    r2_key = asset.r2_key
 
     db.delete(asset)
     db.commit()
@@ -1303,6 +1519,48 @@ MANUAL_TRACKED_FIELDS = {
     "narration_text",
     "extra_hold_seconds",
 }
+
+
+class SceneImageFocusUpdate(BaseModel):
+    image_focus_x: float = Field(default=50, ge=0, le=100)
+    image_focus_y: float = Field(default=50, ge=0, le=100)
+    image_zoom: float | None = Field(default=None, ge=1, le=12)
+
+
+class SceneImageMoveRequest(BaseModel):
+    from_scene_id: int
+    to_scene_id: int
+
+
+class SceneImageSwapRequest(BaseModel):
+    first_scene_id: int
+    second_scene_id: int
+
+
+class SceneImageDuplicateRequest(BaseModel):
+    source_scene_id: int
+    target_scene_id: int
+
+
+class SceneImageAssignExistingRequest(BaseModel):
+    scene_id: int
+    asset_id: int
+
+
+def _parse_scene_descriptor(scene: Scene) -> dict:
+    if not scene.remotion_code:
+        return {}
+    try:
+        parsed = json.loads(scene.remotion_code)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
+
+
+def _scene_supports_images(project: Project, scene: Scene) -> bool:
+    descriptor = _parse_scene_descriptor(scene)
+    layout = _extract_layout_from_descriptor_obj(descriptor, project.template) or ""
+    return layout not in get_layouts_without_image(project.template)
 
 
 @router.put("/{project_id}/scenes/{scene_id}", response_model=SceneOut)
@@ -1594,8 +1852,8 @@ async def update_scene_image(
     db: Session = Depends(get_db),
 ):
     """Upload/replace scene image without regenerating the scene layout.
-    If the scene already had an image assigned (generic or scene-specific), that asset
-    is deleted so it does not remain in the project."""
+    Any previous image assigned to this scene is only cleared from the scene;
+    the old asset row and files remain (delete explicitly via the asset API if needed)."""
     import json
     from app.models.scene import Scene
     from app.models.asset import Asset, AssetType
@@ -1610,36 +1868,6 @@ async def update_scene_image(
     )
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
-
-    # If scene already has an image assigned, delete that asset (generic or scene-specific)
-    old_assigned = None
-    if scene.remotion_code:
-        try:
-            desc = json.loads(scene.remotion_code)
-            old_assigned = (desc.get("layoutProps") or {}).get("assignedImage")
-        except (json.JSONDecodeError, TypeError):
-            pass
-    if old_assigned and isinstance(old_assigned, str):
-        old_asset = (
-            db.query(Asset)
-            .filter(Asset.project_id == project_id, Asset.filename == old_assigned)
-            .first()
-        )
-        if old_asset:
-            local_path = old_asset.local_path
-            r2_key = old_asset.r2_key
-            db.delete(old_asset)
-            db.flush()
-            if local_path and os.path.isfile(local_path):
-                try:
-                    os.remove(local_path)
-                except OSError as e:
-                    print(f"[IMAGE_UPDATE] Failed to remove old file {local_path}: {e}")
-            if r2_key:
-                try:
-                    r2_storage.delete_file(r2_key)
-                except Exception as e:
-                    print(f"[IMAGE_UPDATE] R2 delete failed for {r2_key}: {e}")
 
     allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
     if image.content_type not in allowed_types:
@@ -1689,10 +1917,10 @@ async def update_scene_image(
         except (json.JSONDecodeError, TypeError):
             descriptor = {}
 
-    if "layoutProps" not in descriptor:
-        descriptor["layoutProps"] = {}
-    descriptor["layoutProps"]["assignedImage"] = image_filename
-    descriptor["layoutProps"].pop("hideImage", None)
+    layout_props = _ensure_layout_props_dict(descriptor)
+    layout_props["assignedImage"] = image_filename
+    layout_props.pop("hideImage", None)
+    _apply_default_focus(layout_props)
     scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
     # Keep project.status and r2_video_* as-is: the exported MP4 stays available until the user
@@ -1709,6 +1937,251 @@ async def update_scene_image(
     return scene
 
 
+@router.patch("/{project_id}/scenes/{scene_id}/image-focus", response_model=SceneOut)
+def update_scene_image_focus(
+    project_id: int,
+    scene_id: int,
+    data: SceneImageFocusUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, scene):
+        raise HTTPException(status_code=400, detail="This layout does not support images")
+
+    descriptor = _parse_scene_descriptor(scene)
+    lp = _ensure_layout_props_dict(descriptor)
+    if lp.get("hideImage"):
+        raise HTTPException(status_code=400, detail="Cannot set image focus while image is hidden")
+    if not lp.get("assignedImage"):
+        raise HTTPException(status_code=400, detail="No assigned image found for this scene")
+
+    lp["imageFocusX"] = _clamp_image_focus(data.image_focus_x)
+    lp["imageFocusY"] = _clamp_image_focus(data.image_focus_y)
+    if data.image_zoom is not None:
+        lp["imageZoom"] = _clamp_image_zoom(data.image_zoom)
+    scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
+    db.commit()
+    db.refresh(scene)
+
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_FOCUS] Workspace rebuild failed for project %s: %s", project_id, e)
+    return scene
+
+
+@router.post("/{project_id}/images/move")
+def move_scene_image(
+    project_id: int,
+    data: SceneImageMoveRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    from_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.from_scene_id).first()
+    to_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.to_scene_id).first()
+    if not from_scene or not to_scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, to_scene):
+        raise HTTPException(status_code=400, detail="Target scene layout does not support images")
+
+    from_desc = _parse_scene_descriptor(from_scene)
+    to_desc = _parse_scene_descriptor(to_scene)
+    from_lp = _ensure_layout_props_dict(from_desc)
+    to_lp = _ensure_layout_props_dict(to_desc)
+    assigned = from_lp.get("assignedImage")
+    if not assigned:
+        raise HTTPException(status_code=400, detail="Source scene has no assigned image")
+
+    to_lp["assignedImage"] = assigned
+    to_lp["hideImage"] = False
+    to_lp["imageFocusX"] = _clamp_image_focus(from_lp.get("imageFocusX", 50))
+    to_lp["imageFocusY"] = _clamp_image_focus(from_lp.get("imageFocusY", 50))
+    _clear_image_assignment(from_lp)
+    from_lp["hideImage"] = True
+
+    from_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(from_desc))
+    to_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(to_desc))
+    db.commit()
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_MOVE] Workspace rebuild failed for project %s: %s", project_id, e)
+    return {"detail": "Image moved"}
+
+
+@router.post("/{project_id}/images/swap")
+def swap_scene_images(
+    project_id: int,
+    data: SceneImageSwapRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    first = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.first_scene_id).first()
+    second = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.second_scene_id).first()
+    if not first or not second:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, first) or not _scene_supports_images(project, second):
+        raise HTTPException(status_code=400, detail="Both scenes must support images to swap")
+
+    first_desc = _parse_scene_descriptor(first)
+    second_desc = _parse_scene_descriptor(second)
+    first_lp = _ensure_layout_props_dict(first_desc)
+    second_lp = _ensure_layout_props_dict(second_desc)
+    first_assigned = first_lp.get("assignedImage")
+    second_assigned = second_lp.get("assignedImage")
+    if not first_assigned and not second_assigned:
+        raise HTTPException(status_code=400, detail="Neither scene has an assigned image")
+
+    first_focus = (
+        _clamp_image_focus(first_lp.get("imageFocusX", 50)),
+        _clamp_image_focus(first_lp.get("imageFocusY", 50)),
+    )
+    second_focus = (
+        _clamp_image_focus(second_lp.get("imageFocusX", 50)),
+        _clamp_image_focus(second_lp.get("imageFocusY", 50)),
+    )
+
+    if second_assigned:
+        first_lp["assignedImage"] = second_assigned
+        first_lp["hideImage"] = False
+        first_lp["imageFocusX"], first_lp["imageFocusY"] = second_focus
+    else:
+        _clear_image_assignment(first_lp)
+        first_lp["hideImage"] = True
+
+    if first_assigned:
+        second_lp["assignedImage"] = first_assigned
+        second_lp["hideImage"] = False
+        second_lp["imageFocusX"], second_lp["imageFocusY"] = first_focus
+    else:
+        _clear_image_assignment(second_lp)
+        second_lp["hideImage"] = True
+
+    first.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(first_desc))
+    second.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(second_desc))
+    db.commit()
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_SWAP] Workspace rebuild failed for project %s: %s", project_id, e)
+    return {"detail": "Images swapped"}
+
+
+@router.post("/{project_id}/images/duplicate")
+def duplicate_scene_image(
+    project_id: int,
+    data: SceneImageDuplicateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.models.asset import Asset, AssetType
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    source_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.source_scene_id).first()
+    target_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.target_scene_id).first()
+    if not source_scene or not target_scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, target_scene):
+        raise HTTPException(status_code=400, detail="Target scene layout does not support images")
+
+    source_desc = _parse_scene_descriptor(source_scene)
+    source_lp = _ensure_layout_props_dict(source_desc)
+    source_filename = source_lp.get("assignedImage")
+    if not source_filename:
+        raise HTTPException(status_code=400, detail="Source scene has no assigned image")
+
+    source_asset = (
+        db.query(Asset)
+        .filter(Asset.project_id == project_id, Asset.filename == source_filename, Asset.asset_type == AssetType.IMAGE)
+        .first()
+    )
+    if not source_asset:
+        raise HTTPException(status_code=404, detail="Source image asset not found")
+
+    target_desc = _parse_scene_descriptor(target_scene)
+    target_lp = _ensure_layout_props_dict(target_desc)
+
+    target_lp["assignedImage"] = source_filename
+    target_lp["hideImage"] = False
+    target_lp["imageFocusX"] = _clamp_image_focus(source_lp.get("imageFocusX", 50))
+    target_lp["imageFocusY"] = _clamp_image_focus(source_lp.get("imageFocusY", 50))
+    target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
+    db.commit()
+
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_DUPLICATE] Workspace rebuild failed for project %s: %s", project_id, e)
+    return {"detail": "Image duplicated to target scene"}
+
+
+@router.post("/{project_id}/images/assign-existing")
+def assign_existing_image_to_scene(
+    project_id: int,
+    data: SceneImageAssignExistingRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.models.asset import Asset, AssetType
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    target_scene = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id, Scene.id == data.scene_id)
+        .first()
+    )
+    if not target_scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, target_scene):
+        raise HTTPException(status_code=400, detail="Target scene layout does not support images")
+
+    source_asset = (
+        db.query(Asset)
+        .filter(
+            Asset.project_id == project_id,
+            Asset.id == data.asset_id,
+            Asset.asset_type == AssetType.IMAGE,
+        )
+        .first()
+    )
+    if not source_asset:
+        raise HTTPException(status_code=404, detail="Source image asset not found")
+
+    target_desc = _parse_scene_descriptor(target_scene)
+    target_lp = _ensure_layout_props_dict(target_desc)
+
+    target_lp["assignedImage"] = source_asset.filename
+    target_lp["hideImage"] = False
+    target_lp["imageFocusX"] = 50
+    target_lp["imageFocusY"] = 50
+    target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
+
+    db.commit()
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_ASSIGN_EXISTING] Workspace rebuild failed for project %s: %s", project_id, e)
+    return {"detail": "Image assigned to scene"}
+
+
 @router.get("/{project_id}/layouts")
 def get_project_layouts(
     project_id: int,
@@ -1716,11 +2189,13 @@ def get_project_layouts(
     db: Session = Depends(get_db),
 ):
     """Get valid layouts for a project's template."""
+    import json as _json
+    from app.services.remotion import rebuild_workspace as _rebuild_workspace
     project = _get_user_project(project_id, user.id, db)
-    
+
     valid_layouts = get_valid_layouts(project.template)
     no_image_layouts = get_layouts_without_image(project.template)
-    
+
     # Convert layout IDs to human-readable names
     meta = get_meta(project.template)
     schema = meta.get("layout_prop_schema", {}) if meta else {}
@@ -2029,7 +2504,10 @@ async def regenerate_scene(
             else:
                 effective_layout = current_descriptor.get("layout")
 
-        print(f"[REGENERATE] template={project.template}, is_custom={is_custom_template(project.template)}")
+        print(
+            f"[REGENERATE] template={project.template}, "
+            f"is_custom={is_custom_template(project.template)}"
+        )
         print(f"[REGENERATE] keep_layout={keep_layout}, normalized_layout={normalized_layout}, effective_layout={effective_layout}")
         print(f"[REGENERATE] other_scenes: {other_scenes_layouts}")
         if current_descriptor:
@@ -2070,18 +2548,22 @@ async def regenerate_scene(
         if remove_image:
             if "layoutProps" not in descriptor:
                 descriptor["layoutProps"] = {}
-            descriptor["layoutProps"]["hideImage"] = True
-            descriptor["layoutProps"].pop("imageUrl", None)
-            descriptor["layoutProps"].pop("assignedImage", None)
+            lp = descriptor["layoutProps"]
+            lp["hideImage"] = True
+            lp.pop("imageUrl", None)
+            _clear_image_assignment(lp)
         elif not image and current_descriptor:
             old_lp = current_descriptor.get("layoutProps") or {}
             if "layoutProps" not in descriptor:
                 descriptor["layoutProps"] = {}
+            new_lp = descriptor["layoutProps"]
             old_assigned = old_lp.get("assignedImage")
             if old_assigned:
-                descriptor["layoutProps"]["assignedImage"] = old_assigned
+                new_lp["assignedImage"] = old_assigned
+                new_lp["imageFocusX"] = _clamp_image_focus(old_lp.get("imageFocusX", 50))
+                new_lp["imageFocusY"] = _clamp_image_focus(old_lp.get("imageFocusY", 50))
             if old_lp.get("hideImage"):
-                descriptor["layoutProps"]["hideImage"] = True
+                new_lp["hideImage"] = True
 
         # Preserve custom font sizes from old layoutConfig into the new descriptor
         if is_custom_template(project.template) and "layoutConfig" in descriptor and current_descriptor:

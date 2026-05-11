@@ -1,4 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
+} from "react";
+import ReactDOM from "react-dom";
 import { Player } from "@remotion/player";
 import {
   applyTemplateAiPreview,
@@ -23,9 +33,21 @@ import {
   SUPPORTED_PROP_TYPES,
 } from "../api/client";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../components/remotion/playbackSpeed";
+import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
+import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layouts";
+
+const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
 
+const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MAX = 8;
+
 type AspectRatio = "landscape" | "portrait";
+
+function clampFocusPct(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
 type ResponsiveValue = { portrait: number; landscape: number };
 
 function isResponsiveValue(value: unknown): value is ResponsiveValue {
@@ -118,6 +140,48 @@ function getSchema(
   return normalizeTemplateId(template.id) === "newscast"
     ? withTypographyControls(fallbackSchema, { defaultTypography: newscastTypographyDefaults })
     : fallbackSchema;
+}
+
+function layoutSupportsImageForTemplate(template: TemplateMeta | null, layoutId: string): boolean {
+  if (!template || !layoutId) return false;
+  const noImage = template.layouts_without_image ?? [];
+  return !noImage.includes(layoutId);
+}
+
+/** Per-layout defaults for preview (used when sequencing all layouts; not the editable single-layout overrides). */
+function buildResolvedLayoutPropsForPreview(
+  template: TemplateMeta | null,
+  layoutId: string,
+  isPortrait: boolean,
+  imageUrlTrimmed: string,
+  fetchedImageUrl: string,
+  imageFetching: boolean,
+  imageFocusX: number,
+  imageFocusY: number,
+  imageZoom: number,
+): Record<string, unknown> {
+  const schema = getSchema(template, layoutId);
+  if (!schema) return {};
+  const next: Record<string, unknown> = { ...(schema.defaults ?? {}) };
+  schema.fields.forEach((field) => {
+    if (field.type === "number" && field.responsive) {
+      const raw = next[field.key];
+      if (isResponsiveValue(raw)) next[field.key] = isPortrait ? raw.portrait : raw.landscape;
+    }
+  });
+  const supportsImage = layoutSupportsImageForTemplate(template, layoutId);
+  const effectiveUrl =
+    supportsImage && imageUrlTrimmed && fetchedImageUrl && !imageFetching ? fetchedImageUrl : undefined;
+  if (effectiveUrl) {
+    next.imageFocusX = Math.max(0, Math.min(100, imageFocusX));
+    next.imageFocusY = Math.max(0, Math.min(100, imageFocusY));
+    next.imageZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageZoom));
+  } else {
+    delete next.imageFocusX;
+    delete next.imageFocusY;
+    delete next.imageZoom;
+  }
+  return next;
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -496,6 +560,8 @@ function SceneSettingsModal({
   imageUrl, setImageUrl, fetchedImageUrl, imageFetching, imageError,
   accentColor, setAccentColor, bgColor, setBgColor, textColor, setTextColor,
   durationSeconds, setDurationSeconds,
+  layoutSupportsImage,
+  onOpenImageAdjust,
 }: {
   open: boolean; onClose: () => void;
   title: string; setTitle: (v: string) => void;
@@ -506,10 +572,19 @@ function SceneSettingsModal({
   bgColor: string; setBgColor: (v: string) => void;
   textColor: string; setTextColor: (v: string) => void;
   durationSeconds: number; setDurationSeconds: (v: number) => void;
+  layoutSupportsImage: boolean;
+  onOpenImageAdjust?: () => void;
 }) {
   if (!open) return null;
 
   const sliderPct = Math.round(((durationSeconds - 2) / 10) * 100);
+  const canOpenFramingEditor =
+    Boolean(onOpenImageAdjust) &&
+    layoutSupportsImage &&
+    imageUrl.trim() &&
+    Boolean(fetchedImageUrl) &&
+    !imageFetching &&
+    !imageError;
 
   return (
     <div
@@ -588,6 +663,31 @@ function SceneSettingsModal({
                 ) : (
                   <span style={{ fontSize: "11px", color: imageError ? "#dc2626" : T.textMuted, padding: "14px", fontFamily: FONT }}>{imageError || "No image"}</span>
                 )}
+              </div>
+            )}
+            {canOpenFramingEditor && (
+              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                <p style={{ fontSize: "11px", color: T.textMuted, margin: 0, lineHeight: 1.45, fontFamily: FONT }}>
+                  Pan and zoom match the project scene editor. Preview uses a 16:9 frame; values apply to the final render.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onOpenImageAdjust?.()}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    border: `1px solid ${T.accentMid}`,
+                    background: T.accentLight,
+                    color: T.accentDark,
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: FONT,
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  Adjust framing…
+                </button>
               </div>
             )}
           </div>
@@ -831,6 +931,9 @@ export default function TemplateStudio() {
   const [aspectRatio, setAspectRatio]         = useState<AspectRatio>("landscape");
   const [durationSeconds, setDurationSeconds] = useState<number>(5);
   const [imageUrl, setImageUrl]               = useState<string>("");
+  const [imageFocusX, setImageFocusX]         = useState<number>(50);
+  const [imageFocusY, setImageFocusY]         = useState<number>(50);
+  const [imageZoom, setImageZoom]             = useState<number>(1);
   const [accentColor, setAccentColor]         = useState<string>("#9333ea");
   const [bgColor, setBgColor]                 = useState<string>("#ffffff");
   const [textColor, setTextColor]             = useState<string>("#111827");
@@ -841,6 +944,22 @@ export default function TemplateStudio() {
   const [imageFetching, setImageFetching]     = useState(false);
   const [imageError, setImageError]           = useState<string>("");
   const [sceneModalOpen, setSceneModalOpen]   = useState(false);
+
+  const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
+  const [imageAdjustSrc, setImageAdjustSrc]   = useState<string | null>(null);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
+  const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
+  const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  const [isAdjustDragging, setIsAdjustDragging] = useState(false);
+  const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
+  const imageAdjustPanRef = useRef<{
+    startX: number;
+    startY: number;
+    startFx: number;
+    startFy: number;
+  } | null>(null);
   const [aiInstruction, setAiInstruction]     = useState("");
   const [aiLayoutImage, setAiLayoutImage]     = useState<File | null>(null);
   const [aiLoading, setAiLoading]             = useState(false);
@@ -856,6 +975,7 @@ export default function TemplateStudio() {
   const [viewSource, setViewSource] = useState<"frontend" | "remotion">("frontend");
   const [layoutRendering, setLayoutRendering] = useState(false);
   const [layoutRenderError, setLayoutRenderError] = useState<string>("");
+  const [playAllLayouts, setPlayAllLayouts] = useState(false);
 
   // ── Rebuild mode state ──────────────────────────────────────────────────────
   const [aiMode, setAiMode]             = useState<"code-only" | "rebuild">("code-only");
@@ -933,6 +1053,12 @@ export default function TemplateStudio() {
     if (sd.title)                   setTitle(sd.title);
     if (sd.narration !== undefined) setNarration(sd.narration);
     if (sd.durationSeconds)         setDurationSeconds(sd.durationSeconds);
+    const iz = defaults.imageZoom;
+    if (typeof iz === "number" && !Number.isNaN(iz)) {
+      setImageZoom(Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, iz)));
+    } else {
+      setImageZoom(1);
+    }
   }, [schema]);
 
   const config = useMemo(
@@ -946,6 +1072,20 @@ export default function TemplateStudio() {
     const noImage = selectedTemplate.layouts_without_image ?? [];
     return !noImage.includes(selectedLayout);
   }, [selectedTemplate, selectedLayout]);
+
+  const layouts = useMemo(() => {
+    const raw =
+      selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
+    const list = [...new Set((Array.isArray(raw) ? raw : []).filter(Boolean))];
+    if (normalizeTemplateId(selectedTemplateId) === "bloomberg") {
+      return list.filter((id) => BLOOMBERG_LAYOUT_IDS.has(id));
+    }
+    return list;
+  }, [selectedTemplate, selectedTemplateId]);
+
+  useEffect(() => {
+    if (layouts.length <= 1 && playAllLayouts) setPlayAllLayouts(false);
+  }, [layouts.length, playAllLayouts]);
 
   useEffect(() => {
     const url = imageUrl.trim();
@@ -968,6 +1108,134 @@ export default function TemplateStudio() {
     return () => { cancelled = true; };
   }, [imageUrl]);
 
+  const openTemplateImageAdjust = () => {
+    if (!fetchedImageUrl || imageFetching) return;
+    const templateCfg = getTemplateConfig(selectedTemplateId || "default");
+    const ar = getImageBoxAspectRatio(
+      selectedLayout ? normalizeLayoutId(selectedLayout) : null,
+      aspectRatio,
+      templateCfg.baseWidth,
+      templateCfg.baseHeight,
+    );
+    setImageAdjustAspectRatio(ar);
+    setImageAdjustFocusX(imageFocusX);
+    setImageAdjustFocusY(imageFocusY);
+    setImageAdjustZoom(
+      Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, imageZoom)),
+    );
+    setImageAdjustSrc(fetchedImageUrl);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+    setImageAdjustOpen(true);
+  };
+
+  const closeTemplateImageAdjust = () => {
+    setImageAdjustOpen(false);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+  };
+
+  const saveTemplateImageAdjust = () => {
+    setImageFocusX(clampFocusPct(imageAdjustFocusX));
+    setImageFocusY(clampFocusPct(imageAdjustFocusY));
+    setImageZoom(
+      Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom)),
+    );
+    closeTemplateImageAdjust();
+  };
+
+  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  useEffect(() => {
+    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
+  }, [imageAdjustFocusX, imageAdjustFocusY]);
+
+  useEffect(() => {
+    if (!isAdjustDragging || !imageAdjustOpen || !imageAdjustSrc) return;
+    const pan = imageAdjustPanRef.current;
+    if (!pan) return;
+
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = imageAdjustPreviewRef.current;
+      if (!el || !imageAdjustPanRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setImageAdjustFocusX(clamp(startFx - dxPct));
+      setImageAdjustFocusY(clamp(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [isAdjustDragging, imageAdjustOpen, imageAdjustSrc]);
+
+  useLayoutEffect(() => {
+    if (!imageAdjustOpen || !imageAdjustSrc) return;
+    const el = imageAdjustPreviewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      setImageAdjustZoom((z) => {
+        const factor = delta > 0 ? 0.97 : 1.03;
+        const next = Math.min(
+          IMAGE_ADJUST_ZOOM_MAX,
+          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor),
+        );
+        return Math.round(next * 100) / 100;
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustOpen, imageAdjustSrc]);
+
   const resolvedLayoutProps = useMemo(() => {
     if (!schema) return layoutProps;
     const next: Record<string, unknown> = { ...layoutProps };
@@ -977,24 +1245,82 @@ export default function TemplateStudio() {
         if (isResponsiveValue(raw)) next[field.key] = isPortrait ? raw.portrait : raw.landscape;
       }
     });
+    if (layoutSupportsImage && imageUrl.trim()) {
+      next.imageFocusX = Math.max(0, Math.min(100, imageFocusX));
+      next.imageFocusY = Math.max(0, Math.min(100, imageFocusY));
+      next.imageZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageZoom));
+    } else {
+      delete next.imageFocusX;
+      delete next.imageFocusY;
+      delete next.imageZoom;
+    }
     return next;
-  }, [schema, layoutProps, isPortrait]);
+  }, [schema, layoutProps, isPortrait, layoutSupportsImage, imageUrl, imageFocusX, imageFocusY, imageZoom]);
 
   const inputProps = useMemo(() => {
     const effectiveImageUrl =
       layoutSupportsImage && fetchedImageUrl && !imageFetching ? fetchedImageUrl : undefined;
+
+    const multiSceneList =
+      selectedTemplate && layouts.length > 1 && playAllLayouts
+      ? layouts.map((layoutId, index) => {
+        const trimmed = imageUrl.trim();
+        const lp = buildResolvedLayoutPropsForPreview(
+          selectedTemplate,
+          layoutId,
+          isPortrait,
+          trimmed,
+          fetchedImageUrl,
+          imageFetching,
+          imageFocusX,
+          imageFocusY,
+          imageZoom,
+        );
+        const sceneImageUrl =
+          layoutSupportsImageForTemplate(selectedTemplate, layoutId) &&
+          fetchedImageUrl &&
+          !imageFetching &&
+          trimmed
+            ? fetchedImageUrl
+            : undefined;
+        return {
+          id: index + 1,
+          order: index + 1,
+          title,
+          narration,
+          layout: layoutId,
+          layoutProps: lp,
+          durationSeconds,
+          imageUrl: sceneImageUrl,
+          voiceoverUrl: undefined,
+        };
+      })
+        : null;
+
+    const sequentialBloombergStudio =
+      Boolean(
+        selectedTemplate &&
+          layouts.length > 1 &&
+          playAllLayouts &&
+          selectedTemplateId === "bloomberg",
+      );
+
     return {
-      scenes: [{
-        id: 1,
-        order: 1,
-        title,
-        narration,
-        layout: selectedLayout || config.heroLayout,
-        layoutProps: resolvedLayoutProps,
-        durationSeconds,
-        imageUrl: effectiveImageUrl,
-        voiceoverUrl: undefined,
-      }],
+      scenes: multiSceneList
+        ? multiSceneList
+        : [
+            {
+              id: 1,
+              order: 1,
+              title,
+              narration,
+              layout: selectedLayout || config.heroLayout,
+              layoutProps: resolvedLayoutProps,
+              durationSeconds,
+              imageUrl: effectiveImageUrl,
+              voiceoverUrl: undefined,
+            },
+          ],
       accentColor,
       bgColor,
       textColor,
@@ -1003,6 +1329,7 @@ export default function TemplateStudio() {
       logoOpacity: 0.9,
       logoSize: 100,
       aspectRatio,
+      ...(sequentialBloombergStudio ? { interSceneHalfFrames: 0 } : {}),
     };
   }, [
     title,
@@ -1018,9 +1345,17 @@ export default function TemplateStudio() {
     bgColor,
     textColor,
     aspectRatio,
+    selectedTemplate,
+    layouts,
+    playAllLayouts,
+    selectedTemplateId,
+    isPortrait,
+    imageUrl,
+    imageFocusX,
+    imageFocusY,
+    imageZoom,
   ]);
 
-  const layouts          = selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
   const [studioResolution, setStudioResolution] = useState<"1080p" | "720p">(
     () => (selectedTemplateId === "whiteboard" || selectedTemplateId === "newscast" ||selectedTemplateId === "newspaper" ? "720p" : "1080p"),
   );
@@ -1038,7 +1373,32 @@ export default function TemplateStudio() {
   const baseHeight = studioResolution === "720p" ? 720 : 1080;
   const canvasW          = isPortrait ? baseHeight : baseWidth;
   const canvasH          = isPortrait ? baseWidth : baseHeight;
-  const durationInFrames = Math.max(30, Math.round(durationSeconds * 30));
+  const sceneDurationFrames = Math.max(30, Math.round(durationSeconds * 30));
+  const sequentialPreview =
+    Boolean(selectedTemplate && layouts.length > 1 && playAllLayouts);
+  /** Match each template composition’s total frame count so the Player doesn’t clip or show a brown tail. */
+  const durationInFrames = useMemo(() => {
+    if (!sequentialPreview) return sceneDurationFrames;
+    const fps = 30;
+    const speed = getPlaybackSpeed(undefined);
+    const n = layouts.length;
+    if (n <= 1) return sceneDurationFrames;
+    if (selectedTemplateId === "bloomberg") {
+      const per =
+        viewSource === "remotion"
+          ? Math.max(1, Math.round(durationSeconds * fps))
+          : getSceneDurationFrames(durationSeconds, fps, speed);
+      return n * per;
+    }
+    return n * getSceneDurationFrames(durationSeconds, fps, speed);
+  }, [
+    sequentialPreview,
+    sceneDurationFrames,
+    durationSeconds,
+    layouts.length,
+    selectedTemplateId,
+    viewSource,
+  ]);
 
   const responsiveFields = schema?.fields.filter((f) => f.responsive) ?? [];
   const regularFields    = schema?.fields.filter((f) => !f.responsive) ?? [];
@@ -1410,13 +1770,13 @@ export default function TemplateStudio() {
         .btn-ghost:hover:not(:disabled) { border-color: ${T.accent}; color: ${T.accent}; background: ${T.accentLight}; }
         .btn-ghost:disabled { opacity: 0.55; cursor: not-allowed; }
 
-        /* Edit button — matches attached scene edit button style exactly */
+        /* Edit button — compact for preview chrome (single row with toggles) */
         .btn-edit {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 6px 8px;
+          display: inline-flex; align-items: center; gap: 4px;
+          padding: 4px 6px;
           background: transparent; color: ${T.textMuted};
-          border: none; border-radius: 8px;
-          font-size: 12px; font-weight: 500; font-family: ${FONT};
+          border: none; border-radius: 7px;
+          font-size: 10px; font-weight: 500; font-family: ${FONT};
           cursor: pointer; transition: color 0.13s, background 0.13s;
           flex-shrink: 0;
         }
@@ -1686,13 +2046,24 @@ export default function TemplateStudio() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        padding: "9px 14px",
+                        gap: "8px",
+                        flexWrap: "nowrap",
+                        padding: "6px 10px",
                         borderBottom: `1px solid ${T.border}`,
                         background: T.surfaceAlt,
+                        minWidth: 0,
                       }}
                     >
                       {/* Left: traffic dots + Edit + Toggle */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          minWidth: 0,
+                          flex: "1 1 auto",
+                        }}
+                      >
                         <div style={{ display: "flex", gap: "5px" }}>
                           {["#ff5f56", "#ffbd2e", "#27c93f"].map((c, i) => (
                             <div
@@ -1732,8 +2103,8 @@ export default function TemplateStudio() {
                         >
                           {(
                             [
-                              { id: "frontend", label: "Frontend file" },
-                              { id: "remotion", label: "Remotion build" },
+                              { id: "frontend", label: "Frontend", full: "Frontend file" },
+                              { id: "remotion", label: "Remotion", full: "Remotion build" },
                             ] as const
                           ).map((opt) => {
                             const active = viewSource === opt.id;
@@ -1741,6 +2112,7 @@ export default function TemplateStudio() {
                               <button
                                 key={opt.id}
                                 type="button"
+                                title={opt.full}
                                 onClick={() =>
                                   setViewSource(
                                     opt.id === "frontend" ? "frontend" : "remotion",
@@ -1748,21 +2120,84 @@ export default function TemplateStudio() {
                                 }
                                 style={{
                                   border: "none",
-                                  borderRadius: "9px",
-                                  padding: "4px 8px",
-                                  fontSize: "10px",
+                                  borderRadius: "7px",
+                                  padding: "3px 6px",
+                                  fontSize: "9px",
                                   fontWeight: active ? 600 : 500,
                                   fontFamily: FONT,
                                   cursor: "pointer",
                                   background: active ? T.accent : "transparent",
                                   color: active ? "#ffffff" : T.textSub,
                                   transition: "background 0.15s, color 0.15s",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
                                 {opt.label}
                               </button>
                             );
                           })}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "2px",
+                            borderRadius: "10px",
+                            background: T.surfaceAlt,
+                            border: `1px solid ${T.border}`,
+                            gap: "2px",
+                          }}
+                          title={
+                            layouts.length <= 1
+                              ? "This template only has one layout"
+                              : "Preview every layout back-to-back in the player"
+                          }
+                        >
+                          <button
+                            type="button"
+                            disabled={layouts.length <= 1}
+                            title="One layout — preview only the selected layout"
+                            onClick={() => layouts.length > 1 && setPlayAllLayouts(false)}
+                            style={{
+                              border: "none",
+                              borderRadius: "7px",
+                              padding: "3px 6px",
+                              fontSize: "9px",
+                              fontWeight: !playAllLayouts ? 600 : 500,
+                              fontFamily: FONT,
+                              cursor: layouts.length <= 1 ? "not-allowed" : "pointer",
+                              opacity: layouts.length <= 1 ? 0.45 : 1,
+                              background: !playAllLayouts ? T.accent : "transparent",
+                              color: !playAllLayouts ? "#ffffff" : T.textSub,
+                              transition: "background 0.15s, color 0.15s",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Single Scene
+                          </button>
+                          <button
+                            type="button"
+                            disabled={layouts.length <= 1}
+                            title="All layouts — play every layout in order"
+                            onClick={() => layouts.length > 1 && setPlayAllLayouts(true)}
+                            style={{
+                              border: "none",
+                              borderRadius: "7px",
+                              padding: "3px 6px",
+                              fontSize: "9px",
+                              fontWeight: playAllLayouts ? 600 : 500,
+                              fontFamily: FONT,
+                              cursor: layouts.length <= 1 ? "not-allowed" : "pointer",
+                              opacity: layouts.length <= 1 ? 0.45 : 1,
+                              background: playAllLayouts ? T.accent : "transparent",
+                              color: playAllLayouts ? "#ffffff" : T.textSub,
+                              transition: "background 0.15s, color 0.15s",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            All Scenes
+                          </button>
                         </div>
                       </div>
 
@@ -1771,10 +2206,11 @@ export default function TemplateStudio() {
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          padding: "2px 8px 2px 4px",
+                          padding: "2px 4px 2px 2px",
                           borderRadius: "10px",
                           background: T.surfaceAlt,
-                          gap: "6px",
+                          gap: "4px",
+                          flexShrink: 0,
                         }}
                       >
                         <div
@@ -1797,9 +2233,9 @@ export default function TemplateStudio() {
                                 onClick={() => setStudioResolution(res)}
                                 style={{
                                   border: "none",
-                                  borderRadius: "9px",
-                                  padding: "4px 8px",
-                                  fontSize: "10px",
+                                  borderRadius: "7px",
+                                  padding: "3px 6px",
+                                  fontSize: "9px",
                                   fontWeight: active ? 600 : 500,
                                   fontFamily: FONT,
                                   cursor: "pointer",
@@ -1816,18 +2252,18 @@ export default function TemplateStudio() {
                         </div>
                         <span
                           style={{
-                            fontSize: "10px",
+                            fontSize: "9px",
                             color: T.textMuted,
                             fontFamily: FONT,
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {canvasW} × {canvasH} · {durationInFrames}f · 30fps
+                          {canvasW}×{canvasH} {durationInFrames}f 30fps
                         </span>
                       </div>
 
                       {/* Right: Rendering badge */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
                         <div
                           style={{
                             width: "5px",
@@ -1838,11 +2274,12 @@ export default function TemplateStudio() {
                         />
                         <span
                           style={{
-                            fontSize: "10px",
+                            fontSize: "8px",
                             color: T.green,
                             fontWeight: 700,
-                            letterSpacing: "0.08em",
+                            letterSpacing: "0.04em",
                             fontFamily: FONT,
+                            whiteSpace: "nowrap",
                           }}
                         >
                           RENDERING
@@ -1864,6 +2301,11 @@ export default function TemplateStudio() {
                       boxShadow: `0 0 0 1px ${T.border}, 0 4px 16px rgba(147,51,234,0.07), 0 16px 48px rgba(0,0,0,0.08)`,
                     }}>
                       <Player
+                        key={
+                          sequentialPreview
+                            ? `seq-${selectedTemplateId}-${layouts.join("|")}-${durationSeconds}`
+                            : `one-${selectedTemplateId}-${selectedLayout}-${durationSeconds}-${viewSource}`
+                        }
                         component={Composition}
                         inputProps={inputProps}
                         durationInFrames={durationInFrames}
@@ -1881,8 +2323,19 @@ export default function TemplateStudio() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", alignItems: "stretch" }}>
                   {[
                     { label: "Template", value: selectedTemplate?.name || "—" },
-                    { label: "Layout",   value: humanize(selectedLayout) || "—" },
-                    { label: "Duration", value: `${durationSeconds}s · ${durationInFrames}f` },
+                    {
+                      label: "Layout",
+                      value:
+                        sequentialPreview
+                          ? `All (${layouts.length} layouts)`
+                          : humanize(selectedLayout) || "—",
+                    },
+                    {
+                      label: "Duration",
+                      value: sequentialPreview
+                        ? `${durationSeconds}s × ${layouts.length} · ${durationInFrames}f`
+                        : `${durationSeconds}s · ${durationInFrames}f`,
+                    },
                     { label: "Canvas",   value: `${canvasW}×${canvasH}` },
                   ].map(({ label, value }) => (
                     <div key={label} className="glass-card" style={{ padding: "9px 12px" }}>
@@ -2219,7 +2672,117 @@ export default function TemplateStudio() {
         bgColor={bgColor} setBgColor={setBgColor}
         textColor={textColor} setTextColor={setTextColor}
         durationSeconds={durationSeconds} setDurationSeconds={setDurationSeconds}
+        layoutSupportsImage={layoutSupportsImage}
+        onOpenImageAdjust={openTemplateImageAdjust}
       />
+
+      {imageAdjustOpen && imageAdjustSrc &&
+        ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[1100] flex items-center justify-center p-2 sm:p-4 min-h-0">
+            <div
+              className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+              onClick={closeTemplateImageAdjust}
+              aria-hidden
+            />
+            <div
+              className="relative w-full max-w-3xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden min-h-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Adjust image framing</h3>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                    Drag to pan when zoomed in. Use the slider or scroll wheel to zoom, then save.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeTemplateImageAdjust}
+                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                  title="Close"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+                <div className="p-4 sm:p-5">
+                  <div
+                    ref={imageAdjustPreviewRef}
+                    onMouseDown={handleAdjustMouseDown}
+                    onTouchStart={handleAdjustTouchStart}
+                    style={{
+                      aspectRatio: imageAdjustAspectRatio,
+                      maxHeight: "70vh",
+                      maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                    }}
+                    className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                      isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
+                    }`}
+                  >
+                    <img
+                      src={imageAdjustSrc}
+                      alt="Adjust preview"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      style={{
+                        objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                        transform: `scale(${imageAdjustZoom})`,
+                        transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                      }}
+                      draggable={false}
+                    />
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
+                    <label className="flex items-center gap-3 text-sm text-gray-700">
+                      <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                      <input
+                        type="range"
+                        min={IMAGE_ADJUST_ZOOM_MIN}
+                        max={IMAGE_ADJUST_ZOOM_MAX}
+                        step={0.05}
+                        value={imageAdjustZoom}
+                        onChange={(e) =>
+                          setImageAdjustZoom(
+                            Math.min(
+                              IMAGE_ADJUST_ZOOM_MAX,
+                              Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(e.target.value)),
+                            ),
+                          )
+                        }
+                        className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                      />
+                      <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                        {imageAdjustZoom.toFixed(2)}×
+                      </span>
+                    </label>
+                  </div>
+                  <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
+                    Position: X {Math.round(imageAdjustFocusX)}% · Y {Math.round(imageAdjustFocusY)}% · Zoom{" "}
+                    {imageAdjustZoom.toFixed(2)}×
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+                <button
+                  type="button"
+                  onClick={closeTemplateImageAdjust}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveTemplateImageAdjust}
+                  className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Save framing
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
