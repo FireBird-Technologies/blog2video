@@ -26,6 +26,7 @@ from app.services.template_service import (
     get_composition_id,
     get_layouts_without_image,
     is_custom_template,
+    is_crafted_template,
 )
 
 from app.observability.logging import get_logger
@@ -228,9 +229,9 @@ def provision_workspace(project_id: int, template_id: str | None = None) -> str:
                 os.makedirs(os.path.dirname(dst), exist_ok=True)
                 shutil.copy2(src, dst)
 
-        # For custom templates with AI-generated code, overwrite the placeholder
+        # For custom/crafted templates, inject runtime sources after base copy.
         # scene files with the actual generated code from the database.
-        if template_id and is_custom_template(template_id):
+        if template_id and (is_custom_template(template_id) or is_crafted_template(template_id)):
             _write_generated_scene_files(workspace, template_id)
 
         return workspace
@@ -251,7 +252,14 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     from app.services.template_service import _load_custom_template_data
 
     custom_data = _load_custom_template_data(template_id)
-    if not custom_data or not custom_data.get("has_generated_code"):
+    if not custom_data:
+        return
+
+    if is_crafted_template(template_id):
+        _write_crafted_template_files(workspace, custom_data)
+        return
+
+    if not custom_data.get("has_generated_code"):
         return
 
     generated_dir = os.path.join(workspace, "src", "templates", "generated")
@@ -313,6 +321,116 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(registry)
     logger.info("Wrote contentRegistry.ts with %d content variants", num_content)
+
+    # Optional composition implementation override for crafted templates.
+    # If provided, this allows the package to fully control how scenes are composed
+    # during preview and final render.
+    composition_code = custom_data.get("composition_code")
+    if isinstance(composition_code, str) and composition_code.strip():
+        filepath = os.path.join(generated_dir, "GeneratedVideo.tsx")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(composition_code if composition_code.endswith("\n") else composition_code + "\n")
+        logger.info("Wrote GeneratedVideo.tsx from template package override")
+
+
+def _write_crafted_template_files(workspace: str, crafted_data: dict) -> None:
+    """Write built-in-style remotion template files for a crafted package."""
+    files_map = crafted_data.get("remotion_files")
+    mount_id = (crafted_data.get("remotion_mount_id") or "").strip()
+    entry_rel = (crafted_data.get("remotion_entry_rel") or "").strip()
+    layout_index_rel = (crafted_data.get("remotion_layout_index_rel") or "").strip()
+    if not isinstance(files_map, dict) or not files_map or not mount_id or not entry_rel:
+        return
+    if layout_index_rel and layout_index_rel not in files_map:
+        logger.warning("Crafted package missing declared layout index file: %s", layout_index_rel)
+
+    # Mount crafted templates at src/templates/<mount_id> so built-in-authored
+    # relative imports (fonts/components/playbackSpeed) keep working unchanged.
+    mount_root = os.path.join(workspace, "src", "templates", mount_id)
+    os.makedirs(mount_root, exist_ok=True)
+
+    def _strip_known_prefix(rel_path: str) -> str:
+        rel = rel_path.replace("\\", "/").lstrip("/")
+        for prefix in ("remotion-video/", "remotion-template/"):
+            if rel.startswith(prefix):
+                return rel[len(prefix):]
+        return rel
+
+    for rel_path, code in files_map.items():
+        if not isinstance(rel_path, str) or not isinstance(code, str):
+            continue
+        # Keep only path inside the remotion folder root.
+        local_rel = _strip_known_prefix(rel_path)
+        dst = os.path.join(mount_root, *[p for p in local_rel.split("/") if p])
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(dst, "w", encoding="utf-8") as f:
+            f.write(code if code.endswith("\n") else code + "\n")
+
+    # Keep render command stable by always using existing GeneratedVideo composition,
+    # but route its implementation to the crafted built-in-style template entry.
+    generated_dir = os.path.join(workspace, "src", "templates", "generated")
+    os.makedirs(generated_dir, exist_ok=True)
+    crafted_entry = _strip_known_prefix(entry_rel)
+    crafted_entry_no_ext = crafted_entry[:-4] if crafted_entry.endswith(".tsx") else (crafted_entry[:-3] if crafted_entry.endswith(".ts") else crafted_entry)
+    meta = crafted_data.get("meta") if isinstance(crafted_data.get("meta"), dict) else {}
+    composition_id = str(meta.get("composition_id") or "").strip()
+    calc_name = ""
+    if composition_id:
+        base = composition_id[:-5] if composition_id.endswith("Video") else composition_id
+        if base:
+            calc_name = f"calculate{base}Metadata"
+    shim = (
+        f'import * as CraftedModule from "../{mount_id}/{crafted_entry_no_ext}";\n'
+        f'const _componentName = "{composition_id}";\n'
+        "const CraftedVideo =\n"
+        "  (CraftedModule as any).default\n"
+        "  || (_componentName ? (CraftedModule as any)[_componentName] : undefined)\n"
+        "  || (CraftedModule as any).GeneratedVideo;\n"
+        f'const _candidateName = "{calc_name}";\n'
+        "const _calc =\n"
+        "  (CraftedModule as any).calculateGeneratedMetadata\n"
+        "  || (_candidateName ? (CraftedModule as any)[_candidateName] : undefined)\n"
+        "  || (CraftedModule as any).calculateMetadata\n"
+        "  || (async () => ({ durationInFrames: 30 * 300, fps: 30, width: 1920, height: 1080 }));\n"
+        "export const GeneratedVideo = CraftedVideo;\n"
+        "export const calculateGeneratedMetadata = (args: any) => _calc(args);\n"
+        "export default GeneratedVideo;\n"
+    )
+    with open(os.path.join(generated_dir, "GeneratedVideo.tsx"), "w", encoding="utf-8") as f:
+        f.write(shim)
+    logger.info("Wrote crafted GeneratedVideo.tsx shim (mount=%s)", mount_id)
+
+    _write_crafted_public_assets(workspace, crafted_data)
+
+
+def _write_crafted_public_assets(workspace: str, crafted_data: dict) -> None:
+    """Copy bundled `public/*` from R2 into the render workspace so staticFile() resolves locally."""
+    prefix = (crafted_data.get("crafted_r2_prefix") or "").strip().strip("/")
+    rel_paths = crafted_data.get("public_r2_relpaths")
+    if not prefix or not isinstance(rel_paths, list) or not rel_paths:
+        return
+    public_root = os.path.join(workspace, "public")
+    os.makedirs(public_root, exist_ok=True)
+    for raw in rel_paths:
+        if not isinstance(raw, str):
+            continue
+        norm = raw.replace("\\", "/").strip("/")
+        if not norm.startswith("public/"):
+            continue
+        inner = norm[len("public/") :]
+        parts = inner.split("/")
+        if not inner or ".." in parts or any(not p for p in parts):
+            continue
+        key = f"{prefix}/{norm}" if prefix else norm
+        blob = r2_storage.download_bytes(key)
+        if blob is None:
+            logger.warning("[REMOTION] Crafted public asset missing from R2: %s", key)
+            continue
+        dst = os.path.join(public_root, *[p for p in parts if p])
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(dst, "wb") as f:
+            f.write(blob)
+        logger.info("[REMOTION] Wrote crafted public asset %s (%d bytes)", inner, len(blob))
 
 
 def _wrap_generated_code(raw_code: str) -> str:
@@ -869,9 +987,9 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     }
 
     # Include theme + brandColors for custom templates (GeneratedVideo composition)
-    if is_custom_template(template_id):
+    if is_custom_template(template_id) or is_crafted_template(template_id):
         from app.services.template_service import _load_custom_template_data
-        custom_data = _load_custom_template_data(template_id, db=db)
+        custom_data = _load_custom_template_data(template_id, db=db, user_id=getattr(project, "user_id", None))
         if custom_data:
             ct_og_image = custom_data.get("og_image", "")
             if ct_og_image:
@@ -892,12 +1010,13 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 "background": project.bg_color or theme_colors.get("bg", "#FFFFFF"),
                 "text": project.text_color or theme_colors.get("text", "#1A1A2E"),
             }
-            # Tag each scene with a sceneType for GeneratedVideo
+            # Tag each scene with a sceneType for GeneratedVideo (custom only).
             total = len(scene_data)
             content_codes = custom_data.get("content_codes") or []
             archetype_ids = custom_data.get("content_archetype_ids") or []
             num_content_variants = len(content_codes) if content_codes else 1
-            data["contentVariantCount"] = num_content_variants
+            if is_custom_template(template_id):
+                data["contentVariantCount"] = num_content_variants
 
             # Font props: user override (project.font_family) takes precedence
             # over template theme fonts. Components use these as props, not hardcoded.

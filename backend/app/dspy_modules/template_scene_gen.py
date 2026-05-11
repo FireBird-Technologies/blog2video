@@ -393,16 +393,16 @@ class TemplateSceneGenerator:
             self._fallback_layout = get_fallback_layout(template_id)
 
         if self._is_custom:
-            self._descriptor = dspy.ChainOfThought(TemplateSceneToDescriptor)
+            self._descriptor = dspy.Predict(TemplateSceneToDescriptor)
             self.descriptor = dspy.asyncify(self._descriptor)
-            self._regenerate_descriptor = dspy.ChainOfThought(RegenerateSceneToDescriptor)
+            self._regenerate_descriptor = dspy.Predict(RegenerateSceneToDescriptor)
             self.regenerate_descriptor = dspy.asyncify(self._regenerate_descriptor)
             self.builtin_descriptor = None
             self.builtin_regenerate_descriptor = None
         else:
-            self._builtin_descriptor = dspy.ChainOfThought(BuiltInTemplateSceneToDescriptor)
+            self._builtin_descriptor = dspy.Predict(BuiltInTemplateSceneToDescriptor)
             self.builtin_descriptor = dspy.asyncify(self._builtin_descriptor)
-            self._builtin_regenerate_descriptor = dspy.ChainOfThought(BuiltInRegenerateSceneToDescriptor)
+            self._builtin_regenerate_descriptor = dspy.Predict(BuiltInRegenerateSceneToDescriptor)
             self.builtin_regenerate_descriptor = dspy.asyncify(self._builtin_regenerate_descriptor)
             self._descriptor = self.descriptor = None
             self._regenerate_descriptor = self.regenerate_descriptor = None
@@ -1247,6 +1247,9 @@ class TemplateSceneGenerator:
                 )
 
                 layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
+                # Enforce script-stage layout plan when provided and valid.
+                if normalized_preferred:
+                    layout = normalized_preferred
                 if layout not in self._valid_layouts:
                     if normalized_preferred:
                         layout = normalized_preferred

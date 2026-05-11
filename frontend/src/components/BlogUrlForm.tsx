@@ -1,21 +1,24 @@
-import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
-import { getTemplates, getVoicePreviews, getMyVoices, getPrebuiltVoices, listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
+import { getTemplates, getTemplateAvailabilitySignal, getVoicePreviews, getMyVoices, getPrebuiltVoices, listCustomTemplates, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreview from "./templatePreviews/CraftedTemplatePreview";
 import CraftYourTemplateCard from "./CraftYourTemplateCard";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
 
 export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
 
 const DEFAULT_VIDEO_STYLE: VideoStyleId = "storytelling";
+const CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME = 128; // ~85% of 5s * 30fps first scene
 
 /** First entry in template `styles` from meta.json; fallback if missing (legacy meta). */
 function defaultVideoStyleForTemplate(meta: TemplateMeta | undefined | null): VideoStyleId {
@@ -238,13 +241,26 @@ interface VideoLightboxProps {
   onClose: () => void;
   onSelect: () => void;
   isSelected: boolean;
-  customTemplate?: CustomTemplateItem | null;
+  customTemplate?: CustomTemplateItem | CraftedTemplateItem | null;
 }
 function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, customTemplate }: VideoLightboxProps) {
+  const { ensureCraftedTemplateDetail } = useCraftedTemplates();
   const PreviewComp = TEMPLATE_PREVIEWS[templateId];
   const desc = TEMPLATE_DESCRIPTIONS[templateId];
   const title = customTemplate ? customTemplate.name : (desc?.title ?? templateId);
-  const subtitle = customTemplate ? "Custom template" : desc?.subtitle;
+  const subtitle = customTemplate
+    ? (templateId.startsWith("crafted_") ? "Expert customized template" : "Custom template")
+    : desc?.subtitle;
+
+  // Crafted templates ship summary-only by default; the full layout package
+  // (frontend_files, frontend_entry_rel, public_asset_urls) is fetched here
+  // on demand so the lightbox can render the real composition. The context
+  // dedupes concurrent calls and caches the result.
+  useEffect(() => {
+    if (templateId.startsWith("crafted_")) {
+      void ensureCraftedTemplateDetail(templateId);
+    }
+  }, [templateId, ensureCraftedTemplateDetail]);
 
   // Close on Escape
   useEffect(() => {
@@ -282,8 +298,8 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
 
           {/* Video content */}
           <div className="bg-black">
-            {customTemplate ? (
-              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} logoUrls={customTemplate.logo_urls} ogImage={customTemplate.og_image} />
+            {customTemplate && customTemplate.theme ? (
+              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url ?? undefined} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} validLayouts={(customTemplate as any).valid_layouts || undefined} frontendFiles={(customTemplate as any).frontend_files || undefined} frontendEntryRel={(customTemplate as any).frontend_entry_rel || undefined} publicAssetUrls={templateId.startsWith("crafted_") ? ((customTemplate as CraftedTemplateItem).public_asset_urls ?? undefined) : undefined} logoUrls={customTemplate.logo_urls ?? undefined} ogImage={customTemplate.og_image ?? undefined} showLoaderOnEmptyOrError={templateId.startsWith("crafted_")} />
             ) : PreviewComp ? (
               <PreviewComp />
             ) : (
@@ -717,6 +733,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const styleManuallySet = useRef(false);
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
+  const { craftedTemplates, loading: craftedTemplatesCacheLoading } = useCraftedTemplates();
   /** Built-in template list fetch (getTemplates) — drives step 2 loading overlay. */
   const [builtinTemplatesLoading, setBuiltinTemplatesLoading] = useState(true);
   /** After built-ins load: session random pick (or skip) has finished — step 2 can interact. */
@@ -749,8 +766,20 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   pickerDefaultTemplateIdRef.current = pickerDefaultTemplateId;
   // Only show templates that have finished generating (intro_code exists)
   const readyCustomTemplates = customTemplates.filter((ct) => !!ct.intro_code);
+  const readyCraftedTemplates = craftedTemplates.filter((ct) => !!ct.theme);
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
-  const [customTemplatesLoading, setCustomTemplatesLoading] = useState(true);
+  const [customTemplatesLoading, setCustomTemplatesLoading] = useState(false);
+  const [hasCraftedTemplatesEligible, setHasCraftedTemplatesEligible] = useState(false);
+  const craftedTemplatesLoading = hasCraftedTemplatesEligible && craftedTemplatesCacheLoading;
+  const [templateAvailabilityLoading, setTemplateAvailabilityLoading] = useState(true);
+  const allTemplates = useMemo<TemplateMeta[]>(() => {
+    const byId = new Map<string, TemplateMeta>();
+    for (const t of templates) byId.set(t.id, t);
+    for (const ct of craftedTemplates) {
+      if (!byId.has(ct.id)) byId.set(ct.id, ct as unknown as TemplateMeta);
+    }
+    return Array.from(byId.values());
+  }, [templates, craftedTemplates]);
 
   const renderLanguageDropdown = (
     value: string,
@@ -870,6 +899,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setSessionBuiltinInitDone(true);
       setMyVoicesLoading(false);
       setCustomTemplatesLoading(false);
+      setHasCraftedTemplatesEligible(false);
+      setTemplateAvailabilityLoading(false);
       sessionRandomAppliedRef.current = true;
       return () => {
         mounted = false;
@@ -885,13 +916,45 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       .catch(() => {
         if (mounted) setBuiltinTemplatesLoading(false);
       });
-    listCustomTemplates()
+    getTemplateAvailabilitySignal()
       .then((r) => {
-        if (mounted) setCustomTemplates(r.data);
+        if (!mounted) return;
+        const hasCustomTemplates = Boolean(r.data?.has_custom_templates);
+        const hasCraftedTemplates = Boolean(r.data?.has_crafted_templates);
+        setHasCraftedTemplatesEligible(hasCraftedTemplates);
+
+        if (hasCustomTemplates) {
+          setCustomTemplatesLoading(true);
+          listCustomTemplates()
+            .then((customRes) => {
+              if (mounted) setCustomTemplates(customRes.data);
+            })
+            .catch(() => {
+              if (mounted) setCustomTemplates([]);
+            })
+            .finally(() => {
+              if (mounted) setCustomTemplatesLoading(false);
+            });
+        } else {
+          setCustomTemplates([]);
+          setCustomTemplatesLoading(false);
+        }
+        setTemplateAvailabilityLoading(false);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (mounted) setCustomTemplatesLoading(false);
+      .catch(() => {
+        if (!mounted) return;
+        // Fallback to legacy behavior if signal endpoint fails.
+        setHasCraftedTemplatesEligible(true);
+        setCustomTemplatesLoading(true);
+        setTemplateAvailabilityLoading(false);
+        listCustomTemplates()
+          .then((r) => {
+            if (mounted) setCustomTemplates(r.data);
+          })
+          .catch(() => {})
+          .finally(() => {
+            if (mounted) setCustomTemplatesLoading(false);
+          });
       });
     getVoicePreviews()
       .then((r) => {
@@ -957,7 +1020,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Sync colors to the selected template when templates load or selection changes.
   // Runs before session random pick on the same commit so random pick can override starter "default" colors.
   useEffect(() => {
-    if (templates.length === 0) return;
+    if (allTemplates.length === 0) return;
     // Check custom templates first
     if (template.startsWith("custom_")) {
       const customId = parseInt(template.replace("custom_", ""));
@@ -969,13 +1032,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       }
       return;
     }
-    const meta = templates.find((t) => t.id === template);
+    const meta = allTemplates.find((t) => t.id === template);
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
       setBgColor(meta.preview_colors.bg);
       setTextColor(meta.preview_colors.text);
     }
-  }, [templates, customTemplates, template]);
+  }, [allTemplates, customTemplates, template]);
 
   // Built-ins loaded but empty (error / no data): unblock step 2 without random pick.
   useEffect(() => {
@@ -1560,7 +1623,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       }
       return;
     }
-    const meta = templates.find((t) => t.id === id);
+    const meta = allTemplates.find((t) => t.id === id);
     if (meta && !styleManuallySet.current) {
       setVideoStyle(defaultVideoStyleForTemplate(meta));
     }
@@ -2087,13 +2150,20 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const customTemplatesForStyle = readyCustomTemplates.filter(
     (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
   );
+  const craftedTemplatesForStyle = readyCraftedTemplates.filter((ct) => {
+    const styles = Array.isArray(ct.styles) ? ct.styles : [];
+    if (styles.length === 0) return false;
+    return styles.some((s) => normalizeVideoStyle(String(s)) === styleLower);
+  });
 
   const styleTemplateItems: Array<
     | { type: "builtin"; id: string; data: TemplateMeta }
     | { type: "custom"; id: string; data: CustomTemplateItem }
+    | { type: "crafted"; id: string; data: CraftedTemplateItem }
   > = [
     ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
     ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
+    ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
   ];
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
@@ -2101,8 +2171,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const selectedCustom = template.startsWith("custom_")
     ? customTemplates.find((ct) => ct.id === parseInt(template.replace("custom_", "")))
     : null;
+  const selectedCrafted = template.startsWith("crafted_")
+    ? craftedTemplates.find((ct) => ct.id === template)
+    : null;
   const selectedBuiltinNew =
-    !template.startsWith("custom_") && templates.some((t) => t.id === template && t.new_template === true);
+    !template.startsWith("custom_") && allTemplates.some((t) => t.id === template && t.new_template === true);
 
   const step2Template = (
     <div className="space-y-5">
@@ -2113,10 +2186,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </label>
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
           <div className="relative">
-            {demoMode?.templatePreviewOverride && !selectedCustom ? (
+            {demoMode?.templatePreviewOverride && !selectedCustom && !selectedCrafted ? (
               demoMode.templatePreviewOverride({ templateId: template, selected: true, thumbnail: false })
             ) : selectedCustom ? (
               <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
+            ) : selectedCrafted && (selectedCrafted.preview_file || selectedCrafted.preview_image_url || selectedCrafted.theme) ? (
+              <CraftedTemplatePreview
+                templateId={selectedCrafted.id}
+                previewSource={selectedCrafted.preview_file ?? null}
+                previewImageUrl={selectedCrafted.preview_image_url ?? null}
+                name={selectedCrafted.name}
+                showLoaderOnEmptyOrError
+                key={`selected-crafted-${selectedCrafted.id}-${step}`}
+              />
+            ) : template.startsWith("crafted_") && craftedTemplatesLoading ? (
+              <div className="w-full aspect-video bg-[#1a1a2e] flex items-center justify-center">
+                <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
+              </div>
             ) : SelectedPreviewComp ? (
               <SelectedPreviewComp key={`selected-${template}-${step}`} />
             ) : (
@@ -2129,7 +2215,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-800">
-                  {selectedCustom ? selectedCustom.name : (selectedDesc?.title ?? template)}
+                  {selectedCustom ? selectedCustom.name : selectedCrafted ? selectedCrafted.name : (selectedDesc?.title ?? template)}
                 </span>
                 {selectedBuiltinNew && <NewTemplateBadge className="shrink-0" />}
                 {selectedCustom && (
@@ -2137,9 +2223,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     Custom
                   </span>
                 )}
+                {selectedCrafted && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-amber-500">
+                    Expert Customized
+                  </span>
+                )}
               </div>
               {selectedCustom ? (
                 <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
+              ) : selectedCrafted ? (
+                <div className="text-[11px] text-gray-400 mt-0.5">Expert customized template</div>
               ) : selectedDesc?.subtitle ? (
                 <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
               ) : null}
@@ -2198,7 +2291,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 }}
               />
               {styleTemplateItems.map((item) => {
-                if (item.type === "custom") {
+                if (item.type === "custom" || item.type === "crafted") {
                   const ct = item.data;
                   const customId = item.id;
                   const isSelected = template === customId;
@@ -2214,12 +2307,28 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     >
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
-                          <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, previewImageUrl: ct.preview_image_url, logoUrls: ct.logo_urls, ogImage: ct.og_image, thumbnailMode: true } as any)} key={`${customId}-${step}`} />
+                          {item.type === "crafted" ? (
+                            <CraftedTemplatePreview
+                              templateId={item.id}
+                              previewSource={(ct as any).preview_file ?? null}
+                              previewImageUrl={ct.preview_image_url ?? null}
+                              name={ct.name}
+                              thumbnailMode
+                              showLoaderOnEmptyOrError
+                              key={`${customId}-${step}`}
+                            />
+                          ) : (
+                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true } as any)} key={`${customId}-${step}`} />
+                          )}
                         </div>
                         <div className="absolute top-0 left-0.5 z-[5]">
-                          <CustomTemplateBadge />
+                          {item.type === "custom" ? <CustomTemplateBadge /> : (
+                            <span className="pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-amber-500 ring-1 ring-amber-300">
+                              Expert Customized
+                            </span>
+                          )}
                         </div>
-                        {!isPro && (
+                        {item.type === "custom" && !isPro && (
                           <div className="absolute top-6 left-0.5 z-[5] px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
                             Pro
                           </div>
@@ -2298,6 +2407,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" aria-hidden />
                   <p className="text-[10px] text-gray-500 leading-snug">
                     Loading custom templates, please wait.
+                  </p>
+                </div>
+              )}
+              {craftedTemplatesLoading && (
+                <div
+                  className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin shrink-0" aria-hidden />
+                  <p className="text-[10px] text-gray-500 leading-snug">
+                    Loading expert customized templates, please wait.
                   </p>
                 </div>
               )}
@@ -2391,20 +2512,29 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       indexed.find(({ i }) => i === bulkTemplateMasterIndex)?.i ?? indexed[0].i;
 
     const tpl = bulkTemplates[activeIndex] ?? "default";
-    const templateMeta = templates.find((t) => t.id === tpl);
+    const templateMeta = allTemplates.find((t) => t.id === tpl);
     const selectedCustomBulk = tpl.startsWith("custom_")
       ? customTemplates.find((ct) => ct.id === parseInt(tpl.replace("custom_", "")))
       : null;
+    const selectedCraftedBulk = tpl.startsWith("crafted_")
+      ? craftedTemplates.find((ct) => ct.id === tpl)
+      : null;
     const selectedBuiltinNewBulk = !tpl.startsWith("custom_") && templateMeta?.new_template === true;
-    const defaultAccent = selectedCustomBulk
-      ? selectedCustomBulk.preview_colors.accent
-      : templateMeta?.preview_colors?.accent ?? accentColor;
-    const defaultBg = selectedCustomBulk
-      ? selectedCustomBulk.preview_colors.bg
-      : templateMeta?.preview_colors?.bg ?? bgColor;
-    const defaultText = selectedCustomBulk
-      ? selectedCustomBulk.preview_colors.text
-      : templateMeta?.preview_colors?.text ?? textColor;
+    const defaultAccent =
+      selectedCustomBulk?.preview_colors?.accent
+      ?? selectedCraftedBulk?.preview_colors?.accent
+      ?? templateMeta?.preview_colors?.accent
+      ?? accentColor;
+    const defaultBg =
+      selectedCustomBulk?.preview_colors?.bg
+      ?? selectedCraftedBulk?.preview_colors?.bg
+      ?? templateMeta?.preview_colors?.bg
+      ?? bgColor;
+    const defaultText =
+      selectedCustomBulk?.preview_colors?.text
+      ?? selectedCraftedBulk?.preview_colors?.text
+      ?? templateMeta?.preview_colors?.text
+      ?? textColor;
 
     const accent =
       bulkAccentColors[activeIndex] && bulkAccentColors[activeIndex].trim()
@@ -2499,14 +2629,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       const matchedCustom = id.startsWith("custom_")
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))
         : null;
+      const matchedCrafted = id.startsWith("crafted_")
+        ? craftedTemplates.find((t) => t.id === id)
+        : null;
       const styleUpdate: VideoStyleId | null = id.startsWith("custom_")
         ? matchedCustom?.supported_video_style
           ? normalizeVideoStyle(matchedCustom.supported_video_style)
           : null
-        : defaultVideoStyleForTemplate(templates.find((t) => t.id === id));
+        : id.startsWith("crafted_")
+        ? (matchedCrafted?.styles?.[0] ? normalizeVideoStyle(matchedCrafted.styles[0]) : null)
+        : defaultVideoStyleForTemplate(allTemplates.find((t) => t.id === id));
       const colors = id.startsWith("custom_")
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
-        : templates.find((t) => t.id === id)?.preview_colors;
+        : id.startsWith("crafted_")
+        ? craftedTemplates.find((t) => t.id === id)?.preview_colors
+        : allTemplates.find((t) => t.id === id)?.preview_colors;
       const targetIndices = indexed.map(({ i }) => i);
       const isCustom = id.startsWith("custom_");
       const canUpdateStyle = (rowIdx: number) =>
@@ -2617,12 +2754,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const customTemplatesForStyle = readyCustomTemplates.filter(
       (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
     );
+    const craftedTemplatesForStyle = readyCraftedTemplates.filter((ct) => {
+      const styles = Array.isArray(ct.styles) ? ct.styles : [];
+      if (styles.length === 0) return false;
+      return styles.some((s) => normalizeVideoStyle(String(s)) === styleLower);
+    });
     const styleTemplateItems: Array<
       | { type: "builtin"; id: string; data: TemplateMeta }
       | { type: "custom"; id: string; data: CustomTemplateItem }
+      | { type: "crafted"; id: string; data: CraftedTemplateItem }
     > = [
       ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
       ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
+      ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
     ];
 
     return (
@@ -2720,6 +2864,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <div className="relative">
               {selectedCustomBulk ? (
                 <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
+              ) : selectedCraftedBulk && (selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
+                <CraftedTemplatePreview
+                  templateId={selectedCraftedBulk.id}
+                  previewSource={selectedCraftedBulk.preview_file ?? null}
+                  previewImageUrl={selectedCraftedBulk.preview_image_url ?? null}
+                  name={selectedCraftedBulk.name}
+                  showLoaderOnEmptyOrError
+                  key={`selected-bulk-crafted-${tpl}-${activeIndex}-${step}`}
+                />
+              ) : tpl.startsWith("crafted_") && craftedTemplatesLoading ? (
+                <div className="w-full aspect-video bg-[#1a1a2e] flex items-center justify-center">
+                  <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
+                </div>
               ) : SelectedPreviewComp ? (
                 <SelectedPreviewComp key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
               ) : (
@@ -2731,16 +2888,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <div className="text-sm font-semibold text-gray-800">{selectedCustomBulk ? selectedCustomBulk.name : (selectedDesc?.title ?? tpl)}</div>
+                  <div className="text-sm font-semibold text-gray-800">{selectedCustomBulk ? selectedCustomBulk.name : selectedCraftedBulk ? selectedCraftedBulk.name : (selectedDesc?.title ?? tpl)}</div>
                   {selectedBuiltinNewBulk && <NewTemplateBadge className="shrink-0" />}
                   {selectedCustomBulk && (
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: selectedCustomBulk.preview_colors.accent }}>
                       Custom
                     </span>
                   )}
+                  {selectedCraftedBulk && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-amber-500">
+                      Expert Customized
+                    </span>
+                  )}
                 </div>
                 {selectedCustomBulk ? (
                   <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
+                ) : selectedCraftedBulk ? (
+                  <div className="text-[11px] text-gray-400 mt-0.5">Expert customized template</div>
                 ) : selectedDesc?.subtitle ? (
                   <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
                 ) : null}
@@ -2823,7 +2987,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 }}
               />
               {styleTemplateItems.map((item) => {
-                if (item.type === "custom") {
+                if (item.type === "custom" || item.type === "crafted") {
                   const ct = item.data;
                   const customId = item.id;
                   const isSelected = tpl === customId;
@@ -2839,12 +3003,28 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     >
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
-                          <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, previewImageUrl: ct.preview_image_url, logoUrls: ct.logo_urls, ogImage: ct.og_image, thumbnailMode: true } as any)} key={`${customId}-bulk-${activeIndex}`} />
+                          {item.type === "crafted" ? (
+                            <CraftedTemplatePreview
+                              templateId={item.id}
+                              previewSource={(ct as any).preview_file ?? null}
+                              previewImageUrl={ct.preview_image_url ?? null}
+                              name={ct.name}
+                              thumbnailMode
+                              showLoaderOnEmptyOrError
+                              key={`${customId}-bulk-${activeIndex}`}
+                            />
+                          ) : (
+                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true } as any)} key={`${customId}-bulk-${activeIndex}`} />
+                          )}
                         </div>
                         <div className="absolute top-0.5 left-0.5 z-[5]">
-                          <CustomTemplateBadge />
+                          {item.type === "custom" ? <CustomTemplateBadge /> : (
+                            <span className="pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-amber-500 ring-1 ring-amber-300">
+                              Expert Customized
+                            </span>
+                          )}
                         </div>
-                        {!isPro && (
+                        {item.type === "custom" && !isPro && (
                           <div className="absolute top-6 left-0.5 z-[5] px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
                             Pro
                           </div>
@@ -2921,6 +3101,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" aria-hidden />
                   <p className="text-[10px] text-gray-500 leading-snug">
                     Loading the custom template, please wait.
+                  </p>
+                </div>
+              )}
+              {craftedTemplatesLoading && (
+                <div
+                  className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin shrink-0" aria-hidden />
+                  <p className="text-[10px] text-gray-500 leading-snug">
+                    Loading the expert customized template, please wait.
                   </p>
                 </div>
               )}
@@ -3691,7 +3883,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const modalWidth = "max-w-xl";
 
   const isStep2TemplatesPending =
-    step === 2 && (builtinTemplatesLoading || !sessionBuiltinInitDone);
+    step === 2 && (builtinTemplatesLoading || templateAvailabilityLoading || !sessionBuiltinInitDone);
 
   // Constant form size: min-height so layout doesn’t jump between steps
   const stepContentWrapper = (
@@ -3774,7 +3966,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             onClose={() => setVideoPreviewId(null)}
             onSelect={() => applyTemplate(videoPreviewId)}
             isSelected={template === videoPreviewId}
-            customTemplate={videoPreviewId.startsWith("custom_") ? customTemplates.find((ct) => ct.id === parseInt(videoPreviewId.replace("custom_", ""))) : null}
+            customTemplate={
+              videoPreviewId.startsWith("custom_")
+                ? customTemplates.find((ct) => ct.id === parseInt(videoPreviewId.replace("custom_", "")))
+                : videoPreviewId.startsWith("crafted_")
+                ? craftedTemplates.find((ct) => ct.id === videoPreviewId)
+                : null
+            }
           />
         )}
       </div>

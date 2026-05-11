@@ -2089,6 +2089,7 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
         get_preview_colors,
         get_composition_id,
         is_custom_template,
+        is_crafted_template,
     )
     from app.services.remotion import provision_workspace, get_workspace_dir, _build_render_cmd, safe_remove_workspace
     import os
@@ -2098,8 +2099,8 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     import subprocess as _subprocess
 
     template_id = validate_template_id((payload.template_id or "").strip())
-    if is_custom_template(template_id):
-        raise HTTPException(status_code=400, detail="Single-layout render is not yet supported for custom templates.")
+    if is_custom_template(template_id) or is_crafted_template(template_id):
+        raise HTTPException(status_code=400, detail="Single-layout render is not supported for custom/crafted templates.")
 
     layout_id = (payload.layout_id or "").strip().lower()
     if not layout_id:

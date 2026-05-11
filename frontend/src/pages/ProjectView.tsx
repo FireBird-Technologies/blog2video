@@ -38,16 +38,21 @@ import {
   getProjectTemplateChangeStatus,
   generateEmbedToken,
   type TemplateMeta,
+  type CraftedTemplateItem,
   type CustomTemplateItem,
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import { useNoticeModal } from "../contexts/NoticeModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSizesFromSchema } from "../components/SceneEditModal";
+import SceneEditModal, {
+  SceneImageItem,
+  resolveDefaultFontSizesForScene,
+} from "../components/SceneEditModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -59,6 +64,7 @@ import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../component
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
 import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
@@ -79,7 +85,6 @@ const PLAYBACK_SPEED_OPTIONS: readonly number[] = [0.5, 1, 1.5, 2, 2.5] as const
 /** Image framing modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
-
 const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
 const TABS_CONTAINER_STEP: Step = {
   target: '[data-tour="tabs-container"]',
@@ -414,7 +419,7 @@ export default function ProjectView() {
   const [customTemplatesList, setCustomTemplatesList] = useState<CustomTemplateItem[]>([]);
   const [customTemplatesLoading, setCustomTemplatesLoading] = useState(true);
   const [showTemplateChangeModal, setShowTemplateChangeModal] = useState(false);
-  const [templateChangePickerTab, setTemplateChangePickerTab] = useState<"builtin" | "custom">("builtin");
+  const [templateChangePickerTab, setTemplateChangePickerTab] = useState<"builtin" | "custom" | "crafted">("builtin");
   const [templateChangeDraft, setTemplateChangeDraft] = useState<string>("default");
   const [templateRelayoutPendingId, setTemplateRelayoutPendingId] = useState<string | null>(null);
   const [templateRelayoutJob, setTemplateRelayoutJob] = useState<{
@@ -426,6 +431,15 @@ export default function ProjectView() {
   } | null>(null);
   const [submittingTemplateRelayout, setSubmittingTemplateRelayout] = useState(false);
   const templateRelayoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
+
+  useEffect(() => {
+    if (!project?.template?.startsWith("crafted_")) return;
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    if (!found?.frontend_files) {
+      void ensureCraftedTemplateDetail(project.template);
+    }
+  }, [project?.template, craftedTemplates, ensureCraftedTemplateDetail]);
 
 
   useEffect(() => {
@@ -1949,6 +1963,7 @@ export default function ProjectView() {
 
   const assignedTemplateId = project?.template || "default";
   const readyCustomForPicker = customTemplatesList.filter((ct) => !!ct.intro_code);
+  const readyCraftedForPicker = (craftedTemplates || []).filter((ct: CraftedTemplateItem) => !!ct.theme);
 
   useEffect(() => {
     imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
@@ -3585,6 +3600,17 @@ export default function ProjectView() {
                   >
                     Custom
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setTemplateChangePickerTab("crafted")}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      templateChangePickerTab === "crafted"
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    Expert customized
+                  </button>
                 </div>
 
                 <div>
@@ -3594,6 +3620,7 @@ export default function ProjectView() {
                       <TemplateAssignPreview
                         templateId={templateChangeDraft}
                         customTemplates={customTemplatesList}
+                        craftedTemplates={readyCraftedForPicker}
                         projectCustomTheme={project.custom_theme ?? null}
                         projectName={project.name}
                         variant="large"
@@ -3605,6 +3632,8 @@ export default function ProjectView() {
                           ? customTemplatesList.find(
                               (c) => c.id === parseInt(templateChangeDraft.replace("custom_", ""), 10)
                             )?.name ?? "Custom"
+                          : templateChangeDraft.startsWith("crafted_")
+                            ? readyCraftedForPicker.find((c) => c.id === templateChangeDraft)?.name ?? "Expert Customized"
                           : TEMPLATE_DESCRIPTIONS[templateChangeDraft]?.title ?? templateMetas.find((m) => m.id === templateChangeDraft)?.name ?? templateChangeDraft}
                       </span>
                     </div>
@@ -3613,7 +3642,7 @@ export default function ProjectView() {
 
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">
-                    All {templateChangePickerTab === "builtin" ? "built-in" : "custom"} templates
+                    All {templateChangePickerTab === "builtin" ? "built-in" : templateChangePickerTab === "custom" ? "custom" : "expert customized"} templates
                   </p>
                   <div className="border border-gray-200/60 rounded-xl p-4 max-h-[240px] overflow-y-auto bg-gray-50/40">
                     {templateChangePickerTab === "builtin" ? (
@@ -3661,7 +3690,7 @@ export default function ProjectView() {
                       ) : (
                         <p className="text-xs text-gray-500 py-6 text-center">No built-in templates loaded.</p>
                       )
-                    ) : (
+                    ) : templateChangePickerTab === "custom" ? (
                       <div className="grid grid-cols-3 gap-4">
                         <CraftYourTemplateCard
                           variant="default"
@@ -3737,6 +3766,59 @@ export default function ProjectView() {
                         {!customTemplatesLoading && readyCustomForPicker.length === 0 && (
                           <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
                             No custom templates ready yet.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-4">
+                        {readyCraftedForPicker.map((ct) => {
+                          const craftedId = ct.id;
+                          const isSel = templateChangeDraft === craftedId;
+                          return (
+                            <button
+                              key={craftedId}
+                              type="button"
+                              onClick={() => setTemplateChangeDraft(craftedId)}
+                              className={`text-left rounded-lg overflow-hidden border-2 transition-all ${
+                                isSel ? "border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.12)]" : "border-gray-200/60 hover:border-purple-300/60"
+                              }`}
+                            >
+                              <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
+                                <div className="relative z-0 min-h-[56px] pointer-events-none">
+                                  <CraftedTemplatePreview
+                                    templateId={craftedId}
+                                    previewSource={ct.preview_file ?? null}
+                                    previewImageUrl={ct.preview_image_url ?? null}
+                                    name={ct.name}
+                                    thumbnailMode
+                                    showLoaderOnEmptyOrError
+                                  />
+                                </div>
+                                <div className="pointer-events-none absolute top-1 left-1 z-20 px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-500 text-white shadow-sm">
+                                  Expert Customized
+                                </div>
+                              </div>
+                              <div className={`px-2 py-1 ${isSel ? "bg-purple-50/80" : "bg-white/80"}`}>
+                                <div className="text-[10px] font-semibold text-gray-800 truncate">{ct.name}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {craftedTemplatesLoading && (
+                          <div
+                            className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <span className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin shrink-0" aria-hidden />
+                            <p className="text-[10px] text-gray-500 leading-snug">
+                              Loading expert customized templates, please wait.
+                            </p>
+                          </div>
+                        )}
+                        {!craftedTemplatesLoading && readyCraftedForPicker.length === 0 && (
+                          <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
+                            No expert customized templates available.
                           </p>
                         )}
                       </div>
@@ -4357,8 +4439,17 @@ export default function ProjectView() {
                                     const layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? "text_narration";
                                     const template = project.template ?? "default";
                                     const aspectRatio = project.aspect_ratio ?? "landscape";
-                                    const schemaDefaults = getDefaultFontSizesFromSchema(layoutPropSchema ?? undefined, layoutId, aspectRatio);
-                                    const defaults = schemaDefaults ?? getDefaultFontSizes(template, layoutId, aspectRatio);
+                                    const craftedFrontendFiles =
+                                      template.startsWith("crafted_")
+                                        ? (craftedTemplates.find((ct) => ct.id === template)?.frontend_files as Record<string, string> | null) || null
+                                        : null;
+                                    const defaults = resolveDefaultFontSizesForScene({
+                                      template,
+                                      layoutId,
+                                      aspectRatio,
+                                      layoutPropSchema: layoutPropSchema ?? undefined,
+                                      craftedFrontendFiles,
+                                    });
                                     const override = sceneFontOverrides[scene.id];
                                     const isCustomTpl = (template).startsWith("custom_");
                                     const storedTitle = isCustomTpl ? desc.layoutConfig?.titleFontSize : desc.layoutProps?.titleFontSize;
@@ -4434,7 +4525,12 @@ export default function ProjectView() {
                                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                   </svg>
                                                 ) : null}
-                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{titleClamped}</span>
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">
+                                                  {titleClamped}
+                                                  {storedTitle == null && override?.title == null && (
+                                                    <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                                                  )}
+                                                </span>
                                               </div>
                                             </div>
                                           </div>
@@ -4462,7 +4558,12 @@ export default function ProjectView() {
                                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                   </svg>
                                                 ) : null}
-                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{descClamped}</span>
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">
+                                                  {descClamped}
+                                                  {storedDesc == null && override?.desc == null && (
+                                                    <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                                                  )}
+                                                </span>
                                               </div>
                                             </div>
                                           </div>
@@ -5130,13 +5231,20 @@ export default function ProjectView() {
           <ProjectTemplateSettingsCard
             templateId={assignedTemplateId}
             customTemplates={customTemplatesList}
+            craftedTemplates={readyCraftedForPicker}
             projectCustomTheme={project?.custom_theme ?? null}
             projectName={project?.name}
             templateMetas={templateMetas}
             disabled={submittingTemplateRelayout || templateRelayoutRunning || missingCustomTemplate}
             onChangeTemplate={() => {
               setTemplateChangeDraft(assignedTemplateId);
-              setTemplateChangePickerTab(assignedTemplateId.startsWith("custom_") ? "custom" : "builtin");
+              setTemplateChangePickerTab(
+                assignedTemplateId.startsWith("custom_")
+                  ? "custom"
+                  : assignedTemplateId.startsWith("crafted_")
+                    ? "crafted"
+                    : "builtin"
+              );
               setShowTemplateChangeModal(true);
             }}
           />

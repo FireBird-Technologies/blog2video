@@ -55,6 +55,7 @@ class Project(Base):
 
     # Template (determines layout system + DSPy prompt)
     template: Mapped[str] = mapped_column(String(50), default="default")
+    crafted_template_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("crafted_templates.id"), nullable=True, index=True)
 
     # Video style: explainer (default), promotional, storytelling — drives script & voiceover tone
     video_style: Mapped[str] = mapped_column(String(30), default="explainer")
@@ -87,6 +88,7 @@ class Project(Base):
 
     # Relationships
     user = relationship("User", back_populates="projects")
+    crafted_template = relationship("CraftedTemplate", back_populates="projects")
     scenes = relationship("Scene", back_populates="project", cascade="all, delete-orphan", order_by="Scene.order")
     assets = relationship("Asset", back_populates="project", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="project", cascade="all, delete-orphan", order_by="ChatMessage.created_at")

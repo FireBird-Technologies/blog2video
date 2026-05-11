@@ -40,7 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, saved_voices, template_studio, embed, unsubscribe, admin as admin_router, affiliate
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, admin as admin_router, affiliate
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -507,6 +507,7 @@ app.include_router(pipeline.router)
 app.include_router(chat.router)
 app.include_router(contact.router)
 app.include_router(custom_templates.router)
+app.include_router(crafted_templates.router)
 app.include_router(saved_voices.router)
 app.include_router(template_studio.router)
 app.include_router(embed.router)
@@ -758,6 +759,9 @@ def design_voice_from_prompt(body: dict):
 async def get_voice_preview_audio(key: str):
     """Stream voice preview audio so playback can start as soon as first bytes arrive."""
     import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    from fastapi.responses import RedirectResponse
     from fastapi.responses import StreamingResponse
 
     preview_url = _get_voice_preview_url_by_key(key)
@@ -765,15 +769,38 @@ async def get_voice_preview_audio(key: str):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Voice preview not found")
 
+    session = requests.Session()
+    retry = Retry(
+        total=2,
+        connect=2,
+        read=2,
+        status=2,
+        backoff_factor=0.4,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset(["GET"]),
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
     try:
-        resp = requests.get(preview_url, timeout=10, stream=True)
+        resp = session.get(
+            preview_url,
+            timeout=(5, 20),
+            stream=True,
+            headers={"Connection": "close", "Accept": "audio/mpeg,audio/*;q=0.9,*/*;q=0.1"},
+        )
         resp.raise_for_status()
         media_type = resp.headers.get("Content-Type", "audio/mpeg")
 
         def chunk_iter():
-            for chunk in resp.iter_content(chunk_size=16 * 1024):
-                if chunk:
-                    yield chunk
+            try:
+                for chunk in resp.iter_content(chunk_size=16 * 1024):
+                    if chunk:
+                        yield chunk
+            finally:
+                resp.close()
+                session.close()
 
         return StreamingResponse(
             chunk_iter(),
@@ -781,5 +808,6 @@ async def get_voice_preview_audio(key: str):
         )
     except Exception as e:
         print(f"[VOICES] preview-audio proxy failed for {key}: {e}")
-        from fastapi import HTTPException
-        raise HTTPException(status_code=502, detail="Failed to fetch preview audio")
+        session.close()
+        # Fallback: let browser fetch directly; useful when proxy-side TLS fails intermittently.
+        return RedirectResponse(url=preview_url, status_code=307)
