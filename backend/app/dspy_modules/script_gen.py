@@ -472,7 +472,7 @@ class ScriptGenerator:
             aspect_ratio=ar,
             video_style=style,
             video_length=length,
-            layout_catalog="",           # not needed for outline
+            layout_catalog=layout_catalog or "",
             content_language=lang,
             include_ending_socials=bool(include_ending_socials),
             social_platforms_detected=social_hint,
@@ -540,7 +540,8 @@ class ScriptGenerator:
                     "title": outline["title"],
                     "narration": self._coerce_text_str(getattr(res, "narration", "")).strip(),
                     "visual_description": self._coerce_text_str(getattr(res, "visual_description", "")).strip(),
-                    "preferred_layout": self._coerce_layout_str(getattr(res, "preferred_layout", None)) or outline.get("preferred_layout"),
+                    # Enforce script-stage planned layout. Scene expansion must not mutate it.
+                    "preferred_layout": outline.get("preferred_layout") or self._coerce_layout_str(getattr(res, "preferred_layout", None)),
                     "suggested_images": suggested or outline.get("suggested_images", []),
                     "duration_seconds": duration,
                 }

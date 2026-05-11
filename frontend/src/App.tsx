@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
 import Landing from "./pages/Landing";
@@ -172,11 +173,13 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <ErrorModalProvider>
-        <NoticeModalProvider>
-          <AppRoutes />
-        </NoticeModalProvider>
-      </ErrorModalProvider>
+      <CraftedTemplatesProvider>
+        <ErrorModalProvider>
+          <NoticeModalProvider>
+            <AppRoutes />
+          </NoticeModalProvider>
+        </ErrorModalProvider>
+      </CraftedTemplatesProvider>
     </AuthProvider>
   );
 }

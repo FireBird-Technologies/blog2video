@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import {
@@ -13,21 +13,188 @@ import {
   regenerateScene,
   getValidLayouts,
   LayoutInfo,
+  type LayoutPropSchema,
+  type LayoutPropFieldType,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
-import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
-import { getTemplateConfig } from "./remotion/templateConfig";
-import { getImageBoxAspectRatio, normalizeLayoutId } from "./remotion/imageBoxConfig";
+import { compileDataModule } from "../utils/compileComponent";
+import { normalizeLayoutId } from "./remotion/imageBoxConfig";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
+
+type CraftedImageBoxEntry = string | { landscape?: string; portrait?: string } | undefined;
+
+type CraftedImageBoxConfig = {
+  default?: CraftedImageBoxEntry;
+  layouts?: Record<string, CraftedImageBoxEntry>;
+} & Record<string, unknown>;
+
+type FontSizePair = { title: number; desc: number };
+type CraftedFontSizeLeaf = {
+  title?: number;
+  desc?: number;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
+};
+type CraftedFontSizeEntry = CraftedFontSizeLeaf | {
+  landscape?: CraftedFontSizeLeaf;
+  portrait?: CraftedFontSizeLeaf;
+};
+type CraftedFontSizeConfig = {
+  default?: CraftedFontSizeEntry;
+  layouts?: Record<string, CraftedFontSizeEntry>;
+} & Record<string, unknown>;
+
+const CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES = [
+  "frontend/imageBoxConfig.json",
+  "imageBoxConfig.json",
+  "frontend/config/imageBoxConfig.json",
+];
+const CRAFTED_FONT_SIZE_CONFIG_CANDIDATES = [
+  "frontend/fontSizeDefaults.json",
+  "frontend/fontDefaults.json",
+  "fontSizeDefaults.json",
+  "fontDefaults.json",
+  "frontend/config/fontSizeDefaults.json",
+];
+
+const _normalizeLayoutKey = (layoutId: string | null): string => {
+  return String(layoutId || "").trim().toLowerCase().replace(/[-\s]+/g, "_");
+};
+
+const _pickCraftedAr = (
+  entry: CraftedImageBoxEntry,
+  orientation: "landscape" | "portrait",
+): string | null => {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    const v = entry.trim();
+    return v || null;
+  }
+  const v = (entry[orientation] || entry.landscape || entry.portrait || "").trim();
+  return v || null;
+};
+
+const _resolveCraftedImageBoxArFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): string | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedImageBoxConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedImageBoxConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+
+  const directRecord = parsed as Record<string, CraftedImageBoxEntry>;
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedAr(hit, orientation);
+};
+
+const _toFiniteFontNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
+const _pickCraftedFontPair = (
+  entry: CraftedFontSizeEntry | undefined,
+  orientation: "landscape" | "portrait",
+): FontSizePair | null => {
+  if (!entry || typeof entry !== "object") return null;
+  const e = entry as Record<string, unknown>;
+  const oriented =
+    ((e[orientation] as Record<string, unknown> | undefined) || (e.landscape as Record<string, unknown> | undefined) || (e.portrait as Record<string, unknown> | undefined) || e);
+  const title =
+    _toFiniteFontNumber(oriented.title) ??
+    _toFiniteFontNumber(oriented.titleFontSize);
+  const desc =
+    _toFiniteFontNumber(oriented.desc) ??
+    _toFiniteFontNumber(oriented.descriptionFontSize);
+  if (title == null && desc == null) return null;
+  return {
+    title: Math.round(title ?? 44),
+    desc: Math.round(desc ?? 24),
+  };
+};
+
+const _resolveCraftedFontDefaultsFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): FontSizePair | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_FONT_SIZE_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedFontSizeConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedFontSizeConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+  const directRecord = parsed as Record<string, CraftedFontSizeEntry>;
+
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedFontPair(hit, orientation);
+};
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -193,6 +360,37 @@ export function getDefaultFontSizesFromSchema(
     title: title ?? hardcoded.title,
     desc: desc ?? hardcoded.desc,
   };
+}
+
+export function resolveDefaultFontSizesForScene(args: {
+  template: string;
+  layoutId: string | null;
+  aspectRatio: string;
+  layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
+  craftedFrontendFiles?: Record<string, string> | null;
+}): { title: number; desc: number } {
+  const {
+    template,
+    layoutId,
+    aspectRatio,
+    layoutPropSchema,
+    craftedFrontendFiles,
+  } = args;
+  const craftedDefaults = _resolveCraftedFontDefaultsFromFiles(
+    craftedFrontendFiles || null,
+    layoutId,
+    aspectRatio
+  );
+  const schemaDefaults = getDefaultFontSizesFromSchema(
+    layoutPropSchema,
+    layoutId,
+    aspectRatio
+  );
+  return craftedDefaults ?? schemaDefaults ?? getDefaultFontSizes(
+    template,
+    layoutId,
+    aspectRatio
+  );
 }
 
 // ─── Layout text field definitions ──────────────────────────
@@ -1172,14 +1370,32 @@ function getLayoutFields(template: string, layoutId: string | null): FieldDef[] 
   return LAYOUT_TEXT_FIELDS_OVERRIDE[normalizedTemplate]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
 }
 
+/**
+ * Module-scoped cache of compiled crafted-template layout field defs.
+ * Keyed by `template_id`. Survives modal close/reopen within the session;
+ * cleared on full reload (matches localStorage cache TTL behavior).
+ */
+const __craftedLayoutFieldsCache = new Map<string, Record<string, FieldDef[]>>();
+
 /** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
 const HIDDEN_LAYOUT_PROP_KEYS = new Set([
   "hideImage",
   "assignedImage",
   "imageUrl",
+  "imageBoxAspectRatio",
+  "ImageBoxAspectRatio",
+  "image_box_aspect_ratio",
   "titleFontSize",
   "descriptionFontSize",
 ]);
+
+const HIDDEN_LAYOUT_PROP_KEYS_LOWER = new Set(
+  Array.from(HIDDEN_LAYOUT_PROP_KEYS).map((k) => k.toLowerCase()),
+);
+
+function isHiddenLayoutPropKey(key: string): boolean {
+  return HIDDEN_LAYOUT_PROP_KEYS_LOWER.has(String(key || "").toLowerCase());
+}
 
 /**
  * Keys that were once valid for a template/layout but have been deprecated.
@@ -1201,6 +1417,130 @@ function isDeprecatedLayoutPropKey(
   if (!template || !layoutId) return false;
   const t = template.toLowerCase();
   return DEPRECATED_LAYOUT_PROP_KEYS[t]?.[layoutId]?.has(key) ?? false;
+}
+
+function schemaLayoutPropTypeToFieldType(t: LayoutPropFieldType): FieldType | null {
+  switch (t) {
+    case "string":
+    case "text":
+    case "color":
+    case "number":
+    case "select":
+    case "string_array":
+    case "object_array":
+      return t;
+    case "chart_table":
+      return "chart_table";
+    default:
+      return null;
+  }
+}
+
+/** Prefer bundled layoutFields.ts; fall back to API meta.layout_prop_schema for crafted templates. */
+function layoutPropSchemaToFieldDefs(schema: LayoutPropSchema | undefined): FieldDef[] | undefined {
+  if (!schema?.fields?.length) return undefined;
+  const out: FieldDef[] = [];
+  for (const f of schema.fields) {
+    if (isHiddenLayoutPropKey(f.key)) continue;
+    const ft = schemaLayoutPropTypeToFieldType(f.type);
+    if (!ft) continue;
+    out.push({
+      key: f.key,
+      label: f.label,
+      type: ft,
+      placeholder: f.placeholder,
+      maxItems: f.maxItems,
+      min: f.min,
+      max: f.max,
+      step: f.step,
+      options: f.options?.map((o) => ({ value: o.value, label: o.label })),
+      subFields: f.subFields,
+    });
+  }
+  return out.length ? out : undefined;
+}
+
+function pickCraftedCompiledLayoutFields(
+  byLayout: Record<string, FieldDef[]> | null | undefined,
+  layoutId: string | null,
+): FieldDef[] | undefined {
+  if (!byLayout || !layoutId) return undefined;
+  const direct = byLayout[layoutId];
+  if (Array.isArray(direct) && direct.length > 0) return direct;
+  const lower = layoutId.toLowerCase();
+  const altKey = Object.keys(byLayout).find((k) => k.toLowerCase() === lower);
+  const alt = altKey ? byLayout[altKey] : undefined;
+  if (Array.isArray(alt) && alt.length > 0) return alt;
+  return undefined;
+}
+
+function pickLayoutPropSchemaFieldDefs(
+  schemaMap: Record<string, LayoutPropSchema> | undefined,
+  layoutId: string | null,
+): FieldDef[] | undefined {
+  if (!schemaMap || !layoutId) return undefined;
+  let defs = layoutPropSchemaToFieldDefs(schemaMap[layoutId]);
+  if (defs?.length) return defs;
+  const lower = layoutId.toLowerCase();
+  const altKey = Object.keys(schemaMap).find((k) => k.toLowerCase() === lower);
+  return altKey ? layoutPropSchemaToFieldDefs(schemaMap[altKey]) : undefined;
+}
+
+function normalizeObjectArrayItems(raw: unknown): Record<string, string>[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((it) => {
+    if (it != null && typeof it === "object" && !Array.isArray(it)) {
+      const o = it as Record<string, unknown>;
+      const out: Record<string, string> = {};
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        out[k] =
+          v == null
+            ? ""
+            : typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+              ? String(v)
+              : JSON.stringify(v);
+      }
+      return out;
+    }
+    return { value: String(it ?? "") };
+  });
+}
+
+function inferObjectArraySubFields(
+  items: Record<string, string>[],
+): { key: string; label: string; placeholder?: string }[] {
+  const first = items.find((row) => row && typeof row === "object");
+  if (!first) return [];
+  return Object.keys(first).map((k) => ({
+    key: k,
+    label: k.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
+  }));
+}
+
+function formatUnknownLayoutPropValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function parseUnknownLayoutPropValue(raw: string, prevValue: unknown): unknown {
+  // For array/object props, preserve shape by accepting JSON edits.
+  if (Array.isArray(prevValue) || (prevValue != null && typeof prevValue === "object")) {
+    const trimmed = raw.trim();
+    if (!trimmed) return Array.isArray(prevValue) ? [] : {};
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return prevValue;
+    }
+  }
+  return raw;
 }
 
 // Auto-growing textarea component
@@ -1484,7 +1824,6 @@ export default function SceneEditModal({
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
-  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
@@ -1524,6 +1863,7 @@ export default function SceneEditModal({
   const canUseAI = isPro || aiUsageCount < 3;
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
+  const isCraftedTemplate = (project.template || "").startsWith("crafted_");
   const normalizedTemplateId = (project.template || "default").toLowerCase();
   const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
@@ -1534,8 +1874,9 @@ export default function SceneEditModal({
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
-        // Custom templates: check for variant override first
-        if (desc.sceneTypeOverride) {
+        // Only custom templates use sceneType/content variant routing.
+        // Crafted + built-in templates should map by explicit layout id.
+        if (isCustomTemplate && desc.sceneTypeOverride) {
           if (desc.sceneTypeOverride === "content" && typeof desc.contentVariantIndex === "number") {
             return `content_${desc.contentVariantIndex}`;
           }
@@ -1573,18 +1914,23 @@ export default function SceneEditModal({
     return sorted.length > 1 && sorted[sorted.length - 1].id === scene.id;
   })();
   const isEndingScene = currentLayoutId === "ending_socials" || isCustomOutro;
+  const [craftedFrontendFiles, setCraftedFrontendFiles] = useState<Record<string, string> | null>(null);
+  // Per-layout SceneEditModal field overrides loaded from the crafted
+  // template's bundled `frontend/layoutFields.ts`. Compiled at runtime;
+  // falls back to LAYOUT_TEXT_FIELDS / meta.json when null.
+  const [craftedLayoutFieldsByLayout, setCraftedLayoutFieldsByLayout] =
+    useState<Record<string, FieldDef[]> | null>(null);
+  /** False while `layout_fields` TS is compiling — avoids showing `[object Object]` in generic extra-key inputs. */
+  const [craftedLayoutFieldsReady, setCraftedLayoutFieldsReady] = useState(true);
+  const { craftedTemplates, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
-  const defaultFontSizes =
-    getDefaultFontSizesFromSchema(
-      layouts?.layout_prop_schema,
-      currentLayoutId,
-      project.aspect_ratio || "landscape"
-    ) ??
-    getDefaultFontSizes(
-      project.template || "default",
-      currentLayoutId,
-      project.aspect_ratio || "landscape"
-    );
+  const defaultFontSizes = resolveDefaultFontSizesForScene({
+    template: project.template || "default",
+    layoutId: currentLayoutId,
+    aspectRatio: project.aspect_ratio || "landscape",
+    layoutPropSchema: layouts?.layout_prop_schema,
+    craftedFrontendFiles,
+  });
 
   const aiHasChanges =
     description.trim().length > 0 ||
@@ -1864,21 +2210,89 @@ export default function SceneEditModal({
       } catch { /* ignore */ }
     }
     setEditableStructuredContent(scInit);
-    const schemaDefaults = getDefaultFontSizesFromSchema(
-      layouts?.layout_prop_schema,
+    const defaults = resolveDefaultFontSizesForScene({
+      template: project.template || "default",
       layoutId,
-      project.aspect_ratio || "landscape"
-    );
-    const defaults = schemaDefaults ?? getDefaultFontSizes(
-      project.template || "default",
-      layoutId,
-      project.aspect_ratio || "landscape"
-    );
+      aspectRatio: project.aspect_ratio || "landscape",
+      layoutPropSchema: layouts?.layout_prop_schema,
+      craftedFrontendFiles,
+    });
     if (!ts) ts = String(defaults.title);
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, openImageAdjustOnOpen]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, craftedFrontendFiles, isCraftedTemplate, openImageAdjustOnOpen]);
+
+  useEffect(() => {
+    if (!open || !isCraftedTemplate || !project.template) {
+      setCraftedFrontendFiles(null);
+      return;
+    }
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    setCraftedFrontendFiles((found?.frontend_files as Record<string, string> | null) || null);
+    if (!found?.frontend_files) {
+      void ensureCraftedTemplateDetail(project.template);
+    }
+  }, [open, isCraftedTemplate, project.template, craftedTemplates, ensureCraftedTemplateDetail]);
+
+  // Compile the bundled `frontend/layoutFields.ts` into a Record<layoutId, FieldDef[]>.
+  // The source ships on the list-summary (no full-package fetch needed).
+  // Module-level cache (`__craftedLayoutFieldsCache`) survives modal close/reopen.
+  useEffect(() => {
+    if (!open || !isCraftedTemplate || !project.template) {
+      setCraftedLayoutFieldsByLayout(null);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    const templateId = project.template;
+    const found = craftedTemplates.find((ct) => ct.id === templateId);
+    const source = (found as { layout_fields?: string | null } | undefined)?.layout_fields;
+    if (!source || !String(source).trim()) {
+      setCraftedLayoutFieldsByLayout(null);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    const cached = __craftedLayoutFieldsCache.get(templateId);
+    if (cached) {
+      setCraftedLayoutFieldsByLayout(cached);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    let cancelled = false;
+    setCraftedLayoutFieldsReady(false);
+    void compileDataModule(source)
+      .then((mod) => {
+        if (cancelled) return;
+        const raw = (mod?.LAYOUT_FIELDS ?? mod?.default ?? null) as
+          | Record<string, FieldDef[]>
+          | null;
+        if (!raw || typeof raw !== "object") {
+          setCraftedLayoutFieldsByLayout(null);
+          return;
+        }
+        // Defensive shape check — drop entries that aren't arrays of objects with a `key`.
+        const safe: Record<string, FieldDef[]> = {};
+        for (const [layoutId, fields] of Object.entries(raw)) {
+          if (!Array.isArray(fields)) continue;
+          const valid = fields.filter(
+            (f): f is FieldDef => !!f && typeof f === "object" && typeof (f as { key?: unknown }).key === "string",
+          );
+          if (valid.length > 0) safe[layoutId] = valid;
+        }
+        __craftedLayoutFieldsCache.set(templateId, safe);
+        setCraftedLayoutFieldsByLayout(safe);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCraftedLayoutFieldsByLayout(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCraftedLayoutFieldsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isCraftedTemplate, project.template, craftedTemplates]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -2513,19 +2927,6 @@ export default function SceneEditModal({
   }, [imageAdjustOpen, imageAdjustSrc]);
 
   const openImageAdjustModal = (src: string) => {
-    let ar: string;
-    if (project.template?.startsWith("custom_")) {
-      ar = resolveCustomImageBoxAr(scene, project);
-    } else {
-      const templateCfg = getTemplateConfig(project.template || "default");
-      ar = getImageBoxAspectRatio(
-        currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
-        project.aspect_ratio || "landscape",
-        templateCfg.baseWidth,
-        templateCfg.baseHeight,
-      );
-    }
-    setImageAdjustAspectRatio(ar);
     setImageAdjustSrc(src);
     setIsAdjustDragging(false);
     const currentZoom = Math.max(1, Number((editableLayoutProps.imageZoom as number) || 1));
@@ -2822,8 +3223,27 @@ export default function SceneEditModal({
                   );
                 }
 
-                const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
-                let layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
+                // Crafted templates: prefer fields shipped in the bundle's
+                // `frontend/layoutFields.ts`. Fall back to LAYOUT_TEXT_FIELDS
+                // (keyed by layout id) for any layout the bundle hasn't
+                // declared, so unknown crafted layouts still render *some*
+                // controls instead of being blank.
+                const craftedTemplateEntry = isCraftedTemplate
+                  ? craftedTemplates.find((ct) => ct.id === project.template)
+                  : undefined;
+                const craftedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickCraftedCompiledLayoutFields(craftedLayoutFieldsByLayout, currentLayoutId)
+                    : undefined;
+                const schemaBackedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickLayoutPropSchemaFieldDefs(craftedTemplateEntry?.layout_prop_schema, currentLayoutId)
+                    : undefined;
+                const rawLayoutFields =
+                  craftedFields ??
+                  schemaBackedFields ??
+                  getLayoutFields(project.template || "default", currentLayoutId);
+                let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
 
                 if (isNewscastTemplate && currentLayoutId === "data_visualization") {
                   const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
@@ -2850,14 +3270,24 @@ export default function SceneEditModal({
                   isBloombergTemplate && currentLayoutId === "terminal_chart";
                 const suppressExtraKeysForBloombergDataViz =
                   isBloombergTemplate && currentLayoutId === "terminal_dataviz";
+                const craftedHasLayoutFieldsSource =
+                  isCraftedTemplate &&
+                  Boolean(
+                    String(
+                      (craftedTemplateEntry as { layout_fields?: string | null } | undefined)?.layout_fields ?? "",
+                    ).trim(),
+                  );
+                const deferCraftedExtraKeys = craftedHasLayoutFieldsSource && !craftedLayoutFieldsReady;
                 const extraKeys =
                   (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz)
                     ? []
+                    : deferCraftedExtraKeys
+                      ? []
                     : currentLayoutId && editableLayoutProps
                       ? Object.keys(editableLayoutProps).filter(
                           (key) =>
                             !knownKeys.has(key) &&
-                            !HIDDEN_LAYOUT_PROP_KEYS.has(key) &&
+                            !isHiddenLayoutPropKey(key) &&
                             !isDeprecatedLayoutPropKey(
                               project.template,
                               currentLayoutId,
@@ -3350,8 +3780,13 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
-                      if (field.type === "object_array" && field.subFields) {
-                        const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as Record<string, string>[];
+                      if (field.type === "object_array") {
+                        const items = normalizeObjectArrayItems(editableLayoutProps[field.key]);
+                        const subFields =
+                          field.subFields?.length
+                            ? field.subFields
+                            : inferObjectArraySubFields(items);
+                        if (!subFields.length) return null;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -3360,7 +3795,7 @@ export default function SceneEditModal({
                                 <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                                   <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                   <div className="flex-1 space-y-2">
-                                    {field.subFields!.map((sf) => (
+                                    {subFields.map((sf) => (
                                       <div key={sf.key}>
                                         <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
                                         <input
@@ -3396,7 +3831,7 @@ export default function SceneEditModal({
                                   type="button"
                                   onClick={() => {
                                     const empty: Record<string, string> = {};
-                                    field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                    subFields.forEach((sf) => { empty[sf.key] = ""; });
                                     setEditableLayoutProps((prev) => ({ ...prev, [field.key]: [...items, empty] }));
                                   }}
                                   className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
@@ -3415,24 +3850,92 @@ export default function SceneEditModal({
                     })}
                     {extraKeys.length > 0 && (
                       <div className="space-y-3">
-                        {extraKeys.map((key) => (
-                          <div key={key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
-                              {humanLabel(key)}
-                            </label>
-                            <input
-                              type="text"
-                              value={String(editableLayoutProps[key] ?? "")}
-                              onChange={(e) =>
-                                setEditableLayoutProps((prev) => ({
-                                  ...prev,
-                                  [key]: e.target.value,
-                                }))
-                              }
-                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                          </div>
-                        ))}
+                        {extraKeys.map((key) => {
+                          const rawValue = editableLayoutProps[key];
+                          const looksLikeObjectArray = Array.isArray(rawValue)
+                            && rawValue.every((it) => it != null && typeof it === "object" && !Array.isArray(it));
+                          if (looksLikeObjectArray) {
+                            const items = normalizeObjectArrayItems(rawValue);
+                            const subFields = inferObjectArraySubFields(items);
+                            if (!subFields.length) return null;
+                            return (
+                              <div key={key}>
+                                <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                                  {humanLabel(key)}
+                                </label>
+                                <div className="space-y-3">
+                                  {items.map((item, i) => (
+                                    <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                                      <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
+                                      <div className="flex-1 space-y-2">
+                                        {subFields.map((sf) => (
+                                          <div key={sf.key}>
+                                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
+                                            <input
+                                              type="text"
+                                              value={item[sf.key] ?? ""}
+                                              placeholder={sf.placeholder || sf.label}
+                                              onChange={(e) => {
+                                                const updated = [...items];
+                                                updated[i] = { ...updated[i], [sf.key]: e.target.value };
+                                                setEditableLayoutProps((prev) => ({ ...prev, [key]: updated }));
+                                              }}
+                                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = items.filter((_, j) => j !== i);
+                                          setEditableLayoutProps((prev) => ({ ...prev, [key]: updated }));
+                                        }}
+                                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                                {humanLabel(key)}
+                              </label>
+                              {(rawValue != null && typeof rawValue === "object") ? (
+                                <AutoGrowTextarea
+                                  value={formatUnknownLayoutPropValue(rawValue)}
+                                  onChange={(e) =>
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [key]: parseUnknownLayoutPropValue(e.target.value, prev[key]),
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden font-mono"
+                                  minRows={3}
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={formatUnknownLayoutPropValue(rawValue)}
+                                  onChange={(e) =>
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [key]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -3556,8 +4059,13 @@ export default function SceneEditModal({
                             </div>
                           );
                         }
-                        if (field.type === "object_array" && field.subFields) {
-                          const items = (Array.isArray(editableStructuredContent[field.key]) ? editableStructuredContent[field.key] : []) as Record<string, string>[];
+                        if (field.type === "object_array") {
+                          const items = normalizeObjectArrayItems(editableStructuredContent[field.key]);
+                          const subFields =
+                            field.subFields?.length
+                              ? field.subFields
+                              : inferObjectArraySubFields(items);
+                          if (!subFields.length) return null;
                           return (
                             <div key={field.key}>
                               <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -3566,7 +4074,7 @@ export default function SceneEditModal({
                                   <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                                     <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                     <div className="flex-1 space-y-2">
-                                      {field.subFields!.map((sf) => (
+                                      {subFields.map((sf) => (
                                         <div key={sf.key}>
                                           <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
                                           <input
@@ -3602,7 +4110,7 @@ export default function SceneEditModal({
                                     type="button"
                                     onClick={() => {
                                       const empty: Record<string, string> = {};
-                                      field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                      subFields.forEach((sf) => { empty[sf.key] = ""; });
                                       setEditableStructuredContent((prev) => ({ ...prev, [field.key]: [...items, empty] }));
                                     }}
                                     className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
@@ -3632,7 +4140,19 @@ export default function SceneEditModal({
                   <div>
                     <div className="flex justify-between items-baseline">
                       <label className="text-xs text-gray-400">Title font size</label>
-                      <span className="text-xs font-medium text-purple-600 tabular-nums">{titleFontSize}</span>
+                      {(() => {
+                        const parsed = parseInt(titleFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.title;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <input
                       type="range"
@@ -3647,7 +4167,19 @@ export default function SceneEditModal({
                   <div>
                     <div className="flex justify-between items-baseline ">
                       <label className="text-xs text-gray-400">Description font size</label>
-                      <span className="text-xs font-medium text-purple-600 tabular-nums">{descriptionFontSize}</span>
+                      {(() => {
+                        const parsed = parseInt(descriptionFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.desc;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <input
                       type="range"
@@ -4158,9 +4690,9 @@ export default function SceneEditModal({
               onMouseDown={handleAdjustMouseDown}
               onTouchStart={handleAdjustTouchStart}
               style={{
-                aspectRatio: imageAdjustAspectRatio,
+                height: "min(70vh, 26rem)",
                 maxHeight: "70vh",
-                maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                maxWidth: "min(100%, 42rem)",
               }}
               className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
                 isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
