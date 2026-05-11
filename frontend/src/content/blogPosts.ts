@@ -17,6 +17,841 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "whats-new-in-blog2video-six-features",
+    title: "What's New in Blog2Video: Six Features Worth Talking About",
+    description:
+      "Bloomberg Terminal and Chronicle templates, per-orientation image framing, PPT/PDF/MP4/PNG export, share URLs and iframes, plus referrals and bulk pricing — all live now.",
+    category: "Product updates",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Overview of Blog2Video product updates including new templates, exports, embeddings, and pricing.",
+    publishedAt: "2026-05-01",
+    readTime: "6 min read",
+    heroEyebrow: "Product updates",
+    heroTitle: "What's New in Blog2Video: Six Features Worth Talking About",
+    heroDescription:
+      "We've been building quietly. Here's what just shipped — new templates, smarter images, flexible exports, effortless embedding, and simpler ways to share and save.",
+    primaryKeyword: "blog2video updates",
+    keywordVariant: "blog2video new features",
+    relatedPaths: [
+      "/blog-to-video",
+      "/pricing",
+      "/templates/geometric-explainer",
+      "/blogs/best-templates-for-explainer-videos",
+    ],
+    sections: [
+      {
+        heading: "1. Bloomberg Terminal template",
+        paragraphs: [
+          "Finance writers, this one's for you.",
+          "The Bloomberg Terminal template mimics the iconic trading-terminal aesthetic: amber text on a dark canvas, a live ticker rail, monospaced precision, and that unmistakable sense of authority. Whether you're writing about macroeconomics, earnings, rates, or market structure, charts and data render with terminal-grade visual confidence.",
+          "It's calm. It's serious. It's credible.",
+        ],
+      },
+      {
+        heading: "2. Chronicle template",
+        paragraphs: [
+          "Some stories deserve more than a slideshow.",
+          "Chronicle turns long-form posts into something that feels like a page from a carefully printed volume: cream backgrounds, tall serif type, illuminated drop caps on opening letters, ornamental borders, and chapter-like motion — built so history essays, biographies, and narrative explainers get the pace and weight they deserve.",
+          "History buffs will feel right at home.",
+        ],
+      },
+      {
+        heading: "3. Per-orientation image adjustment",
+        paragraphs: [
+          "Images now adapt to whichever layout you're using.",
+          "Landscape or portrait, built-in templates or custom ones — reposition and re-crop so subjects stay framed. No more awkward crops or off-center heroes; one asset, tuned for the frame it lives in.",
+        ],
+      },
+      {
+        heading: "4. Download as PPT, PDF, MP4, or PNG",
+        paragraphs: [
+          "Export the way your audience actually consumes content.",
+          "Blog2Video now supports four outputs: full MP4 video, individual PNG slides, a shareable PDF deck, and PowerPoint. PNG export is especially handy for LinkedIn carousels — turn a video script into slide-by-slide assets ready for your feed.",
+          "One script. Four formats. Every channel covered.",
+        ],
+      },
+      {
+        heading: "5. URL and iframe embeddings",
+        paragraphs: [
+          "Your videos can live wherever you do.",
+          "Every output includes a shareable URL and a ready-to-paste iframe snippet. Drop it into a site, newsletter, Notion page, or docs — no extra upload to a third-party host. Copy, paste, done.",
+        ],
+      },
+      {
+        heading: "6. Referral program and bulk pricing",
+        paragraphs: [
+          "We wanted to make it easy to share Blog2Video with people who'd love it.",
+          "Referrals: share your link. When someone signs up through it, they get three free videos — and so do you. No strings, no clawbacks.",
+          "Bulk pricing scales with volume: 1–9 videos at $4 each, 10–29 at $3 each, and 30+ at $2.80 each. The more you make, the less you pay per video.",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "All six features are live now at blog2video.app.",
+          "Made with love by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where can I use the new Bloomberg Terminal and Chronicle templates?",
+        answer:
+          "They are available in the product today alongside your other template choices. Pick the look that matches your story before you generate or export.",
+      },
+      {
+        question: "What can I download from a project?",
+        answer:
+          "You can download MP4 video, a PowerPoint deck, a PDF, or PNG slides — so you can publish as video, slides, print-style PDF, or per-frame images (for example carousels).",
+      },
+      {
+        question: "How do share URLs and iframes work?",
+        answer:
+          "Each output includes a link you can send and an iframe snippet you can paste into webpages or tools that accept embeds, without uploading files elsewhere.",
+      },
+      {
+        question: "How does the referral credit work?",
+        answer:
+          "When someone signs up with your referral link, both you and they receive bonus videos according to the current referral terms — designed so sharing is simple and mutual.",
+      },
+      {
+        question: "How does bulk pricing work?",
+        answer:
+          "Pricing tiers by volume: $4 per video for 1–9, $3 each for 10–29, and $2.80 each for 30 or more, so higher output lowers your per-video cost.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "What's New in Blog2Video: Six Features Worth Talking About",
+        angle:
+          "Announce templates, image controls, multi-format export, embeds, referrals, and bulk pricing in one product-update article.",
+      },
+      {
+        channel: "video",
+        title: "Six New Blog2Video Features in One Tour",
+        angle: "Reuse the embedded YouTube walkthrough and clip per-feature segments for Shorts or LinkedIn.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped: terminal aesthetics, Chronicle layouts, and four-way export",
+        angle: "Written-first creators get concrete shipping notes they can relate to their own workflows.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video product notes — templates, exports, embeds, pricing",
+        angle: "Medium-long commentary on why exports and embeds matter for distribution.",
+      },
+    ],
+  },
+  {
+    slug: "ai-linkedin-carousel-generator-from-existing-content",
+    title: "AI LinkedIn Carousel Generator From Existing Content",
+    description:
+      "Turn articles, PDFs, docs, and existing written content into LinkedIn carousel slides you can download as PowerPoint, PDF, or PNG.",
+    category: "Slide workflow",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Editorial illustration of written content being transformed into polished LinkedIn carousel slides and downloadable presentation assets.",
+    publishedAt: "2026-04-30",
+    readTime: "7 min read",
+    heroEyebrow: "Slide workflow",
+    heroTitle: "The best AI LinkedIn carousel workflow starts with real content, not a blank canvas.",
+    heroDescription:
+      "If the article, PDF, or document already exists, the fastest path to a LinkedIn carousel is turning that structure into slides you can export as PDF, PowerPoint, or PNG.",
+    primaryKeyword: "ai linkedin carousel generator",
+    keywordVariant: "linkedin carousel from article",
+    relatedPaths: [
+      "/blog-to-linkedin-video",
+      "/article-to-video",
+      "/pptx-to-video",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why carousel creation works better from existing content",
+        paragraphs: [
+          "Most LinkedIn carousels are just structured ideas presented slide by slide: a hook, a few supporting points, proof, and a close. That means the strongest source material is often something you already wrote, such as an article, an explainer page, a PDF, or internal notes.",
+          "Instead of rebuilding the same argument manually in a design tool, an AI carousel workflow can start from the content itself, preserve the logic, and turn it into slides that are already organized around the story.",
+        ],
+      },
+      {
+        heading: "Why the export format matters",
+        paragraphs: [
+          "A carousel is not just one design artifact. You usually need different outputs for different jobs: a PDF for LinkedIn upload, a PowerPoint for editing or client review, and PNG slides for reuse in posts, ads, or other channels.",
+          "That is where most AI carousel tools fall short. They may help generate ideas, but they do not always produce download-ready formats you can actually use across the workflow.",
+        ],
+        bullets: [
+          "PDF is useful for LinkedIn carousel publishing",
+          "PowerPoint is useful when the slides still need editing or review",
+          "PNG slides are useful for repurposing individual frames across channels",
+        ],
+      },
+      {
+        heading: "How Blog2Video fits the workflow",
+        paragraphs: [
+          "Blog2Video already turns written content into structured scenes. That same scene structure can now be exported as slides, which makes it useful for carousel production as well as video.",
+          "You can generate the scenes from the source content, choose the best frame for each slide, then download the result as PowerPoint, PDF, or one PNG per scene. That gives one source asset multiple distribution formats instead of forcing a separate design pass for each one.",
+        ],
+      },
+      {
+        heading: "What this is best for",
+        paragraphs: [
+          "This workflow is strongest for founder posts, B2B explainers, educational threads, research summaries, product lessons, and any content that already has a clear progression from problem to takeaway.",
+          "If the content already teaches something valuable, the carousel becomes a packaging layer rather than a separate content ideation job.",
+        ],
+        bullets: [
+          "Turn an article into a LinkedIn-ready PDF carousel",
+          "Give the same scenes to a teammate as a PowerPoint deck",
+          "Export PNGs for lightweight social reuse",
+        ],
+      },
+      {
+        heading: "A better AI carousel workflow",
+        paragraphs: [
+          "1. Start with a URL, article, PDF, or document you already trust.",
+          "2. Let Blog2Video structure that content into scenes automatically.",
+          "3. Pick the best frame for each scene, then download the slides as PowerPoint, PDF, or PNG depending on where they need to go next.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn content into slides and video",
+      },
+    ],
+    faq: [
+      {
+        question: "Can I use Blog2Video for LinkedIn carousel creation?",
+        answer:
+          "Yes. Once your content is structured into scenes, you can export those slides as a PDF for carousel posting, as a PowerPoint deck for editing, or as PNG files for per-slide reuse.",
+      },
+      {
+        question: "Why is PDF export important for LinkedIn carousels?",
+        answer:
+          "Because LinkedIn carousel workflows commonly rely on PDF uploads. If your AI workflow can generate structured slides and export them as PDF, the jump from source content to publishable carousel becomes much shorter.",
+      },
+      {
+        question: "What is the role of PowerPoint and PNG export here?",
+        answer:
+          "PowerPoint is useful for review, client edits, or team collaboration. PNG export is useful when you want each slide as a separate image for social reuse, asset libraries, or design handoff.",
+      },
+      {
+        question: "What source content works best for AI carousel generation?",
+        answer:
+          "Articles, explainers, PDFs, research summaries, documentation, and strong internal notes all work well because they already contain the sequence of ideas a carousel needs.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "AI LinkedIn Carousel Generator From Existing Content",
+        angle: "Capture search intent around turning articles, PDFs, and docs into downloadable LinkedIn carousel slides.",
+      },
+      {
+        channel: "video",
+        title: "Turn Articles Into LinkedIn Carousels With AI",
+        angle: "Show a source article becoming scenes, then export the slides as PDF, PowerPoint, and PNG.",
+      },
+      {
+        channel: "substack",
+        title: "The fastest carousel workflow starts with content you already wrote",
+        angle: "Frame carousel production as repackaging structured ideas rather than designing every slide from zero.",
+      },
+      {
+        channel: "medium",
+        title: "Why the best AI LinkedIn carousel generator is really a content-structuring workflow",
+        angle: "Explain why source material quality and export flexibility matter more than blank-canvas slide generation.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-turn-a-link-into-a-powerpoint-with-ai",
+    title: "How To Turn a Link Into a PowerPoint With AI",
+    description:
+      "Use a published URL as the source, generate structured slides automatically, and download the result as PowerPoint, PDF, or PNG.",
+    category: "Presentation workflow",
+    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImageAlt:
+      "Editorial illustration of a webpage link being transformed into a PowerPoint deck with structured slides and downloadable outputs.",
+    publishedAt: "2026-04-30",
+    readTime: "7 min read",
+    heroEyebrow: "Presentation workflow",
+    heroTitle: "A good link-to-PowerPoint workflow does not copy the page. It restructures the idea.",
+    heroDescription:
+      "If a URL already explains something clearly, AI should help turn that page into a slide deck you can actually download and reuse.",
+    primaryKeyword: "link to powerpoint",
+    keywordVariant: "url to powerpoint with ai",
+    relatedPaths: [
+      "/url-to-video",
+      "/pptx-to-video",
+      "/article-to-video",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why link-to-PPT is a real workflow need",
+        paragraphs: [
+          "A lot of useful presentation material already lives on the web: landing pages, help-center articles, founder essays, research posts, product launch notes, and internal documentation. The problem is that web pages are written for scrolling, not for slides.",
+          "A useful link-to-PowerPoint workflow should identify the structure inside the page, pull out the main sections, and turn them into a deck that is easier to present, review, or repurpose elsewhere.",
+        ],
+      },
+      {
+        heading: "What usually goes wrong",
+        paragraphs: [
+          "The weak version of this workflow is screenshotting a page or dumping paragraphs directly onto slides. That creates decks that feel dense, repetitive, and clearly not designed for presentation.",
+          "The stronger version is restructuring. The AI should convert the page into scene-level or slide-level units, each with one job to do, rather than pretending the webpage layout itself is already a deck.",
+        ],
+        bullets: [
+          "Do not treat a webpage like a finished slide deck",
+          "Extract the logic, not just the text blocks",
+          "Use the URL as the source of truth, then rebuild for presentation",
+        ],
+      },
+      {
+        heading: "Why downloadable formats matter",
+        paragraphs: [
+          "The point of turning a link into slides is not only generating them. It is being able to use them afterward. Some teams need a PowerPoint deck. Some need a PDF to share quickly. Others want individual PNG slides for a content workflow.",
+          "Once Blog2Video structures the source page into scenes, those scenes can now be downloaded as PowerPoint, PDF, or one PNG per scene, which makes the workflow useful beyond video alone.",
+        ],
+      },
+      {
+        heading: "How Blog2Video handles it",
+        paragraphs: [
+          "1. Paste the URL and let Blog2Video read the source structure.",
+          "2. Generate scenes that turn the written material into a clearer presentation sequence.",
+          "3. Review each scene, choose the best frame for the slide, then export as PowerPoint, PDF, or PNG depending on the next step in the workflow.",
+        ],
+        ctaPath: "/url-to-video",
+        ctaLabel: "Start from a URL",
+      },
+      {
+        heading: "Who this is best for",
+        paragraphs: [
+          "This is especially useful for marketers repackaging posts into sales material, operators turning documentation into internal decks, founders converting launch pages into presentation assets, and educators adapting article-style content into teaching slides.",
+          "The source page already did the hard part by organizing the idea. The deck is just a more portable format for the same insight.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Can I really turn a URL into a PowerPoint deck?",
+        answer:
+          "Yes. If the page already contains a structured explanation, Blog2Video can turn that material into scenes and then export those scenes as a downloadable PowerPoint deck.",
+      },
+      {
+        question: "Why export as PDF or PNG too?",
+        answer:
+          "Because different workflows need different outputs. PowerPoint is useful for editing, PDF is useful for quick sharing, and PNG slides are useful for reusing the deck one frame at a time.",
+      },
+      {
+        question: "What kind of links work best for this?",
+        answer:
+          "Explainer pages, long-form articles, launch posts, documentation, thought-leadership pieces, and educational guides work best because they already have a natural sequence of ideas.",
+      },
+      {
+        question: "Is this better than manually copying a page into slides?",
+        answer:
+          "Yes. Manual copy-paste usually produces bloated decks. A structured workflow is better because it turns the page into presentation units instead of simply transferring webpage text onto slides.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How To Turn a Link Into a PowerPoint With AI",
+        angle: "Capture intent around URL-to-PPT conversion and downloadable slide generation.",
+      },
+      {
+        channel: "video",
+        title: "Paste a Link, Get a PowerPoint Deck",
+        angle: "Show a webpage becoming scenes, then a PowerPoint, PDF, and PNG slide export.",
+      },
+      {
+        channel: "substack",
+        title: "The fastest way to make a deck is to start with a page that already explains the idea",
+        angle: "Lead with the leverage of repackaging existing web content into presentation assets.",
+      },
+      {
+        channel: "medium",
+        title: "Link to PowerPoint with AI: why restructuring matters more than screenshotting",
+        angle: "Explain why the strongest URL-to-PPT workflows rebuild the message for slides instead of copying the page.",
+      },
+    ],
+  },
+  {
+    slug: "ai-ppt-generator-for-articles-pdfs-and-docs",
+    title: "AI PPT Generator for Articles, PDFs, and Docs",
+    description:
+      "Use existing written content as the source for a downloadable PowerPoint deck, PDF handout, or PNG slide set instead of starting from blank slides.",
+    category: "Presentation workflow",
+    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImageAlt:
+      "Editorial illustration of articles, PDFs, and documents flowing into an AI-generated PowerPoint deck and slide export workflow.",
+    publishedAt: "2026-04-30",
+    readTime: "8 min read",
+    heroEyebrow: "Presentation workflow",
+    heroTitle: "The most useful AI PPT generator is the one that starts from content you already trust.",
+    heroDescription:
+      "If the article, PDF, or document already contains the thinking, AI should help package it into slides you can edit, share, and repurpose.",
+    primaryKeyword: "ai ppt generator",
+    keywordVariant: "ai powerpoint generator from content",
+    relatedPaths: [
+      "/pptx-to-video",
+      "/pdf-to-video",
+      "/article-to-video",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why AI PPT demand keeps growing",
+        paragraphs: [
+          "Teams already have a huge amount of presentation-ready knowledge in article libraries, PDFs, internal docs, product pages, and educational content. The bottleneck is not always writing the material. It is packaging that material into a usable deck.",
+          "That is why AI PPT demand is growing. People want a faster way to turn trusted source content into slides without recreating the same argument from scratch every time.",
+        ],
+      },
+      {
+        heading: "The best AI PPT workflow is content-first",
+        paragraphs: [
+          "A deck is usually just a compressed explanation. If the source content already has a clear sequence of problem, insight, evidence, and conclusion, the strongest AI workflow is using that structure rather than generating disconnected slide copy from a prompt box.",
+          "This is especially true for explainers, lessons, research summaries, internal training, and product marketing. In those cases, the source content is the asset. The deck is one output format built from it.",
+        ],
+        bullets: [
+          "Start from a source asset you already trust",
+          "Let AI extract sections and convert them into slide-level units",
+          "Use export formats that match how the deck will actually be used",
+        ],
+      },
+      {
+        heading: "Why PowerPoint alone is not enough",
+        paragraphs: [
+          "A lot of teams do want PowerPoint, but not only PowerPoint. They also need PDF handouts for sharing and PNG slides for lightweight design or social workflows.",
+          "Now that Blog2Video can export scene-based slides as PowerPoint, PDF, or one PNG per scene, the same content can support presentation, distribution, review, and repurposing without additional manual rebuilding.",
+        ],
+      },
+      {
+        heading: "Where Blog2Video fits",
+        paragraphs: [
+          "Blog2Video already turns written material into scenes for video. That means the underlying structure needed for a deck is already there: one idea at a time, organized into a progression.",
+          "Once the scenes exist, you can adjust the frame for each slide and export the result in the format you need. That makes Blog2Video useful not only for video creation, but also for slide-based outputs built from the same source content.",
+        ],
+      },
+      {
+        heading: "How to use it",
+        paragraphs: [
+          "1. Start from an article, PDF, doc, or URL.",
+          "2. Generate scenes from that source material.",
+          "3. Export the slide version as PowerPoint, PDF, or PNG depending on whether the next job is presenting, sharing, or repurposing.",
+        ],
+        ctaPath: "/pptx-to-video",
+        ctaLabel: "See the PPT workflow",
+      },
+    ],
+    faq: [
+      {
+        question: "What makes a good AI PPT generator?",
+        answer:
+          "The best ones start from real source material, preserve the structure of the underlying idea, and output formats you can actually use afterward such as PowerPoint, PDF, or PNG slides.",
+      },
+      {
+        question: "Can Blog2Video generate PowerPoint decks from articles or PDFs?",
+        answer:
+          "Yes. It can turn structured source content into scenes, then export those slides as a PowerPoint deck. The same scenes can also be exported as PDF or PNG files.",
+      },
+      {
+        question: "Why would I want PNG slide export too?",
+        answer:
+          "PNG export is useful when you want to reuse individual slides in social posts, creative workflows, design review, or asset libraries without opening the full deck.",
+      },
+      {
+        question: "Who benefits most from this kind of AI PPT workflow?",
+        answer:
+          "Marketers, educators, founders, researchers, operators, and documentation teams all benefit because they already create structured written material that can be repackaged into decks.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "AI PPT Generator for Articles, PDFs, and Docs",
+        angle: "Capture search demand around AI-generated PowerPoint decks built from existing source content.",
+      },
+      {
+        channel: "video",
+        title: "Use AI to Turn Articles and PDFs Into PowerPoint Slides",
+        angle: "Show written content becoming scenes, then a downloadable PPT, PDF, and PNG slide set.",
+      },
+      {
+        channel: "substack",
+        title: "AI PPT is most useful when it packages content you already wrote",
+        angle: "Frame AI presentations as repurposing leverage rather than blank-slide generation.",
+      },
+      {
+        channel: "medium",
+        title: "What an AI PPT generator should actually do for content teams",
+        angle: "Explain why source-asset reuse and export flexibility matter more than generic slide generation.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-embed-preview-no-render-needed",
+    title: "Blog2Video Now Lets You Embed and Share Video Previews Without Rendering",
+    description:
+      "Blog2Video now lets you generate an embed link for any video draft with scenes so teammates, clients, and readers can preview and share it before the final render.",
+    category: "Product Update",
+    publishedAt: "2026-04-23",
+    readTime: "4 min read",
+    heroEyebrow: "Product Update - April 2026",
+    heroTitle: "Any video draft can now be previewed, embedded, and shared before rendering.",
+    heroDescription:
+      "If a project already has scenes, you can now generate a live embed link and let other people review the video in a browser or on your site without waiting for a final render.",
+    primaryKeyword: "embed video preview without rendering",
+    keywordVariant: "share video preview before render",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/distribution-flywheel",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "The bottleneck used to be the render",
+        paragraphs: [
+          "Before this update, sharing a work-in-progress video often meant waiting for a full render just to get feedback. That slowed down approvals, client review, and simple publishing workflows where the main question was whether the scenes, pacing, and structure already worked.",
+          "The new embed feature removes that bottleneck. As soon as a project has scenes, Blog2Video can generate a shareable preview link that plays the live video draft directly in the browser.",
+        ],
+      },
+      {
+        heading: "What the new embed feature actually does",
+        paragraphs: [
+          "You can now generate an embed snippet for any project with scenes and place it inside a website, article, knowledge-base page, or internal tool. The person opening it sees the live preview version of the video instead of a rendered export.",
+          "That means the project becomes reviewable and shareable earlier in the workflow. You do not need to spend a render just to show someone what the video is shaping up to look like.",
+        ],
+        bullets: [
+          "Create a shareable preview as soon as scenes exist",
+          "Embed the video draft with an iframe snippet",
+          "Let teammates or clients review the current version before final export",
+        ],
+      },
+      {
+        heading: "Why this matters in real workflows",
+        paragraphs: [
+          "The biggest win is speed. Teams can review structure, branding, voice fit, and scene order before committing to the final render. That makes the render step feel more like publishing and less like guesswork.",
+          "It also makes distribution more flexible. A marketing team can drop the preview into a draft blog post, a founder can send it to a client for approval, and an editor can collect feedback without generating a final file every time something small changes.",
+        ],
+        bullets: [
+          "Faster stakeholder review before publishing",
+          "Less wasted rendering on early drafts",
+          "Easier sharing across blogs, docs, and client workflows",
+        ],
+      },
+      {
+        heading: "A better fit for written-first creation",
+        paragraphs: [
+          "Blog2Video already starts from written content, then turns that material into a scene-by-scene video draft you can edit. The embed feature extends that logic. The draft is no longer trapped inside the editor while you wait for export.",
+          "If your workflow involves article pages, landing pages, newsletters, course portals, or internal review loops, the preview itself is now something you can distribute while the project is still being refined.",
+        ],
+      },
+      {
+        heading: "When to render and when not to",
+        paragraphs: [
+          "Rendering is still the right step when you need the final downloadable asset for YouTube, direct uploads, or polished delivery. But not every moment in the workflow requires that final file.",
+          "If the goal is review, approval, or embedding the current version in a page, the live preview is often enough. That helps teams save renders for the moments when output quality and file delivery actually matter.",
+        ],
+      },
+      {
+        heading: "This is live now",
+        paragraphs: [
+          "Any Blog2Video project with scenes can now generate an embed link and be shared without rendering first. The result is a faster loop from draft to feedback to publish.",
+          "If you already use Blog2Video to turn posts, PDFs, or articles into videos, this update makes the review and sharing part of that workflow much lighter.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Create a video draft from an article",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to render the video before I can embed it?",
+        answer:
+          "No. If the project already has scenes, Blog2Video can generate an embed link that shows the live preview version without requiring a final render first.",
+      },
+      {
+        question: "What is the embed preview useful for?",
+        answer:
+          "It is useful for client review, internal approvals, draft blog embeds, documentation pages, landing pages, and any workflow where people need to see the current version before export.",
+      },
+      {
+        question: "Does rendering still matter after this update?",
+        answer:
+          "Yes. Rendering is still important when you need the final downloadable video file for publishing, uploads, or polished delivery. The new feature simply removes unnecessary rendering during review and sharing.",
+      },
+      {
+        question: "Can I share the preview outside the Blog2Video editor?",
+        answer:
+          "Yes. The feature generates an iframe-based embed snippet, so the preview can be opened or embedded outside the editor as part of your normal content and review workflow.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video Now Lets You Embed and Share Video Previews Without Rendering",
+        angle: "Product update announcing that any project with scenes can now be embedded and shared as a live preview before the final render.",
+      },
+      {
+        channel: "video",
+        title: "Share Blog2Video drafts before rendering",
+        angle: "Show a project with scenes, generate the embed link, paste the iframe snippet, and explain how this speeds up review and approvals.",
+      },
+      {
+        channel: "substack",
+        title: "Why removing the render bottleneck matters",
+        angle: "Frame the update around faster stakeholder feedback, fewer wasted renders, and smoother written-to-video workflows.",
+      },
+      {
+        channel: "medium",
+        title: "The missing step between video draft and final render",
+        angle: "Explain why preview-first sharing is a better workflow than rendering every iteration just to gather feedback.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-just-shipped-april-2026",
+    title: "Blog2Video Just Shipped: Templates, Mobile, Smarter Newscast, and More",
+    description:
+      "Blog2Video's latest release adds two new templates, full mobile support, a smarter Newscast workflow, faster review controls, better voiceovers, and expert-built custom templates.",
+    category: "Product Update",
+    publishedAt: "2026-04-16",
+    readTime: "5 min read",
+    heroEyebrow: "Product Update - April 2026",
+    heroTitle: "One of our biggest Blog2Video releases yet is live now.",
+    heroDescription:
+      "This release adds Mosaic and Black Swan, makes the app fully responsive on mobile and tablet, upgrades Newscast structure and data visuals, improves playback and render controls, and raises voiceover quality across the board.",
+    primaryKeyword: "blog2video product update",
+    keywordVariant: "blog2video april 2026 updates",
+    relatedPaths: [
+      "/blog-to-video",
+      "/templates/newscast",
+      "/custom-branded-video-templates",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "Still the same simple loop",
+        paragraphs: [
+          "If you are new to Blog2Video, the core workflow has not changed: paste a link, pick a voice and a template, then hit generate. That simplicity is still the point. This release improves what happens around that loop so creation feels faster, sharper, and more reliable without making the product more complicated.",
+          "Whether you are turning a long article into a polished explainer or publishing a recurring weekly show, the update is designed to reduce the amount of cleanup, waiting, and manual adjustment between source material and finished video.",
+        ],
+      },
+      {
+        heading: "Two new templates: Mosaic and Black Swan",
+        paragraphs: [
+          "Mosaic is built for editorial, multi-panel, brand-forward storytelling. The layout system leans on clean grids, strong typography, and a visual rhythm that feels closer to a serious publisher than a generic slideshow.",
+          "Black Swan takes the opposite approach: dark, cinematic, and high-contrast, with the kind of neon energy that fits launches, announcements, and moments that should feel more dramatic than a standard blog recap.",
+          "Both templates are production-ready the moment you select them, so teams can choose the tone that fits the story without needing a separate design pass.",
+        ],
+        bullets: [
+          "Mosaic: editorial, modular, and brand-forward",
+          "Black Swan: dark, cinematic, and launch-friendly",
+          "Both templates are ready to use immediately",
+        ],
+      },
+      {
+        heading: "The full product now works properly on mobile",
+        paragraphs: [
+          "Blog2Video is now fully responsive across phone and tablet. Creation, editing, controls, and project management are no longer treated like a compressed desktop view. The product behaves like something designed for smaller screens from the start.",
+          "That matters in real workflows. If you need to tweak a script while commuting, review a scene from the couch, or approve a render away from your desk, you can do it without fighting the interface.",
+        ],
+      },
+      {
+        heading: "Newscast got smarter and data got cleaner",
+        paragraphs: [
+          "The Newscast template now handles story structure more cleanly, treats source material more accurately, and avoids more of the awkward AI transitions that break the illusion of a polished broadcast segment.",
+          "Data-heavy scenes also look more like television graphics and less like pasted spreadsheet content. Chart-style visuals, including line-style trend treatments, now read the way viewers expect a briefing or update to read on screen.",
+        ],
+        bullets: [
+          "Better story structure for broadcast-style videos",
+          "Cleaner handling of source material and fewer awkward AI moments",
+          "Chart-style visuals that present numbers like broadcast graphics",
+        ],
+        ctaPath: "/templates/newscast",
+        ctaLabel: "Explore the Newscast template",
+      },
+      {
+        heading: "Faster review controls and more natural voiceovers",
+        paragraphs: [
+          "Playback and render speed are now more controllable, which makes review less tedious. You can move faster when checking pacing or catching typos, then render at full quality when the project is ready to publish.",
+          "Voiceover quality also improved across pronunciation, rhythm, and delivery. Those changes are subtle individually, but together they make explainers and product narration sound more human and easier to stay with from start to finish.",
+        ],
+        bullets: [
+          "Review faster with adjustable playback behavior",
+          "Render at full quality when you are ready to publish",
+          "Get clearer pronunciation and more natural narration rhythm",
+        ],
+      },
+      {
+        heading: "Custom templates can now be built with a designer and illustrator",
+        paragraphs: [
+          "The biggest unlock for some teams is not just picking a built-in template. It is commissioning a custom one built by a motion designer working with an illustrator, using your website, decks, and tone of voice as the source material.",
+          "That process goes beyond a theme swap. The result can include brand-matched layout systems, typography decisions, motion beats, and bespoke frame art so the finished output feels authored for your company rather than adapted from a generic preset.",
+          "You can iterate through written feedback until the template matches how your team actually presents itself on camera and across content.",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "Learn about custom templates",
+      },
+      {
+        heading: "Everything above is live now",
+        paragraphs: [
+          "Every part of this release is already live on blog2video.app. If you have been waiting for a better moment to turn a backlog of posts into video, this is a strong one: more visual range, better mobile usability, smarter news-style output, and cleaner narration in the same simple workflow.",
+          "Questions or a custom-template brief? Open the product, start from any article URL, and the workflow begins there.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Start from an article URL",
+      },
+    ],
+    faq: [
+      {
+        question: "What is included in this Blog2Video release?",
+        answer:
+          "The release adds two new templates called Mosaic and Black Swan, full mobile and tablet responsiveness, a smarter Newscast workflow with better data visuals, more control over playback and render speed, stronger voiceover quality, and access to expert-built custom templates.",
+      },
+      {
+        question: "Does Blog2Video now work on phones and tablets?",
+        answer:
+          "Yes. The app is now fully responsive, so creation, editing, controls, and project management work properly on mobile and tablet rather than feeling like a squeezed desktop interface.",
+      },
+      {
+        question: "What changed in the Newscast template?",
+        answer:
+          "Newscast now structures stories more cleanly, handles source material more accurately, reduces awkward AI transitions, and presents charts and trend data in a more broadcast-style format.",
+      },
+      {
+        question: "Can I get a custom template made for my brand?",
+        answer:
+          "Yes. Blog2Video now offers custom-template work with a motion designer and illustrator who can build a template from your site, decks, and brand voice, then refine it through written feedback.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video Just Shipped: Templates, Mobile, Smarter Newscast, and More",
+        angle: "Product update post covering new templates, mobile responsiveness, Newscast improvements, faster review controls, better voiceovers, and custom-template services.",
+      },
+      {
+        channel: "video",
+        title: "Biggest Blog2Video update yet: Mosaic, Black Swan, mobile, and smarter Newscast",
+        angle: "YouTube caption: Walk through the new templates, show mobile editing in action, highlight the upgraded Newscast data visuals, and close on expert-built custom templates now live.",
+      },
+      {
+        channel: "substack",
+        title: "Why this Blog2Video release matters for written-first teams",
+        angle: "Frame the update around speed, usability, and stronger output quality for teams turning articles into repeatable video.",
+      },
+      {
+        channel: "medium",
+        title: "What changed in Blog2Video: templates, mobile workflows, Newscast upgrades, and better voiceovers",
+        angle: "Break down the release by workflow impact rather than by feature list.",
+      },
+    ],
+  },
+  {
+    slug: "faceless-videos-for-writers-and-marketers",
+    title: "Faceless Videos for Writers and Marketers",
+    description:
+      "How to create faceless videos from blog posts, newsletters, and explainers without becoming a full-time on-camera creator.",
+    category: "Strategy",
+    publishedAt: "2026-04-16",
+    readTime: "8 min read",
+    heroEyebrow: "Creator strategy",
+    heroTitle: "Faceless videos work best when the content is already strong",
+    heroDescription:
+      "You do not need a talking-head workflow to build a real video channel. For many writers, educators, and B2B teams, faceless videos are the fastest way to turn existing content into something watchable and repeatable.",
+    primaryKeyword: "faceless videos",
+    keywordVariant: "how to make faceless videos",
+    relatedPaths: [
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+      "/article-to-video",
+      "/distribution-flywheel",
+    ],
+    sections: [
+      {
+        heading: "Why faceless videos are attractive in the first place",
+        paragraphs: [
+          "A lot of creators do not want the friction of cameras, lighting, retakes, and on-screen performance. Faceless videos remove that bottleneck. You can publish more consistently because the workflow depends on ideas and structure, not whether you are ready to be on camera that day.",
+          "That makes faceless video especially useful for writers, technical educators, founder-marketers, and newsletter operators. If your real strength is explaining, teaching, or making an argument clearly, the format can carry the message without requiring your face to be the product.",
+        ],
+        bullets: [
+          "No camera setup or recording session required",
+          "Easier to publish consistently from written content",
+          "Strong fit for educational, technical, and B2B topics",
+        ],
+      },
+      {
+        heading: "The best faceless videos usually start from written content",
+        paragraphs: [
+          "The biggest mistake is starting with empty video software and hoping a concept appears. A better workflow starts with an asset that already exists: a blog post, newsletter issue, product explainer, lesson outline, or research summary.",
+          "When the structure already exists in writing, the faceless video becomes an adaptation exercise instead of a blank-page exercise. That means faster production, better clarity, and less generic output.",
+        ],
+        bullets: [
+          "Use an article or script with a clear headline and sections",
+          "Keep one main point per scene",
+          "Reuse screenshots, diagrams, quotes, and charts where possible",
+        ],
+      },
+      {
+        heading: "What makes faceless videos feel high quality instead of generic",
+        paragraphs: [
+          "The format works when the viewer feels guided, not flooded. Strong narration, readable layouts, visual rhythm, and clear section transitions matter more than flashy filler. The goal is not hiding the fact that the video is faceless. The goal is making that choice feel intentional.",
+          "In practice, that means choosing templates and visuals that support comprehension. If the voiceover is natural and the scenes actually reflect the content, viewers do not care that there is no talking head.",
+        ],
+        bullets: [
+          "Open with a strong hook in the first few seconds",
+          "Use on-screen text to reinforce the main point, not repeat every word",
+          "Prefer clarity, pacing, and structure over random stock footage",
+        ],
+      },
+      {
+        heading: "Faceless videos are a strong distribution layer",
+        paragraphs: [
+          "A faceless workflow is useful because it multiplies content that already works elsewhere. One article can become a full YouTube explainer, a shorter teaser, an embedded on-page video, and social cutdowns without turning every publish into a production project.",
+          "That is where the compounding value appears. The blog captures search. The video improves retention and creates another discovery surface. The short-form cut creates reach. One idea starts doing more work.",
+        ],
+      },
+      {
+        heading: "How Blog2Video helps",
+        paragraphs: [
+          "1. Start from a URL, article, or document - Blog2Video uses the content you already wrote as the source of truth.",
+          "2. Pick a voice and template - choose a visual style that fits explainers, commentary, or educational content without needing to be on camera.",
+          "3. Generate and publish - create a faceless video you can use on YouTube, embed in the original post, or cut into additional formats.",
+        ],
+        component: "blog-workflow",
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video for faceless videos",
+      },
+    ],
+    faq: faq("faceless videos", "creating narration-led videos without being on camera"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Canonical faceless video guide",
+        angle: "Own the search intent around faceless video creation.",
+      },
+      {
+        channel: "substack",
+        title: "Creator workflow note",
+        angle: "Explain why writers do not need a camera-first workflow.",
+      },
+      {
+        channel: "medium",
+        title: "Why faceless videos are underrated",
+        angle: "Lead with the leverage and consistency angle.",
+      },
+      {
+        channel: "video",
+        title: "Faceless video explainer",
+        angle: "Show how one written asset turns into a publishable faceless video.",
+      },
+    ],
+  },
+  {
     slug: "blog2video-vs-heygen",
     title: "Blog2Video vs HeyGen: Which One Is Better for Turning Blog Posts Into Videos?",
     description:
@@ -4696,6 +5531,548 @@ export const blogPosts: BlogPost[] = [
         channel: "medium",
         title: "Seedance vs Remotion-based video generation: why the cost model matters more than the demo output",
         angle: "Explain why prompt-generated visuals and programmatic template rendering serve different business cases.",
+      },
+    ],
+  },
+  {
+    slug: "zoom-recording-to-summary-video",
+    title: "How to Turn a Zoom Recording Into a Summary Video",
+    description:
+      "Turn Zoom meeting recordings into polished summary videos your team can watch, share, and reference — without sitting through the full replay.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Illustration of a Zoom meeting recording being structured into a summary video with scenes, narration, and branded visuals.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Nobody wants to watch a 90-minute Zoom replay. A summary video they will actually watch.",
+    heroDescription:
+      "Zoom recordings pile up and go unwatched. Turning the key moments into a structured summary video gives your team, clients, and stakeholders something worth their time.",
+    primaryKeyword: "zoom recording to summary video",
+    keywordVariant: "turn zoom meeting into video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/google-meet-recording-to-video",
+      "/blogs/microsoft-teams-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why Zoom recordings go unwatched",
+        paragraphs: [
+          "Most Zoom recordings are long. An hour-long meeting might contain ten minutes of real signal — a key decision, a product update, a process change. The rest is preamble, crosstalk, and follow-up questions. Asking someone to watch the full recording to find those ten minutes is not a reasonable ask.",
+          "A summary video solves this. It takes the most important points from the meeting and turns them into a tight, watchable asset that someone can absorb in under five minutes — without needing to scrub through the full replay.",
+        ],
+      },
+      {
+        heading: "Start with the transcript or AI summary",
+        paragraphs: [
+          "Zoom automatically generates a transcript for most recorded meetings when transcription is enabled. If you use Zoom AI Companion, you also get an auto-generated meeting summary with action items and key topics.",
+          "Either asset works as source material. The transcript captures everything verbatim. The AI summary distills the main points. Both can be exported and turned into a structured video.",
+        ],
+        bullets: [
+          "Enable Zoom transcription in your account settings before the meeting",
+          "Download the .vtt or .txt transcript after the meeting ends",
+          "Or export the Zoom AI Companion summary as plain text",
+          "If using a third-party recorder, export whatever text summary is available",
+        ],
+      },
+      {
+        heading: "Structure the content before you video it",
+        paragraphs: [
+          "A transcript needs light editing before it becomes a good video source. Remove the filler, the off-topic tangents, and the repeated points. Keep the decisions made, the action items assigned, the context that newcomers would need, and any data or metrics that were discussed.",
+          "A well-edited transcript or summary becomes a tight document: two to four paragraphs, a bullet list of decisions and next steps, and any key numbers. That is the right size for a three-to-five-minute video.",
+        ],
+      },
+      {
+        heading: "Turn it into a video with Blog2Video",
+        paragraphs: [
+          "Upload the edited transcript or summary as a document — PDF, Word, or plain text. Blog2Video reads the structure, extracts the key points, and maps them into a scene-by-scene outline.",
+          "Choose a template that fits the audience. Whiteboard works well for internal team updates. Nightfall or Newscast works for client-facing or executive briefings. Geometric Explainer is clean for product update videos that need clarity over flair.",
+          "Review the scenes, adjust any narration, then render. The output is a polished video your team can watch in minutes instead of rewinding through an hour-long recording.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Zoom transcript into a video",
+      },
+      {
+        heading: "Where to share the summary video",
+        paragraphs: [
+          "A Zoom summary video has multiple distribution paths. Share it as a link in the follow-up email so attendees can revisit decisions. Post it in the project Slack channel for async teammates. Embed it in the meeting notes doc or Notion page. For client-facing meetings, send it as a polished recap that replaces the traditional written summary.",
+          "Because it is a real video and not just another wall of text, people are far more likely to actually watch and absorb it.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Can I upload a Zoom transcript directly to Blog2Video?",
+        answer:
+          "Yes. Export the transcript as a .txt or .docx file and upload it as a document. Blog2Video structures the content into scenes automatically.",
+      },
+      {
+        question: "Does this work with Zoom AI Companion summaries?",
+        answer:
+          "Yes. Copy the Zoom AI Companion summary into a document, save it as PDF or Word, and upload it. The summary format — with key topics and action items — maps well into a structured video.",
+      },
+      {
+        question: "How long should the source document be for a good summary video?",
+        answer:
+          "A condensed summary of 300 to 600 words is ideal. If you're working from a full transcript, edit it down to the key decisions, action items, and context before uploading.",
+      },
+      {
+        question: "What template works best for meeting summary videos?",
+        answer:
+          "Whiteboard is approachable and clear for internal team updates. Newscast works well for executive briefings. Nightfall gives client-facing recaps a polished, premium feel.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Zoom Recording Into a Summary Video",
+        angle: "Capture intent from teams and managers who want a better way to share meeting outcomes than a long recording link.",
+      },
+      {
+        channel: "video",
+        title: "Zoom Transcript to Summary Video in 5 Minutes",
+        angle: "Screen demo: paste a Zoom transcript, generate scenes, pick a template, render.",
+      },
+      {
+        channel: "substack",
+        title: "Your Zoom recap deserves more than a recording link nobody will click.",
+        angle: "Frame the summary video as a respect-for-attention format for async teams.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn a Zoom meeting transcript into a summary video your team will actually watch",
+        angle: "Walk through the transcript-to-video workflow step by step with template recommendations.",
+      },
+    ],
+  },
+  {
+    slug: "google-meet-recording-to-video",
+    title: "How to Turn a Google Meet Recording Into a Summary Video",
+    description:
+      "Export your Google Meet transcript or Gemini summary and convert it into a shareable summary video — no editing software required.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Illustration of a Google Meet recording transcript being converted into a structured summary video asset.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Google Meet transcripts are underused. Turn them into videos your team will actually watch.",
+    heroDescription:
+      "Every recorded Google Meet generates a transcript in Google Drive. That text is all you need to produce a polished summary video — with no editing timeline, no cameras, and no post-production.",
+    primaryKeyword: "google meet recording to video",
+    keywordVariant: "turn google meet into summary video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/microsoft-teams-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "What Google Meet gives you after a recorded call",
+        paragraphs: [
+          "When you record a Google Meet session, two assets land in Google Drive automatically: the video recording file and a transcript document. The transcript is a time-stamped, speaker-labeled text file. If you have Google Workspace with Gemini features enabled, you may also receive an AI-generated meeting summary.",
+          "Most people open the recording. Almost nobody opens the transcript. That is a missed opportunity — the transcript is cleaner, faster to process, and far more useful as source material for a summary video.",
+        ],
+      },
+      {
+        heading: "Getting the transcript out of Google Drive",
+        paragraphs: [
+          "Open the meeting folder in Google Drive. Find the transcript file — it usually appears as a Google Doc named after the meeting. Open it, review the content, and export it as a Word document or plain text file.",
+          "Before exporting, do a light edit pass: remove off-topic exchanges, repeated points, and anything that would confuse someone who wasn't on the call. What remains should be the key context, decisions made, and next steps.",
+        ],
+        bullets: [
+          "Find the transcript in the meeting folder in Google Drive",
+          "Open it as a Google Doc and remove filler, tangents, and repeated points",
+          "Keep decisions, action items, data discussed, and key context",
+          "Export as .docx or copy the cleaned text into a new document",
+        ],
+      },
+      {
+        heading: "Using Gemini summaries as source material",
+        paragraphs: [
+          "If your Google Workspace plan includes Gemini, the meeting summary is often better source material than the raw transcript. Gemini summaries include a concise breakdown of what was discussed, who said what, and what was decided — all without the transcript noise.",
+          "Copy the Gemini summary into a Google Doc, add any context that was missing, and use that as your video source. A well-structured Gemini summary can become a three-to-five-minute video with minimal editing.",
+        ],
+      },
+      {
+        heading: "Turning the document into a summary video",
+        paragraphs: [
+          "Upload the exported document to Blog2Video. The system reads the structure, pulls out the key points, and generates a scene-by-scene outline. You can review and edit each scene before rendering.",
+          "For internal updates, the Whiteboard or Geometric Explainer templates keep things clear and approachable. For cross-functional or leadership briefings, Newscast or Nightfall give the output a more polished, professional look.",
+          "Once rendered, share the video link instead of the recording — people are far more likely to watch a five-minute summary than scrub through an hour-long replay.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Meet transcript into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I find my Google Meet transcript?",
+        answer:
+          "After a recorded meeting, Google Drive automatically saves both the video and a transcript document in a folder named after the meeting. Find it in Drive and open it as a Google Doc.",
+      },
+      {
+        question: "Can I use a Gemini meeting summary instead of the full transcript?",
+        answer:
+          "Yes. Gemini summaries are already condensed and structured, which makes them ideal source material. Copy the summary, add any missing context, and upload it as a document.",
+      },
+      {
+        question: "What file format should I export the transcript in?",
+        answer:
+          "Export as .docx from Google Docs, or copy the text and save it as a plain text file. Both formats upload cleanly to Blog2Video.",
+      },
+      {
+        question: "What template works best for Google Meet summary videos?",
+        answer:
+          "Whiteboard and Geometric Explainer work well for internal team recaps. Newscast and Nightfall are better for leadership briefings or client-facing summaries where a polished look matters.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Google Meet Recording Into a Summary Video",
+        angle: "Capture async-team and remote-work intent around Google Workspace workflows and meeting documentation.",
+      },
+      {
+        channel: "video",
+        title: "Google Meet Transcript to Video in Minutes",
+        angle: "Screen demo: export the transcript from Google Drive, upload to Blog2Video, generate and render.",
+      },
+      {
+        channel: "substack",
+        title: "The Google Meet transcript sitting in your Drive is worth more than you think.",
+        angle: "Frame as a no-effort async video workflow for distributed teams.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn a Google Meet transcript into a summary video using AI",
+        angle: "Step-by-step walkthrough covering transcript export, Gemini summaries, and Blog2Video rendering.",
+      },
+    ],
+  },
+  {
+    slug: "fireflies-recording-to-summary-video",
+    title: "How to Turn a Fireflies.ai Recording Into a Summary Video",
+    description:
+      "Export your Fireflies.ai transcript or AI summary and convert it into a polished summary video — shareable, watchable, and built from content you already captured.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Illustration of a Fireflies.ai meeting transcript being converted into a structured summary video with scenes and narration.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Fireflies.ai captures everything. Now make it watchable.",
+    heroDescription:
+      "Fireflies.ai automatically transcribes and summarizes your meetings. That structured output is exactly what you need to create a tight summary video — without re-watching or re-editing the recording.",
+    primaryKeyword: "fireflies recording to summary video",
+    keywordVariant: "turn fireflies ai meeting into video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/google-meet-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "What Fireflies.ai gives you after a meeting",
+        paragraphs: [
+          "Fireflies.ai joins your calls as a bot and automatically generates a full transcript, a structured AI summary, and a list of action items. These outputs are available immediately after the meeting ends and can be accessed from the Fireflies dashboard or shared directly with your team.",
+          "The AI summary is particularly well-structured: it breaks the meeting into topic sections, captures key decisions, and pulls out follow-up items. That structure is ideal source material for a summary video — you don't need to do much work before it's ready to use.",
+        ],
+      },
+      {
+        heading: "Exporting the summary from Fireflies",
+        paragraphs: [
+          "In your Fireflies dashboard, open the meeting you want to convert. You can copy the AI-generated summary directly, or export the full transcript as a text or PDF file.",
+          "For video production, the AI summary works better than the raw transcript. It is already condensed and organized around topics rather than time codes. If you want more detail in specific sections, you can add context from the transcript before uploading.",
+        ],
+        bullets: [
+          "Open the meeting in the Fireflies dashboard",
+          "Copy the AI summary or export the transcript as PDF or text",
+          "Add any context that the summary compressed too aggressively",
+          "Keep decisions, action items, data points, and key conclusions",
+        ],
+      },
+      {
+        heading: "Why the Fireflies summary structure makes great video source material",
+        paragraphs: [
+          "Most meeting transcripts are noisy — speaker labels, filler words, repeated questions, and tangents. Fireflies AI summaries strip that noise and leave behind a document that already reads like a well-organized brief.",
+          "That brief structure maps directly onto a scene-based video. Each topic section becomes a scene. Each key decision or action item becomes a bullet or callout. The video reflects the actual meeting outcome rather than its unedited transcript.",
+        ],
+      },
+      {
+        heading: "Generating the video",
+        paragraphs: [
+          "Upload the Fireflies summary document to Blog2Video. The system reads the structure, generates scene descriptions and narration, and builds a scene outline you can review.",
+          "For internal team updates or retrospectives, the Whiteboard or Geometric Explainer templates keep the tone collaborative and clear. For sales call summaries or client briefings, Nightfall or Newscast give the output a more authoritative feel.",
+          "Render the video, share the link in your Slack, email, or project tool, and let the team absorb the meeting in five minutes instead of fifty.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Fireflies summary into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Does Blog2Video work with Fireflies.ai transcripts?",
+        answer:
+          "Yes. Export the Fireflies transcript or AI summary as a PDF or text file and upload it to Blog2Video. The structured summary format converts into scenes cleanly.",
+      },
+      {
+        question: "Should I use the Fireflies AI summary or the full transcript?",
+        answer:
+          "The AI summary is usually better source material because it's already organized by topic and free of transcript noise. Use the full transcript if you need more detail in specific sections.",
+      },
+      {
+        question: "How long does the Fireflies summary need to be?",
+        answer:
+          "A typical Fireflies AI summary for a 30-to-60-minute meeting is already the right length — 300 to 700 words. That generates a three-to-five-minute summary video without further editing.",
+      },
+      {
+        question: "What template works best for meeting summary videos from Fireflies?",
+        answer:
+          "Whiteboard or Geometric Explainer for internal team content. Nightfall or Newscast for client-facing or leadership-level briefings.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Fireflies.ai Recording Into a Summary Video",
+        angle: "Capture intent from Fireflies users looking to do more with their AI meeting summaries.",
+      },
+      {
+        channel: "video",
+        title: "Fireflies.ai Summary to Video in Minutes",
+        angle: "Demo: export the Fireflies AI summary, upload to Blog2Video, generate and render.",
+      },
+      {
+        channel: "substack",
+        title: "Your Fireflies summary is already a video script. You just need to render it.",
+        angle: "Frame as the missing step in the Fireflies workflow for teams who want better async communication.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn Fireflies.ai meeting summaries into summary videos",
+        angle: "Workflow walkthrough covering export, upload, template selection, and async sharing.",
+      },
+    ],
+  },
+  {
+    slug: "microsoft-teams-recording-to-video",
+    title: "How to Turn a Microsoft Teams Recording Into a Summary Video",
+    description:
+      "Export your Teams meeting transcript or Copilot summary and convert it into a polished summary video your team can actually watch — no editing timeline required.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Illustration of a Microsoft Teams meeting recording being converted into a structured summary video for async sharing.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Teams records everything. The summary video is what your team will actually consume.",
+    heroDescription:
+      "Microsoft Teams automatically transcribes recorded meetings and, with Copilot, generates structured summaries. Turn that output into a video your team can watch in five minutes instead of replaying an hour-long call.",
+    primaryKeyword: "microsoft teams recording to summary video",
+    keywordVariant: "turn teams meeting into video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/google-meet-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "What Microsoft Teams gives you after a recorded meeting",
+        paragraphs: [
+          "When you record a Teams meeting, the recording is saved to SharePoint or OneDrive, and a transcript is generated automatically if transcription is enabled. If your organization uses Microsoft 365 Copilot, you also get an AI-generated meeting summary with key discussion points, decisions, and action items.",
+          "The Copilot summary is the most useful asset for video production. It is already organized, condensed, and structured around meeting outcomes rather than raw verbatim dialogue.",
+        ],
+      },
+      {
+        heading: "Getting the transcript or Copilot summary",
+        paragraphs: [
+          "After the meeting ends, open the meeting in your Teams calendar. The transcript and Copilot Recap are accessible from the meeting details panel. You can copy the Copilot summary directly or download the transcript as a .docx or .vtt file from the recording controls.",
+          "For a summary video, the Copilot Recap is usually the better starting point. If Copilot is not available, clean up the raw transcript — remove filler speech, repeated questions, and anything tangential to the main outcomes.",
+        ],
+        bullets: [
+          "Open the meeting in Teams calendar and find the Recap or transcript",
+          "Copy the Copilot Recap summary or download the .docx transcript",
+          "Edit the transcript down to decisions, action items, and key context",
+          "Save as a Word document or plain text file for upload",
+        ],
+      },
+      {
+        heading: "Why summary videos work better than recording links for async teams",
+        paragraphs: [
+          "A recording link shared in Teams or Outlook asks something unreasonable of teammates who weren't there: watch an hour of footage to find the five minutes that matter to them. Most people don't. The meeting's outcomes get lost in a recording nobody replays.",
+          "A summary video changes the format. It is short, structured, and watchable. It fits in an email, a Teams message, or a SharePoint page. People who weren't on the call can catch up without committing to the full replay.",
+        ],
+      },
+      {
+        heading: "Converting the summary to video",
+        paragraphs: [
+          "Upload the Teams Copilot Recap or edited transcript to Blog2Video as a document. The system structures the content into scenes with narration and visual layouts automatically.",
+          "Newscast works well for formal briefings and cross-functional updates. Whiteboard or Geometric Explainer suits internal team recaps. Nightfall is a strong choice when the meeting outcome is being shared with external stakeholders or leadership.",
+          "Share the rendered video in the Teams channel, attach it to the follow-up email, or embed it in the relevant SharePoint page alongside the written notes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Teams summary into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I find the transcript for a recorded Teams meeting?",
+        answer:
+          "Open the meeting in your Teams calendar. The transcript and Copilot Recap appear in the meeting details panel. You can copy the text or download the transcript as a .docx file.",
+      },
+      {
+        question: "Can I use Microsoft Copilot summaries as source material?",
+        answer:
+          "Yes. Copilot Recap summaries are already structured around topics and action items, which makes them ideal for video. Copy the summary, add any missing context, and upload it as a document.",
+      },
+      {
+        question: "What if my organization doesn't have Microsoft 365 Copilot?",
+        answer:
+          "Use the standard Teams transcript. Download it as a .docx, edit out the filler and tangents, and keep decisions, action items, and key context. That document works just as well as a Copilot summary.",
+      },
+      {
+        question: "What template works best for Teams meeting summary videos?",
+        answer:
+          "Newscast for formal cross-functional briefings. Whiteboard or Geometric Explainer for internal team updates. Nightfall for leadership or stakeholder-facing outputs.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Microsoft Teams Recording Into a Summary Video",
+        angle: "Target enterprise and Microsoft 365 users looking for better async meeting documentation than raw recording links.",
+      },
+      {
+        channel: "video",
+        title: "Teams Copilot Recap to Summary Video",
+        angle: "Demo: copy the Copilot Recap, upload to Blog2Video, generate scenes, render and share.",
+      },
+      {
+        channel: "substack",
+        title: "Nobody is watching your Teams recordings. A summary video they will.",
+        angle: "Frame async video as a respect-for-time default for enterprise teams on Microsoft 365.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn Microsoft Teams meeting summaries into short videos your team will actually watch",
+        angle: "Step-by-step workflow using Copilot Recap export and Blog2Video with template recommendations.",
+      },
+    ],
+  },
+  {
+    slug: "loom-recording-to-summary-video",
+    title: "How to Turn a Loom Recording Into a Summary Video",
+    description:
+      "Use Loom's transcript or AI summary to create a structured summary video — easier to share, watch, and distribute than a raw screen recording.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImageAlt:
+      "Illustration of a Loom screen recording transcript being converted into a structured, shareable summary video.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Recording workflow",
+    heroTitle: "Loom records the walkthrough. A summary video makes it distributable.",
+    heroDescription:
+      "Loom is great for async communication — but a ten-minute screen recording walkthrough is not always the right format for every audience. Turn the Loom transcript or AI summary into a polished summary video that works anywhere.",
+    primaryKeyword: "loom recording to summary video",
+    keywordVariant: "turn loom into video summary",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/fireflies-recording-to-summary-video",
+    ],
+    sections: [
+      {
+        heading: "When a Loom is not enough",
+        paragraphs: [
+          "Loom is excellent for casual async communication — quick walkthroughs, developer handoffs, product feedback, and async status updates. But a raw Loom recording has real distribution limits. It lives in the Loom platform, requires an account to view in some contexts, and does not embed cleanly in all destinations.",
+          "A summary video solves the distribution problem. It takes the substance of the Loom walkthrough — the key points, the decisions, the instructions — and packages it into a format that works in emails, newsletters, docs, websites, and any platform that accepts video embeds.",
+        ],
+      },
+      {
+        heading: "Getting the transcript from Loom",
+        paragraphs: [
+          "Every Loom recording automatically generates a transcript. Open the recording, find the Transcript tab, and copy the text. Loom also offers AI-powered summaries that condense the recording into a short overview — these are available on Pro and Business plans.",
+          "For a summary video, the AI summary is the better starting point. It strips the verbal filler, repetition, and false starts that make raw transcripts noisy. If you need more detail, pull specific sections from the full transcript and weave them in.",
+        ],
+        bullets: [
+          "Open the Loom recording and find the Transcript tab",
+          "Copy the AI summary if available, or the full transcript",
+          "Edit down to the key points, steps, or decisions",
+          "Save as a plain text or Word document for upload",
+        ],
+      },
+      {
+        heading: "What types of Loom recordings convert best",
+        paragraphs: [
+          "Product walkthroughs, feature explanations, onboarding tutorials, code reviews, and async feedback sessions all work extremely well as summary video source material. These Looms already have a clear structure: here is the context, here is what we built, here is what it does, here is what you need to do.",
+          "Internal process documentation Looms are also strong candidates. If someone recorded a walkthrough of a complex internal tool or workflow, a summary video can replace it as the onboarding asset — easier to embed in documentation, easier to update, and easier to share with new hires.",
+        ],
+      },
+      {
+        heading: "Converting the Loom summary to video",
+        paragraphs: [
+          "Upload the Loom summary or edited transcript to Blog2Video. The platform structures the content into a scene outline, generates narration, and maps each section to an appropriate visual layout.",
+          "For walkthroughs and technical explanations, Geometric Explainer or Matrix keeps things clear and code-friendly. For product demos or feature announcements, Nightfall or Spotlight gives the output a polished, professional finish. For educational or onboarding content, Whiteboard keeps the tone approachable.",
+          "Once rendered, the video can be embedded anywhere, shared as a direct link, or downloaded as MP4, PDF, or PNG slides depending on how you want to distribute it.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Loom transcript into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I find the transcript for a Loom recording?",
+        answer:
+          "Open the recording in your Loom library and select the Transcript tab. You can copy the full text from there. AI summaries are available on Pro and Business plans under the Summary tab.",
+      },
+      {
+        question: "Should I use the Loom AI summary or the full transcript?",
+        answer:
+          "The AI summary is usually better — it's already condensed and removes the verbal filler that makes raw transcripts hard to work with. Use the full transcript for detail-heavy walkthroughs where the steps need to stay precise.",
+      },
+      {
+        question: "What types of Loom recordings work best as summary videos?",
+        answer:
+          "Product walkthroughs, onboarding tutorials, feature explanations, code reviews, and async process documentation all convert well because they already have a clear structure the video can follow.",
+      },
+      {
+        question: "Can I distribute the summary video outside of Loom?",
+        answer:
+          "Yes. Blog2Video generates a standard MP4 video with a shareable URL and iframe embed code. You can distribute it anywhere — emails, websites, Notion docs, Slack, or embedded in help documentation.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Loom Recording Into a Summary Video",
+        angle: "Capture intent from Loom users who want better distribution options and a more structured output format.",
+      },
+      {
+        channel: "video",
+        title: "Loom Transcript to Summary Video",
+        angle: "Demo: copy the Loom AI summary, upload to Blog2Video, generate scenes, render, embed.",
+      },
+      {
+        channel: "substack",
+        title: "Loom recordings are great for async — but summary videos travel further.",
+        angle: "Frame as a distribution upgrade for teams who already rely on Loom for async communication.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn a Loom recording into a structured summary video with AI",
+        angle: "Workflow walkthrough covering transcript export, AI summary, Blog2Video scene generation, and distribution options.",
       },
     ],
   },

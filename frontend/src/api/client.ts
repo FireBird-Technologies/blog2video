@@ -126,10 +126,15 @@ export interface Project {
   custom_voice_id: string | null;
   aspect_ratio: string;
   video_style?: VideoStyleId;
-  video_length?: "auto" | "short" | "medium" | "detailed";
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
   playback_speed?: number;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
+  custom_image_box_aspect_ratios?: {
+    intro?: string | { landscape?: string; portrait?: string };
+    content?: (string | { landscape?: string; portrait?: string })[];
+    outro?: string | { landscape?: string; portrait?: string };
+  } | null;
   custom_template_missing?: boolean;
   brand_logo_url?: string | null;
   review_state?: ReviewState | null;
@@ -271,8 +276,23 @@ export interface PublicConfig {
 
 // ─── Auth API ─────────────────────────────────────────────
 
-export const googleLogin = (credential: string, reactivate = false) =>
-  api.post<AuthResponse>("/auth/google", { credential }, { params: { reactivate } });
+export const googleLogin = (credential: string, reactivate = false, refCode?: string | null) => {
+  const params: Record<string, unknown> = { reactivate };
+  if (refCode) params.ref_code = refCode;
+  return api.post<AuthResponse>("/auth/google", { credential }, { params });
+};
+
+export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
+export const sendAffiliateInvites = (emails: string[]) =>
+  api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
+
+export interface AffiliateStats {
+  link: string;
+  signups_count: number;
+  bonus_earned: number;
+  max_signups: number;
+  bonus_per_signup: number;
+}
 
 export const getMe = () => api.get<UserInfo>("/auth/me");
 
@@ -304,10 +324,18 @@ export const createCheckoutSession = (
   });
 };
 
-export const createPerVideoCheckout = (projectId?: number) =>
-  api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
+export const createPerVideoCheckout = (
+  options?: number | { projectId?: number; quantity?: number }
+) => {
+  const projectId =
+    typeof options === "number" ? options : options?.projectId;
+  const quantity =
+    typeof options === "object" && options?.quantity ? options.quantity : 1;
+  return api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
     project_id: projectId ?? null,
+    quantity,
   });
+};
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");
@@ -369,7 +397,8 @@ export type LayoutPropFieldType =
   | "color"
   | "select"
   | "string_array"
-  | "object_array";
+  | "object_array"
+  | "chart_table";
 
 export interface LayoutPropSubField {
   key: string;
@@ -407,6 +436,63 @@ export interface LayoutPropSchema {
 
 export const getTemplates = (style?: string) =>
   api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
+
+export interface TemplateAvailabilitySignal {
+  has_custom_templates: boolean;
+  has_crafted_templates: boolean;
+}
+
+export const getTemplateAvailabilitySignal = () =>
+  api.get<TemplateAvailabilitySignal>("/projects/template-availability");
+
+export interface CraftedTemplateSummary {
+  id: string;
+  name: string;
+  description?: string;
+  styles?: string[];
+  preview_colors?: { accent: string; bg: string; text: string };
+  composition_id?: string;
+  hero_layout?: string;
+  fallback_layout?: string;
+  valid_layouts?: string[];
+  layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchema>;
+  theme?: CustomTemplateTheme;
+  preview_image_url?: string | null;
+  /** Source code for the marquee preview component (optional, compiled at runtime). */
+  preview_file?: string | null;
+  /** Bundle-relative path to the marquee preview source. */
+  preview_file_rel?: string | null;
+  /** Source for SceneEditModal field defs per layout (TS/JSON, compiled at runtime). */
+  layout_fields?: string | null;
+  /** Bundle-relative path to the layout_fields source. */
+  layout_fields_rel?: string | null;
+  logo_urls?: string[] | null;
+  og_image?: string | null;
+  template_type?: "crafted";
+  crafted?: boolean;
+}
+
+export interface CraftedTemplateItem extends CraftedTemplateSummary {
+  intro_code?: string | null;
+  outro_code?: string | null;
+  content_codes?: string[] | null;
+  content_archetype_ids?: (string | { id: string; best_for?: string[] })[] | null;
+  frontend_files?: Record<string, string> | null;
+  frontend_entry_rel?: string | null;
+  frontend_layout_index_rel?: string | null;
+  frontend_mount_id?: string | null;
+  /** R2/CDN URLs keyed like Remotion staticFile("fonts/foo.woff2") → full URL */
+  public_asset_urls?: Record<string, string> | null;
+}
+
+export interface CraftedTemplateDetail extends CraftedTemplateItem {}
+
+export const listCraftedTemplates = () =>
+  api.get<CraftedTemplateSummary[]>("/crafted-templates");
+
+export const getCraftedTemplateDetail = (templateId: string) =>
+  api.get<CraftedTemplateDetail>(`/crafted-templates/${encodeURIComponent(templateId)}`);
 
 export interface AspectValue {
   portrait: number;
@@ -669,7 +755,7 @@ export const createProject = (
   aspect_ratio?: string,
   template?: string,
   video_style?: VideoStyleId,
-  video_length?: "auto" | "short" | "medium" | "detailed",
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
   content_language?: string | null
 ) =>
   api.post<Project>("/projects", {
@@ -697,7 +783,7 @@ export interface BulkProjectItem {
   name?: string;
   template?: string;
   video_style?: VideoStyleId;
-  video_length?: "auto" | "short" | "medium" | "detailed";
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
   voice_gender?: string;
   voice_accent?: string;
   accent_color?: string;
@@ -752,7 +838,7 @@ export const createProjectFromDocs = (
     aspect_ratio?: string;
     template?: string;
     video_style?: VideoStyleId;
-    video_length?: "auto" | "short" | "medium" | "detailed";
+    video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
     content_language?: string | null;
   } = {}
 ) => {
@@ -913,6 +999,59 @@ export const updateSceneImage = (
     { headers: { "Content-Type": "multipart/form-data" } }
   );
 };
+
+export const updateSceneImageFocus = (
+  projectId: number,
+  sceneId: number,
+  imageFocusX: number,
+  imageFocusY: number,
+  imageZoom?: number
+) =>
+  api.patch<Scene>(`/projects/${projectId}/scenes/${sceneId}/image-focus`, {
+    image_focus_x: imageFocusX,
+    image_focus_y: imageFocusY,
+    ...(imageZoom !== undefined ? { image_zoom: imageZoom } : {}),
+  });
+
+export const moveSceneImage = (
+  projectId: number,
+  fromSceneId: number,
+  toSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/move`, {
+    from_scene_id: fromSceneId,
+    to_scene_id: toSceneId,
+  });
+
+export const swapSceneImages = (
+  projectId: number,
+  firstSceneId: number,
+  secondSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/swap`, {
+    first_scene_id: firstSceneId,
+    second_scene_id: secondSceneId,
+  });
+
+export const duplicateSceneImage = (
+  projectId: number,
+  sourceSceneId: number,
+  targetSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/duplicate`, {
+    source_scene_id: sourceSceneId,
+    target_scene_id: targetSceneId,
+  });
+
+export const assignExistingImageToScene = (
+  projectId: number,
+  sceneId: number,
+  assetId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/assign-existing`, {
+    scene_id: sceneId,
+    asset_id: assetId,
+  });
 
 export interface GenerateSceneImageResponse {
   image_base64: string;
@@ -1331,5 +1470,10 @@ export const createCustomVoiceClone = (formData: FormData) =>
 
 export const deleteSavedVoice = (id: number) =>
   api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
+
+// ─── Embed API ────────────────────────────────────────────
+
+export const generateEmbedToken = (projectId: number) =>
+  api.post<{ embed_token: string; preview_url: string }>(`/embed/token/${projectId}`);
 
 export default api;

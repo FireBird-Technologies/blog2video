@@ -41,6 +41,7 @@ class PlayerErrorBoundary extends React.Component<
 interface Props {
   componentCode?: string;
   compiledComponent?: React.FC<SceneProps>;
+  compiledComposition?: React.ComponentType<any>;
   theme: CustomTemplateTheme;
   width?: number;
   height?: number;
@@ -49,9 +50,16 @@ interface Props {
   loop?: boolean;
   /** Override/extend the sample props passed to the compiled component */
   sampleProps?: Partial<SceneProps>;
+  compositionProps?: Record<string, unknown>;
+  compositionWidth?: number;
+  compositionHeight?: number;
+  fps?: number;
+  durationInFrames?: number;
   onError?: (error: string) => void;
   onRetry?: () => void;
   onEnded?: () => void;
+  thumbnailMode?: boolean;
+  thumbnailFrame?: number;
 }
 
 const FPS = 30;
@@ -59,15 +67,23 @@ const FPS = 30;
 export default function RemotionPreviewPlayer({
   componentCode,
   compiledComponent,
+  compiledComposition,
   theme,
   width,
   height,
   durationSeconds = 5,
   loop = true,
   sampleProps,
+  compositionProps,
+  compositionWidth = 1920,
+  compositionHeight = 1080,
+  fps = FPS,
+  durationInFrames,
   onError,
   onRetry,
   onEnded,
+  thumbnailMode = false,
+  thumbnailFrame = 100,
 }: Props) {
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
   const [isCompiling, setIsCompiling] = useState(true);
@@ -75,12 +91,33 @@ export default function RemotionPreviewPlayer({
 
   // Listen for 'ended' event via Remotion's ref-based emitter
   useEffect(() => {
+    if (thumbnailMode) return;
     const player = playerRef.current;
     if (!player || !onEnded) return;
     const handler = () => onEnded();
     player.addEventListener("ended", handler);
     return () => player.removeEventListener("ended", handler);
-  }, [onEnded, compileResult]);
+  }, [onEnded, compileResult, thumbnailMode]);
+
+  // In thumbnail mode, play briefly then freeze at a deterministic frame.
+  useEffect(() => {
+    if (!thumbnailMode) return;
+    const player = playerRef.current;
+    if (!player) return;
+    let settled = false;
+    const stopAt = Math.max(0, thumbnailFrame);
+    const onFrame = () => {
+      if (settled) return;
+      const current = player.getCurrentFrame();
+      if (current >= stopAt) {
+        settled = true;
+        player.pause();
+        player.seekTo(stopAt);
+      }
+    };
+    player.addEventListener("frameupdate", onFrame);
+    return () => player.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, thumbnailFrame, compileResult]);
 
   const brandColors = useMemo(
     () => ({
@@ -123,6 +160,11 @@ export default function RemotionPreviewPlayer({
   }, [componentCode, onError]);
 
   useEffect(() => {
+    if (compiledComposition) {
+      setCompileResult(null);
+      setIsCompiling(false);
+      return;
+    }
     if (compiledComponent) {
       console.log("[F7-DEBUG] RemotionPreviewPlayer: using pre-compiled component");
       setCompileResult({ success: true, component: compiledComponent });
@@ -130,7 +172,7 @@ export default function RemotionPreviewPlayer({
       return;
     }
     compile();
-  }, [compiledComponent, compile]);
+  }, [compiledComponent, compiledComposition, compile]);
 
   // Build sample props for preview — only pass basics, no random contentType overrides.
   // The generated scene code has its own layout baked in; injecting random content types
@@ -146,7 +188,7 @@ export default function RemotionPreviewPlayer({
     };
   }, [sampleProps]);
 
-  if (isCompiling) {
+  if (!compiledComposition && isCompiling) {
     return (
       <div
         style={{
@@ -166,7 +208,7 @@ export default function RemotionPreviewPlayer({
     );
   }
 
-  if (!compileResult || !compileResult.success) {
+  if (!compiledComposition && (!compileResult || !compileResult.success)) {
     return (
       <div
         style={{
@@ -220,29 +262,38 @@ export default function RemotionPreviewPlayer({
     );
   }
 
-  const CompiledComponent = compileResult.component;
+  const CompiledComponent = compileResult?.success ? compileResult.component : null;
 
   // Wrapper composition for the Player
-  const Composition: React.FC = () => (
-    <CompiledComponent {...resolvedProps} brandColors={brandColors} />
-  );
+  const Composition: React.FC = () => {
+    if (compiledComposition) {
+      const C = compiledComposition;
+      return <C {...(compositionProps || {})} />;
+    }
+    if (!CompiledComponent) return null;
+    return <CompiledComponent {...resolvedProps} brandColors={brandColors} />;
+  };
+
+  const playerDurationInFrames =
+    durationInFrames ?? Math.max(fps, Math.round(durationSeconds * fps));
 
   return (
     <PlayerErrorBoundary onRetry={onRetry} width={width}>
       <Player
         ref={playerRef}
         component={Composition}
-        compositionWidth={1920}
-        compositionHeight={1080}
-        durationInFrames={Math.max(FPS, Math.round(durationSeconds * FPS))}
-        fps={FPS}
+        compositionWidth={compositionWidth}
+        compositionHeight={compositionHeight}
+        durationInFrames={playerDurationInFrames}
+        fps={fps}
         style={{
           width: width || "100%",
           borderRadius: 8,
           overflow: "hidden",
         }}
+        initialFrame={0}
         autoPlay
-        loop={loop}
+        loop={thumbnailMode ? false : loop}
         controls={false}
       />
     </PlayerErrorBoundary>

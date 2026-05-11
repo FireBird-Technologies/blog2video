@@ -303,6 +303,46 @@ def download_json(key: str) -> dict | None:
         return None
 
 
+def download_bytes(key: str) -> bytes | None:
+    """Download raw bytes from R2. Returns None if missing/unavailable."""
+    if not is_r2_configured():
+        return None
+    try:
+        client = _get_client()
+        resp = client.get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+        return resp["Body"].read()
+    except ClientError:
+        return None
+    except Exception:
+        return None
+
+
+def download_text(key: str, encoding: str = "utf-8") -> str | None:
+    """Download text content from R2. Returns None if missing/unavailable."""
+    raw = download_bytes(key)
+    if raw is None:
+        return None
+    try:
+        return raw.decode(encoding)
+    except Exception:
+        return None
+
+
+def object_size(key: str) -> int | None:
+    """Return object size in bytes, or None if missing/unavailable."""
+    if not is_r2_configured():
+        return None
+    try:
+        client = _get_client()
+        meta = client.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+        size = meta.get("ContentLength")
+        return int(size) if size is not None else None
+    except ClientError:
+        return None
+    except Exception:
+        return None
+
+
 def download_render_progress_json(user_id: int, project_id: int) -> dict | None:
     """Download per-project render progress JSON from R2."""
     return download_json(render_progress_key(user_id, project_id))

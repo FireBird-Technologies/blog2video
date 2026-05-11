@@ -1,4 +1,4 @@
-import enum
+﻿import enum
 from datetime import datetime
 from sqlalchemy import String, Text, Enum, DateTime, ForeignKey, Integer, Boolean, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -41,6 +41,7 @@ class Project(Base):
     player_port: Mapped[int | None] = mapped_column(nullable=True)
     r2_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     r2_video_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    embed_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
 
     # Logo overlay
     logo_r2_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -54,13 +55,14 @@ class Project(Base):
 
     # Template (determines layout system + DSPy prompt)
     template: Mapped[str] = mapped_column(String(50), default="default")
+    crafted_template_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("crafted_templates.id"), nullable=True, index=True)
 
     # Video style: explainer (default), promotional, storytelling — drives script & voiceover tone
     video_style: Mapped[str] = mapped_column(String(30), default="explainer")
 
     # Video length selection controls how many scenes are generated.
-    # Values: auto, short (6-8), medium (12-15), detailed (15-20)
-    video_length: Mapped[str] = mapped_column(String(10), default="auto")
+    # Values: auto, short (4-5), medium (12-15), detailed (23-30), mdetailed (35-40)
+    video_length: Mapped[str] = mapped_column(String(20), default="auto")
     playback_speed: Mapped[float] = mapped_column(Float, default=1.0)
 
     # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.
@@ -86,6 +88,7 @@ class Project(Base):
 
     # Relationships
     user = relationship("User", back_populates="projects")
+    crafted_template = relationship("CraftedTemplate", back_populates="projects")
     scenes = relationship("Scene", back_populates="project", cascade="all, delete-orphan", order_by="Scene.order")
     assets = relationship("Asset", back_populates="project", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="project", cascade="all, delete-orphan", order_by="ChatMessage.created_at")

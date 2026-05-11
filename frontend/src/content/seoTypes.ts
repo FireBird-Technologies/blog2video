@@ -7,6 +7,13 @@ export type PageCategory =
   | "resource"
   | "alternative";
 
+export type ToolCategory =
+  | "calculator"
+  | "formatter"
+  | "directory"
+  | "analyzer"
+  | "generator";
+
 export interface FaqItem {
   question: string;
   answer: string;
@@ -95,4 +102,82 @@ export interface BlogPost {
   sections: BlogSection[];
   faq: FaqItem[];
   distributionPlan: DistributionAsset[];
+}
+
+export interface HelpMedia {
+  src: string;
+  alt: string;
+}
+
+export interface HelpStep {
+  title: string;
+  body: string[];
+  bullets?: string[];
+  image?: HelpMedia;
+  videoKey?: string;
+}
+
+export interface HelpPost {
+  slug: string;
+  title: string;
+  description: string;
+  category: string;
+  heroImage?: string;
+  heroImageAlt?: string;
+  publishedAt: string;
+  readTime: string;
+  heroEyebrow: string;
+  heroTitle: string;
+  heroDescription: string;
+  primaryKeyword: string;
+  keywordVariant: string;
+  relatedPaths: string[];
+  steps: HelpStep[];
+  faq: FaqItem[];
+}
+
+export interface ToolDefinition {
+  slug: string;
+  path: string;
+  title: string;
+  description: string;
+  eyebrow: string;
+  heroTitle: string;
+  heroDescription: string;
+  category: ToolCategory;
+  icon: string;
+  primaryKeyword: string;
+  keywordVariant: string;
+  badges: string[];
+  proofPoints: string[];
+  sections: ContentSection[];
+  faq: FaqItem[];
+  relatedPaths: string[];
+}
+
+export type DirectoryPricingModel = "free" | "paid" | "freemium";
+
+export interface SubstackPublication {
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  audience: string;
+  pricingModel: DirectoryPricingModel;
+  cadence: string;
+  tone: string;
+  bestFor: string[];
+  topics: string[];
+  differentiator: string;
+}
+
+export interface SubstackNiche {
+  slug: string;
+  name: string;
+  title: string;
+  description: string;
+  audience: string;
+  angle: string;
+  publicationSlugs: string[];
+  relatedNicheSlugs: string[];
 }

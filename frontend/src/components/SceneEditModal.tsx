@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import {
   Scene,
@@ -6,17 +7,194 @@ import {
   Asset,
   updateScene,
   updateSceneImage,
+  assignExistingImageToScene,
+  updateSceneImageFocus,
   generateSceneImage,
   regenerateScene,
   getValidLayouts,
   LayoutInfo,
+  type LayoutPropSchema,
+  type LayoutPropFieldType,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
+import { compileDataModule } from "../utils/compileComponent";
+import { normalizeLayoutId } from "./remotion/imageBoxConfig";
+
+/** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
+const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MAX = 8;
+import { OHLCVTableEditor } from "./OHLCVTableEditor";
+
+type CraftedImageBoxEntry = string | { landscape?: string; portrait?: string } | undefined;
+
+type CraftedImageBoxConfig = {
+  default?: CraftedImageBoxEntry;
+  layouts?: Record<string, CraftedImageBoxEntry>;
+} & Record<string, unknown>;
+
+type FontSizePair = { title: number; desc: number };
+type CraftedFontSizeLeaf = {
+  title?: number;
+  desc?: number;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
+};
+type CraftedFontSizeEntry = CraftedFontSizeLeaf | {
+  landscape?: CraftedFontSizeLeaf;
+  portrait?: CraftedFontSizeLeaf;
+};
+type CraftedFontSizeConfig = {
+  default?: CraftedFontSizeEntry;
+  layouts?: Record<string, CraftedFontSizeEntry>;
+} & Record<string, unknown>;
+
+const CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES = [
+  "frontend/imageBoxConfig.json",
+  "imageBoxConfig.json",
+  "frontend/config/imageBoxConfig.json",
+];
+const CRAFTED_FONT_SIZE_CONFIG_CANDIDATES = [
+  "frontend/fontSizeDefaults.json",
+  "frontend/fontDefaults.json",
+  "fontSizeDefaults.json",
+  "fontDefaults.json",
+  "frontend/config/fontSizeDefaults.json",
+];
+
+const _normalizeLayoutKey = (layoutId: string | null): string => {
+  return String(layoutId || "").trim().toLowerCase().replace(/[-\s]+/g, "_");
+};
+
+const _pickCraftedAr = (
+  entry: CraftedImageBoxEntry,
+  orientation: "landscape" | "portrait",
+): string | null => {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    const v = entry.trim();
+    return v || null;
+  }
+  const v = (entry[orientation] || entry.landscape || entry.portrait || "").trim();
+  return v || null;
+};
+
+const _resolveCraftedImageBoxArFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): string | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedImageBoxConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedImageBoxConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+
+  const directRecord = parsed as Record<string, CraftedImageBoxEntry>;
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedAr(hit, orientation);
+};
+
+const _toFiniteFontNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
+const _pickCraftedFontPair = (
+  entry: CraftedFontSizeEntry | undefined,
+  orientation: "landscape" | "portrait",
+): FontSizePair | null => {
+  if (!entry || typeof entry !== "object") return null;
+  const e = entry as Record<string, unknown>;
+  const oriented =
+    ((e[orientation] as Record<string, unknown> | undefined) || (e.landscape as Record<string, unknown> | undefined) || (e.portrait as Record<string, unknown> | undefined) || e);
+  const title =
+    _toFiniteFontNumber(oriented.title) ??
+    _toFiniteFontNumber(oriented.titleFontSize);
+  const desc =
+    _toFiniteFontNumber(oriented.desc) ??
+    _toFiniteFontNumber(oriented.descriptionFontSize);
+  if (title == null && desc == null) return null;
+  return {
+    title: Math.round(title ?? 44),
+    desc: Math.round(desc ?? 24),
+  };
+};
+
+const _resolveCraftedFontDefaultsFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): FontSizePair | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_FONT_SIZE_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedFontSizeConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedFontSizeConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+  const directRecord = parsed as Record<string, CraftedFontSizeEntry>;
+
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedFontPair(hit, orientation);
+};
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -184,6 +362,37 @@ export function getDefaultFontSizesFromSchema(
   };
 }
 
+export function resolveDefaultFontSizesForScene(args: {
+  template: string;
+  layoutId: string | null;
+  aspectRatio: string;
+  layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
+  craftedFrontendFiles?: Record<string, string> | null;
+}): { title: number; desc: number } {
+  const {
+    template,
+    layoutId,
+    aspectRatio,
+    layoutPropSchema,
+    craftedFrontendFiles,
+  } = args;
+  const craftedDefaults = _resolveCraftedFontDefaultsFromFiles(
+    craftedFrontendFiles || null,
+    layoutId,
+    aspectRatio
+  );
+  const schemaDefaults = getDefaultFontSizesFromSchema(
+    layoutPropSchema,
+    layoutId,
+    aspectRatio
+  );
+  return craftedDefaults ?? schemaDefaults ?? getDefaultFontSizes(
+    template,
+    layoutId,
+    aspectRatio
+  );
+}
+
 // ─── Layout text field definitions ──────────────────────────
 type FieldType =
   | "string"
@@ -192,6 +401,8 @@ type FieldType =
   | "string_array"
   | "object_array"
   | "chart_table"
+  | "ohlcv_table"
+  | "pipe_table"
   | "select"
   | "number"
   | "range";
@@ -954,6 +1165,139 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "stats", label: "Source / publication", type: "object_array", subFields: [{ key: "label", label: "Source" }], maxItems: 1 },
     ],
   },
+  /** Bloomberg Terminal — layout content keys. ending_socials uses the dedicated CTA / socials block. */
+  bloomberg: {
+    terminal_boot: [
+      { key: "items", label: "Boot log lines", type: "string_array", maxItems: 8 },
+    ],
+    terminal_narrative: [],
+    terminal_chart: [
+      { key: "ticker", label: "Ticker / symbol tag", type: "string" },
+      { key: "ohlcvTable", label: "OHLCV Chart Data", type: "ohlcv_table" },
+      { key: "xAxisLabel", label: "X-axis label", type: "string", placeholder: "e.g. TRADING DAYS" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. PRICE ($)" },
+    ],
+    terminal_dashboard: [
+      {
+        key: "metrics",
+        label: "KPI tiles",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+          { key: "suffix", label: "Change / suffix" },
+        ],
+        maxItems: 6,
+      },
+    ],
+    terminal_ticker: [
+      { key: "items", label: "Ticker rows", type: "string_array", maxItems: 10 },
+    ],
+    terminal_table: [
+      { key: "items", label: "Table rows (first row = header)", type: "pipe_table", maxItems: 12 },
+    ],
+    terminal_split: [
+      { key: "leftLabel", label: "Left label", type: "string" },
+      { key: "rightLabel", label: "Right label", type: "string" },
+      { key: "leftDescription", label: "Left description", type: "text" },
+      { key: "rightDescription", label: "Right description", type: "text" },
+    ],
+    terminal_dataviz: [
+      { key: "chartTable", label: "Chart data table", type: "chart_table" },
+      { key: "xAxisLabel", label: "X-axis label", type: "string", placeholder: "e.g. Year" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Revenue ($)" },
+    ],
+    terminal_list: [
+      { key: "items", label: "Watch list items", type: "string_array", maxItems: 8 },
+    ],
+    terminal_metric: [
+      {
+        key: "metrics",
+        label: "Metric tiles",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+          { key: "suffix", label: "Suffix", placeholder: "%" },
+        ],
+        maxItems: 6,
+      },
+    ],
+    terminal_profile: [
+      { key: "items", label: "Profile rows", type: "string_array", maxItems: 8 },
+    ],
+    terminal_options: [
+      { key: "items", label: "Options chain rows (first row = header)", type: "pipe_table", maxItems: 10 },
+    ],
+    ending_socials: [],
+  },
+  /** Chronicle — medieval tome layout content keys. ending_socials uses the dedicated CTA / socials block above. */
+  chronicle: {
+    book_open: [],
+    parchment_scroll: [
+      { key: "category", label: "Section tag", type: "string", placeholder: "e.g. Chapter I, Folio II" },
+      { key: "illuminatedLetter", label: "Drop cap letter (optional)", type: "string", placeholder: "Auto from first letter" },
+      {
+        key: "stats",
+        label: "Byline / dating (optional)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+        ],
+        maxItems: 2,
+      },
+    ],
+    chapter_plate: [
+      {
+        key: "subtitle",
+        label: "Kicker above title (optional)",
+        type: "string",
+        placeholder: "e.g. Act One, The Founding Years — leave blank to skip",
+      },
+    ],
+    illuminated_quote: [
+      { key: "quote", label: "Quote (overrides narration)", type: "text" },
+      { key: "highlightPhrase", label: "Phrase to highlight in red", type: "string" },
+      { key: "attribution", label: "Attribution", type: "string" },
+    ],
+    ledger_stats: [
+      {
+        key: "stats",
+        label: "Ledger entries (1-3)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Number" },
+          { key: "label", label: "Descriptor" },
+        ],
+        maxItems: 3,
+      },
+    ],
+    versus_folio: [
+      { key: "leftLabel", label: "Left page heading", type: "string" },
+      { key: "rightLabel", label: "Right page heading", type: "string" },
+      { key: "leftDescription", label: "Left page body", type: "text" },
+      { key: "rightDescription", label: "Right page body", type: "text" },
+    ],
+    chronicle_timeline: [
+      {
+        key: "stats",
+        label: "Waypoints (up to 4)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Year / marker" },
+          { key: "label", label: "Event" },
+        ],
+        maxItems: 4,
+      },
+    ],
+    map_reveal: [],
+    decree_seal: [
+      { key: "word", label: "The blackletter word", type: "string", placeholder: "e.g. DECREED, FINIS, HONOR" },
+      { key: "highlightWord", label: "Alt word (ignored if 'word' set)", type: "string" },
+      { key: "cta", label: "Sign-off", type: "string" },
+    ],
+  },
   /** Black Swan — layout content keys (typography still uses sliders + meta defaults). ending_socials uses the dedicated CTA / socials block above. */
   blackswan: {
     droplet_intro: [],
@@ -1026,14 +1370,178 @@ function getLayoutFields(template: string, layoutId: string | null): FieldDef[] 
   return LAYOUT_TEXT_FIELDS_OVERRIDE[normalizedTemplate]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
 }
 
+/**
+ * Module-scoped cache of compiled crafted-template layout field defs.
+ * Keyed by `template_id`. Survives modal close/reopen within the session;
+ * cleared on full reload (matches localStorage cache TTL behavior).
+ */
+const __craftedLayoutFieldsCache = new Map<string, Record<string, FieldDef[]>>();
+
 /** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
 const HIDDEN_LAYOUT_PROP_KEYS = new Set([
   "hideImage",
   "assignedImage",
   "imageUrl",
+  "imageBoxAspectRatio",
+  "ImageBoxAspectRatio",
+  "image_box_aspect_ratio",
   "titleFontSize",
   "descriptionFontSize",
 ]);
+
+const HIDDEN_LAYOUT_PROP_KEYS_LOWER = new Set(
+  Array.from(HIDDEN_LAYOUT_PROP_KEYS).map((k) => k.toLowerCase()),
+);
+
+function isHiddenLayoutPropKey(key: string): boolean {
+  return HIDDEN_LAYOUT_PROP_KEYS_LOWER.has(String(key || "").toLowerCase());
+}
+
+/**
+ * Keys that were once valid for a template/layout but have been deprecated.
+ * They are silently hidden from the editor so stale scene data doesn't surface
+ * dead fields. (The value may still exist in saved `layoutProps` but the
+ * layout component no longer reads it.)
+ */
+const DEPRECATED_LAYOUT_PROP_KEYS: Record<string, Record<string, Set<string>>> = {
+  chronicle: {
+    chapter_plate: new Set(["chapterNumber"]),
+  },
+};
+
+function isDeprecatedLayoutPropKey(
+  template: string | undefined,
+  layoutId: string | null,
+  key: string,
+): boolean {
+  if (!template || !layoutId) return false;
+  const t = template.toLowerCase();
+  return DEPRECATED_LAYOUT_PROP_KEYS[t]?.[layoutId]?.has(key) ?? false;
+}
+
+function schemaLayoutPropTypeToFieldType(t: LayoutPropFieldType): FieldType | null {
+  switch (t) {
+    case "string":
+    case "text":
+    case "color":
+    case "number":
+    case "select":
+    case "string_array":
+    case "object_array":
+      return t;
+    case "chart_table":
+      return "chart_table";
+    default:
+      return null;
+  }
+}
+
+/** Prefer bundled layoutFields.ts; fall back to API meta.layout_prop_schema for crafted templates. */
+function layoutPropSchemaToFieldDefs(schema: LayoutPropSchema | undefined): FieldDef[] | undefined {
+  if (!schema?.fields?.length) return undefined;
+  const out: FieldDef[] = [];
+  for (const f of schema.fields) {
+    if (isHiddenLayoutPropKey(f.key)) continue;
+    const ft = schemaLayoutPropTypeToFieldType(f.type);
+    if (!ft) continue;
+    out.push({
+      key: f.key,
+      label: f.label,
+      type: ft,
+      placeholder: f.placeholder,
+      maxItems: f.maxItems,
+      min: f.min,
+      max: f.max,
+      step: f.step,
+      options: f.options?.map((o) => ({ value: o.value, label: o.label })),
+      subFields: f.subFields,
+    });
+  }
+  return out.length ? out : undefined;
+}
+
+function pickCraftedCompiledLayoutFields(
+  byLayout: Record<string, FieldDef[]> | null | undefined,
+  layoutId: string | null,
+): FieldDef[] | undefined {
+  if (!byLayout || !layoutId) return undefined;
+  const direct = byLayout[layoutId];
+  if (Array.isArray(direct) && direct.length > 0) return direct;
+  const lower = layoutId.toLowerCase();
+  const altKey = Object.keys(byLayout).find((k) => k.toLowerCase() === lower);
+  const alt = altKey ? byLayout[altKey] : undefined;
+  if (Array.isArray(alt) && alt.length > 0) return alt;
+  return undefined;
+}
+
+function pickLayoutPropSchemaFieldDefs(
+  schemaMap: Record<string, LayoutPropSchema> | undefined,
+  layoutId: string | null,
+): FieldDef[] | undefined {
+  if (!schemaMap || !layoutId) return undefined;
+  let defs = layoutPropSchemaToFieldDefs(schemaMap[layoutId]);
+  if (defs?.length) return defs;
+  const lower = layoutId.toLowerCase();
+  const altKey = Object.keys(schemaMap).find((k) => k.toLowerCase() === lower);
+  return altKey ? layoutPropSchemaToFieldDefs(schemaMap[altKey]) : undefined;
+}
+
+function normalizeObjectArrayItems(raw: unknown): Record<string, string>[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((it) => {
+    if (it != null && typeof it === "object" && !Array.isArray(it)) {
+      const o = it as Record<string, unknown>;
+      const out: Record<string, string> = {};
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        out[k] =
+          v == null
+            ? ""
+            : typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+              ? String(v)
+              : JSON.stringify(v);
+      }
+      return out;
+    }
+    return { value: String(it ?? "") };
+  });
+}
+
+function inferObjectArraySubFields(
+  items: Record<string, string>[],
+): { key: string; label: string; placeholder?: string }[] {
+  const first = items.find((row) => row && typeof row === "object");
+  if (!first) return [];
+  return Object.keys(first).map((k) => ({
+    key: k,
+    label: k.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
+  }));
+}
+
+function formatUnknownLayoutPropValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function parseUnknownLayoutPropValue(raw: string, prevValue: unknown): unknown {
+  // For array/object props, preserve shape by accepting JSON edits.
+  if (Array.isArray(prevValue) || (prevValue != null && typeof prevValue === "object")) {
+    const trimmed = raw.trim();
+    if (!trimmed) return Array.isArray(prevValue) ? [] : {};
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return prevValue;
+    }
+  }
+  return raw;
+}
 
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
@@ -1079,10 +1587,177 @@ interface Props {
   scene: Scene;
   project: Project;
   imageItems: SceneImageItem[];
+  availableImageItems: SceneImageItem[];
   onSaved: () => void;
+  openImageAdjustOnOpen?: boolean;
+  /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
+  demoMode?: SceneEditModalDemoMode;
 }
 
 type EditMode = "manual" | "ai";
+
+/** Read-only demo mode used by help videos: skips API calls, seeds editing state, renders inline. */
+export interface SceneEditModalDemoMode {
+  editMode?: EditMode;
+  regenerateVoiceover?: boolean;
+}
+
+export function SceneEditModalDemo({
+  scene,
+  editMode = "manual",
+  regenerateVoiceover = false,
+}: {
+  scene: Scene;
+  editMode?: EditMode;
+  regenerateVoiceover?: boolean;
+}) {
+  const inputClass =
+    "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+  const textareaClass = `${inputClass} resize-none overflow-hidden`;
+
+  return (
+    <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">Edit Scene {scene.order}</h2>
+        <button className="p-1 rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="p-6 overflow-y-auto flex-1">
+        <div>
+          <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
+            Editing mode
+          </h4>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                editMode === "manual"
+                  ? "border-purple-500 bg-purple-50 text-purple-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Manual editing
+            </button>
+            <button
+              type="button"
+              className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                editMode === "ai"
+                  ? "border-purple-500 bg-purple-50 text-purple-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              AI-Assisted editing
+            </button>
+          </div>
+          {editMode === "ai" && (
+            <p className="mt-1 text-xs text-gray-600 font-medium">
+              AI-Assisted-Editing limit: Unlimited
+            </p>
+          )}
+        </div>
+
+        {editMode === "manual" ? (
+          <div className="mt-5 space-y-4">
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Title</h4>
+              <input type="text" readOnly value={scene.title} className={inputClass} />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Display text
+              </h4>
+              <textarea
+                readOnly
+                value={scene.display_text ?? scene.narration_text}
+                className={textareaClass}
+                rows={2}
+              />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Narration text (voiceover script)
+              </h4>
+              <textarea readOnly value={scene.narration_text} className={textareaClass} rows={3} />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Layout
+              </h4>
+              <select disabled value="statement" className={`${inputClass} bg-white`}>
+                <option value="statement">Statement</option>
+              </select>
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Scene image
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                <button className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                <button className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Visual description <span className="normal-case tracking-normal text-gray-300">(optional)</span>
+              </h4>
+              <textarea
+                readOnly
+                value="Make the scene more concise and emphasize the main takeaway."
+                className={textareaClass}
+                rows={2}
+              />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Narration text (voiceover script)
+              </h4>
+              <textarea readOnly value={scene.narration_text} className={textareaClass} rows={3} />
+              <p className="mt-1.5 text-xs text-gray-400">
+                This controls the spoken narration and scene timing. Display text is edited in Manual mode.
+              </p>
+            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+              <input
+                type="checkbox"
+                readOnly
+                checked={regenerateVoiceover}
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Regenerate voiceover</span>
+                <p className="text-[11px] text-gray-400 mt-0.5">Create new audio for this scene after saving.</p>
+              </div>
+            </label>
+          </div>
+        )}
+      </div>
+
+      <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-2">
+        <button className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+          Cancel
+        </button>
+        <button className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors">
+          {editMode === "manual" ? "Save changes" : "Apply AI edit"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function SceneEditModal({
   open,
@@ -1090,9 +1765,13 @@ export default function SceneEditModal({
   scene,
   project,
   imageItems,
+  availableImageItems,
   onSaved,
+  openImageAdjustOnOpen = false,
+  demoMode,
 }: Props) {
-  const [editMode, setEditMode] = useState<EditMode>("manual");
+  const isDemo = !!demoMode;
+  const [editMode, setEditMode] = useState<EditMode>(demoMode?.editMode ?? "manual");
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
@@ -1101,7 +1780,7 @@ export default function SceneEditModal({
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
   const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
-  const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
+  const [regenerateVoiceover, setRegenerateVoiceover] = useState(demoMode?.regenerateVoiceover ?? false);
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
   const ENDING_SOCIALS_KEYS = [
     "instagram",
@@ -1132,7 +1811,19 @@ export default function SceneEditModal({
   const [endingCtaButtonText, setEndingCtaButtonText] = useState("");
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
+  const [scrapedImagesModalOpen, setScrapedImagesModalOpen] = useState(false);
+  const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
+  const [assigningExistingImage, setAssigningExistingImage] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imageFocusX, setImageFocusX] = useState(50);
+  const [imageFocusY, setImageFocusY] = useState(50);
+  const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
+  const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
+  const [isAdjustDragging, setIsAdjustDragging] = useState(false);
+  const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
+  const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
+  const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
@@ -1142,6 +1833,16 @@ export default function SceneEditModal({
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const layoutRef = useRef<HTMLDivElement>(null);
+  const localImageInputRef = useRef<HTMLInputElement>(null);
+  const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
+  const imageAdjustPanRef = useRef<{
+    startX: number;
+    startY: number;
+    startFx: number;
+    startFy: number;
+  } | null>(null);
+  const shouldAutoOpenAdjustRef = useRef(false);
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -1162,17 +1863,20 @@ export default function SceneEditModal({
   const canUseAI = isPro || aiUsageCount < 3;
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
+  const isCraftedTemplate = (project.template || "").startsWith("crafted_");
   const normalizedTemplateId = (project.template || "default").toLowerCase();
   const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
   const isDefaultTemplate = normalizedTemplateId === "default";
+  const isBloombergTemplate = normalizedTemplateId === "bloomberg";
 
   const currentLayoutId = (() => {
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
-        // Custom templates: check for variant override first
-        if (desc.sceneTypeOverride) {
+        // Only custom templates use sceneType/content variant routing.
+        // Crafted + built-in templates should map by explicit layout id.
+        if (isCustomTemplate && desc.sceneTypeOverride) {
           if (desc.sceneTypeOverride === "content" && typeof desc.contentVariantIndex === "number") {
             return `content_${desc.contentVariantIndex}`;
           }
@@ -1210,18 +1914,23 @@ export default function SceneEditModal({
     return sorted.length > 1 && sorted[sorted.length - 1].id === scene.id;
   })();
   const isEndingScene = currentLayoutId === "ending_socials" || isCustomOutro;
+  const [craftedFrontendFiles, setCraftedFrontendFiles] = useState<Record<string, string> | null>(null);
+  // Per-layout SceneEditModal field overrides loaded from the crafted
+  // template's bundled `frontend/layoutFields.ts`. Compiled at runtime;
+  // falls back to LAYOUT_TEXT_FIELDS / meta.json when null.
+  const [craftedLayoutFieldsByLayout, setCraftedLayoutFieldsByLayout] =
+    useState<Record<string, FieldDef[]> | null>(null);
+  /** False while `layout_fields` TS is compiling — avoids showing `[object Object]` in generic extra-key inputs. */
+  const [craftedLayoutFieldsReady, setCraftedLayoutFieldsReady] = useState(true);
+  const { craftedTemplates, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
-  const defaultFontSizes =
-    getDefaultFontSizesFromSchema(
-      layouts?.layout_prop_schema,
-      currentLayoutId,
-      project.aspect_ratio || "landscape"
-    ) ??
-    getDefaultFontSizes(
-      project.template || "default",
-      currentLayoutId,
-      project.aspect_ratio || "landscape"
-    );
+  const defaultFontSizes = resolveDefaultFontSizesForScene({
+    template: project.template || "default",
+    layoutId: currentLayoutId,
+    aspectRatio: project.aspect_ratio || "landscape",
+    layoutPropSchema: layouts?.layout_prop_schema,
+    craftedFrontendFiles,
+  });
 
   const aiHasChanges =
     description.trim().length > 0 ||
@@ -1240,10 +1949,13 @@ export default function SceneEditModal({
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
+    setImageFocusX(50);
+    setImageFocusY(50);
     setGeneratingImage(false);
     setGeneratedImageBase64(null);
     setGeneratedPrompt(null);
     setShowAiImageUpgradeModal(false);
+    shouldAutoOpenAdjustRef.current = openImageAdjustOnOpen;
     let layoutId: string | null = null;
     let ts = "";
     let ds = "";
@@ -1267,6 +1979,8 @@ export default function SceneEditModal({
         if (!ts && typeof lp.titleFontSize === "number") ts = String(lp.titleFontSize);
         if (!ds && typeof lp.descriptionFontSize === "number") ds = String(lp.descriptionFontSize);
         lpCopy = { ...lp };
+        if (typeof lp.imageFocusX === "number") setImageFocusX(Math.max(0, Math.min(100, lp.imageFocusX)));
+        if (typeof lp.imageFocusY === "number") setImageFocusY(Math.max(0, Math.min(100, lp.imageFocusY)));
         // data_visualization charts: convert stored shapes to editable form
         if (layoutId === "data_visualization") {
           const lpAny = lp as Record<string, unknown>;
@@ -1384,6 +2098,51 @@ export default function SceneEditModal({
             delete (lpCopy as Record<string, unknown>).chartType;
           }
         }
+        // Bloomberg terminal_dataviz: normalize chartTable on modal open
+        if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          lpCopy.chartTable = chartTableHasData(directChartTable)
+            ? directChartTable
+            : { headers: ["Label", "Value"], rows: [["", ""]] };
+        }
+        // Bloomberg terminal_dataviz: pre-populate xAxisLabel/yAxisLabel from chartTable headers
+        // so the form shows the currently-displayed values even before the user has edited them.
+        if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          if (!lpAny.xAxisLabel && !lpAny.yAxisLabel) {
+            const tbl = normalizeChartTableValue(lpAny.chartTable);
+            if (tbl.headers[0]) lpCopy.xAxisLabel = tbl.headers[0];
+            if (tbl.headers[1]) lpCopy.yAxisLabel = tbl.headers[1];
+          }
+        }
+        // Bloomberg terminal_chart: populate ohlcvTable for the editor from stored data or pipe items.
+        // Only use pipe-delimited items (real OHLCV format). Never derive synthetic OHLC from
+        // arbitrary numbers — older scenes may have hallucinated text-label items that look numeric
+        // but are meaningless as OHLCV data (e.g. "PRICE: $24.85", "RSI(14): 68.2").
+        if (isBloombergTemplate && layoutId === "terminal_chart") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          if (!lpAny.xAxisLabel) lpCopy.xAxisLabel = "TRADING DAYS";
+          if (!lpAny.yAxisLabel) lpCopy.yAxisLabel = "PRICE ($)";
+          const storedOhlcv = lpAny.ohlcvTable as { headers: string[]; rows: string[][] } | undefined;
+          const storedHasRows = storedOhlcv && Array.isArray(storedOhlcv.rows) && storedOhlcv.rows.length >= 4;
+          if (!storedHasRows) {
+            const rawItems = Array.isArray(lpAny.items) ? (lpAny.items as string[]) : [];
+            // Only reconstruct from genuine pipe-delimited OHLCV items: "date|open|high|low|close|vol"
+            const pipeItems = rawItems.filter((s) => String(s).split("|").length >= 5);
+            if (pipeItems.length >= 4) {
+              lpCopy.ohlcvTable = {
+                headers: ["Date", "Open", "High", "Low", "Close", "Volume"],
+                rows: pipeItems.map((s) => {
+                  const p = s.split("|");
+                  return [p[0] ?? "", p[1] ?? "", p[2] ?? "", p[3] ?? "", p[4] ?? "", p[5] ?? ""];
+                }),
+              };
+            }
+            // If no valid OHLCV items found, leave ohlcvTable unset — editor stays empty
+            // and the chart renders procedural candles (correct behaviour for pre-OHLCV scenes)
+          }
+        }
       } catch { /* ignore */ }
     }
     // For custom templates, CTA data lives in ctaProps, not layoutProps
@@ -1451,30 +2210,107 @@ export default function SceneEditModal({
       } catch { /* ignore */ }
     }
     setEditableStructuredContent(scInit);
-    const schemaDefaults = getDefaultFontSizesFromSchema(
-      layouts?.layout_prop_schema,
+    const defaults = resolveDefaultFontSizesForScene({
+      template: project.template || "default",
       layoutId,
-      project.aspect_ratio || "landscape"
-    );
-    const defaults = schemaDefaults ?? getDefaultFontSizes(
-      project.template || "default",
-      layoutId,
-      project.aspect_ratio || "landscape"
-    );
+      aspectRatio: project.aspect_ratio || "landscape",
+      layoutPropSchema: layouts?.layout_prop_schema,
+      craftedFrontendFiles,
+    });
     if (!ts) ts = String(defaults.title);
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, craftedFrontendFiles, isCraftedTemplate, openImageAdjustOnOpen]);
+
+  useEffect(() => {
+    if (!open || !isCraftedTemplate || !project.template) {
+      setCraftedFrontendFiles(null);
+      return;
+    }
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    setCraftedFrontendFiles((found?.frontend_files as Record<string, string> | null) || null);
+    if (!found?.frontend_files) {
+      void ensureCraftedTemplateDetail(project.template);
+    }
+  }, [open, isCraftedTemplate, project.template, craftedTemplates, ensureCraftedTemplateDetail]);
+
+  // Compile the bundled `frontend/layoutFields.ts` into a Record<layoutId, FieldDef[]>.
+  // The source ships on the list-summary (no full-package fetch needed).
+  // Module-level cache (`__craftedLayoutFieldsCache`) survives modal close/reopen.
+  useEffect(() => {
+    if (!open || !isCraftedTemplate || !project.template) {
+      setCraftedLayoutFieldsByLayout(null);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    const templateId = project.template;
+    const found = craftedTemplates.find((ct) => ct.id === templateId);
+    const source = (found as { layout_fields?: string | null } | undefined)?.layout_fields;
+    if (!source || !String(source).trim()) {
+      setCraftedLayoutFieldsByLayout(null);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    const cached = __craftedLayoutFieldsCache.get(templateId);
+    if (cached) {
+      setCraftedLayoutFieldsByLayout(cached);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    let cancelled = false;
+    setCraftedLayoutFieldsReady(false);
+    void compileDataModule(source)
+      .then((mod) => {
+        if (cancelled) return;
+        const raw = (mod?.LAYOUT_FIELDS ?? mod?.default ?? null) as
+          | Record<string, FieldDef[]>
+          | null;
+        if (!raw || typeof raw !== "object") {
+          setCraftedLayoutFieldsByLayout(null);
+          return;
+        }
+        // Defensive shape check — drop entries that aren't arrays of objects with a `key`.
+        const safe: Record<string, FieldDef[]> = {};
+        for (const [layoutId, fields] of Object.entries(raw)) {
+          if (!Array.isArray(fields)) continue;
+          const valid = fields.filter(
+            (f): f is FieldDef => !!f && typeof f === "object" && typeof (f as { key?: unknown }).key === "string",
+          );
+          if (valid.length > 0) safe[layoutId] = valid;
+        }
+        __craftedLayoutFieldsCache.set(templateId, safe);
+        setCraftedLayoutFieldsByLayout(safe);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCraftedLayoutFieldsByLayout(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCraftedLayoutFieldsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isCraftedTemplate, project.template, craftedTemplates]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
+    if (isDemo) return;
     if (open && !layouts) {
       getValidLayouts(project.id)
         .then((res) => setLayouts(res.data))
         .catch(() => showError("Failed to load layouts"));
     }
-  }, [open, project.id, layouts]);
+  }, [open, project.id, layouts, isDemo]);
+
+  useEffect(() => {
+    if (!open || !shouldAutoOpenAdjustRef.current || imageAdjustOpen) return;
+    const src = imagePreviewUrl || imageItems[0]?.url || null;
+    if (!src) return;
+    shouldAutoOpenAdjustRef.current = false;
+    openImageAdjustModal(src);
+  }, [open, imageAdjustOpen, imagePreviewUrl, imageItems]);
 
   // Merge schema defaults for missing layout props (e.g. new props added via rebuild)
   // useEffect(() => {
@@ -1523,7 +2359,8 @@ export default function SceneEditModal({
     return () => document.removeEventListener("mousedown", handler);
   }, [layoutOpen]);
 
-  const handleSave = async () => {
+  const handleSave = async (override?: { imageFocusX?: number; imageFocusY?: number; imageZoom?: number }) => {
+    if (isDemo) return;
     if (editMode === "manual") {
       setLoading(true);
       try {
@@ -1584,6 +2421,7 @@ export default function SceneEditModal({
             remotionCode = JSON.stringify(desc);
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
+            const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(1, override.imageZoom) : undefined;
             // data_visualization: convert editable chart form back to stored shapes
             const layoutId = (desc.layout as string) || "";
             if (layoutId === "data_visualization") {
@@ -1669,6 +2507,53 @@ export default function SceneEditModal({
                 delete lp.histogram;
               }
             }
+            // Bloomberg terminal_dataviz: normalize chartTable on save
+            if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+              const chartTable = normalizeChartTableValue((lp as Record<string, unknown>).chartTable);
+              lp.chartTable = chartTable;
+            }
+            // Bloomberg terminal_chart: regenerate items from edited ohlcvTable so the chart stays in sync
+            if (isBloombergTemplate && layoutId === "terminal_chart") {
+              const ohlcv = (lp as Record<string, unknown>).ohlcvTable as { headers: string[]; rows: string[][] } | undefined;
+              if (ohlcv && Array.isArray(ohlcv.headers) && Array.isArray(ohlcv.rows)) {
+                const hdrs = ohlcv.headers.map((h) => String(h).toLowerCase().trim());
+                const findCol = (...kws: string[]) => {
+                  for (const kw of kws) {
+                    const i = hdrs.findIndex((h) => h.includes(kw));
+                    if (i !== -1) return i;
+                  }
+                  return -1;
+                };
+                const parseNum = (v: string) => {
+                  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+                  return Number.isFinite(n) ? n : null;
+                };
+                const dateCol = findCol("date");
+                const openCol = findCol("open");
+                const highCol = findCol("high");
+                const lowCol = findCol("low");
+                const closeCol = findCol("close");
+                const volCol = findCol("volume", "vol");
+                if (openCol !== -1 && highCol !== -1 && lowCol !== -1 && closeCol !== -1) {
+                  const newItems: string[] = [];
+                  for (const row of ohlcv.rows) {
+                    const o = parseNum(row[openCol] ?? "");
+                    const h = parseNum(row[highCol] ?? "");
+                    const l = parseNum(row[lowCol] ?? "");
+                    const c = parseNum(row[closeCol] ?? "");
+                    if (o === null || h === null || l === null || c === null) continue;
+                    let label = dateCol !== -1 ? String(row[dateCol] ?? "").split(",")[0].trim() : "";
+                    let vol = 0;
+                    if (volCol !== -1) {
+                      const rv = parseFloat(String(row[volCol] ?? "").replace(/[^0-9.\-]/g, ""));
+                      if (Number.isFinite(rv)) vol = rv > 1e9 ? rv / 1e9 : rv > 1e6 ? rv / 1e6 : rv;
+                    }
+                    newItems.push(`${label}|${o.toFixed(2)}|${h.toFixed(2)}|${l.toFixed(2)}|${c.toFixed(2)}|${vol.toFixed(2)}`);
+                  }
+                  if (newItems.length >= 4) lp.items = newItems;
+                }
+              }
+            }
             // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
             const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
             if (bar && (!Array.isArray(bar.labels) || !bar.labels.length || !Array.isArray(bar.values) || !bar.values.length)) {
@@ -1692,10 +2577,16 @@ export default function SceneEditModal({
             else delete lp.descriptionFontSize;
             if (isEndingScene) {
               lp.hideImage = true;
+              delete lp.assignedImage;
+              delete lp.imageFocusX;
+              delete lp.imageFocusY;
+              delete lp.imageZoom;
               lp.socials = endingSocials;
               lp.showWebsiteButton = endingShowWebsiteButton;
               lp.websiteLink = (endingWebsiteLink || "").trim();
               lp.ctaButtonText = (endingCtaButtonText || "").trim();
+            } else if (zoomToSave !== undefined) {
+              lp.imageZoom = zoomToSave;
             }
             desc.layoutProps = lp;
             remotionCode = JSON.stringify(desc);
@@ -1773,6 +2664,18 @@ export default function SceneEditModal({
         if (selectedImageFile) {
           await updateSceneImage(project.id, scene.id, selectedImageFile);
         }
+        const hasExistingSceneImage = imageItems.length > 0;
+        const focusXToSave = override?.imageFocusX ?? imageFocusX;
+        const focusYToSave = override?.imageFocusY ?? imageFocusY;
+        const zoomToPatch =
+          typeof override?.imageZoom === "number"
+            ? Math.max(1, override.imageZoom)
+            : typeof editableLayoutProps.imageZoom === "number"
+              ? Math.max(1, Number(editableLayoutProps.imageZoom))
+              : undefined;
+        if (supportsImage && (selectedImageFile || hasExistingSceneImage)) {
+          await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
+        }
         onSaved();
         onClose();
       } catch (err: unknown) {
@@ -1840,6 +2743,8 @@ export default function SceneEditModal({
         hideImage: true,
       };
       delete layoutProps.assignedImage;
+      delete layoutProps.imageFocusX;
+      delete layoutProps.imageFocusY;
       descriptor.layoutProps = layoutProps;
 
       await updateScene(project.id, scene.id, {
@@ -1859,8 +2764,45 @@ export default function SceneEditModal({
     }
   };
 
+  const handleOpenImageSourceChooser = () => {
+    setImageSourceChooserOpen(true);
+    setSelectedExistingAssetId(null);
+  };
+
+  const handleChooseLocalUpload = () => {
+    setImageSourceChooserOpen(false);
+    localImageInputRef.current?.click();
+  };
+
+  const handleChooseScrapedImages = () => {
+    setImageSourceChooserOpen(false);
+    setSelectedExistingAssetId(null);
+    setScrapedImagesModalOpen(true);
+  };
+
+  const handleAssignExistingImage = async () => {
+    if (!selectedExistingAssetId) return;
+    setAssigningExistingImage(true);
+    try {
+      await assignExistingImageToScene(project.id, scene.id, selectedExistingAssetId);
+      setSelectedImageFile(null);
+      setImagePreviewUrl(null);
+      setScrapedImagesModalOpen(false);
+      onSaved();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : "Failed to assign image";
+      showError(String(msg));
+    } finally {
+      setAssigningExistingImage(false);
+    }
+  };
+
   const hasSceneText =
     Boolean((scene.title || "").trim()) || Boolean((scene.narration_text || "").trim());
+  const scrapedImageItems = availableImageItems;
 
   const handleGenerateImageClick = () => {
     if (!isPro) {
@@ -1915,13 +2857,135 @@ export default function SceneEditModal({
     setGeneratedPrompt(null);
   };
 
+  const clampFocus = (value: number) => Math.max(0, Math.min(100, value));
+
+  useEffect(() => {
+    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
+  }, [imageAdjustFocusX, imageAdjustFocusY]);
+
+  useEffect(() => {
+    if (!isAdjustDragging || !imageAdjustOpen || !imageAdjustSrc) return;
+    const pan = imageAdjustPanRef.current;
+    if (!pan) return;
+
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = imageAdjustPreviewRef.current;
+      if (!el || !imageAdjustPanRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setImageAdjustFocusX(clamp(startFx - dxPct));
+      setImageAdjustFocusY(clamp(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [isAdjustDragging, imageAdjustOpen, imageAdjustSrc]);
+
+  useLayoutEffect(() => {
+    if (!imageAdjustOpen || !imageAdjustSrc) return;
+    const el = imageAdjustPreviewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      setImageAdjustZoom((z) => {
+        const factor = delta > 0 ? 0.97 : 1.03;
+        const next = Math.min(
+          IMAGE_ADJUST_ZOOM_MAX,
+          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor)
+        );
+        return Math.round(next * 100) / 100;
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustOpen, imageAdjustSrc]);
+
+  const openImageAdjustModal = (src: string) => {
+    setImageAdjustSrc(src);
+    setIsAdjustDragging(false);
+    const currentZoom = Math.max(1, Number((editableLayoutProps.imageZoom as number) || 1));
+    setImageAdjustFocusX(imageFocusX);
+    setImageAdjustFocusY(imageFocusY);
+    setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
+    imageAdjustPanRef.current = null;
+    setImageAdjustOpen(true);
+  };
+
+  const closeImageAdjustModal = () => {
+    setImageAdjustOpen(false);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+  };
+
+  const saveImageAdjustModal = async () => {
+    const nextFocusX = clampFocus(imageAdjustFocusX);
+    const nextFocusY = clampFocus(imageAdjustFocusY);
+    const nextZoom = Math.max(1, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
+    setImageFocusX(nextFocusX);
+    setImageFocusY(nextFocusY);
+    setEditableLayoutProps((prev) => ({ ...prev, imageZoom: nextZoom }));
+    closeImageAdjustModal();
+    await handleSave({ imageFocusX: nextFocusX, imageFocusY: nextFocusY, imageZoom: nextZoom });
+  };
+
+  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
   if (!open) return null;
 
   const manualOnly = editMode === "manual";
 
-  return ReactDOM.createPortal(
+  const modalTree = (
     <>
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center" : "fixed inset-0 z-[100] flex items-center justify-center"}>
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
@@ -2159,8 +3223,27 @@ export default function SceneEditModal({
                   );
                 }
 
-                const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
-                let layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
+                // Crafted templates: prefer fields shipped in the bundle's
+                // `frontend/layoutFields.ts`. Fall back to LAYOUT_TEXT_FIELDS
+                // (keyed by layout id) for any layout the bundle hasn't
+                // declared, so unknown crafted layouts still render *some*
+                // controls instead of being blank.
+                const craftedTemplateEntry = isCraftedTemplate
+                  ? craftedTemplates.find((ct) => ct.id === project.template)
+                  : undefined;
+                const craftedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickCraftedCompiledLayoutFields(craftedLayoutFieldsByLayout, currentLayoutId)
+                    : undefined;
+                const schemaBackedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickLayoutPropSchemaFieldDefs(craftedTemplateEntry?.layout_prop_schema, currentLayoutId)
+                    : undefined;
+                const rawLayoutFields =
+                  craftedFields ??
+                  schemaBackedFields ??
+                  getLayoutFields(project.template || "default", currentLayoutId);
+                let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
 
                 if (isNewscastTemplate && currentLayoutId === "data_visualization") {
                   const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
@@ -2183,12 +3266,33 @@ export default function SceneEditModal({
                 const suppressExtraKeysForDataViz =
                   (isNewscastTemplate || isNightfallTemplate || isDefaultTemplate) &&
                   currentLayoutId === "data_visualization";
+                const suppressExtraKeysForBloombergChart =
+                  isBloombergTemplate && currentLayoutId === "terminal_chart";
+                const suppressExtraKeysForBloombergDataViz =
+                  isBloombergTemplate && currentLayoutId === "terminal_dataviz";
+                const craftedHasLayoutFieldsSource =
+                  isCraftedTemplate &&
+                  Boolean(
+                    String(
+                      (craftedTemplateEntry as { layout_fields?: string | null } | undefined)?.layout_fields ?? "",
+                    ).trim(),
+                  );
+                const deferCraftedExtraKeys = craftedHasLayoutFieldsSource && !craftedLayoutFieldsReady;
                 const extraKeys =
-                  suppressExtraKeysForDataViz
+                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz)
                     ? []
+                    : deferCraftedExtraKeys
+                      ? []
                     : currentLayoutId && editableLayoutProps
                       ? Object.keys(editableLayoutProps).filter(
-                          (key) => !knownKeys.has(key) && !HIDDEN_LAYOUT_PROP_KEYS.has(key)
+                          (key) =>
+                            !knownKeys.has(key) &&
+                            !isHiddenLayoutPropKey(key) &&
+                            !isDeprecatedLayoutPropKey(
+                              project.template,
+                              currentLayoutId,
+                              key,
+                            ),
                         )
                       : [];
                 if (!currentLayoutId || (layoutFields.length === 0 && extraKeys.length === 0)) return null;
@@ -2220,6 +3324,153 @@ export default function SceneEditModal({
                               />
                               <span className="text-xs text-gray-500 tabular-nums">{currentColor.toUpperCase()}</span>
                             </div>
+                          </div>
+                        );
+                      }
+                      if (field.type === "ohlcv_table") {
+                        const raw = editableLayoutProps[field.key] as { headers: string[]; rows: string[][] } | null | undefined;
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <OHLCVTableEditor
+                              value={raw}
+                              onChange={(next) =>
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next }))
+                              }
+                            />
+                          </div>
+                        );
+                      }
+                      if (field.type === "pipe_table") {
+                        const rawItems = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
+                        // Parse pipe-delimited rows into a 2D grid
+                        const grid: string[][] = rawItems.map((row) =>
+                          String(row).split("|").map((c) => c.trim())
+                        );
+                        const colCount = Math.max(1, ...grid.map((r) => r.length));
+                        // Pad all rows to same width
+                        const paddedGrid = grid.map((r) => {
+                          const padded = [...r];
+                          while (padded.length < colCount) padded.push("");
+                          return padded;
+                        });
+                        const updateGrid = (newGrid: string[][]) => {
+                          const newItems = newGrid.map((row) => row.join(" | "));
+                          setEditableLayoutProps((prev) => ({ ...prev, [field.key]: newItems }));
+                        };
+                        const updateCell = (rowI: number, colI: number, val: string) => {
+                          const newGrid = paddedGrid.map((r) => [...r]);
+                          newGrid[rowI][colI] = val;
+                          updateGrid(newGrid);
+                        };
+                        const addRow = () => {
+                          updateGrid([...paddedGrid, Array(colCount).fill("")]);
+                        };
+                        const removeRow = (rowI: number) => {
+                          updateGrid(paddedGrid.filter((_, i) => i !== rowI));
+                        };
+                        const addColumn = () => {
+                          updateGrid(paddedGrid.map((r) => [...r, ""]));
+                        };
+                        const removeColumn = (colI: number) => {
+                          updateGrid(paddedGrid.map((r) => r.filter((_, i) => i !== colI)));
+                        };
+                        const maxRows = field.maxItems ?? 20;
+                        return (
+                          <div key={field.key}>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">{field.label}</label>
+                              <button
+                                type="button"
+                                onClick={addColumn}
+                                className="text-[10px] font-medium text-gray-400 hover:text-purple-600 flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add column
+                              </button>
+                            </div>
+                            <div className="rounded-lg border border-gray-200 overflow-x-auto">
+                              <table className="w-full text-xs border-collapse">
+                                <thead>
+                                  <tr className="bg-gray-50 border-b border-gray-200">
+                                    {paddedGrid[0]?.map((_, colI) => (
+                                      <th key={colI} className="px-1 py-1 font-medium text-gray-400 text-center relative">
+                                        <div className="flex items-center justify-center gap-1">
+                                          <span className="text-[10px]">Col {colI + 1}</span>
+                                          {colCount > 1 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => removeColumn(colI)}
+                                              className="text-gray-300 hover:text-red-400 transition-colors"
+                                            >
+                                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                              </svg>
+                                            </button>
+                                          )}
+                                        </div>
+                                      </th>
+                                    ))}
+                                    <th className="w-6" />
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {paddedGrid.map((row, rowI) => (
+                                    <tr
+                                      key={rowI}
+                                      className={rowI === 0
+                                        ? "bg-gray-50/80 border-b-2 border-gray-300"
+                                        : "border-b border-gray-100 last:border-0"}
+                                    >
+                                      {row.map((cell, colI) => (
+                                        <td key={colI} className="px-1 py-0.5">
+                                          <input
+                                            type="text"
+                                            value={cell}
+                                            onChange={(e) => updateCell(rowI, colI, e.target.value)}
+                                            className={`w-full px-2 py-1.5 text-xs rounded border focus:outline-none focus:ring-1 focus:ring-purple-400 ${
+                                              rowI === 0
+                                                ? "font-semibold bg-white border-gray-300 text-gray-700"
+                                                : "bg-white border-gray-200 text-gray-600"
+                                            }`}
+                                            placeholder={rowI === 0 ? `Header ${colI + 1}` : ""}
+                                          />
+                                        </td>
+                                      ))}
+                                      <td className="px-1 py-0.5 text-center">
+                                        {paddedGrid.length > 1 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => removeRow(rowI)}
+                                            className="p-0.5 text-gray-300 hover:text-red-400 transition-colors rounded"
+                                          >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            {paddedGrid.length < maxRows && (
+                              <button
+                                type="button"
+                                onClick={addRow}
+                                className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add row
+                              </button>
+                            )}
                           </div>
                         );
                       }
@@ -2529,8 +3780,13 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
-                      if (field.type === "object_array" && field.subFields) {
-                        const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as Record<string, string>[];
+                      if (field.type === "object_array") {
+                        const items = normalizeObjectArrayItems(editableLayoutProps[field.key]);
+                        const subFields =
+                          field.subFields?.length
+                            ? field.subFields
+                            : inferObjectArraySubFields(items);
+                        if (!subFields.length) return null;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -2539,7 +3795,7 @@ export default function SceneEditModal({
                                 <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                                   <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                   <div className="flex-1 space-y-2">
-                                    {field.subFields!.map((sf) => (
+                                    {subFields.map((sf) => (
                                       <div key={sf.key}>
                                         <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
                                         <input
@@ -2575,7 +3831,7 @@ export default function SceneEditModal({
                                   type="button"
                                   onClick={() => {
                                     const empty: Record<string, string> = {};
-                                    field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                    subFields.forEach((sf) => { empty[sf.key] = ""; });
                                     setEditableLayoutProps((prev) => ({ ...prev, [field.key]: [...items, empty] }));
                                   }}
                                   className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
@@ -2594,24 +3850,92 @@ export default function SceneEditModal({
                     })}
                     {extraKeys.length > 0 && (
                       <div className="space-y-3">
-                        {extraKeys.map((key) => (
-                          <div key={key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
-                              {humanLabel(key)}
-                            </label>
-                            <input
-                              type="text"
-                              value={String(editableLayoutProps[key] ?? "")}
-                              onChange={(e) =>
-                                setEditableLayoutProps((prev) => ({
-                                  ...prev,
-                                  [key]: e.target.value,
-                                }))
-                              }
-                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                          </div>
-                        ))}
+                        {extraKeys.map((key) => {
+                          const rawValue = editableLayoutProps[key];
+                          const looksLikeObjectArray = Array.isArray(rawValue)
+                            && rawValue.every((it) => it != null && typeof it === "object" && !Array.isArray(it));
+                          if (looksLikeObjectArray) {
+                            const items = normalizeObjectArrayItems(rawValue);
+                            const subFields = inferObjectArraySubFields(items);
+                            if (!subFields.length) return null;
+                            return (
+                              <div key={key}>
+                                <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                                  {humanLabel(key)}
+                                </label>
+                                <div className="space-y-3">
+                                  {items.map((item, i) => (
+                                    <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                                      <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
+                                      <div className="flex-1 space-y-2">
+                                        {subFields.map((sf) => (
+                                          <div key={sf.key}>
+                                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
+                                            <input
+                                              type="text"
+                                              value={item[sf.key] ?? ""}
+                                              placeholder={sf.placeholder || sf.label}
+                                              onChange={(e) => {
+                                                const updated = [...items];
+                                                updated[i] = { ...updated[i], [sf.key]: e.target.value };
+                                                setEditableLayoutProps((prev) => ({ ...prev, [key]: updated }));
+                                              }}
+                                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = items.filter((_, j) => j !== i);
+                                          setEditableLayoutProps((prev) => ({ ...prev, [key]: updated }));
+                                        }}
+                                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                                {humanLabel(key)}
+                              </label>
+                              {(rawValue != null && typeof rawValue === "object") ? (
+                                <AutoGrowTextarea
+                                  value={formatUnknownLayoutPropValue(rawValue)}
+                                  onChange={(e) =>
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [key]: parseUnknownLayoutPropValue(e.target.value, prev[key]),
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden font-mono"
+                                  minRows={3}
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={formatUnknownLayoutPropValue(rawValue)}
+                                  onChange={(e) =>
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [key]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -2735,8 +4059,13 @@ export default function SceneEditModal({
                             </div>
                           );
                         }
-                        if (field.type === "object_array" && field.subFields) {
-                          const items = (Array.isArray(editableStructuredContent[field.key]) ? editableStructuredContent[field.key] : []) as Record<string, string>[];
+                        if (field.type === "object_array") {
+                          const items = normalizeObjectArrayItems(editableStructuredContent[field.key]);
+                          const subFields =
+                            field.subFields?.length
+                              ? field.subFields
+                              : inferObjectArraySubFields(items);
+                          if (!subFields.length) return null;
                           return (
                             <div key={field.key}>
                               <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -2745,7 +4074,7 @@ export default function SceneEditModal({
                                   <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                                     <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                     <div className="flex-1 space-y-2">
-                                      {field.subFields!.map((sf) => (
+                                      {subFields.map((sf) => (
                                         <div key={sf.key}>
                                           <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
                                           <input
@@ -2781,7 +4110,7 @@ export default function SceneEditModal({
                                     type="button"
                                     onClick={() => {
                                       const empty: Record<string, string> = {};
-                                      field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                      subFields.forEach((sf) => { empty[sf.key] = ""; });
                                       setEditableStructuredContent((prev) => ({ ...prev, [field.key]: [...items, empty] }));
                                     }}
                                     className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
@@ -2811,7 +4140,19 @@ export default function SceneEditModal({
                   <div>
                     <div className="flex justify-between items-baseline">
                       <label className="text-xs text-gray-400">Title font size</label>
-                      <span className="text-xs font-medium text-purple-600 tabular-nums">{titleFontSize}</span>
+                      {(() => {
+                        const parsed = parseInt(titleFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.title;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <input
                       type="range"
@@ -2826,7 +4167,19 @@ export default function SceneEditModal({
                   <div>
                     <div className="flex justify-between items-baseline ">
                       <label className="text-xs text-gray-400">Description font size</label>
-                      <span className="text-xs font-medium text-purple-600 tabular-nums">{descriptionFontSize}</span>
+                      {(() => {
+                        const parsed = parseInt(descriptionFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.desc;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <input
                       type="range"
@@ -2851,12 +4204,12 @@ export default function SceneEditModal({
                     {imageItems.map(({ url, asset }) => (
                       <div
                         key={asset.id}
-                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
+                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-20 flex-shrink-0"
                       >
                         <img
                           src={url}
                           alt=""
-                          className="h-20 w-auto object-cover"
+                          className="w-full h-full object-cover"
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = "none";
@@ -2864,9 +4217,19 @@ export default function SceneEditModal({
                         />
                         <button
                           type="button"
+                          onClick={() => openImageAdjustModal(url)}
+                          className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          title="Adjust image"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleRemoveImage(asset.id)}
                           disabled={removingAssetId === asset.id}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
+                          className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                         >
                           {removingAssetId === asset.id ? (
                             <span className="text-[10px]">…</span>
@@ -2879,19 +4242,29 @@ export default function SceneEditModal({
                       </div>
                     ))}
                     {selectedImageFile && imagePreviewUrl && (
-                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 flex-shrink-0">
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-20 flex-shrink-0">
                         <img
                           src={imagePreviewUrl}
                           alt="New image"
-                          className="h-20 w-auto object-cover"
+                          className="w-full h-full object-cover"
                         />
+                        <button
+                          type="button"
+                          onClick={() => openImageAdjustModal(imagePreviewUrl)}
+                          className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          title="Adjust image"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                          </svg>
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedImageFile(null);
                             setImagePreviewUrl(null);
                           }}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -2899,17 +4272,23 @@ export default function SceneEditModal({
                         </button>
                       </div>
                     )}
-                    <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/jpg"
-                        onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
+                    <button
+                      type="button"
+                      onClick={handleOpenImageSourceChooser}
+                      className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
+                      title="Add image"
+                    >
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                    </label>
+                    </button>
+                    <input
+                      ref={localImageInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/jpg"
+                      onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
                     <button
                       type="button"
                       onClick={handleGenerateImageClick}
@@ -2932,6 +4311,13 @@ export default function SceneEditModal({
                   </div>
                   {!hasSceneText && (
                     <p className="text-xs text-gray-400 mt-1.5">Add a title or narration to use AI image generation.</p>
+                  )}
+                  {(imageItems.length > 0 || selectedImageFile) && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500">
+                        Click the edit icon on the image thumbnail to adjust framing with a draggable crop box.
+                      </p>
+                    </div>
                   )}
                   </>
                 ) : (
@@ -3096,7 +4482,9 @@ export default function SceneEditModal({
           </button>
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => {
+              void handleSave();
+            }}
             disabled={loading || (editMode === "ai" && (!aiHasChanges || !canUseAI))}
             className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -3111,6 +4499,117 @@ export default function SceneEditModal({
       onClose={() => setShowAiImageUpgradeModal(false)}
       projectId={project?.id}
     />
+
+    {imageSourceChooserOpen && (
+      <div className="fixed inset-0 z-[125] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={() => setImageSourceChooserOpen(false)}
+        />
+        <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-5">
+          <h3 className="text-lg font-semibold text-gray-900">Add scene image</h3>
+          <p className="text-xs text-gray-500 mt-1">Choose where to pick the image from.</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleChooseScrapedImages}
+              className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+              From existing scraped images
+            </button>
+            <button
+              type="button"
+              onClick={handleChooseLocalUpload}
+              className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" />
+              </svg>
+              File upload
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {scrapedImagesModalOpen && (
+      <div className="fixed inset-0 z-[126] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={() => !assigningExistingImage && setScrapedImagesModalOpen(false)}
+        />
+        <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Select scraped image</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Pick one image to assign to this scene.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setScrapedImagesModalOpen(false)}
+              disabled={assigningExistingImage}
+              className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors disabled:opacity-50"
+              title="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-5 bg-gray-50 max-h-[60vh] overflow-auto">
+            {scrapedImageItems.length === 0 ? (
+              <p className="text-sm text-gray-500">No images available.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {scrapedImageItems.map(({ asset, url }) => {
+                  const selected = selectedExistingAssetId === asset.id;
+                  return (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => setSelectedExistingAssetId(asset.id)}
+                      className={`relative rounded-xl overflow-hidden border-2 transition-colors ${
+                        selected ? "border-purple-500" : "border-gray-200 hover:border-purple-300"
+                      }`}
+                    >
+                      <img src={url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                      {selected && (
+                        <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="px-5 py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+            <button
+              type="button"
+              onClick={() => setScrapedImagesModalOpen(false)}
+              disabled={assigningExistingImage}
+              className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleAssignExistingImage}
+              disabled={!selectedExistingAssetId || assigningExistingImage}
+              className="px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm disabled:opacity-60"
+            >
+              {assigningExistingImage ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* AI generated image preview popup */}
     {generatedImageBase64 && (
@@ -3158,7 +4657,110 @@ export default function SceneEditModal({
         </div>
       </div>
     )}
-    </>,
-    document.body
+
+    {imageAdjustOpen && imageAdjustSrc && (
+      <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 min-h-0">
+        <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={closeImageAdjustModal} />
+        <div
+          className="relative w-full max-w-3xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden min-h-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Adjust image framing</h3>
+              <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                Drag to pan when zoomed in. Use the slider or scroll wheel to zoom, then save.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeImageAdjustModal}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+              title="Close"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+            <div className="p-4 sm:p-5">
+            <div
+              ref={imageAdjustPreviewRef}
+              onMouseDown={handleAdjustMouseDown}
+              onTouchStart={handleAdjustTouchStart}
+              style={{
+                height: "min(70vh, 26rem)",
+                maxHeight: "70vh",
+                maxWidth: "min(100%, 42rem)",
+              }}
+              className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
+              }`}
+            >
+
+              <img
+                src={imageAdjustSrc}
+                alt="Adjust preview"
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{
+                  objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                  transform: `scale(${imageAdjustZoom})`,
+                  transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                }}
+                draggable={false}
+              />
+            </div>
+            <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
+              <label className="flex items-center gap-3 text-sm text-gray-700">
+                <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                <input
+                  type="range"
+                  min={IMAGE_ADJUST_ZOOM_MIN}
+                  max={IMAGE_ADJUST_ZOOM_MAX}
+                  step={0.05}
+                  value={imageAdjustZoom}
+                  onChange={(e) =>
+                    setImageAdjustZoom(
+                      Math.min(
+                        IMAGE_ADJUST_ZOOM_MAX,
+                        Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(e.target.value))
+                      )
+                    )
+                  }
+                  className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                />
+                <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                  {imageAdjustZoom.toFixed(2)}×
+                </span>
+              </label>
+            </div>
+            <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
+              Position: X {Math.round(imageAdjustFocusX)}% · Y {Math.round(imageAdjustFocusY)}% · Zoom{" "}
+              {imageAdjustZoom.toFixed(2)}×
+            </div>
+            </div>
+          </div>
+          <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+            <button
+              type="button"
+              onClick={closeImageAdjustModal}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveImageAdjustModal}
+              className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Save framing
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
+  return isDemo ? modalTree : ReactDOM.createPortal(modalTree, document.body);
 }

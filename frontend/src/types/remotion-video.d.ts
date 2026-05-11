@@ -55,3 +55,14 @@ declare module "@remotion-video/templates/blackswan/layouts" {
   export type BlackswanLayoutType = string;
   export type BlackswanLayoutProps = Record<string, any>;
 }
+
+declare module "@remotion-video/templates/chronicle/layouts" {
+  export const CHRONICLE_LAYOUT_REGISTRY: Record<string, any>;
+  export type ChronicleLayoutType = string;
+  export type ChronicleLayoutProps = Record<string, any>;
+}
+
+declare module "@remotion-video/templates/chronicle/components/ChronicleChrome" {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export const ChronicleChrome: React.FC<any>;
+}

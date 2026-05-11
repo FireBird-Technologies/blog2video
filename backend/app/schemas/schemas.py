@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import Optional
 
@@ -25,7 +25,7 @@ class ProjectCreate(BaseModel):
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
     video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
-    video_length: Optional[str] = "auto"  # auto | short (6-8) | medium (12-15) | detailed (15-20)
+    video_length: Optional[str] = "auto"  # auto | short (4-5) | medium (12-15) | detailed (23-30) | more_detailed (35-40)
     playback_speed: Optional[float] = 1.0
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
 
@@ -226,6 +226,7 @@ class ProjectOut(BaseModel):
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
+    custom_image_box_aspect_ratios: Optional[dict] = None
     custom_template_missing: bool = False
     brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None

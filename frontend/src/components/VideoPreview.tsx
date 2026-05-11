@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useCallback, useRef } from "react";
+import React, { useMemo, useEffect, useState, useCallback, useRef, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import { Player } from "@remotion/player";
 import type { PlayerRef } from "@remotion/player";
@@ -7,12 +7,21 @@ import {
   Sequence,
   Audio,
 } from "remotion";
-import { BACKEND_URL, Project, getTemplateCode } from "../api/client";
+import {
+  BACKEND_URL,
+  Project,
+  getTemplateCode,
+  type CraftedTemplateDetail,
+  type CraftedTemplateItem,
+} from "../api/client";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
+import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
 import {
   compileComponentCode,
+  compileModuleGraphEntry,
   type SceneProps,
 } from "../utils/compileComponent";
 import { LogoOverlay } from "./remotion/LogoOverlay";
@@ -108,10 +117,18 @@ const StableCustomComposition: React.FC<any> = ({
         if (!SceneComp) return null;
 
         const sc = (s.structuredContent || {}) as Record<string, unknown>;
+        const focusX = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusX ?? 50);
+        const focusY = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusY ?? 50);
+        const imageZoom = Math.max(
+          1,
+          Number((s.layoutProps as Record<string, unknown> | undefined)?.imageZoom ?? 1),
+        );
         const sceneProps: SceneProps = {
           displayText: s.narration || s.title,
           narrationText: s.narration || "",
           imageUrl: s.imageUrl,
+          imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
+          imageZoom,
           sceneIndex: i,
           totalScenes,
           logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
@@ -148,7 +165,17 @@ const StableCustomComposition: React.FC<any> = ({
                 logoUrl={sceneProps.logoUrl}
               />
             ) : (
-              <SceneComp {...sceneProps} />
+              <AbsoluteFill
+                style={{
+                  ["--img-pos" as string]: sceneProps.imageObjectPosition,
+                  ["--img-zoom" as string]: String(imageZoom),
+                }}
+              >
+                <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
+                <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
+                  <SceneComp {...sceneProps} />
+                </div>
+              </AbsoluteFill>
             )}
             {s.voiceoverUrl && <Audio src={s.voiceoverUrl} playbackRate={1} />}
           </Sequence>
@@ -182,6 +209,10 @@ interface VideoPreviewProps {
     content_codes: string[] | null;
     outro_code: string | null;
   };
+  /** Start the player at this frame and keep it paused there (for modal preview). */
+  initialFrame?: number;
+  /** Hide the Remotion playback controls bar. */
+  hideControls?: boolean;
 }
 
 interface SceneInput {
@@ -485,24 +516,141 @@ function PlaybackSpeedControl({
   );
 }
 
-export default function VideoPreview({
-  project,
-  logoSizeOverride,
-  logoOpacityOverride,
-  logoPositionOverride,
-  onPlaybackSpeedChange,
-  playbackSpeedSaving = false,
-  precompiledTemplateData,
-}: VideoPreviewProps) {
+const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function VideoPreview(
+  {
+    project,
+    logoSizeOverride,
+    logoOpacityOverride,
+    logoPositionOverride,
+    onPlaybackSpeedChange,
+    playbackSpeedSaving = false,
+    precompiledTemplateData,
+    initialFrame,
+    hideControls = false,
+  },
+  ref
+) {
   const templateId = normalizeBuiltInTemplateId(project.template);
-  const config = useMemo(() => getTemplateConfig(templateId), [templateId]);
+  const isCustom = templateId.startsWith("custom_");
+  const isCrafted = templateId.startsWith("crafted_");
+  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
+
+  // ─── Crafted template: fetch + JIT-compile R2-bundled frontend ─────────
+  // Crafted templates use the same data shape as a built-in (scenes with a
+  // `layout` string), but the composition lives in R2 instead of the repo.
+  // We pull the matching entry from /crafted-templates, runtime-compile its
+  // frontend bundle, and use that compiled component as the Player composition.
+  // Without this, getTemplateConfig falls back to `default` and the project
+  // view shows DefaultVideoComposition with crafted layout names it can't map.
+  const craftedItem = useMemo<CraftedTemplateItem | null>(() => {
+    if (!isCrafted) return null;
+    return craftedTemplates.find((d) => d.id === project.template) ?? null;
+  }, [craftedTemplates, isCrafted, project.template]);
+  const craftedDetail = useMemo<CraftedTemplateDetail | null>(() => {
+    if (!craftedItem) return null;
+    if (craftedItem.frontend_files && craftedItem.frontend_entry_rel) {
+      return craftedItem as CraftedTemplateDetail;
+    }
+    return null;
+  }, [craftedItem]);
+  const [compiledCrafted, setCompiledCrafted] = useState<React.ComponentType<any> | null>(null);
+  const [isCompilingCrafted, setIsCompilingCrafted] = useState(false);
+
+  useEffect(() => {
+    if (!isCrafted) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    // Still waiting on the crafted item fetch — keep the player locked behind
+    // the loading overlay so it never falls back to DefaultVideoComposition
+    // with unknown layout names mid-mount.
+    if (!craftedItem) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      return;
+    }
+    if (!craftedDetail) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      void ensureCraftedTemplateDetail(templateId);
+      return;
+    }
+    if (!craftedDetail.frontend_files || !craftedDetail.frontend_entry_rel) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    let cancelled = false;
+    setIsCompilingCrafted(true);
+    compileModuleGraphEntry(
+      craftedDetail.frontend_files,
+      craftedDetail.frontend_entry_rel,
+      craftedDetail.public_asset_urls,
+    )
+      .then((result) => {
+        if (cancelled) return;
+        if (result.success) {
+          setCompiledCrafted(() => result.component);
+        } else {
+          console.error("[VideoPreview] Crafted bundle compile failed:", result.error);
+          setCompiledCrafted(null);
+        }
+        setIsCompilingCrafted(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[VideoPreview] Crafted bundle compile threw:", err);
+        setCompiledCrafted(null);
+        setIsCompilingCrafted(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCrafted, craftedItem, craftedDetail, ensureCraftedTemplateDetail, templateId]);
+
+  const config = useMemo(() => {
+    const base = getTemplateConfig(templateId);
+    if (isCrafted && craftedItem) {
+      const validLayouts =
+        Array.isArray(craftedItem.valid_layouts) && craftedItem.valid_layouts.length > 0
+          ? new Set(craftedItem.valid_layouts)
+          : base.validLayouts;
+      const fallbackLayout = craftedItem.fallback_layout || base.fallbackLayout;
+      const heroLayout = craftedItem.hero_layout || base.heroLayout;
+      const previewColors = craftedItem.preview_colors;
+      return {
+        ...base,
+        validLayouts,
+        fallbackLayout,
+        heroLayout,
+        defaultColors: previewColors
+          ? {
+              accent: previewColors.accent || base.defaultColors.accent,
+              bg: previewColors.bg || base.defaultColors.bg,
+              text: previewColors.text || base.defaultColors.text,
+            }
+          : base.defaultColors,
+      };
+    }
+    return base;
+  }, [templateId, isCrafted, craftedItem]);
+
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
-  const isCustom = templateId.startsWith("custom_");
-
-  // Ref to Remotion Player — passed to PlaybackSpeedControl so it can keep
-  // the Player's control bar visible while the cursor is over the speed button.
-  const playerRef = useRef<PlayerRef>(null);
+  // Ref to Remotion Player — passed to PlaybackSpeedControl and forwarded for slide export.
+  const playerRef = useRef<PlayerRef | null>(null);
+  const setPlayerRef = useCallback(
+    (node: PlayerRef | null) => {
+      playerRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        (ref as React.MutableRefObject<PlayerRef | null>).current = node;
+      }
+    },
+    [ref]
+  );
 
   // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
   const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
@@ -559,15 +707,16 @@ export default function VideoPreview({
       const subdir = asset.asset_type === "image" ? "images" : "audio";
       const localPath = `/media/projects/${project.id}/${subdir}/${asset.filename}`;
       
-      // In local dev, prefer local media files over R2 URLs
-      // R2 URLs may not be accessible or may have connection issues locally
+      // In local dev, prefer R2 when available so projects still preview
+      // even if local /media files were cleaned up.
       const isLocalDev = !BACKEND_URL || 
                          BACKEND_URL.includes('localhost') || 
                          BACKEND_URL.includes('127.0.0.1');
       
       let base: string;
       if (isLocalDev) {
-        base = localPath;
+        base = asset.r2_url ? asset.r2_url : localPath;
+        console.log("base", base);
       } else {
         base = asset.r2_url ? asset.r2_url : `${BACKEND_URL}${localPath}`;
       }
@@ -596,14 +745,12 @@ export default function VideoPreview({
       const filenameToAsset = new Map<string, typeof imageAssets[0]>();
       imageAssets.forEach((asset) => filenameToAsset.set(asset.filename, asset));
 
-      // 1) First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
-      // This ensures images move with their scenes when reordered, and scenes explicitly
-      // marked hideImage=true never get an auto-assigned generic image.
-      project.scenes.forEach((scene, idx) => {
+      // 1) Honor stored assignedImage (any filename); multiple scenes may share one file.
+      project.scenes.forEach((sceneRow, idx) => {
         let layoutProps: Record<string, unknown> = {};
-        if (scene.remotion_code) {
+        if (sceneRow.remotion_code) {
           try {
-            const descriptor = JSON.parse(scene.remotion_code);
+            const descriptor = JSON.parse(sceneRow.remotion_code);
             layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
           } catch {
             /* legacy */
@@ -612,64 +759,59 @@ export default function VideoPreview({
 
         const hideImage = Boolean((layoutProps as any).hideImage);
         hideImageFlags[idx] = hideImage;
+        if (hideImage) {
+          return;
+        }
 
         const assignedImage = layoutProps.assignedImage as string | undefined;
-        if (!hideImage && assignedImage && filenameToAsset.has(assignedImage)) {
-          const m = assignedImage.match(/^scene_(\d+)_/);
-          if (m) {
-            // Scene-specific assignment must match current scene id
-            const assignedSceneId = parseInt(m[1], 10);
-            if (assignedSceneId === scene.id) {
-              sceneImageMap[idx] = resolveUrl(filenameToAsset.get(assignedImage)!);
-            }
-          } else {
-            // Generic assignment: enforce 1 generic -> 1 scene in preview
-            if (!usedGenericFiles.has(assignedImage)) {
-              usedGenericFiles.add(assignedImage);
-              sceneImageMap[idx] = resolveUrl(filenameToAsset.get(assignedImage)!);
-            }
-          }
+        if (assignedImage && filenameToAsset.has(assignedImage)) {
+          const asset = filenameToAsset.get(assignedImage)!;
+          sceneImageMap[idx] = resolveUrl(asset);
+          usedGenericFiles.add(assignedImage);
         }
       });
 
-      // 2) Second pass: Scene-specific images (overwrite stored assignments)
-      // Scene-specific images: filename "scene_<sceneId>_<timestamp>.*" (from AI edit upload)
-      const sceneSpecificAssets: { sceneId: number; url: string }[] = [];
+      // 2) Orphan scene_<id>_ files with no layoutProps — bind to matching scene only
+      const sceneSpecificAssets: { sceneId: number; url: string; asset: (typeof imageAssets)[0] }[] =
+        [];
       const genericAssets: typeof imageAssets = [];
       for (const asset of imageAssets) {
         const match = asset.filename.match(/^scene_(\d+)_/);
         if (match) {
           const sceneId = parseInt(match[1], 10);
-          sceneSpecificAssets.push({ sceneId, url: resolveUrl(asset) });
+          sceneSpecificAssets.push({ sceneId, url: resolveUrl(asset), asset });
         } else {
           genericAssets.push(asset);
         }
       }
-      // Apply scene-specific images (later uploads overwrite by same scene_id)
-      for (const { sceneId, url } of sceneSpecificAssets) {
+      for (const { sceneId, url, asset } of sceneSpecificAssets) {
         const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
-        if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
-          sceneImageMap[sceneIdx] = url;
+        if (sceneIdx < 0 || hideImageFlags[sceneIdx]) continue;
+        let layoutProps: Record<string, unknown> = {};
+        if (project.scenes[sceneIdx].remotion_code) {
+          try {
+            const descriptor = JSON.parse(project.scenes[sceneIdx].remotion_code!);
+            layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+          } catch {
+            /* legacy */
+          }
         }
+        if (layoutProps.assignedImage || layoutProps.hideImage) continue;
+        sceneImageMap[sceneIdx] = url;
+        usedGenericFiles.add(asset.filename);
       }
 
-      // 3) Third pass: Assign generic images to scenes without one yet and not hideImage
+      // 3) Auto-fill remaining scenes with unused generic images
       let genericIdx = 0;
-      for (
-        let sceneIdx = 0;
-        sceneIdx < project.scenes.length && genericIdx < genericAssets.length;
-        sceneIdx++
-      ) {
-        if (sceneImageMap[sceneIdx] == null && !hideImageFlags[sceneIdx]) {
-          // Pick next unused generic asset (enforce 1:1)
-          while (genericIdx < genericAssets.length) {
-            const candidate = genericAssets[genericIdx];
-            genericIdx++;
-            if (usedGenericFiles.has(candidate.filename)) continue;
-            usedGenericFiles.add(candidate.filename);
-            sceneImageMap[sceneIdx] = resolveUrl(candidate);
-            break;
-          }
+      for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
+        if (sceneImageMap[sceneIdx] != null || hideImageFlags[sceneIdx]) continue;
+        while (genericIdx < genericAssets.length) {
+          const candidate = genericAssets[genericIdx];
+          genericIdx++;
+          if (usedGenericFiles.has(candidate.filename)) continue;
+          usedGenericFiles.add(candidate.filename);
+          sceneImageMap[sceneIdx] = resolveUrl(candidate);
+          break;
         }
       }
     }
@@ -692,6 +834,10 @@ export default function VideoPreview({
             if (descriptor.ctaProps) {
               ctaProps = descriptor.ctaProps;
             }
+            // Custom templates also store image controls in layoutProps.
+            // Without this, imageFocusX/imageFocusY/imageZoom from remotion_code
+            // are ignored in preview even though they exist in DB.
+            layoutProps = descriptor.layoutProps || {};
             if (descriptor.layoutConfig) {
               layoutConfig = descriptor.layoutConfig;
               layout = descriptor.layoutConfig.arrangement || "full-center";
@@ -791,15 +937,31 @@ export default function VideoPreview({
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
+    // Chronicle uses TransitionSeries with scene-minimum enforcement and last-scene
+    // trimming, so its actual rendered length differs from a raw sum. Use its own
+    // calculator to keep the Player duration in sync (no brown tail at the end).
+    if (templateId === "chronicle") {
+      const chronicleScenes = scenes.map((s) => ({
+        id: s.id,
+        order: s.order,
+        title: s.title,
+        narration: s.narration,
+        layout: s.layout,
+        layoutProps: s.layoutProps,
+        durationSeconds: s.durationSeconds,
+        imageUrl: s.imageUrl,
+        voiceoverUrl: s.voiceoverUrl,
+      }));
+      return computeChronicleVideoTotalFrames(chronicleScenes, 1);
+    }
     const sceneFrames = project.scenes.map((s) => {
       const base = Number(s.duration_seconds) || 5;
       const extra = Number(s.extra_hold_seconds) || 0;
       return getSceneDurationFrames(base + extra, FPS, 1);
     });
     const sum = sceneFrames.reduce((a, b) => a + b, 0);
-    // Keep duration aligned with Remotion metadata calculation (no extra padded tail).
     return Math.max(sum, FPS * 5);
-  }, [project.scenes]);
+  }, [project.scenes, templateId, scenes]);
 
   // Preload images and voiceover so they're in browser cache when Remotion renders
   const [mediaReady, setMediaReady] = useState(false);
@@ -913,9 +1075,17 @@ export default function VideoPreview({
     ? Object.keys(compiledScenes).filter((k) => k.startsWith("content_")).length
     : 0;
 
-  const Composition = (isCustom && compiledScenes) ? StableCustomComposition : config.component;
+  const Composition = (isCustom && compiledScenes)
+    ? StableCustomComposition
+    : (isCrafted && compiledCrafted)
+      ? compiledCrafted
+      : config.component;
 
-  const isPreviewLoading = (isCustom && isCompiling) || isPreloadingMedia || !mediaReady;
+  const isPreviewLoading =
+    (isCustom && isCompiling) ||
+    (isCrafted && (craftedTemplatesLoading || !craftedItem || isCompilingCrafted || !compiledCrafted)) ||
+    isPreloadingMedia ||
+    !mediaReady;
 
   // Show unified loader until template + media are fully ready.
   if (isPreviewLoading) {
@@ -994,7 +1164,7 @@ export default function VideoPreview({
         }}
       >
         <Player
-          key={`preview-${project.id}-${isPortrait ? "p" : "l"}`}
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${initialFrame !== undefined ? `-f${initialFrame}` : ""}`}
           component={Composition}
           inputProps={{
             ...inputProps,
@@ -1009,9 +1179,10 @@ export default function VideoPreview({
           compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
           compositionHeight={isPortrait ? config.baseWidth : config.baseHeight}
           fps={30}
-          ref={playerRef}
+          ref={setPlayerRef}
           playbackRate={currentPlaybackSpeed}
-          controls
+          {...(initialFrame !== undefined ? { initialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
+          controls={!hideControls}
           style={{
             width: "100%",
             height: "100%",
@@ -1023,9 +1194,11 @@ export default function VideoPreview({
           currentSpeed={currentPlaybackSpeed}
           saving={playbackSpeedSaving}
           onChange={onPlaybackSpeedChange}
-          playerContainerRef={playerRef}
+          playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
         />
       </div>
     </div>
   );
-}
+});
+
+export default VideoPreview;
