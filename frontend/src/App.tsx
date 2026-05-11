@@ -25,7 +25,10 @@ import TemplatePageView from "./pages/TemplatePageView";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
+import ScrollToTop from "./components/layout/ScrollToTop";
 import EmbedPreviewPage from "./pages/EmbedPreviewPage";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import { trackPageView } from "./gtag";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -65,6 +68,7 @@ function AppRoutes() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
+      <ScrollToTop />
       {user && <Navbar />}
 
       <Routes>
@@ -93,6 +97,8 @@ function AppRoutes() {
           element={<SubstackDirectoryNichePage />}
         />
         <Route path="/tools/:slug" element={<ToolPage />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         {marketingPages.map((page) => (
           <Route
             key={page.path}

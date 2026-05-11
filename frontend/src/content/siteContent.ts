@@ -133,6 +133,8 @@ export const footerGroups = [
       "/blogs",
       "/contact",
       "/pricing",
+      "/terms",
+      "/privacy",
     ],
   },
 ];
