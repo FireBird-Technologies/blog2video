@@ -24,8 +24,8 @@ remotion-video/src/components/generated/
 crafted-templates/
 
 # Font binaries — large files, never commit
-remotion-video/public/fonts/
-frontend/public/fonts/
+remotion-video/public/templates
+frontend/public/templates
 
 # Build cache
 *.tsbuildinfo
