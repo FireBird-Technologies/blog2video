@@ -237,6 +237,33 @@ interface SceneInput {
   voiceoverUrl?: string;
 }
 
+function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | CraftedTemplateDetail | null): string | null {
+  if (!template) return null;
+  const directLogo = Array.isArray(template.logo_urls)
+    ? template.logo_urls.find((url) => typeof url === "string" && url.trim())
+    : null;
+  if (directLogo) return directLogo;
+
+  const publicAssets = template.public_asset_urls;
+  if (publicAssets && typeof publicAssets === "object") {
+    const preferredEntry = Object.entries(publicAssets).find(([key]) =>
+      /(?:^|\/)(?:laduc-)?(?:brand-)?logo\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+    const fallbackEntry = Object.entries(publicAssets).find(([key]) =>
+      /logo.*\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+
+    const resolved = preferredEntry?.[1] || fallbackEntry?.[1];
+    if (resolved) return resolved;
+  }
+
+  if (template.id === "crafted_laduc_bundle" && typeof template.preview_image_url === "string") {
+    return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/laduc/laduc-brand-logo.png");
+  }
+
+  return null;
+}
+
 /** Map of scene type keys ("intro", "content_0", ..., "outro") to compiled React components. */
 type CompiledSceneMap = Record<string, React.FC<SceneProps>>;
 
@@ -585,6 +612,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
   }, [craftedItem]);
   const [compiledCrafted, setCompiledCrafted] = useState<React.ComponentType<any> | null>(null);
   const [isCompilingCrafted, setIsCompilingCrafted] = useState(false);
+  const craftedTemplateLogoUrl = useMemo(
+    () => resolveCraftedTemplateLogoUrl(craftedDetail || craftedItem),
+    [craftedDetail, craftedItem],
+  );
 
   useEffect(() => {
     if (!isCrafted) {
@@ -1141,7 +1172,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     bgColor: project.bg_color || colors.bg,
     textColor: project.text_color || colors.text,
     playbackSpeed: 1,
-    logo: project.logo_r2_url || null,
+    logo: project.logo_r2_url || craftedTemplateLogoUrl || null,
     logoPosition: logoPositionOverride ?? project.logo_position ?? "bottom_right",
     logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
     logoSize: logoSizeOverride ?? (typeof project.logo_size === "number" ? project.logo_size : 100),

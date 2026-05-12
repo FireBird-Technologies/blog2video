@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useRef, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import { LinkIcon } from "@heroicons/react/24/outline";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
@@ -110,6 +110,33 @@ function buildProjectTourSteps(project: Project | null): Step[] {
   const steps: Step[] = [TABS_CONTAINER_STEP];
   if (project?.scenes?.length) steps.push(SCENE_EDIT_FIRST_STEP);
   return steps;
+}
+
+function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | null): string | null {
+  if (!template) return null;
+  const directLogo = Array.isArray(template.logo_urls)
+    ? template.logo_urls.find((url) => typeof url === "string" && url.trim())
+    : null;
+  if (directLogo) return directLogo;
+
+  const publicAssets = template.public_asset_urls;
+  if (publicAssets && typeof publicAssets === "object") {
+    const preferredEntry = Object.entries(publicAssets).find(([key]) =>
+      /(?:^|\/)(?:laduc-)?(?:brand-)?logo\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+    const fallbackEntry = Object.entries(publicAssets).find(([key]) =>
+      /logo.*\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+
+    const resolved = preferredEntry?.[1] || fallbackEntry?.[1];
+    if (resolved) return resolved;
+  }
+
+  if (template.id === "crafted_laduc_bundle" && typeof template.preview_image_url === "string") {
+    return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/laduc/laduc-brand-logo.png");
+  }
+
+  return null;
 }
 
 /** Display string for ETA from total seconds (smoothed server/client estimate). */
@@ -441,6 +468,13 @@ export default function ProjectView() {
     }
   }, [project?.template, craftedTemplates, ensureCraftedTemplateDetail]);
 
+  const craftedTemplateLogoUrl = useMemo(() => {
+    if (!project?.template?.startsWith("crafted_")) return null;
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    return resolveCraftedTemplateLogoUrl(found);
+  }, [project?.template, craftedTemplates]);
+
+  const displayLogoUrl = project?.logo_r2_url || craftedTemplateLogoUrl;
 
   useEffect(() => {
     if (project) {
@@ -5491,12 +5525,12 @@ export default function ProjectView() {
                 className="hidden"
                 onChange={handleUploadLogo}
               />
-              {project.logo_r2_url ? (
+              {displayLogoUrl ? (
                 <div className="glass-card p-6 space-y-6">
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2">
                       <img
-                        src={project.logo_r2_url}
+                        src={displayLogoUrl}
                         alt="Current logo"
                         className="h-14 w-14 object-contain rounded border border-gray-200"
                       />
