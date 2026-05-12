@@ -49,6 +49,7 @@ from app.services.template_service import (
     validate_template_id,
     get_preview_colors,
     get_valid_layouts,
+    get_hero_layout,
     get_layouts_without_image,
     is_custom_template,
     is_crafted_template,
@@ -459,6 +460,7 @@ def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
 def _run_project_template_change_job(job_id: int) -> None:
     from app.dspy_modules.template_layout_planner import TemplateLayoutPlanner
     from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+    from app.routers.pipeline import _normalize_layout_id, _sanitize_script_layouts
     from app.services.remotion import rebuild_workspace
 
     db = SessionLocal()
@@ -485,7 +487,14 @@ def _run_project_template_change_job(job_id: int) -> None:
         target_template = job.target_template
         layout_planner = TemplateLayoutPlanner(target_template)
         template_gen = TemplateSceneGenerator(target_template)
-        supports_ending_socials = "ending_socials" in get_valid_layouts(target_template)
+        target_valid_layouts = get_valid_layouts(target_template)
+        supports_ending_socials = "ending_socials" in target_valid_layouts
+        # Pre-compute the normalized hero layout for the new template so the
+        # post-descriptor guard can detect when the generator produced something
+        # outside the valid set and recover deterministically.
+        target_hero_layout = (get_hero_layout(target_template) or "").strip().lower()
+        if target_hero_layout and target_hero_layout not in target_valid_layouts:
+            target_hero_layout = ""
         scenes_data = [
             {
                 "title": s.title,
@@ -501,6 +510,31 @@ def _run_project_template_change_job(job_id: int) -> None:
                 content_language=project.content_language or "English",
             )
         )
+        # Mirror the script-stage policy exactly: this is the same sanitizer used
+        # by the normal generation pipeline. It pins scene 0 to hero_layout,
+        # pins the last scene to ending_socials (when supported), replaces
+        # invalid / empty picks with diverse valid layouts, and avoids
+        # consecutive duplicates. Without this pass, the planner's LLM output
+        # could leave the first scene on a non-hero layout (or assign a layout
+        # that isn't valid for the target template).
+        sanitized_pairs = _sanitize_script_layouts(
+            target_template,
+            [
+                {
+                    "preferred_layout": (
+                        preferred_layouts[i].strip()
+                        if i < len(preferred_layouts) and isinstance(preferred_layouts[i], str)
+                        else ""
+                    )
+                }
+                for i in range(len(scenes))
+            ],
+            include_ending_socials=supports_ending_socials,
+        )
+        preferred_layouts = [
+            (entry.get("preferred_layout") or "") if isinstance(entry, dict) else ""
+            for entry in sanitized_pairs
+        ]
 
         if is_custom_template(target_template):
             # Keep custom-template regeneration consistent with normal generation:
@@ -544,13 +578,7 @@ def _run_project_template_change_job(job_id: int) -> None:
         else:
             last_scene_idx = len(scenes) - 1
             for idx, scene in enumerate(scenes):
-                preferred_layout = (
-                    preferred_layouts[idx].strip()
-                    if idx < len(preferred_layouts) and isinstance(preferred_layouts[idx], str)
-                    else ""
-                )
-                if supports_ending_socials and idx == last_scene_idx:
-                    preferred_layout = "ending_socials"
+                preferred_layout = preferred_layouts[idx] if idx < len(preferred_layouts) else ""
                 # Use fresh template logic with content preserved, and let the new template
                 # enforce the planned preferred layouts (same 2-step flow as normal generation).
                 new_descriptor = asyncio.run(
@@ -567,18 +595,55 @@ def _run_project_template_change_job(job_id: int) -> None:
 
                 # Match normal generation behavior for CTA ending scenes:
                 # ensure ending_socials gets complete layoutProps payload.
-                if supports_ending_socials and idx == last_scene_idx:
+                if (
+                    supports_ending_socials
+                    and idx == last_scene_idx
+                    and preferred_layout == "ending_socials"
+                ):
                     new_descriptor = {
                         "layout": "ending_socials",
                         "layoutProps": _build_ending_socials_props(project, scene),
                     }
 
                 new_descriptor = _sanitize_descriptor_for_data_viz(new_descriptor)
-                scene.remotion_code = json.dumps(new_descriptor)
                 descriptor_layout = _extract_layout_from_descriptor_obj(
                     descriptor=new_descriptor,
                     template_id=target_template,
                 )
+                normalized_descriptor_layout = _normalize_layout_id(descriptor_layout or "")
+                # Post-descriptor validity guard: if the generator drifted to a
+                # layout that isn't part of the target template, snap back to
+                # the sanitized preferred layout (which the sanitizer above
+                # guarantees is in valid_layouts). Falls back to hero if even
+                # that is somehow empty.
+                if (
+                    target_valid_layouts
+                    and normalized_descriptor_layout not in target_valid_layouts
+                ):
+                    recovery_layout = preferred_layout or target_hero_layout
+                    if recovery_layout in target_valid_layouts:
+                        logger.warning(
+                            "[PROJECT_TEMPLATE_CHANGE] job=%s scene=%s descriptor layout '%s' "
+                            "not in valid_layouts for '%s'; coercing to '%s'",
+                            job_id,
+                            idx,
+                            descriptor_layout,
+                            target_template,
+                            recovery_layout,
+                        )
+                        if recovery_layout == "ending_socials":
+                            new_descriptor = {
+                                "layout": "ending_socials",
+                                "layoutProps": _build_ending_socials_props(project, scene),
+                            }
+                        else:
+                            new_descriptor = {
+                                "layout": recovery_layout,
+                                "layoutProps": {},
+                            }
+                        descriptor_layout = recovery_layout
+
+                scene.remotion_code = json.dumps(new_descriptor)
                 scene.preferred_layout = descriptor_layout or (preferred_layout or None)
                 job.processed_scenes = idx + 1
                 db.commit()
