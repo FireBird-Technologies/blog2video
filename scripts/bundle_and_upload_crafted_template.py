@@ -306,6 +306,22 @@ def main() -> None:
         copy_tree(frontend_src, out_root / "frontend")
         copy_tree(remotion_src, out_root / "remotion-video")
 
+        # Optional shared font modules. Template entries commonly import
+        # ../../../fonts/<template-id>-defaults from their source location.
+        # After bundling, these live under <section>/fonts/ so the runtime
+        # mount can place render fonts back at workspace src/fonts/.
+        for section, src_dir in (
+            ("frontend", REPO_ROOT / "frontend" / "src" / "fonts"),
+            ("remotion-video", REPO_ROOT / "remotion-video" / "src" / "fonts"),
+        ):
+            if src_dir.is_dir():
+                dst_dir = out_root / section / "fonts"
+                for name in (f"{template_id}-defaults.ts", f"{template_id}-defaults.tsx"):
+                    src = src_dir / name
+                    if src.is_file():
+                        dst_dir.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src, dst_dir / name)
+
         # Static assets: copy template-scoped public assets into bundle `public/`.
         #
         # Two layouts are supported (whichever exists wins; both are merged):

@@ -363,27 +363,92 @@ export async function compileModuleGraphEntry(
 
     const staticFileOverrides =
       publicAssetUrls && typeof publicAssetUrls === "object" ? publicAssetUrls : null;
+    const resolveStaticFile = (filePath: string) => {
+      const key = String(filePath || "")
+        .replace(/\\/g, "/")
+        .replace(/^\.+\//, "")
+        .replace(/^\/+/, "");
+      const mapped = staticFileOverrides?.[key] || staticFileOverrides?.[`public/${key}`];
+      if (mapped) return mapped;
+      // Crafted bundles compile outside Vite's normal module graph. If the
+      // package has not provided a CDN mapping yet, fall back to the app's
+      // public root so local previews can still load template assets.
+      if (key.startsWith("templates/")) return `/${key}`;
+      return Remotion.staticFile(filePath);
+    };
     const remotionRuntime =
       staticFileOverrides && Object.keys(staticFileOverrides).length > 0
         ? ({
             ...Remotion,
-            staticFile: (filePath: string) => {
-              const key = String(filePath || "")
-                .replace(/\\/g, "/")
-                .replace(/^\.+\//, "")
-                .replace(/^\/+/, "");
-              const mapped = staticFileOverrides[key];
-              if (mapped) return mapped;
-              return Remotion.staticFile(filePath);
-            },
+            staticFile: resolveStaticFile,
           } as typeof Remotion)
-        : Remotion;
+        : ({ ...Remotion, staticFile: resolveStaticFile } as typeof Remotion);
     const moduleCache = new Map<string, Record<string, unknown>>();
     const compiling = new Set<string>();
     const makeMissingModuleStub = (specifier: string): Record<string, unknown> => {
       const noOpComponent = () => null;
       const noOpFn = () => undefined;
       const spec = String(specifier || "");
+      const RuntimeLogoOverlay = ({
+        src,
+        position = "bottom_right",
+        maxOpacity = 0.9,
+        size: sizePercent = 100,
+        aspectRatio = "landscape",
+      }: {
+        src?: string;
+        position?: string;
+        maxOpacity?: number;
+        size?: number;
+        aspectRatio?: string;
+      }) => {
+        const frame = Remotion.useCurrentFrame();
+        const { width, height } = Remotion.useVideoConfig();
+        if (!src) return null;
+        const isPortrait = aspectRatio === "portrait" || height > width;
+        const opacity = Remotion.interpolate(frame, [0, 20], [0, maxOpacity], {
+          extrapolateRight: "clamp",
+        });
+        const percent = typeof sizePercent === "number" && sizePercent > 0 ? sizePercent : 100;
+        const baseSize = isPortrait ? Math.round(width * 0.12) : Math.round(width * 0.105);
+        const size = Math.round(baseSize * (percent / 100));
+        const margin = isPortrait ? Math.round(width * 0.032) : Math.round(width * 0.022);
+        const posStyle: React.CSSProperties = {
+          position: "absolute",
+          zIndex: 100,
+          opacity,
+          width: size,
+          height: size,
+          filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.25))",
+        };
+        switch (position) {
+          case "top_left":
+            posStyle.top = margin;
+            posStyle.left = margin;
+            break;
+          case "top_right":
+            posStyle.top = margin;
+            posStyle.right = margin;
+            break;
+          case "bottom_left":
+            posStyle.bottom = margin;
+            posStyle.left = margin;
+            break;
+          case "bottom_right":
+          default:
+            posStyle.bottom = margin;
+            posStyle.right = margin;
+            break;
+        }
+        return React.createElement(
+          "div",
+          { style: posStyle },
+          React.createElement(Remotion.Img, {
+            src,
+            style: { width: "100%", height: "100%", objectFit: "contain" },
+          }),
+        );
+      };
       if (spec.toLowerCase().includes("playbackspeed")) {
         return {
           __esModule: true,
@@ -406,8 +471,8 @@ export async function compileModuleGraphEntry(
       if (spec.toLowerCase().includes("logooverlay")) {
         return {
           __esModule: true,
-          default: noOpComponent,
-          LogoOverlay: noOpComponent,
+          default: RuntimeLogoOverlay,
+          LogoOverlay: RuntimeLogoOverlay,
         };
       }
       if (spec.toLowerCase().includes("socialicons")) {
