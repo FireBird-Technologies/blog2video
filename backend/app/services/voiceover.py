@@ -502,7 +502,7 @@ def _should_spell_loose_phone_span(raw: str) -> bool:
     if _looks_like_date_span(r):
         return False
     rs = _collapse_ws(r)
-    if re.match(r"^\d+\.\d+$", rs) and len(d) <= 4:
+    if re.match(r"^\d+\.\d+$", rs):
         return False
     return True
 
@@ -536,10 +536,9 @@ def _should_spell_number_token_for_tts(raw: str) -> bool:
     had_comma = "," in t
     t_nocomma = t.replace(",", "")
 
-    # Two-part decimals with ≤4 digits total (e.g. 9.99, 12.50): natural
+    # All decimals (e.g. 9.99, 12.50, 9.875, 1234.56): natural — TTS reads them as numbers
     if re.match(r"^\d+\.\d+$", t_nocomma):
-        if len(_digits_only(t_nocomma)) <= 4:
-            return False
+        return False
 
     if _looks_like_date_token(t_nocomma):
         return False
@@ -607,6 +606,45 @@ def _expand_spelled_numeric_token(
     return " ".join(parts) if parts else token
 
 
+def _expand_decimals_for_tts(text: str, content_language: str | None = None) -> str:
+    """Replace decimal numbers with explicit spoken form so TTS says 'point' not 'thousand'.
+
+    1.5   -> "1 point 5"
+    9.875 -> "9 point 875"
+    $3.50 -> "$3 point 50"
+
+    Skips dates (2024-01-15, 12/31) since those use hyphens/slashes not dots.
+    """
+    lang = _normalize_language_key(content_language)
+    point_word = {
+        "en": "point",
+        "fr": "virgule", "de": "Komma", "es": "coma", "it": "virgola",
+        "pt": "vírgula", "nl": "komma", "sv": "komma", "da": "komma",
+        "no": "komma", "fi": "pilkku", "pl": "przecinek", "cs": "čárka",
+        "hu": "vessző", "ro": "virgulă", "ru": "запятая", "uk": "кома",
+        "ar": "فاصلة", "hi": "दशमलव", "ja": "テン", "ko": "점",
+        "zh-cn": "点", "zh-tw": "點", "tr": "virgül", "el": "κόμμα",
+    }.get(lang, "point")
+
+    def _replace(m: re.Match[str]) -> str:
+        prefix = m.group(1) or ""
+        integer_part = m.group(2)
+        decimal_part = m.group(3)
+        return f"{prefix}{integer_part} {point_word} {decimal_part}"
+
+    # Optional currency, integer digits, literal dot, decimal digits.
+    # Lookbehind/ahead prevent matching inside words or slash-separated dates.
+    pattern = (
+        r"(?<![A-Za-z0-9/\-])"
+        r"([\$€£₹]?)"
+        r"(\d+)"
+        r"\."
+        r"(\d+)"
+        r"(?![A-Za-z0-9/\-])"
+    )
+    return re.sub(pattern, _replace, text)
+
+
 def _spell_digits_for_tts(text: str, content_language: str | None = None) -> str:
     """Expand phone-like spans and straight numbers (>4 digits) digit-by-digit for TTS.
 
@@ -617,6 +655,8 @@ def _spell_digits_for_tts(text: str, content_language: str | None = None) -> str
     """
     if not text:
         return text
+
+    text = _expand_decimals_for_tts(text, content_language)
 
     digit_map, symbol_map = _number_lexicon(content_language)
     plus_word = _plus_word_for_language(content_language)
