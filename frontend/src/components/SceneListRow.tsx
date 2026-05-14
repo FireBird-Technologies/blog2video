@@ -71,10 +71,17 @@ export default function SceneListRow({
         </div>
 
         <div className="flex-1 min-w-0">
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={onToggleExpand}
-            className="w-full text-left glass-card p-4 md:border-l-2 md:border-l-purple-200 md:hover:border-l-purple-400 transition-all rounded-r-lg border"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onToggleExpand();
+              }
+            }}
+            className="w-full text-left glass-card p-4 md:border-l-2 md:border-l-purple-200 md:hover:border-l-purple-400 transition-all rounded-r-lg border cursor-pointer"
           >
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <div className="flex items-start sm:items-center gap-3 w-full">
@@ -156,7 +163,7 @@ export default function SceneListRow({
                 </button>
               </div>
             </div>
-          </button>
+          </div>
 
           {expanded && children}
         </div>
