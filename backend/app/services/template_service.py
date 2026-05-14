@@ -324,12 +324,19 @@ def get_layout_prompt(template_id: str, db: Session | None = None, user_id: int 
 
 
 def get_valid_layouts(template_id: str) -> set[str]:
-    """Get the set of valid layout IDs for a template."""
+    """Get the set of valid layout IDs for a template.
+
+    Excludes studio_only_layouts — layouts that exist solely for template
+    studio preview and must never be assigned by the LLM during script generation.
+    """
     meta = _load_meta(template_id)
     if not meta:
         return set()
     layouts = meta.get("valid_layouts", [])
-    return set(layouts) if isinstance(layouts, list) else set()
+    all_layouts = set(layouts) if isinstance(layouts, list) else set()
+    studio_only = meta.get("studio_only_layouts", [])
+    studio_only_set = set(studio_only) if isinstance(studio_only, list) else set()
+    return all_layouts - studio_only_set
 
 
 def get_layouts_without_image(template_id: str) -> set[str]:
@@ -355,6 +362,16 @@ def get_fallback_layout(template_id: str) -> str:
     if not meta:
         return "text_narration"
     return meta.get("fallback_layout", "text_narration")
+
+
+def get_script_style_hint(template_id: str) -> str:
+    """Get the script narration style hint for a template, or empty string if none."""
+    meta = _load_meta(template_id)
+    if not meta:
+        return ""
+    return meta.get("script_style_hint", "")
+
+
 
 
 def get_composition_id(template_id: str) -> str:

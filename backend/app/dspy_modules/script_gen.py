@@ -270,7 +270,28 @@ class BlogToScript(dspy.Signature):
             "NEVER assign 'terminal_table' to a table that has a time-series or numeric progression. "
             "These scenes must be placed after the hero/opening scene and before the ending_socials scene. "
             "Scenes using these layouts MUST NOT appear in any other scene, and other scenes "
-            "MUST NOT reference these tables in their narration."
+            "MUST NOT reference these tables in their narration. "
+            "LAYOUT PRIORITY FOR LADUC — apply in this order: "
+            "(1) If the entry's preferred_layout is 'market_annotation' → emit a scene with "
+            "preferred_layout='market_annotation'. DO NOT downgrade it to data_impact, deep_dive, "
+            "two_column, or any other layout. The chartable_tables_json bindings are AUTHORITATIVE "
+            "for LaDuc — the upstream pipeline has already confirmed the table is chartable. "
+            "(2) If the entry's preferred_layout is 'ticker' → emit a scene with preferred_layout='ticker'. "
+            "(3) Every chartable entry needs its OWN dedicated scene. Two chartable tables = two "
+            "market_annotation scenes, never one scene that references both, never one chart scene + "
+            "one data_impact scene for the second table. "
+            "HARD CARDINALITY RULE: count the entries in chartable_tables_json. The number of scenes "
+            "whose preferred_layout matches the entry's preferred_layout MUST equal that count. If "
+            "chartable_tables_json has 2 entries with preferred_layout='market_annotation', the output "
+            "MUST contain exactly 2 scenes with preferred_layout='market_annotation', each with its own "
+            "data_table_index (one per entry). "
+            "EXAMPLE — given chartable_tables_json = [{index:0, preferred_layout:'market_annotation', "
+            "headers:['GOLD PURITY','PER TOLA','PER 10 GRAM']}, {index:1, preferred_layout:'market_annotation', "
+            "headers:['Date','Gold 24K Tola','10 Gram Gold 22K']}], the script MUST contain two scenes: "
+            "one with preferred_layout='market_annotation' and data_table_index=0 (comparing gold purity "
+            "tiers), and another with preferred_layout='market_annotation' and data_table_index=1 (showing "
+            "the gold-price time-series). Never collapse them. Never reassign either to data_impact or any "
+            "non-chart layout."
         )
     )
 
@@ -284,9 +305,12 @@ class BlogToScript(dspy.Signature):
     )
     scenes_json: str = dspy.OutputField(
         desc=(
-            'COMPACT outline only — a JSON array where each object has EXACTLY these keys: '
+            'COMPACT outline only — a JSON array where each object has these keys: '
             '"title" (str), "key_point" (str — 1 sentence describing the core idea of this scene), '
-            '"preferred_layout" (str — layout ID from layout_catalog, or "" if unsure). '
+            '"preferred_layout" (str — layout ID from layout_catalog, or "" if unsure), '
+            'and "data_table_index" (int) — REQUIRED on any scene that corresponds to an entry in '
+            'chartable_tables_json; the value MUST equal that entry\'s "index". Omit this key on '
+            'scenes that are not bound to a chartable table. '
             'Do NOT include narration, visual_description, suggested_images, or duration_seconds — '
             'those are generated in a separate expansion step. '
             'FIRST scene title MUST be the actual blog/video title (never "Hero Opening"). '
@@ -295,7 +319,8 @@ class BlogToScript(dspy.Signature):
             'and its key_point should summarize the CTA grounded in the article topic. '
             'Layout diversity rules still apply to preferred_layout assignments. '
             'Example: [{"title": "How AI Changes Development", "key_point": "AI tools are reshaping how developers write and review code.", "preferred_layout": "hero_image"}, '
-            '{"title": "The Core Problem", "key_point": "Manual code review is slow and error-prone at scale.", "preferred_layout": "data_snapshot"}]'
+            '{"title": "Gold purity ladder", "key_point": "Per-tola price drops as purity falls from 24K to 18K.", "preferred_layout": "market_annotation", "data_table_index": 0}, '
+            '{"title": "Gold price drift this week", "key_point": "Daily quotes hold steady around the all-time high.", "preferred_layout": "market_annotation", "data_table_index": 1}]'
         )
     )
 
@@ -444,6 +469,7 @@ class ScriptGenerator:
         include_ending_socials: bool = False,
         chartable_tables_json: str = "",
         template_id: str = "",
+        template_style_hint: str = "",
     ) -> dict:
         """
         Generate a video script from blog content using a 2-stage parallel pipeline.
@@ -476,7 +502,7 @@ class ScriptGenerator:
             content_language=lang,
             include_ending_socials=bool(include_ending_socials),
             social_platforms_detected=social_hint,
-            template_style_hint="",
+            template_style_hint=template_style_hint or "",
             chartable_tables_json=chartable_tables_json,
         )
 
@@ -545,6 +571,9 @@ class ScriptGenerator:
                     "suggested_images": suggested or outline.get("suggested_images", []),
                     "duration_seconds": duration,
                 }
+                # Carry the LLM's chart-table binding forward so the renderer charts the table the narration is actually about.
+                if isinstance(outline.get("data_table_index"), int):
+                    scene["data_table_index"] = outline["data_table_index"]
                 if is_ending:
                     cta = self._coerce_layout_str(getattr(res, "cta_button_text", None))
                     if cta:
@@ -553,7 +582,7 @@ class ScriptGenerator:
                 return scene
             except Exception:
                 # Fall back to a minimal scene built from the outline
-                return {
+                fallback: dict = {
                     "title": outline["title"],
                     "narration": outline.get("key_point", ""),
                     "visual_description": outline.get("key_point", ""),
@@ -561,6 +590,9 @@ class ScriptGenerator:
                     "duration_seconds": 10,
                     "preferred_layout": outline.get("preferred_layout"),
                 }
+                if isinstance(outline.get("data_table_index"), int):
+                    fallback["data_table_index"] = outline["data_table_index"]
+                return fallback
 
         expanded = await asyncio.gather(*[expand_scene(i, s) for i, s in enumerate(outline_scenes)])
 
@@ -809,7 +841,12 @@ class ScriptGenerator:
             title = self._coerce_text_str(scene.get("title")).strip() or f"Scene {i + 1}"
             key_point = self._coerce_text_str(scene.get("key_point") or scene.get("narration") or scene.get("visual_description")).strip()
             preferred_layout = self._coerce_layout_str(scene.get("preferred_layout")) or None
-            out.append({"title": title, "key_point": key_point, "preferred_layout": preferred_layout})
+            row: dict = {"title": title, "key_point": key_point, "preferred_layout": preferred_layout}
+            # Preserve the LLM's chartable-table binding so it survives into the expansion stage.
+            raw_idx = scene.get("data_table_index")
+            if isinstance(raw_idx, int):
+                row["data_table_index"] = raw_idx
+            out.append(row)
         return out
 
     def _parse_scenes(
@@ -883,7 +920,7 @@ class ScriptGenerator:
                 if preferred_layout == "ending_socials" and cta_btn:
                     row["cta_button_text"] = cta_btn
                 raw_idx = scene.get("data_table_index")
-                _data_layouts = {"data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz"}
+                _data_layouts = {"data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz", "market_annotation", "ticker"}
                 if preferred_layout in _data_layouts and isinstance(raw_idx, int):
                     row["data_table_index"] = raw_idx
                 validated.append(row)

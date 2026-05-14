@@ -386,6 +386,7 @@ export interface TemplateMeta {
   hero_layout?: string;
   fallback_layout?: string;
   valid_layouts?: string[];
+  studio_only_layouts?: string[];
   layouts_without_image?: string[];
   layout_prop_schema?: Record<string, LayoutPropSchema>;
 }
@@ -398,7 +399,8 @@ export type LayoutPropFieldType =
   | "select"
   | "string_array"
   | "object_array"
-  | "chart_table";
+  | "chart_table"
+  | "ticker_table";
 
 export interface LayoutPropSubField {
   key: string;
@@ -723,6 +725,16 @@ export const renderTemplateLayout = (payload: {
   duration_seconds?: number;
   layout_props?: Record<string, unknown>;
   resolution?: "1080p" | "720p";
+  scenes?: Array<{
+    id?: number;
+    order?: number;
+    title?: string;
+    narration?: string;
+    layout?: string;
+    layoutProps?: Record<string, unknown>;
+    durationSeconds?: number;
+    imageUrl?: string;
+  }>;
 }) =>
   api.post<Blob>("/template-studio/render-layout", payload, {
     responseType: "blob",

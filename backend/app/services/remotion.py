@@ -27,6 +27,7 @@ from app.services.template_service import (
     get_layouts_without_image,
     is_custom_template,
     is_crafted_template,
+    get_meta,
 )
 
 from app.observability.logging import get_logger
@@ -109,6 +110,8 @@ _SHARED_SRC_FILES = [
     "src/fonts/nightfall-defaults.ts",
     # Chronicle template default fonts (bundled, not in registry)
     "src/fonts/chronicle-defaults.ts",
+    # LaDuc template default fonts (bundled, not in registry)
+    "src/fonts/laduc-defaults.ts",
     # Shared socials renderer used by multiple template layouts
     "src/templates/SocialIcons.tsx",
 ]
@@ -924,6 +927,29 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     layout = desc.get("layout", fallback)
                     layout_props = desc.get("layoutProps", {})
             except (json.JSONDecodeError, TypeError):
+                pass
+
+        # Merge meta.json layout defaults under stored layoutProps so fields like
+        # editorialWordmark are always present even if the LLM didn't emit them.
+        if not is_custom_template(template_id) and layout:
+            try:
+                _meta = get_meta(template_id)
+                _layout_defaults = (
+                    (_meta or {})
+                    .get("layout_prop_schema", {})
+                    .get(layout, {})
+                    .get("defaults", {})
+                )
+                if _layout_defaults:
+                    _ar = (getattr(project, "aspect_ratio", None) or "landscape").strip().lower()
+                    _resolved_defaults = {}
+                    for _k, _v in _layout_defaults.items():
+                        if isinstance(_v, dict) and "portrait" in _v and "landscape" in _v:
+                            _resolved_defaults[_k] = _v.get(_ar) or _v.get("landscape")
+                        else:
+                            _resolved_defaults[_k] = _v
+                    layout_props = {**_resolved_defaults, **layout_props}
+            except Exception:
                 pass
 
         # Check if image should be hidden for this scene (at most one image per scene)

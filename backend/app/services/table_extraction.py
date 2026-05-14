@@ -172,11 +172,48 @@ def append_tables_to_content(content: str, tables: list[dict[str, Any]]) -> str:
     return (content or "").rstrip() + block
 
 
+def _dedup_tables(tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Remove duplicate tables that share the same header fingerprint.
+
+    When duplicates exist (e.g. firecrawl_html + firecrawl_markdown scraped the
+    same table), keep the copy with the most complete data, preferring
+    firecrawl_markdown over firecrawl_html as a tiebreaker.
+    """
+    def _cell_count(tbl: dict) -> int:
+        return sum(
+            1
+            for r in (tbl.get("rows") or [])
+            if isinstance(r, list)
+            for c in r
+            if str(c or "").strip()
+        )
+
+    seen: dict[str, dict[str, Any]] = {}
+    for t in tables:
+        if not isinstance(t, dict):
+            continue
+        headers = t.get("headers") or []
+        key = "|".join(str(h).strip().lower() for h in headers)
+        if not key:
+            continue
+        if key not in seen:
+            seen[key] = t
+        else:
+            existing = seen[key]
+            existing_is_md = (existing.get("source") or "").startswith("firecrawl_markdown")
+            new_is_md = (t.get("source") or "").startswith("firecrawl_markdown")
+            if new_is_md and not existing_is_md:
+                seen[key] = t
+            elif new_is_md == existing_is_md and _cell_count(t) > _cell_count(existing):
+                seen[key] = t
+    return list(seen.values())
+
+
 def extract_tables_from_content(content: str) -> list[dict[str, Any]]:
     if not content:
         return []
     pattern = (
-        rf"═══ {TABLE_SECTION_MARKER} ═══\s*(\{{.*?\}})\s*"
+        rf"═══ {TABLE_SECTION_MARKER} ═══\s*(\{{.*\}})\s*"
         rf"═══ END_{TABLE_SECTION_MARKER} ═══"
     )
     match = re.search(pattern, content, flags=re.DOTALL)
@@ -187,7 +224,8 @@ def extract_tables_from_content(content: str) -> list[dict[str, Any]]:
     except json.JSONDecodeError:
         return []
     tables = payload.get("tables") if isinstance(payload, dict) else None
-    return tables if isinstance(tables, list) else []
+    tables = tables if isinstance(tables, list) else []
+    return _dedup_tables(tables)
 
 
 def build_table_context_hint(
