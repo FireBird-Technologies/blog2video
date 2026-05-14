@@ -17,6 +17,7 @@ import {
   random,
 } from "remotion";
 import * as Remotion from "remotion";
+import * as Recharts from "recharts";
 
 export interface SceneProps {
   displayText: string;
@@ -551,6 +552,9 @@ export async function compileModuleGraphEntry(
         }
         if (spec === "remotion") {
           return remotionRuntime;
+        }
+        if (spec === "recharts") {
+          return Recharts;
         }
         // Tolerate side-effect-only externals (fonts/styles/aliases) in browser preview runtime.
         return {};

@@ -39,6 +39,7 @@ from app.services.chart_planner import (
     _build_chart_props_from_table,
     is_candlestick_table,
     is_ticker_snapshot_table,
+    is_laduc_ticker_table,
     extract_ticker_items_from_blog,
 )
 from app.services.scraper import scrape_blog, BlogScrapeFailed
@@ -77,6 +78,7 @@ from app.services.template_service import (
     get_valid_layouts,
     get_hero_layout,
     get_fallback_layout,
+    get_script_style_hint,
     is_custom_template,
     is_crafted_template,
     _load_custom_template_data,
@@ -186,7 +188,10 @@ def _sanitize_script_layouts(
             desired = _pick_diverse(excludes)
 
         # Try to avoid consecutive duplicates even when valid was provided.
-        if prev_layout and desired == prev_layout and i != 0 and not (supports_ending and i == last_idx):
+        # Data-bound scenes (data_table_index set) must keep their assigned layout — two
+        # chartable tables legitimately produce two consecutive market_annotation scenes.
+        is_data_bound = isinstance(scene.get("data_table_index"), int)
+        if prev_layout and desired == prev_layout and i != 0 and not (supports_ending and i == last_idx) and not is_data_bound:
             alt = _pick_diverse({prev_layout, "ending_socials"} if supports_ending else {prev_layout})
             desired = alt or desired
 
@@ -837,6 +842,54 @@ async def _generate_script(project: Project, db: Session):
                     max_rows=20,
                 )
 
+    elif ("laduc" in template_id):
+        # laduc: classify chartable tables once upfront (bloomberg-style).
+        # Run extraction + classification in the thread pool so CPU-bound
+        # HTML parsing doesn't block the event loop.
+        _laduc_blog_text = getattr(project, "blog_content", None) or ""
+
+        def _laduc_classify_tables() -> tuple[list, str]:
+            tables = extract_tables_from_content(_laduc_blog_text)
+            if not tables:
+                return tables, ""
+            tmp_hint = build_table_context_hint(tables, max_tables=len(tables))
+            # Chartable candidates (line/bar/histogram) → market_annotation
+            chartable_all = get_chartable_tables_from_visual_hint(tmp_hint)
+            # Ticker-like tables → ticker layout (excluded from chartable set so we
+            # don't double-bind the same table to two scenes).
+            ticker_tables_all: list[tuple[int, dict]] = [
+                (idx, t) for idx, t in enumerate(tables)
+                if isinstance(t, dict) and is_laduc_ticker_table(t)
+            ]
+            ticker_indices = {idx for idx, _ in ticker_tables_all}
+            # If a table matches both, prefer ticker (user wants ticker classification strict).
+            chartable = [(idx, t) for idx, t in chartable_all if idx not in ticker_indices][:2]
+            ticker_tables = ticker_tables_all[:2]
+            if not chartable and not ticker_tables:
+                return tables, ""
+            chart_type_by_idx = {
+                orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                for orig_idx, t in chartable
+            }
+            preferred_layout_by_idx: dict[int, str] = {}
+            for orig_idx, _ in chartable:
+                preferred_layout_by_idx[orig_idx] = "market_annotation"
+            for orig_idx, _ in ticker_tables:
+                preferred_layout_by_idx[orig_idx] = "ticker"
+            bindings = chartable + ticker_tables
+            payload = build_chartable_tables_payload(
+                bindings,
+                chart_type_by_index=chart_type_by_idx,
+                preferred_layout_by_index=preferred_layout_by_idx,
+                max_rows=20,
+            )
+            return tables, payload
+
+        _laduc_loop = asyncio.get_event_loop()
+        _all_extracted_tables, chartable_tables_json = await _laduc_loop.run_in_executor(
+            None, _laduc_classify_tables
+        )
+
     # Release the DB connection during the long-running DSPy/LLM calls below.
     # Neon (serverless PostgreSQL) closes idle connections, and pool_pre_ping
     # only verifies liveness on checkout — a session already holding a
@@ -848,6 +901,8 @@ async def _generate_script(project: Project, db: Session):
     _project_aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
     _project_blog_content = project.blog_content
     db.close()
+
+    _template_style_hint = get_script_style_hint(template_id) if template_id else ""
 
     result = await generator.generate(
         blog_content=_project_blog_content,
@@ -861,6 +916,7 @@ async def _generate_script(project: Project, db: Session):
         include_ending_socials=include_ending_socials,
         chartable_tables_json=chartable_tables_json,
         template_id=template_id or "",
+        template_style_hint=_template_style_hint,
     )
 
     # Template-aware display text generation (second LLM call — still no DB held)
@@ -898,7 +954,8 @@ async def _generate_script(project: Project, db: Session):
                 preferred = None
         elif (
             scene_data.get("preferred_layout") in {
-                "data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz"
+                "data_visualization", "terminal_chart", "terminal_table",
+                "terminal_dataviz", "market_annotation", "ticker",
             }
             and _all_extracted_tables
         ):
@@ -910,6 +967,16 @@ async def _generate_script(project: Project, db: Session):
                     if is_candlestick_table(_ct):
                         bound_idx = _ci
                         break
+            # For laduc market_annotation with no bound index, auto-find the first chartable table.
+            if (
+                "laduc" in template_id
+                and scene_data.get("preferred_layout") == "market_annotation"
+                and not isinstance(bound_idx, int)
+            ):
+                for _ci, _ct in enumerate(_all_extracted_tables):
+                    if not is_candlestick_table(_ct):
+                        bound_idx = _ci
+                        break
             if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
                 _bound_table = _all_extracted_tables[bound_idx]
                 _mr = 60 if is_candlestick_table(_bound_table) else 20
@@ -918,9 +985,9 @@ async def _generate_script(project: Project, db: Session):
                     vd = (vd.rstrip() + "\n\n" + hint).strip()
         elif (
             # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
-            # the table binding was supposed to force terminal_dataviz/terminal_table.
+            # the table binding was supposed to force a data layout.
             # Embed the table hint so scene_gen has the data and can produce the right chart.
-            template_id == "bloomberg"
+            (template_id == "bloomberg" or "laduc" in template_id)
             and scene_data.get("data_table_index") is not None
             and _all_extracted_tables
         ):
@@ -930,11 +997,16 @@ async def _generate_script(project: Project, db: Session):
                 _fb_hint = build_table_context_hint([_fb_table], max_tables=1, max_rows=20)
                 if _fb_hint:
                     vd = (vd.rstrip() + "\n\n" + _fb_hint).strip()
-                # Also upgrade the preferred_layout so scene_gen uses the right component.
-                if not is_candlestick_table(_fb_table):
-                    scene_data["preferred_layout"] = "terminal_dataviz"
-                else:
-                    scene_data["preferred_layout"] = "terminal_chart"
+                # Upgrade preferred_layout so scene_gen uses the right component.
+                if template_id == "bloomberg":
+                    if not is_candlestick_table(_fb_table):
+                        scene_data["preferred_layout"] = "terminal_dataviz"
+                    else:
+                        scene_data["preferred_layout"] = "terminal_chart"
+                elif "laduc" in template_id:
+                    scene_data["preferred_layout"] = (
+                        "ticker" if is_laduc_ticker_table(_fb_table) else "market_annotation"
+                    )
         elif scene_data.get("preferred_layout") == "terminal_ticker":
             # Inject real scraped ticker data so scene_gen overrides LLM-hallucinated values.
             _blog_text = getattr(project, "blog_content", None) or ""
@@ -942,6 +1014,10 @@ async def _generate_script(project: Project, db: Session):
             if _ticker_items:
                 hint = "═══ SCRAPED_TICKER_ROWS ═══\n" + "\n".join(_ticker_items) + "\n═══ END_SCRAPED_TICKER_ROWS ═══"
                 vd = (vd.rstrip() + "\n\n" + hint).strip()
+        # Re-read preferred_layout: the recovery elif above may have upgraded it
+        # (e.g. data_impact → market_annotation). The local `preferred` captured at
+        # the top of this loop was set before that upgrade, so it would be stale.
+        preferred = scene_data.get("preferred_layout")
         scene = Scene(
             project_id=project.id,
             order=i + 1,

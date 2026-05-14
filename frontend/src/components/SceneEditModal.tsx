@@ -403,6 +403,7 @@ type FieldType =
   | "chart_table"
   | "ohlcv_table"
   | "pipe_table"
+  | "ticker_table"
   | "select"
   | "number"
   | "range";
@@ -636,6 +637,53 @@ function getEmptyChartTableForMode(mode: Exclude<DataVizTableMode, "auto">): { h
 
 function chartTableHasData(table: { headers: string[]; rows: string[][] }): boolean {
   return table.rows.some((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+}
+
+/**
+ * LaDuc `market_annotation` example datasets per chart type — mirrors the
+ * defaults shipped in `backend/templates/laduc/meta.json` for the
+ * `market_annotation` / `market_annotation_bar` / `market_annotation_histogram`
+ * studio variants. Used to swap chartTable when the user changes chartType so
+ * the preview renders cleanly with shape-appropriate labels (dates for line,
+ * categories for bar, bucket ranges for histogram).
+ */
+function getLaDucMarketAnnotationExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "line") {
+    return {
+      headers: ["Date", "Close", "Flow index", "Positioning"],
+      rows: [
+        ["2024-01-02", "298", "72", "41"],
+        ["2024-02-01", "308", "68", "44"],
+        ["2024-03-01", "315", "61", "39"],
+        ["2024-04-01", "324", "55", "36"],
+        ["2024-05-01", "318", "59", "33"],
+      ],
+    };
+  }
+  if (chartType === "bar") {
+    return {
+      headers: ["Sector", "Close", "Flow index", "Positioning"],
+      rows: [
+        ["Tech", "324", "72", "41"],
+        ["Energy", "308", "55", "36"],
+        ["Healthcare", "315", "61", "39"],
+        ["Financials", "298", "68", "44"],
+        ["Semis", "318", "59", "33"],
+      ],
+    };
+  }
+  return {
+    headers: ["Score bucket", "Flow index", "Positioning"],
+    rows: [
+      ["30 - 40", "0", "1"],
+      ["40 - 50", "0", "2"],
+      ["50 - 60", "2", "2"],
+      ["60 - 70", "2", "0"],
+      ["70 - 80", "1", "0"],
+    ],
+  };
 }
 
 function projectChartTableForMode(
@@ -1121,6 +1169,51 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   news_timeline: [
     { key: "stats", label: "Timeline events", type: "object_array", subFields: [{ key: "value", label: "Date" }, { key: "label", label: "Description" }], maxItems: 5 },
   ],
+  // LaDuc layouts
+  data_impact: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. April 2026 · The Stealth Bid" },
+    { key: "stats", label: "Data columns", type: "object_array", subFields: [{ key: "value", label: "Number / Amount" }, { key: "label", label: "Category Name" }], maxItems: 5 },
+  ],
+  deep_dive: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. Macro · Deep Dive" },
+    { key: "stats", label: "Fact rows", type: "object_array", subFields: [{ key: "label", label: "Tag (1–2 words)" }, { key: "value", label: "Supporting fact sentence" }], maxItems: 4 },
+    { key: "footerNote", label: "Footer tag", type: "string", placeholder: "e.g. Source: Bloomberg · Apr 2026" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  // LaDuc layouts that don't share IDs with other templates
+  two_column: [
+    { key: "category", label: "Eyebrow label", type: "string" },
+    { key: "leftTitle", label: "Left column title", type: "string" },
+    { key: "rightTitle", label: "Right column title", type: "string" },
+    { key: "leftBody", label: "Left body text", type: "text" },
+    { key: "rightBody", label: "Right body text", type: "text" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  framework_flow: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. The Process · 5 Steps" },
+    { key: "steps", label: "Steps", type: "object_array", subFields: [{ key: "number", label: "Number (01–06)" }, { key: "label", label: "Step name (short)" }, { key: "sub", label: "Subtitle (3–6 words)" }], maxItems: 6 },
+    { key: "footerNote", label: "Footer note", type: "string" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  sign_off: [
+    { key: "category", label: "Issue / session label", type: "string", placeholder: "e.g. Issue #12 · May 2026" },
+    { key: "signOff", label: "Closing line", type: "string", placeholder: "e.g. We make our own luck." },
+    { key: "footerNote", label: "Footer note", type: "string" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  market_annotation: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. $GOLD · Price trend" },
+    { key: "chartTable", label: "Chart data table", type: "chart_table" },
+    { key: "subtitle", label: "X-axis label", type: "string", placeholder: "e.g. Trading date" },
+    { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Price (Rs.)" },
+    { key: "barPrimaryColor", label: "Bar/line color 1", type: "color", placeholder: "#60939C" },
+    { key: "barSecondaryColor", label: "Bar/line color 2", type: "color", placeholder: "#CBBCA2" },
+    { key: "stats", label: "Trade levels (optional)", type: "object_array", subFields: [{ key: "label", label: "Label (ENTRY/TARGET/STOP)" }, { key: "value", label: "Level" }], maxItems: 3 },
+  ],
 };
 
 /** Template-specific overrides for layout fields (when same layout id exists in multiple templates with different props). */
@@ -1334,6 +1427,72 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     flight_path: [
       { key: "phrases", label: "Path steps", type: "string_array", maxItems: 8 },
+    ],
+  },
+  /** LaDuc — overrides for layout IDs shared with other templates */
+  laduc: {
+    masthead: [
+      { key: "category", label: "Issue line", type: "string", placeholder: "e.g. May 2026 · Issue 12" },
+      { key: "subheading", label: "Subheading / deck", type: "string", placeholder: "e.g. Macro-to-Micro · April 2026" },
+      { key: "issueTag", label: "Issue badge (top-right)", type: "string", placeholder: "e.g. May 2026" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    thesis_statement: [
+      { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. The Thesis" },
+      { key: "quote", label: "Core thesis (displayed large)", type: "text", placeholder: "e.g. A synthetic bull rally cannot afford to stall." },
+      { key: "attribution", label: "Attribution / source", type: "string", placeholder: "e.g. LaDuc · May 2026" },
+      { key: "subheading", label: "Kicker above quote", type: "string" },
+      { key: "footerNote", label: "Footer note", type: "string" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    kinetic_quote: [
+      { key: "quote", label: "Full quote text", type: "text", placeholder: "e.g. Don't risk more than you are willing to lose." },
+      { key: "highlightWord", label: "Word to italicize", type: "string", placeholder: "e.g. willing" },
+      { key: "attribution", label: "Attribution", type: "string", placeholder: "e.g. — Samantha LaDuc" },
+      { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. Mom's Smell Test" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    ticker: [
+      { key: "tickerTitle", label: "Table title", type: "string", placeholder: "e.g. Portfolio Holdings · Q1 2026" },
+      { key: "tickerFootnote", label: "Footnote / source", type: "string", placeholder: "e.g. Source: Bloomberg" },
+      { key: "tickerTable", label: "Ticker rows", type: "ticker_table" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    market_annotation: [
+      { key: "category", label: "Chart label", type: "string", placeholder: "e.g. $GOLD · Price trend" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      {
+        key: "chartType",
+        label: "Chart type",
+        type: "select",
+        default: "auto",
+        options: [
+          { value: "auto", label: "Auto" },
+          { value: "line", label: "Line" },
+          { value: "bar", label: "Bar" },
+          { value: "histogram", label: "Histogram" },
+        ],
+      },
+      { key: "subtitle", label: "X-axis / category caption", type: "string", placeholder: "e.g. Trading date" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Index / score" },
+      { key: "chartSummary", label: "Chart summary (short read beside the graphic)", type: "string", placeholder: "Price trends higher through April..." },
+      { key: "chartTimeframeLabel", label: "Chart timeframe label (top-right)", type: "string", placeholder: "1D / 5m" },
+      { key: "footerNote", label: "Y-axis caption / footer note", type: "string", placeholder: "Source: Bloomberg" },
+      { key: "narration", label: "Thesis quote (bottom italic)", type: "string" },
+      { key: "barPrimaryColor", label: "Bar / line color 1", type: "color", placeholder: "#60939C" },
+      { key: "barSecondaryColor", label: "Bar / line color 2", type: "color", placeholder: "#CBBCA2" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+      { key: "chartYAxisTicks", label: "Y-axis tick labels (top → bottom, 2–4 values)", type: "string_array", maxItems: 4 },
+      { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    ],
+    ending_socials: [
+      { key: "brandName", label: "Brand name", type: "string", placeholder: "e.g. LaDucTrading" },
+      { key: "ctaButtonText", label: "CTA button text", type: "string", placeholder: "e.g. Join LaDucTrading" },
+      { key: "websiteLink", label: "Website URL", type: "string", placeholder: "e.g. https://laductrading.com" },
     ],
   },
 };
@@ -1832,6 +1991,12 @@ export default function SceneEditModal({
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
+  const [tickerTableModalOpen, setTickerTableModalOpen] = useState(false);
+  const [tickerTableModalKey, setTickerTableModalKey] = useState<string | null>(null);
+  const [tickerTableDraft, setTickerTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [chartTableModalOpen, setChartTableModalOpen] = useState(false);
+  const [chartTableModalKey, setChartTableModalKey] = useState<string | null>(null);
+  const [chartTableDraft, setChartTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
   const localImageInputRef = useRef<HTMLInputElement>(null);
   const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
@@ -1869,6 +2034,7 @@ export default function SceneEditModal({
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
   const isDefaultTemplate = normalizedTemplateId === "default";
   const isBloombergTemplate = normalizedTemplateId === "bloomberg";
+  const isLaDucTemplate = normalizedTemplateId === "laduc";
 
   const currentLayoutId = (() => {
     try {
@@ -3474,6 +3640,37 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
+                      if (field.type === "ticker_table") {
+                        const raw = editableLayoutProps[field.key] as { headers: string[]; rows: string[][] } | null | undefined;
+                        const rowCount = raw?.rows?.length ?? 0;
+                        const colCount = raw?.headers?.length ?? 0;
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2">
+                              <span className="text-xs text-gray-400 flex-1">
+                                {rowCount > 0 ? `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}` : "No data"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const parsed = raw && typeof raw === "object" && Array.isArray(raw.rows)
+                                    ? { headers: Array.isArray(raw.headers) ? raw.headers.map(String) : ["Label", "Value"], rows: (raw.rows as unknown[][]).map((r) => Array.isArray(r) ? r.map(String) : [""]) }
+                                    : { headers: ["Label", "Value"], rows: [[""]] };
+                                  setTickerTableDraft(parsed);
+                                  setTickerTableModalKey(field.key);
+                                  setTickerTableModalOpen(true);
+                                }}
+                                className="px-3 py-1 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white transition-colors"
+                              >
+                                Edit table
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
                       if (field.type === "chart_table") {
                         const table = normalizeChartTableValue(editableLayoutProps[field.key]);
                         const fixedModeByFieldKey: Partial<Record<string, DataVizTableMode>> = {
@@ -3482,7 +3679,6 @@ export default function SceneEditModal({
                           pieChartTable: "pie",
                           histogramChartTable: "histogram",
                         };
-                        const mode = fixedModeByFieldKey[field.key] ?? inferDataVizTableMode(editableLayoutProps);
                         const isSeparateDataVizTableEditor =
                           (isNightfallTemplate || isDefaultTemplate) && currentLayoutId === "data_visualization";
                         const primaryChartType = String(
@@ -3519,127 +3715,31 @@ export default function SceneEditModal({
                           );
                         }
 
-                        const inferredLineSeriesCount = lineSeriesCountFromLayoutProps(editableLayoutProps);
-                        const tableLineSeriesCount = countLineSeriesInChartTable(table);
-                        const effectiveLineSeriesCount =
-                          tableLineSeriesCount > 0 ? tableLineSeriesCount : inferredLineSeriesCount;
-                        const projected = projectChartTableForMode(table, mode, effectiveLineSeriesCount);
-                        const fixedColumnCount =
-                          mode === "histogram" || mode === "pie"
-                            ? 2
-                            : mode === "bar" || mode === "line"
-                              ? Math.max(2, Math.min(4, 1 + effectiveLineSeriesCount))
-                              : null;
-                        const visibleTable = fixedColumnCount != null
-                          ? {
-                              headers: projected.headers.slice(0, fixedColumnCount),
-                              rows: projected.rows.map((r) => r.slice(0, fixedColumnCount)),
-                            }
-                          : projected;
-                        const updateTable = (next: { headers: string[]; rows: string[][] }) => {
-                          const normalizedNext = normalizeChartTableValue(next);
-                          const clampedNext = fixedColumnCount != null
-                            ? {
-                                headers: normalizedNext.headers.slice(0, fixedColumnCount),
-                                rows: normalizedNext.rows.map((r) => r.slice(0, fixedColumnCount)),
-                              }
-                            : normalizedNext;
-                          setEditableLayoutProps((prev) => ({ ...prev, [field.key]: clampedNext }));
-                        };
+                        const rowCount = table.rows.length;
+                        const colCount = table.headers.length;
                         return (
                           <div key={field.key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
-                            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 overflow-x-auto">
-                              <table className="min-w-full border-separate border-spacing-0">
-                                <thead>
-                                  <tr>
-                                    {visibleTable.headers.map((header, colIndex) => (
-                                      <th key={`h-${colIndex}`} className="p-1.5 align-top">
-                                        <input
-                                          type="text"
-                                          value={header}
-                                          placeholder={colIndex === 0 ? "Label" : `Series ${colIndex}`}
-                                          onChange={(e) => {
-                                            const headers = [...visibleTable.headers];
-                                            headers[colIndex] = e.target.value;
-                                            updateTable({ headers, rows: visibleTable.rows });
-                                          }}
-                                          className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                        />
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {visibleTable.rows.map((row, rowIndex) => (
-                                    <tr key={`r-${rowIndex}`}>
-                                      {visibleTable.headers.map((_, colIndex) => (
-                                        <td key={`c-${rowIndex}-${colIndex}`} className="p-1.5">
-                                          <input
-                                            type="text"
-                                            value={row[colIndex] ?? ""}
-                                            onChange={(e) => {
-                                              const rows = visibleTable.rows.map((r) => [...r]);
-                                              rows[rowIndex][colIndex] = e.target.value;
-                                              updateTable({ headers: visibleTable.headers, rows });
-                                            }}
-                                            className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                          />
-                                        </td>
-                                      ))}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const rows = [...visibleTable.rows, Array.from({ length: visibleTable.headers.length }, () => "")];
-                                    updateTable({ headers: visibleTable.headers, rows });
-                                  }}
-                                  className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
-                                >
-                                  + Row
-                                </button>
-                                {fixedColumnCount == null ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const headers = [...visibleTable.headers, `Series ${visibleTable.headers.length}`];
-                                      const rows = visibleTable.rows.map((r) => [...r, ""]);
-                                      updateTable({ headers, rows });
-                                    }}
-                                    className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
-                                  >
-                                    + Column
-                                  </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (visibleTable.rows.length === 0) return;
-                                    updateTable({ headers: visibleTable.headers, rows: visibleTable.rows.slice(0, -1) });
-                                  }}
-                                  className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
-                                >
-                                  - Row
-                                </button>
-                                {fixedColumnCount == null ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (visibleTable.headers.length <= 2) return;
-                                      const headers = visibleTable.headers.slice(0, -1);
-                                      const rows = visibleTable.rows.map((r) => r.slice(0, -1));
-                                      updateTable({ headers, rows });
-                                    }}
-                                    className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
-                                  >
-                                    - Column
-                                  </button>
-                                ) : null}
-                              </div>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2">
+                              <span className="text-xs text-gray-400 flex-1">
+                                {rowCount > 0 ? `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}` : "No data"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setChartTableDraft({
+                                    headers: [...table.headers],
+                                    rows: table.rows.map((r) => [...r]),
+                                  });
+                                  setChartTableModalKey(field.key);
+                                  setChartTableModalOpen(true);
+                                }}
+                                className="px-3 py-1 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white transition-colors"
+                              >
+                                Edit table
+                              </button>
                             </div>
                           </div>
                         );
@@ -3648,14 +3748,39 @@ export default function SceneEditModal({
                         const opts = field.options ?? [];
                         const defaultVal = field.default ?? opts[0]?.value ?? "";
                         const sel = String(editableLayoutProps[field.key] ?? defaultVal);
+                        const isLaDucChartTypeField =
+                          isLaDucTemplate &&
+                          currentLayoutId === "market_annotation" &&
+                          field.key === "chartType";
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
                             <select
                               value={sel}
-                              onChange={(e) =>
-                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))
-                              }
+                              onChange={(e) => {
+                                const nextChartType = e.target.value;
+                                if (isLaDucChartTypeField) {
+                                  // Swap chartTable to a shape-appropriate example when the
+                                  // user picks a concrete chart type so the preview renders
+                                  // cleanly (line wants dates, bar wants categories,
+                                  // histogram wants bucket ranges). "auto" leaves the table
+                                  // alone — inference decides at render time.
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    const example = getLaDucMarketAnnotationExampleTable(concrete);
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [field.key]: nextChartType,
+                                      chartTable: example,
+                                    }));
+                                    return;
+                                  }
+                                }
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: nextChartType }));
+                              }}
                               className={inputClass}
                             >
                               {opts.map((o) => (
@@ -4762,5 +4887,298 @@ export default function SceneEditModal({
     )}
     </>
   );
-  return isDemo ? modalTree : ReactDOM.createPortal(modalTree, document.body);
+
+  const TICKER_MODAL_MAX_COLS = 6;
+  const TICKER_MODAL_MAX_ROWS = 20;
+  const tickerDraft = tickerTableDraft ?? { headers: ["Label", "Value"], rows: [[""]] };
+
+  const tickerModal = tickerTableModalOpen && tickerTableModalKey ? (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setTickerTableModalOpen(false)} />
+      <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl flex flex-col" style={{ maxHeight: "88vh" }}>
+
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Edit ticker table</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {TICKER_MODAL_MAX_ROWS} rows · max {TICKER_MODAL_MAX_COLS} cols</p>
+          </div>
+          <button type="button" onClick={() => setTickerTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Table area */}
+        <div className="overflow-auto flex-1 p-4">
+          <table className="w-full border-separate border-spacing-1 text-xs">
+            <thead>
+              <tr>
+                {tickerDraft.headers.map((h, ci) => (
+                  <th key={ci} className="align-bottom pb-1">
+                    <input
+                      type="text"
+                      value={h}
+                      placeholder={`Col ${ci + 1}`}
+                      onChange={(e) => {
+                        const next = [...tickerDraft.headers];
+                        next[ci] = e.target.value;
+                        setTickerTableDraft({ ...tickerDraft, headers: next });
+                      }}
+                      className="w-full px-2 py-1.5 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 text-center"
+                    />
+                  </th>
+                ))}
+                <th className="w-6" />
+              </tr>
+            </thead>
+            <tbody>
+              {tickerDraft.rows.map((row, ri) => (
+                <tr key={ri}>
+                  {tickerDraft.headers.map((_, ci) => (
+                    <td key={ci}>
+                      <input
+                        type="text"
+                        value={row[ci] ?? ""}
+                        onChange={(e) => {
+                          const next = tickerDraft.rows.map((r) => [...r]);
+                          next[ri][ci] = e.target.value;
+                          setTickerTableDraft({ ...tickerDraft, rows: next });
+                        }}
+                        className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                    </td>
+                  ))}
+                  <td className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setTickerTableDraft({ ...tickerDraft, rows: tickerDraft.rows.filter((_, i) => i !== ri) })}
+                      title="Remove row"
+                      className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-400 hover:bg-red-50"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Row / Col controls + footer */}
+        <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0">
+          {/* Row controls */}
+          <button
+            type="button"
+            onClick={() => setTickerTableDraft({ ...tickerDraft, rows: [...tickerDraft.rows, Array(tickerDraft.headers.length).fill("")] })}
+            disabled={tickerDraft.rows.length >= TICKER_MODAL_MAX_ROWS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Row
+          </button>
+          <button
+            type="button"
+            onClick={() => tickerDraft.rows.length > 1 && setTickerTableDraft({ ...tickerDraft, rows: tickerDraft.rows.slice(0, -1) })}
+            disabled={tickerDraft.rows.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Row
+          </button>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
+          {/* Col controls */}
+          <button
+            type="button"
+            onClick={() => setTickerTableDraft({ headers: [...tickerDraft.headers, `Col ${tickerDraft.headers.length + 1}`], rows: tickerDraft.rows.map((r) => [...r, ""]) })}
+            disabled={tickerDraft.headers.length >= TICKER_MODAL_MAX_COLS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Col
+          </button>
+          <button
+            type="button"
+            onClick={() => tickerDraft.headers.length > 1 && setTickerTableDraft({ headers: tickerDraft.headers.slice(0, -1), rows: tickerDraft.rows.map((r) => r.slice(0, -1)) })}
+            disabled={tickerDraft.headers.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Col
+          </button>
+
+          <div className="flex-1" />
+
+          <button type="button" onClick={() => setTickerTableModalOpen(false)} className="px-4 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditableLayoutProps((prev) => ({ ...prev, [tickerTableModalKey]: tickerDraft }));
+              setTickerTableModalOpen(false);
+            }}
+            className="px-4 py-1.5 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const CHART_MODAL_MAX_COLS = 6;
+  const CHART_MODAL_MAX_ROWS = 20;
+  const chartDraft = chartTableDraft ?? { headers: ["Label", "Value"], rows: [["", ""]] };
+
+  const chartModal = chartTableModalOpen && chartTableModalKey ? (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setChartTableModalOpen(false)} />
+      <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl flex flex-col" style={{ maxHeight: "88vh" }}>
+
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Edit chart data</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {CHART_MODAL_MAX_ROWS} rows · max {CHART_MODAL_MAX_COLS} cols</p>
+          </div>
+          <button type="button" onClick={() => setChartTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Table area */}
+        <div className="overflow-auto flex-1 p-4">
+          <table className="w-full border-separate border-spacing-1 text-xs">
+            <thead>
+              <tr>
+                {chartDraft.headers.map((h, ci) => (
+                  <th key={ci} className="align-bottom pb-1">
+                    <input
+                      type="text"
+                      value={h}
+                      placeholder={ci === 0 ? "Label" : `Series ${ci}`}
+                      onChange={(e) => {
+                        const next = [...chartDraft.headers];
+                        next[ci] = e.target.value;
+                        setChartTableDraft({ ...chartDraft, headers: next });
+                      }}
+                      className="w-full px-2 py-1.5 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 text-center"
+                    />
+                  </th>
+                ))}
+                <th className="w-6" />
+              </tr>
+            </thead>
+            <tbody>
+              {chartDraft.rows.map((row, ri) => (
+                <tr key={ri}>
+                  {chartDraft.headers.map((_, ci) => (
+                    <td key={ci}>
+                      <input
+                        type="text"
+                        value={row[ci] ?? ""}
+                        onChange={(e) => {
+                          const next = chartDraft.rows.map((r) => [...r]);
+                          while (next[ri].length < chartDraft.headers.length) next[ri].push("");
+                          next[ri][ci] = e.target.value;
+                          setChartTableDraft({ ...chartDraft, rows: next });
+                        }}
+                        className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                    </td>
+                  ))}
+                  <td className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setChartTableDraft({ ...chartDraft, rows: chartDraft.rows.filter((_, i) => i !== ri) })}
+                      title="Remove row"
+                      className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-400 hover:bg-red-50"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Row / Col controls + footer */}
+        <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0">
+          {/* Row controls */}
+          <button
+            type="button"
+            onClick={() => setChartTableDraft({ ...chartDraft, rows: [...chartDraft.rows, Array(chartDraft.headers.length).fill("")] })}
+            disabled={chartDraft.rows.length >= CHART_MODAL_MAX_ROWS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Row
+          </button>
+          <button
+            type="button"
+            onClick={() => chartDraft.rows.length > 1 && setChartTableDraft({ ...chartDraft, rows: chartDraft.rows.slice(0, -1) })}
+            disabled={chartDraft.rows.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Row
+          </button>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
+          {/* Col controls */}
+          <button
+            type="button"
+            onClick={() => setChartTableDraft({ headers: [...chartDraft.headers, `Series ${chartDraft.headers.length}`], rows: chartDraft.rows.map((r) => [...r, ""]) })}
+            disabled={chartDraft.headers.length >= CHART_MODAL_MAX_COLS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Col
+          </button>
+          <button
+            type="button"
+            onClick={() => chartDraft.headers.length > 2 && setChartTableDraft({ headers: chartDraft.headers.slice(0, -1), rows: chartDraft.rows.map((r) => r.slice(0, -1)) })}
+            disabled={chartDraft.headers.length <= 2}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Col
+          </button>
+
+          <div className="flex-1" />
+
+          <button type="button" onClick={() => setChartTableModalOpen(false)} className="px-4 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const normalized = normalizeChartTableValue(chartDraft);
+              setEditableLayoutProps((prev) => ({ ...prev, [chartTableModalKey]: normalized }));
+              setChartTableModalOpen(false);
+            }}
+            className="px-4 py-1.5 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  return isDemo
+    ? <>{modalTree}{tickerModal}{chartModal}</>
+    : ReactDOM.createPortal(<>{modalTree}{tickerModal}{chartModal}</>, document.body);
 }

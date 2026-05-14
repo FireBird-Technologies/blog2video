@@ -27,6 +27,12 @@ crafted-templates/
 remotion-video/public/templates
 frontend/public/templates
 
+# LaDuc template folders (generated/local only)
+frontend/src/components/remotion/laduc/
+backend/templates/laduc/
+remotion-video/src/components/laduc/
+remotion-video/src/templates/laduc/
+
 # Build cache
 *.tsbuildinfo
 

@@ -35,6 +35,14 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     ("chronicle", "versus_folio"): {"landscape": "3:4", "portrait": "16:9"},
     ("chronicle", "ledger_stats"): {"landscape": "3:2", "portrait": "3:2"},
     # chronicle map_reveal is near full-bleed → use video aspect (no entry)
+
+    # LaDuc: image panels are tall vertical strips on deep_dive and thesis_statement.
+    # deep_dive landscape panel: 17/44 ≈ 0.39 → 9:16 (closest supported tall ratio).
+    # thesis_statement landscape panel: 17/36 ≈ 0.47 → 9:16.
+    # All other laduc layouts with images are full-bleed → video aspect (no entry needed).
+    # Key uses "laduc" as a prefix sentinel — matched via startswith() in get_image_aspect_for_layout.
+    ("laduc", "deep_dive"):        {"landscape": "9:16", "portrait": "9:16"},
+    ("laduc", "thesis_statement"): {"landscape": "9:16", "portrait": "9:16"},
 }
 
 # OpenAI gpt-image-1 supported sizes
@@ -59,8 +67,12 @@ def get_image_aspect_for_layout(
     """
     if not template_id or not layout_id:
         return _video_aspect(project_aspect_ratio)
-    key = (template_id.strip().lower(), layout_id.strip().lower())
-    mapping = LAYOUT_IMAGE_ASPECT.get(key)
+    tid = template_id.strip().lower()
+    lid = layout_id.strip().lower()
+    mapping = LAYOUT_IMAGE_ASPECT.get((tid, lid))
+    # Substring fallback: any template_id containing "laduc" (e.g. "laduc_custom_7", "crafted_laduc_3") uses the ("laduc", layout) sentinel
+    if not mapping and "laduc" in tid:
+        mapping = LAYOUT_IMAGE_ASPECT.get(("laduc", lid))
     if not mapping:
         return _video_aspect(project_aspect_ratio)
     aspect = project_aspect_ratio.strip().lower() if project_aspect_ratio else "landscape"
