@@ -18,6 +18,7 @@ import {
 } from "remotion";
 import * as Remotion from "remotion";
 import * as Recharts from "recharts";
+import * as RemotionTransitions from "@remotion/transitions";
 import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 
@@ -561,6 +562,9 @@ export async function compileModuleGraphEntry(
         }
         if (spec === "recharts") {
           return Recharts;
+        }
+        if (spec === "@remotion/transitions") {
+          return RemotionTransitions;
         }
         // Tolerate side-effect-only externals (fonts/styles/aliases) in browser preview runtime.
         return {};
