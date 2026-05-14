@@ -18,6 +18,8 @@ import {
 } from "remotion";
 import * as Remotion from "remotion";
 import * as Recharts from "recharts";
+import { Player } from "@remotion/player";
+import { getTemplateConfig } from "../components/remotion/templateConfig";
 
 export interface SceneProps {
   displayText: string;
@@ -199,6 +201,8 @@ export async function compilePreviewComponent(
       "useRef",
       "useMemo",
       "useCallback",
+      "Player",
+      "getTemplateConfig",
       transformed.code + "\nreturn typeof __PreviewComponent__ !== 'undefined' ? __PreviewComponent__ : null;",
     );
     const component = factory(
@@ -208,6 +212,8 @@ export async function compilePreviewComponent(
       React.useRef,
       React.useMemo,
       React.useCallback,
+      Player,
+      getTemplateConfig,
     );
     if (typeof component !== "function") {
       return { success: false, error: "Preview file did not produce a default-exported component" };
