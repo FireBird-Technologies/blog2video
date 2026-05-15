@@ -13,6 +13,11 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from app.services import r2_storage
+from app.services.crafted_template_service import (
+    SUMMARY_OBJECT_NAME,
+    build_summary_payload,
+    write_summary_to_r2,
+)
 from app.config import settings
 
 
@@ -221,6 +226,60 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     return parser.parse_args()
+
+
+def _read_text_if_exists(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception as e:
+        print(f"[summary] failed to read {path}: {e}")
+        return None
+
+
+def upload_summary_for_bundle(prefix: str, bundle_dir: Path, manifest: dict) -> bool:
+    """
+    Compose summary.json from the local bundle and upload it to R2 at
+    `{prefix}/summary.json`. Called after bundle files are uploaded so the
+    dashboard list endpoint sees a fresh summary without requiring a
+    follow-up call to /admin/publish.
+    """
+    backend = manifest.get("backend") if isinstance(manifest.get("backend"), dict) else {}
+    meta_rel = backend.get("meta") if isinstance(backend.get("meta"), str) else "backend/meta.json"
+    meta_path = bundle_dir / meta_rel
+    meta_raw = _read_text_if_exists(meta_path)
+    if meta_raw is None:
+        print(f"[summary] skipped — meta.json missing at {meta_path}")
+        return False
+    try:
+        meta = json.loads(meta_raw)
+    except Exception as e:
+        print(f"[summary] skipped — meta.json invalid: {e}")
+        return False
+    if not isinstance(meta, dict):
+        print("[summary] skipped — meta.json is not a JSON object")
+        return False
+
+    frontend = manifest.get("frontend") if isinstance(manifest.get("frontend"), dict) else {}
+    preview_file_rel = frontend.get("preview") if isinstance(frontend.get("preview"), str) else None
+    layout_fields_rel = frontend.get("layout_fields") if isinstance(frontend.get("layout_fields"), str) else None
+
+    preview_file = _read_text_if_exists(bundle_dir / preview_file_rel) if preview_file_rel else None
+    layout_fields = _read_text_if_exists(bundle_dir / layout_fields_rel) if layout_fields_rel else None
+
+    preview_image_rel = manifest.get("preview_image", "assets/preview.jpg")
+    preview_image_url = r2_storage.public_url(f"{prefix.strip('/')}/{preview_image_rel}") if preview_image_rel else None
+
+    summary = build_summary_payload(
+        meta=meta,
+        preview_image_url=preview_image_url,
+        preview_file=preview_file,
+        preview_file_rel=preview_file_rel if preview_file is not None else None,
+        layout_fields=layout_fields,
+        layout_fields_rel=layout_fields_rel if layout_fields is not None else None,
+    )
+    return write_summary_to_r2(prefix, summary)
 
 
 def _list_r2_keys(prefix: str) -> list[str]:
@@ -497,6 +556,15 @@ def main() -> None:
         print("replace_existing=true")
         print(f"deleted_existing_files={deleted}")
     print(f"uploaded_files={len(uploaded)}")
+
+    # Generate + upload summary.json so the dashboard list endpoint reflects
+    # the new bundle without requiring a follow-up /admin/publish call.
+    # Composes locally from the same manifest + meta + preview source we
+    # just bundled, so server and script produce identical artifacts.
+    if upload_summary_for_bundle(prefix, out_root, manifest):
+        print(f"summary_uploaded={prefix}/{SUMMARY_OBJECT_NAME}")
+    else:
+        print("summary_uploaded=false")
 
     if args.prune_source_after_bundle:
         pruned = prune_template_sources(
