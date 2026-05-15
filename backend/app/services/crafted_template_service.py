@@ -103,23 +103,6 @@ def _join_r2_key(prefix: str, rel_path: str) -> str:
     return f"{base}/{rel}" if base else rel
 
 
-def _crafted_r2_namespace_prefix() -> str:
-    return str(getattr(settings, "CRAFTED_TEMPLATE_R2_PREFIX", "") or "").strip().strip("/")
-
-
-def _apply_crafted_r2_namespace(prefix: str) -> str:
-    """Ensure crafted template R2 prefixes are namespaced per environment when configured."""
-    normalized = str(prefix or "").strip().strip("/")
-    ns = _crafted_r2_namespace_prefix()
-    if not ns:
-        return normalized
-    if not normalized:
-        return ns
-    if normalized == ns or normalized.startswith(f"{ns}/"):
-        return normalized
-    return f"{ns}/{normalized}"
-
-
 def _manifest_declared_size(entry: Any) -> int | None:
     if isinstance(entry, dict):
         raw = entry.get("size")
@@ -429,11 +412,6 @@ def validate_crafted_template_access(template_id: str, user_id: int, db: Session
     return _is_entitled(entitlement)
 
 
-def invalidate_crafted_template_cache(template_id: str) -> None:
-    _crafted_package_cache.pop(template_id, None)
-    _crafted_summary_cache.pop(template_id, None)
-
-
 def _from_cache(template_id: str) -> dict[str, Any] | None:
     global _cache_hits, _cache_misses
     item = _crafted_package_cache.get(template_id)
@@ -489,8 +467,8 @@ def build_summary_payload(
 ) -> dict[str, Any]:
     """Build a summary.json payload from already-loaded bundle pieces.
 
-    Single source of truth for the summary shape so the publish endpoint
-    (server-side, reads from R2) and the bundle/upload script (client-side,
+    Single source of truth for the summary shape so the server-side
+    backfill (reads from R2) and the bundle/upload script (client-side,
     reads from the local bundle dir) produce byte-identical artifacts.
     """
     if isinstance(theme, dict):
@@ -916,86 +894,6 @@ def list_user_crafted_templates(
             )
         out.append(_list_summary_from_payload(tpl, summary, fallback_preview_url=fallback_preview_url))
     return out
-
-
-def publish_crafted_template(
-    *,
-    template_key: str,
-    public_template_id: str,
-    name: str,
-    category: str,
-    supported_video_style: str,
-    r2_prefix: str,
-    manifest_path: str | None,
-    checksum: str | None,
-    admin_user_id: int | None,
-    db: Session,
-) -> CraftedTemplate:
-    normalized_r2_prefix = _apply_crafted_r2_namespace(r2_prefix)
-
-    existing = (
-        db.query(CraftedTemplate)
-        .filter(CraftedTemplate.public_template_id == public_template_id)
-        .first()
-    )
-    if existing:
-        existing.template_key = template_key
-        existing.name = name
-        existing.category = category or "blog"
-        existing.supported_video_style = supported_video_style
-        existing.r2_prefix = normalized_r2_prefix
-        existing.manifest_path = manifest_path or _join_r2_key(existing.r2_prefix, "manifest.json")
-        existing.checksum = checksum
-        existing.status = "active"
-        existing.created_by_admin_id = admin_user_id
-        db.commit()
-        db.refresh(existing)
-        invalidate_crafted_template_cache(existing.public_template_id)
-        return existing
-
-    row = CraftedTemplate(
-        template_key=template_key,
-        public_template_id=public_template_id,
-        name=name,
-        category=category or "blog",
-        supported_video_style=supported_video_style,
-        r2_prefix=normalized_r2_prefix,
-        manifest_path=manifest_path or _join_r2_key(normalized_r2_prefix, "manifest.json"),
-        checksum=checksum,
-        status="active",
-        created_by_admin_id=admin_user_id,
-    )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    return row
-
-
-def grant_crafted_template_access(*, user_id: int, crafted_template_id: int, db: Session) -> CraftedTemplateEntitlement:
-    row = (
-        db.query(CraftedTemplateEntitlement)
-        .filter(
-            CraftedTemplateEntitlement.user_id == user_id,
-            CraftedTemplateEntitlement.crafted_template_id == crafted_template_id,
-        )
-        .first()
-    )
-    if row:
-        row.status = "active"
-        row.starts_at = None
-        row.expires_at = None
-        db.commit()
-        db.refresh(row)
-        return row
-    row = CraftedTemplateEntitlement(
-        user_id=user_id,
-        crafted_template_id=crafted_template_id,
-        status="active",
-    )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    return row
 
 
 def sa_or_none(column, value, *, le: bool = False, ge: bool = False):
