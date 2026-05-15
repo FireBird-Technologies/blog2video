@@ -9,6 +9,7 @@ uploaded documents (PDF, DOCX, PPTX, MD, TXT).
 """
 
 import os
+import re
 import hashlib
 import tempfile
 
@@ -36,6 +37,7 @@ _EXT_MAP = {
     ".md": "text",
     ".markdown": "text",
     ".txt": "text",
+    ".vtt": "vtt",
 }
 
 
@@ -74,16 +76,25 @@ def extract_from_documents(
             tmp_path = tmp.name
 
         try:
-            if handler == "pdf":
-                md, imgs, tables = _extract_pdf(tmp_path, image_dir)
-            elif handler == "docx":
-                md, imgs, tables = _extract_docx(tmp_path, image_dir)
-            elif handler == "pptx":
-                md, imgs, tables = _extract_pptx(tmp_path, image_dir)
-            elif handler == "text":
-                md, imgs, tables = _extract_text_document(tmp_path)
-            else:
-                md, imgs, tables = "", [], []
+            try:
+                if handler == "pdf":
+                    md, imgs, tables = _extract_pdf(tmp_path, image_dir)
+                elif handler == "docx":
+                    md, imgs, tables = _extract_docx(tmp_path, image_dir)
+                elif handler == "pptx":
+                    md, imgs, tables = _extract_pptx(tmp_path, image_dir)
+                elif handler == "text":
+                    md, imgs, tables = _extract_text_document(tmp_path)
+                elif handler == "vtt":
+                    md, imgs, tables = _extract_vtt_document(tmp_path)
+                else:
+                    md, imgs, tables = "", [], []
+            except ValueError as e:
+                # Bubble up as a clean 4xx so the upload UI shows a real
+                # message instead of a generic 500 from a binary-content-in-
+                # text-decode failure (e.g. a docx renamed to .vtt/.txt).
+                from fastapi import HTTPException
+                raise HTTPException(status_code=400, detail=f"'{filename}': {e}") from e
 
             if md and md.strip():
                 all_markdown.append(md)
@@ -124,6 +135,9 @@ def extract_from_documents(
                 pass
 
     # ── Persist results ───────────────────────────────────────
+    # Strip NUL bytes — Postgres text columns reject \x00 outright. Stray NULs
+    # can sneak in from UTF-16 .vtt decodes, malformed PDFs, or binary leaks.
+    all_markdown = [md.replace("\x00", "") for md in all_markdown]
     merged_markdown = "\n\n---\n\n".join(all_markdown) if all_markdown else ""
     project.blog_content = append_tables_to_content(merged_markdown, all_tables)
     # Only set content_language if not already set (preserve user's explicit choice)
@@ -418,12 +432,50 @@ def _extract_pptx(
 # ─── MD/TXT extraction ───────────────────────────────────────
 
 
+def _looks_like_binary(raw: bytes) -> bool:
+    """Heuristic — detect that `raw` is a binary container (not text).
+
+    Catches common cases where a user renames a `.docx` / `.pdf` / image
+    to a text-like extension (`.txt`, `.md`, `.vtt`). Without this guard
+    `latin-1` decoding silently succeeds on any byte sequence and the
+    raw binary garbage ends up in `blog_content`.
+    """
+    if not raw:
+        return False
+    head = raw[:8]
+    # ZIP archive (docx, pptx, xlsx, jar, …) starts with "PK\x03\x04" or "PK\x05\x06"
+    if head[:2] == b"PK":
+        return True
+    # PDF
+    if head[:4] == b"%PDF":
+        return True
+    # Common image / media magic numbers
+    if head[:4] in (b"\x89PNG", b"GIF8", b"RIFF") or head[:2] == b"\xff\xd8":
+        return True
+    # Sample the first ~4 KB — if >5% of bytes are control chars (excluding
+    # whitespace), it's almost certainly binary.
+    sample = raw[:4096]
+    if sample:
+        # Allowed text controls: tab, LF, CR, FF, VT.
+        text_chars = set(range(0x20, 0x7F)) | {0x09, 0x0A, 0x0D, 0x0C, 0x0B}
+        non_text = sum(1 for b in sample if b not in text_chars and b < 0x80)
+        if non_text / len(sample) > 0.05:
+            return True
+    return False
+
+
 def _extract_text_document(
     file_path: str,
 ) -> tuple[str, list[tuple[str, str]], list[dict]]:
     """Return markdown text for UTF text-like documents (.md/.txt)."""
     with open(file_path, "rb") as f:
         raw = f.read()
+
+    if _looks_like_binary(raw):
+        raise ValueError(
+            "File appears to be a binary document (Word/PDF/image) renamed with a "
+            "text extension. Please upload the original file with its correct extension."
+        )
 
     text = ""
     for encoding in ("utf-8", "utf-8-sig", "utf-16", "latin-1"):
@@ -437,8 +489,90 @@ def _extract_text_document(
     if not text:
         text = raw.decode("utf-8", errors="replace")
 
-    normalized = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "").strip()
     return normalized, [], []
+
+
+# Matches a WebVTT timestamp line, e.g. "00:00:01.000 --> 00:00:04.500"
+# (optionally followed by cue settings like "align:start position:0%").
+_VTT_TIMESTAMP_RE = re.compile(
+    r"^\s*\d{1,2}:\d{2}(?::\d{2})?\.\d{3}\s*-->\s*\d{1,2}:\d{2}(?::\d{2})?\.\d{3}.*$"
+)
+# Inline speaker / styling tags inside cue text: <v Speaker>, <c.classname>, </v>, etc.
+_VTT_INLINE_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _extract_vtt_document(
+    file_path: str,
+) -> tuple[str, list[tuple[str, str]], list[dict]]:
+    """Return clean prose extracted from a WebVTT (.vtt) file.
+
+    Strips the WEBVTT header, NOTE/STYLE/REGION blocks, cue identifiers,
+    timestamp lines and inline tags so the LLM only sees spoken text.
+    """
+    raw_text, _, _ = _extract_text_document(file_path)
+    # Defensive: even though _extract_text_document strips NULs, guard the
+    # parser loop against stray \x00 in case the input was decoded oddly.
+    raw_text = raw_text.replace("\x00", "")
+
+    # Per the WebVTT spec, the file MUST start with "WEBVTT" (optionally
+    # preceded by a UTF-8 BOM). If it doesn't, the user probably uploaded
+    # a non-VTT file (e.g. a docx renamed to .vtt) — reject rather than
+    # dumping binary garbage into blog_content.
+    head = raw_text.lstrip("﻿").lstrip()
+    if not head.upper().startswith("WEBVTT"):
+        raise ValueError(
+            "File doesn't look like a WebVTT transcript — it must start with "
+            "'WEBVTT' on the first line. Please upload a real .vtt file or "
+            "use the original document's correct extension (.pdf/.docx/.txt/.md)."
+        )
+
+    out_lines: list[str] = []
+    in_block_to_skip = False  # NOTE / STYLE / REGION blocks span until blank line
+    last_was_blank = True
+
+    for line in raw_text.split("\n"):
+        stripped = line.strip()
+
+        # WEBVTT header line (may include a "WEBVTT - Title" suffix).
+        if stripped.upper().startswith("WEBVTT"):
+            continue
+
+        # Blank line terminates a skip-block; otherwise just collapses runs.
+        if not stripped:
+            in_block_to_skip = False
+            if not last_was_blank:
+                out_lines.append("")
+                last_was_blank = True
+            continue
+
+        # NOTE / STYLE / REGION blocks are metadata — skip until next blank line.
+        if stripped.startswith(("NOTE", "STYLE", "REGION")):
+            in_block_to_skip = True
+            continue
+        if in_block_to_skip:
+            continue
+
+        # Timestamp line (cue header) — drop.
+        if _VTT_TIMESTAMP_RE.match(stripped):
+            continue
+
+        # Cue identifier: a single non-empty line immediately before a
+        # timestamp. We can't easily look ahead, but cue IDs never contain
+        # spaces or sentence punctuation, so the common-case heuristic:
+        # if a short token with no spaces precedes the next non-empty line
+        # and that line is a timestamp, skip it. Simpler: drop bare numeric
+        # cue ids (the most common form).
+        if stripped.isdigit():
+            continue
+
+        # Strip inline tags like <v Speaker>, <c.red>, </v>.
+        cleaned = _VTT_INLINE_TAG_RE.sub("", line).rstrip()
+        if cleaned.strip():
+            out_lines.append(cleaned)
+            last_was_blank = False
+
+    return "\n".join(out_lines).strip(), [], []
 
 
 # ─── Helpers ──────────────────────────────────────────────────

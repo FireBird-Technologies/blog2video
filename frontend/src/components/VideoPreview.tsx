@@ -289,6 +289,43 @@ function mergeMetaFontSizesIntoLayoutProps(
   return next;
 }
 
+/**
+ * For LaDuc `market_annotation*` layouts, fill in `chartTable` (and `chartType`)
+ * from meta.json defaults when the stored layoutProps don't carry one. Mirrors
+ * the backend renderer's defaults-merge in `remotion.py:932-953`, so the
+ * project preview shows the same chart that the rendered MP4 produces.
+ *
+ * Narrowly scoped to the chart fields only — does not touch any other defaults.
+ */
+function mergeMarketAnnotationChartDefaults(
+  layoutProps: Record<string, unknown>,
+  layoutId: string | null | undefined,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  if (!layoutId || !layoutId.startsWith("market_annotation")) return layoutProps;
+  if (!schema || Object.keys(schema).length === 0) return layoutProps;
+  const defaults = schema[layoutId]?.defaults;
+  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  const existingTable = layoutProps.chartTable;
+  const existingTableHasRows =
+    existingTable &&
+    typeof existingTable === "object" &&
+    Array.isArray((existingTable as { rows?: unknown }).rows) &&
+    ((existingTable as { rows: unknown[] }).rows.length > 0);
+
+  if (existingTableHasRows && layoutProps.chartType) return layoutProps;
+
+  const next = { ...layoutProps };
+  if (!existingTableHasRows && defaults.chartTable && typeof defaults.chartTable === "object") {
+    next.chartTable = defaults.chartTable;
+  }
+  if (!layoutProps.chartType && typeof defaults.chartType === "string") {
+    next.chartType = defaults.chartType;
+  }
+  return next;
+}
+
 // ─── YouTube-style playback speed control ────────────────────────────────────
 
 const SPEED_OPTIONS: (0.5 | 1 | 1.5 | 2 | 2.5)[] = [0.5, 1, 1.5, 2, 2.5];
@@ -1025,6 +1062,11 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           layoutProps,
           layout,
           project.aspect_ratio || "landscape",
+          effectiveLayoutPropSchema ?? undefined,
+        );
+        layoutProps = mergeMarketAnnotationChartDefaults(
+          layoutProps,
+          layout,
           effectiveLayoutPropSchema ?? undefined,
         );
       }
