@@ -639,6 +639,22 @@ function chartTableHasData(table: { headers: string[]; rows: string[][] }): bool
   return table.rows.some((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
 }
 
+/** Maps LaDuc `market_annotation*` layout ids to a concrete chart kind for example-table seeding. */
+function getLaDucMarketAnnotationChartTypeForLayout(
+  layoutId: string,
+): "line" | "bar" | "histogram" | undefined {
+  switch (layoutId) {
+    case "market_annotation":
+      return "line";
+    case "market_annotation_bar":
+      return "bar";
+    case "market_annotation_histogram":
+      return "histogram";
+    default:
+      return undefined;
+  }
+}
+
 /**
  * LaDuc `market_annotation` example datasets per chart type — mirrors the
  * defaults shipped in `backend/templates/laduc/meta.json` for the
