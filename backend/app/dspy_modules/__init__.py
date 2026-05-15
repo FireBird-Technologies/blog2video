@@ -91,7 +91,7 @@ def ensure_dspy_configured():
     with _lock:
         if _configured:
             return
-        lm = _make_lm(_DEFAULT_MODEL, temperature=0.2, max_tokens=5000)
+        lm = _make_lm(_DEFAULT_MODEL, temperature=0.2, max_tokens=7000)
         dspy.configure(lm=lm, async_max_workers=100)
         _configured = True
 

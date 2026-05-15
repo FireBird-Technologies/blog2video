@@ -7,13 +7,23 @@ import {
   Sequence,
   Audio,
 } from "remotion";
-import { BACKEND_URL, Project, getTemplateCode } from "../api/client";
+import {
+  BACKEND_URL,
+  Project,
+  getTemplateCode,
+  getValidLayouts,
+  type CraftedTemplateDetail,
+  type CraftedTemplateItem,
+} from "../api/client";
+import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
 import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
 import {
   compileComponentCode,
+  compileModuleGraphEntry,
   type SceneProps,
 } from "../utils/compileComponent";
 import { LogoOverlay } from "./remotion/LogoOverlay";
@@ -191,6 +201,11 @@ const StableCustomComposition: React.FC<any> = ({
 
 interface VideoPreviewProps {
   project: Project;
+  /**
+   * `layout_prop_schema` from backend `meta.json` (via GET `/projects/:id/layouts`).
+   * When omitted, VideoPreview loads it itself (unless template is custom).
+   */
+  layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
   logoSizeOverride?: number;
   logoOpacityOverride?: number;
   logoPositionOverride?: string;
@@ -222,8 +237,57 @@ interface SceneInput {
   voiceoverUrl?: string;
 }
 
+function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | CraftedTemplateDetail | null): string | null {
+  if (!template) return null;
+  const directLogo = Array.isArray(template.logo_urls)
+    ? template.logo_urls.find((url) => typeof url === "string" && url.trim())
+    : null;
+  if (directLogo) return directLogo;
+
+  const publicAssets = template.public_asset_urls;
+  if (publicAssets && typeof publicAssets === "object") {
+    const preferredEntry = Object.entries(publicAssets).find(([key]) =>
+      /(?:^|\/)(?:laduc-)?(?:brand-)?logo\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+    const fallbackEntry = Object.entries(publicAssets).find(([key]) =>
+      /logo.*\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+
+    const resolved = preferredEntry?.[1] || fallbackEntry?.[1];
+    if (resolved) return resolved;
+  }
+
+  if (template.id === "crafted_laduc_bundle" && typeof template.preview_image_url === "string") {
+    return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/laduc/laduc-brand-logo.png");
+  }
+
+  return null;
+}
+
 /** Map of scene type keys ("intro", "content_0", ..., "outro") to compiled React components. */
 type CompiledSceneMap = Record<string, React.FC<SceneProps>>;
+
+/** Fill missing title/description font sizes from meta.json layout_prop_schema (matches SceneEditModal). */
+function mergeMetaFontSizesIntoLayoutProps(
+  layoutProps: Record<string, unknown>,
+  layoutId: string | null | undefined,
+  aspectRatio: string,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  if (!layoutId || !schema || Object.keys(schema).length === 0) return layoutProps;
+  const titleRaw = layoutProps.titleFontSize;
+  const descRaw = layoutProps.descriptionFontSize;
+  const hasTitle = typeof titleRaw === "number" && Number.isFinite(titleRaw);
+  const hasDesc = typeof descRaw === "number" && Number.isFinite(descRaw);
+  if (hasTitle && hasDesc) return layoutProps;
+  const ar = aspectRatio === "portrait" ? "portrait" : "landscape";
+  const fromSchema = getDefaultFontSizesFromSchema(schema, layoutId, ar);
+  if (!fromSchema) return layoutProps;
+  const next = { ...layoutProps };
+  if (!hasTitle) next.titleFontSize = fromSchema.title;
+  if (!hasDesc) next.descriptionFontSize = fromSchema.desc;
+  return next;
+}
 
 // ─── YouTube-style playback speed control ────────────────────────────────────
 
@@ -511,6 +575,7 @@ function PlaybackSpeedControl({
 const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function VideoPreview(
   {
     project,
+    layoutPropSchema,
     logoSizeOverride,
     logoOpacityOverride,
     logoPositionOverride,
@@ -523,10 +588,157 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
   ref
 ) {
   const templateId = normalizeBuiltInTemplateId(project.template);
-  const config = useMemo(() => getTemplateConfig(templateId), [templateId]);
-  const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
-
   const isCustom = templateId.startsWith("custom_");
+  const isCrafted = templateId.startsWith("crafted_");
+  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
+
+  // ─── Crafted template: fetch + JIT-compile R2-bundled frontend ─────────
+  // Crafted templates use the same data shape as a built-in (scenes with a
+  // `layout` string), but the composition lives in R2 instead of the repo.
+  // We pull the matching entry from /crafted-templates, runtime-compile its
+  // frontend bundle, and use that compiled component as the Player composition.
+  // Without this, getTemplateConfig falls back to `default` and the project
+  // view shows DefaultVideoComposition with crafted layout names it can't map.
+  const craftedItem = useMemo<CraftedTemplateItem | null>(() => {
+    if (!isCrafted) return null;
+    return craftedTemplates.find((d) => d.id === project.template) ?? null;
+  }, [craftedTemplates, isCrafted, project.template]);
+  const craftedDetail = useMemo<CraftedTemplateDetail | null>(() => {
+    if (!craftedItem) return null;
+    if (craftedItem.frontend_files && craftedItem.frontend_entry_rel) {
+      return craftedItem as CraftedTemplateDetail;
+    }
+    return null;
+  }, [craftedItem]);
+  const [compiledCrafted, setCompiledCrafted] = useState<React.ComponentType<any> | null>(null);
+  const [isCompilingCrafted, setIsCompilingCrafted] = useState(false);
+  const craftedTemplateLogoUrl = useMemo(
+    () => resolveCraftedTemplateLogoUrl(craftedDetail || craftedItem),
+    [craftedDetail, craftedItem],
+  );
+
+  useEffect(() => {
+    if (!isCrafted) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    // Still waiting on the crafted item fetch — keep the player locked behind
+    // the loading overlay so it never falls back to DefaultVideoComposition
+    // with unknown layout names mid-mount.
+    if (!craftedItem) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      return;
+    }
+    if (!craftedDetail) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      void ensureCraftedTemplateDetail(templateId);
+      return;
+    }
+    if (!craftedDetail.frontend_files || !craftedDetail.frontend_entry_rel) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    let cancelled = false;
+    setIsCompilingCrafted(true);
+    compileModuleGraphEntry(
+      craftedDetail.frontend_files,
+      craftedDetail.frontend_entry_rel,
+      craftedDetail.public_asset_urls,
+    )
+      .then((result) => {
+        if (cancelled) return;
+        if (result.success) {
+          setCompiledCrafted(() => result.component);
+        } else {
+          console.error("[VideoPreview] Crafted bundle compile failed:", result.error);
+          setCompiledCrafted(null);
+        }
+        setIsCompilingCrafted(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[VideoPreview] Crafted bundle compile threw:", err);
+        setCompiledCrafted(null);
+        setIsCompilingCrafted(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCrafted, craftedItem, craftedDetail, ensureCraftedTemplateDetail, templateId]);
+
+  const config = useMemo(() => {
+    const base = getTemplateConfig(templateId);
+    if (isCrafted && craftedItem) {
+      const validLayouts =
+        Array.isArray(craftedItem.valid_layouts) && craftedItem.valid_layouts.length > 0
+          ? new Set(craftedItem.valid_layouts)
+          : base.validLayouts;
+      const fallbackLayout = craftedItem.fallback_layout || base.fallbackLayout;
+      const heroLayout = craftedItem.hero_layout || base.heroLayout;
+      const previewColors = craftedItem.preview_colors;
+      return {
+        ...base,
+        validLayouts,
+        fallbackLayout,
+        heroLayout,
+        defaultColors: previewColors
+          ? {
+              accent: previewColors.accent || base.defaultColors.accent,
+              bg: previewColors.bg || base.defaultColors.bg,
+              text: previewColors.text || base.defaultColors.text,
+            }
+          : base.defaultColors,
+      };
+    }
+    return base;
+  }, [templateId, isCrafted, craftedItem]);
+
+  const [fetchedLayoutPropSchema, setFetchedLayoutPropSchema] = useState<Record<
+    string,
+    { defaults?: Record<string, unknown> }
+  > | null>(null);
+
+  useEffect(() => {
+    if (layoutPropSchema !== undefined || !project.id || isCustom) {
+      return;
+    }
+    let cancelled = false;
+    void getValidLayouts(project.id).then((lr) => {
+      if (cancelled) return;
+      const s = lr.data.layout_prop_schema;
+      setFetchedLayoutPropSchema(
+        s && typeof s === "object" ? (s as Record<string, { defaults?: Record<string, unknown> }>) : null,
+      );
+    }).catch(() => {
+      if (!cancelled) setFetchedLayoutPropSchema(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, project.template, isCustom, layoutPropSchema]);
+
+  const effectiveLayoutPropSchema = useMemo((): Record<string, { defaults?: Record<string, unknown> }> | null => {
+    if (layoutPropSchema !== undefined) {
+      return layoutPropSchema;
+    }
+    if (fetchedLayoutPropSchema && Object.keys(fetchedLayoutPropSchema).length > 0) {
+      return fetchedLayoutPropSchema;
+    }
+    if (
+      isCrafted &&
+      craftedItem?.layout_prop_schema &&
+      typeof craftedItem.layout_prop_schema === "object"
+    ) {
+      return craftedItem.layout_prop_schema as Record<string, { defaults?: Record<string, unknown> }>;
+    }
+    return null;
+  }, [layoutPropSchema, fetchedLayoutPropSchema, isCrafted, craftedItem]);
+
+  const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
   // Ref to Remotion Player — passed to PlaybackSpeedControl and forwarded for slide export.
   const playerRef = useRef<PlayerRef | null>(null);
@@ -808,6 +1020,15 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
 
       const onScreenText = scene.display_text ?? scene.narration_text;
 
+      if (!isCustom) {
+        layoutProps = mergeMetaFontSizesIntoLayoutProps(
+          layoutProps,
+          layout,
+          project.aspect_ratio || "landscape",
+          effectiveLayoutPropSchema ?? undefined,
+        );
+      }
+
       return {
         id: scene.id,
         order: scene.order,
@@ -823,7 +1044,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         voiceoverUrl,
       };
     });
-  }, [project, config]);
+  }, [project, config, isCustom, effectiveLayoutPropSchema]);
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
@@ -951,7 +1172,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     bgColor: project.bg_color || colors.bg,
     textColor: project.text_color || colors.text,
     playbackSpeed: 1,
-    logo: project.logo_r2_url || null,
+    logo: project.logo_r2_url || craftedTemplateLogoUrl || null,
     logoPosition: logoPositionOverride ?? project.logo_position ?? "bottom_right",
     logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
     logoSize: logoSizeOverride ?? (typeof project.logo_size === "number" ? project.logo_size : 100),
@@ -965,9 +1186,17 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     ? Object.keys(compiledScenes).filter((k) => k.startsWith("content_")).length
     : 0;
 
-  const Composition = (isCustom && compiledScenes) ? StableCustomComposition : config.component;
+  const Composition = (isCustom && compiledScenes)
+    ? StableCustomComposition
+    : (isCrafted && compiledCrafted)
+      ? compiledCrafted
+      : config.component;
 
-  const isPreviewLoading = (isCustom && isCompiling) || isPreloadingMedia || !mediaReady;
+  const isPreviewLoading =
+    (isCustom && isCompiling) ||
+    (isCrafted && (craftedTemplatesLoading || !craftedItem || isCompilingCrafted || !compiledCrafted)) ||
+    isPreloadingMedia ||
+    !mediaReady;
 
   // Show unified loader until template + media are fully ready.
   if (isPreviewLoading) {

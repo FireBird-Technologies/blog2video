@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import json
 import logging
 import os
@@ -21,6 +21,9 @@ from app.models.project import Project, ProjectStatus
 from app.models.review import Review
 from app.models.scene import Scene
 from app.models.project_template_change_job import ProjectTemplateChangeJob
+from app.models.crafted_template import CraftedTemplate
+from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
+from app.models.custom_template import CustomTemplate
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
@@ -42,7 +45,19 @@ from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
 )
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
+from app.services.template_service import (
+    validate_template_id,
+    get_preview_colors,
+    get_valid_layouts,
+    get_hero_layout,
+    get_layouts_without_image,
+    is_custom_template,
+    is_crafted_template,
+    _load_custom_template_data,
+    get_meta,
+)
+from app.services.crafted_template_service import validate_crafted_template_access
+from app.services.crafted_template_service import is_crafted_templates_enabled
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 from app.services.language_detection import normalize_preferred_language_code
 from app.services.social_content_signals import detect_social_platforms_in_text
@@ -104,8 +119,8 @@ def _pick_reachable_brand_logo_url(logos: list) -> str | None:
 
 def _inject_custom_theme(project: Project, db: Session | None = None) -> Project:
     """Attach custom_theme to a project so ProjectOut serialization includes it."""
-    if is_custom_template(project.template):
-        data = _load_custom_template_data(project.template, db=db)
+    if is_custom_template(project.template) or is_crafted_template(project.template):
+        data = _load_custom_template_data(project.template, db=db, user_id=project.user_id)
         project.custom_theme = data["theme"] if data else None
         project.custom_image_box_aspect_ratios = (
             data.get("image_box_aspect_ratios") if data else None
@@ -191,6 +206,49 @@ _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed", "mdetailed"}
 _MIN_PLAYBACK_SPEED = 0.5
 _MAX_PLAYBACK_SPEED = 2.5
 _ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
+
+
+@router.get("/template-availability")
+def get_template_availability_signal(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Lightweight signal for new-project UI.
+    Returns whether this user has custom and/or crafted templates available,
+    without loading full template payloads.
+    """
+    has_custom_templates = (
+        db.query(CustomTemplate.id)
+        .filter(CustomTemplate.user_id == user.id)
+        .first()
+        is not None
+    )
+
+    has_crafted_templates = False
+    if is_crafted_templates_enabled():
+        now = datetime.utcnow()
+        has_crafted_templates = (
+            db.query(CraftedTemplateEntitlement.id)
+            .join(
+                CraftedTemplate,
+                CraftedTemplateEntitlement.crafted_template_id == CraftedTemplate.id,
+            )
+            .filter(
+                CraftedTemplate.status == "active",
+                CraftedTemplateEntitlement.user_id == user.id,
+                CraftedTemplateEntitlement.status == "active",
+                (CraftedTemplateEntitlement.starts_at.is_(None) | (CraftedTemplateEntitlement.starts_at <= now)),
+                (CraftedTemplateEntitlement.expires_at.is_(None) | (CraftedTemplateEntitlement.expires_at >= now)),
+            )
+            .first()
+            is not None
+        )
+
+    return {
+        "has_custom_templates": has_custom_templates,
+        "has_crafted_templates": has_crafted_templates,
+    }
 
 
 def _sanitize_data_viz_layout_props(layout: str | None, layout_props: dict | None) -> dict:
@@ -280,6 +338,17 @@ def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
 
     # Safety net: never exceed DB column length.
     return normalized[:10]
+
+
+def _crafted_template_pk(template_id: str, db: Session) -> int | None:
+    if not is_crafted_template(template_id):
+        return None
+    row = (
+        db.query(CraftedTemplate.id)
+        .filter(CraftedTemplate.public_template_id == template_id, CraftedTemplate.status == "active")
+        .first()
+    )
+    return int(row[0]) if row else None
 
 
 def _extract_scene_layout_from_descriptor(scene: Scene, template_id: str) -> str | None:
@@ -391,6 +460,7 @@ def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
 def _run_project_template_change_job(job_id: int) -> None:
     from app.dspy_modules.template_layout_planner import TemplateLayoutPlanner
     from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+    from app.routers.pipeline import _normalize_layout_id, _sanitize_script_layouts
     from app.services.remotion import rebuild_workspace
 
     db = SessionLocal()
@@ -417,7 +487,14 @@ def _run_project_template_change_job(job_id: int) -> None:
         target_template = job.target_template
         layout_planner = TemplateLayoutPlanner(target_template)
         template_gen = TemplateSceneGenerator(target_template)
-        supports_ending_socials = "ending_socials" in get_valid_layouts(target_template)
+        target_valid_layouts = get_valid_layouts(target_template)
+        supports_ending_socials = "ending_socials" in target_valid_layouts
+        # Pre-compute the normalized hero layout for the new template so the
+        # post-descriptor guard can detect when the generator produced something
+        # outside the valid set and recover deterministically.
+        target_hero_layout = (get_hero_layout(target_template) or "").strip().lower()
+        if target_hero_layout and target_hero_layout not in target_valid_layouts:
+            target_hero_layout = ""
         scenes_data = [
             {
                 "title": s.title,
@@ -433,6 +510,31 @@ def _run_project_template_change_job(job_id: int) -> None:
                 content_language=project.content_language or "English",
             )
         )
+        # Mirror the script-stage policy exactly: this is the same sanitizer used
+        # by the normal generation pipeline. It pins scene 0 to hero_layout,
+        # pins the last scene to ending_socials (when supported), replaces
+        # invalid / empty picks with diverse valid layouts, and avoids
+        # consecutive duplicates. Without this pass, the planner's LLM output
+        # could leave the first scene on a non-hero layout (or assign a layout
+        # that isn't valid for the target template).
+        sanitized_pairs = _sanitize_script_layouts(
+            target_template,
+            [
+                {
+                    "preferred_layout": (
+                        preferred_layouts[i].strip()
+                        if i < len(preferred_layouts) and isinstance(preferred_layouts[i], str)
+                        else ""
+                    )
+                }
+                for i in range(len(scenes))
+            ],
+            include_ending_socials=supports_ending_socials,
+        )
+        preferred_layouts = [
+            (entry.get("preferred_layout") or "") if isinstance(entry, dict) else ""
+            for entry in sanitized_pairs
+        ]
 
         if is_custom_template(target_template):
             # Keep custom-template regeneration consistent with normal generation:
@@ -476,13 +578,7 @@ def _run_project_template_change_job(job_id: int) -> None:
         else:
             last_scene_idx = len(scenes) - 1
             for idx, scene in enumerate(scenes):
-                preferred_layout = (
-                    preferred_layouts[idx].strip()
-                    if idx < len(preferred_layouts) and isinstance(preferred_layouts[idx], str)
-                    else ""
-                )
-                if supports_ending_socials and idx == last_scene_idx:
-                    preferred_layout = "ending_socials"
+                preferred_layout = preferred_layouts[idx] if idx < len(preferred_layouts) else ""
                 # Use fresh template logic with content preserved, and let the new template
                 # enforce the planned preferred layouts (same 2-step flow as normal generation).
                 new_descriptor = asyncio.run(
@@ -499,23 +595,61 @@ def _run_project_template_change_job(job_id: int) -> None:
 
                 # Match normal generation behavior for CTA ending scenes:
                 # ensure ending_socials gets complete layoutProps payload.
-                if supports_ending_socials and idx == last_scene_idx:
+                if (
+                    supports_ending_socials
+                    and idx == last_scene_idx
+                    and preferred_layout == "ending_socials"
+                ):
                     new_descriptor = {
                         "layout": "ending_socials",
                         "layoutProps": _build_ending_socials_props(project, scene),
                     }
 
                 new_descriptor = _sanitize_descriptor_for_data_viz(new_descriptor)
-                scene.remotion_code = json.dumps(new_descriptor)
                 descriptor_layout = _extract_layout_from_descriptor_obj(
                     descriptor=new_descriptor,
                     template_id=target_template,
                 )
+                normalized_descriptor_layout = _normalize_layout_id(descriptor_layout or "")
+                # Post-descriptor validity guard: if the generator drifted to a
+                # layout that isn't part of the target template, snap back to
+                # the sanitized preferred layout (which the sanitizer above
+                # guarantees is in valid_layouts). Falls back to hero if even
+                # that is somehow empty.
+                if (
+                    target_valid_layouts
+                    and normalized_descriptor_layout not in target_valid_layouts
+                ):
+                    recovery_layout = preferred_layout or target_hero_layout
+                    if recovery_layout in target_valid_layouts:
+                        logger.warning(
+                            "[PROJECT_TEMPLATE_CHANGE] job=%s scene=%s descriptor layout '%s' "
+                            "not in valid_layouts for '%s'; coercing to '%s'",
+                            job_id,
+                            idx,
+                            descriptor_layout,
+                            target_template,
+                            recovery_layout,
+                        )
+                        if recovery_layout == "ending_socials":
+                            new_descriptor = {
+                                "layout": "ending_socials",
+                                "layoutProps": _build_ending_socials_props(project, scene),
+                            }
+                        else:
+                            new_descriptor = {
+                                "layout": recovery_layout,
+                                "layoutProps": {},
+                            }
+                        descriptor_layout = recovery_layout
+
+                scene.remotion_code = json.dumps(new_descriptor)
                 scene.preferred_layout = descriptor_layout or (preferred_layout or None)
                 job.processed_scenes = idx + 1
                 db.commit()
 
         project.template = target_template
+        project.crafted_template_id = _crafted_template_pk(target_template, db)
         template_colors = get_preview_colors(target_template) or {}
         if isinstance(template_colors, dict):
             project.accent_color = template_colors.get("accent") or project.accent_color
@@ -562,12 +696,18 @@ def create_project(
         raise HTTPException(status_code=400, detail="blog_url is required for URL-based project creation.")
 
     name = data.name or _name_from_url(data.blog_url)
-    template_id = validate_template_id(data.template)
+    template_id = validate_template_id(data.template, db=db, user_id=user.id)
     if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
             detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
         )
+    if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this crafted template.",
+        )
+    crafted_pk = _crafted_template_pk(template_id, db)
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(data.video_style)
     project = Project(
@@ -575,6 +715,7 @@ def create_project(
         name=name,
         blog_url=data.blog_url,
         template=template_id,
+        crafted_template_id=crafted_pk,
         voice_gender=data.voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
         accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
@@ -665,13 +806,18 @@ async def change_project_template_regenerate_layouts(
             status_code=403,
             detail=f"Video limit reached ({user.video_limit}). Upgrade to continue regenerating videos.",
         )
-    target_template = validate_template_id(body.template)
+    target_template = validate_template_id(body.template, db=db, user_id=user.id)
     if target_template == project.template:
         raise HTTPException(status_code=400, detail="Project is already using this template.")
     if is_custom_template(target_template) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
             detail="Custom templates require a Pro or Standard subscription.",
+        )
+    if is_crafted_template(target_template) and not validate_crafted_template_access(target_template, user.id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this crafted template.",
         )
 
     active_job = (
@@ -848,7 +994,12 @@ def create_projects_bulk(
         if not (data.blog_url and data.blog_url.strip()):
             continue
         name = (data.name or "").strip() or _name_from_url(data.blog_url)
-        template_id = validate_template_id(data.template)
+        template_id = validate_template_id(data.template, db=db, user_id=user.id)
+        if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to one or more crafted templates in this bulk request.",
+            )
         colors = get_preview_colors(template_id)
         normalized_video_style = _normalize_video_style(data.video_style)
         project = Project(
@@ -856,6 +1007,7 @@ def create_projects_bulk(
             name=name,
             blog_url=data.blog_url.strip(),
             template=template_id,
+            crafted_template_id=_crafted_template_pk(template_id, db),
             voice_gender=data.voice_gender or "female",
             voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
             accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
@@ -953,11 +1105,16 @@ def create_project_from_upload(
 
     # ── Create project ────────────────────────────────────
     project_name = name or _name_from_files(files)
-    template_id = validate_template_id(template)
+    template_id = validate_template_id(template, db=db, user_id=user.id)
     if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
             detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
+        )
+    if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this crafted template.",
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(video_style)
@@ -972,6 +1129,7 @@ def create_project_from_upload(
         name=project_name,
         blog_url="upload://documents",
         template=template_id,
+        crafted_template_id=_crafted_template_pk(template_id, db),
         voice_gender=voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(voice_accent),
         accent_color=accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
@@ -2411,7 +2569,10 @@ async def regenerate_scene(
             else:
                 effective_layout = current_descriptor.get("layout")
 
-        print(f"[REGENERATE] template={project.template}, is_custom={is_custom_template(project.template)}")
+        print(
+            f"[REGENERATE] template={project.template}, "
+            f"is_custom={is_custom_template(project.template)}"
+        )
         print(f"[REGENERATE] keep_layout={keep_layout}, normalized_layout={normalized_layout}, effective_layout={effective_layout}")
         print(f"[REGENERATE] other_scenes: {other_scenes_layouts}")
         if current_descriptor:

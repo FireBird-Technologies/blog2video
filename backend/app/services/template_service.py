@@ -31,6 +31,11 @@ def is_custom_template(template_id: str) -> bool:
     return isinstance(template_id, str) and template_id.startswith("custom_")
 
 
+def is_crafted_template(template_id: str) -> bool:
+    from app.services.crafted_template_service import is_crafted_template as _is_crafted
+    return _is_crafted(template_id)
+
+
 def _parse_custom_id(template_id: str) -> int | None:
     """Extract the numeric ID from 'custom_42'. Returns None if invalid."""
     try:
@@ -88,8 +93,45 @@ def _build_template_result(tpl) -> dict[str, Any]:
     }
 
 
+def _build_crafted_template_result(package: dict[str, Any]) -> dict[str, Any]:
+    """Normalize crafted package payload to template-service shape.
+
+    Crafted templates should behave like built-ins at scene descriptor level
+    (layout/layoutProps), but still expose optional preview/runtime helpers.
+    """
+    return {
+        "theme": package.get("theme") or {},
+        "generated_prompt": package.get("generated_prompt") or package.get("prompt") or "",
+        "name": package.get("name") or package.get("template_key") or "Crafted Template",
+        "category": package.get("category") or "blog",
+        "supported_video_style": package.get("supported_video_style") or "explainer",
+        "has_generated_code": bool(package.get("content_codes")),
+        "intro_code": package.get("intro_code"),
+        "outro_code": package.get("outro_code"),
+        "content_codes": package.get("content_codes"),
+        "content_archetype_ids": package.get("content_archetype_ids") or [],
+        "image_box_aspect_ratios": package.get("image_box_aspect_ratios"),
+        "composition_code": package.get("composition_code"),
+        "brand_kit": None,
+        "og_image": package.get("preview_image_url") or "",
+        "meta": package.get("meta") or {},
+        "layout_prompt": package.get("layout_prompt") or "",
+        "remotion_files": package.get("remotion_files") or {},
+        "remotion_entry_rel": package.get("remotion_entry_rel") or "",
+        "remotion_layout_index_rel": package.get("remotion_layout_index_rel") or "",
+        "remotion_mount_id": package.get("remotion_mount_id") or "",
+        "frontend_files": package.get("frontend_files") or {},
+        "frontend_entry_rel": package.get("frontend_entry_rel") or "",
+        "frontend_layout_index_rel": package.get("frontend_layout_index_rel") or "",
+        "frontend_mount_id": package.get("frontend_mount_id") or "",
+        "public_asset_urls": package.get("public_asset_urls") or {},
+        "public_r2_relpaths": package.get("public_r2_relpaths") or [],
+        "crafted_r2_prefix": package.get("crafted_r2_prefix") or "",
+    }
+
+
 def _load_custom_template_data(
-    template_id: str, db: Session | None = None
+    template_id: str, db: Session | None = None, user_id: int | None = None
 ) -> dict[str, Any] | None:
     """
     Load a custom template's theme + generated_prompt from DB.
@@ -99,6 +141,31 @@ def _load_custom_template_data(
     If a `db` session is provided, it is used directly (no new connection).
     Otherwise a short-lived SessionLocal is created and closed automatically.
     """
+    if is_crafted_template(template_id):
+        from app.services.crafted_template_service import load_crafted_template_package
+        if db is None:
+            from app.database import SessionLocal
+            own_db = SessionLocal()
+            try:
+                package = load_crafted_template_package(
+                    template_id=template_id,
+                    user_id=user_id,
+                    db=own_db,
+                    require_entitlement=user_id is not None,
+                )
+            finally:
+                own_db.close()
+        else:
+            package = load_crafted_template_package(
+                template_id=template_id,
+                user_id=user_id,
+                db=db,
+                require_entitlement=user_id is not None,
+            )
+        if not package:
+            return None
+        return _build_crafted_template_result(package)
+
     custom_id = _parse_custom_id(template_id)
     if custom_id is None:
         return None
@@ -106,7 +173,10 @@ def _load_custom_template_data(
     from app.models.custom_template import CustomTemplate
 
     if db is not None:
-        tpl = db.query(CustomTemplate).filter(CustomTemplate.id == custom_id).first()
+        q = db.query(CustomTemplate).filter(CustomTemplate.id == custom_id)
+        if user_id is not None:
+            q = q.filter(CustomTemplate.user_id == user_id)
+        tpl = q.first()
         if not tpl:
             return None
         return _build_template_result(tpl)
@@ -116,7 +186,10 @@ def _load_custom_template_data(
 
     own_db = SessionLocal()
     try:
-        tpl = own_db.query(CustomTemplate).filter(CustomTemplate.id == custom_id).first()
+        q = own_db.query(CustomTemplate).filter(CustomTemplate.id == custom_id)
+        if user_id is not None:
+            q = q.filter(CustomTemplate.user_id == user_id)
+        tpl = q.first()
         if not tpl:
             return None
         return _build_template_result(tpl)
@@ -124,11 +197,14 @@ def _load_custom_template_data(
         own_db.close()
 
 
-def _get_custom_meta(template_id: str, db: Session | None = None) -> dict[str, Any] | None:
+def _get_custom_meta(template_id: str, db: Session | None = None, user_id: int | None = None) -> dict[str, Any] | None:
     """Build a meta.json equivalent for a custom template from DB data."""
-    data = _load_custom_template_data(template_id, db=db)
+    data = _load_custom_template_data(template_id, db=db, user_id=user_id)
     if not data:
         return None
+    if is_crafted_template(template_id):
+        meta = data.get("meta")
+        return meta if isinstance(meta, dict) else None
     from app.services.custom_prompt_builder import build_custom_meta
     content_codes = data.get("content_codes") or []
     return build_custom_meta(
@@ -139,9 +215,9 @@ def _get_custom_meta(template_id: str, db: Session | None = None) -> dict[str, A
     )
 
 
-def _get_custom_prompt(template_id: str, db: Session | None = None) -> str:
+def _get_custom_prompt(template_id: str, db: Session | None = None, user_id: int | None = None) -> str:
     """Get the generated prompt for a custom template."""
-    data = _load_custom_template_data(template_id, db=db)
+    data = _load_custom_template_data(template_id, db=db, user_id=user_id)
     if not data:
         return ""
     if data["generated_prompt"]:
@@ -163,10 +239,10 @@ def _load_registry() -> list[str]:
     return data if isinstance(data, list) else ["default"]
 
 
-def _load_meta(template_id: str, db: Session | None = None) -> dict[str, Any] | None:
+def _load_meta(template_id: str, db: Session | None = None, user_id: int | None = None) -> dict[str, Any] | None:
     """Load meta.json for a template. Returns None if not found."""
-    if is_custom_template(template_id):
-        return _get_custom_meta(template_id, db=db)
+    if is_custom_template(template_id) or is_crafted_template(template_id):
+        return _get_custom_meta(template_id, db=db, user_id=user_id)
     path = _TEMPLATES_DIR / template_id / "meta.json"
     if not path.exists():
         return None
@@ -174,10 +250,10 @@ def _load_meta(template_id: str, db: Session | None = None) -> dict[str, Any] | 
         return json.load(f)
 
 
-def _load_prompt(template_id: str, db: Session | None = None) -> str:
+def _load_prompt(template_id: str, db: Session | None = None, user_id: int | None = None) -> str:
     """Load prompt.md content for a template. Returns empty string if not found."""
-    if is_custom_template(template_id):
-        return _get_custom_prompt(template_id, db=db)
+    if is_custom_template(template_id) or is_crafted_template(template_id):
+        return _get_custom_prompt(template_id, db=db, user_id=user_id)
     path = _TEMPLATES_DIR / template_id / "prompt.md"
     if not path.exists():
         return ""
@@ -211,12 +287,15 @@ def get_meta(template_id: str) -> dict[str, Any] | None:
     return _load_meta(template_id)
 
 
-def get_prompt(template_id: str) -> str:
-    """Get prompt.md content for one template. Reads fresh on each call."""
-    return _load_prompt(template_id)
+def get_prompt(template_id: str, db: Session | None = None, user_id: int | None = None) -> str:
+    """Get prompt.md content for one template.
+
+    Crafted templates are resolved from R2 package payload (cache-backed).
+    """
+    return _load_prompt(template_id, db=db, user_id=user_id)
 
 
-def get_layout_prompt(template_id: str) -> str:
+def get_layout_prompt(template_id: str, db: Session | None = None, user_id: int | None = None) -> str:
     """
     Get layout_prompt.md content for one template.
 
@@ -225,9 +304,15 @@ def get_layout_prompt(template_id: str) -> str:
     - For custom templates (custom_N), falls back to the generated prompt
       (the full template prompt already contains the layout/arrangement catalog).
     """
+    if is_crafted_template(template_id):
+        data = _load_custom_template_data(template_id, db=db, user_id=user_id)
+        if data and isinstance(data.get("layout_prompt"), str) and data.get("layout_prompt"):
+            return data["layout_prompt"]
+        return _get_custom_prompt(template_id, db=db, user_id=user_id)
+
     if is_custom_template(template_id):
         # Custom templates do not have layout_prompt.md files on disk; use their full prompt.
-        return _get_custom_prompt(template_id)
+        return _get_custom_prompt(template_id, db=db, user_id=user_id)
 
     layout_path = _TEMPLATES_DIR / template_id / "layout_prompt.md"
     if layout_path.exists():
@@ -235,16 +320,23 @@ def get_layout_prompt(template_id: str) -> str:
             return f.read()
 
     # Fallback: use full prompt.md
-    return _load_prompt(template_id)
+    return _load_prompt(template_id, db=db, user_id=user_id)
 
 
 def get_valid_layouts(template_id: str) -> set[str]:
-    """Get the set of valid layout IDs for a template."""
+    """Get the set of valid layout IDs for a template.
+
+    Excludes studio_only_layouts — layouts that exist solely for template
+    studio preview and must never be assigned by the LLM during script generation.
+    """
     meta = _load_meta(template_id)
     if not meta:
         return set()
     layouts = meta.get("valid_layouts", [])
-    return set(layouts) if isinstance(layouts, list) else set()
+    all_layouts = set(layouts) if isinstance(layouts, list) else set()
+    studio_only = meta.get("studio_only_layouts", [])
+    studio_only_set = set(studio_only) if isinstance(studio_only, list) else set()
+    return all_layouts - studio_only_set
 
 
 def get_layouts_without_image(template_id: str) -> set[str]:
@@ -272,8 +364,21 @@ def get_fallback_layout(template_id: str) -> str:
     return meta.get("fallback_layout", "text_narration")
 
 
+def get_script_style_hint(template_id: str) -> str:
+    """Get the script narration style hint for a template, or empty string if none."""
+    meta = _load_meta(template_id)
+    if not meta:
+        return ""
+    return meta.get("script_style_hint", "")
+
+
+
+
 def get_composition_id(template_id: str) -> str:
     """Get the Remotion composition ID for rendering."""
+    if is_crafted_template(template_id):
+        # Crafted packages are mounted into GeneratedVideo shim at runtime.
+        return "GeneratedVideo"
     meta = _load_meta(template_id)
     if not meta:
         return "DefaultVideo"
@@ -291,7 +396,7 @@ def get_preview_colors(template_id: str) -> dict[str, str] | None:
     return pc
 
 
-def validate_template_id(template_id: str | None, db: Session | None = None) -> str:
+def validate_template_id(template_id: str | None, db: Session | None = None, user_id: int | None = None) -> str:
     """Return template_id if valid, else 'default'.
     Accepts both built-in IDs and 'custom_N' format."""
     if not template_id or not isinstance(template_id, str):
@@ -300,9 +405,46 @@ def validate_template_id(template_id: str | None, db: Session | None = None) -> 
 
     # Custom templates: validate format and existence in DB
     if is_custom_template(tid):
-        data = _load_custom_template_data(tid, db=db)
+        data = _load_custom_template_data(tid, db=db, user_id=user_id)
         if data is not None:
             return tid
+        return "default"
+
+    if is_crafted_template(tid):
+        from app.services.crafted_template_service import load_crafted_template_package
+        package = None
+        if db is not None:
+            package = load_crafted_template_package(
+                template_id=tid,
+                user_id=user_id,
+                db=db,
+                require_entitlement=user_id is not None,
+            )
+        else:
+            from app.database import SessionLocal
+            own_db = SessionLocal()
+            try:
+                package = load_crafted_template_package(
+                    template_id=tid,
+                    user_id=user_id,
+                    db=own_db,
+                    require_entitlement=user_id is not None,
+                )
+            finally:
+                own_db.close()
+        if package is not None:
+            return tid
+        # Loud fallback: if a crafted template was requested but the package
+        # couldn't be loaded (entitlement, R2 fetch, contract validation, etc.),
+        # the entire pipeline silently switches to the built-in 'default'
+        # template, which is what makes generated videos render with default
+        # layouts rather than the crafted layouts the user picked.
+        logger.warning(
+            "[TEMPLATE] Crafted template '%s' could not be loaded (user_id=%s); "
+            "falling back to 'default'. See [CRAFTED] log lines above for the underlying reason.",
+            tid,
+            user_id,
+        )
         return "default"
 
     # Built-in templates
