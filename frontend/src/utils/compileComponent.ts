@@ -172,11 +172,18 @@ export async function compileComponentCode(
  *
  * Designed for the marquee preview file shipped with each crafted template
  * (see backend/templates/CRAFTED_TEMPLATE_FOLDER_SPEC.md §4). Authoring
- * rules: default-export a component, accept `{ thumbnailMode?: boolean }`,
- * and only import from "react".
+ * rules: default-export a component accepting `{ thumbnailMode?: boolean }`,
+ * with no `import` statements (they are stripped).
  *
- * Imports/exports are stripped and the file is run through Babel with the
- * react + typescript presets. React is injected as a free variable.
+ * The runtime injects these as free variables — the preview can reference
+ * them directly without imports:
+ *   - `React`, `useState`, `useEffect`, `useRef`, `useMemo`, `useCallback`
+ *   - `Player` (from `@remotion/player`)
+ *   - `getTemplateConfig` (built-in template lookup)
+ *   - Remotion primitives for inline scenes (so the preview can define
+ *     its own composition + layouts using the same APIs the real video
+ *     uses): `useCurrentFrame`, `useVideoConfig`, `interpolate`, `spring`,
+ *     `Easing`, `AbsoluteFill`, `Sequence`, `Img`, `random`.
  */
 export async function compilePreviewComponent(
   code: string,
@@ -194,6 +201,14 @@ export async function compilePreviewComponent(
     if (!transformed?.code) {
       return { success: false, error: "Babel transform returned empty code" };
     }
+    // Mirror the safe-interpolate wrapper from compileComponentCode so
+    // dynamic inputRanges that resolve to equal values don't crash at runtime.
+    const safeInterpolate: typeof interpolate = (frame, inputRange, outputRange, options?) => {
+      const safe = (inputRange as number[]).map((v, i) =>
+        i === 0 ? v : Math.max(v, (inputRange as number[])[i - 1] + 1)
+      ) as typeof inputRange;
+      return interpolate(frame, safe, outputRange, options);
+    };
     // eslint-disable-next-line no-new-func
     const factory = new Function(
       "React",
@@ -204,6 +219,15 @@ export async function compilePreviewComponent(
       "useCallback",
       "Player",
       "getTemplateConfig",
+      "useCurrentFrame",
+      "useVideoConfig",
+      "interpolate",
+      "spring",
+      "Easing",
+      "AbsoluteFill",
+      "Sequence",
+      "Img",
+      "random",
       transformed.code + "\nreturn typeof __PreviewComponent__ !== 'undefined' ? __PreviewComponent__ : null;",
     );
     const component = factory(
@@ -215,6 +239,15 @@ export async function compilePreviewComponent(
       React.useCallback,
       Player,
       getTemplateConfig,
+      useCurrentFrame,
+      useVideoConfig,
+      safeInterpolate,
+      spring,
+      Easing,
+      AbsoluteFill,
+      Sequence,
+      Img,
+      random,
     );
     if (typeof component !== "function") {
       return { success: false, error: "Preview file did not produce a default-exported component" };
