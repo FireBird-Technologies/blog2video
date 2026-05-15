@@ -687,16 +687,42 @@ function getLaDucMarketAnnotationExampleTable(
 }
 
 /**
- * Map a LaDuc layout id to its canonical chart type for example-data seeding.
- * Returns null for layouts that don't carry a chart (so callers short-circuit).
+ * Mirrors `mergeMarketAnnotationChartDefaults()` in
+ * [VideoPreview.tsx](./VideoPreview.tsx) — fills `chartTable` (and
+ * `chartType`) from `meta.json` `layout_prop_schema[layout].defaults`
+ * when the stored layoutProps don't carry one. Keeps SceneEditModal's
+ * "Edit chart data" preview in sync with the project preview and the
+ * rendered MP4.
+ *
+ * Narrowly scoped to `market_annotation*` layouts only.
+ * Keep this in sync with the VideoPreview copy.
  */
-function getLaDucMarketAnnotationChartTypeForLayout(
+function mergeMarketAnnotationChartDefaultsForLayout(
+  layoutProps: Record<string, unknown>,
   layoutId: string | null | undefined,
-): "line" | "bar" | "histogram" | null {
-  if (layoutId === "market_annotation") return "line";
-  if (layoutId === "market_annotation_bar") return "bar";
-  if (layoutId === "market_annotation_histogram") return "histogram";
-  return null;
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  if (!layoutId || !layoutId.startsWith("market_annotation")) return layoutProps;
+  if (!schema || Object.keys(schema).length === 0) return layoutProps;
+  const defaults = schema[layoutId]?.defaults;
+  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  const existingTable = layoutProps.chartTable;
+  const existingTableHasRows =
+    existingTable &&
+    typeof existingTable === "object" &&
+    Array.isArray((existingTable as { rows?: unknown }).rows) &&
+    ((existingTable as { rows: unknown[] }).rows.length > 0);
+  if (existingTableHasRows && layoutProps.chartType) return layoutProps;
+
+  const next = { ...layoutProps };
+  if (!existingTableHasRows && defaults.chartTable && typeof defaults.chartTable === "object") {
+    next.chartTable = defaults.chartTable;
+  }
+  if (!layoutProps.chartType && typeof defaults.chartType === "string") {
+    next.chartType = defaults.chartType;
+  }
+  return next;
 }
 
 function projectChartTableForMode(
@@ -2335,19 +2361,16 @@ export default function SceneEditModal({
         }
       } catch { /* ignore */ }
     }
-    // Pre-seed LaDuc market_annotation chartTable with example data when the
-    // persisted scene is on a chart layout but has no chartTable yet. Keeps the
-    // editor in sync with the renderer's fallback so users see (and can edit)
-    // the same demo data the video will show.
-    if (isLaDucTemplate) {
-      const seedChartType = getLaDucMarketAnnotationChartTypeForLayout(layoutId);
-      if (seedChartType) {
-        const existingChartTable = normalizeChartTableValue((lpCopy as Record<string, unknown>).chartTable);
-        if (!chartTableHasData(existingChartTable)) {
-          lpCopy = { ...lpCopy, chartTable: getLaDucMarketAnnotationExampleTable(seedChartType) };
-        }
-      }
-    }
+    // Mirror VideoPreview's chartTable defaults merge so the "Edit chart
+    // data" modal preview shows the same fallback data the project preview
+    // and rendered MP4 produce. No-op for non-market_annotation layouts.
+    lpCopy = mergeMarketAnnotationChartDefaultsForLayout(
+      lpCopy,
+      layoutId,
+      layouts?.layout_prop_schema as
+        | Record<string, { defaults?: Record<string, unknown> }>
+        | undefined,
+    );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
       const lpSocials = (lpCopy as Record<string, unknown>).socials;
