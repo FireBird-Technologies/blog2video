@@ -477,22 +477,51 @@ def _put_summary_cache(template_id: str, payload: dict[str, Any]) -> None:
     }
 
 
-def _compose_summary_from_package(package: dict[str, Any]) -> dict[str, Any]:
-    """Build the summary.json payload from a fully-loaded package dict.
+def build_summary_payload(
+    *,
+    meta: dict[str, Any],
+    preview_image_url: str | None,
+    preview_file: str | None,
+    preview_file_rel: str | None,
+    layout_fields: str | None,
+    layout_fields_rel: str | None,
+    theme: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a summary.json payload from already-loaded bundle pieces.
 
-    Mirrors the legacy cached_meta_json shape: meta.json contents plus the
-    extra frontend-marquee fields (preview image URL, preview source code,
-    layout field defs, resolved theme).
+    Single source of truth for the summary shape so the publish endpoint
+    (server-side, reads from R2) and the bundle/upload script (client-side,
+    reads from the local bundle dir) produce byte-identical artifacts.
     """
-    meta = package.get("meta") if isinstance(package.get("meta"), dict) else {}
+    if isinstance(theme, dict):
+        resolved_theme: dict[str, Any] = theme
+    elif isinstance(meta.get("theme"), dict):
+        resolved_theme = meta["theme"]
+    else:
+        colors = meta.get("preview_colors") if isinstance(meta.get("preview_colors"), dict) else {}
+        resolved_theme = {"colors": colors, "fonts": {}}
     summary: dict[str, Any] = dict(meta)
-    summary["preview_image_url"] = package.get("preview_image_url")
-    summary["preview_file"] = package.get("preview_file")
-    summary["preview_file_rel"] = package.get("preview_file_rel")
-    summary["layout_fields"] = package.get("layout_fields")
-    summary["layout_fields_rel"] = package.get("layout_fields_rel")
-    summary["theme"] = package.get("theme")
+    summary["preview_image_url"] = preview_image_url
+    summary["preview_file"] = preview_file
+    summary["preview_file_rel"] = preview_file_rel
+    summary["layout_fields"] = layout_fields
+    summary["layout_fields_rel"] = layout_fields_rel
+    summary["theme"] = resolved_theme
     return summary
+
+
+def _compose_summary_from_package(package: dict[str, Any]) -> dict[str, Any]:
+    """Build the summary.json payload from a fully-loaded package dict."""
+    meta = package.get("meta") if isinstance(package.get("meta"), dict) else {}
+    return build_summary_payload(
+        meta=meta,
+        preview_image_url=package.get("preview_image_url"),
+        preview_file=package.get("preview_file"),
+        preview_file_rel=package.get("preview_file_rel"),
+        layout_fields=package.get("layout_fields"),
+        layout_fields_rel=package.get("layout_fields_rel"),
+        theme=package.get("theme"),
+    )
 
 
 def write_summary_to_r2(r2_prefix: str, summary: dict[str, Any]) -> bool:
