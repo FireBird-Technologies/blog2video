@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { CustomTemplateTheme } from "../../api/client";
-import { compileComponentCode, type SceneProps } from "../../utils/compileComponent";
+import { compileComponentCode, compileModuleGraphEntry, type SceneProps } from "../../utils/compileComponent";
 
 const RemotionPreviewPlayer = lazy(() => import("../RemotionPreviewPlayer"));
 
@@ -120,9 +120,16 @@ interface CustomPreviewProps {
   outroCode?: string;
   contentCodes?: string[];
   contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  validLayouts?: string[] | null;
+  frontendFiles?: Record<string, string> | null;
+  frontendEntryRel?: string | null;
+  /** Crafted template: URLs for bundled `public/` paths (Remotion staticFile keys). */
+  publicAssetUrls?: Record<string, string> | null;
   previewImageUrl?: string | null;
   logoUrls?: string[];
   ogImage?: string;
+  showLoaderOnEmptyOrError?: boolean;
+  thumbnailFrame?: number;
   onRetry?: () => void;
   onAllScenesEnded?: () => void;
   thumbnailMode?: boolean;
@@ -135,9 +142,15 @@ export default function CustomPreview({
   outroCode,
   contentCodes,
   contentArchetypeIds,
+  validLayouts,
+  frontendFiles,
+  frontendEntryRel,
+  publicAssetUrls,
   previewImageUrl,
   logoUrls,
   ogImage,
+  showLoaderOnEmptyOrError = false,
+  thumbnailFrame = 135,
   onRetry,
   onAllScenesEnded,
   thumbnailMode = false,
@@ -145,6 +158,7 @@ export default function CustomPreview({
   const [activeScene, setActiveScene] = useState(0);
   const [outgoingScene, setOutgoingScene] = useState<number | null>(null);
   const [compiledMap, setCompiledMap] = useState<Map<number, React.FC<SceneProps>>>(new Map());
+  const [compiledComposition, setCompiledComposition] = useState<React.ComponentType<any> | null>(null);
   const [isCompiling, setIsCompiling] = useState(true);
   const [compileError, setCompileError] = useState(false);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -170,6 +184,11 @@ export default function CustomPreview({
 
   const hasCode = sceneCodes.length > 0;
   const hasMultipleScenes = sceneCodes.length > 1;
+  const hasFrontendRuntime = !!(
+    frontendFiles &&
+    Object.keys(frontendFiles).length > 0 &&
+    frontendEntryRel
+  );
 
   // Pre-compute stable sampleProps for each scene so object references don't change
   // between re-renders (avoids Remotion Player restarting animation mid-playback)
@@ -206,13 +225,83 @@ export default function CustomPreview({
     });
   }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples]);
 
+  const compositionSampleProps = useMemo(() => {
+    const layoutList =
+      Array.isArray(validLayouts) && validLayouts.length > 0
+        ? validLayouts
+        : ["text_narration", "hero_image", "ending_socials"];
+    const sceneCount = Math.max(3, Math.min(6, layoutList.length));
+    const sampleScenes = new Array(sceneCount).fill(0).map((_, idx) => ({
+      id: idx + 1,
+      order: idx,
+      title: idx === 0 ? (name || "Your Template") : `Scene ${idx + 1}`,
+      narration:
+        idx === 0
+          ? `Discover what makes ${name || "this template"} special.`
+          : `This is sample narration for scene ${idx + 1}.`,
+      layout: layoutList[idx % layoutList.length],
+      layoutProps: {},
+      durationSeconds: 4,
+      imageUrl: ogImage || undefined,
+    }));
+    return {
+      scenes: sampleScenes,
+      accentColor: theme.colors.accent,
+      bgColor: theme.colors.bg,
+      textColor: theme.colors.text,
+      logo: logoUrls?.[0] || undefined,
+      aspectRatio: "landscape",
+      fontFamily: theme.fonts.body,
+      playbackSpeed: 1,
+    };
+  }, [validLayouts, name, ogImage, theme, logoUrls]);
+
   // Pre-compile ALL scene codes on mount (eliminates per-scene "Compiling preview..." flash)
   useEffect(() => {
     if (sceneCodes.length === 0) {
-      setIsCompiling(false);
-      return;
+      if (!hasFrontendRuntime) {
+        setCompiledComposition(null);
+        setIsCompiling(false);
+        return;
+      }
+      let cancelled = false;
+      setIsCompiling(true);
+      setCompileError(false);
+      setCompiledComposition(null);
+
+      compileTimeoutRef.current = setTimeout(() => {
+        if (!cancelled) {
+          setIsCompiling(false);
+          setCompileError(true);
+          console.error("[F7-DEBUG] CustomPreview: module compile timeout after 8s");
+        }
+      }, 8000);
+
+      const compileModule = async () => {
+        const result = await compileModuleGraphEntry(
+          frontendFiles || {},
+          frontendEntryRel || "",
+          publicAssetUrls,
+        );
+        if (cancelled) return;
+        clearTimeout(compileTimeoutRef.current);
+        if (result.success) {
+          setCompiledComposition(() => result.component);
+          setCompileError(false);
+        } else {
+          console.error("[F7-DEBUG] CustomPreview: module compile failed:", result.error);
+          setCompileError(true);
+        }
+        setIsCompiling(false);
+      };
+      compileModule();
+      return () => {
+        cancelled = true;
+        clearTimeout(compileTimeoutRef.current);
+      };
     }
 
+    setCompiledComposition(null);
     let cancelled = false;
     setIsCompiling(true);
     setCompileError(false);
@@ -254,7 +343,7 @@ export default function CustomPreview({
       cancelled = true;
       clearTimeout(compileTimeoutRef.current);
     };
-  }, [sceneCodes]);
+  }, [sceneCodes, hasFrontendRuntime, frontendFiles, frontendEntryRel, publicAssetUrls]);
 
   // Cleanup fade timer on unmount
   useEffect(() => {
@@ -289,7 +378,45 @@ export default function CustomPreview({
   }, [switchScene]);
 
   // ─── No code yet — show blank placeholder ─────────────────────
-  if (!hasCode) {
+  if (!hasCode && !hasFrontendRuntime) {
+    if (previewImageUrl) {
+      return (
+        <img
+          src={previewImageUrl}
+          alt={`${name || "Template"} preview`}
+          style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", borderRadius: 8, display: "block" }}
+          loading="lazy"
+          decoding="async"
+        />
+      );
+    }
+    if (showLoaderOnEmptyOrError) {
+      return (
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "16/9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#1a1a2e",
+            borderRadius: 8,
+          }}
+        >
+          <div
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: "50%",
+              border: "2px solid rgba(156, 163, 175, 0.35)",
+              borderTopColor: "#8b5cf6",
+              animation: "spin 0.9s linear infinite",
+            }}
+          />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      );
+    }
     return (
       <div
         style={{
@@ -360,7 +487,34 @@ export default function CustomPreview({
   }
 
   // ─── Compile error / timeout ────────────────────────────────
-  if (compileError || compiledMap.size === 0) {
+  if (compileError || (!compiledComposition && !isCompiling && compiledMap.size === 0)) {
+    if (showLoaderOnEmptyOrError) {
+      return (
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "16/9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#1a1a2e",
+            borderRadius: 8,
+          }}
+        >
+          <div
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: "50%",
+              border: "2px solid rgba(156, 163, 175, 0.35)",
+              borderTopColor: "#8b5cf6",
+              animation: "spin 0.9s linear infinite",
+            }}
+          />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      );
+    }
     return (
       <div style={{ width: "100%", aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backgroundColor: "#1a1a2e", border: "1px solid #ef4444", borderRadius: 8, padding: 16, gap: 8 }}>
         <span style={{ color: "#ef4444", fontSize: 13 }}>
@@ -384,6 +538,28 @@ export default function CustomPreview({
   ) : (
     <div style={{ width: "100%", aspectRatio: "16/9", background: "#1a1a2e", borderRadius: 8 }} />
   );
+
+  if (compiledComposition) {
+    return (
+      <div style={{ position: "relative" }}>
+        <Suspense fallback={fallback}>
+          <RemotionPreviewPlayer
+            compiledComposition={compiledComposition}
+            theme={theme}
+            compositionProps={compositionSampleProps}
+            durationInFrames={30 * 16}
+            fps={30}
+            compositionWidth={1920}
+            compositionHeight={1080}
+            loop={!thumbnailMode}
+            thumbnailMode={thumbnailMode}
+            thumbnailFrame={thumbnailFrame}
+            onRetry={onRetry}
+          />
+        </Suspense>
+      </div>
+    );
+  }
 
   return (
     <div style={{ position: "relative" }}>
@@ -417,7 +593,7 @@ export default function CustomPreview({
                     durationSeconds={5}
                     loop={!thumbnailMode && !hasMultipleScenes}
                     thumbnailMode={thumbnailMode}
-                    thumbnailFrame={135}
+                    thumbnailFrame={thumbnailFrame}
                     onRetry={onRetry}
                     onEnded={!thumbnailMode && isActive ? handleSceneEnded : undefined}
                   />

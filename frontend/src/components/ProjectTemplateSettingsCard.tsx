@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { CustomTemplateItem, Project, TemplateMeta } from "../api/client";
+import type { CraftedTemplateItem, CustomTemplateItem, Project, TemplateMeta } from "../api/client";
 import {
   NewTemplateBadge,
   TEMPLATE_DESCRIPTIONS,
@@ -7,21 +7,56 @@ import {
 } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreview from "./templatePreviews/CraftedTemplatePreview";
 
 /** Built-in or custom template preview for settings / picker (matches BlogUrlForm step 2 styling). */
 export function TemplateAssignPreview({
   templateId,
   customTemplates,
+  craftedTemplates = [],
   projectCustomTheme,
   projectName,
   variant,
+  previewCompileScope,
 }: {
   templateId: string;
   customTemplates: CustomTemplateItem[];
+  craftedTemplates?: CraftedTemplateItem[];
   projectCustomTheme: Project["custom_theme"];
   projectName?: string;
   variant: "large" | "thumb";
+  /** Pass current user id string so crafted preview compile cache cannot cross accounts. */
+  previewCompileScope?: string;
 }) {
+  if (templateId.startsWith("crafted_")) {
+    const ct = craftedTemplates.find((c) => c.id === templateId);
+    // Render the lightweight bundled marquee preview rather than the full
+    // scene-by-scene playback. The settings card is a "what template am I
+    // using" affordance, not a video preview surface — the marquee is the
+    // right level of detail and it doesn't need the layout package.
+    if (ct) {
+      return (
+        <CraftedTemplatePreview
+          templateId={ct.id}
+          compileCacheScope={previewCompileScope}
+          previewSource={ct.preview_file ?? null}
+          previewImageUrl={ct.preview_image_url ?? null}
+          name={ct.name}
+          thumbnailMode={variant === "thumb"}
+          showLoaderOnEmptyOrError
+        />
+      );
+    }
+    return (
+      <div
+        className={`flex w-full items-center justify-center bg-gray-100 text-center text-xs text-gray-400 ${
+          variant === "thumb" ? "min-h-[64px] max-h-[80px] p-2" : "aspect-video p-4"
+        }`}
+      >
+        Expert customized template preview unavailable
+      </div>
+    );
+  }
   if (templateId.startsWith("custom_")) {
     const cid = parseInt(templateId.replace("custom_", ""), 10);
     const ct = customTemplates.find((c) => c.id === cid);
@@ -111,27 +146,35 @@ export function TemplateAssignPreview({
 export default function ProjectTemplateSettingsCard({
   templateId,
   customTemplates,
+  craftedTemplates = [],
   projectCustomTheme,
   projectName,
   templateMetas,
   disabled = false,
   emphasizeChangeButton = false,
   previewOverride,
+  previewCompileScope,
   onChangeTemplate,
 }: {
   templateId: string;
   customTemplates: CustomTemplateItem[];
+  craftedTemplates?: CraftedTemplateItem[];
   projectCustomTheme: Project["custom_theme"];
   projectName?: string;
   templateMetas: TemplateMeta[];
   disabled?: boolean;
   emphasizeChangeButton?: boolean;
   previewOverride?: ReactNode;
+  previewCompileScope?: string;
   onChangeTemplate: () => void;
 }) {
   const selectedCustom =
     templateId.startsWith("custom_")
       ? customTemplates.find((ct) => ct.id === parseInt(templateId.replace("custom_", ""), 10))
+      : null;
+  const selectedCrafted =
+    templateId.startsWith("crafted_")
+      ? craftedTemplates.find((ct) => ct.id === templateId)
       : null;
   const selectedDesc = TEMPLATE_DESCRIPTIONS[templateId];
   const assignedBuiltinNew =
@@ -151,9 +194,11 @@ export default function ProjectTemplateSettingsCard({
               <TemplateAssignPreview
                 templateId={templateId}
                 customTemplates={customTemplates}
+                craftedTemplates={craftedTemplates}
                 projectCustomTheme={projectCustomTheme}
                 projectName={projectName}
                 variant="thumb"
+                previewCompileScope={previewCompileScope}
               />
             )}
             <div className="px-2 py-1.5 bg-purple-50/80 flex items-center justify-center gap-1">
@@ -171,7 +216,7 @@ export default function ProjectTemplateSettingsCard({
               </label>
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 <span className="text-sm font-semibold text-gray-800">
-                  {selectedCustom ? selectedCustom.name : selectedDesc?.title ?? templateId}
+                  {selectedCustom ? selectedCustom.name : selectedCrafted ? selectedCrafted.name : selectedDesc?.title ?? templateId}
                 </span>
                 {assignedBuiltinNew && <NewTemplateBadge className="shrink-0" />}
                 {selectedCustom && (
@@ -182,9 +227,16 @@ export default function ProjectTemplateSettingsCard({
                     Custom
                   </span>
                 )}
+                {selectedCrafted && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-amber-500 shrink-0">
+                    Expert Customized
+                  </span>
+                )}
               </div>
               {selectedCustom ? (
                 <div className="text-[11px] text-gray-400">Custom template</div>
+              ) : selectedCrafted ? (
+                <div className="text-[11px] text-gray-400">Expert customized template</div>
               ) : selectedDesc?.subtitle ? (
                 <div className="text-[11px] text-gray-400">{selectedDesc.subtitle}</div>
               ) : null}

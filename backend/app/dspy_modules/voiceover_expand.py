@@ -57,6 +57,9 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     - content_language is the language of the source content. Output expanded_voiceover EXCLUSIVELY in that language.
     - Do NOT translate to English if the source is in another language.
 
+    ═══ PRONOUNCIATION RULE (CRITICAL) ═══
+    - If an abbreviation is popularly pronounced as a word (e.g. SaaS → "sass", NASA → "nasa", NVIDIA → "en-vidia"), write it phonetically so TTS reads it as a word, not letter-by-letter.
+    - Decimal numbers must be written with "point" between the parts. For example, 3.5 → "three point five", 9.875 → "nine point eight seven five".
     Output ONLY the final narration text.
     No labels. No quotes. No commentary.
     """
