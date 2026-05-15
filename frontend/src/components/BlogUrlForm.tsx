@@ -122,7 +122,7 @@ const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed" | "mo
   more_detailed: "More Detailed  ~  8+ mins",
 };
 
-const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"];
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"];
 const ALLOWED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -130,6 +130,7 @@ const ALLOWED_TYPES = [
   "text/plain",
   "text/markdown",
   "text/x-markdown",
+  "text/vtt",
 ];
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -1196,9 +1197,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // ─── File helpers ────────────────────────────────────────────
   const isAllowedFile = (file: File) => {
-    if (ALLOWED_TYPES.includes(file.type)) return true;
-    const ext = file.name.toLowerCase().split(".").pop();
-    return ext ? ALLOWED_EXTENSIONS.includes(`.${ext}`) : false;
+    // 1) Extension check first — file.type can be empty / unreliable for .vtt
+    //    on many browsers (Chrome reports "" or "application/octet-stream").
+    const lowerName = (file.name || "").toLowerCase();
+    const dotIdx = lowerName.lastIndexOf(".");
+    if (dotIdx !== -1) {
+      const ext = lowerName.slice(dotIdx); // includes the leading "."
+      if (ALLOWED_EXTENSIONS.includes(ext)) return true;
+    }
+    // 2) Fallback to MIME type.
+    return ALLOWED_TYPES.includes(file.type);
   };
 
   /** Add one or more files using functional state so paste / drop handlers never see stale `docFiles`. */
@@ -1207,7 +1215,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setDocError(null);
     for (const f of incoming) {
       if (!isAllowedFile(f)) {
-        setDocError(`"${f.name}" is not supported. Use PDF, DOCX, PPTX, Markdown, or TXT.`);
+        setDocError(`"${f.name}" is not supported. Use PDF, DOCX, PPTX, Markdown, TXT, or VTT.`);
         return;
       }
       if (f.size > MAX_UPLOAD_SIZE) {
@@ -1940,11 +1948,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <p className="text-sm text-gray-500">
               Drop files here or <span className="text-purple-600 font-medium">paste text (Ctrl+V)</span>
             </p>
-            <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint, Markdown, Text — or paste plain text as a .txt file</p>
+            <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint, Markdown, Text, VTT — or paste plain text as a .txt file</p>
             <input
               ref={docInputRef}
               type="file"
-              accept=".pdf,.docx,.pptx,.md,.markdown,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/x-markdown"
+              accept=".pdf,.docx,.pptx,.md,.markdown,.txt,.vtt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/x-markdown,text/vtt"
               multiple
               className="hidden"
               onChange={(e) => { addDocFiles(e.target.files); e.target.value = ""; }}
