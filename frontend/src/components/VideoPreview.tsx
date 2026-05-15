@@ -290,12 +290,14 @@ function mergeMetaFontSizesIntoLayoutProps(
 }
 
 /**
- * For LaDuc `market_annotation*` layouts, fill in `chartTable` (and `chartType`)
- * from meta.json defaults when the stored layoutProps don't carry one. Mirrors
- * the backend renderer's defaults-merge in `remotion.py:932-953`, so the
- * project preview shows the same chart that the rendered MP4 produces.
+ * For LaDuc `market_annotation*` layouts, fill in `chartTable` (and
+ * `chartType`) from meta.json defaults when the stored layoutProps don't
+ * carry one. Mirrors the backend renderer's defaults-merge in
+ * `remotion.py:932-953`, so the project preview shows the same chart that
+ * the rendered MP4 produces.
  *
  * Narrowly scoped to the chart fields only — does not touch any other defaults.
+ * Keep in sync with `mergeMarketAnnotationChartDefaultsForLayout` in SceneEditModal.
  */
 function mergeMarketAnnotationChartDefaults(
   layoutProps: Record<string, unknown>,
@@ -313,7 +315,6 @@ function mergeMarketAnnotationChartDefaults(
     typeof existingTable === "object" &&
     Array.isArray((existingTable as { rows?: unknown }).rows) &&
     ((existingTable as { rows: unknown[] }).rows.length > 0);
-
   if (existingTableHasRows && layoutProps.chartType) return layoutProps;
 
   const next = { ...layoutProps };
