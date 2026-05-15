@@ -559,6 +559,54 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   // book_open, chapter_plate, ledger_stats, chronicle_timeline, decree_seal and
   // ending_socials hide the image (layouts_without_image). Let them fall back to
   // the default full-canvas placeholder since no image adjustment is exposed.
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // LADUC template  (canvas 1920 × 1080)
+  // Mirrors LADUC_LAYOUTS in templateConfig.tsx + LADUC_LAYOUT_REGISTRY in
+  // laduc/layouts/index.ts. `market_annotation` and `ticker` deliberately
+  // omitted — they're declared in meta.json `layouts_without_image`, so the
+  // editor hides the image picker entirely. `tier_showcase` is NOT a real
+  // LaDuc layout (no registry entry, no validLayouts membership).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Full-bleed editorial canvas — image fills the whole frame via
+  // LaDucLayoutImageBackground in both orientations.
+  masthead:        { landscape: { w: 1.0, h: 1.0 }, portrait: { w: 1.0, h: 1.0 } },
+  data_impact:     { landscape: { w: 1.0, h: 1.0 }, portrait: { w: 1.0, h: 1.0 } },
+  two_column:      { landscape: { w: 1.0, h: 1.0 }, portrait: { w: 1.0, h: 1.0 } },
+  kinetic_quote:   { landscape: { w: 1.0, h: 1.0 }, portrait: { w: 1.0, h: 1.0 } },
+  sign_off:        { landscape: { w: 1.0, h: 1.0 }, portrait: { w: 1.0, h: 1.0 } },
+  ending_socials:  { landscape: { w: 1.0, h: 1.0 }, portrait: { w: 1.0, h: 1.0 } },
+
+  // Right-side editorial card (landscape) / full-bleed (portrait).
+  // Each of these three render `<ZoomCropImg>` in an explicit absolute card
+  // when landscape, and switch to a full-bleed LaDucLayoutImageBackground
+  // in portrait — so the focus picker mirrors that shape.
+
+  // DeepDive: right:0, top:0, bottom:0, width:38% → 38% × 100% (≈ 730 × 1080)
+  // See LaDucDeepDive.tsx:132-145
+  deep_dive: {
+    landscape: { w: 0.38, h: 1.00 },
+    portrait:  { w: 1.00, h: 1.00 },
+  },
+
+  // ThesisStatement: right:padH(8%), top:14%, bottom:14%, width:34%
+  //   → 34% × 72% (≈ 653 × 778)
+  // See LaDucThesisStatement.tsx:147-160
+  thesis_statement: {
+    landscape: { w: 0.34, h: 0.72 },
+    portrait:  { w: 1.00, h: 1.00 },
+  },
+
+  // FrameworkFlow: image card inside the steps rail.
+  // rail ≈ canvas × (1 − 2×7.5% padH) ≈ 85% wide
+  // rail ≈ 55% canvas height (top header + bottom footnote + padV 5.5% × 2)
+  // image takes flex: 0 0 28% of rail width → 0.28 × 0.85 ≈ 0.24 wide × 0.55 high
+  // See LaDucFrameworkFlow.tsx:330-344
+  framework_flow: {
+    landscape: { w: 0.24, h: 0.55 },
+    portrait:  { w: 1.00, h: 1.00 },
+  },
 };
 
 /**

@@ -199,8 +199,9 @@ _ALLOWED_MIME_TYPES = {
     "text/plain",  # .txt
     "text/markdown",  # .md
     "text/x-markdown",  # .md
+    "text/vtt",  # .vtt (WebVTT captions/transcripts)
 }
-_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"}
+_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"}
 _VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
 _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed", "mdetailed"}
 _MIN_PLAYBACK_SPEED = 0.5
@@ -1092,7 +1093,7 @@ def create_project_from_upload(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT, VTT.",
             )
         # Check file size (read content to measure, then reset)
         content = f.file.read()
@@ -1217,7 +1218,7 @@ def upload_documents_to_project(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT, VTT.",
             )
         content = f.file.read()
         if len(content) > _MAX_FILE_SIZE:

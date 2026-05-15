@@ -686,6 +686,19 @@ function getLaDucMarketAnnotationExampleTable(
   };
 }
 
+/**
+ * Map a LaDuc layout id to its canonical chart type for example-data seeding.
+ * Returns null for layouts that don't carry a chart (so callers short-circuit).
+ */
+function getLaDucMarketAnnotationChartTypeForLayout(
+  layoutId: string | null | undefined,
+): "line" | "bar" | "histogram" | null {
+  if (layoutId === "market_annotation") return "line";
+  if (layoutId === "market_annotation_bar") return "bar";
+  if (layoutId === "market_annotation_histogram") return "histogram";
+  return null;
+}
+
 function projectChartTableForMode(
   table: { headers: string[]; rows: string[][] },
   mode: DataVizTableMode,
@@ -1997,6 +2010,8 @@ export default function SceneEditModal({
   const [chartTableModalOpen, setChartTableModalOpen] = useState(false);
   const [chartTableModalKey, setChartTableModalKey] = useState<string | null>(null);
   const [chartTableDraft, setChartTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [chartTableError, setChartTableError] = useState<string | null>(null);
+  const chartTableErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
   const localImageInputRef = useRef<HTMLInputElement>(null);
   const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
@@ -2319,6 +2334,19 @@ export default function SceneEditModal({
           lpCopy = { ...lpCopy, ...desc.ctaProps };
         }
       } catch { /* ignore */ }
+    }
+    // Pre-seed LaDuc market_annotation chartTable with example data when the
+    // persisted scene is on a chart layout but has no chartTable yet. Keeps the
+    // editor in sync with the renderer's fallback so users see (and can edit)
+    // the same demo data the video will show.
+    if (isLaDucTemplate) {
+      const seedChartType = getLaDucMarketAnnotationChartTypeForLayout(layoutId);
+      if (seedChartType) {
+        const existingChartTable = normalizeChartTableValue((lpCopy as Record<string, unknown>).chartTable);
+        if (!chartTableHasData(existingChartTable)) {
+          lpCopy = { ...lpCopy, chartTable: getLaDucMarketAnnotationExampleTable(seedChartType) };
+        }
+      }
     }
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
@@ -2890,6 +2918,25 @@ export default function SceneEditModal({
         setLoading(false);
       }
     }
+  };
+
+  /**
+   * Layout-dropdown selection wrapper. Sets `selectedLayout` and — for LaDuc
+   * market_annotation variants — seeds `editableLayoutProps.chartTable` with
+   * the canonical example data when the existing chartTable is empty. Keeps
+   * the modal's "Edit chart data" editor in sync with the renderer's fallback.
+   */
+  const applySelectedLayout = (next: string) => {
+    setSelectedLayout(next);
+    if (!isLaDucTemplate) return;
+    if (next === "__keep__" || next === "__auto__") return;
+    const chartType = getLaDucMarketAnnotationChartTypeForLayout(next);
+    if (!chartType) return;
+    setEditableLayoutProps((prev) => {
+      const existing = normalizeChartTableValue(prev.chartTable);
+      if (chartTableHasData(existing)) return prev;
+      return { ...prev, chartTable: getLaDucMarketAnnotationExampleTable(chartType) };
+    });
   };
 
   const handleRemoveImage = async (assetId: number) => {
@@ -4542,7 +4589,7 @@ export default function SceneEditModal({
                   <div className="absolute z-10 mt-1.5 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
                     <button
                       type="button"
-                      onClick={() => { setSelectedLayout("__keep__"); setLayoutOpen(false); }}
+                      onClick={() => { applySelectedLayout("__keep__"); setLayoutOpen(false); }}
                       className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
                         selectedLayout === "__keep__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                       }`}
@@ -4557,7 +4604,7 @@ export default function SceneEditModal({
                     {!isCustomTemplate && (
                       <button
                         type="button"
-                        onClick={() => { setSelectedLayout("__auto__"); setLayoutOpen(false); }}
+                        onClick={() => { applySelectedLayout("__auto__"); setLayoutOpen(false); }}
                         className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
                           selectedLayout === "__auto__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                         }`}
@@ -4573,7 +4620,7 @@ export default function SceneEditModal({
                           <button
                             key={layoutId}
                             type="button"
-                            onClick={() => { setSelectedLayout(layoutId); setLayoutOpen(false); }}
+                            onClick={() => { applySelectedLayout(layoutId); setLayoutOpen(false); }}
                             className={`w-full text-left px-3 py-2.5 text-xs hover:bg-purple-50 transition-colors ${
                               selectedLayout === layoutId ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                             }`}
@@ -5032,20 +5079,187 @@ export default function SceneEditModal({
     </div>
   ) : null;
 
-  const CHART_MODAL_MAX_COLS = 6;
+  const CHART_MODAL_MAX_COLS = 4;
   const CHART_MODAL_MAX_ROWS = 20;
   const chartDraft = chartTableDraft ?? { headers: ["Label", "Value"], rows: [["", ""]] };
 
+  /** Show a transient error inline at the top of the chart-data modal. */
+  const showChartTableError = (msg: string) => {
+    if (chartTableErrorTimeoutRef.current) clearTimeout(chartTableErrorTimeoutRef.current);
+    setChartTableError(msg);
+    chartTableErrorTimeoutRef.current = setTimeout(() => setChartTableError(null), 4000);
+  };
+
+  /**
+   * Parse clipboard text into a 2-D matrix of cells.
+   * Recognizes three formats, in order:
+   *   1. Markdown / GFM pipe tables (`| col | col |` with optional `|---|---|` separator)
+   *   2. TSV (Excel / Google Sheets default copy format)
+   *   3. CSV with quoted-comma support
+   */
+  const parseClipboardTable = (text: string): string[][] => {
+    const stripped = text.replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+    if (!stripped) return [];
+    const lines = stripped.split("\n");
+
+    // ── 1) Markdown pipe table ─────────────────────────────────────────────
+    // Heuristic: at least 2 non-empty lines, each containing a `|`, and the
+    // overall block has more pipes than tabs/commas (so it's clearly piped).
+    const nonEmpty = lines.filter((l) => l.trim().length > 0);
+    const pipedLines = nonEmpty.filter((l) => l.includes("|"));
+    const pipeCount = (stripped.match(/\|/g) ?? []).length;
+    const tabCount = (stripped.match(/\t/g) ?? []).length;
+    const isMarkdownTable =
+      pipedLines.length >= 2 &&
+      pipedLines.length === nonEmpty.length &&
+      pipeCount > tabCount;
+
+    if (isMarkdownTable) {
+      const splitMdRow = (line: string): string[] => {
+        let s = line.trim();
+        // Strip leading and trailing pipes if present so we don't get empty edge cells.
+        if (s.startsWith("|")) s = s.slice(1);
+        if (s.endsWith("|")) s = s.slice(0, -1);
+        return s.split("|").map((c) => c.trim());
+      };
+      // Drop GFM alignment rows like "|---|:--:|---|".
+      const isSeparatorRow = (cells: string[]) =>
+        cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c.trim()));
+      return nonEmpty.map(splitMdRow).filter((cells) => !isSeparatorRow(cells));
+    }
+
+    // ── 2) TSV / 3) CSV ───────────────────────────────────────────────────
+    const hasTabs = stripped.includes("\t");
+    return lines.map((line) =>
+      hasTabs
+        ? line.split("\t")
+        // Minimal CSV split — handles quoted values with embedded commas.
+        : (line.match(/("([^"]|"")*"|[^,]*)(,|$)/g) ?? [])
+            .filter((_, i, a) => i < a.length - 1 || a[i] !== "")
+            .map((tok) => tok.replace(/,$/, "").trim().replace(/^"(.*)"$/, "$1").replace(/""/g, '"')),
+    );
+  };
+
+  /** Bulk-paste TSV/CSV starting at (startRow, startCol); grows headers/rows up to caps. */
+  const handleChartPaste = (startRow: number, startCol: number, pasted: string) => {
+    const matrix = parseClipboardTable(pasted);
+    if (matrix.length === 0) return;
+    // Single-cell paste with no tabs/newlines → let default input behavior handle it.
+    if (matrix.length === 1 && matrix[0].length === 1 && !pasted.includes("\t") && !pasted.includes("\n")) return;
+
+    const pastedMaxCols = Math.max(...matrix.map((r) => r.length));
+    const pastedRows = matrix.length;
+    if (startCol + pastedMaxCols > CHART_MODAL_MAX_COLS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+    } else if (startRow + pastedRows > CHART_MODAL_MAX_ROWS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+    }
+
+    const neededCols = Math.min(CHART_MODAL_MAX_COLS, startCol + pastedMaxCols);
+    const neededRows = Math.min(CHART_MODAL_MAX_ROWS, startRow + pastedRows);
+
+    const nextHeaders = [...chartDraft.headers];
+    while (nextHeaders.length < neededCols) nextHeaders.push(`Series ${nextHeaders.length}`);
+
+    const nextRows = chartDraft.rows.map((r) => {
+      const padded = [...r];
+      while (padded.length < nextHeaders.length) padded.push("");
+      return padded;
+    });
+    while (nextRows.length < neededRows) nextRows.push(Array(nextHeaders.length).fill(""));
+
+    for (let ri = 0; ri < matrix.length; ri++) {
+      const targetRow = startRow + ri;
+      if (targetRow >= CHART_MODAL_MAX_ROWS) break;
+      for (let ci = 0; ci < matrix[ri].length; ci++) {
+        const targetCol = startCol + ci;
+        if (targetCol >= CHART_MODAL_MAX_COLS) break;
+        nextRows[targetRow][targetCol] = matrix[ri][ci];
+      }
+    }
+
+    setChartTableDraft({ headers: nextHeaders, rows: nextRows });
+  };
+
+  /**
+   * Whole-table paste — replaces the entire draft (headers + rows) from a TSV/CSV
+   * clipboard payload. First parsed line becomes the headers; remaining lines
+   * become the body rows. Used by the "Paste" toolbar button so a round-trip
+   * (Copy → Paste) restores the exact same table.
+   */
+  const handleChartPasteWholeTable = (pasted: string) => {
+    const matrix = parseClipboardTable(pasted);
+    if (matrix.length === 0) return;
+
+    const pastedMaxCols = Math.max(...matrix.map((r) => r.length), 2);
+    const pastedBodyRows = Math.max(0, matrix.length - 1);
+    if (pastedMaxCols > CHART_MODAL_MAX_COLS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+    } else if (pastedBodyRows > CHART_MODAL_MAX_ROWS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+    }
+
+    const colCount = Math.min(CHART_MODAL_MAX_COLS, pastedMaxCols);
+    // Header line — pad/truncate to colCount.
+    const headerLine = matrix[0];
+    const nextHeaders: string[] = [];
+    for (let ci = 0; ci < colCount; ci++) {
+      const v = headerLine[ci]?.trim();
+      nextHeaders.push(v || (ci === 0 ? "Label" : `Series ${ci}`));
+    }
+
+    // Body rows — pad/truncate to colCount, cap at MAX_ROWS.
+    const bodyMatrix = matrix.slice(1);
+    const nextRows: string[][] = [];
+    for (let ri = 0; ri < bodyMatrix.length && ri < CHART_MODAL_MAX_ROWS; ri++) {
+      const row = bodyMatrix[ri];
+      const padded: string[] = [];
+      for (let ci = 0; ci < colCount; ci++) padded.push(row[ci] ?? "");
+      nextRows.push(padded);
+    }
+    // Ensure at least one body row so the table is editable.
+    if (nextRows.length === 0) nextRows.push(Array(colCount).fill(""));
+
+    setChartTableDraft({ headers: nextHeaders, rows: nextRows });
+  };
+
+  /** Serialize the current draft as TSV (Excel-friendly) and copy to clipboard. */
+  const handleChartCopyAll = async () => {
+    const lines: string[] = [];
+    lines.push(chartDraft.headers.join("\t"));
+    for (const row of chartDraft.rows) {
+      const padded = [...row];
+      while (padded.length < chartDraft.headers.length) padded.push("");
+      lines.push(padded.slice(0, chartDraft.headers.length).join("\t"));
+    }
+    const tsv = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(tsv);
+    } catch {
+      // Fallback for older browsers / insecure contexts.
+      const ta = document.createElement("textarea");
+      ta.value = tsv;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } finally { document.body.removeChild(ta); }
+    }
+  };
+
   const chartModal = chartTableModalOpen && chartTableModalKey ? (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setChartTableModalOpen(false)} />
-      <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl flex flex-col" style={{ maxHeight: "88vh" }}>
+      <div
+        className="relative w-full max-w-3xl rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl flex flex-col"
+        style={{ maxHeight: "92dvh" }}
+      >
 
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">Edit chart data</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {CHART_MODAL_MAX_ROWS} rows · max {CHART_MODAL_MAX_COLS} cols</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {CHART_MODAL_MAX_ROWS} rows · max {CHART_MODAL_MAX_COLS} cols · paste TSV/CSV into any cell to bulk-fill</p>
           </div>
           <button type="button" onClick={() => setChartTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -5054,9 +5268,19 @@ export default function SceneEditModal({
           </button>
         </div>
 
+        {/* Transient paste-limit error banner */}
+        {chartTableError && (
+          <div className="mx-3 sm:mx-4 mt-2 px-3 py-2 rounded-md border border-red-200 bg-red-50 text-[11px] text-red-700 flex items-start gap-2">
+            <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <span className="flex-1">{chartTableError}</span>
+          </div>
+        )}
+
         {/* Table area */}
-        <div className="overflow-auto flex-1 p-4">
-          <table className="w-full border-separate border-spacing-1 text-xs">
+        <div className="overflow-auto flex-1 p-3 sm:p-4">
+          <table className="w-full border-separate border-spacing-1 text-xs" style={{ minWidth: chartDraft.headers.length * 96 }}>
             <thead>
               <tr>
                 {chartDraft.headers.map((h, ci) => (
@@ -5069,6 +5293,36 @@ export default function SceneEditModal({
                         const next = [...chartDraft.headers];
                         next[ci] = e.target.value;
                         setChartTableDraft({ ...chartDraft, headers: next });
+                      }}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData("text");
+                        if (pasted.includes("\t") || pasted.includes("\n")) {
+                          e.preventDefault();
+                          // Paste into header row: row index 0 means headers, body fills from row 0.
+                          const matrix = parseClipboardTable(pasted);
+                          if (matrix.length === 0) return;
+                          const headerLine = matrix[0];
+                          const bodyMatrix = matrix.slice(1);
+                          if (ci + headerLine.length > CHART_MODAL_MAX_COLS) {
+                            showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+                          } else if (bodyMatrix.length > CHART_MODAL_MAX_ROWS) {
+                            showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+                          }
+                          const neededCols = Math.min(CHART_MODAL_MAX_COLS, ci + headerLine.length);
+                          const nextHeaders = [...chartDraft.headers];
+                          while (nextHeaders.length < neededCols) nextHeaders.push(`Series ${nextHeaders.length}`);
+                          for (let i = 0; i < headerLine.length; i++) {
+                            const targetCol = ci + i;
+                            if (targetCol >= CHART_MODAL_MAX_COLS) break;
+                            nextHeaders[targetCol] = headerLine[i];
+                          }
+                          // Update headers first, then bulk-fill any body rows.
+                          setChartTableDraft({ headers: nextHeaders, rows: chartDraft.rows });
+                          if (bodyMatrix.length > 0) {
+                            // Re-use the body filler against the just-updated headers/rows.
+                            setTimeout(() => handleChartPaste(0, ci, bodyMatrix.map((r) => r.join("\t")).join("\n")), 0);
+                          }
+                        }
                       }}
                       className="w-full px-2 py-1.5 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 text-center"
                     />
@@ -5090,6 +5344,14 @@ export default function SceneEditModal({
                           while (next[ri].length < chartDraft.headers.length) next[ri].push("");
                           next[ri][ci] = e.target.value;
                           setChartTableDraft({ ...chartDraft, rows: next });
+                        }}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text");
+                          // If the paste is multi-cell (has tab or newline), intercept and bulk-fill.
+                          if (pasted.includes("\t") || pasted.includes("\n")) {
+                            e.preventDefault();
+                            handleChartPaste(ri, ci, pasted);
+                          }
                         }}
                         className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
                       />
@@ -5113,8 +5375,8 @@ export default function SceneEditModal({
           </table>
         </div>
 
-        {/* Row / Col controls + footer */}
-        <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0">
+        {/* Toolbar — wraps on narrow viewports so all controls remain reachable */}
+        <div className="px-3 sm:px-4 py-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5 flex-shrink-0">
           {/* Row controls */}
           <button
             type="button"
@@ -5157,9 +5419,47 @@ export default function SceneEditModal({
             Col
           </button>
 
-          <div className="flex-1" />
+          <div className="w-px h-5 bg-gray-200 mx-1" />
 
-          <button type="button" onClick={() => setChartTableModalOpen(false)} className="px-4 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+          {/* Bulk copy / paste */}
+          <button
+            type="button"
+            onClick={handleChartCopyAll}
+            title="Copy entire table to clipboard (TSV — paste into Excel/Sheets)"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Copy
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const text = await navigator.clipboard.readText();
+                if (text) handleChartPasteWholeTable(text);
+              } catch {
+                // Clipboard read may be blocked; user can still paste into a cell directly.
+              }
+            }}
+            title="Paste TSV/CSV from clipboard — first line becomes headers, rest become rows"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Paste
+          </button>
+        </div>
+
+        {/* Action row — always pinned to bottom of the modal so Cancel/Save remain reachable on every viewport */}
+        <div className="px-3 sm:px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0 bg-white rounded-b-2xl">
+          <button
+            type="button"
+            onClick={() => setChartTableModalOpen(false)}
+            className="flex-1 sm:flex-none px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+          >
             Cancel
           </button>
           <button
@@ -5169,7 +5469,7 @@ export default function SceneEditModal({
               setEditableLayoutProps((prev) => ({ ...prev, [chartTableModalKey]: normalized }));
               setChartTableModalOpen(false);
             }}
-            className="px-4 py-1.5 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+            className="flex-1 sm:flex-none sm:ml-auto px-4 py-2 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
           >
             Save
           </button>
