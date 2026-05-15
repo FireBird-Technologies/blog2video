@@ -1,4 +1,3 @@
-from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
@@ -8,14 +7,9 @@ from app.models.user import User
 from app.services.crafted_template_service import (
     is_crafted_templates_enabled,
     list_user_crafted_templates,
-    publish_crafted_template,
-    grant_crafted_template_access,
     load_crafted_template_package,
-    invalidate_crafted_template_cache,
     crafted_cache_stats,
     validate_crafted_template_access,
-    _compose_summary_from_package,
-    write_summary_to_r2,
 )
 
 
@@ -33,22 +27,6 @@ def _wants_force_refresh(request: Request) -> bool:
     return query.get("fresh") in {"1", "true"} or query.get("force") in {"1", "true"}
 
 router = APIRouter(prefix="/api/crafted-templates", tags=["crafted-templates"])
-
-
-class CraftedTemplatePublishRequest(BaseModel):
-    template_key: str = Field(..., min_length=2, max_length=120, pattern=r"^[a-z][a-z0-9_-]*$")
-    public_template_id: str = Field(..., min_length=4, max_length=140, pattern=r"^crafted_[a-z0-9_-]+$")
-    name: str = Field(..., min_length=1, max_length=255)
-    category: str = Field(default="blog", min_length=1, max_length=255)
-    supported_video_style: str = Field(default="explainer", min_length=1, max_length=30)
-    r2_prefix: str = Field(..., min_length=3, max_length=1024)
-    manifest_path: str | None = Field(default=None, max_length=1024)
-    checksum: str | None = Field(default=None, max_length=128)
-
-
-class CraftedTemplateGrantRequest(BaseModel):
-    user_id: int
-    public_template_id: str = Field(..., min_length=4, max_length=140, pattern=r"^crafted_[a-z0-9_-]+$")
 
 
 @router.get("")
@@ -126,85 +104,3 @@ def get_crafted_template_detail(
     }
 
 
-@router.post("/admin/publish")
-def publish_crafted(
-    payload: CraftedTemplatePublishRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    if not is_crafted_templates_enabled():
-        raise HTTPException(status_code=400, detail="Crafted templates are disabled.")
-
-    style = (payload.supported_video_style or "explainer").strip().lower()
-    if style not in {"explainer", "promotional", "storytelling"}:
-        raise HTTPException(status_code=422, detail="supported_video_style must be one of: explainer, promotional, storytelling")
-
-    row = publish_crafted_template(
-        template_key=payload.template_key.strip(),
-        public_template_id=payload.public_template_id.strip(),
-        name=payload.name.strip(),
-        category=payload.category.strip() or "blog",
-        supported_video_style=style,
-        r2_prefix=payload.r2_prefix.strip().strip("/"),
-        manifest_path=(payload.manifest_path or "").strip() or None,
-        checksum=(payload.checksum or "").strip() or None,
-        admin_user_id=user.id,
-        db=db,
-    )
-    invalidate_crafted_template_cache(row.public_template_id)
-    package = load_crafted_template_package(
-        row.public_template_id,
-        db=db,
-        require_entitlement=False,
-        force_refresh=True,
-    )
-    if not package:
-        row.status = "disabled"
-        db.commit()
-        raise HTTPException(status_code=422, detail="R2 package validation failed for published template.")
-
-    # Persist the marquee summary alongside the bundle on R2 so the list
-    # endpoint can serve it without a DB round-trip. On upload failure the
-    # list endpoint falls back to composing summary from the bundle.
-    write_summary_to_r2(row.r2_prefix, _compose_summary_from_package(package))
-
-    row.status = "active"
-    db.commit()
-    invalidate_crafted_template_cache(row.public_template_id)
-
-    return {
-        "id": row.id,
-        "public_template_id": row.public_template_id,
-        "name": row.name,
-        "status": row.status,
-    }
-
-
-@router.post("/admin/grant")
-def grant_crafted_access(
-    payload: CraftedTemplateGrantRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    if not is_crafted_templates_enabled():
-        raise HTTPException(status_code=400, detail="Crafted templates are disabled.")
-
-    from app.models.crafted_template import CraftedTemplate
-
-    template = (
-        db.query(CraftedTemplate)
-        .filter(
-            CraftedTemplate.public_template_id == payload.public_template_id,
-            CraftedTemplate.status == "active",
-        )
-        .first()
-    )
-    if not template:
-        raise HTTPException(status_code=404, detail="Crafted template not found.")
-
-    ent = grant_crafted_template_access(
-        user_id=payload.user_id,
-        crafted_template_id=template.id,
-        db=db,
-    )
-    return {"entitlement_id": ent.id, "status": ent.status}
