@@ -1,3 +1,4 @@
+import concurrent.futures
 import hashlib
 import json
 import logging
@@ -19,10 +20,16 @@ CRAFTED_PREFIX = "crafted_"
 DEFAULT_MAX_PACKAGE_BYTES = 25 * 1024 * 1024
 DEFAULT_MAX_FILE_BYTES = 8 * 1024 * 1024
 DEFAULT_CACHE_TTL_SECONDS = 300
+DEFAULT_SUMMARY_FETCH_WORKERS = 8
+SUMMARY_OBJECT_NAME = "summary.json"
 _VALID_STYLES = {"explainer", "promotional", "storytelling"}
 
 # L1 in-process cache: template_id -> {"expires_at": ..., "payload": ...}
+# Holds the full bundle (intro/outro/content code, frontend files, etc.).
 _crafted_package_cache: dict[str, dict[str, Any]] = {}
+# L1 in-process cache for marquee summaries fetched from R2 summary.json.
+# Separate from the package cache because the list endpoint never needs the bundle.
+_crafted_summary_cache: dict[str, dict[str, Any]] = {}
 _cache_hits = 0
 _cache_misses = 0
 
@@ -424,6 +431,7 @@ def validate_crafted_template_access(template_id: str, user_id: int, db: Session
 
 def invalidate_crafted_template_cache(template_id: str) -> None:
     _crafted_package_cache.pop(template_id, None)
+    _crafted_summary_cache.pop(template_id, None)
 
 
 def _from_cache(template_id: str) -> dict[str, Any] | None:
@@ -447,19 +455,106 @@ def _put_cache(template_id: str, payload: dict[str, Any]) -> None:
     }
 
 
+def _summary_r2_key(r2_prefix: str) -> str:
+    return _join_r2_key(r2_prefix, SUMMARY_OBJECT_NAME)
+
+
+def _summary_from_cache(template_id: str) -> dict[str, Any] | None:
+    item = _crafted_summary_cache.get(template_id)
+    if not item:
+        return None
+    if item.get("expires_at", 0) < time.time():
+        _crafted_summary_cache.pop(template_id, None)
+        return None
+    payload = item.get("payload")
+    return payload if isinstance(payload, dict) else None
+
+
+def _put_summary_cache(template_id: str, payload: dict[str, Any]) -> None:
+    _crafted_summary_cache[template_id] = {
+        "expires_at": time.time() + _cache_ttl_seconds(),
+        "payload": payload,
+    }
+
+
+def _compose_summary_from_package(package: dict[str, Any]) -> dict[str, Any]:
+    """Build the summary.json payload from a fully-loaded package dict.
+
+    Mirrors the legacy cached_meta_json shape: meta.json contents plus the
+    extra frontend-marquee fields (preview image URL, preview source code,
+    layout field defs, resolved theme).
+    """
+    meta = package.get("meta") if isinstance(package.get("meta"), dict) else {}
+    summary: dict[str, Any] = dict(meta)
+    summary["preview_image_url"] = package.get("preview_image_url")
+    summary["preview_file"] = package.get("preview_file")
+    summary["preview_file_rel"] = package.get("preview_file_rel")
+    summary["layout_fields"] = package.get("layout_fields")
+    summary["layout_fields_rel"] = package.get("layout_fields_rel")
+    summary["theme"] = package.get("theme")
+    return summary
+
+
+def write_summary_to_r2(r2_prefix: str, summary: dict[str, Any]) -> bool:
+    """Upload summary.json to R2 under the given prefix. Returns True on success."""
+    if not r2_storage.is_r2_configured():
+        return False
+    try:
+        key = _summary_r2_key(r2_prefix)
+        body = json.dumps(summary, ensure_ascii=False).encode("utf-8")
+        r2_storage.upload_bytes(key, body, content_type="application/json")
+        return True
+    except Exception:
+        logger.warning(
+            "[CRAFTED] Failed to upload summary.json to R2 prefix=%s",
+            r2_prefix,
+            exc_info=True,
+        )
+        return False
+
+
+def _fetch_summary_from_r2(r2_prefix: str) -> dict[str, Any] | None:
+    payload = r2_storage.download_json(_summary_r2_key(r2_prefix))
+    return payload if isinstance(payload, dict) else None
+
+
+def _fetch_summaries_parallel(targets: list[tuple[str, str]]) -> dict[str, dict[str, Any]]:
+    """Fetch summary.json for many templates in parallel. Returns {template_id: payload} for successes only."""
+    if not targets:
+        return {}
+    results: dict[str, dict[str, Any]] = {}
+    max_workers = max(1, min(DEFAULT_SUMMARY_FETCH_WORKERS, len(targets)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_id = {
+            executor.submit(_fetch_summary_from_r2, prefix): tpl_id
+            for tpl_id, prefix in targets
+        }
+        for future in concurrent.futures.as_completed(future_to_id):
+            tpl_id = future_to_id[future]
+            try:
+                payload = future.result()
+            except Exception:
+                payload = None
+            if isinstance(payload, dict):
+                results[tpl_id] = payload
+    return results
+
+
 def load_crafted_template_package(
     template_id: str,
     user_id: int | None = None,
     db: Session | None = None,
     require_entitlement: bool = False,
+    force_refresh: bool = False,
 ) -> dict[str, Any] | None:
     if not is_crafted_template(template_id):
         return None
     if not is_crafted_templates_enabled():
         return None
-    cached = _from_cache(template_id)
-    if cached is not None:
-        return cached
+    if not force_refresh:
+        cached = _from_cache(template_id)
+        if cached is not None:
+            return cached
     if db is None:
         return None
 
@@ -652,46 +747,46 @@ def _resolve_preview_image_url_from_manifest(prefix: str, manifest_path: str) ->
     return r2_storage.public_url(_join_r2_key(prefix, preview_rel))
 
 
-def _list_summary_from_cached_meta(
+def _list_summary_from_payload(
     tpl: CraftedTemplate,
-    cached_meta: dict[str, Any],
+    summary: dict[str, Any],
     *,
     fallback_preview_url: str | None = None,
 ) -> dict[str, Any]:
     preview_image_url = (
-        cached_meta.get("preview_image_url")
-        if isinstance(cached_meta.get("preview_image_url"), str)
+        summary.get("preview_image_url")
+        if isinstance(summary.get("preview_image_url"), str)
         else fallback_preview_url
     )
-    theme = cached_meta.get("theme")
+    theme = summary.get("theme")
     if not isinstance(theme, dict):
         theme = {}
-    styles = cached_meta.get("styles")
+    styles = summary.get("styles")
     if not isinstance(styles, list):
         styles = [tpl.supported_video_style]
-    preview_file = cached_meta.get("preview_file")
+    preview_file = summary.get("preview_file")
     if not isinstance(preview_file, str):
         preview_file = None
-    preview_file_rel = cached_meta.get("preview_file_rel")
+    preview_file_rel = summary.get("preview_file_rel")
     if not isinstance(preview_file_rel, str):
         preview_file_rel = None
-    layout_fields = cached_meta.get("layout_fields")
+    layout_fields = summary.get("layout_fields")
     if not isinstance(layout_fields, str):
         layout_fields = None
-    layout_fields_rel = cached_meta.get("layout_fields_rel")
+    layout_fields_rel = summary.get("layout_fields_rel")
     if not isinstance(layout_fields_rel, str):
         layout_fields_rel = None
     return {
         "id": tpl.public_template_id,
         "name": tpl.name,
-        "description": cached_meta.get("description", "") if isinstance(cached_meta.get("description"), str) else "",
+        "description": summary.get("description", "") if isinstance(summary.get("description"), str) else "",
         "styles": styles,
-        "preview_colors": cached_meta.get("preview_colors"),
-        "hero_layout": cached_meta.get("hero_layout"),
-        "fallback_layout": cached_meta.get("fallback_layout"),
-        "valid_layouts": cached_meta.get("valid_layouts"),
-        "layouts_without_image": cached_meta.get("layouts_without_image"),
-        "layout_prop_schema": cached_meta.get("layout_prop_schema"),
+        "preview_colors": summary.get("preview_colors"),
+        "hero_layout": summary.get("hero_layout"),
+        "fallback_layout": summary.get("fallback_layout"),
+        "valid_layouts": summary.get("valid_layouts"),
+        "layouts_without_image": summary.get("layouts_without_image"),
+        "layout_prop_schema": summary.get("layout_prop_schema"),
         "template_type": "crafted",
         "crafted": True,
         "composition_id": "GeneratedVideo",
@@ -701,12 +796,37 @@ def _list_summary_from_cached_meta(
         "layout_fields": layout_fields,
         "layout_fields_rel": layout_fields_rel,
         "theme": theme,
-        "logo_urls": cached_meta.get("logo_urls"),
-        "og_image": cached_meta.get("og_image"),
+        "logo_urls": summary.get("logo_urls"),
+        "og_image": summary.get("og_image"),
     }
 
 
-def list_user_crafted_templates(user_id: int, db: Session) -> list[dict[str, Any]]:
+def _build_and_backfill_summary(
+    tpl: CraftedTemplate,
+    *,
+    db: Session,
+    force_refresh: bool,
+) -> dict[str, Any] | None:
+    """Compose a summary by loading the full package, then write it back to R2."""
+    package = load_crafted_template_package(
+        tpl.public_template_id,
+        db=db,
+        require_entitlement=False,
+        force_refresh=force_refresh,
+    )
+    if not package:
+        return None
+    payload = _compose_summary_from_package(package)
+    write_summary_to_r2(tpl.r2_prefix, payload)
+    return payload
+
+
+def list_user_crafted_templates(
+    user_id: int,
+    db: Session,
+    *,
+    force_refresh: bool = False,
+) -> list[dict[str, Any]]:
     if not is_crafted_templates_enabled():
         return []
     now = datetime.utcnow()
@@ -726,22 +846,46 @@ def list_user_crafted_templates(user_id: int, db: Session) -> list[dict[str, Any
         .order_by(CraftedTemplate.updated_at.desc())
         .all()
     )
+    if not rows:
+        return []
+
+    # Resolve summaries: in-memory cache → parallel R2 GET → fallback build-from-package.
+    summaries_by_id: dict[str, dict[str, Any]] = {}
+    to_fetch: list[tuple[str, str]] = []
+    for tpl, _ in rows:
+        if not force_refresh:
+            cached = _summary_from_cache(tpl.public_template_id)
+            if cached is not None:
+                summaries_by_id[tpl.public_template_id] = cached
+                continue
+        to_fetch.append((tpl.public_template_id, tpl.r2_prefix))
+
+    fetched = _fetch_summaries_parallel(to_fetch) if to_fetch else {}
+    for tpl_id, payload in fetched.items():
+        _put_summary_cache(tpl_id, payload)
+        summaries_by_id[tpl_id] = payload
+
     out: list[dict[str, Any]] = []
-    for tpl, _ent in rows:
-        cached_meta: dict[str, Any] = {}
-        try:
-            loaded = json.loads(tpl.cached_meta_json) if isinstance(tpl.cached_meta_json, str) and tpl.cached_meta_json.strip() else {}
-            if isinstance(loaded, dict):
-                cached_meta = loaded
-        except Exception:
-            cached_meta = {}
+    for tpl, _ in rows:
+        tpl_id = tpl.public_template_id
+        summary = summaries_by_id.get(tpl_id)
+        if summary is None:
+            # summary.json missing on R2 — build from manifest+meta, write back, cache it.
+            summary = _build_and_backfill_summary(tpl, db=db, force_refresh=force_refresh)
+            if summary is None:
+                logger.warning(
+                    "[CRAFTED] Could not load or compose summary for %s",
+                    tpl_id,
+                )
+                continue
+            _put_summary_cache(tpl_id, summary)
         fallback_preview_url = None
-        if not isinstance(cached_meta.get("preview_image_url"), str):
+        if not isinstance(summary.get("preview_image_url"), str):
             fallback_preview_url = _resolve_preview_image_url_from_manifest(
                 tpl.r2_prefix,
                 tpl.manifest_path or _join_r2_key(tpl.r2_prefix, "manifest.json"),
             )
-        out.append(_list_summary_from_cached_meta(tpl, cached_meta, fallback_preview_url=fallback_preview_url))
+        out.append(_list_summary_from_payload(tpl, summary, fallback_preview_url=fallback_preview_url))
     return out
 
 
