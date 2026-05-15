@@ -3736,8 +3736,12 @@ export default function SceneEditModal({
                               {field.label}
                             </label>
                             <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2">
-                              <span className="text-xs text-gray-400 flex-1">
-                                {rowCount > 0 ? `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}` : "No data"}
+                              <span className="text-xs text-gray-400 flex-1 min-w-0">
+                                {rowCount > 0 ? (
+                                  `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}`
+                                ) : (
+                                  "No Data.You can add data by going to edit this scene"
+                                )}
                               </span>
                               <button
                                 type="button"
@@ -3809,8 +3813,12 @@ export default function SceneEditModal({
                               {field.label}
                             </label>
                             <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2">
-                              <span className="text-xs text-gray-400 flex-1">
-                                {rowCount > 0 ? `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}` : "No data"}
+                              <span className="text-xs text-gray-400 flex-1 min-w-0">
+                                {rowCount > 0 ? (
+                                  `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}`
+                                ) : (
+                                  "No Data.You can add data by going to edit this scene"
+                                )}
                               </span>
                               <button
                                 type="button"
