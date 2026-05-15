@@ -733,7 +733,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const styleManuallySet = useRef(false);
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
-  const { craftedTemplates, loading: craftedTemplatesCacheLoading } = useCraftedTemplates();
+  const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized } = useCraftedTemplates();
   /** Built-in template list fetch (getTemplates) — drives step 2 loading overlay. */
   const [builtinTemplatesLoading, setBuiltinTemplatesLoading] = useState(true);
   /** After built-ins load: session random pick (or skip) has finished — step 2 can interact. */
@@ -770,7 +770,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
   const [customTemplatesLoading, setCustomTemplatesLoading] = useState(false);
   const [hasCraftedTemplatesEligible, setHasCraftedTemplatesEligible] = useState(false);
-  const craftedTemplatesLoading = hasCraftedTemplatesEligible && craftedTemplatesCacheLoading;
+  // Show the crafted-template loader until the first R2 roundtrip resolves
+  // (not just during the non-silent fetch window), so eligible users never
+  // see the "no templates" state flash while we silently revalidate the
+  // localStorage cache against R2.
+  const craftedTemplatesLoading =
+    hasCraftedTemplatesEligible && (craftedTemplatesCacheLoading || !craftedTemplatesInitialized);
   const [templateAvailabilityLoading, setTemplateAvailabilityLoading] = useState(true);
   const allTemplates = useMemo<TemplateMeta[]>(() => {
     const byId = new Map<string, TemplateMeta>();

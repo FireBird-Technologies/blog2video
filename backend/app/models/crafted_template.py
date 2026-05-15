@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, DateTime, Text, Integer, ForeignKey
+from sqlalchemy import String, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -21,9 +21,6 @@ class CraftedTemplate(Base):
     created_by_admin_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Optional denormalized payload for quick listing without R2 read
-    cached_meta_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     entitlements = relationship("CraftedTemplateEntitlement", back_populates="crafted_template", cascade="all, delete-orphan")

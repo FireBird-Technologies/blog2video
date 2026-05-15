@@ -1,6 +1,5 @@
-import json
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
@@ -15,7 +14,23 @@ from app.services.crafted_template_service import (
     invalidate_crafted_template_cache,
     crafted_cache_stats,
     validate_crafted_template_access,
+    _compose_summary_from_package,
+    write_summary_to_r2,
 )
+
+
+def _wants_force_refresh(request: Request) -> bool:
+    """Detect a hard-refresh signal from the client.
+
+    Treats either `Cache-Control: no-cache` (sent by the frontend on full
+    page reload) or `?fresh=1`/`?force=1` query params (Postman/manual) as
+    a request to bypass the in-process cache and re-read from R2.
+    """
+    cache_control = (request.headers.get("cache-control") or "").lower()
+    if "no-cache" in cache_control:
+        return True
+    query = request.query_params
+    return query.get("fresh") in {"1", "true"} or query.get("force") in {"1", "true"}
 
 router = APIRouter(prefix="/api/crafted-templates", tags=["crafted-templates"])
 
@@ -38,12 +53,13 @@ class CraftedTemplateGrantRequest(BaseModel):
 
 @router.get("")
 def list_crafted_templates(
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     if not is_crafted_templates_enabled():
         return []
-    return list_user_crafted_templates(user.id, db)
+    return list_user_crafted_templates(user.id, db, force_refresh=_wants_force_refresh(request))
 
 
 @router.get("/cache-stats")
@@ -58,6 +74,7 @@ def get_crafted_cache_stats(
 @router.get("/{template_id}")
 def get_crafted_template_detail(
     template_id: str,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -70,6 +87,7 @@ def get_crafted_template_detail(
         user_id=user.id,
         db=db,
         require_entitlement=True,
+        force_refresh=_wants_force_refresh(request),
     )
     if not package:
         raise HTTPException(status_code=404, detail="Crafted template package not found.")
@@ -134,30 +152,25 @@ def publish_crafted(
         db=db,
     )
     invalidate_crafted_template_cache(row.public_template_id)
-    package = load_crafted_template_package(row.public_template_id, db=db, require_entitlement=False)
+    package = load_crafted_template_package(
+        row.public_template_id,
+        db=db,
+        require_entitlement=False,
+        force_refresh=True,
+    )
     if not package:
         row.status = "disabled"
         db.commit()
         raise HTTPException(status_code=422, detail="R2 package validation failed for published template.")
 
-    # Keep latest validated metadata cached in DB as optional L2 fallback.
-    # The list endpoint serves directly from this cache so it stays cheap;
-    # it must therefore include everything the marquee preview card needs:
-    # preview image URL, preview source code, and theme tokens.
-    try:
-        meta_payload = package.get("meta") if isinstance(package.get("meta"), dict) else {}
-        cached_meta_payload = dict(meta_payload)
-        cached_meta_payload["preview_image_url"] = package.get("preview_image_url")
-        cached_meta_payload["preview_file"] = package.get("preview_file")
-        cached_meta_payload["preview_file_rel"] = package.get("preview_file_rel")
-        cached_meta_payload["layout_fields"] = package.get("layout_fields")
-        cached_meta_payload["layout_fields_rel"] = package.get("layout_fields_rel")
-        cached_meta_payload["theme"] = package.get("theme")
-        row.cached_meta_json = json.dumps(cached_meta_payload, ensure_ascii=False)
-        row.status = "active"
-        db.commit()
-    except Exception:
-        db.rollback()
+    # Persist the marquee summary alongside the bundle on R2 so the list
+    # endpoint can serve it without a DB round-trip. On upload failure the
+    # list endpoint falls back to composing summary from the bundle.
+    write_summary_to_r2(row.r2_prefix, _compose_summary_from_package(package))
+
+    row.status = "active"
+    db.commit()
+    invalidate_crafted_template_cache(row.public_template_id)
 
     return {
         "id": row.id,
