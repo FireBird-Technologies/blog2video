@@ -249,7 +249,11 @@ export default function CustomTemplates() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { craftedTemplates, loading: craftedTemplatesLoading } = useCraftedTemplates();
+  const { craftedTemplates, loading: craftedTemplatesFetching, initialized: craftedTemplatesInitialized } = useCraftedTemplates();
+  // Keep the loader visible until the first R2 roundtrip resolves, even when
+  // we paint from localStorage cache first — otherwise an empty cache flashes
+  // the "no templates" state before the real list arrives.
+  const craftedTemplatesLoading = craftedTemplatesFetching || !craftedTemplatesInitialized;
   const previewCompileScope = user?.id != null ? String(user.id) : undefined;
   const [templates, setTemplates] = useState<CustomTemplateItem[]>([]);
   const [activeTemplatesTab, setActiveTemplatesTab] = useState<"custom" | "crafted">("custom");

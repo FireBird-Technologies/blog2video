@@ -10,19 +10,53 @@ import { useAuth } from "../hooks/useAuth";
 
 interface CraftedTemplatesContextValue {
   craftedTemplates: CraftedTemplateItem[];
+  /** True while a non-silent list fetch is in flight. */
   loading: boolean;
-  refresh: (opts?: { silent?: boolean }) => Promise<void>;
+  /**
+   * True once the first list fetch resolves (success or failure). Stays
+   * false during the cache-hit + silent-revalidate window so consumers
+   * can keep the loader visible until R2 has confirmed the real summary
+   * set, instead of flashing an empty state from a stale cache.
+   */
+  initialized: boolean;
+  refresh: (opts?: { silent?: boolean; forceFresh?: boolean }) => Promise<void>;
   ensureCraftedTemplateDetail: (templateId: string) => Promise<CraftedTemplateDetail | null>;
 }
 
-// v4: summaries cached without preview/layout source (those stay in memory only).
-const CACHE_KEY = "b2v_crafted_templates_cache_v4";
+// v5: summaries are sourced from R2 summary.json (no DB column). Bumping the
+// key forces clients that had the v4 (DB-cached) payload to revalidate via
+// the no-cache header the first time they reload after this deploy.
+const CACHE_KEY = "b2v_crafted_templates_cache_v5";
 const LEGACY_CACHE_KEYS = [
+  "b2v_crafted_templates_cache_v4",
   "b2v_crafted_templates_cache_v3",
   "b2v_crafted_templates_cache_v2",
   "b2v_crafted_templates_cache",
 ];
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Module-level flags that survive React re-mounts but reset on page reload.
+ * They let us bypass the backend's R2 cache exactly once per browser session
+ * (after a hard or soft full-page reload), then fall back to silent
+ * revalidation on subsequent auth/user-id changes within the same SPA
+ * session — matching the user's request: "fetch from R2 on hard refresh,
+ * use cache otherwise".
+ */
+let didForceFreshList = false;
+const forceFreshDetailSeen = new Set<string>();
+
+function shouldForceFreshList(): boolean {
+  if (didForceFreshList) return false;
+  didForceFreshList = true;
+  return true;
+}
+
+function shouldForceFreshDetail(templateId: string): boolean {
+  if (forceFreshDetailSeen.has(templateId)) return false;
+  forceFreshDetailSeen.add(templateId);
+  return true;
+}
 
 interface CraftedTemplatesCachePayload {
   userId: number;
@@ -69,6 +103,7 @@ function sanitizeForCache(template: CraftedTemplateSummary): CraftedTemplateSumm
 const CraftedTemplatesContext = createContext<CraftedTemplatesContextValue>({
   craftedTemplates: [],
   loading: false,
+  initialized: false,
   refresh: async () => undefined,
   ensureCraftedTemplateDetail: async () => null,
 });
@@ -114,6 +149,7 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
   // on disk. Reload → silent revalidate or explicit refresh repopulates.
   const [detailsById, setDetailsById] = useState<Record<string, CraftedTemplateDetail>>({});
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const inFlightRef = useRef<Promise<void> | null>(null);
   const detailInFlightRef = useRef<Map<string, Promise<CraftedTemplateDetail | null>>>(new Map());
 
@@ -122,17 +158,19 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
     [summaries, detailsById]
   );
 
-  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
+  const refresh = useCallback(async (opts?: { silent?: boolean; forceFresh?: boolean }) => {
     if (!user?.id) {
       setSummaries([]);
       setDetailsById({});
       setLoading(false);
+      setInitialized(true);
       return;
     }
     if (inFlightRef.current) return inFlightRef.current;
     const silent = !!opts?.silent;
+    const forceFresh = !!opts?.forceFresh;
     if (!silent) setLoading(true);
-    const req = listCraftedTemplates()
+    const req = listCraftedTemplates({ forceFresh })
       .then((res) => {
         const next = res.data || [];
         setSummaries(next);
@@ -147,6 +185,7 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
       })
       .finally(() => {
         if (!silent) setLoading(false);
+        setInitialized(true);
         inFlightRef.current = null;
       });
     inFlightRef.current = req;
@@ -160,7 +199,12 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
       if (existing) return existing;
       const inFlight = detailInFlightRef.current.get(templateId);
       if (inFlight) return inFlight;
-      const req = getCraftedTemplateDetail(templateId)
+      // First detail fetch for this template after a page reload bypasses
+      // the backend bundle cache so a freshly uploaded R2 bundle is picked
+      // up without a server restart. Subsequent fetches in the same SPA
+      // session reuse the warmed backend cache.
+      const forceFresh = shouldForceFreshDetail(templateId);
+      const req = getCraftedTemplateDetail(templateId, { forceFresh })
         .then((res) => {
           const detail = res.data;
           if (detail?.id) {
@@ -184,20 +228,24 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
       setSummaries([]);
       setDetailsById({});
       setLoading(false);
+      setInitialized(true);
       return;
     }
+    // The first list fetch after a page reload bypasses the backend cache;
+    // subsequent silent revalidations within this SPA session do not.
+    const forceFresh = shouldForceFreshList();
     const cached = readCache(user.id);
     if (cached) {
       setSummaries(cached.templates);
       setLoading(false);
-      void refresh({ silent: true });
+      void refresh({ silent: true, forceFresh });
       return;
     }
-    void refresh();
+    void refresh({ forceFresh });
   }, [authLoading, user?.id, refresh]);
 
   return (
-    <CraftedTemplatesContext.Provider value={{ craftedTemplates, loading, refresh, ensureCraftedTemplateDetail }}>
+    <CraftedTemplatesContext.Provider value={{ craftedTemplates, loading, initialized, refresh, ensureCraftedTemplateDetail }}>
       {children}
     </CraftedTemplatesContext.Provider>
   );

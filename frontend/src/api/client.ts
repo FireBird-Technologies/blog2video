@@ -490,11 +490,31 @@ export interface CraftedTemplateItem extends CraftedTemplateSummary {
 
 export interface CraftedTemplateDetail extends CraftedTemplateItem {}
 
-export const listCraftedTemplates = () =>
-  api.get<CraftedTemplateSummary[]>("/crafted-templates");
+export interface CraftedTemplateFetchOptions {
+  /**
+   * When true, ask the backend to bypass its in-process cache and re-read
+   * `summary.json` (or the full bundle) directly from R2. Used on hard
+   * refresh so a fresh upload to R2 is visible without a server restart.
+   */
+  forceFresh?: boolean;
+}
 
-export const getCraftedTemplateDetail = (templateId: string) =>
-  api.get<CraftedTemplateDetail>(`/crafted-templates/${encodeURIComponent(templateId)}`);
+function craftedRequestConfig(opts?: CraftedTemplateFetchOptions) {
+  if (!opts?.forceFresh) return undefined;
+  return { headers: { "Cache-Control": "no-cache" } } as const;
+}
+
+export const listCraftedTemplates = (opts?: CraftedTemplateFetchOptions) =>
+  api.get<CraftedTemplateSummary[]>("/crafted-templates", craftedRequestConfig(opts));
+
+export const getCraftedTemplateDetail = (
+  templateId: string,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateDetail>(
+    `/crafted-templates/${encodeURIComponent(templateId)}`,
+    craftedRequestConfig(opts),
+  );
 
 export interface AspectValue {
   portrait: number;
