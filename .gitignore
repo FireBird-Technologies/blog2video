@@ -20,6 +20,18 @@ backend/media/
 remotion-video/out/
 # remotion-video/public/data.json is tracked for default preview
 remotion-video/src/components/generated/
+# Local crafted bundles (generated for R2 upload only)
+crafted-templates/
+
+# Font binaries — large files, never commit
+remotion-video/public/templates
+frontend/public/templates
+
+# LaDuc template folders (generated/local only)
+frontend/src/components/remotion/laduc/
+backend/templates/laduc/
+remotion-video/src/components/laduc/
+remotion-video/src/templates/laduc/
 
 # Build cache
 *.tsbuildinfo

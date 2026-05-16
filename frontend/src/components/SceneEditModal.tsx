@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import {
@@ -13,21 +13,188 @@ import {
   regenerateScene,
   getValidLayouts,
   LayoutInfo,
+  type LayoutPropSchema,
+  type LayoutPropFieldType,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
-import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
-import { getTemplateConfig } from "./remotion/templateConfig";
-import { getImageBoxAspectRatio, normalizeLayoutId } from "./remotion/imageBoxConfig";
+import { compileDataModule } from "../utils/compileComponent";
+import { normalizeLayoutId } from "./remotion/imageBoxConfig";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
+
+type CraftedImageBoxEntry = string | { landscape?: string; portrait?: string } | undefined;
+
+type CraftedImageBoxConfig = {
+  default?: CraftedImageBoxEntry;
+  layouts?: Record<string, CraftedImageBoxEntry>;
+} & Record<string, unknown>;
+
+type FontSizePair = { title: number; desc: number };
+type CraftedFontSizeLeaf = {
+  title?: number;
+  desc?: number;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
+};
+type CraftedFontSizeEntry = CraftedFontSizeLeaf | {
+  landscape?: CraftedFontSizeLeaf;
+  portrait?: CraftedFontSizeLeaf;
+};
+type CraftedFontSizeConfig = {
+  default?: CraftedFontSizeEntry;
+  layouts?: Record<string, CraftedFontSizeEntry>;
+} & Record<string, unknown>;
+
+const CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES = [
+  "frontend/imageBoxConfig.json",
+  "imageBoxConfig.json",
+  "frontend/config/imageBoxConfig.json",
+];
+const CRAFTED_FONT_SIZE_CONFIG_CANDIDATES = [
+  "frontend/fontSizeDefaults.json",
+  "frontend/fontDefaults.json",
+  "fontSizeDefaults.json",
+  "fontDefaults.json",
+  "frontend/config/fontSizeDefaults.json",
+];
+
+const _normalizeLayoutKey = (layoutId: string | null): string => {
+  return String(layoutId || "").trim().toLowerCase().replace(/[-\s]+/g, "_");
+};
+
+const _pickCraftedAr = (
+  entry: CraftedImageBoxEntry,
+  orientation: "landscape" | "portrait",
+): string | null => {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    const v = entry.trim();
+    return v || null;
+  }
+  const v = (entry[orientation] || entry.landscape || entry.portrait || "").trim();
+  return v || null;
+};
+
+const _resolveCraftedImageBoxArFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): string | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedImageBoxConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedImageBoxConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+
+  const directRecord = parsed as Record<string, CraftedImageBoxEntry>;
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedAr(hit, orientation);
+};
+
+const _toFiniteFontNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
+const _pickCraftedFontPair = (
+  entry: CraftedFontSizeEntry | undefined,
+  orientation: "landscape" | "portrait",
+): FontSizePair | null => {
+  if (!entry || typeof entry !== "object") return null;
+  const e = entry as Record<string, unknown>;
+  const oriented =
+    ((e[orientation] as Record<string, unknown> | undefined) || (e.landscape as Record<string, unknown> | undefined) || (e.portrait as Record<string, unknown> | undefined) || e);
+  const title =
+    _toFiniteFontNumber(oriented.title) ??
+    _toFiniteFontNumber(oriented.titleFontSize);
+  const desc =
+    _toFiniteFontNumber(oriented.desc) ??
+    _toFiniteFontNumber(oriented.descriptionFontSize);
+  if (title == null && desc == null) return null;
+  return {
+    title: Math.round(title ?? 44),
+    desc: Math.round(desc ?? 24),
+  };
+};
+
+const _resolveCraftedFontDefaultsFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): FontSizePair | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_FONT_SIZE_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedFontSizeConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedFontSizeConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+  const directRecord = parsed as Record<string, CraftedFontSizeEntry>;
+
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedFontPair(hit, orientation);
+};
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -195,6 +362,37 @@ export function getDefaultFontSizesFromSchema(
   };
 }
 
+export function resolveDefaultFontSizesForScene(args: {
+  template: string;
+  layoutId: string | null;
+  aspectRatio: string;
+  layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
+  craftedFrontendFiles?: Record<string, string> | null;
+}): { title: number; desc: number } {
+  const {
+    template,
+    layoutId,
+    aspectRatio,
+    layoutPropSchema,
+    craftedFrontendFiles,
+  } = args;
+  const craftedDefaults = _resolveCraftedFontDefaultsFromFiles(
+    craftedFrontendFiles || null,
+    layoutId,
+    aspectRatio
+  );
+  const schemaDefaults = getDefaultFontSizesFromSchema(
+    layoutPropSchema,
+    layoutId,
+    aspectRatio
+  );
+  return craftedDefaults ?? schemaDefaults ?? getDefaultFontSizes(
+    template,
+    layoutId,
+    aspectRatio
+  );
+}
+
 // ─── Layout text field definitions ──────────────────────────
 type FieldType =
   | "string"
@@ -205,6 +403,7 @@ type FieldType =
   | "chart_table"
   | "ohlcv_table"
   | "pipe_table"
+  | "ticker_table"
   | "select"
   | "number"
   | "range";
@@ -438,6 +637,108 @@ function getEmptyChartTableForMode(mode: Exclude<DataVizTableMode, "auto">): { h
 
 function chartTableHasData(table: { headers: string[]; rows: string[][] }): boolean {
   return table.rows.some((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+}
+
+/** Maps LaDuc `market_annotation*` layout ids to a concrete chart kind for example-table seeding. */
+function getLaDucMarketAnnotationChartTypeForLayout(
+  layoutId: string,
+): "line" | "bar" | "histogram" | undefined {
+  switch (layoutId) {
+    case "market_annotation":
+      return "line";
+    case "market_annotation_bar":
+      return "bar";
+    case "market_annotation_histogram":
+      return "histogram";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * LaDuc `market_annotation` example datasets per chart type — mirrors the
+ * defaults shipped in `backend/templates/laduc/meta.json` for the
+ * `market_annotation` / `market_annotation_bar` / `market_annotation_histogram`
+ * studio variants. Used to swap chartTable when the user changes chartType so
+ * the preview renders cleanly with shape-appropriate labels (dates for line,
+ * categories for bar, bucket ranges for histogram).
+ */
+function getLaDucMarketAnnotationExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "line") {
+    return {
+      headers: ["Date", "Close", "Flow index", "Positioning"],
+      rows: [
+        ["2024-01-02", "298", "72", "41"],
+        ["2024-02-01", "308", "68", "44"],
+        ["2024-03-01", "315", "61", "39"],
+        ["2024-04-01", "324", "55", "36"],
+        ["2024-05-01", "318", "59", "33"],
+      ],
+    };
+  }
+  if (chartType === "bar") {
+    return {
+      headers: ["Sector", "Close", "Flow index", "Positioning"],
+      rows: [
+        ["Tech", "324", "72", "41"],
+        ["Energy", "308", "55", "36"],
+        ["Healthcare", "315", "61", "39"],
+        ["Financials", "298", "68", "44"],
+        ["Semis", "318", "59", "33"],
+      ],
+    };
+  }
+  return {
+    headers: ["Score bucket", "Flow index", "Positioning"],
+    rows: [
+      ["30 - 40", "0", "1"],
+      ["40 - 50", "0", "2"],
+      ["50 - 60", "2", "2"],
+      ["60 - 70", "2", "0"],
+      ["70 - 80", "1", "0"],
+    ],
+  };
+}
+
+/**
+ * Mirrors `mergeMarketAnnotationChartDefaults()` in
+ * [VideoPreview.tsx](./VideoPreview.tsx) — fills `chartTable` (and
+ * `chartType`) from `meta.json` `layout_prop_schema[layout].defaults`
+ * when the stored layoutProps don't carry one. Keeps SceneEditModal's
+ * "Edit chart data" preview in sync with the project preview and the
+ * rendered MP4.
+ *
+ * Narrowly scoped to `market_annotation*` layouts only.
+ * Keep this in sync with the VideoPreview copy.
+ */
+function mergeMarketAnnotationChartDefaultsForLayout(
+  layoutProps: Record<string, unknown>,
+  layoutId: string | null | undefined,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  if (!layoutId || !layoutId.startsWith("market_annotation")) return layoutProps;
+  if (!schema || Object.keys(schema).length === 0) return layoutProps;
+  const defaults = schema[layoutId]?.defaults;
+  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  const existingTable = layoutProps.chartTable;
+  const existingTableHasRows =
+    existingTable &&
+    typeof existingTable === "object" &&
+    Array.isArray((existingTable as { rows?: unknown }).rows) &&
+    ((existingTable as { rows: unknown[] }).rows.length > 0);
+  if (existingTableHasRows && layoutProps.chartType) return layoutProps;
+
+  const next = { ...layoutProps };
+  if (!existingTableHasRows && defaults.chartTable && typeof defaults.chartTable === "object") {
+    next.chartTable = defaults.chartTable;
+  }
+  if (!layoutProps.chartType && typeof defaults.chartType === "string") {
+    next.chartType = defaults.chartType;
+  }
+  return next;
 }
 
 function projectChartTableForMode(
@@ -923,6 +1224,51 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   news_timeline: [
     { key: "stats", label: "Timeline events", type: "object_array", subFields: [{ key: "value", label: "Date" }, { key: "label", label: "Description" }], maxItems: 5 },
   ],
+  // LaDuc layouts
+  data_impact: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. April 2026 · The Stealth Bid" },
+    { key: "stats", label: "Data columns", type: "object_array", subFields: [{ key: "value", label: "Number / Amount" }, { key: "label", label: "Category Name" }], maxItems: 5 },
+  ],
+  deep_dive: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. Macro · Deep Dive" },
+    { key: "stats", label: "Fact rows", type: "object_array", subFields: [{ key: "label", label: "Tag (1–2 words)" }, { key: "value", label: "Supporting fact sentence" }], maxItems: 4 },
+    { key: "footerNote", label: "Footer tag", type: "string", placeholder: "e.g. Source: Bloomberg · Apr 2026" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  // LaDuc layouts that don't share IDs with other templates
+  two_column: [
+    { key: "category", label: "Eyebrow label", type: "string" },
+    { key: "leftTitle", label: "Left column title", type: "string" },
+    { key: "rightTitle", label: "Right column title", type: "string" },
+    { key: "leftBody", label: "Left body text", type: "text" },
+    { key: "rightBody", label: "Right body text", type: "text" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  framework_flow: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. The Process · 5 Steps" },
+    { key: "steps", label: "Steps", type: "object_array", subFields: [{ key: "number", label: "Number (01–06)" }, { key: "label", label: "Step name (short)" }, { key: "sub", label: "Subtitle (3–6 words)" }], maxItems: 6 },
+    { key: "footerNote", label: "Footer note", type: "string" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  sign_off: [
+    { key: "category", label: "Issue / session label", type: "string", placeholder: "e.g. Issue #12 · May 2026" },
+    { key: "signOff", label: "Closing line", type: "string", placeholder: "e.g. We make our own luck." },
+    { key: "footerNote", label: "Footer note", type: "string" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  market_annotation: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. $GOLD · Price trend" },
+    { key: "chartTable", label: "Chart data table", type: "chart_table" },
+    { key: "subtitle", label: "X-axis label", type: "string", placeholder: "e.g. Trading date" },
+    { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Price (Rs.)" },
+    { key: "barPrimaryColor", label: "Bar/line color 1", type: "color", placeholder: "#60939C" },
+    { key: "barSecondaryColor", label: "Bar/line color 2", type: "color", placeholder: "#CBBCA2" },
+    { key: "stats", label: "Trade levels (optional)", type: "object_array", subFields: [{ key: "label", label: "Label (ENTRY/TARGET/STOP)" }, { key: "value", label: "Level" }], maxItems: 3 },
+  ],
 };
 
 /** Template-specific overrides for layout fields (when same layout id exists in multiple templates with different props). */
@@ -1138,6 +1484,72 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "phrases", label: "Path steps", type: "string_array", maxItems: 8 },
     ],
   },
+  /** LaDuc — overrides for layout IDs shared with other templates */
+  laduc: {
+    masthead: [
+      { key: "category", label: "Issue line", type: "string", placeholder: "e.g. May 2026 · Issue 12" },
+      { key: "subheading", label: "Subheading / deck", type: "string", placeholder: "e.g. Macro-to-Micro · April 2026" },
+      { key: "issueTag", label: "Issue badge (top-right)", type: "string", placeholder: "e.g. May 2026" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    thesis_statement: [
+      { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. The Thesis" },
+      { key: "quote", label: "Core thesis (displayed large)", type: "text", placeholder: "e.g. A synthetic bull rally cannot afford to stall." },
+      { key: "attribution", label: "Attribution / source", type: "string", placeholder: "e.g. LaDuc · May 2026" },
+      { key: "subheading", label: "Kicker above quote", type: "string" },
+      { key: "footerNote", label: "Footer note", type: "string" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    kinetic_quote: [
+      { key: "quote", label: "Full quote text", type: "text", placeholder: "e.g. Don't risk more than you are willing to lose." },
+      { key: "highlightWord", label: "Word to italicize", type: "string", placeholder: "e.g. willing" },
+      { key: "attribution", label: "Attribution", type: "string", placeholder: "e.g. — Samantha LaDuc" },
+      { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. Mom's Smell Test" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    ticker: [
+      { key: "tickerTitle", label: "Table title", type: "string", placeholder: "e.g. Portfolio Holdings · Q1 2026" },
+      { key: "tickerFootnote", label: "Footnote / source", type: "string", placeholder: "e.g. Source: Bloomberg" },
+      { key: "tickerTable", label: "Ticker rows", type: "ticker_table" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    market_annotation: [
+      { key: "category", label: "Chart label", type: "string", placeholder: "e.g. $GOLD · Price trend" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      {
+        key: "chartType",
+        label: "Chart type",
+        type: "select",
+        default: "auto",
+        options: [
+          { value: "auto", label: "Auto" },
+          { value: "line", label: "Line" },
+          { value: "bar", label: "Bar" },
+          { value: "histogram", label: "Histogram" },
+        ],
+      },
+      { key: "subtitle", label: "X-axis / category caption", type: "string", placeholder: "e.g. Trading date" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Index / score" },
+      { key: "chartSummary", label: "Chart summary (short read beside the graphic)", type: "string", placeholder: "Price trends higher through April..." },
+      { key: "chartTimeframeLabel", label: "Chart timeframe label (top-right)", type: "string", placeholder: "1D / 5m" },
+      { key: "footerNote", label: "Y-axis caption / footer note", type: "string", placeholder: "Source: Bloomberg" },
+      { key: "narration", label: "Thesis quote (bottom italic)", type: "string" },
+      { key: "barPrimaryColor", label: "Bar / line color 1", type: "color", placeholder: "#60939C" },
+      { key: "barSecondaryColor", label: "Bar / line color 2", type: "color", placeholder: "#CBBCA2" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+      { key: "chartYAxisTicks", label: "Y-axis tick labels (top → bottom, 2–4 values)", type: "string_array", maxItems: 4 },
+      { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    ],
+    ending_socials: [
+      { key: "brandName", label: "Brand name", type: "string", placeholder: "e.g. LaDucTrading" },
+      { key: "ctaButtonText", label: "CTA button text", type: "string", placeholder: "e.g. Join LaDucTrading" },
+      { key: "websiteLink", label: "Website URL", type: "string", placeholder: "e.g. https://laductrading.com" },
+    ],
+  },
 };
 
 /** Structured content fields for AI-generated custom template scenes. */
@@ -1172,14 +1584,32 @@ function getLayoutFields(template: string, layoutId: string | null): FieldDef[] 
   return LAYOUT_TEXT_FIELDS_OVERRIDE[normalizedTemplate]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
 }
 
+/**
+ * Module-scoped cache of compiled crafted-template layout field defs.
+ * Keyed by `template_id`. Survives modal close/reopen within the session;
+ * cleared on full reload (matches localStorage cache TTL behavior).
+ */
+const __craftedLayoutFieldsCache = new Map<string, Record<string, FieldDef[]>>();
+
 /** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
 const HIDDEN_LAYOUT_PROP_KEYS = new Set([
   "hideImage",
   "assignedImage",
   "imageUrl",
+  "imageBoxAspectRatio",
+  "ImageBoxAspectRatio",
+  "image_box_aspect_ratio",
   "titleFontSize",
   "descriptionFontSize",
 ]);
+
+const HIDDEN_LAYOUT_PROP_KEYS_LOWER = new Set(
+  Array.from(HIDDEN_LAYOUT_PROP_KEYS).map((k) => k.toLowerCase()),
+);
+
+function isHiddenLayoutPropKey(key: string): boolean {
+  return HIDDEN_LAYOUT_PROP_KEYS_LOWER.has(String(key || "").toLowerCase());
+}
 
 /**
  * Keys that were once valid for a template/layout but have been deprecated.
@@ -1201,6 +1631,130 @@ function isDeprecatedLayoutPropKey(
   if (!template || !layoutId) return false;
   const t = template.toLowerCase();
   return DEPRECATED_LAYOUT_PROP_KEYS[t]?.[layoutId]?.has(key) ?? false;
+}
+
+function schemaLayoutPropTypeToFieldType(t: LayoutPropFieldType): FieldType | null {
+  switch (t) {
+    case "string":
+    case "text":
+    case "color":
+    case "number":
+    case "select":
+    case "string_array":
+    case "object_array":
+      return t;
+    case "chart_table":
+      return "chart_table";
+    default:
+      return null;
+  }
+}
+
+/** Prefer bundled layoutFields.ts; fall back to API meta.layout_prop_schema for crafted templates. */
+function layoutPropSchemaToFieldDefs(schema: LayoutPropSchema | undefined): FieldDef[] | undefined {
+  if (!schema?.fields?.length) return undefined;
+  const out: FieldDef[] = [];
+  for (const f of schema.fields) {
+    if (isHiddenLayoutPropKey(f.key)) continue;
+    const ft = schemaLayoutPropTypeToFieldType(f.type);
+    if (!ft) continue;
+    out.push({
+      key: f.key,
+      label: f.label,
+      type: ft,
+      placeholder: f.placeholder,
+      maxItems: f.maxItems,
+      min: f.min,
+      max: f.max,
+      step: f.step,
+      options: f.options?.map((o) => ({ value: o.value, label: o.label })),
+      subFields: f.subFields,
+    });
+  }
+  return out.length ? out : undefined;
+}
+
+function pickCraftedCompiledLayoutFields(
+  byLayout: Record<string, FieldDef[]> | null | undefined,
+  layoutId: string | null,
+): FieldDef[] | undefined {
+  if (!byLayout || !layoutId) return undefined;
+  const direct = byLayout[layoutId];
+  if (Array.isArray(direct) && direct.length > 0) return direct;
+  const lower = layoutId.toLowerCase();
+  const altKey = Object.keys(byLayout).find((k) => k.toLowerCase() === lower);
+  const alt = altKey ? byLayout[altKey] : undefined;
+  if (Array.isArray(alt) && alt.length > 0) return alt;
+  return undefined;
+}
+
+function pickLayoutPropSchemaFieldDefs(
+  schemaMap: Record<string, LayoutPropSchema> | undefined,
+  layoutId: string | null,
+): FieldDef[] | undefined {
+  if (!schemaMap || !layoutId) return undefined;
+  let defs = layoutPropSchemaToFieldDefs(schemaMap[layoutId]);
+  if (defs?.length) return defs;
+  const lower = layoutId.toLowerCase();
+  const altKey = Object.keys(schemaMap).find((k) => k.toLowerCase() === lower);
+  return altKey ? layoutPropSchemaToFieldDefs(schemaMap[altKey]) : undefined;
+}
+
+function normalizeObjectArrayItems(raw: unknown): Record<string, string>[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((it) => {
+    if (it != null && typeof it === "object" && !Array.isArray(it)) {
+      const o = it as Record<string, unknown>;
+      const out: Record<string, string> = {};
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        out[k] =
+          v == null
+            ? ""
+            : typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+              ? String(v)
+              : JSON.stringify(v);
+      }
+      return out;
+    }
+    return { value: String(it ?? "") };
+  });
+}
+
+function inferObjectArraySubFields(
+  items: Record<string, string>[],
+): { key: string; label: string; placeholder?: string }[] {
+  const first = items.find((row) => row && typeof row === "object");
+  if (!first) return [];
+  return Object.keys(first).map((k) => ({
+    key: k,
+    label: k.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
+  }));
+}
+
+function formatUnknownLayoutPropValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function parseUnknownLayoutPropValue(raw: string, prevValue: unknown): unknown {
+  // For array/object props, preserve shape by accepting JSON edits.
+  if (Array.isArray(prevValue) || (prevValue != null && typeof prevValue === "object")) {
+    const trimmed = raw.trim();
+    if (!trimmed) return Array.isArray(prevValue) ? [] : {};
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return prevValue;
+    }
+  }
+  return raw;
 }
 
 // Auto-growing textarea component
@@ -1484,7 +2038,6 @@ export default function SceneEditModal({
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
-  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
@@ -1493,6 +2046,14 @@ export default function SceneEditModal({
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
+  const [tickerTableModalOpen, setTickerTableModalOpen] = useState(false);
+  const [tickerTableModalKey, setTickerTableModalKey] = useState<string | null>(null);
+  const [tickerTableDraft, setTickerTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [chartTableModalOpen, setChartTableModalOpen] = useState(false);
+  const [chartTableModalKey, setChartTableModalKey] = useState<string | null>(null);
+  const [chartTableDraft, setChartTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [chartTableError, setChartTableError] = useState<string | null>(null);
+  const chartTableErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
   const localImageInputRef = useRef<HTMLInputElement>(null);
   const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
@@ -1524,18 +2085,21 @@ export default function SceneEditModal({
   const canUseAI = isPro || aiUsageCount < 3;
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
+  const isCraftedTemplate = (project.template || "").startsWith("crafted_");
   const normalizedTemplateId = (project.template || "default").toLowerCase();
   const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
   const isDefaultTemplate = normalizedTemplateId === "default";
   const isBloombergTemplate = normalizedTemplateId === "bloomberg";
+  const isLaDucTemplate = normalizedTemplateId === "laduc";
 
   const currentLayoutId = (() => {
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
-        // Custom templates: check for variant override first
-        if (desc.sceneTypeOverride) {
+        // Only custom templates use sceneType/content variant routing.
+        // Crafted + built-in templates should map by explicit layout id.
+        if (isCustomTemplate && desc.sceneTypeOverride) {
           if (desc.sceneTypeOverride === "content" && typeof desc.contentVariantIndex === "number") {
             return `content_${desc.contentVariantIndex}`;
           }
@@ -1573,18 +2137,23 @@ export default function SceneEditModal({
     return sorted.length > 1 && sorted[sorted.length - 1].id === scene.id;
   })();
   const isEndingScene = currentLayoutId === "ending_socials" || isCustomOutro;
+  const [craftedFrontendFiles, setCraftedFrontendFiles] = useState<Record<string, string> | null>(null);
+  // Per-layout SceneEditModal field overrides loaded from the crafted
+  // template's bundled `frontend/layoutFields.ts`. Compiled at runtime;
+  // falls back to LAYOUT_TEXT_FIELDS / meta.json when null.
+  const [craftedLayoutFieldsByLayout, setCraftedLayoutFieldsByLayout] =
+    useState<Record<string, FieldDef[]> | null>(null);
+  /** False while `layout_fields` TS is compiling — avoids showing `[object Object]` in generic extra-key inputs. */
+  const [craftedLayoutFieldsReady, setCraftedLayoutFieldsReady] = useState(true);
+  const { craftedTemplates, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
-  const defaultFontSizes =
-    getDefaultFontSizesFromSchema(
-      layouts?.layout_prop_schema,
-      currentLayoutId,
-      project.aspect_ratio || "landscape"
-    ) ??
-    getDefaultFontSizes(
-      project.template || "default",
-      currentLayoutId,
-      project.aspect_ratio || "landscape"
-    );
+  const defaultFontSizes = resolveDefaultFontSizesForScene({
+    template: project.template || "default",
+    layoutId: currentLayoutId,
+    aspectRatio: project.aspect_ratio || "landscape",
+    layoutPropSchema: layouts?.layout_prop_schema,
+    craftedFrontendFiles,
+  });
 
   const aiHasChanges =
     description.trim().length > 0 ||
@@ -1808,6 +2377,16 @@ export default function SceneEditModal({
         }
       } catch { /* ignore */ }
     }
+    // Mirror VideoPreview's chartTable defaults merge so the "Edit chart
+    // data" modal preview shows the same fallback data the project preview
+    // and rendered MP4 produce. No-op for non-market_annotation layouts.
+    lpCopy = mergeMarketAnnotationChartDefaultsForLayout(
+      lpCopy,
+      layoutId,
+      layouts?.layout_prop_schema as
+        | Record<string, { defaults?: Record<string, unknown> }>
+        | undefined,
+    );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
       const lpSocials = (lpCopy as Record<string, unknown>).socials;
@@ -1864,21 +2443,89 @@ export default function SceneEditModal({
       } catch { /* ignore */ }
     }
     setEditableStructuredContent(scInit);
-    const schemaDefaults = getDefaultFontSizesFromSchema(
-      layouts?.layout_prop_schema,
+    const defaults = resolveDefaultFontSizesForScene({
+      template: project.template || "default",
       layoutId,
-      project.aspect_ratio || "landscape"
-    );
-    const defaults = schemaDefaults ?? getDefaultFontSizes(
-      project.template || "default",
-      layoutId,
-      project.aspect_ratio || "landscape"
-    );
+      aspectRatio: project.aspect_ratio || "landscape",
+      layoutPropSchema: layouts?.layout_prop_schema,
+      craftedFrontendFiles,
+    });
     if (!ts) ts = String(defaults.title);
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, openImageAdjustOnOpen]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, craftedFrontendFiles, isCraftedTemplate, openImageAdjustOnOpen]);
+
+  useEffect(() => {
+    if (!open || !isCraftedTemplate || !project.template) {
+      setCraftedFrontendFiles(null);
+      return;
+    }
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    setCraftedFrontendFiles((found?.frontend_files as Record<string, string> | null) || null);
+    if (!found?.frontend_files) {
+      void ensureCraftedTemplateDetail(project.template);
+    }
+  }, [open, isCraftedTemplate, project.template, craftedTemplates, ensureCraftedTemplateDetail]);
+
+  // Compile the bundled `frontend/layoutFields.ts` into a Record<layoutId, FieldDef[]>.
+  // The source ships on the list-summary (no full-package fetch needed).
+  // Module-level cache (`__craftedLayoutFieldsCache`) survives modal close/reopen.
+  useEffect(() => {
+    if (!open || !isCraftedTemplate || !project.template) {
+      setCraftedLayoutFieldsByLayout(null);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    const templateId = project.template;
+    const found = craftedTemplates.find((ct) => ct.id === templateId);
+    const source = (found as { layout_fields?: string | null } | undefined)?.layout_fields;
+    if (!source || !String(source).trim()) {
+      setCraftedLayoutFieldsByLayout(null);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    const cached = __craftedLayoutFieldsCache.get(templateId);
+    if (cached) {
+      setCraftedLayoutFieldsByLayout(cached);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    let cancelled = false;
+    setCraftedLayoutFieldsReady(false);
+    void compileDataModule(source)
+      .then((mod) => {
+        if (cancelled) return;
+        const raw = (mod?.LAYOUT_FIELDS ?? mod?.default ?? null) as
+          | Record<string, FieldDef[]>
+          | null;
+        if (!raw || typeof raw !== "object") {
+          setCraftedLayoutFieldsByLayout(null);
+          return;
+        }
+        // Defensive shape check — drop entries that aren't arrays of objects with a `key`.
+        const safe: Record<string, FieldDef[]> = {};
+        for (const [layoutId, fields] of Object.entries(raw)) {
+          if (!Array.isArray(fields)) continue;
+          const valid = fields.filter(
+            (f): f is FieldDef => !!f && typeof f === "object" && typeof (f as { key?: unknown }).key === "string",
+          );
+          if (valid.length > 0) safe[layoutId] = valid;
+        }
+        __craftedLayoutFieldsCache.set(templateId, safe);
+        setCraftedLayoutFieldsByLayout(safe);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCraftedLayoutFieldsByLayout(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCraftedLayoutFieldsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isCraftedTemplate, project.template, craftedTemplates]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -2312,6 +2959,25 @@ export default function SceneEditModal({
     }
   };
 
+  /**
+   * Layout-dropdown selection wrapper. Sets `selectedLayout` and — for LaDuc
+   * market_annotation variants — seeds `editableLayoutProps.chartTable` with
+   * the canonical example data when the existing chartTable is empty. Keeps
+   * the modal's "Edit chart data" editor in sync with the renderer's fallback.
+   */
+  const applySelectedLayout = (next: string) => {
+    setSelectedLayout(next);
+    if (!isLaDucTemplate) return;
+    if (next === "__keep__" || next === "__auto__") return;
+    const chartType = getLaDucMarketAnnotationChartTypeForLayout(next);
+    if (!chartType) return;
+    setEditableLayoutProps((prev) => {
+      const existing = normalizeChartTableValue(prev.chartTable);
+      if (chartTableHasData(existing)) return prev;
+      return { ...prev, chartTable: getLaDucMarketAnnotationExampleTable(chartType) };
+    });
+  };
+
   const handleRemoveImage = async (assetId: number) => {
     setRemovingAssetId(assetId);
     try {
@@ -2513,19 +3179,6 @@ export default function SceneEditModal({
   }, [imageAdjustOpen, imageAdjustSrc]);
 
   const openImageAdjustModal = (src: string) => {
-    let ar: string;
-    if (project.template?.startsWith("custom_")) {
-      ar = resolveCustomImageBoxAr(scene, project);
-    } else {
-      const templateCfg = getTemplateConfig(project.template || "default");
-      ar = getImageBoxAspectRatio(
-        currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
-        project.aspect_ratio || "landscape",
-        templateCfg.baseWidth,
-        templateCfg.baseHeight,
-      );
-    }
-    setImageAdjustAspectRatio(ar);
     setImageAdjustSrc(src);
     setIsAdjustDragging(false);
     const currentZoom = Math.max(1, Number((editableLayoutProps.imageZoom as number) || 1));
@@ -2822,8 +3475,27 @@ export default function SceneEditModal({
                   );
                 }
 
-                const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
-                let layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
+                // Crafted templates: prefer fields shipped in the bundle's
+                // `frontend/layoutFields.ts`. Fall back to LAYOUT_TEXT_FIELDS
+                // (keyed by layout id) for any layout the bundle hasn't
+                // declared, so unknown crafted layouts still render *some*
+                // controls instead of being blank.
+                const craftedTemplateEntry = isCraftedTemplate
+                  ? craftedTemplates.find((ct) => ct.id === project.template)
+                  : undefined;
+                const craftedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickCraftedCompiledLayoutFields(craftedLayoutFieldsByLayout, currentLayoutId)
+                    : undefined;
+                const schemaBackedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickLayoutPropSchemaFieldDefs(craftedTemplateEntry?.layout_prop_schema, currentLayoutId)
+                    : undefined;
+                const rawLayoutFields =
+                  craftedFields ??
+                  schemaBackedFields ??
+                  getLayoutFields(project.template || "default", currentLayoutId);
+                let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
 
                 if (isNewscastTemplate && currentLayoutId === "data_visualization") {
                   const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
@@ -2850,14 +3522,24 @@ export default function SceneEditModal({
                   isBloombergTemplate && currentLayoutId === "terminal_chart";
                 const suppressExtraKeysForBloombergDataViz =
                   isBloombergTemplate && currentLayoutId === "terminal_dataviz";
+                const craftedHasLayoutFieldsSource =
+                  isCraftedTemplate &&
+                  Boolean(
+                    String(
+                      (craftedTemplateEntry as { layout_fields?: string | null } | undefined)?.layout_fields ?? "",
+                    ).trim(),
+                  );
+                const deferCraftedExtraKeys = craftedHasLayoutFieldsSource && !craftedLayoutFieldsReady;
                 const extraKeys =
                   (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz)
                     ? []
+                    : deferCraftedExtraKeys
+                      ? []
                     : currentLayoutId && editableLayoutProps
                       ? Object.keys(editableLayoutProps).filter(
                           (key) =>
                             !knownKeys.has(key) &&
-                            !HIDDEN_LAYOUT_PROP_KEYS.has(key) &&
+                            !isHiddenLayoutPropKey(key) &&
                             !isDeprecatedLayoutPropKey(
                               project.template,
                               currentLayoutId,
@@ -3044,6 +3726,41 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
+                      if (field.type === "ticker_table") {
+                        const raw = editableLayoutProps[field.key] as { headers: string[]; rows: string[][] } | null | undefined;
+                        const rowCount = raw?.rows?.length ?? 0;
+                        const colCount = raw?.headers?.length ?? 0;
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2">
+                              <span className="text-xs text-gray-400 flex-1 min-w-0">
+                                {rowCount > 0 ? (
+                                  `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}`
+                                ) : (
+                                  "No Data.You can add data by going to edit this scene"
+                                )}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const parsed = raw && typeof raw === "object" && Array.isArray(raw.rows)
+                                    ? { headers: Array.isArray(raw.headers) ? raw.headers.map(String) : ["Label", "Value"], rows: (raw.rows as unknown[][]).map((r) => Array.isArray(r) ? r.map(String) : [""]) }
+                                    : { headers: ["Label", "Value"], rows: [[""]] };
+                                  setTickerTableDraft(parsed);
+                                  setTickerTableModalKey(field.key);
+                                  setTickerTableModalOpen(true);
+                                }}
+                                className="px-3 py-1 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white transition-colors"
+                              >
+                                Edit table
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
                       if (field.type === "chart_table") {
                         const table = normalizeChartTableValue(editableLayoutProps[field.key]);
                         const fixedModeByFieldKey: Partial<Record<string, DataVizTableMode>> = {
@@ -3052,7 +3769,6 @@ export default function SceneEditModal({
                           pieChartTable: "pie",
                           histogramChartTable: "histogram",
                         };
-                        const mode = fixedModeByFieldKey[field.key] ?? inferDataVizTableMode(editableLayoutProps);
                         const isSeparateDataVizTableEditor =
                           (isNightfallTemplate || isDefaultTemplate) && currentLayoutId === "data_visualization";
                         const primaryChartType = String(
@@ -3089,127 +3805,35 @@ export default function SceneEditModal({
                           );
                         }
 
-                        const inferredLineSeriesCount = lineSeriesCountFromLayoutProps(editableLayoutProps);
-                        const tableLineSeriesCount = countLineSeriesInChartTable(table);
-                        const effectiveLineSeriesCount =
-                          tableLineSeriesCount > 0 ? tableLineSeriesCount : inferredLineSeriesCount;
-                        const projected = projectChartTableForMode(table, mode, effectiveLineSeriesCount);
-                        const fixedColumnCount =
-                          mode === "histogram" || mode === "pie"
-                            ? 2
-                            : mode === "bar" || mode === "line"
-                              ? Math.max(2, Math.min(4, 1 + effectiveLineSeriesCount))
-                              : null;
-                        const visibleTable = fixedColumnCount != null
-                          ? {
-                              headers: projected.headers.slice(0, fixedColumnCount),
-                              rows: projected.rows.map((r) => r.slice(0, fixedColumnCount)),
-                            }
-                          : projected;
-                        const updateTable = (next: { headers: string[]; rows: string[][] }) => {
-                          const normalizedNext = normalizeChartTableValue(next);
-                          const clampedNext = fixedColumnCount != null
-                            ? {
-                                headers: normalizedNext.headers.slice(0, fixedColumnCount),
-                                rows: normalizedNext.rows.map((r) => r.slice(0, fixedColumnCount)),
-                              }
-                            : normalizedNext;
-                          setEditableLayoutProps((prev) => ({ ...prev, [field.key]: clampedNext }));
-                        };
+                        const rowCount = table.rows.length;
+                        const colCount = table.headers.length;
                         return (
                           <div key={field.key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
-                            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 overflow-x-auto">
-                              <table className="min-w-full border-separate border-spacing-0">
-                                <thead>
-                                  <tr>
-                                    {visibleTable.headers.map((header, colIndex) => (
-                                      <th key={`h-${colIndex}`} className="p-1.5 align-top">
-                                        <input
-                                          type="text"
-                                          value={header}
-                                          placeholder={colIndex === 0 ? "Label" : `Series ${colIndex}`}
-                                          onChange={(e) => {
-                                            const headers = [...visibleTable.headers];
-                                            headers[colIndex] = e.target.value;
-                                            updateTable({ headers, rows: visibleTable.rows });
-                                          }}
-                                          className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                        />
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {visibleTable.rows.map((row, rowIndex) => (
-                                    <tr key={`r-${rowIndex}`}>
-                                      {visibleTable.headers.map((_, colIndex) => (
-                                        <td key={`c-${rowIndex}-${colIndex}`} className="p-1.5">
-                                          <input
-                                            type="text"
-                                            value={row[colIndex] ?? ""}
-                                            onChange={(e) => {
-                                              const rows = visibleTable.rows.map((r) => [...r]);
-                                              rows[rowIndex][colIndex] = e.target.value;
-                                              updateTable({ headers: visibleTable.headers, rows });
-                                            }}
-                                            className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                          />
-                                        </td>
-                                      ))}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const rows = [...visibleTable.rows, Array.from({ length: visibleTable.headers.length }, () => "")];
-                                    updateTable({ headers: visibleTable.headers, rows });
-                                  }}
-                                  className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
-                                >
-                                  + Row
-                                </button>
-                                {fixedColumnCount == null ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const headers = [...visibleTable.headers, `Series ${visibleTable.headers.length}`];
-                                      const rows = visibleTable.rows.map((r) => [...r, ""]);
-                                      updateTable({ headers, rows });
-                                    }}
-                                    className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
-                                  >
-                                    + Column
-                                  </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (visibleTable.rows.length === 0) return;
-                                    updateTable({ headers: visibleTable.headers, rows: visibleTable.rows.slice(0, -1) });
-                                  }}
-                                  className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
-                                >
-                                  - Row
-                                </button>
-                                {fixedColumnCount == null ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (visibleTable.headers.length <= 2) return;
-                                      const headers = visibleTable.headers.slice(0, -1);
-                                      const rows = visibleTable.rows.map((r) => r.slice(0, -1));
-                                      updateTable({ headers, rows });
-                                    }}
-                                    className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
-                                  >
-                                    - Column
-                                  </button>
-                                ) : null}
-                              </div>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2">
+                              <span className="text-xs text-gray-400 flex-1 min-w-0">
+                                {rowCount > 0 ? (
+                                  `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}`
+                                ) : (
+                                  "No Data.You can add data by going to edit this scene"
+                                )}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setChartTableDraft({
+                                    headers: [...table.headers],
+                                    rows: table.rows.map((r) => [...r]),
+                                  });
+                                  setChartTableModalKey(field.key);
+                                  setChartTableModalOpen(true);
+                                }}
+                                className="px-3 py-1 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white transition-colors"
+                              >
+                                Edit table
+                              </button>
                             </div>
                           </div>
                         );
@@ -3218,14 +3842,39 @@ export default function SceneEditModal({
                         const opts = field.options ?? [];
                         const defaultVal = field.default ?? opts[0]?.value ?? "";
                         const sel = String(editableLayoutProps[field.key] ?? defaultVal);
+                        const isLaDucChartTypeField =
+                          isLaDucTemplate &&
+                          currentLayoutId === "market_annotation" &&
+                          field.key === "chartType";
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
                             <select
                               value={sel}
-                              onChange={(e) =>
-                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))
-                              }
+                              onChange={(e) => {
+                                const nextChartType = e.target.value;
+                                if (isLaDucChartTypeField) {
+                                  // Swap chartTable to a shape-appropriate example when the
+                                  // user picks a concrete chart type so the preview renders
+                                  // cleanly (line wants dates, bar wants categories,
+                                  // histogram wants bucket ranges). "auto" leaves the table
+                                  // alone — inference decides at render time.
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    const example = getLaDucMarketAnnotationExampleTable(concrete);
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [field.key]: nextChartType,
+                                      chartTable: example,
+                                    }));
+                                    return;
+                                  }
+                                }
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: nextChartType }));
+                              }}
                               className={inputClass}
                             >
                               {opts.map((o) => (
@@ -3350,8 +3999,13 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
-                      if (field.type === "object_array" && field.subFields) {
-                        const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as Record<string, string>[];
+                      if (field.type === "object_array") {
+                        const items = normalizeObjectArrayItems(editableLayoutProps[field.key]);
+                        const subFields =
+                          field.subFields?.length
+                            ? field.subFields
+                            : inferObjectArraySubFields(items);
+                        if (!subFields.length) return null;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -3360,7 +4014,7 @@ export default function SceneEditModal({
                                 <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                                   <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                   <div className="flex-1 space-y-2">
-                                    {field.subFields!.map((sf) => (
+                                    {subFields.map((sf) => (
                                       <div key={sf.key}>
                                         <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
                                         <input
@@ -3396,7 +4050,7 @@ export default function SceneEditModal({
                                   type="button"
                                   onClick={() => {
                                     const empty: Record<string, string> = {};
-                                    field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                    subFields.forEach((sf) => { empty[sf.key] = ""; });
                                     setEditableLayoutProps((prev) => ({ ...prev, [field.key]: [...items, empty] }));
                                   }}
                                   className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
@@ -3415,24 +4069,92 @@ export default function SceneEditModal({
                     })}
                     {extraKeys.length > 0 && (
                       <div className="space-y-3">
-                        {extraKeys.map((key) => (
-                          <div key={key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
-                              {humanLabel(key)}
-                            </label>
-                            <input
-                              type="text"
-                              value={String(editableLayoutProps[key] ?? "")}
-                              onChange={(e) =>
-                                setEditableLayoutProps((prev) => ({
-                                  ...prev,
-                                  [key]: e.target.value,
-                                }))
-                              }
-                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                          </div>
-                        ))}
+                        {extraKeys.map((key) => {
+                          const rawValue = editableLayoutProps[key];
+                          const looksLikeObjectArray = Array.isArray(rawValue)
+                            && rawValue.every((it) => it != null && typeof it === "object" && !Array.isArray(it));
+                          if (looksLikeObjectArray) {
+                            const items = normalizeObjectArrayItems(rawValue);
+                            const subFields = inferObjectArraySubFields(items);
+                            if (!subFields.length) return null;
+                            return (
+                              <div key={key}>
+                                <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                                  {humanLabel(key)}
+                                </label>
+                                <div className="space-y-3">
+                                  {items.map((item, i) => (
+                                    <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                                      <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
+                                      <div className="flex-1 space-y-2">
+                                        {subFields.map((sf) => (
+                                          <div key={sf.key}>
+                                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
+                                            <input
+                                              type="text"
+                                              value={item[sf.key] ?? ""}
+                                              placeholder={sf.placeholder || sf.label}
+                                              onChange={(e) => {
+                                                const updated = [...items];
+                                                updated[i] = { ...updated[i], [sf.key]: e.target.value };
+                                                setEditableLayoutProps((prev) => ({ ...prev, [key]: updated }));
+                                              }}
+                                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = items.filter((_, j) => j !== i);
+                                          setEditableLayoutProps((prev) => ({ ...prev, [key]: updated }));
+                                        }}
+                                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                                {humanLabel(key)}
+                              </label>
+                              {(rawValue != null && typeof rawValue === "object") ? (
+                                <AutoGrowTextarea
+                                  value={formatUnknownLayoutPropValue(rawValue)}
+                                  onChange={(e) =>
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [key]: parseUnknownLayoutPropValue(e.target.value, prev[key]),
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden font-mono"
+                                  minRows={3}
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={formatUnknownLayoutPropValue(rawValue)}
+                                  onChange={(e) =>
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [key]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -3556,8 +4278,13 @@ export default function SceneEditModal({
                             </div>
                           );
                         }
-                        if (field.type === "object_array" && field.subFields) {
-                          const items = (Array.isArray(editableStructuredContent[field.key]) ? editableStructuredContent[field.key] : []) as Record<string, string>[];
+                        if (field.type === "object_array") {
+                          const items = normalizeObjectArrayItems(editableStructuredContent[field.key]);
+                          const subFields =
+                            field.subFields?.length
+                              ? field.subFields
+                              : inferObjectArraySubFields(items);
+                          if (!subFields.length) return null;
                           return (
                             <div key={field.key}>
                               <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -3566,7 +4293,7 @@ export default function SceneEditModal({
                                   <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                                     <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                     <div className="flex-1 space-y-2">
-                                      {field.subFields!.map((sf) => (
+                                      {subFields.map((sf) => (
                                         <div key={sf.key}>
                                           <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
                                           <input
@@ -3602,7 +4329,7 @@ export default function SceneEditModal({
                                     type="button"
                                     onClick={() => {
                                       const empty: Record<string, string> = {};
-                                      field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                      subFields.forEach((sf) => { empty[sf.key] = ""; });
                                       setEditableStructuredContent((prev) => ({ ...prev, [field.key]: [...items, empty] }));
                                     }}
                                     className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
@@ -3632,7 +4359,19 @@ export default function SceneEditModal({
                   <div>
                     <div className="flex justify-between items-baseline">
                       <label className="text-xs text-gray-400">Title font size</label>
-                      <span className="text-xs font-medium text-purple-600 tabular-nums">{titleFontSize}</span>
+                      {(() => {
+                        const parsed = parseInt(titleFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.title;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <input
                       type="range"
@@ -3647,7 +4386,19 @@ export default function SceneEditModal({
                   <div>
                     <div className="flex justify-between items-baseline ">
                       <label className="text-xs text-gray-400">Description font size</label>
-                      <span className="text-xs font-medium text-purple-600 tabular-nums">{descriptionFontSize}</span>
+                      {(() => {
+                        const parsed = parseInt(descriptionFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.desc;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <input
                       type="range"
@@ -3885,7 +4636,7 @@ export default function SceneEditModal({
                   <div className="absolute z-10 mt-1.5 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
                     <button
                       type="button"
-                      onClick={() => { setSelectedLayout("__keep__"); setLayoutOpen(false); }}
+                      onClick={() => { applySelectedLayout("__keep__"); setLayoutOpen(false); }}
                       className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
                         selectedLayout === "__keep__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                       }`}
@@ -3900,7 +4651,7 @@ export default function SceneEditModal({
                     {!isCustomTemplate && (
                       <button
                         type="button"
-                        onClick={() => { setSelectedLayout("__auto__"); setLayoutOpen(false); }}
+                        onClick={() => { applySelectedLayout("__auto__"); setLayoutOpen(false); }}
                         className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
                           selectedLayout === "__auto__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                         }`}
@@ -3916,7 +4667,7 @@ export default function SceneEditModal({
                           <button
                             key={layoutId}
                             type="button"
-                            onClick={() => { setSelectedLayout(layoutId); setLayoutOpen(false); }}
+                            onClick={() => { applySelectedLayout(layoutId); setLayoutOpen(false); }}
                             className={`w-full text-left px-3 py-2.5 text-xs hover:bg-purple-50 transition-colors ${
                               selectedLayout === layoutId ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                             }`}
@@ -4158,9 +4909,9 @@ export default function SceneEditModal({
               onMouseDown={handleAdjustMouseDown}
               onTouchStart={handleAdjustTouchStart}
               style={{
-                aspectRatio: imageAdjustAspectRatio,
+                height: "min(70vh, 26rem)",
                 maxHeight: "70vh",
-                maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                maxWidth: "min(100%, 42rem)",
               }}
               className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
                 isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
@@ -4230,5 +4981,551 @@ export default function SceneEditModal({
     )}
     </>
   );
-  return isDemo ? modalTree : ReactDOM.createPortal(modalTree, document.body);
+
+  const TICKER_MODAL_MAX_COLS = 6;
+  const TICKER_MODAL_MAX_ROWS = 20;
+  const tickerDraft = tickerTableDraft ?? { headers: ["Label", "Value"], rows: [[""]] };
+
+  const tickerModal = tickerTableModalOpen && tickerTableModalKey ? (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setTickerTableModalOpen(false)} />
+      <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl flex flex-col" style={{ maxHeight: "88vh" }}>
+
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Edit ticker table</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {TICKER_MODAL_MAX_ROWS} rows · max {TICKER_MODAL_MAX_COLS} cols</p>
+          </div>
+          <button type="button" onClick={() => setTickerTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Table area */}
+        <div className="overflow-auto flex-1 p-4">
+          <table className="w-full border-separate border-spacing-1 text-xs">
+            <thead>
+              <tr>
+                {tickerDraft.headers.map((h, ci) => (
+                  <th key={ci} className="align-bottom pb-1">
+                    <input
+                      type="text"
+                      value={h}
+                      placeholder={`Col ${ci + 1}`}
+                      onChange={(e) => {
+                        const next = [...tickerDraft.headers];
+                        next[ci] = e.target.value;
+                        setTickerTableDraft({ ...tickerDraft, headers: next });
+                      }}
+                      className="w-full px-2 py-1.5 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 text-center"
+                    />
+                  </th>
+                ))}
+                <th className="w-6" />
+              </tr>
+            </thead>
+            <tbody>
+              {tickerDraft.rows.map((row, ri) => (
+                <tr key={ri}>
+                  {tickerDraft.headers.map((_, ci) => (
+                    <td key={ci}>
+                      <input
+                        type="text"
+                        value={row[ci] ?? ""}
+                        onChange={(e) => {
+                          const next = tickerDraft.rows.map((r) => [...r]);
+                          next[ri][ci] = e.target.value;
+                          setTickerTableDraft({ ...tickerDraft, rows: next });
+                        }}
+                        className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                    </td>
+                  ))}
+                  <td className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setTickerTableDraft({ ...tickerDraft, rows: tickerDraft.rows.filter((_, i) => i !== ri) })}
+                      title="Remove row"
+                      className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-400 hover:bg-red-50"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Row / Col controls + footer */}
+        <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0">
+          {/* Row controls */}
+          <button
+            type="button"
+            onClick={() => setTickerTableDraft({ ...tickerDraft, rows: [...tickerDraft.rows, Array(tickerDraft.headers.length).fill("")] })}
+            disabled={tickerDraft.rows.length >= TICKER_MODAL_MAX_ROWS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Row
+          </button>
+          <button
+            type="button"
+            onClick={() => tickerDraft.rows.length > 1 && setTickerTableDraft({ ...tickerDraft, rows: tickerDraft.rows.slice(0, -1) })}
+            disabled={tickerDraft.rows.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Row
+          </button>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
+          {/* Col controls */}
+          <button
+            type="button"
+            onClick={() => setTickerTableDraft({ headers: [...tickerDraft.headers, `Col ${tickerDraft.headers.length + 1}`], rows: tickerDraft.rows.map((r) => [...r, ""]) })}
+            disabled={tickerDraft.headers.length >= TICKER_MODAL_MAX_COLS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Col
+          </button>
+          <button
+            type="button"
+            onClick={() => tickerDraft.headers.length > 1 && setTickerTableDraft({ headers: tickerDraft.headers.slice(0, -1), rows: tickerDraft.rows.map((r) => r.slice(0, -1)) })}
+            disabled={tickerDraft.headers.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Col
+          </button>
+
+          <div className="flex-1" />
+
+          <button type="button" onClick={() => setTickerTableModalOpen(false)} className="px-4 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditableLayoutProps((prev) => ({ ...prev, [tickerTableModalKey]: tickerDraft }));
+              setTickerTableModalOpen(false);
+            }}
+            className="px-4 py-1.5 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const CHART_MODAL_MAX_COLS = 4;
+  const CHART_MODAL_MAX_ROWS = 20;
+  const chartDraft = chartTableDraft ?? { headers: ["Label", "Value"], rows: [["", ""]] };
+
+  /** Show a transient error inline at the top of the chart-data modal. */
+  const showChartTableError = (msg: string) => {
+    if (chartTableErrorTimeoutRef.current) clearTimeout(chartTableErrorTimeoutRef.current);
+    setChartTableError(msg);
+    chartTableErrorTimeoutRef.current = setTimeout(() => setChartTableError(null), 4000);
+  };
+
+  /**
+   * Parse clipboard text into a 2-D matrix of cells.
+   * Recognizes three formats, in order:
+   *   1. Markdown / GFM pipe tables (`| col | col |` with optional `|---|---|` separator)
+   *   2. TSV (Excel / Google Sheets default copy format)
+   *   3. CSV with quoted-comma support
+   */
+  const parseClipboardTable = (text: string): string[][] => {
+    const stripped = text.replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+    if (!stripped) return [];
+    const lines = stripped.split("\n");
+
+    // ── 1) Markdown pipe table ─────────────────────────────────────────────
+    // Heuristic: at least 2 non-empty lines, each containing a `|`, and the
+    // overall block has more pipes than tabs/commas (so it's clearly piped).
+    const nonEmpty = lines.filter((l) => l.trim().length > 0);
+    const pipedLines = nonEmpty.filter((l) => l.includes("|"));
+    const pipeCount = (stripped.match(/\|/g) ?? []).length;
+    const tabCount = (stripped.match(/\t/g) ?? []).length;
+    const isMarkdownTable =
+      pipedLines.length >= 2 &&
+      pipedLines.length === nonEmpty.length &&
+      pipeCount > tabCount;
+
+    if (isMarkdownTable) {
+      const splitMdRow = (line: string): string[] => {
+        let s = line.trim();
+        // Strip leading and trailing pipes if present so we don't get empty edge cells.
+        if (s.startsWith("|")) s = s.slice(1);
+        if (s.endsWith("|")) s = s.slice(0, -1);
+        return s.split("|").map((c) => c.trim());
+      };
+      // Drop GFM alignment rows like "|---|:--:|---|".
+      const isSeparatorRow = (cells: string[]) =>
+        cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c.trim()));
+      return nonEmpty.map(splitMdRow).filter((cells) => !isSeparatorRow(cells));
+    }
+
+    // ── 2) TSV / 3) CSV ───────────────────────────────────────────────────
+    const hasTabs = stripped.includes("\t");
+    return lines.map((line) =>
+      hasTabs
+        ? line.split("\t")
+        // Minimal CSV split — handles quoted values with embedded commas.
+        : (line.match(/("([^"]|"")*"|[^,]*)(,|$)/g) ?? [])
+            .filter((_, i, a) => i < a.length - 1 || a[i] !== "")
+            .map((tok) => tok.replace(/,$/, "").trim().replace(/^"(.*)"$/, "$1").replace(/""/g, '"')),
+    );
+  };
+
+  /** Bulk-paste TSV/CSV starting at (startRow, startCol); grows headers/rows up to caps. */
+  const handleChartPaste = (startRow: number, startCol: number, pasted: string) => {
+    const matrix = parseClipboardTable(pasted);
+    if (matrix.length === 0) return;
+    // Single-cell paste with no tabs/newlines → let default input behavior handle it.
+    if (matrix.length === 1 && matrix[0].length === 1 && !pasted.includes("\t") && !pasted.includes("\n")) return;
+
+    const pastedMaxCols = Math.max(...matrix.map((r) => r.length));
+    const pastedRows = matrix.length;
+    if (startCol + pastedMaxCols > CHART_MODAL_MAX_COLS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+    } else if (startRow + pastedRows > CHART_MODAL_MAX_ROWS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+    }
+
+    const neededCols = Math.min(CHART_MODAL_MAX_COLS, startCol + pastedMaxCols);
+    const neededRows = Math.min(CHART_MODAL_MAX_ROWS, startRow + pastedRows);
+
+    const nextHeaders = [...chartDraft.headers];
+    while (nextHeaders.length < neededCols) nextHeaders.push(`Series ${nextHeaders.length}`);
+
+    const nextRows = chartDraft.rows.map((r) => {
+      const padded = [...r];
+      while (padded.length < nextHeaders.length) padded.push("");
+      return padded;
+    });
+    while (nextRows.length < neededRows) nextRows.push(Array(nextHeaders.length).fill(""));
+
+    for (let ri = 0; ri < matrix.length; ri++) {
+      const targetRow = startRow + ri;
+      if (targetRow >= CHART_MODAL_MAX_ROWS) break;
+      for (let ci = 0; ci < matrix[ri].length; ci++) {
+        const targetCol = startCol + ci;
+        if (targetCol >= CHART_MODAL_MAX_COLS) break;
+        nextRows[targetRow][targetCol] = matrix[ri][ci];
+      }
+    }
+
+    setChartTableDraft({ headers: nextHeaders, rows: nextRows });
+  };
+
+  /**
+   * Whole-table paste — replaces the entire draft (headers + rows) from a TSV/CSV
+   * clipboard payload. First parsed line becomes the headers; remaining lines
+   * become the body rows. Used by the "Paste" toolbar button so a round-trip
+   * (Copy → Paste) restores the exact same table.
+   */
+  const handleChartPasteWholeTable = (pasted: string) => {
+    const matrix = parseClipboardTable(pasted);
+    if (matrix.length === 0) return;
+
+    const pastedMaxCols = Math.max(...matrix.map((r) => r.length), 2);
+    const pastedBodyRows = Math.max(0, matrix.length - 1);
+    if (pastedMaxCols > CHART_MODAL_MAX_COLS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+    } else if (pastedBodyRows > CHART_MODAL_MAX_ROWS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+    }
+
+    const colCount = Math.min(CHART_MODAL_MAX_COLS, pastedMaxCols);
+    // Header line — pad/truncate to colCount.
+    const headerLine = matrix[0];
+    const nextHeaders: string[] = [];
+    for (let ci = 0; ci < colCount; ci++) {
+      const v = headerLine[ci]?.trim();
+      nextHeaders.push(v || (ci === 0 ? "Label" : `Series ${ci}`));
+    }
+
+    // Body rows — pad/truncate to colCount, cap at MAX_ROWS.
+    const bodyMatrix = matrix.slice(1);
+    const nextRows: string[][] = [];
+    for (let ri = 0; ri < bodyMatrix.length && ri < CHART_MODAL_MAX_ROWS; ri++) {
+      const row = bodyMatrix[ri];
+      const padded: string[] = [];
+      for (let ci = 0; ci < colCount; ci++) padded.push(row[ci] ?? "");
+      nextRows.push(padded);
+    }
+    // Ensure at least one body row so the table is editable.
+    if (nextRows.length === 0) nextRows.push(Array(colCount).fill(""));
+
+    setChartTableDraft({ headers: nextHeaders, rows: nextRows });
+  };
+
+  /** Serialize the current draft as TSV (Excel-friendly) and copy to clipboard. */
+  const handleChartCopyAll = async () => {
+    const lines: string[] = [];
+    lines.push(chartDraft.headers.join("\t"));
+    for (const row of chartDraft.rows) {
+      const padded = [...row];
+      while (padded.length < chartDraft.headers.length) padded.push("");
+      lines.push(padded.slice(0, chartDraft.headers.length).join("\t"));
+    }
+    const tsv = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(tsv);
+    } catch {
+      // Fallback for older browsers / insecure contexts.
+      const ta = document.createElement("textarea");
+      ta.value = tsv;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } finally { document.body.removeChild(ta); }
+    }
+  };
+
+  const chartModal = chartTableModalOpen && chartTableModalKey ? (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setChartTableModalOpen(false)} />
+      <div
+        className="relative w-full max-w-3xl rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl flex flex-col"
+        style={{ maxHeight: "92dvh" }}
+      >
+
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Edit chart data</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {CHART_MODAL_MAX_ROWS} rows · max {CHART_MODAL_MAX_COLS} cols · paste TSV/CSV into any cell to bulk-fill</p>
+          </div>
+          <button type="button" onClick={() => setChartTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Transient paste-limit error banner */}
+        {chartTableError && (
+          <div className="mx-3 sm:mx-4 mt-2 px-3 py-2 rounded-md border border-red-200 bg-red-50 text-[11px] text-red-700 flex items-start gap-2">
+            <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <span className="flex-1">{chartTableError}</span>
+          </div>
+        )}
+
+        {/* Table area */}
+        <div className="overflow-auto flex-1 p-3 sm:p-4">
+          <table className="w-full border-separate border-spacing-1 text-xs" style={{ minWidth: chartDraft.headers.length * 96 }}>
+            <thead>
+              <tr>
+                {chartDraft.headers.map((h, ci) => (
+                  <th key={ci} className="align-bottom pb-1">
+                    <input
+                      type="text"
+                      value={h}
+                      placeholder={ci === 0 ? "Label" : `Series ${ci}`}
+                      onChange={(e) => {
+                        const next = [...chartDraft.headers];
+                        next[ci] = e.target.value;
+                        setChartTableDraft({ ...chartDraft, headers: next });
+                      }}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData("text");
+                        if (pasted.includes("\t") || pasted.includes("\n")) {
+                          e.preventDefault();
+                          // Paste into header row: row index 0 means headers, body fills from row 0.
+                          const matrix = parseClipboardTable(pasted);
+                          if (matrix.length === 0) return;
+                          const headerLine = matrix[0];
+                          const bodyMatrix = matrix.slice(1);
+                          if (ci + headerLine.length > CHART_MODAL_MAX_COLS) {
+                            showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+                          } else if (bodyMatrix.length > CHART_MODAL_MAX_ROWS) {
+                            showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+                          }
+                          const neededCols = Math.min(CHART_MODAL_MAX_COLS, ci + headerLine.length);
+                          const nextHeaders = [...chartDraft.headers];
+                          while (nextHeaders.length < neededCols) nextHeaders.push(`Series ${nextHeaders.length}`);
+                          for (let i = 0; i < headerLine.length; i++) {
+                            const targetCol = ci + i;
+                            if (targetCol >= CHART_MODAL_MAX_COLS) break;
+                            nextHeaders[targetCol] = headerLine[i];
+                          }
+                          // Update headers first, then bulk-fill any body rows.
+                          setChartTableDraft({ headers: nextHeaders, rows: chartDraft.rows });
+                          if (bodyMatrix.length > 0) {
+                            // Re-use the body filler against the just-updated headers/rows.
+                            setTimeout(() => handleChartPaste(0, ci, bodyMatrix.map((r) => r.join("\t")).join("\n")), 0);
+                          }
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 text-center"
+                    />
+                  </th>
+                ))}
+                <th className="w-6" />
+              </tr>
+            </thead>
+            <tbody>
+              {chartDraft.rows.map((row, ri) => (
+                <tr key={ri}>
+                  {chartDraft.headers.map((_, ci) => (
+                    <td key={ci}>
+                      <input
+                        type="text"
+                        value={row[ci] ?? ""}
+                        onChange={(e) => {
+                          const next = chartDraft.rows.map((r) => [...r]);
+                          while (next[ri].length < chartDraft.headers.length) next[ri].push("");
+                          next[ri][ci] = e.target.value;
+                          setChartTableDraft({ ...chartDraft, rows: next });
+                        }}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text");
+                          // If the paste is multi-cell (has tab or newline), intercept and bulk-fill.
+                          if (pasted.includes("\t") || pasted.includes("\n")) {
+                            e.preventDefault();
+                            handleChartPaste(ri, ci, pasted);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                    </td>
+                  ))}
+                  <td className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setChartTableDraft({ ...chartDraft, rows: chartDraft.rows.filter((_, i) => i !== ri) })}
+                      title="Remove row"
+                      className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-400 hover:bg-red-50"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Toolbar — wraps on narrow viewports so all controls remain reachable */}
+        <div className="px-3 sm:px-4 py-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5 flex-shrink-0">
+          {/* Row controls */}
+          <button
+            type="button"
+            onClick={() => setChartTableDraft({ ...chartDraft, rows: [...chartDraft.rows, Array(chartDraft.headers.length).fill("")] })}
+            disabled={chartDraft.rows.length >= CHART_MODAL_MAX_ROWS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Row
+          </button>
+          <button
+            type="button"
+            onClick={() => chartDraft.rows.length > 1 && setChartTableDraft({ ...chartDraft, rows: chartDraft.rows.slice(0, -1) })}
+            disabled={chartDraft.rows.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Row
+          </button>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
+          {/* Col controls */}
+          <button
+            type="button"
+            onClick={() => setChartTableDraft({ headers: [...chartDraft.headers, `Series ${chartDraft.headers.length}`], rows: chartDraft.rows.map((r) => [...r, ""]) })}
+            disabled={chartDraft.headers.length >= CHART_MODAL_MAX_COLS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Col
+          </button>
+          <button
+            type="button"
+            onClick={() => chartDraft.headers.length > 2 && setChartTableDraft({ headers: chartDraft.headers.slice(0, -1), rows: chartDraft.rows.map((r) => r.slice(0, -1)) })}
+            disabled={chartDraft.headers.length <= 2}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Col
+          </button>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
+          {/* Bulk copy / paste */}
+          <button
+            type="button"
+            onClick={handleChartCopyAll}
+            title="Copy entire table to clipboard (TSV — paste into Excel/Sheets)"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Copy
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const text = await navigator.clipboard.readText();
+                if (text) handleChartPasteWholeTable(text);
+              } catch {
+                // Clipboard read may be blocked; user can still paste into a cell directly.
+              }
+            }}
+            title="Paste TSV/CSV from clipboard — first line becomes headers, rest become rows"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Paste
+          </button>
+        </div>
+
+        {/* Action row — always pinned to bottom of the modal so Cancel/Save remain reachable on every viewport */}
+        <div className="px-3 sm:px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0 bg-white rounded-b-2xl">
+          <button
+            type="button"
+            onClick={() => setChartTableModalOpen(false)}
+            className="flex-1 sm:flex-none px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const normalized = normalizeChartTableValue(chartDraft);
+              setEditableLayoutProps((prev) => ({ ...prev, [chartTableModalKey]: normalized }));
+              setChartTableModalOpen(false);
+            }}
+            className="flex-1 sm:flex-none sm:ml-auto px-4 py-2 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  return isDemo
+    ? <>{modalTree}{tickerModal}{chartModal}</>
+    : ReactDOM.createPortal(<>{modalTree}{tickerModal}{chartModal}</>, document.body);
 }

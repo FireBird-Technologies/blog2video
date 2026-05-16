@@ -449,7 +449,47 @@ export default function Landing() {
   const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
   const [pendingCredential, setPendingCredential] = useState<string | null>(null);
   const [reactivating, setReactivating] = useState(false);
+  const [heroUrl, setHeroUrl] = useState("");
+  const [typedPlaceholder, setTypedPlaceholder] = useState("");
   const scrollRef = useScrollReveal();
+
+  const HERO_PLACEHOLDERS = [
+    "https://yourbloglink.com/convert-to-video",
+    "https://yoursubstack.substack.com/p/my-latest-post",
+    "https://medium.com/@you/my-article",
+    "https://dev.to/you/building-in-public",
+  ];
+
+  useEffect(() => {
+    if (heroUrl) return;
+    let cancelled = false;
+    let idx = 0;
+
+    const run = async () => {
+      while (!cancelled) {
+        const word = HERO_PLACEHOLDERS[idx % HERO_PLACEHOLDERS.length];
+        // type forward
+        for (let i = 0; i <= word.length; i++) {
+          if (cancelled) return;
+          setTypedPlaceholder(word.slice(0, i));
+          await new Promise((r) => setTimeout(r, 38));
+        }
+        // pause at full word
+        await new Promise((r) => setTimeout(r, 1400));
+        // erase
+        for (let i = word.length; i >= 0; i--) {
+          if (cancelled) return;
+          setTypedPlaceholder(word.slice(0, i));
+          await new Promise((r) => setTimeout(r, 18));
+        }
+        await new Promise((r) => setTimeout(r, 300));
+        idx++;
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [heroUrl]);
 
   // Persist referral code from URL so it survives the Google OAuth redirect
   useEffect(() => {
@@ -483,8 +523,17 @@ export default function Landing() {
     return () => { cancelled = true; };
   }, []);
 
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [signingIn, setSigningIn] = useState(false);
+
+  const handleGenerateClick = () => {
+    const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
+    btn?.click();
+  };
+
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
+    setSigningIn(true);
     const refCode = localStorage.getItem("b2v_ref_code");
     try {
       const res = await googleLogin(response.credential, false, refCode);
@@ -498,6 +547,7 @@ export default function Landing() {
       } else {
         showError(getErrorMessage(err, "Authentication failed. Please try again."));
       }
+      setSigningIn(false);
     }
   };
 
@@ -539,7 +589,7 @@ export default function Landing() {
               Blog2Video
             </span>
           </div>
-          {/* Desktop: horizontal links */}
+          {/* Desktop: horizontal links + login */}
           <div className="hidden md:flex items-center gap-6">
             {NAV_LINKS.map(({ href, label }) =>
               href.startsWith("#") ? (
@@ -560,9 +610,23 @@ export default function Landing() {
                 </Link>
               )
             )}
+            <button
+              type="button"
+              onClick={handleGenerateClick}
+              className="text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 px-4 py-1.5 rounded-lg transition-colors"
+            >
+              Sign in
+            </button>
           </div>
-          {/* Mobile: dropdown trigger */}
-          <div className="relative md:hidden">
+          {/* Mobile: login + dropdown trigger */}
+          <div className="relative md:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateClick}
+              className="text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Sign in
+            </button>
             <button
               type="button"
               onClick={() => setNavOpen((o) => !o)}
@@ -627,31 +691,44 @@ export default function Landing() {
             </span>
           </h1>
 
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-6 leading-relaxed">
+          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
             Turn blog posts and updates into narrated videos in minutes.
           </p>
 
-          <p className="text-sm text-gray-400 mb-10 max-w-xl mx-auto">
-            Perfect for solo founders, indie makers, consultants, and creator-led businesses that want to stay visible on YouTube and social without asking anyone else for help.
-          </p>
-
-          <div className="flex flex-col items-center gap-4">
+          {/* Hidden Google button — triggered programmatically on form submit */}
+          <div ref={googleBtnRef} className="hidden">
             <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}
               text="continue_with"
               width="300"
             />
-            <p className="text-xs text-gray-400">
-              3 videos free — no credit card required
-            </p>
-            <Link
-              to="/blog-to-video"
-              className="text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
-            >
-              Learn more: Blog to video converter →
-            </Link>
           </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleGenerateClick();
+            }}
+            className="w-full max-w-xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+          >
+            <input
+              type="url"
+              value={heroUrl}
+              onChange={(e) => setHeroUrl(e.target.value)}
+              placeholder={heroUrl ? "" : typedPlaceholder + "|"}
+              className="flex-1 px-4 py-3 text-sm text-gray-800 placeholder-gray-400 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-400 transition-all"
+              style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
+            />
+            <button
+              type="submit"
+              className="px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-xl transition-colors whitespace-nowrap"
+              style={{ boxShadow: "0 2px 8px rgba(124,58,237,0.25)" }}
+            >
+              Get Started →
+            </button>
+          </form>
+          <p className="text-xs text-gray-400 mt-3">3 videos free — no credit card required</p>
         </div>
       </section>
 
@@ -1064,6 +1141,13 @@ export default function Landing() {
       </section>
 
       <PublicFooter />
+
+      {signingIn && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
+          <div className="w-10 h-10 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin mb-4" />
+          <p className="text-sm font-medium text-gray-700">Signing you in…</p>
+        </div>
+      )}
 
       <AccountDeletedModal
         open={accountDeletedOpen}

@@ -57,7 +57,12 @@ class TemplateLayoutPlanner:
             self.valid_layouts = set()
         else:
             self.valid_layouts = get_valid_layouts(template_id)
-        self.supports_ending_socials = "ending_socials" in self.valid_layouts
+        if "ending_socials" in self.valid_layouts:
+            self.ending_layout: str | None = "ending_socials"
+        elif "ending_cta" in self.valid_layouts:
+            self.ending_layout = "ending_cta"
+        else:
+            self.ending_layout = None
 
     def _normalize_layout(self, raw: object) -> str:
         if not isinstance(raw, str):
@@ -180,13 +185,14 @@ class TemplateLayoutPlanner:
                     if swapped:
                         break
 
-        # Built-in templates with ending_socials should always end on that layout.
-        if self.supports_ending_socials and total_scenes > 0:
+        # Templates declaring a closer layout (ending_socials or ending_cta) must end on it.
+        if self.ending_layout and total_scenes > 0:
+            closer = self.ending_layout
             for i in range(total_scenes - 1):
-                if out[i] == "ending_socials":
+                if out[i] == closer:
                     replacement = ""
                     for c in candidates:
-                        if c == "ending_socials":
+                        if c == closer:
                             continue
                         if i > 0 and out[i - 1] == c:
                             continue
@@ -196,7 +202,7 @@ class TemplateLayoutPlanner:
                         break
                     if replacement:
                         out[i] = replacement
-            out[-1] = "ending_socials"
+            out[-1] = closer
 
         return out
 
