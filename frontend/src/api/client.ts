@@ -386,6 +386,7 @@ export interface TemplateMeta {
   hero_layout?: string;
   fallback_layout?: string;
   valid_layouts?: string[];
+  studio_only_layouts?: string[];
   layouts_without_image?: string[];
   layout_prop_schema?: Record<string, LayoutPropSchema>;
 }
@@ -398,7 +399,8 @@ export type LayoutPropFieldType =
   | "select"
   | "string_array"
   | "object_array"
-  | "chart_table";
+  | "chart_table"
+  | "ticker_table";
 
 export interface LayoutPropSubField {
   key: string;
@@ -436,6 +438,83 @@ export interface LayoutPropSchema {
 
 export const getTemplates = (style?: string) =>
   api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
+
+export interface TemplateAvailabilitySignal {
+  has_custom_templates: boolean;
+  has_crafted_templates: boolean;
+}
+
+export const getTemplateAvailabilitySignal = () =>
+  api.get<TemplateAvailabilitySignal>("/projects/template-availability");
+
+export interface CraftedTemplateSummary {
+  id: string;
+  name: string;
+  description?: string;
+  styles?: string[];
+  preview_colors?: { accent: string; bg: string; text: string };
+  composition_id?: string;
+  hero_layout?: string;
+  fallback_layout?: string;
+  valid_layouts?: string[];
+  layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchema>;
+  theme?: CustomTemplateTheme;
+  preview_image_url?: string | null;
+  /** Source code for the marquee preview component (optional, compiled at runtime). */
+  preview_file?: string | null;
+  /** Bundle-relative path to the marquee preview source. */
+  preview_file_rel?: string | null;
+  /** Source for SceneEditModal field defs per layout (TS/JSON, compiled at runtime). */
+  layout_fields?: string | null;
+  /** Bundle-relative path to the layout_fields source. */
+  layout_fields_rel?: string | null;
+  logo_urls?: string[] | null;
+  og_image?: string | null;
+  template_type?: "crafted";
+  crafted?: boolean;
+}
+
+export interface CraftedTemplateItem extends CraftedTemplateSummary {
+  intro_code?: string | null;
+  outro_code?: string | null;
+  content_codes?: string[] | null;
+  content_archetype_ids?: (string | { id: string; best_for?: string[] })[] | null;
+  frontend_files?: Record<string, string> | null;
+  frontend_entry_rel?: string | null;
+  frontend_layout_index_rel?: string | null;
+  frontend_mount_id?: string | null;
+  /** R2/CDN URLs keyed like Remotion staticFile("fonts/foo.woff2") → full URL */
+  public_asset_urls?: Record<string, string> | null;
+}
+
+export interface CraftedTemplateDetail extends CraftedTemplateItem {}
+
+export interface CraftedTemplateFetchOptions {
+  /**
+   * When true, ask the backend to bypass its in-process cache and re-read
+   * `summary.json` (or the full bundle) directly from R2. Used on hard
+   * refresh so a fresh upload to R2 is visible without a server restart.
+   */
+  forceFresh?: boolean;
+}
+
+function craftedRequestConfig(opts?: CraftedTemplateFetchOptions) {
+  if (!opts?.forceFresh) return undefined;
+  return { headers: { "Cache-Control": "no-cache" } } as const;
+}
+
+export const listCraftedTemplates = (opts?: CraftedTemplateFetchOptions) =>
+  api.get<CraftedTemplateSummary[]>("/crafted-templates", craftedRequestConfig(opts));
+
+export const getCraftedTemplateDetail = (
+  templateId: string,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateDetail>(
+    `/crafted-templates/${encodeURIComponent(templateId)}`,
+    craftedRequestConfig(opts),
+  );
 
 export interface AspectValue {
   portrait: number;
@@ -666,6 +745,16 @@ export const renderTemplateLayout = (payload: {
   duration_seconds?: number;
   layout_props?: Record<string, unknown>;
   resolution?: "1080p" | "720p";
+  scenes?: Array<{
+    id?: number;
+    order?: number;
+    title?: string;
+    narration?: string;
+    layout?: string;
+    layoutProps?: Record<string, unknown>;
+    durationSeconds?: number;
+    imageUrl?: string;
+  }>;
 }) =>
   api.post<Blob>("/template-studio/render-layout", payload, {
     responseType: "blob",

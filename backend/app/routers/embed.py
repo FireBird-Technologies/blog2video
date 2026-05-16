@@ -13,7 +13,8 @@ from app.config import settings
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.schemas import SceneOut, AssetOut
-from app.services.template_service import is_custom_template, _load_custom_template_data
+from app.services.template_service import is_custom_template, is_crafted_template, _load_custom_template_data
+from app.services.crafted_template_service import validate_crafted_template_access
 
 router = APIRouter(prefix="/api/embed", tags=["embed"])
 
@@ -85,8 +86,10 @@ def get_embed_project(token: str, db: Session = Depends(get_db)) -> JSONResponse
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if is_custom_template(project.template):
-        data = _load_custom_template_data(project.template, db=db)
+    if is_custom_template(project.template) or is_crafted_template(project.template):
+        if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, project.user_id, db):
+            raise HTTPException(status_code=403, detail="Crafted template access revoked for this project")
+        data = _load_custom_template_data(project.template, db=db, user_id=project.user_id)
         project.custom_theme = data["theme"] if data else None
     else:
         project.custom_theme = None

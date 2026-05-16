@@ -13,6 +13,8 @@ from app.services.chart_planner import (
     is_candlestick_table,
     has_candlestick_table_in_visual_hint,
     _extract_tables_from_visual_hint,
+    _score_table_for_scene,
+    is_laduc_ticker_table,
 )
 from app.services.template_service import (
     get_prompt,
@@ -184,6 +186,43 @@ class BuiltInRegenerateSceneToDescriptor(dspy.Signature):
     )
     layout_props_json: str = dspy.OutputField(
         desc='Valid JSON object with layout-specific props. Exact prop keys from catalog. {} when none. Do NOT wrap in markdown code blocks.'
+    )
+
+
+# ─── LaDuc chart caption: prose beside `market_annotation` charts ──────────────
+
+
+class LaDucChartSummary(dspy.Signature):
+    """
+    Write a 2–3 sentence analytical caption for a chart, grounded strictly in the bound table.
+
+    Rules:
+    - Use ONLY values that appear verbatim in chart_table_json.rows. Never invent figures.
+    - Name at least two specific entities (row labels) and cite at least two numeric values.
+    - Be analytical: identify the leader, the gap between top and bottom, a notable outlier or
+      concentration, and if the data allows, a directional trend or ratio.
+    - Do NOT restate the title or narration. Complement them — add a different angle.
+    - Plain English. No finance jargon unless the narration uses it.
+    - Wrap key emphasis phrases (a standout figure, a striking ratio, the dominant entity) in
+      __double underscores__ — e.g. __ICBC at $7.3T__. Use 1–3 emphasis spans per output.
+      Do NOT wrap entire sentences, only the 2–5 word key fact within a sentence.
+    - Target ~45–60 words total across the 2–3 sentences.
+    """
+
+    chart_table_json: str = dspy.InputField(
+        desc='JSON: {"headers": [...], "rows": [[...], ...]}. The exact table being charted on screen.'
+    )
+    chart_type: str = dspy.InputField(desc="bar | line | histogram")
+    scene_title: str = dspy.InputField(desc="The scene's title — for tonal continuity only.")
+    narration: str = dspy.InputField(desc="The scene's voiceover — the caption must complement, not repeat it.")
+
+    summary: str = dspy.OutputField(
+        desc=(
+            "2–3 sentence analytical caption rendered beside the chart. "
+            "Cites at least two row labels and two numeric values from chart_table_json.rows. "
+            "Key emphasis phrases (standout figures, dominant entities, striking ratios) are wrapped "
+            "in __double underscores__ — e.g. '__ICBC at $7.3T__'. 1–3 emphasis spans total."
+        )
     )
 
 
@@ -393,19 +432,23 @@ class TemplateSceneGenerator:
             self._fallback_layout = get_fallback_layout(template_id)
 
         if self._is_custom:
-            self._descriptor = dspy.ChainOfThought(TemplateSceneToDescriptor)
+            self._descriptor = dspy.Predict(TemplateSceneToDescriptor)
             self.descriptor = dspy.asyncify(self._descriptor)
-            self._regenerate_descriptor = dspy.ChainOfThought(RegenerateSceneToDescriptor)
+            self._regenerate_descriptor = dspy.Predict(RegenerateSceneToDescriptor)
             self.regenerate_descriptor = dspy.asyncify(self._regenerate_descriptor)
             self.builtin_descriptor = None
             self.builtin_regenerate_descriptor = None
         else:
-            self._builtin_descriptor = dspy.ChainOfThought(BuiltInTemplateSceneToDescriptor)
+            self._builtin_descriptor = dspy.Predict(BuiltInTemplateSceneToDescriptor)
             self.builtin_descriptor = dspy.asyncify(self._builtin_descriptor)
-            self._builtin_regenerate_descriptor = dspy.ChainOfThought(BuiltInRegenerateSceneToDescriptor)
+            self._builtin_regenerate_descriptor = dspy.Predict(BuiltInRegenerateSceneToDescriptor)
             self.builtin_regenerate_descriptor = dspy.asyncify(self._builtin_regenerate_descriptor)
             self._descriptor = self.descriptor = None
             self._regenerate_descriptor = self.regenerate_descriptor = None
+
+        # LaDuc chart caption predictor — used by _merge_laduc_chart_props to fill chartSummary.
+        self._chart_summary = dspy.Predict(LaDucChartSummary)
+        self.chart_summary = dspy.asyncify(self._chart_summary)
 
         if self._is_custom:
             self.variety_tracker = ArrangementVarietyTracker(
@@ -491,6 +534,97 @@ class TemplateSceneGenerator:
                     continue
                 out[k] = v
 
+        return out
+
+    async def _merge_laduc_chart_props(
+        self,
+        layout: str,
+        props: dict,
+        visual_description: str,
+        scene_title: str,
+        narration: str,
+        scene_index: int | None = None,
+    ) -> dict:
+        """Inject real scraped chartTable into market_annotation props.
+
+        Mirrors _merge_chart_planner_props for newscast's data_visualization.
+        Uses the pre-bound table index from _newscast_data_viz_table_by_scene
+        (populated upfront from data_table_index set by ScriptGenerator) so the
+        correct table is always selected without re-scoring all tables per call.
+        """
+        if not (layout.startswith("market_annotation") or layout == "ticker"):
+            return props
+        out = dict(props or {})
+        preferred_table_index = (
+            self._newscast_data_viz_table_by_scene.get(scene_index)
+            if isinstance(scene_index, int)
+            else None
+        )
+
+        # Ticker layout: bypass chart planner entirely — write raw { headers, rows }
+        # directly to tickerTable. _build_chart_props_from_table fails on ticker-style
+        # tables that have empty "" separator columns (e.g. Name|""|Price|""|%).
+        if layout == "ticker":
+            tables = _extract_tables_from_visual_hint(visual_description)
+            if not tables:
+                return out
+            best: dict | None = None
+            if preferred_table_index is not None and 0 <= preferred_table_index < len(tables):
+                best = tables[preferred_table_index]
+            else:
+                # Prefer tables that look like a market snapshot (Name/Price/% cols)
+                ticker_candidates = [t for t in tables if isinstance(t, dict) and is_laduc_ticker_table(t)]
+                if ticker_candidates:
+                    best = ticker_candidates[0]
+                else:
+                    scene_text = f"{scene_title}\n{narration}".strip()
+                    scored = [(t, _score_table_for_scene(t, scene_text)) for t in tables if isinstance(t, dict)]
+                    best = max(scored, key=lambda x: x[1], default=(None, None))[0]
+            if best:
+                out["tickerTable"] = {"headers": best.get("headers", []), "rows": best.get("rows", [])}
+            return out
+
+        planned = generate_chart_props_from_table_hints(
+            visual_description=visual_description,
+            scene_title=scene_title,
+            narration=narration,
+            preferred_table_index=preferred_table_index,
+        )
+        if not planned:
+            return out
+        # market_annotation: always override chartTable with real scraped data
+        # — never keep LLM's fabricated rows. Keep AI's chartType only if it's
+        # a valid explicit choice (not empty/auto).
+        if "chartTable" in planned and planned["chartTable"].get("rows"):
+            out["chartTable"] = planned["chartTable"]
+        if "chartType" in planned:
+            ai_chart_type = out.get("chartType", "")
+            if not ai_chart_type or ai_chart_type == "auto":
+                out["chartType"] = planned["chartType"]
+
+        # Populate chartSummary with an LLM-written analytical caption when the
+        # scene has real bound chart data and nobody (manual edit / upstream
+        # generator) has already set one. A failure here is non-fatal — the
+        # frontend renderer falls back to buildAutoChartSummary.
+        if not out.get("chartSummary"):
+            chart_tbl = out.get("chartTable")
+            if isinstance(chart_tbl, dict) and (chart_tbl.get("rows") or []):
+                try:
+                    summary_res = await self.chart_summary(
+                        chart_table_json=json.dumps(chart_tbl, ensure_ascii=False),
+                        chart_type=str(out.get("chartType") or "bar"),
+                        scene_title=scene_title,
+                        narration=narration,
+                    )
+                    summary_text = (getattr(summary_res, "summary", "") or "").strip()
+                    if summary_text:
+                        out["chartSummary"] = summary_text
+                except Exception:
+                    logger.warning(
+                        "[SCENE_GEN] LaDucChartSummary failed for scene_index=%s; "
+                        "falling back to frontend auto-summary",
+                        scene_index,
+                    )
         return out
 
     def _merge_bloomberg_table_props(
@@ -733,27 +867,67 @@ class TemplateSceneGenerator:
 
     def _validate_props(self, layout: str, props: dict) -> dict:
         """Validate props against layout schema in meta. If no schema, pass through."""
-        layout_meta = (self._meta or {}).get("layouts", {}).get(layout, {})
-        prop_schema = layout_meta.get("props", {})
-        if not prop_schema:
+        layout_meta = (self._meta or {}).get("layout_prop_schema", {}).get(layout, {})
+        fields = layout_meta.get("fields", [])
+        if not fields:
             return props
+        # Build a quick type-lookup from the fields list
+        field_types = {f["key"]: f.get("type", "string") for f in fields if isinstance(f, dict) and "key" in f}
         validated = {}
         for key, value in props.items():
-            if key not in prop_schema:
+            if key not in field_types:
+                # Pass through unknown keys (color, imageUrl, etc. not in fields)
+                validated[key] = value
                 continue
-            schema = prop_schema[key]
-            expected_type = schema.get("type", "string")
-            if expected_type == "string" and isinstance(value, str):
+            expected_type = field_types[key]
+            if expected_type in ("string", "text") and isinstance(value, str):
                 validated[key] = value
             elif expected_type == "number" and isinstance(value, (int, float)):
                 validated[key] = value
             elif expected_type == "boolean" and isinstance(value, bool):
                 validated[key] = value
-            elif expected_type == "array" and isinstance(value, list):
+            elif expected_type in ("array", "string_array") and isinstance(value, list):
                 validated[key] = value
             elif expected_type == "object" and isinstance(value, dict):
                 validated[key] = value
+            elif expected_type == "object_array" and isinstance(value, list):
+                validated[key] = value
+            else:
+                # Type mismatch — pass through anyway rather than silently drop
+                validated[key] = value
         return validated
+
+    # Values that indicate the LLM copied example data instead of extracting from the article.
+    _LADUC_EXAMPLE_STAT_VALUES = frozenset({
+        "$251b", "$112b", "$48b", "$36b",
+        "total flows", "401(k) flows", "vol-control", "cta trend",
+        "401(k) inflows running 12th strongest month on record",
+        "vol-control funds near full re-allocation after april reset",
+        "cta trend signal still long — reversal requires -3.2% weekly close",
+        "flows", "positioning", "cta",
+    })
+
+    def _strip_example_stats(self, layout: str, props: dict) -> dict:
+        """Remove stats that are clearly copied from prompt examples rather than from the article."""
+        if layout not in ("data_impact", "deep_dive"):
+            return props
+        stats = props.get("stats")
+        if not isinstance(stats, list) or not stats:
+            return props
+        clean = [
+            s for s in stats
+            if isinstance(s, dict)
+            and str(s.get("value", "")).strip().lower() not in self._LADUC_EXAMPLE_STAT_VALUES
+            and str(s.get("label", "")).strip().lower() not in self._LADUC_EXAMPLE_STAT_VALUES
+            and str(s.get("value", "")).strip() not in ("[HERO NUMBER FROM ARTICLE]", "[SUPPORTING NUMBER]", "")
+        ]
+        if len(clean) != len(stats):
+            logger.info("[SCENE_GEN] Stripped %d example stats from %s layoutProps", len(stats) - len(clean), layout)
+        if not clean:
+            out = dict(props)
+            del out["stats"]
+            return out
+        return {**props, "stats": clean}
 
     def _parse_config_json(self, config_str: str) -> dict:
         try:
@@ -1158,6 +1332,19 @@ class TemplateSceneGenerator:
             self._plan_newscast_data_visualization_targets(scenes_data)
             self._plan_bloomberg_dataviz_targets(scenes_data)
 
+        # Laduc: populate _newscast_data_viz_table_by_scene from data_table_index
+        # set by ScriptGenerator (via chartable_tables_json upfront binding).
+        # This lets _merge_laduc_chart_props use the correct pre-bound table index
+        # instead of re-scoring all tables on every market_annotation scene call.
+        if "laduc" in self.template_id:
+            for i, scene in enumerate(scenes_data):
+                pl = str(scene.get("preferred_layout") or "").strip().lower()
+                if (
+                    (pl.startswith("market_annotation") or pl == "ticker")
+                    and isinstance(scene.get("data_table_index"), int)
+                ):
+                    self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
+
         results: list[dict] = [{}] * total
 
         for batch_start in range(0, total, BATCH_SIZE):
@@ -1247,6 +1434,9 @@ class TemplateSceneGenerator:
                 )
 
                 layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
+                # Enforce script-stage layout plan when provided and valid.
+                if normalized_preferred:
+                    layout = normalized_preferred
                 if layout not in self._valid_layouts:
                     if normalized_preferred:
                         layout = normalized_preferred
@@ -1261,6 +1451,7 @@ class TemplateSceneGenerator:
 
                 props = self._parse_props_json(result.layout_props_json)
                 validated_props = self._validate_props(layout, props)
+                validated_props = self._strip_example_stats(layout, validated_props)
                 validated_props = self._merge_chart_planner_props(
                     layout=layout,
                     props=validated_props,
@@ -1273,6 +1464,14 @@ class TemplateSceneGenerator:
                     layout=layout,
                     props=validated_props,
                     visual_description=visual_description,
+                )
+                validated_props = await self._merge_laduc_chart_props(
+                    layout=layout,
+                    props=validated_props,
+                    visual_description=visual_description,
+                    scene_title=scene_title,
+                    narration=narration,
+                    scene_index=scene_index,
                 )
 
                 # Guard: reroute to terminal_dataviz when the table is line-chartable
@@ -1345,6 +1544,22 @@ class TemplateSceneGenerator:
                     validated_props = {}
                     logger.info(
                         "[SCENE_GEN] Scene %s: terminal_dataviz had no chartTable, falling back to '%s'",
+                        scene_index,
+                        layout,
+                    )
+
+                # market_annotation guard: AI picked chart layout but no real table data
+                # was extractable — fall back rather than render an empty chart area.
+                if layout == "market_annotation" and not has_chart_table:
+                    llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
+                    layout = (
+                        llm_layout
+                        if llm_layout in self._valid_layouts and llm_layout != "market_annotation"
+                        else self._fallback_layout
+                    )
+                    validated_props = {}
+                    logger.info(
+                        "[SCENE_GEN] Scene %s: market_annotation had no chart data, falling back to '%s'",
                         scene_index,
                         layout,
                     )

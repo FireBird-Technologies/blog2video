@@ -52,6 +52,10 @@ def _parse_number(value: Any) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     text = str(value).strip()
+    # Strip HTML tags (e.g. "Rs.<br> 484,500" → "Rs. 484,500")
+    text = re.sub(r"<[^>]+>", " ", text).strip()
+    # Collapse any whitespace left by tag removal
+    text = re.sub(r"\s{2,}", " ", text).strip()
     if not text:
         return None
     # Guardrail: only parse cells that are mostly numeric.
@@ -98,7 +102,12 @@ def _tokenize(text: str) -> set[str]:
 def _extract_tables_from_visual_hint(visual_description: str) -> list[dict[str, Any]]:
     if not visual_description:
         return []
-    m = re.search(r"TABLE_DATA_HINT_JSON:\s*(\{.*\})\s*$", visual_description, flags=re.DOTALL)
+    m = re.search(
+        r"(?:TABLE_DATA_HINT_JSON\s*:\s*|[═=]{2,}\s*EXTRACTED_TABLES_JSON\s*[═=]{2,}\s*)(\{.*\})"
+        r"(?:\s*[═=]{2,}\s*END_EXTRACTED_TABLES_JSON\s*[═=]{2,})?",
+        visual_description,
+        flags=re.DOTALL,
+    )
     if not m:
         return []
     try:
@@ -425,6 +434,40 @@ def is_ticker_snapshot_table(table: dict[str, Any]) -> bool:
     has_symbol = any(kw in h for h in headers for kw in ("symbol", "ticker", "scrip"))
     has_pct = any("%" in h for h in headers)
     return has_symbol and has_pct
+
+
+# Keywords that strongly identify a ticker/snapshot table (entity name column).
+_LADUC_TICKER_NAME_KEYWORDS = ("name", "symbol", "ticker", "scrip", "stock", "asset", "fund", "etf", "company")
+# Keywords that identify value/movement columns.
+_LADUC_TICKER_VALUE_KEYWORDS = ("price", "cost", "value", "share", "close", "last", "bid", "ask")
+# "change" or "%" alone isn't enough — they also appear in plain time-series tables
+# (e.g. "% Change YoY"). They qualify only when combined with a name column.
+_LADUC_TICKER_CHANGE_KEYWORDS = ("change", "%", "return", "gain", "loss", "delta", "chg")
+
+
+def is_laduc_ticker_table(table: dict[str, Any]) -> bool:
+    """True if a table looks like a LaDuc ticker/snapshot layout.
+
+    Two paths to qualify:
+    1. Has a name/entity column + at least one value or change column.
+    2. Any header contains the word "change" AND the table has >=3 columns
+       (multi-column tables with a change column are snapshot-style, not
+       a simple two-column time-series with a single "% Change" column).
+    """
+    headers = [str(h or "").strip().lower() for h in (table.get("headers", []) or [])]
+    if not headers:
+        return False
+    # Path 1: name column + value/change column
+    has_name = any(kw in h for h in headers for kw in _LADUC_TICKER_NAME_KEYWORDS)
+    has_value = any(kw in h for h in headers for kw in _LADUC_TICKER_VALUE_KEYWORDS)
+    has_change = any(kw in h for h in headers for kw in _LADUC_TICKER_CHANGE_KEYWORDS)
+    if has_name and (has_value or has_change):
+        return True
+    # Path 2: "change" in any header + multi-column table (>=3 cols)
+    has_change_word = any("change" in h for h in headers)
+    if has_change_word and len(headers) >= 3:
+        return True
+    return False
 
 
 def generate_terminal_ticker_items(table: dict[str, Any], max_items: int = 10) -> list[str]:

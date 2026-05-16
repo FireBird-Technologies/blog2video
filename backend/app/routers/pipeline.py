@@ -39,6 +39,7 @@ from app.services.chart_planner import (
     _build_chart_props_from_table,
     is_candlestick_table,
     is_ticker_snapshot_table,
+    is_laduc_ticker_table,
     extract_ticker_items_from_blog,
 )
 from app.services.scraper import scrape_blog, BlogScrapeFailed
@@ -75,9 +76,14 @@ from app.services.template_service import (
     validate_template_id,
     get_layout_prompt,
     get_valid_layouts,
+    get_hero_layout,
+    get_fallback_layout,
+    get_script_style_hint,
     is_custom_template,
+    is_crafted_template,
     _load_custom_template_data,
 )
+from app.services.crafted_template_service import validate_crafted_template_access
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -103,6 +109,97 @@ _pipelines_failed = _meter.create_counter(
     unit="1",
     description="Number of pipelines that failed",
 )
+
+
+def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
+    """Extract effective layout from descriptor payload."""
+    if is_custom_template(template_id):
+        cfg = descriptor.get("layoutConfig") if isinstance(descriptor, dict) else None
+        if isinstance(cfg, dict):
+            name = cfg.get("arrangement")
+            return name if isinstance(name, str) else None
+        return None
+    name = descriptor.get("layout") if isinstance(descriptor, dict) else None
+    return name if isinstance(name, str) else None
+
+
+def _normalize_layout_id(value: str | None) -> str:
+    return (value or "").strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _sanitize_script_layouts(
+    template_id: str,
+    scenes_raw: list[dict],
+    *,
+    include_ending_socials: bool,
+) -> list[dict]:
+    """Ensure script-stage preferred_layout is valid + diverse for template.
+
+    - Keeps only template-valid layout IDs.
+    - Forces hero layout on first scene and ending_socials only on last scene (when enabled).
+    - Replaces invalid/random picks with diverse valid alternatives.
+    """
+    if not scenes_raw:
+        return scenes_raw
+    if is_custom_template(template_id):
+        return scenes_raw
+
+    valid = {x for x in get_valid_layouts(template_id) if isinstance(x, str) and x.strip()}
+    if not valid:
+        return scenes_raw
+
+    hero_layout = _normalize_layout_id(get_hero_layout(template_id))
+    fallback_layout = _normalize_layout_id(get_fallback_layout(template_id))
+    if fallback_layout not in valid:
+        fallback_layout = next(iter(valid))
+
+    supports_ending = "ending_socials" in valid and include_ending_socials
+    last_idx = len(scenes_raw) - 1
+    usage: dict[str, int] = {}
+    prev_layout: str | None = None
+
+    def _pick_diverse(exclude: set[str] | None = None) -> str:
+        banned = set(exclude or set())
+        candidates = [l for l in valid if l not in banned]
+        if not candidates:
+            candidates = list(valid)
+        # least-used first, deterministic tie-breaker by name
+        candidates.sort(key=lambda l: (usage.get(l, 0), l))
+        return candidates[0] if candidates else fallback_layout
+
+    for i, scene in enumerate(scenes_raw):
+        desired = _normalize_layout_id(scene.get("preferred_layout"))
+        if i == 0 and hero_layout in valid:
+            desired = hero_layout
+        elif supports_ending and i == last_idx:
+            desired = "ending_socials"
+        elif desired not in valid:
+            desired = ""
+        elif desired == "ending_socials":
+            # ending_socials is reserved for final scene only.
+            desired = ""
+
+        if not desired:
+            excludes = set()
+            if prev_layout:
+                excludes.add(prev_layout)
+            if supports_ending:
+                excludes.add("ending_socials")
+            desired = _pick_diverse(excludes)
+
+        # Try to avoid consecutive duplicates even when valid was provided.
+        # Data-bound scenes (data_table_index set) must keep their assigned layout — two
+        # chartable tables legitimately produce two consecutive market_annotation scenes.
+        is_data_bound = isinstance(scene.get("data_table_index"), int)
+        if prev_layout and desired == prev_layout and i != 0 and not (supports_ending and i == last_idx) and not is_data_bound:
+            alt = _pick_diverse({prev_layout, "ending_socials"} if supports_ending else {prev_layout})
+            desired = alt or desired
+
+        scene["preferred_layout"] = desired
+        usage[desired] = usage.get(desired, 0) + 1
+        prev_layout = desired
+
+    return scenes_raw
 
 
 # ─── Single async generate endpoint ──────────────────────────
@@ -496,9 +593,13 @@ async def _generate_script(project: Project, db: Session):
     hero_image = image_paths[0] if image_paths else ""
 
     # Determine template and load its layout prompt (layout-only catalog).
-    template_id = validate_template_id(project.template if project.template else "default")
+    template_id = validate_template_id(
+        project.template if project.template else "default",
+        db=db,
+        user_id=project.user_id,
+    )
     try:
-        layout_catalog = get_layout_prompt(template_id)
+        layout_catalog = get_layout_prompt(template_id, db=db, user_id=project.user_id)
     except Exception:
         layout_catalog = ""
 
@@ -741,6 +842,54 @@ async def _generate_script(project: Project, db: Session):
                     max_rows=20,
                 )
 
+    elif ("laduc" in template_id):
+        # laduc: classify chartable tables once upfront (bloomberg-style).
+        # Run extraction + classification in the thread pool so CPU-bound
+        # HTML parsing doesn't block the event loop.
+        _laduc_blog_text = getattr(project, "blog_content", None) or ""
+
+        def _laduc_classify_tables() -> tuple[list, str]:
+            tables = extract_tables_from_content(_laduc_blog_text)
+            if not tables:
+                return tables, ""
+            tmp_hint = build_table_context_hint(tables, max_tables=len(tables))
+            # Chartable candidates (line/bar/histogram) → market_annotation
+            chartable_all = get_chartable_tables_from_visual_hint(tmp_hint)
+            # Ticker-like tables → ticker layout (excluded from chartable set so we
+            # don't double-bind the same table to two scenes).
+            ticker_tables_all: list[tuple[int, dict]] = [
+                (idx, t) for idx, t in enumerate(tables)
+                if isinstance(t, dict) and is_laduc_ticker_table(t)
+            ]
+            ticker_indices = {idx for idx, _ in ticker_tables_all}
+            # If a table matches both, prefer ticker (user wants ticker classification strict).
+            chartable = [(idx, t) for idx, t in chartable_all if idx not in ticker_indices][:2]
+            ticker_tables = ticker_tables_all[:2]
+            if not chartable and not ticker_tables:
+                return tables, ""
+            chart_type_by_idx = {
+                orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                for orig_idx, t in chartable
+            }
+            preferred_layout_by_idx: dict[int, str] = {}
+            for orig_idx, _ in chartable:
+                preferred_layout_by_idx[orig_idx] = "market_annotation"
+            for orig_idx, _ in ticker_tables:
+                preferred_layout_by_idx[orig_idx] = "ticker"
+            bindings = chartable + ticker_tables
+            payload = build_chartable_tables_payload(
+                bindings,
+                chart_type_by_index=chart_type_by_idx,
+                preferred_layout_by_index=preferred_layout_by_idx,
+                max_rows=20,
+            )
+            return tables, payload
+
+        _laduc_loop = asyncio.get_event_loop()
+        _all_extracted_tables, chartable_tables_json = await _laduc_loop.run_in_executor(
+            None, _laduc_classify_tables
+        )
+
     # Release the DB connection during the long-running DSPy/LLM calls below.
     # Neon (serverless PostgreSQL) closes idle connections, and pool_pre_ping
     # only verifies liveness on checkout — a session already holding a
@@ -752,6 +901,8 @@ async def _generate_script(project: Project, db: Session):
     _project_aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
     _project_blog_content = project.blog_content
     db.close()
+
+    _template_style_hint = get_script_style_hint(template_id) if template_id else ""
 
     result = await generator.generate(
         blog_content=_project_blog_content,
@@ -765,10 +916,16 @@ async def _generate_script(project: Project, db: Session):
         include_ending_socials=include_ending_socials,
         chartable_tables_json=chartable_tables_json,
         template_id=template_id or "",
+        template_style_hint=_template_style_hint,
     )
 
     # Template-aware display text generation (second LLM call — still no DB held)
     scenes_raw: list[dict] = result["scenes"]
+    scenes_raw = _sanitize_script_layouts(
+        template_id,
+        scenes_raw,
+        include_ending_socials=include_ending_socials,
+    )
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
@@ -797,7 +954,8 @@ async def _generate_script(project: Project, db: Session):
                 preferred = None
         elif (
             scene_data.get("preferred_layout") in {
-                "data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz"
+                "data_visualization", "terminal_chart", "terminal_table",
+                "terminal_dataviz", "market_annotation", "ticker",
             }
             and _all_extracted_tables
         ):
@@ -809,6 +967,16 @@ async def _generate_script(project: Project, db: Session):
                     if is_candlestick_table(_ct):
                         bound_idx = _ci
                         break
+            # For laduc market_annotation with no bound index, auto-find the first chartable table.
+            if (
+                "laduc" in template_id
+                and scene_data.get("preferred_layout") == "market_annotation"
+                and not isinstance(bound_idx, int)
+            ):
+                for _ci, _ct in enumerate(_all_extracted_tables):
+                    if not is_candlestick_table(_ct):
+                        bound_idx = _ci
+                        break
             if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
                 _bound_table = _all_extracted_tables[bound_idx]
                 _mr = 60 if is_candlestick_table(_bound_table) else 20
@@ -817,9 +985,9 @@ async def _generate_script(project: Project, db: Session):
                     vd = (vd.rstrip() + "\n\n" + hint).strip()
         elif (
             # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
-            # the table binding was supposed to force terminal_dataviz/terminal_table.
+            # the table binding was supposed to force a data layout.
             # Embed the table hint so scene_gen has the data and can produce the right chart.
-            template_id == "bloomberg"
+            (template_id == "bloomberg" or "laduc" in template_id)
             and scene_data.get("data_table_index") is not None
             and _all_extracted_tables
         ):
@@ -829,11 +997,16 @@ async def _generate_script(project: Project, db: Session):
                 _fb_hint = build_table_context_hint([_fb_table], max_tables=1, max_rows=20)
                 if _fb_hint:
                     vd = (vd.rstrip() + "\n\n" + _fb_hint).strip()
-                # Also upgrade the preferred_layout so scene_gen uses the right component.
-                if not is_candlestick_table(_fb_table):
-                    scene_data["preferred_layout"] = "terminal_dataviz"
-                else:
-                    scene_data["preferred_layout"] = "terminal_chart"
+                # Upgrade preferred_layout so scene_gen uses the right component.
+                if template_id == "bloomberg":
+                    if not is_candlestick_table(_fb_table):
+                        scene_data["preferred_layout"] = "terminal_dataviz"
+                    else:
+                        scene_data["preferred_layout"] = "terminal_chart"
+                elif "laduc" in template_id:
+                    scene_data["preferred_layout"] = (
+                        "ticker" if is_laduc_ticker_table(_fb_table) else "market_annotation"
+                    )
         elif scene_data.get("preferred_layout") == "terminal_ticker":
             # Inject real scraped ticker data so scene_gen overrides LLM-hallucinated values.
             _blog_text = getattr(project, "blog_content", None) or ""
@@ -841,6 +1014,10 @@ async def _generate_script(project: Project, db: Session):
             if _ticker_items:
                 hint = "═══ SCRAPED_TICKER_ROWS ═══\n" + "\n".join(_ticker_items) + "\n═══ END_SCRAPED_TICKER_ROWS ═══"
                 vd = (vd.rstrip() + "\n\n" + hint).strip()
+        # Re-read preferred_layout: the recovery elif above may have upgraded it
+        # (e.g. data_impact → market_annotation). The local `preferred` captured at
+        # the top of this loop was set before that upgrade, so it would be stale.
+        preferred = scene_data.get("preferred_layout")
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -918,7 +1095,11 @@ async def _generate_scenes(project: Project, db: Session):
 
     # Prepare scene descriptor generator
     db.refresh(project)
-    template_id = validate_template_id(project.template if project.template else "default")
+    template_id = validate_template_id(
+        project.template if project.template else "default",
+        db=db,
+        user_id=project.user_id,
+    )
     logger.info("[PIPELINE] Project %s: template='%s', validated='%s'", project.id, project.template, template_id)
     supports_ending_socials = "ending_socials" in get_valid_layouts(template_id)
     scene_gen = TemplateSceneGenerator(template_id)
@@ -1119,6 +1300,9 @@ async def _generate_scenes(project: Project, db: Session):
             except (json.JSONDecodeError, TypeError):
                 pass
         scene.remotion_code = json.dumps(descriptor)
+        resolved_layout = _descriptor_layout_name(template_id, descriptor)
+        if resolved_layout:
+            scene.preferred_layout = resolved_layout
         if has_layout_config:
             lc = descriptor["layoutConfig"]
             logger.info(
@@ -1336,10 +1520,19 @@ async def render_video_endpoint(
             "r2_video_url": project.r2_video_url,
         }
 
-    if is_custom_template(project.template) and _load_custom_template_data(project.template, db=db) is None:
+    if (is_custom_template(project.template) or is_crafted_template(project.template)) and _load_custom_template_data(
+        project.template,
+        db=db,
+        user_id=project.user_id,
+    ) is None:
         raise HTTPException(
             status_code=409,
-            detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
+            detail="This project uses a missing template. Rendering is blocked because the template is unavailable.",
+        )
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, project.user_id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This project no longer has access to its crafted template.",
         )
 
     # Align per-video credits with Stripe (same as project creation) before any limit check.
@@ -1678,4 +1871,9 @@ def _get_project(project_id: int, user_id: int, db: Session) -> Project:
     )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, user_id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="Access to this project's crafted template has been revoked.",
+        )
     return project

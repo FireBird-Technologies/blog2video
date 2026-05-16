@@ -41,6 +41,7 @@ class PlayerErrorBoundary extends React.Component<
 interface Props {
   componentCode?: string;
   compiledComponent?: React.FC<SceneProps>;
+  compiledComposition?: React.ComponentType<any>;
   theme: CustomTemplateTheme;
   width?: number;
   height?: number;
@@ -49,6 +50,11 @@ interface Props {
   loop?: boolean;
   /** Override/extend the sample props passed to the compiled component */
   sampleProps?: Partial<SceneProps>;
+  compositionProps?: Record<string, unknown>;
+  compositionWidth?: number;
+  compositionHeight?: number;
+  fps?: number;
+  durationInFrames?: number;
   onError?: (error: string) => void;
   onRetry?: () => void;
   onEnded?: () => void;
@@ -61,12 +67,18 @@ const FPS = 30;
 export default function RemotionPreviewPlayer({
   componentCode,
   compiledComponent,
+  compiledComposition,
   theme,
   width,
   height,
   durationSeconds = 5,
   loop = true,
   sampleProps,
+  compositionProps,
+  compositionWidth = 1920,
+  compositionHeight = 1080,
+  fps = FPS,
+  durationInFrames,
   onError,
   onRetry,
   onEnded,
@@ -148,6 +160,11 @@ export default function RemotionPreviewPlayer({
   }, [componentCode, onError]);
 
   useEffect(() => {
+    if (compiledComposition) {
+      setCompileResult(null);
+      setIsCompiling(false);
+      return;
+    }
     if (compiledComponent) {
       console.log("[F7-DEBUG] RemotionPreviewPlayer: using pre-compiled component");
       setCompileResult({ success: true, component: compiledComponent });
@@ -155,7 +172,7 @@ export default function RemotionPreviewPlayer({
       return;
     }
     compile();
-  }, [compiledComponent, compile]);
+  }, [compiledComponent, compiledComposition, compile]);
 
   // Build sample props for preview — only pass basics, no random contentType overrides.
   // The generated scene code has its own layout baked in; injecting random content types
@@ -171,7 +188,7 @@ export default function RemotionPreviewPlayer({
     };
   }, [sampleProps]);
 
-  if (isCompiling) {
+  if (!compiledComposition && isCompiling) {
     return (
       <div
         style={{
@@ -191,7 +208,7 @@ export default function RemotionPreviewPlayer({
     );
   }
 
-  if (!compileResult || !compileResult.success) {
+  if (!compiledComposition && (!compileResult || !compileResult.success)) {
     return (
       <div
         style={{
@@ -245,22 +262,30 @@ export default function RemotionPreviewPlayer({
     );
   }
 
-  const CompiledComponent = compileResult.component;
+  const CompiledComponent = compileResult?.success ? compileResult.component : null;
 
   // Wrapper composition for the Player
-  const Composition: React.FC = () => (
-    <CompiledComponent {...resolvedProps} brandColors={brandColors} />
-  );
+  const Composition: React.FC = () => {
+    if (compiledComposition) {
+      const C = compiledComposition;
+      return <C {...(compositionProps || {})} />;
+    }
+    if (!CompiledComponent) return null;
+    return <CompiledComponent {...resolvedProps} brandColors={brandColors} />;
+  };
+
+  const playerDurationInFrames =
+    durationInFrames ?? Math.max(fps, Math.round(durationSeconds * fps));
 
   return (
     <PlayerErrorBoundary onRetry={onRetry} width={width}>
       <Player
         ref={playerRef}
         component={Composition}
-        compositionWidth={1920}
-        compositionHeight={1080}
-        durationInFrames={Math.max(FPS, Math.round(durationSeconds * FPS))}
-        fps={FPS}
+        compositionWidth={compositionWidth}
+        compositionHeight={compositionHeight}
+        durationInFrames={playerDurationInFrames}
+        fps={fps}
         style={{
           width: width || "100%",
           borderRadius: 8,
