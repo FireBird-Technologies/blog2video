@@ -23,6 +23,7 @@ class Referral(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     signups = relationship("ReferralSignup", back_populates="referral", cascade="all, delete-orphan")
+    invites = relationship("ReferralInvite", back_populates="referral", cascade="all, delete-orphan")
 
 
 class ReferralSignup(Base):
@@ -39,3 +40,18 @@ class ReferralSignup(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     referral = relationship("Referral", back_populates="signups")
+
+
+class ReferralInvite(Base):
+    __tablename__ = "referral_invites"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    referral_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("referrals.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    invited_email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    referral = relationship("Referral", back_populates="invites")
