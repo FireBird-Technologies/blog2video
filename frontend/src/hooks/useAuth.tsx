@@ -55,6 +55,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     localStorage.removeItem("b2v_token");
     localStorage.removeItem("b2v_user");
+    // Reset out-of-videos offer state so next login starts a fresh 5-min window.
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("b2v_out_of_videos_offer_")) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {
+      // ignore
+    }
     setToken(null);
     setUser(null);
   }, []);
