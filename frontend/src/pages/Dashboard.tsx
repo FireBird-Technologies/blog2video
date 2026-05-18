@@ -19,6 +19,8 @@ import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
+import OutOfVideosOfferModal from "../components/OutOfVideosOfferModal";
+import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
@@ -31,6 +33,7 @@ const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error", "failed"])
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
   const { showError } = useErrorModal();
+  const offer = useOutOfVideosOffer();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   /** Increment when opening + New so BlogUrlForm remounts and picks a new random template each time. */
@@ -181,6 +184,18 @@ export default function Dashboard() {
     }
   }, [activeTab]);
 
+  // Proactively show the out-of-videos offer when an already-walled free user
+  // lands on the Dashboard — the "+ New" button is disabled in that state, so
+  // the user-initiated 403 path never fires. The hook's open() enforces the
+  // 5-min window internally and silently no-ops past it.
+  useEffect(() => {
+    if (!user) return;
+    if (offer.isOpen) return;
+    if (user.plan === "free" && user.can_create_video === false) {
+      offer.open();
+    }
+  }, [user?.plan, user?.can_create_video, offer.isOpen, offer.open]);
+
   const loadProjects = async () => {
     try {
       const res = await listProjects();
@@ -214,10 +229,15 @@ export default function Dashboard() {
       if (isBulkUpgradeRequired) {
         setShowBulkUpgradeModal(true);
       } else if (err?.response?.status === 403) {
-        showError(
-          getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
-          { showUpgrade: true }
-        );
+        // Out-of-videos offer: walled free users get the limited-time discount
+        // modal instead of a plain error. Past the 5-min window, fall through.
+        const opened = user?.plan === "free" ? offer.open() : false;
+        if (!opened) {
+          showError(
+            getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
+            { showUpgrade: true }
+          );
+        }
       } else {
         console.error("Bulk create failed:", err);
       }
@@ -305,10 +325,13 @@ export default function Dashboard() {
       navigate(`/project/${res.data.id}`);
     } catch (err: any) {
       if (err?.response?.status === 403) {
-        showError(
-          getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
-          { showUpgrade: true }
-        );
+        const opened = user?.plan === "free" ? offer.open() : false;
+        if (!opened) {
+          showError(
+            getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
+            { showUpgrade: true }
+          );
+        }
       } else {
         console.error("Failed to create project:", err);
         showError(
@@ -489,6 +512,15 @@ export default function Dashboard() {
         onClose={() => setShowBulkUpgradeModal(false)}
         title="Upgrade to create multiple videos"
         subtitle="Bulk upload of multiple videos requires a paid plan. Choose a plan below to unlock multi-link creation."
+      />
+
+      {/* Out-of-videos limited-time discount offer */}
+      <OutOfVideosOfferModal
+        open={offer.isOpen}
+        onClose={offer.dismiss}
+        secondsRemaining={offer.secondsRemaining}
+        isWindowLive={offer.isWindowLive}
+        onExpand={offer.expand}
       />
 
       {/* Delete project confirmation */}
