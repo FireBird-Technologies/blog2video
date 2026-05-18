@@ -17,7 +17,7 @@ from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.models.blast_campaign import BlastCampaign
 from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
-from app.models.referral import Referral, ReferralSignup
+from app.models.referral import Referral, ReferralSignup, ReferralInvite
 from app.models.crafted_template import CraftedTemplate
 from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
 
@@ -27,5 +27,5 @@ __all__ = [
     "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
     "ProjectEditHistory", "SceneEditHistory", "Review", "TemplateVersion",
     "ProjectTemplateChangeJob", "BlastCampaign", "UpdateEmail", "UpdateEmailSend",
-    "Referral", "ReferralSignup", "CraftedTemplate", "CraftedTemplateEntitlement",
+    "Referral", "ReferralSignup", "ReferralInvite", "CraftedTemplate", "CraftedTemplateEntitlement",
 ]
