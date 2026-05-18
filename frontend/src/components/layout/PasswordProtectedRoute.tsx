@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-const CORRECT_PASSWORD = "blog2video editor";
+const CORRECT_PASSWORD = import.meta.env.VITE_TEMPLATE_STUDIO_PASSWORD ?? "";
 const SESSION_KEY = "template_studio_auth";
 
 const MAX_ATTEMPTS = 5;
