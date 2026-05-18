@@ -202,7 +202,7 @@ _ALLOWED_MIME_TYPES = {
     "text/vtt",  # .vtt (WebVTT captions/transcripts)
 }
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"}
-_VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
+_VALID_VIDEO_STYLES = {"auto", "explainer", "promotional", "storytelling"}
 _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed", "mdetailed"}
 _MIN_PLAYBACK_SPEED = 0.5
 _MAX_PLAYBACK_SPEED = 2.5
@@ -273,14 +273,18 @@ def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
 
 
 def _normalize_video_style(video_style: str | None) -> str:
-    """Normalize and validate video style."""
+    """Normalize and validate video style.
+
+    Accepts "auto" — the pipeline resolves it to explainer/promotional/storytelling
+    between scraping and script generation.
+    """
     style = (video_style or "").strip().lower()
     if not style:
-        return "explainer"
+        return "auto"
     if style not in _VALID_VIDEO_STYLES:
         raise HTTPException(
             status_code=422,
-            detail="video_style must be one of: explainer, promotional, storytelling",
+            detail="video_style must be one of: auto, explainer, promotional, storytelling",
         )
     return style
 

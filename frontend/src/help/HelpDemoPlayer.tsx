@@ -1258,7 +1258,6 @@ function ProductScreen({ flowKey, focus }: { flowKey: HelpFlowKey; focus: string
       templateName: "Your Brand Template",
       sourceUrl: "https://yourbrand.com",
       accentColor: "#7C3AED",
-      supportedVideoStyle: "explainer",
     };
     return (
       <HelpVideoStage>
@@ -1266,7 +1265,6 @@ function ProductScreen({ flowKey, focus }: { flowKey: HelpFlowKey; focus: string
           <CustomTemplateCreator
             onCreated={() => undefined}
             onCancel={() => undefined}
-            initialVideoStyle="explainer"
             demoMode={ctDemoMode}
           />
         </div>

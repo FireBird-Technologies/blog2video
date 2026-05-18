@@ -192,7 +192,6 @@ def _migrate_sqlite(eng) -> None:
         ct_migrations = {
             "source_url": "VARCHAR(2048)",
             "category": "VARCHAR(50) DEFAULT 'blog'",
-            "supported_video_style": "VARCHAR(30) DEFAULT 'explainer'",
             "theme": "TEXT",
             "generated_prompt": "TEXT",
             "preview_image_url": "VARCHAR(2048)",
