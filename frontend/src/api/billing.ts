@@ -13,7 +13,11 @@ export type CheckoutPlan = "pro" | "standard";
 
 export const createCheckoutSession = (
   options:
-    | { plan?: CheckoutPlan; billing_cycle?: "monthly" | "annual" }
+    | {
+        plan?: CheckoutPlan;
+        billing_cycle?: "monthly" | "annual";
+        apply_third_video_offer?: boolean;
+      }
     | "monthly"
     | "annual"
     = "monthly"
@@ -22,9 +26,12 @@ export const createCheckoutSession = (
     typeof options === "string" ? "pro" : (options?.plan ?? "pro");
   const billing_cycle =
     typeof options === "string" ? options : (options?.billing_cycle ?? "monthly");
+  const apply_third_video_offer =
+    typeof options === "string" ? false : (options?.apply_third_video_offer ?? false);
   return api.post<{ checkout_url: string }>("/billing/checkout", {
     plan,
     billing_cycle,
+    apply_third_video_offer,
   });
 };
 
