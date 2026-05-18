@@ -22,7 +22,6 @@ DEFAULT_MAX_FILE_BYTES = 8 * 1024 * 1024
 DEFAULT_CACHE_TTL_SECONDS = 300
 DEFAULT_SUMMARY_FETCH_WORKERS = 8
 SUMMARY_OBJECT_NAME = "summary.json"
-_VALID_STYLES = {"explainer", "promotional", "storytelling"}
 
 # L1 in-process cache: template_id -> {"expires_at": ..., "payload": ...}
 # Holds the full bundle (intro/outro/content code, frontend files, etc.).
@@ -270,9 +269,6 @@ def _validate_manifest_contract(manifest: dict[str, Any], template_row: CraftedT
         return False, "manifest.template_id mismatch"
     if (manifest.get("template_key") or "").strip() != template_row.template_key:
         return False, "manifest.template_key mismatch"
-    style = (manifest.get("supported_video_style") or template_row.supported_video_style or "explainer").strip().lower()
-    if style not in _VALID_STYLES:
-        return False, "manifest.supported_video_style invalid"
 
     files_map = manifest.get("files")
     if not isinstance(files_map, dict):
@@ -683,10 +679,6 @@ def load_crafted_template_package(
     if not isinstance(meta, dict):
         return None
 
-    style = (meta.get("supported_video_style") or template_row.supported_video_style or "explainer").strip().lower()
-    if style not in _VALID_STYLES:
-        style = "explainer"
-
     theme = meta.get("theme")
     if not isinstance(theme, dict):
         theme = {
@@ -707,7 +699,6 @@ def load_crafted_template_package(
         "template_key": template_row.template_key,
         "name": template_row.name,
         "category": meta.get("category") or template_row.category or "blog",
-        "supported_video_style": style,
         "theme": theme,
         "meta": meta,
         "prompt": prompt_raw,
@@ -770,7 +761,7 @@ def _list_summary_from_payload(
         theme = {}
     styles = summary.get("styles")
     if not isinstance(styles, list):
-        styles = [tpl.supported_video_style]
+        styles = []
     preview_file = summary.get("preview_file")
     if not isinstance(preview_file, str):
         preview_file = None

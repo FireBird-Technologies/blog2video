@@ -47,9 +47,6 @@ def _parse_custom_id(template_id: str) -> int | None:
 def _build_template_result(tpl) -> dict[str, Any]:
     """Build the template data dict from a CustomTemplate ORM object."""
     theme = json.loads(tpl.theme) if isinstance(tpl.theme, str) else tpl.theme
-    style = (getattr(tpl, "supported_video_style", None) or "").strip().lower()
-    if style not in {"explainer", "promotional", "storytelling"}:
-        style = "explainer"
     # Load brand kit data if linked
     brand_kit_data = None
     if tpl.brand_kit_id and tpl.brand_kit:
@@ -81,7 +78,6 @@ def _build_template_result(tpl) -> dict[str, Any]:
         "generated_prompt": tpl.generated_prompt or "",
         "name": tpl.name,
         "category": tpl.category or "blog",
-        "supported_video_style": style,
         "has_generated_code": bool(content_codes),
         "intro_code": tpl.intro_code,
         "outro_code": tpl.outro_code,
@@ -104,7 +100,7 @@ def _build_crafted_template_result(package: dict[str, Any]) -> dict[str, Any]:
         "generated_prompt": package.get("generated_prompt") or package.get("prompt") or "",
         "name": package.get("name") or package.get("template_key") or "Crafted Template",
         "category": package.get("category") or "blog",
-        "supported_video_style": package.get("supported_video_style") or "explainer",
+        "genres": (package.get("meta") or {}).get("genres") or [],
         "has_generated_code": bool(package.get("content_codes")),
         "intro_code": package.get("intro_code"),
         "outro_code": package.get("outro_code"),
@@ -135,7 +131,7 @@ def _load_custom_template_data(
 ) -> dict[str, Any] | None:
     """
     Load a custom template's theme + generated_prompt from DB.
-    Returns a dict with keys: theme, generated_prompt, name, category, supported_video_style.
+    Returns a dict with keys: theme, generated_prompt, name, category.
     Returns None if not found.
 
     If a `db` session is provided, it is used directly (no new connection).
@@ -210,7 +206,6 @@ def _get_custom_meta(template_id: str, db: Session | None = None, user_id: int |
     return build_custom_meta(
         data["theme"],
         data["name"],
-        supported_video_style=data.get("supported_video_style", "explainer"),
         content_codes_count=len(content_codes),
     )
 
@@ -264,20 +259,15 @@ def _load_prompt(template_id: str, db: Session | None = None, user_id: int | Non
 # ─── Public API ─────────────────────────────────────────────────────
 
 
-def list_templates(video_style: str | None = None) -> list[dict[str, Any]]:
-    """Return list of all templates (meta for each).
-    If video_style is set, only return templates that support that style (meta.styles contains it).
-    Templates without a 'styles' key are treated as supporting all styles."""
+def list_templates() -> list[dict[str, Any]]:
+    """Return list of all built-in templates (meta for each).
+    Genre-based filtering happens client-side; the server returns the full catalog."""
     registry = _load_registry()
     result = []
     for tid in registry:
         meta = _load_meta(tid)
         if not meta:
             continue
-        styles = meta.get("styles")
-        if video_style and styles is not None and isinstance(styles, list):
-            if video_style.strip().lower() not in [s.strip().lower() for s in styles if isinstance(s, str)]:
-                continue
         result.append(meta)
     return result
 

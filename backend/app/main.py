@@ -531,10 +531,10 @@ def public_config():
 
 
 @app.get("/api/templates")
-def list_templates(style: str | None = None):
-    """Return available video templates (from TemplateService). Optional ?style= filters by video_style (explainer, promotional, storytelling)."""
+def list_templates():
+    """Return all built-in video templates. Genre-based filtering is applied client-side from each template's `genres` array."""
     from app.services.template_service import list_templates as _list_templates
-    return _list_templates(video_style=style)
+    return _list_templates()
 
 
 def _get_voice_preview_url_by_key(key: str) -> str | None:
