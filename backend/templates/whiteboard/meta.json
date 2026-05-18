@@ -3,9 +3,9 @@
   "name": "Stick Man",
   "new_template": false,
   "description": "Storytelling-first template with hand-drawn marker motion, line-draw text reveals, and stick-figure visual metaphors.",
-  "styles": [
-    "storytelling",
-    "explainer"
+  "genres": [
+    "Technology",
+    "Business"
   ],
   "preview_colors": {
     "accent": "#1F2937",

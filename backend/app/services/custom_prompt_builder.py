@@ -282,7 +282,6 @@ Choose decorations that match the template's decorative elements ({decorative_st
 def build_custom_meta(
     theme: dict,
     name: str,
-    supported_video_style: str = "explainer",
     content_codes_count: int = 0,
 ) -> dict[str, Any]:
     """
@@ -299,10 +298,6 @@ def build_custom_meta(
     (composition selection, layout dropdown in SceneEditModal).
     """
     colors = theme.get("colors", {})
-
-    style = (supported_video_style or "explainer").strip().lower()
-    if style not in {"explainer", "promotional", "storytelling"}:
-        style = "explainer"
 
     # When generated code exists, expose variant-based layouts instead of arrangements
     if content_codes_count > 0:
@@ -327,7 +322,6 @@ def build_custom_meta(
         "name": name,
         "description": f"Custom template: {name}",
         "new_template": False,
-        "styles": [style],
         "preview_colors": {
             "accent": colors.get("accent", "#7C3AED"),
             "bg": colors.get("bg", "#FFFFFF"),

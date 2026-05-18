@@ -13,7 +13,6 @@ class CraftedTemplate(Base):
     public_template_id: Mapped[str] = mapped_column(String(140), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     category: Mapped[str] = mapped_column(String(255), default="blog")
-    supported_video_style: Mapped[str] = mapped_column(String(30), default="explainer")
     r2_prefix: Mapped[str] = mapped_column(String(1024), nullable=False)
     manifest_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     checksum: Mapped[str | None] = mapped_column(String(128), nullable=True)
