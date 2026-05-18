@@ -32,6 +32,7 @@ import {
   bulkUpdateSceneTypography,
   submitProjectReview,
   updateProject,
+  getMe,
   getTemplates,
   listCustomTemplates,
   changeProjectTemplateRegenerateLayouts,
@@ -56,6 +57,8 @@ import SceneEditModal, {
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
+import OutOfVideosOfferModal from "../components/OutOfVideosOfferModal";
+import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
 import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
@@ -400,8 +403,9 @@ export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const offer = useOutOfVideosOffer();
 
   const [project, setProject] = useState<Project | null>(null);
   const projectRef = useRef<Project | null>(null);
@@ -1317,6 +1321,18 @@ export default function ProjectView() {
             );
           }
           await loadProject({ silent404: true });
+          // Trigger A: free user just finished their last available video → out-of-videos offer.
+          // We re-fetch the user directly because refreshUser() updates context async
+          // and the closure's `user` is still stale here.
+          try {
+            const me = await getMe();
+            await refreshUser();
+            if (me.data.plan === "free" && me.data.can_create_video === false) {
+              offer.open();
+            }
+          } catch {
+            // ignore — eligibility just won't fire this tick
+          }
           return;
         }
 
@@ -1452,7 +1468,10 @@ export default function ProjectView() {
         if (err?.response?.status === 403) {
           const baseMsg = message || "Video limit reached. Re-render counts as a video. Upgrade your plan or buy more credits to continue.";
           const hasExisting = Boolean(project?.r2_video_url);
-          showError(baseMsg, { showUpgrade: true });
+          const opened = user?.plan === "free" ? offer.open() : false;
+          if (!opened) {
+            showError(baseMsg, { showUpgrade: true });
+          }
           setHasError(true);
           setRendering(false);
           if (hasExisting) setRendered(true);
@@ -3144,6 +3163,14 @@ export default function ProjectView() {
         projectId={projectId}
         title="Upgrade to use your crafted templates"
         subtitle="Custom templates and the template builder require a paid plan. Pick a plan to continue."
+      />
+
+      <OutOfVideosOfferModal
+        open={offer.isOpen}
+        onClose={offer.dismiss}
+        secondsRemaining={offer.secondsRemaining}
+        isWindowLive={offer.isWindowLive}
+        onExpand={offer.expand}
       />
 
       {showReviewPopup && ReactDOM.createPortal(
