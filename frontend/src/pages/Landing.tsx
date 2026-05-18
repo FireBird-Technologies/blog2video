@@ -684,7 +684,7 @@ export default function Landing() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-[1.1] tracking-tight mb-6">
-            Your writen voice
+            Convert your written voice
             <br />
             <span className="bg-gradient-to-r from-purple-600 to-violet-500 bg-clip-text text-transparent">
               into video
