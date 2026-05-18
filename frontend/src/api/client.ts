@@ -387,7 +387,8 @@ export interface TemplateMeta {
   description: string;
   /** When true, show a highlighted "New" tag on the template picker (step 2). */
   new_template?: boolean;
-  styles?: string[];  // video styles this template supports: explainer, promotional, storytelling
+  styles?: string[];  // DEPRECATED — was video_style filter; now replaced by `genres`. Kept for back-compat readers.
+  genres?: string[];  // topical categorization, e.g. ["Finance", "Politics"] — drives the genre dropdown filter
   preview_colors?: { accent: string; bg: string; text: string };
   composition_id?: string;
   hero_layout?: string;
@@ -459,6 +460,7 @@ export interface CraftedTemplateSummary {
   name: string;
   description?: string;
   styles?: string[];
+  genres?: string[];
   preview_colors?: { accent: string; bg: string; text: string };
   composition_id?: string;
   hero_layout?: string;
@@ -1274,7 +1276,7 @@ export interface CustomTemplateItem {
   name: string;
   source_url: string | null;
   category: string;
-  supported_video_style: VideoStyleId;
+  genres?: string[];
   theme: CustomTemplateTheme;
   preview_colors: { accent: string; bg: string; text: string };
   component_code: string | null;
@@ -1322,7 +1324,6 @@ export const createCustomTemplate = (data: {
   name: string;
   source_url?: string;
   theme: CustomTemplateTheme;
-  supported_video_style?: VideoStyleId;
   logo_urls?: string[];
   og_image?: string;
   screenshot_url?: string;
@@ -1331,7 +1332,7 @@ export const createCustomTemplate = (data: {
 
 export const updateCustomTemplate = (
   id: number,
-  data: { name?: string; theme?: CustomTemplateTheme; supported_video_style?: VideoStyleId }
+  data: { name?: string; theme?: CustomTemplateTheme }
 ) => api.put<CustomTemplateItem>(`/custom-templates/${id}`, data);
 
 export const deleteCustomTemplate = (id: number, force = false) =>

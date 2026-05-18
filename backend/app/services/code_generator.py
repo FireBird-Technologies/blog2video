@@ -661,7 +661,7 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         brand_kit_data,
         template.name,
         category=template.category or "",
-        video_style=getattr(template, "supported_video_style", "") or "",
+        video_style="",
         personality=personality,
         source_url=template.source_url or "",
     )

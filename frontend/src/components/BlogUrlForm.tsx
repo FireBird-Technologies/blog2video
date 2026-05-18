@@ -5,7 +5,12 @@ import { useAuth } from "../hooks/useAuth";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
-import { getTemplates, getTemplateAvailabilitySignal, getVoicePreviews, getMyVoices, getPrebuiltVoices, listCustomTemplates, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
+import { getVoicePreviews, getMyVoices, getPrebuiltVoices, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
+import {
+  primeBlogUrlFormStep2Prefetch,
+  fetchBlogUrlFormBuiltinTemplatesDeduped,
+  fetchBlogUrlFormAvailabilityDeduped,
+} from "../api/blogUrlFormStep2Prefetch";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
@@ -17,33 +22,96 @@ import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSaved
 
 export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
 
-const DEFAULT_VIDEO_STYLE: VideoStyleId = "storytelling";
+const DEFAULT_VIDEO_STYLE: VideoStyleId = "auto";
 const CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME = 128; // ~85% of 5s * 30fps first scene
 
-/** First entry in template `styles` from meta.json; fallback if missing (legacy meta). */
-function defaultVideoStyleForTemplate(meta: TemplateMeta | undefined | null): VideoStyleId {
-  const raw = meta?.styles?.[0];
-  if (typeof raw === "string" && raw.trim() !== "") {
-    return normalizeVideoStyle(raw);
-  }
-  return DEFAULT_VIDEO_STYLE;
+/** Source-bucket sentinel values for the genre dropdown (not real template genres). */
+const GENRE_CUSTOM = "__custom__";
+const GENRE_CRAFTED = "__crafted__";
+
+function genreTemplateListCaption(genreFilter: string): string {
+  if (genreFilter === GENRE_CUSTOM) return "Custom templates";
+  if (genreFilter === GENRE_CRAFTED) return "Expert designed templates";
+  if (genreFilter) return `Templates for ${genreFilter}`;
+  return "All templates";
 }
 
-/** Video style aligned with a bulk row template id (built-in meta or custom supported_video_style). */
-function videoStyleForBulkTemplateId(
+function templateBucketsForGenre(
+  genreFilter: string,
+  builtinTemplates: TemplateMeta[],
+  readyCustomTemplates: CustomTemplateItem[],
+  readyCraftedTemplates: CraftedTemplateItem[]
+): {
+  suggestedTemplates: TemplateMeta[];
+  customTemplatesForStyle: CustomTemplateItem[];
+  craftedTemplatesForStyle: CraftedTemplateItem[];
+} {
+  const sourceList = builtinTemplates;
+  if (genreFilter === GENRE_CUSTOM) {
+    return {
+      suggestedTemplates: [],
+      customTemplatesForStyle: readyCustomTemplates,
+      craftedTemplatesForStyle: [],
+    };
+  }
+  if (genreFilter === GENRE_CRAFTED) {
+    return {
+      suggestedTemplates: [],
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: readyCraftedTemplates,
+    };
+  }
+  if (genreFilter) {
+    const matchesGenre = (g?: string[]): boolean => (g ?? []).includes(genreFilter);
+    return {
+      suggestedTemplates: sourceList.filter((t) => matchesGenre(t.genres)),
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: [],
+    };
+  }
+  return {
+    suggestedTemplates: sourceList,
+    customTemplatesForStyle: readyCustomTemplates,
+    craftedTemplatesForStyle: readyCraftedTemplates,
+  };
+}
+
+/** First entry in template `genres` from meta.json; "" if missing. */
+function defaultGenreForTemplate(meta: TemplateMeta | undefined | null): string {
+  const raw = meta?.genres?.[0];
+  return typeof raw === "string" && raw.trim() !== "" ? raw : "";
+}
+
+/** Genre aligned with a bulk row template id (built-in meta or custom genres). */
+function defaultGenreForBulkTemplateId(
   templateId: string,
   builtinTemplates: TemplateMeta[],
   customTemplatesList: CustomTemplateItem[]
-): VideoStyleId {
+): string {
   if (templateId.startsWith("custom_")) {
     const cid = parseInt(templateId.replace("custom_", ""), 10);
-    if (Number.isNaN(cid)) return DEFAULT_VIDEO_STYLE;
+    if (Number.isNaN(cid)) return "";
     const ct = customTemplatesList.find((t) => t.id === cid);
-    return ct?.supported_video_style
-      ? normalizeVideoStyle(ct.supported_video_style)
-      : DEFAULT_VIDEO_STYLE;
+    return ct?.genres?.[0] ?? "";
   }
-  return defaultVideoStyleForTemplate(builtinTemplates.find((t) => t.id === templateId));
+  return defaultGenreForTemplate(builtinTemplates.find((t) => t.id === templateId));
+}
+
+/**
+ * After the style/genre split: video_style no longer changes per template — it's an orthogonal
+ * user choice (Auto by default). These helpers exist only as no-op shims so existing call sites
+ * keep compiling; they always return the form-wide default style.
+ */
+function defaultVideoStyleForTemplate(_meta: TemplateMeta | undefined | null): VideoStyleId {
+  return DEFAULT_VIDEO_STYLE;
+}
+
+function videoStyleForBulkTemplateId(
+  _templateId: string,
+  _builtinTemplates: TemplateMeta[],
+  _customTemplatesList: CustomTemplateItem[]
+): VideoStyleId {
+  return DEFAULT_VIDEO_STYLE;
 }
 
 /** Read-only demo mode used by help videos: forces step + seeds state without firing API calls. */
@@ -732,10 +800,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
   const styleManuallySet = useRef(false);
+  /** Genre dropdown filter — populated dynamically from all templates' meta.genres. "" = show all. */
+  const [genre, setGenre] = useState<string>("");
+  const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized } = useCraftedTemplates();
-  /** Built-in template list fetch (getTemplates) — drives step 2 loading overlay. */
+  /** Built-in template list fetch — drives step 2 loading overlay (often warmed by Dashboard prefetch). */
   const [builtinTemplatesLoading, setBuiltinTemplatesLoading] = useState(true);
   /** After built-ins load: session random pick (or skip) has finished — step 2 can interact. */
   const [sessionBuiltinInitDone, setSessionBuiltinInitDone] = useState(false);
@@ -912,55 +983,31 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         mounted = false;
       };
     }
-    getTemplates()
-      .then((r) => {
+    primeBlogUrlFormStep2Prefetch();
+    fetchBlogUrlFormBuiltinTemplatesDeduped()
+      .then((data) => {
         if (mounted) {
-          setTemplates(r.data);
+          setTemplates(data);
           setBuiltinTemplatesLoading(false);
         }
       })
       .catch(() => {
         if (mounted) setBuiltinTemplatesLoading(false);
       });
-    getTemplateAvailabilitySignal()
-      .then((r) => {
+    fetchBlogUrlFormAvailabilityDeduped()
+      .then(({ hasCraftedTemplatesEligible: eligible, customTemplates }) => {
         if (!mounted) return;
-        const hasCustomTemplates = Boolean(r.data?.has_custom_templates);
-        const hasCraftedTemplates = Boolean(r.data?.has_crafted_templates);
-        setHasCraftedTemplatesEligible(hasCraftedTemplates);
-
-        if (hasCustomTemplates) {
-          setCustomTemplatesLoading(true);
-          listCustomTemplates()
-            .then((customRes) => {
-              if (mounted) setCustomTemplates(customRes.data);
-            })
-            .catch(() => {
-              if (mounted) setCustomTemplates([]);
-            })
-            .finally(() => {
-              if (mounted) setCustomTemplatesLoading(false);
-            });
-        } else {
-          setCustomTemplates([]);
-          setCustomTemplatesLoading(false);
-        }
+        setHasCraftedTemplatesEligible(eligible);
+        setCustomTemplates(customTemplates);
+        setCustomTemplatesLoading(false);
         setTemplateAvailabilityLoading(false);
       })
       .catch(() => {
         if (!mounted) return;
-        // Fallback to legacy behavior if signal endpoint fails.
         setHasCraftedTemplatesEligible(true);
-        setCustomTemplatesLoading(true);
+        setCustomTemplates([]);
+        setCustomTemplatesLoading(false);
         setTemplateAvailabilityLoading(false);
-        listCustomTemplates()
-          .then((r) => {
-            if (mounted) setCustomTemplates(r.data);
-          })
-          .catch(() => {})
-          .finally(() => {
-            if (mounted) setCustomTemplatesLoading(false);
-          });
       });
     getVoicePreviews()
       .then((r) => {
@@ -1074,27 +1121,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setSessionBuiltinInitDone(true);
       return;
     }
-    const styleForPick = defaultVideoStyleForTemplate(picked);
-    const prevBulkTpls = bulkTemplatesRef.current;
-    const builtin = templates;
-    const customList = customTemplatesRef.current;
-    setVideoStyle(styleForPick);
-    styleManuallySet.current = true;
+    // Genre filter stays at "All genres" by default; users narrow the list explicitly.
     if (picked.preview_colors) {
       setAccentColor(picked.preview_colors.accent);
       setBgColor(picked.preview_colors.bg);
       setTextColor(picked.preview_colors.text);
     }
-    setBulkVideoStyles((prevStyles) => {
-      if (prevBulkTpls.length === 0) return [styleForPick];
-      return prevBulkTpls.map((tpl, i) => {
-        if (tpl === "default") return styleForPick;
-        const prev = prevStyles[i];
-        if (prev !== undefined) return prev;
-        return videoStyleForBulkTemplateId(tpl, builtin, customList);
-      });
-    });
-    bulkStyleManuallySet.current = bulkStyleManuallySet.current.map(() => true);
     setTemplate((prev) =>
       prev === "default" ? picked.id : prev
     );
@@ -1629,7 +1661,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       const customId = parseInt(id.replace("custom_", ""));
       const ct = customTemplates.find((t) => t.id === customId);
       if (ct) {
-        setVideoStyle(normalizeVideoStyle(ct.supported_video_style));
         setAccentColor(ct.preview_colors.accent);
         setBgColor(ct.preview_colors.bg);
         setTextColor(ct.preview_colors.text);
@@ -1637,9 +1668,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       return;
     }
     const meta = allTemplates.find((t) => t.id === id);
-    if (meta && !styleManuallySet.current) {
-      setVideoStyle(defaultVideoStyleForTemplate(meta));
-    }
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
       setBgColor(meta.preview_colors.bg);
@@ -2154,20 +2182,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     </div>
   );
 
-  // ─── Step 2: Video style + Template ──────────────────────────
-  const styleLower = normalizeVideoStyle(videoStyle);
-  const sourceList = templates;
-  const suggestedTemplates = sourceList.filter(
-    (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
-  );
-  const customTemplatesForStyle = readyCustomTemplates.filter(
-    (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
-  );
-  const craftedTemplatesForStyle = readyCraftedTemplates.filter((ct) => {
-    const styles = Array.isArray(ct.styles) ? ct.styles : [];
-    if (styles.length === 0) return false;
-    return styles.some((s) => normalizeVideoStyle(String(s)) === styleLower);
-  });
+  // ─── Step 2: Genre/source filter + Template list ──────────────────────────
+  // Genre dropdown has two source-bucket options at the top — "Custom Templates"
+  // and "Expert Designed Templates" — encoded with sentinel values. Below them are
+  // the actual genres, compiled from built-in templates' meta.json.
+  const allGenres = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of templates) (t.genres ?? []).forEach((g) => g && set.add(g));
+    return Array.from(set).sort();
+  }, [templates]);
+
+  const {
+    suggestedTemplates,
+    customTemplatesForStyle,
+    craftedTemplatesForStyle,
+  } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
 
   const styleTemplateItems: Array<
     | { type: "builtin"; id: string; data: TemplateMeta }
@@ -2260,35 +2289,99 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </div>
 
-      {/* Video Style tabs + Templates list (filtered by style) */}
+      {/* Genre dropdown + Templates list (filtered by genre) */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Video Style
+            Genre
           </label>
-          <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
-            {VIDEO_STYLES.map((s) => {
-              const isSelected = videoStyle === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    styleManuallySet.current = true;
-                    setVideoStyle(s.id);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                    isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              );
-            })}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setGenreDropdownOpen((v) => !v)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-100/60 hover:bg-gray-200/70 text-[11px] font-medium text-gray-700 transition-all min-w-[140px] justify-between"
+            >
+              <span>
+                {genre === GENRE_CUSTOM
+                  ? "Custom Templates"
+                  : genre === GENRE_CRAFTED
+                  ? "Expert Designed"
+                  : genre || "All genres"}
+              </span>
+              <svg
+                className={`w-3 h-3 text-gray-500 transition-transform ${genreDropdownOpen ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {genreDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setGenreDropdownOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-gray-200 py-1 min-w-[200px] max-h-[300px] overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre("");
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === "" ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    All genres
+                  </button>
+                  {/* Source filters — independent of genre */}
+                  <div className="my-1 border-t border-gray-100" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_CUSTOM);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_CUSTOM ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Custom Templates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_CRAFTED);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_CRAFTED ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Expert Designed Templates
+                  </button>
+                  {allGenres.length > 0 && <div className="my-1 border-t border-gray-100" />}
+                  {allGenres.map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => {
+                        setGenre(g);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === g ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
         <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
-          Suggested templates for the selected video style
+          {genreTemplateListCaption(genre)}
         </p>
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[260px] sm:max-h-[220px] overflow-y-auto bg-gray-50/40">
           <>
@@ -2440,10 +2533,39 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </div>
             {styleTemplateItems.length === 0 && (
               <p className="text-xs text-gray-500 py-3 text-center">
-                No built-in templates for this style. Add a custom template above or try another video style.
+                No templates for this genre. Pick another genre above or add a custom template.
               </p>
             )}
           </>
+        </div>
+
+        {/* Video Style picker — orthogonal to genre. "Auto" lets the AI choose after scraping. */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              Video Style
+            </label>
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
+              {VIDEO_STYLES.map((s) => {
+                const isSelected = videoStyle === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      styleManuallySet.current = true;
+                      setVideoStyle(s.id);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                      isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2641,28 +2763,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setShowCustomTemplateUpgrade(true);
         return;
       }
-      const matchedCustom = id.startsWith("custom_")
-        ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))
-        : null;
-      const matchedCrafted = id.startsWith("crafted_")
-        ? craftedTemplates.find((t) => t.id === id)
-        : null;
-      const styleUpdate: VideoStyleId | null = id.startsWith("custom_")
-        ? matchedCustom?.supported_video_style
-          ? normalizeVideoStyle(matchedCustom.supported_video_style)
-          : null
-        : id.startsWith("crafted_")
-        ? (matchedCrafted?.styles?.[0] ? normalizeVideoStyle(matchedCrafted.styles[0]) : null)
-        : defaultVideoStyleForTemplate(allTemplates.find((t) => t.id === id));
       const colors = id.startsWith("custom_")
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
         : id.startsWith("crafted_")
         ? craftedTemplates.find((t) => t.id === id)?.preview_colors
         : allTemplates.find((t) => t.id === id)?.preview_colors;
       const targetIndices = indexed.map(({ i }) => i);
-      const isCustom = id.startsWith("custom_");
-      const canUpdateStyle = (rowIdx: number) =>
-        styleUpdate !== null && (isCustom || !bulkStyleManuallySet.current[rowIdx]);
 
       if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
         setBulkApplyTemplateAll(false);
@@ -2671,13 +2777,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           next[activeIndex] = id;
           return next;
         });
-        if (canUpdateStyle(activeIndex)) {
-          setBulkVideoStyles((prev) => {
-            const next = [...prev];
-            next[activeIndex] = styleUpdate!;
-            return next;
-          });
-        }
         if (colors) {
           setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
           setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
@@ -2692,13 +2791,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           targetIndices.forEach((idx) => { next[idx] = id; });
           return next;
         });
-        if (styleUpdate !== null) {
-          setBulkVideoStyles((prev) => {
-            const next = [...prev];
-            targetIndices.forEach((idx) => { if (canUpdateStyle(idx)) next[idx] = styleUpdate!; });
-            return next;
-          });
-        }
         if (colors) {
           setBulkAccentColors((prev) => {
             const next = [...prev];
@@ -2724,13 +2816,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         next[activeIndex] = id;
         return next;
       });
-      if (canUpdateStyle(activeIndex)) {
-        setBulkVideoStyles((prev) => {
-          const next = [...prev];
-          next[activeIndex] = styleUpdate!;
-          return next;
-        });
-      }
       if (colors) {
         setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
         setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
@@ -2761,19 +2846,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const SelectedPreviewComp = TEMPLATE_PREVIEWS[tpl];
     const selectedDesc = TEMPLATE_DESCRIPTIONS[tpl];
 
-    const styleLower = normalizeVideoStyle(activeVideoStyle);
-    const sourceList = templates;
-    const suggestedTemplates = sourceList.filter(
-      (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
-    );
-    const customTemplatesForStyle = readyCustomTemplates.filter(
-      (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
-    );
-    const craftedTemplatesForStyle = readyCraftedTemplates.filter((ct) => {
-      const styles = Array.isArray(ct.styles) ? ct.styles : [];
-      if (styles.length === 0) return false;
-      return styles.some((s) => normalizeVideoStyle(String(s)) === styleLower);
-    });
+    const {
+      suggestedTemplates,
+      customTemplatesForStyle,
+      craftedTemplatesForStyle,
+    } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
     const styleTemplateItems: Array<
       | { type: "builtin"; id: string; data: TemplateMeta }
       | { type: "custom"; id: string; data: CustomTemplateItem }
@@ -2934,60 +3011,101 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
         </div>
 
-        {/* Video Style tabs */}
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Video Style
-          </label>
-          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
-            {VIDEO_STYLES.map((s) => {
-              const isSelected = activeVideoStyle === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    const targetIndices = indexed.map(({ i }) => i);
-                    if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
-                      setBulkApplyTemplateAll(false);
-                      bulkStyleManuallySet.current[activeIndex] = true;
-                      setBulkVideoStyles((prev) => {
-                        const next = [...prev];
-                        next[activeIndex] = s.id;
-                        return next;
-                      });
-                      return;
-                    }
-                    if (bulkApplyTemplateAll && activeIndex === masterIndex) {
-                      targetIndices.forEach((idx) => { bulkStyleManuallySet.current[idx] = true; });
-                      setBulkVideoStyles((prev) => {
-                        const next = [...prev];
-                        targetIndices.forEach((idx) => { next[idx] = s.id; });
-                        return next;
-                      });
-                      return;
-                    }
-                    bulkStyleManuallySet.current[activeIndex] = true;
-                    setBulkVideoStyles((prev) => {
-                      const next = [...prev];
-                      next[activeIndex] = s.id;
-                      return next;
-                    });
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                    isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
-                  }`}
+        {/* Genre filter — same `genre` state as single-link step 2 */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              Genre
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setGenreDropdownOpen((v) => !v)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-100/60 hover:bg-gray-200/70 text-[11px] font-medium text-gray-700 transition-all min-w-[140px] justify-between"
+              >
+                <span>
+                  {genre === GENRE_CUSTOM
+                    ? "Custom Templates"
+                    : genre === GENRE_CRAFTED
+                    ? "Expert Designed"
+                    : genre || "All genres"}
+                </span>
+                <svg
+                  className={`w-3 h-3 text-gray-500 transition-transform ${genreDropdownOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  {s.label}
-                </button>
-              );
-            })}
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {genreDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setGenreDropdownOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-gray-200 py-1 min-w-[200px] max-h-[300px] overflow-y-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre("");
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === "" ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      All genres
+                    </button>
+                    <div className="my-1 border-t border-gray-100" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_CUSTOM);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_CUSTOM ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Custom Templates
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_CRAFTED);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_CRAFTED ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Expert Designed Templates
+                    </button>
+                    {allGenres.length > 0 && <div className="my-1 border-t border-gray-100" />}
+                    {allGenres.map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => {
+                          setGenre(g);
+                          setGenreDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                          genre === g ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
-          Suggested templates for the selected video style
+          {genreTemplateListCaption(genre)}
         </p>
-        {/* Templates list filtered by style */}
+        {/* Template thumbnails — filtered by genre; video style below is orthogonal */}
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           <>
             <div className="grid grid-cols-3 gap-2">
@@ -3136,10 +3254,63 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </div>
             {styleTemplateItems.length === 0 && (
               <p className="text-xs text-gray-500 py-3 text-center">
-                No built-in templates for this style. Add a custom template above or try another video style.
+                No templates for this genre. Pick another genre above or add a custom template.
               </p>
             )}
           </>
+        </div>
+
+        {/* Video Style — orthogonal to genre (same behavior as single-link step 2) */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              Video Style
+            </label>
+            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+              {VIDEO_STYLES.map((s) => {
+                const isSelected = activeVideoStyle === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      const targetIndices = indexed.map(({ i }) => i);
+                      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                        setBulkApplyTemplateAll(false);
+                        bulkStyleManuallySet.current[activeIndex] = true;
+                        setBulkVideoStyles((prev) => {
+                          const next = [...prev];
+                          next[activeIndex] = s.id;
+                          return next;
+                        });
+                        return;
+                      }
+                      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                        targetIndices.forEach((idx) => { bulkStyleManuallySet.current[idx] = true; });
+                        setBulkVideoStyles((prev) => {
+                          const next = [...prev];
+                          targetIndices.forEach((idx) => { next[idx] = s.id; });
+                          return next;
+                        });
+                        return;
+                      }
+                      bulkStyleManuallySet.current[activeIndex] = true;
+                      setBulkVideoStyles((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = s.id;
+                        return next;
+                      });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                      isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
