@@ -2,10 +2,17 @@
 Shared DSPy configuration. Called once at import time so all modules
 share the same LM instance and thread context.
 """
+import logging
 import threading
 import litellm
 import dspy
 from app.config import settings
+
+# Silence LiteLLM's fallback-attempt ERROR logs. When the primary model 429s and
+# we recover via model-level fallbacks, LiteLLM still logs the intermediate
+# failure at ERROR with a full traceback — which is noise, not a real failure.
+# Our own _ProviderLoggingLM still surfaces the final outcome.
+logging.getLogger("LiteLLM").setLevel(logging.CRITICAL)
 
 # Disable LiteLLM's async LoggingWorker — it spawns a persistent background
 # task per request that never gets cleanly cancelled, flooding logs with
@@ -128,13 +135,12 @@ def _make_openrouter_lm(model: str, temperature: float, max_tokens: int) -> dspy
         api_key=settings.OPEN_ROUTER_KEY,
         temperature=temperature,
         max_tokens=max_tokens,
-        # Model-level fallbacks: when the primary model rate-limits (Qwen 3 Max is
-        # Alibaba-proprietary, capped at 20 RPM), LiteLLM auto-retries against these.
-        # Order matters: stay in Qwen family first (open-weight, multi-provider),
-        # then drop to DeepSeek as a cross-family safety net.
+        # Model-level fallback: qwen3-max is Alibaba-only and capped at 20 RPM.
+        # When it 429s, drop to DeepSeek V4 Flash — 12 providers (no realistic
+        # rate ceiling), fast (~13B activated MoE), cheap ($0.42/M), and a much
+        # closer instruction-follower than qwen3-235b/deepseek-chat-v3.1 were.
         fallbacks=[
-            "openrouter/qwen/qwen3-235b-a22b-2507",
-            "openrouter/deepseek/deepseek-chat-v3.1",
+            "openrouter/deepseek/deepseek-v4-flash",
         ],
         extra_body={
             "provider": {
