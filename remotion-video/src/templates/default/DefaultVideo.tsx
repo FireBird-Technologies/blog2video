@@ -12,6 +12,7 @@ import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import { TransitionWipe } from "../../components/Transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { B2VWatermark } from "../../components/B2VWatermark";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 /** Schema rows → barChart / lineChart / histogram for data_visualization */
@@ -323,6 +324,8 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}
+
+      <B2VWatermark />
     </AbsoluteFill>
   );
 };

@@ -497,6 +497,17 @@ export default function Landing() {
     if (ref) localStorage.setItem("b2v_ref_code", ref);
   }, [searchParams]);
 
+  // Auto-trigger Google sign-in when redirected here with ?signin=1
+  useEffect(() => {
+    if (searchParams.get("signin") !== "1") return;
+    // Give the Google SDK ~800ms to mount the button, then click it
+    const t = setTimeout(() => {
+      const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
+      btn?.click();
+    }, 800);
+    return () => clearTimeout(t);
+  }, [searchParams]);
+
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
   useEffect(() => {
     let cancelled = false;
@@ -539,6 +550,20 @@ export default function Landing() {
       const res = await googleLogin(response.credential, false, refCode);
       localStorage.removeItem("b2v_ref_code");
       login(res.data.access_token, res.data.user);
+
+      const pendingDownload = localStorage.getItem("b2v_pending_template_download");
+      if (pendingDownload) {
+        localStorage.removeItem("b2v_pending_template_download");
+        let slug: string;
+        try { slug = JSON.parse(pendingDownload); } catch { slug = ""; }
+        if (slug) {
+          const { triggerTemplateDownload } = await import("./FreeTemplatesPage");
+          void triggerTemplateDownload(slug);
+          navigate(`/tools/free-remotion-templates?downloaded=${encodeURIComponent(slug)}`);
+          return;
+        }
+      }
+
       navigate("/dashboard");
     } catch (err: any) {
       if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
