@@ -44,6 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("b2v_user", JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+    // Migrate any active anonymous support conversation to this user.
+    void (async () => {
+      try {
+        const { getStoredConversationId, claimConversation } = await import(
+          "../api/support"
+        );
+        const cid = getStoredConversationId();
+        if (cid != null) {
+          await claimConversation(cid);
+        }
+      } catch {
+        /* best-effort; ignore */
+      }
+    })();
   }, []);
 
   const logout = useCallback(async () => {

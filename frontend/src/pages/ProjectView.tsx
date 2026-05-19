@@ -2847,7 +2847,7 @@ export default function ProjectView() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Video format (landscape / portrait) — left of download */}
-                <div className="flex items-center shrink-0">
+                <div className="flex items-center shrink-0" data-action="aspect-ratio">
                   <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
                     <button
                       type="button"
@@ -2979,6 +2979,7 @@ export default function ProjectView() {
                 <div className="relative" ref={slidesExportAnchorRef}>
                   <button
                     type="button"
+                    data-action="render-button"
                     onClick={() => {
                       setShowShareDropdown(false);
                       setShowSlidesExportMenu((v) => !v);
@@ -4051,6 +4052,8 @@ export default function ProjectView() {
             >
               <button
                 type="button"
+                data-action="render-button"
+                data-action-download="download-video"
                 disabled={downloading || sceneExporting}
                 onClick={() => {
                   setShowSlidesExportMenu(false);
@@ -5197,6 +5200,7 @@ export default function ProjectView() {
                     type="button"
                     onClick={() => setShowFontDropdown((v) => !v)}
                     className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between"
+                    data-action="font-selector"
                   >
                     <span>
                       {settingsFontId
@@ -5293,6 +5297,7 @@ export default function ProjectView() {
             </div>
           </div>
 
+          <div data-tour="template-picker">
           <ProjectTemplateSettingsCard
             templateId={assignedTemplateId}
             customTemplates={customTemplatesList}
@@ -5314,6 +5319,7 @@ export default function ProjectView() {
               setShowTemplateChangeModal(true);
             }}
           />
+          </div>
 
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
@@ -5565,6 +5571,7 @@ export default function ProjectView() {
                     </div>
                     <button
                       type="button"
+                      data-action="upload-logo"
                       onClick={() => logoFileInputRef.current?.click()}
                       disabled={logoUploading}
                       className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all disabled:opacity-60 disabled:pointer-events-none"

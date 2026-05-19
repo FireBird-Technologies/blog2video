@@ -123,7 +123,7 @@ const Navbar = () => {
           </div>
 
           {/* User avatar */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3" data-tour="account-menu">
             {user.picture ? (
               <img
                 src={user.picture}
@@ -136,6 +136,13 @@ const Navbar = () => {
                 {user.name[0]}
               </div>
             )}
+            <a
+              href="mailto:support@blog2video.app"
+              data-action="contact-link"
+              className="text-xs text-gray-400 hover:text-gray-900 transition-colors hidden sm:block"
+            >
+              Help
+            </a>
             <button
               onClick={logout}
               className="text-xs text-gray-400 hover:text-gray-900 transition-colors"
