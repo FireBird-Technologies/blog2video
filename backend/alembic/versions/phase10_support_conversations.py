@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "phase10_support_conversations"
-down_revision: str = "add_affiliate_user_columns"
+down_revision: Union[str, Sequence[str]] = ("add_affiliate_user_columns", "drop_blast_campaigns")
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
