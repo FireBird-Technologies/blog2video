@@ -17,10 +17,6 @@ import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
-import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
-
-const STYLE_LABELS = Object.fromEntries(VIDEO_STYLE_OPTIONS.map((s) => [s.id, s.label])) as Record<string, string>;
-
 // ─── Request Form Modal ───────────────────────────────────────
 interface RequestModalProps {
   description: string;
@@ -260,7 +256,6 @@ export default function CustomTemplates() {
   const [loaded, setLoaded] = useState(false);
   const [showCreator, setShowCreator] = useState(false);
   const [creatorKey, setCreatorKey] = useState(0);
-  const [creatorInitialVideoStyle, setCreatorInitialVideoStyle] = useState<VideoStyleId | undefined>(undefined);
   const [editTarget, setEditTarget] = useState<CustomTemplateItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CustomTemplateItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -284,11 +279,9 @@ export default function CustomTemplates() {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
 
-  // BlogUrlForm navigates with ?tab=templates&openCustomCreator=1&videoStyle=…
+  // BlogUrlForm navigates with ?tab=templates&openCustomCreator=1
   useEffect(() => {
     if (searchParams.get("openCustomCreator") !== "1") return;
-    const style = normalizeVideoStyle(searchParams.get("videoStyle"));
-    setCreatorInitialVideoStyle(style);
     setCreatorKey((k) => k + 1);
     setShowCreator(true);
     const next = new URLSearchParams(searchParams);
@@ -342,7 +335,6 @@ export default function CustomTemplates() {
   const handleCreated = (tpl: CustomTemplateItem) => {
     setTemplates((prev) => [tpl, ...prev]);
     setShowCreator(false);
-    setCreatorInitialVideoStyle(undefined);
     startPollingIfNeeded([tpl]);
   };
 
@@ -458,7 +450,6 @@ export default function CustomTemplates() {
           </p>
           <button
             onClick={() => {
-              setCreatorInitialVideoStyle(undefined);
               setCreatorKey((k) => k + 1);
               setShowCreator(true);
             }}
@@ -494,11 +485,9 @@ export default function CustomTemplates() {
         {showCreator && (
           <CustomTemplateCreator
             key={creatorKey}
-            initialVideoStyle={creatorInitialVideoStyle}
             onCreated={handleCreated}
             onCancel={() => {
               setShowCreator(false);
-              setCreatorInitialVideoStyle(undefined);
             }}
           />
         )}
@@ -535,7 +524,6 @@ export default function CustomTemplates() {
               {activeTemplatesTab === "custom" && (
                 <button
                   onClick={() => {
-                    setCreatorInitialVideoStyle(undefined);
                     setCreatorKey((k) => k + 1);
                     setShowCreator(true);
                   }}
@@ -641,9 +629,6 @@ export default function CustomTemplates() {
 
                   {/* Style pills */}
                   <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                    <span className="shrink-0 px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">
-                      {STYLE_LABELS[tpl.supported_video_style] ?? tpl.supported_video_style}
-                    </span>
                     <span className="shrink-0 px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">
                       {tpl.theme.colors.bg2 ? "Gradient" : "Solid"}
                     </span>
@@ -751,7 +736,6 @@ export default function CustomTemplates() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {readyCraftedTemplates.map((tpl) => {
-              const styleId = normalizeVideoStyle((tpl.styles?.[0] || "storytelling") as string);
               return (
                 <div key={tpl.id} className="glass-card overflow-hidden">
                   <div className="relative overflow-hidden rounded-t-xl min-h-[120px] aspect-video">
@@ -773,9 +757,6 @@ export default function CustomTemplates() {
                     <div className="flex flex-wrap items-center gap-1.5 mb-3">
                       <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[10px] font-medium">
                         Expert Customized
-                      </span>
-                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">
-                        {STYLE_LABELS[styleId] ?? styleId}
                       </span>
                     </div>
                   </div>
@@ -808,11 +789,9 @@ export default function CustomTemplates() {
       {showCreator && (
         <CustomTemplateCreator
           key={creatorKey}
-          initialVideoStyle={creatorInitialVideoStyle}
           onCreated={handleCreated}
           onCancel={() => {
             setShowCreator(false);
-            setCreatorInitialVideoStyle(undefined);
           }}
         />
       )}

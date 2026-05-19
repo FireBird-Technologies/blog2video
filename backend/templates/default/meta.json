@@ -3,9 +3,9 @@
   "name": "Geometric Explainer",
   "new_template": false,
   "description": "Modern tech-explainer with code blocks, animated metrics, flow diagrams, and bullet lists. Clean geometric aesthetic ideal for technical content.",
-  "styles": [
-    "explainer",
-    "storytelling"
+  "genres": [
+    "Technology",
+    "Business"
   ],
   "preview_colors": {
     "accent": "#007AFF",
