@@ -482,6 +482,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
         <button
+          data-action="new-project"
           onClick={() => {
             setBlogFormMountKey((k) => k + 1);
             setShowModal(true);
@@ -677,11 +678,12 @@ export default function Dashboard() {
             </p>
           </div>
         ) : (
-          projects.map((project) => (
+          projects.map((project, idx) => (
           <div
             key={project.id}
             onClick={() => navigate(`/project/${project.id}`)}
             className="glass-card w-full px-5 py-4 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all cursor-pointer group"
+            data-tour={idx === 0 ? "project-card-first" : undefined}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">

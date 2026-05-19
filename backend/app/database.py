@@ -408,6 +408,8 @@ def init_db():
         BlastCampaign,
         Referral,
         ReferralSignup,
+        SupportConversation,
+        SupportMessage,
     )
     from app.models.subscription import seed_plans
 
