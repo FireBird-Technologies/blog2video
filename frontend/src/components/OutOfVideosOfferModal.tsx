@@ -59,7 +59,7 @@ export default function OutOfVideosOfferModal({
         <button
           type="button"
           onClick={onExpand}
-          className={`group fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-[120] flex items-center gap-3 sm:gap-3.5 pl-3 pr-4 sm:pl-3.5 sm:pr-5 py-2.5 sm:py-3 rounded-full shadow-[0_10px_30px_-5px_rgba(124,58,237,0.45)] ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_-5px_rgba(124,58,237,0.55)] active:scale-95 ${
+          className={`group fixed bottom-4 right-20 sm:bottom-4 sm:right-20 z-[120] flex items-center gap-3 sm:gap-3.5 pl-3 pr-4 sm:pl-3.5 sm:pr-5 py-2.5 sm:py-3 rounded-full shadow-[0_10px_30px_-5px_rgba(124,58,237,0.45)] ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_-5px_rgba(124,58,237,0.55)] active:scale-95 ${
             urgentMini
               ? "bg-gradient-to-r from-red-500 to-rose-600 ring-red-300/60 animate-pulse"
               : "bg-gradient-to-r from-purple-600 to-violet-600 ring-purple-300/60"
