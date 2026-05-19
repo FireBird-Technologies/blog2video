@@ -1,0 +1,114 @@
+# UI Action Catalog
+#
+# Maps action_id → (page_pattern, steps).
+# The LLM emits action_id only; this file is the only place real DOM selectors
+# live. Adding a new entry: tag the target element(s) with data-action="..."
+# (or data-tour="...") in the React component, then add a new entry here.
+
+- action_id: project.create
+  label: "Create a new project"
+  page_pattern: "/dashboard"
+  steps:
+    - selector: '[data-action="new-project"]'
+      tooltip: "Click here to start a new video project."
+      placement: bottom
+
+- action_id: project.render
+  label: "Render and download the final video"
+  page_pattern: "/projects/:id"
+  steps:
+    - selector: '[data-action="render-button"]'
+      tooltip: "Click the Download button — if your video isn't rendered yet it will render first, otherwise choose MP4 to download."
+      placement: bottom
+
+- action_id: project.download
+  label: "Download the rendered video"
+  page_pattern: "/projects/:id"
+  steps:
+    - selector: '[data-action="render-button"]'
+      tooltip: "Click Download here, then choose MP4 to download your video."
+      placement: bottom
+
+- action_id: project.edit_scenes
+  label: "Edit the scenes of your video"
+  page_pattern: "/projects/:id"
+  steps:
+    - selector: '[data-tour="scenes-tab"]'
+      tooltip: "Open the Scenes tab to edit individual scenes."
+      placement: bottom
+    - selector: '[data-tour="scene-edit-first"]'
+      tooltip: "Click Edit on a scene to change its content."
+      placement: right
+
+- action_id: project.change_font
+  label: "Change the font for all scenes"
+  page_pattern: "/projects/:id"
+  steps:
+    - selector: '[data-tour="settings-tab"]'
+      tooltip: "Open the Settings tab."
+      placement: bottom
+    - selector: '[data-action="font-selector"]'
+      tooltip: "Choose a font from the dropdown to apply to all scenes."
+      placement: bottom
+
+- action_id: project.choose_template
+  label: "Choose a video template"
+  page_pattern: "/projects/:id"
+  steps:
+    - selector: '[data-tour="settings-tab"]'
+      tooltip: "Open the Settings tab."
+      placement: bottom
+    - selector: '[data-tour="template-picker"]'
+      tooltip: "Pick the visual template that fits your story."
+      placement: right
+
+- action_id: project.upload_logo
+  label: "Upload your brand logo"
+  page_pattern: "/projects/:id"
+  steps:
+    - selector: '[data-tour="settings-tab"]'
+      tooltip: "Open the Settings tab."
+      placement: bottom
+    - selector: '[data-action="upload-logo"]'
+      tooltip: "Upload a logo to brand your video."
+      placement: right
+
+- action_id: project.set_aspect_ratio
+  label: "Change the aspect ratio"
+  page_pattern: "/projects/:id"
+  steps:
+    - selector: '[data-action="aspect-ratio"]'
+      tooltip: "Switch between landscape and portrait format."
+      placement: bottom
+
+- action_id: pricing.upgrade
+  label: "Upgrade your plan"
+  page_pattern: "/pricing"
+  steps:
+    - selector: '[data-action="upgrade-pro"]'
+      tooltip: "Upgrade to Pro for more videos and premium features."
+      placement: top
+
+- action_id: dashboard.open_project
+  label: "Open an existing project"
+  page_pattern: "/dashboard"
+  steps:
+    - selector: '[data-tour="project-card-first"]'
+      tooltip: "Click a project card to open it."
+      placement: bottom
+
+- action_id: account.open_settings
+  label: "Open account settings / billing"
+  page_pattern: "*"
+  steps:
+    - selector: '[data-tour="account-menu"]'
+      tooltip: "Your account is here — use the Billing link in the nav to manage your subscription."
+      placement: bottom-end
+
+- action_id: support.contact
+  label: "Contact human support"
+  page_pattern: "*"
+  steps:
+    - selector: '[data-action="contact-link"]'
+      tooltip: "Reach out to our team here."
+      placement: top
