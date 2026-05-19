@@ -53,6 +53,37 @@ api.interceptors.response.use(
   }
 );
 
+/** Public JSON client — no auth interceptor so 401 from gates (e.g. template studio) does not log the user out. */
+const publicApi = axios.create({
+  baseURL: `${BACKEND_URL}/api`,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export interface TemplateStudioAuthStatusResponse {
+  gated: boolean;
+}
+
+export interface TemplateStudioAuthVerifyResponse {
+  ok: boolean;
+  gated: boolean;
+}
+
+export async function getTemplateStudioAuthStatus(): Promise<TemplateStudioAuthStatusResponse> {
+  const res = await publicApi.get<TemplateStudioAuthStatusResponse>("/template-studio/auth/status");
+  return res.data;
+}
+
+export async function verifyTemplateStudioPassword(
+  password: string
+): Promise<TemplateStudioAuthVerifyResponse> {
+  const res = await publicApi.post<TemplateStudioAuthVerifyResponse>("/template-studio/auth/verify", {
+    password,
+  });
+  return res.data;
+}
+
 // ─── Types ────────────────────────────────────────────────
 
 export interface UserInfo {
