@@ -3,9 +3,8 @@
   "name": "Chronicle",
   "new_template": true,
   "description": "Old history-book tome with parchment pages, illuminated drop caps, wax seals and quill-written text. Perfect for history, heritage, mythology and long-form storytelling.",
-  "styles": [
-    "storytelling",
-    "explainer"
+  "genres": [
+    "History"
   ],
   "preview_colors": {
     "accent": "#B8860B",

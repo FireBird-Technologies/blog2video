@@ -40,7 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, admin as admin_router, affiliate
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -412,6 +412,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan: init DB and start background tasks."""
     free_cleanup = None
     paid_cleanup = None
+    support_cleanup = None
 
     try:
         print("[STARTUP] Initializing database...")
@@ -429,6 +430,16 @@ async def lifespan(app: FastAPI):
         free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
         paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
         update_email_sender = asyncio.create_task(_periodic_update_email_sender())
+        from app.support.cleanup import periodic_support_cleanup
+        support_cleanup = asyncio.create_task(periodic_support_cleanup())
+        # Pre-load corpus + UI catalog so first request is fast and config errors fail loudly at boot.
+        try:
+            from app.support.corpus_loader import load_corpus
+            from app.support.ui_catalog import load_catalog
+            load_corpus()
+            load_catalog()
+        except Exception as e:
+            print(f"[STARTUP] Support bot warm-up failed: {e}")
         print("[STARTUP] Background tasks started")
     except Exception as e:
         print(f"[STARTUP] Failed to start background tasks: {e}")
@@ -444,6 +455,8 @@ async def lifespan(app: FastAPI):
             paid_cleanup.cancel()
         if update_email_sender:
             update_email_sender.cancel()
+        if support_cleanup:
+            support_cleanup.cancel()
     except Exception:
         pass
 
@@ -512,8 +525,8 @@ app.include_router(saved_voices.router)
 app.include_router(template_studio.router)
 app.include_router(embed.router)
 app.include_router(unsubscribe.router)
-app.include_router(admin_router.router)
 app.include_router(affiliate.router)
+app.include_router(support.router)
 
 
 @app.get("/api/health")
@@ -531,10 +544,10 @@ def public_config():
 
 
 @app.get("/api/templates")
-def list_templates(style: str | None = None):
-    """Return available video templates (from TemplateService). Optional ?style= filters by video_style (explainer, promotional, storytelling)."""
+def list_templates():
+    """Return all built-in video templates. Genre-based filtering is applied client-side from each template's `genres` array."""
     from app.services.template_service import list_templates as _list_templates
-    return _list_templates(video_style=style)
+    return _list_templates()
 
 
 def _get_voice_preview_url_by_key(key: str) -> str | None:

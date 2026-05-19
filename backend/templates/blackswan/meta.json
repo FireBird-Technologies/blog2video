@@ -3,9 +3,9 @@
   "name": "Black Swan",
   "new_template": true,
   "description": "Neon cyan on pure black cinematic theme with elliptical water ripples, swan/bird motifs, and data-forward explainer layouts.",
-  "styles": [
-    "promotional",
-    "storytelling"
+  "genres": [
+    "Finance",
+    "Technology"
   ],
   "preview_colors": {
     "accent": "#00E5FF",

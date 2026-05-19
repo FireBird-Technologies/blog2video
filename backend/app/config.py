@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     # Used automatically when an image is attached (vision-guided layout editing).
     GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-2.5-pro"
 
+    # Template studio access password. Kept server-side so it doesn't leak in
+    # the JS bundle. Empty disables the gate (any password passes — useful for
+    # local dev). Set via TEMPLATE_STUDIO_PASSWORD in .env.
+    TEMPLATE_STUDIO_PASSWORD: str = ""
+
     # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini") and DSPY_IMAGE_LM in env
     IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
     DSPY_IMAGE_LM: str =  "openai/gpt-4o-mini"
@@ -40,6 +45,8 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $20/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
     STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
+    STRIPE_3VID_MONTHLY_COUPON_ID: str = ""  # 15% off Pro monthly, once-per-customer (out-of-videos offer)
+    STRIPE_3VID_ANNUAL_COUPON_ID: str = ""   # 25% off Pro annual, once-per-customer (out-of-videos offer)
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"

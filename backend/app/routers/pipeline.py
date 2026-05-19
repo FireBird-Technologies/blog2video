@@ -367,6 +367,19 @@ async def _run_pipeline(project_id: int, user_id: int):
                         )
                         return
 
+            # Step 1.5: Resolve "auto" video_style now that we have scraped content.
+            # The user picked "Auto" in the form → pick concrete style based on the article.
+            if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED) \
+                    and (project.video_style or "").strip().lower() == "auto":
+                from app.dspy_modules.video_style_picker import resolve_auto_video_style
+                resolved = await resolve_auto_video_style(project.blog_content or "")
+                project.video_style = resolved
+                db.commit()
+                logger.info(
+                    "[PIPELINE] Project %s: auto video_style resolved to %s",
+                    project_id, resolved,
+                )
+
             # Step 2: Generate script (async DSPy)
             if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED):
                 _pipeline_progress[project_id]["step"] = 2

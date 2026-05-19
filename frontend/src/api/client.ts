@@ -53,6 +53,37 @@ api.interceptors.response.use(
   }
 );
 
+/** Public JSON client — no auth interceptor so 401 from gates (e.g. template studio) does not log the user out. */
+const publicApi = axios.create({
+  baseURL: `${BACKEND_URL}/api`,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export interface TemplateStudioAuthStatusResponse {
+  gated: boolean;
+}
+
+export interface TemplateStudioAuthVerifyResponse {
+  ok: boolean;
+  gated: boolean;
+}
+
+export async function getTemplateStudioAuthStatus(): Promise<TemplateStudioAuthStatusResponse> {
+  const res = await publicApi.get<TemplateStudioAuthStatusResponse>("/template-studio/auth/status");
+  return res.data;
+}
+
+export async function verifyTemplateStudioPassword(
+  password: string
+): Promise<TemplateStudioAuthVerifyResponse> {
+  const res = await publicApi.post<TemplateStudioAuthVerifyResponse>("/template-studio/auth/verify", {
+    password,
+  });
+  return res.data;
+}
+
 // ─── Types ────────────────────────────────────────────────
 
 export interface UserInfo {
@@ -309,7 +340,11 @@ export type CheckoutPlan = "pro" | "standard";
 
 export const createCheckoutSession = (
   options:
-    | { plan?: CheckoutPlan; billing_cycle?: "monthly" | "annual" }
+    | {
+        plan?: CheckoutPlan;
+        billing_cycle?: "monthly" | "annual";
+        apply_third_video_offer?: boolean;
+      }
     | "monthly"
     | "annual"
     = "monthly"
@@ -318,9 +353,12 @@ export const createCheckoutSession = (
     typeof options === "string" ? "pro" : (options?.plan ?? "pro");
   const billing_cycle =
     typeof options === "string" ? options : (options?.billing_cycle ?? "monthly");
+  const apply_third_video_offer =
+    typeof options === "string" ? false : (options?.apply_third_video_offer ?? false);
   return api.post<{ checkout_url: string }>("/billing/checkout", {
     plan,
     billing_cycle,
+    apply_third_video_offer,
   });
 };
 
@@ -380,7 +418,8 @@ export interface TemplateMeta {
   description: string;
   /** When true, show a highlighted "New" tag on the template picker (step 2). */
   new_template?: boolean;
-  styles?: string[];  // video styles this template supports: explainer, promotional, storytelling
+  styles?: string[];  // DEPRECATED — was video_style filter; now replaced by `genres`. Kept for back-compat readers.
+  genres?: string[];  // topical categorization, e.g. ["Finance", "Politics"] — drives the genre dropdown filter
   preview_colors?: { accent: string; bg: string; text: string };
   composition_id?: string;
   hero_layout?: string;
@@ -452,6 +491,7 @@ export interface CraftedTemplateSummary {
   name: string;
   description?: string;
   styles?: string[];
+  genres?: string[];
   preview_colors?: { accent: string; bg: string; text: string };
   composition_id?: string;
   hero_layout?: string;
@@ -1267,7 +1307,7 @@ export interface CustomTemplateItem {
   name: string;
   source_url: string | null;
   category: string;
-  supported_video_style: VideoStyleId;
+  genres?: string[];
   theme: CustomTemplateTheme;
   preview_colors: { accent: string; bg: string; text: string };
   component_code: string | null;
@@ -1315,7 +1355,6 @@ export const createCustomTemplate = (data: {
   name: string;
   source_url?: string;
   theme: CustomTemplateTheme;
-  supported_video_style?: VideoStyleId;
   logo_urls?: string[];
   og_image?: string;
   screenshot_url?: string;
@@ -1324,7 +1363,7 @@ export const createCustomTemplate = (data: {
 
 export const updateCustomTemplate = (
   id: number,
-  data: { name?: string; theme?: CustomTemplateTheme; supported_video_style?: VideoStyleId }
+  data: { name?: string; theme?: CustomTemplateTheme }
 ) => api.put<CustomTemplateItem>(`/custom-templates/${id}`, data);
 
 export const deleteCustomTemplate = (id: number, force = false) =>
