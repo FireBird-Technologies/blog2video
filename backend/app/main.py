@@ -512,7 +512,6 @@ app.include_router(saved_voices.router)
 app.include_router(template_studio.router)
 app.include_router(embed.router)
 app.include_router(unsubscribe.router)
-app.include_router(admin_router.router)
 app.include_router(affiliate.router)
 
 
