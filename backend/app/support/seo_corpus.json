@@ -3895,6 +3895,34 @@
     "body": "Turn one strong line into a shareable quote card in minutes.\nPick a layout, set your colors and aspect ratio, preview the card live, and export a PNG built for social distribution.\nCreate polished quote cards for social sharing with multiple layouts, aspect ratios, accent colors, and PNG export.\nTemplate styles are designed to feel editorial, not like default meme generators.\nMultiple aspect ratios support X, LinkedIn, and square card workflows.\nPNG export makes the tool useful as an actual content-distribution asset.\nWhy quote cards still work\nA strong quote card can travel farther than a full article when you need something lightweight for social, newsletters, or launch threads. The key is that the visual treatment still needs to look intentional.\nThis generator focuses on that gap: fast enough to use repeatedly, polished enough to be worth sharing.\nHow to use it well\nUse one clear line, keep attribution tight, and choose an aspect ratio that matches the channel where the card will be posted first. The result should feel like a distilled idea, not a screenshot of a paragraph.\nCan I export the card as an image?\nYes. The tool exports a PNG after rendering the card with your selected template, size, and accent color.\nDoes it support multiple social sizes?\nYes. It includes landscape, square, and portrait-friendly aspect ratios so the card can fit different distribution channels."
   },
   {
+    "id": "tool:free-remotion-templates",
+    "source": "tool",
+    "slug": "free-remotion-templates",
+    "title": "Free Remotion Templates — Download 5 Blog2Video Templates",
+    "description": "Download 5 free Remotion video templates: Geometric Explainer, Nightfall, Spotlight, Matrix, and Gridcraft. Each is a complete TypeScript source project — unzip, npm install, and run in Remotion Studio.",
+    "primary_keyword": "free remotion templates",
+    "keyword_variant": "blog to video remotion templates download",
+    "related_paths": [
+      "/templates/nightfall",
+      "/templates/spotlight",
+      "/templates/matrix",
+      "/templates/gridcraft",
+      "/templates/geometric-explainer"
+    ],
+    "route": "/tools/free-remotion-templates",
+    "headings": [
+      "What these templates include",
+      "How to use the templates"
+    ],
+    "faq_questions": [
+      "Do I need a paid Blog2Video account to download?",
+      "Can I use these templates commercially?",
+      "Which Remotion version are these templates designed for?",
+      "Can Blog2Video build a custom template for my brand?"
+    ],
+    "body": "5 free Remotion templates for blog-to-video content.\nDownload Geometric Explainer, Nightfall, Spotlight, Matrix, and Gridcraft — complete TypeScript source code, ready to run in Remotion Studio. Sign in to download the full ZIP.\nDownload 5 free Remotion video templates: Geometric Explainer, Nightfall, Spotlight, Matrix, and Gridcraft. Each is a complete TypeScript source project — unzip, npm install, and run in Remotion Studio.\nEach template is a standalone Remotion project — unzip, npm install, npx remotion studio, and it runs.\nTemplates cover cinematic dark, bold kinetic, editorial grid, cyberpunk terminal, and clean explainer visual styles.\nDownload is free with a Blog2Video account — no credit card required.\nWhat these templates include\nEach ZIP is a complete standalone Remotion project: TypeScript compositions, all layout components, shared utilities, sample data, and everything needed to run npx remotion studio out of the box.\nThese are the exact compositions used by Blog2Video's production pipeline — cinematic dark, bold kinetic typography, editorial bento grids, cyberpunk terminal, and structured explainer styles.\nHow to use the templates\nAfter downloading, unzip the archive, run npm install, then npx remotion studio to preview the composition with sample data. Swap in your own data JSON to render your content.\nEach template folder contains the full Remotion composition in TypeScript/TSX.\nSample data JSON files are included so every layout scene renders correctly on first run.\nSwap the sample data for your own content and render with npx remotion render.\nDo I need a paid Blog2Video account to download?\nNo. A free Blog2Video account is all that's required. Sign in with Google and download instantly.\nCan I use these templates commercially?\nYes. The templates are provided for personal and commercial use.\nWhich Remotion version are these templates designed for?\nThe templates are built and tested with Remotion 4.x. Run npm install inside the unzipped project and all correct versions are installed automatically.\nCan Blog2Video build a custom template for my brand?\nYes. Blog2Video Pro includes access to custom template creation tailored to your brand identity, color palette, and content style. See the pricing page for details."
+  },
+  {
     "id": "marketing:/pricing",
     "source": "pricing",
     "slug": "pricing",

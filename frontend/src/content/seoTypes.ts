@@ -12,7 +12,8 @@ export type ToolCategory =
   | "formatter"
   | "directory"
   | "analyzer"
-  | "generator";
+  | "generator"
+  | "download";
 
 export interface FaqItem {
   question: string;
