@@ -48,7 +48,6 @@ CLAUDE.md
 .claude/
 
 # Support bot generated artifacts (rebuilt in CI)
-backend/app/support/seo_corpus.json
 backend/app/support/code_map.json
 
 # OS
