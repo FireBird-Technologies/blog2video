@@ -24,7 +24,7 @@ class ProjectCreate(BaseModel):
     logo_size: Optional[float] = 100.0  # percentage, e.g. 100 = 100%
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
-    video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
+    video_style: Optional[str] = "auto"   # auto | explainer | promotional | storytelling (auto = LLM picks after scraping)
     video_length: Optional[str] = "auto"  # auto | short (4-5) | medium (12-15) | detailed (23-30) | more_detailed (35-40)
     playback_speed: Optional[float] = 1.0
     content_language: Optional[str] = None     # preferred target language (ISO code or name)

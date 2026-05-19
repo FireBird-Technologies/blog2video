@@ -5,7 +5,6 @@ import {
   type CustomTemplateItem,
 } from "../api/client";
 import CustomPreview from "./templatePreviews/CustomPreview";
-import { VIDEO_STYLE_OPTIONS, type VideoStyleId } from "../constants/videoStyles";
 
 interface Props {
   template: CustomTemplateItem;
@@ -15,22 +14,16 @@ interface Props {
 
 export default function CustomTemplateEditor({ template, onSaved, onCancel }: Props) {
   const [name, setName] = useState(template.name);
-  const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(template.supported_video_style);
   const [accentColor, setAccentColor] = useState(template.theme.colors.accent);
   const [useGradient, setUseGradient] = useState(template.theme.colors.bg2 != null);
   // const aiDecidedGradient = template.theme.colors.bg2 != null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [styleOpen, setStyleOpen] = useState(false);
   const [gradientOpen, setGradientOpen] = useState(false);
-  const styleRef = useRef<HTMLDivElement>(null);
   const gradientRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (styleRef.current && !styleRef.current.contains(e.target as Node)) {
-        setStyleOpen(false);
-      }
       if (gradientRef.current && !gradientRef.current.contains(e.target as Node)) {
         setGradientOpen(false);
       }
@@ -53,7 +46,6 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
       };
       const res = await updateCustomTemplate(template.id, {
         name: name.trim(),
-        supported_video_style: supportedVideoStyle,
         theme: { ...template.theme, colors: updatedColors },
       });
       onSaved(res.data);
@@ -197,50 +189,6 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
             </span>
           </div> */}
 
-          <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              Video Style
-            </label>
-            <p className="text-[11px] text-gray-500 mb-2">
-              This sets script and voice tone (Explainer/Promotional/Storytelling). Your template appears in its matching style tab and in Custom Templates.
-            </p>
-            <div ref={styleRef} className="relative">
-              <div className="flex items-center gap-2">
-                <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                  {VIDEO_STYLE_OPTIONS.find((s) => s.id === supportedVideoStyle)?.label ?? supportedVideoStyle}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setStyleOpen(!styleOpen)}
-                  className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                >
-                  <svg
-                    className={`w-4 h-4 transition-transform ${styleOpen ? "rotate-180" : ""}`}
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
-              {styleOpen && (
-                <div className="absolute z-10 mt-1.5 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1">
-                  {VIDEO_STYLE_OPTIONS.map((style) => (
-                    <button
-                      key={style.id}
-                      type="button"
-                      onClick={() => { setSupportedVideoStyle(style.id); setStyleOpen(false); }}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-purple-50 transition-colors ${
-                        supportedVideoStyle === style.id ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
-                      }`}
-                    >
-                      {style.label}
-                      <span className="ml-1 text-gray-400">— {style.subtitle}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* Visual patterns (read-only) */}
           {theme.patterns && (

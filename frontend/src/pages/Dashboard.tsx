@@ -26,6 +26,7 @@ import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
 import MyVoices from "./MyVoices";
 import type { VideoStyleId } from "../constants/videoStyles";
+import { primeBlogUrlFormStep2Prefetch } from "../api/blogUrlFormStep2Prefetch";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error", "failed"]);
@@ -50,6 +51,10 @@ export default function Dashboard() {
   >({});
   const bulkStartedRef = useRef(false);
   const bulkPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    primeBlogUrlFormStep2Prefetch();
+  }, []);
 
   // Hydrate bulk IDs from localStorage (or URL for backward compatibility)
   useEffect(() => {

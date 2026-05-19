@@ -40,7 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, admin as admin_router, affiliate, support
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -525,7 +525,6 @@ app.include_router(saved_voices.router)
 app.include_router(template_studio.router)
 app.include_router(embed.router)
 app.include_router(unsubscribe.router)
-app.include_router(admin_router.router)
 app.include_router(affiliate.router)
 app.include_router(support.router)
 
@@ -545,10 +544,10 @@ def public_config():
 
 
 @app.get("/api/templates")
-def list_templates(style: str | None = None):
-    """Return available video templates (from TemplateService). Optional ?style= filters by video_style (explainer, promotional, storytelling)."""
+def list_templates():
+    """Return all built-in video templates. Genre-based filtering is applied client-side from each template's `genres` array."""
     from app.services.template_service import list_templates as _list_templates
-    return _list_templates(video_style=style)
+    return _list_templates()
 
 
 def _get_voice_preview_url_by_key(key: str) -> str | None:

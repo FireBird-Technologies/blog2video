@@ -74,7 +74,7 @@ def get_crafted_template_detail(
         "id": package.get("template_id") or template_id,
         "name": package.get("name") or "",
         "description": meta.get("description", ""),
-        "styles": meta.get("styles", [package.get("supported_video_style", "explainer")]),
+        "genres": meta.get("genres", []),
         "preview_colors": meta.get("preview_colors"),
         "hero_layout": meta.get("hero_layout"),
         "fallback_layout": meta.get("fallback_layout"),

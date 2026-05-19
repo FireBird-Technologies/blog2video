@@ -3,9 +3,10 @@
   "name": "Newspaper",
   "new_template": false,
   "description": "Editorial news-style template with headline cards, article lead, pull quotes, data snapshots, fact-check panels, and timelines.",
-  "styles": [
-    "storytelling",
-    "explainer"
+  "genres": [
+    "Politics",
+    "Business",
+    "History"
   ],
   "preview_colors": {
     "accent": "#FFE34D",
