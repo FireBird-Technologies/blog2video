@@ -34,6 +34,7 @@ export default function ProjectTabs({ tabs, active, onChange, containerDataTour,
         <button
           key={tab.id}
           type="button"
+          data-tour={`${tab.id}-tab`}
           onClick={() => onChange(tab.id)}
           className={`${buttonBase} ${
             active === tab.id

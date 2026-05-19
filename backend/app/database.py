@@ -406,6 +406,8 @@ def init_db():
         ProjectTemplateChangeJob,
         Referral,
         ReferralSignup,
+        SupportConversation,
+        SupportMessage,
     )
     from app.models.subscription import seed_plans
 
