@@ -43,6 +43,8 @@ class User(Base):
     # Permanent referral bonus videos (separate from expiring per-video purchase credits)
     referral_video_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
+    free_templates_downloaded: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

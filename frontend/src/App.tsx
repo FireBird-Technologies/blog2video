@@ -31,6 +31,7 @@ import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
 import ScrollToTop from "./components/layout/ScrollToTop";
 import EmbedPreviewPage from "./pages/EmbedPreviewPage";
+import FreeTemplatesPage from "./pages/FreeTemplatesPage";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import { trackPageView } from "./gtag";
@@ -100,6 +101,7 @@ function AppRoutes() {
           path="/tools/substack-directory/:nicheSlug"
           element={<SubstackDirectoryNichePage />}
         />
+        <Route path="/tools/free-remotion-templates" element={<FreeTemplatesPage />} />
         <Route path="/tools/:slug" element={<ToolPage />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
