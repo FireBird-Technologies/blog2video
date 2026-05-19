@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
+import { SupportTourProvider } from "./components/support/SupportTourContext";
+import { SupportWidget } from "./components/support/SupportWidget";
+import { UIHighlightOverlay } from "./components/support/UIHighlightOverlay";
 import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
@@ -176,7 +179,11 @@ function App() {
       <CraftedTemplatesProvider>
         <ErrorModalProvider>
           <NoticeModalProvider>
-            <AppRoutes />
+          <SupportTourProvider>
+              <AppRoutes />
+            <SupportWidget />
+            <UIHighlightOverlay />
+          </SupportTourProvider>
           </NoticeModalProvider>
         </ErrorModalProvider>
       </CraftedTemplatesProvider>

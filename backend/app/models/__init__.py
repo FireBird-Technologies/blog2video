@@ -20,6 +20,16 @@ from app.models.update_email_send import UpdateEmailSend
 from app.models.referral import Referral, ReferralSignup, ReferralInvite
 from app.models.crafted_template import CraftedTemplate
 from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
+from app.models.support_conversation import (
+    SupportConversation,
+    SupportMessage,
+    SupportMessageRole,
+)
+from app.models.support_conversation import (
+    SupportConversation,
+    SupportMessage,
+    SupportMessageRole,
+)
 
 __all__ = [
 
@@ -28,4 +38,6 @@ __all__ = [
     "ProjectEditHistory", "SceneEditHistory", "Review", "TemplateVersion",
     "ProjectTemplateChangeJob", "BlastCampaign", "UpdateEmail", "UpdateEmailSend",
     "Referral", "ReferralSignup", "ReferralInvite", "CraftedTemplate", "CraftedTemplateEntitlement",
+    "SupportConversation", "SupportMessage", "SupportMessageRole",
+    "SupportConversation", "SupportMessage", "SupportMessageRole",
 ]

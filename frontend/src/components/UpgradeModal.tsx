@@ -1,6 +1,7 @@
 import { useState } from "react";
 import ReactDOM from "react-dom";
 import { createCheckoutSession, createPerVideoCheckout } from "../api/client";
+import { PRO_MONTHLY_PRICE, PRO_ANNUAL_MONTHLY_PRICE } from "../content/pricingContent";
 import { useAuth } from "../hooks/useAuth";
 
 interface Props {
@@ -181,12 +182,12 @@ export default function UpgradeModal({
                   Pro plan
                 </span>
                 <div className="text-right">
-                  <span className="text-lg font-bold text-gray-900">$50</span>
+                  <span className="text-lg font-bold text-gray-900">${PRO_MONTHLY_PRICE}</span>
                   <span className="text-[10px] text-gray-400">/mo</span>
                 </div>
               </div>
               <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-                100 videos/month. All features. $40/mo if billed annually.
+                100 videos/month. All features. ${PRO_ANNUAL_MONTHLY_PRICE}/mo if billed annually.
               </p>
               <ul className="space-y-1.5 mb-4">
                 {[

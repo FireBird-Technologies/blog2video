@@ -3495,6 +3495,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <button
           ref={submitButtonRef}
           type="submit"
+          data-action="new-project"
           disabled={loading}
           className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:text-white text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
         >
