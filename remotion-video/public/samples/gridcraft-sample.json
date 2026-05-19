@@ -1,0 +1,140 @@
+{
+  "projectName": "Gridcraft Sample",
+  "accentColor": "#F97316",
+  "bgColor": "#FAFAFA",
+  "textColor": "#171717",
+  "scenes": [
+    {
+      "id": 1, "order": 1,
+      "title": "The SaaS Metrics That Actually Matter",
+      "narration": "Most founders track the wrong numbers. Here are the five metrics that predict sustainable growth.",
+      "layout": "bento_hero",
+      "layoutProps": {
+        "subtitle": "A product growth deep dive"
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2, "order": 2,
+      "title": "Why Most Metrics Lie",
+      "narration": "Vanity metrics feel good but tell you nothing about whether your product is actually working.",
+      "layout": "editorial_body",
+      "layoutProps": {},
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3, "order": 3,
+      "title": "The Five That Matter",
+      "narration": "Focus on these and you will always know the health of your business.",
+      "layout": "bento_features",
+      "layoutProps": {
+        "features": [
+          { "icon": "📈", "label": "MRR Growth", "description": "Month-over-month recurring revenue change" },
+          { "icon": "🔁", "label": "Net Retention", "description": "Revenue kept + expanded from existing customers" },
+          { "icon": "⏱️", "label": "Time to Value", "description": "How fast users reach their first success moment" },
+          { "icon": "💸", "label": "CAC Payback", "description": "Months to recover customer acquisition cost" },
+          { "icon": "😊", "label": "NPS Trend", "description": "Are customers getting happier over time?" }
+        ]
+      },
+      "durationSeconds": 7,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4, "order": 4,
+      "title": "Key Benchmarks",
+      "narration": "Here is what good looks like for each metric at the seed and Series A stage.",
+      "layout": "kpi_grid",
+      "layoutProps": {
+        "dataPoints": [
+          { "label": "MRR Growth", "value": "15%+", "trend": "up" },
+          { "label": "Net Retention", "value": "110%+", "trend": "up" },
+          { "label": "CAC Payback", "value": "<12mo", "trend": "down" },
+          { "label": "Churn Rate", "value": "<2%", "trend": "down" }
+        ]
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5, "order": 5,
+      "title": "How to Get There",
+      "narration": "A repeatable process for improving your core metrics every quarter.",
+      "layout": "bento_steps",
+      "layoutProps": {
+        "dataPoints": [
+          { "label": "Measure", "description": "Instrument your product for accurate data" },
+          { "label": "Diagnose", "description": "Identify the biggest drag on each metric" },
+          { "label": "Experiment", "description": "Run focused A/B tests on the bottleneck" },
+          { "label": "Ship", "description": "Productise what works, cut what doesn't" }
+        ]
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 6, "order": 6,
+      "title": "Growth vs Retention",
+      "narration": "New acquisition and retention are equally important — but most teams only optimise one.",
+      "layout": "bento_compare",
+      "layoutProps": {
+        "leftLabel": "Acquisition Focus",
+        "rightLabel": "Retention Focus",
+        "dataPoints": [
+          { "label": "left",  "title": "High CAC, leaky bucket", "description": "Pouring water into a broken cup." },
+          { "label": "right", "title": "Compound growth engine", "description": "Every customer makes the next one cheaper." }
+        ],
+        "verdict": "Balance both — but fix retention first"
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 7, "order": 7,
+      "title": "Track It In Code",
+      "narration": "Here is a simple function to calculate net revenue retention from your billing data.",
+      "layout": "bento_code",
+      "layoutProps": {
+        "codeSnippet": "function calcNRR(startMRR, expansions, churned) {\n  return ((startMRR + expansions - churned) / startMRR) * 100;\n}\n// > 110% = world class\ncalcNRR(10000, 2000, 500); // → 115%",
+        "codeLanguage": "JavaScript"
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 8, "order": 8,
+      "title": "The Bottom Line",
+      "narration": "Retention is the most honest signal your product can send you.",
+      "layout": "pull_quote",
+      "layoutProps": {
+        "title": "Retention is the most honest signal your product can send you.",
+        "subtitle": "Fix it before you scale."
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 9, "order": 9,
+      "title": "Subscribe for More",
+      "narration": "Follow Blog2Video for weekly breakdowns on product, growth, and SaaS metrics.",
+      "layout": "ending_socials",
+      "layoutProps": {
+        "socials": { "twitter": "@blog2video", "youtube": "Blog2Video" },
+        "websiteLink": "blog2video.com",
+        "ctaButtonText": "Subscribe"
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}
