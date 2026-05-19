@@ -9,10 +9,6 @@ import {
   type CustomTemplateTheme,
   type CustomTemplateItem,
 } from "../api/client";
-import {
-  VIDEO_STYLE_OPTIONS,
-  type VideoStyleId,
-} from "../constants/videoStyles";
 
 /** Read-only demo mode used by help videos: skips API calls, seeds state, renders inline. */
 export interface CustomTemplateCreatorDemoMode {
@@ -24,15 +20,12 @@ export interface CustomTemplateCreatorDemoMode {
   scrapedScreenshotUrl?: string;
   scrapedOgImage?: string;
   scrapedLogoUrls?: string[];
-  supportedVideoStyle?: VideoStyleId;
   themeOverride?: CustomTemplateTheme;
 }
 
 interface Props {
   onCreated: (template: CustomTemplateItem) => void;
   onCancel: () => void;
-  /** Pre-selects supported video style (explainer / promotional / storytelling) for the new template. */
-  initialVideoStyle?: VideoStyleId;
   /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
   demoMode?: CustomTemplateCreatorDemoMode;
 }
@@ -67,7 +60,6 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
   };
   const accentColor = theme.colors.accent;
   const templateName = "Your Brand Template";
-  const supportedVideoStyle: VideoStyleId = "explainer";
 
   return (
     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -191,22 +183,6 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
               </div>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-                Template Style Category
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                  {VIDEO_STYLE_OPTIONS.find((s) => s.id === supportedVideoStyle)?.label ?? supportedVideoStyle}
-                </span>
-                <button type="button" className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors">
-                  <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
             <div className="space-y-3">
               <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Brand Identity</span>
               <div className="flex flex-wrap gap-2">
@@ -236,7 +212,7 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
   );
 }
 
-export default function CustomTemplateCreator({ onCreated, onCancel, initialVideoStyle, demoMode }: Props) {
+export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }: Props) {
   const isDemo = !!demoMode;
   const [step, setStep] = useState<1 | 2>(demoMode?.step ?? 1);
   const [url, setUrl] = useState(demoMode?.url ?? "");
@@ -246,14 +222,9 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
   const [accentColor, setAccentColor] = useState(
     demoMode?.accentColor ?? demoMode?.themeOverride?.colors.accent ?? DEFAULT_THEME.colors.accent
   );
-  const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(
-    () => demoMode?.supportedVideoStyle ?? initialVideoStyle ?? "explainer"
-  );
   const [templateName, setTemplateName] = useState(demoMode?.templateName ?? "");
   const [sourceUrl, setSourceUrl] = useState(demoMode?.sourceUrl ?? "");
   const [saving, setSaving] = useState(false);
-  const [styleOpen, setStyleOpen] = useState(false);
-  const styleRef = useRef<HTMLDivElement>(null);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [createdTemplate, setCreatedTemplate] = useState<CustomTemplateItem | null>(null);
   const [codeGenError, setCodeGenError] = useState<string | null>(null);
@@ -273,22 +244,8 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
   }, [generatingCode]);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (styleRef.current && !styleRef.current.contains(e.target as Node)) setStyleOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  useEffect(() => {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
-
-  useEffect(() => {
-    if (initialVideoStyle) {
-      setSupportedVideoStyle(initialVideoStyle);
-    }
-  }, [initialVideoStyle]);
 
   // Step 1: Extract theme from URL
   const handleExtract = async () => {
@@ -304,7 +261,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
       }
       setTheme(res.data.theme);
       setAccentColor(res.data.theme.colors.accent);
-      setSupportedVideoStyle(initialVideoStyle ?? "explainer");
       setTemplateName(res.data.template_name || "");
       setSourceUrl(url.trim());
       setScrapedLogoUrls(res.data.logo_urls || []);
@@ -331,7 +287,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
         name: templateName.trim(),
         source_url: sourceUrl || undefined,
         theme: updatedTheme,
-        supported_video_style: supportedVideoStyle,
         logo_urls: scrapedLogoUrls.length > 0 ? scrapedLogoUrls : undefined,
         og_image: scrapedOgImage || undefined,
         screenshot_url: scrapedScreenshotUrl || undefined,
@@ -529,44 +484,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
                 <p className="text-[10px] text-gray-400 mt-2">Click the accent swatch to change the brand color</p>
               </div>
 
-              {/* Video style */}
-              <div>
-                <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-                  Template Style Category
-                </label>
-                <div ref={styleRef} className="relative">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                      {VIDEO_STYLE_OPTIONS.find((s) => s.id === supportedVideoStyle)?.label ?? supportedVideoStyle}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setStyleOpen(!styleOpen)}
-                      className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                    >
-                      <svg className={`w-4 h-4 transition-transform ${styleOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                  {styleOpen && (
-                    <div className="absolute z-10 mt-1.5 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1">
-                      {VIDEO_STYLE_OPTIONS.map((style) => (
-                        <button
-                          key={style.id}
-                          type="button"
-                          onClick={() => { setSupportedVideoStyle(style.id); setStyleOpen(false); }}
-                          className={`w-full text-left px-3 py-2 text-xs hover:bg-purple-50 transition-colors ${supportedVideoStyle === style.id ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"}`}
-                        >
-                          {style.label}
-                          <span className="ml-1 text-gray-400">— {style.subtitle}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Brand info */}
               <div className="space-y-3">
                 <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Brand Identity</span>
@@ -658,7 +575,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
                 <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: accentColor }} />
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{createdTemplate.name}</p>
-                  <p className="text-xs text-gray-400">{VIDEO_STYLE_OPTIONS.find((s) => s.id === createdTemplate.supported_video_style)?.label} · {theme.fonts.heading}</p>
+                  <p className="text-xs text-gray-400">{theme.fonts.heading}</p>
                 </div>
               </div>
 

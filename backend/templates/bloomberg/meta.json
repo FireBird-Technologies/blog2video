@@ -3,8 +3,9 @@
   "name": "Bloomberg",
   "new_template": true,
   "description": "Bloomberg terminal-inspired financial storytelling: amber monospace on pure black, dense data panels, KPI grids, and chart scenes for trader-facing explainer videos.",
-  "styles": [
-    "explainer"
+  "genres": [
+    "Finance",
+    "Business"
   ],
   "preview_colors": {
     "accent": "#42F551",

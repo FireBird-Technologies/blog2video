@@ -192,7 +192,6 @@ def _migrate_sqlite(eng) -> None:
         ct_migrations = {
             "source_url": "VARCHAR(2048)",
             "category": "VARCHAR(50) DEFAULT 'blog'",
-            "supported_video_style": "VARCHAR(30) DEFAULT 'explainer'",
             "theme": "TEXT",
             "generated_prompt": "TEXT",
             "preview_image_url": "VARCHAR(2048)",
@@ -354,9 +353,6 @@ def _migrate_sqlite(eng) -> None:
                         text(f"ALTER TABLE custom_voices ADD COLUMN {col_name} {col_def}")
                     )
 
-    # ─── Blast campaigns / sends tables ─────────────────────────────
-    # SQLite: created via Base.metadata.create_all; no column migrations needed.
-
     # ─── Saved voices table ─────────────────────────────────────────
     if "saved_voices" in insp.get_table_names():
         sv_cols = {c["name"] for c in insp.get_columns("saved_voices")}
@@ -405,9 +401,10 @@ def init_db():
         PrebuiltVoice,
         Review,
         ProjectTemplateChangeJob,
-        BlastCampaign,
         Referral,
         ReferralSignup,
+        SupportConversation,
+        SupportMessage,
     )
     from app.models.subscription import seed_plans
 

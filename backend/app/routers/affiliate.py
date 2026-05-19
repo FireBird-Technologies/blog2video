@@ -12,7 +12,7 @@ from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
-from app.models.referral import Referral, REFERRAL_BONUS_VIDEOS, REFERRAL_MAX_SIGNUPS
+from app.models.referral import Referral, ReferralInvite, REFERRAL_BONUS_VIDEOS, REFERRAL_MAX_SIGNUPS
 from app.services.email import EmailService
 
 router = APIRouter(prefix="/api/affiliate", tags=["affiliate"])
@@ -115,14 +115,28 @@ def send_invites(
     sent = 0
     failed = 0
     for email in body.emails:
+        normalized = str(email).strip().lower()
         try:
             _email_service.send_referral_invite_email(
-                to_email=str(email),
+                to_email=normalized,
                 referrer_name=user.name,
                 referral_link=link,
             )
+            db.add(ReferralInvite(
+                referral_id=referral.id,
+                invited_email=normalized,
+                status="sent",
+            ))
             sent += 1
-        except Exception:
+        except Exception as exc:
+            db.add(ReferralInvite(
+                referral_id=referral.id,
+                invited_email=normalized,
+                status="failed",
+                error_message=str(exc)[:500],
+            ))
             failed += 1
+
+    db.commit()
 
     return InviteResponse(sent=sent, failed=failed)

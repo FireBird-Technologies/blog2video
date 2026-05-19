@@ -185,6 +185,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
 class CheckoutRequest(BaseModel):
     plan: str = "pro"  # "pro" or "standard"
     billing_cycle: str = "monthly"  # "monthly" or "annual"
+    apply_third_video_offer: bool = False  # Out-of-videos offer (15% monthly / 25% annual Pro)
 
 
 @router.post("/checkout", response_model=CheckoutResponse)
@@ -231,7 +232,26 @@ def create_checkout_session(
         user.stripe_customer_id = customer.id
         db.commit()
 
-    session = stripe.checkout.Session.create(
+    # Out-of-videos limited-time offer: server-side eligibility gate, then attach coupon.
+    # Eligibility is derived from existing fields — no new DB columns. Stripe's
+    # max_redemptions_per_customer: 1 on the coupons is the real abuse barrier.
+    discounts = None
+    if body.apply_third_video_offer:
+        if user.plan != PlanTier.FREE:
+            raise HTTPException(status_code=409, detail="Offer only available to free-plan users")
+        if user.can_create_video:
+            raise HTTPException(status_code=409, detail="Offer only available when you have no remaining videos")
+        if body.plan != "pro":
+            raise HTTPException(status_code=400, detail="Offer only applies to Pro plan")
+        coupon_id = (
+            settings.STRIPE_3VID_ANNUAL_COUPON_ID if body.billing_cycle == "annual"
+            else settings.STRIPE_3VID_MONTHLY_COUPON_ID
+        )
+        if not coupon_id:
+            raise HTTPException(status_code=400, detail="Offer coupon is not configured")
+        discounts = [{"coupon": coupon_id}]
+
+    session_kwargs = dict(
         customer=user.stripe_customer_id,
         mode="subscription",
         line_items=[
@@ -240,7 +260,6 @@ def create_checkout_session(
                 "quantity": 1,
             }
         ],
-        allow_promotion_codes=True,
         success_url=f"{settings.FRONTEND_URL}/dashboard?upgraded=true&session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
         metadata={
@@ -248,8 +267,16 @@ def create_checkout_session(
             "type": subscription_type,
             "plan": body.plan,
             "billing_cycle": billing_cycle,
+            **({"third_video_offer": "true"} if discounts else {}),
         },
     )
+    # Stripe disallows allow_promotion_codes together with discounts.
+    if discounts:
+        session_kwargs["discounts"] = discounts
+    else:
+        session_kwargs["allow_promotion_codes"] = True
+
+    session = stripe.checkout.Session.create(**session_kwargs)
 
     return CheckoutResponse(checkout_url=session.url)
 

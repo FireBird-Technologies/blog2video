@@ -12,6 +12,17 @@ import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 import { pricingSchema } from "../seo/schema";
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
+import {
+  STANDARD_MONTHLY_PRICE,
+  STANDARD_ANNUAL_MONTHLY_PRICE,
+  STANDARD_ANNUAL_TOTAL_PRICE,
+  PRO_MONTHLY_PRICE,
+  PRO_ANNUAL_MONTHLY_PRICE,
+  PRO_ANNUAL_TOTAL_PRICE,
+  PRO_COST_PER_VIDEO_MONTHLY,
+  PRO_COST_PER_VIDEO_ANNUAL,
+  pricingFaq,
+} from "../content/pricingContent";
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
 
 export default function Pricing() {
@@ -147,9 +158,9 @@ export default function Pricing() {
     }
   };
 
-  const monthlyPrice = 50;
-  const annualMonthlyPrice = 40;
-  const annualTotalPrice = annualMonthlyPrice * 12;
+  const monthlyPrice = PRO_MONTHLY_PRICE;
+  const annualMonthlyPrice = PRO_ANNUAL_MONTHLY_PRICE;
+  const annualTotalPrice = PRO_ANNUAL_TOTAL_PRICE;
   const isAnnual = billingCycle === "annual";
 
   return (
@@ -336,21 +347,21 @@ export default function Pricing() {
             <div className="mb-6">
               {isAnnual ? (
                 <>
-                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">$20</span>
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">${STANDARD_ANNUAL_MONTHLY_PRICE}</span>
                   <span className="text-sm text-gray-400 ml-1">/month</span>
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="text-sm text-gray-400 line-through">$25/mo</span>
+                    <span className="text-sm text-gray-400 line-through">${STANDARD_MONTHLY_PRICE}/mo</span>
                     <span className="text-xs font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
                       Save 20%
                     </span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">$240 billed annually</p>
+                  <p className="text-xs text-gray-400 mt-1">${STANDARD_ANNUAL_TOTAL_PRICE} billed annually</p>
                 </>
               ) : (
                 <>
-                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">$25</span>
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">${STANDARD_MONTHLY_PRICE}</span>
                   <span className="text-sm text-gray-400 ml-1">/month</span>
-                  <p className="text-xs text-gray-400 mt-1">or $20/mo billed annually</p>
+                  <p className="text-xs text-gray-400 mt-1">or ${STANDARD_ANNUAL_MONTHLY_PRICE}/mo billed annually</p>
                 </>
               )}
             </div>
@@ -491,6 +502,7 @@ export default function Pricing() {
               ) : (
                 <button
                   onClick={handleUpgrade}
+                  data-action="upgrade-pro"
                   disabled={checkoutLoading}
                   className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-60"
                 >
@@ -561,7 +573,7 @@ export default function Pricing() {
           <p className="text-xs text-gray-400 leading-relaxed">
             Pro works out to just{" "}
             <span className="font-medium text-gray-600">
-              ${isAnnual ? "0.40" : "0.50"}
+              {isAnnual ? PRO_COST_PER_VIDEO_ANNUAL : PRO_COST_PER_VIDEO_MONTHLY}
             </span>{" "}
             per video — 10x cheaper than pay-per-video.
           </p>
@@ -600,7 +612,7 @@ export default function Pricing() {
             </thead>
             <tbody>
               {[
-                { feature: "Price", free: "$0", perVideo: "$3/video", standard: isAnnual ? "$20/mo" : "$25/mo", pro: isAnnual ? "$40/mo" : "$50/mo", customized: "Custom" },
+                { feature: "Price", free: "$0", perVideo: "$3/video", standard: isAnnual ? `$${STANDARD_ANNUAL_MONTHLY_PRICE}/mo` : `$${STANDARD_MONTHLY_PRICE}/mo`, pro: isAnnual ? `$${PRO_ANNUAL_MONTHLY_PRICE}/mo` : `$${PRO_MONTHLY_PRICE}/mo`, customized: "Custom" },
                 { feature: "Videos", free: "3 free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
                 { feature: "AI script generation", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, standard: true, pro: true, customized: true },
@@ -779,38 +791,13 @@ export default function Pricing() {
           Frequently asked questions
         </h3>
         <div className="space-y-4">
-          {[
-            {
-              q: "How long can my videos be?",
-              a: "There's no time limit. Videos are as long as the blog post requires \u2014 a 3,000-word article might produce a 5-8 minute video.",
-            },
-            {
-              q: "What's the difference between per-video and Pro?",
-              a: "Per-video is pay-as-you-go at $5 each \u2014 great if you only make a few. Pro at $50/month gives you 100 videos plus unlimited AI edit & image generation. If you make 10+ videos/month, Pro is the clear winner.",
-            },
-            {
-              q: "How does annual billing work?",
-              a: "Choose annual billing and pay $480/year ($40/month) instead of $600/year \u2014 that's a 20% discount. You get all the same Pro features.",
-            },
-            {
-              q: "Can I edit the video after generation?",
-              a: "Free and per-video users can preview and download. Pro and Standard users get unlimited AI edit & image generation.",
-            },
-            {
-              q: "What voices are available?",
-              a: "Four documentary-quality ElevenLabs voices: male British, male American, female British, and female American.",
-            },
-            {
-              q: "Can I cancel anytime?",
-              a: "Yes. Cancel your Pro subscription anytime through the billing portal. You keep access until the end of your billing period.",
-            },
-          ].map((faq) => (
-            <div key={faq.q} className="glass-card p-6">
+          {pricingFaq.map((faq) => (
+            <div key={faq.question} className="glass-card p-6">
               <h4 className="text-sm font-medium text-gray-900 mb-2">
-                {faq.q}
+                {faq.question}
               </h4>
               <p className="text-sm text-gray-500 leading-relaxed">
-                {faq.a}
+                {faq.answer}
               </p>
             </div>
           ))}
