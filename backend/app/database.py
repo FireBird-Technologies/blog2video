@@ -404,7 +404,6 @@ def init_db():
         PrebuiltVoice,
         Review,
         ProjectTemplateChangeJob,
-        BlastCampaign,
         Referral,
         ReferralSignup,
     )
