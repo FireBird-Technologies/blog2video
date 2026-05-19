@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     # Used automatically when an image is attached (vision-guided layout editing).
     GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-2.5-pro"
 
+    # Template studio access password. Kept server-side so it doesn't leak in
+    # the JS bundle. Empty disables the gate (any password passes — useful for
+    # local dev). Set via TEMPLATE_STUDIO_PASSWORD in .env.
+    TEMPLATE_STUDIO_PASSWORD: str = ""
+
     # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini") and DSPY_IMAGE_LM in env
     IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
     DSPY_IMAGE_LM: str =  "openai/gpt-4o-mini"
