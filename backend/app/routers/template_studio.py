@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 from threading import Lock
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,84 @@ from app.config import settings
 from app.models.user import User
 
 router = APIRouter(prefix="/api/template-studio", tags=["template-studio"])
+
+
+# ─── Studio access password (server-side, rate-limited) ─────────────────────
+
+_STUDIO_PW_MAX_ATTEMPTS = 5
+_STUDIO_PW_LOCKOUT_SECONDS = 10 * 60
+_STUDIO_PW_ATTEMPTS: dict[str, dict[str, float]] = {}
+_STUDIO_PW_LOCK = Lock()
+
+
+class StudioPasswordRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=200)
+
+
+@router.get("/auth/status")
+def template_studio_auth_status() -> dict[str, bool]:
+    """Return whether a server-side studio password is configured (no secret leakage)."""
+    configured = (settings.TEMPLATE_STUDIO_PASSWORD or "").strip()
+    return {"gated": bool(configured)}
+
+
+def _studio_pw_client_key(request: Request) -> str:
+    """Best-effort client identifier for rate-limiting. Prefers X-Forwarded-For
+    when behind a proxy, otherwise the direct peer address."""
+    fwd = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    if fwd:
+        return fwd
+    return request.client.host if request.client else "unknown"
+
+
+@router.post("/auth/verify")
+def verify_studio_password(payload: StudioPasswordRequest, request: Request):
+    """Verify the template-studio gate password. Public (no user auth) since
+    this is the entry gate. Uses constant-time compare + per-IP lockout to
+    blunt brute force."""
+    import secrets
+
+    configured = (settings.TEMPLATE_STUDIO_PASSWORD or "").strip()
+    if not configured:
+        # No password configured → gate disabled. Anything passes.
+        return {"ok": True, "gated": False}
+
+    key = _studio_pw_client_key(request)
+    now = time.time()
+    with _STUDIO_PW_LOCK:
+        entry = _STUDIO_PW_ATTEMPTS.get(key) or {"count": 0, "locked_until": 0.0}
+        if entry["locked_until"] > now:
+            retry_in = int(entry["locked_until"] - now)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many attempts. Retry in {retry_in}s.",
+                headers={"Retry-After": str(retry_in)},
+            )
+
+    if secrets.compare_digest(payload.password, configured):
+        with _STUDIO_PW_LOCK:
+            _STUDIO_PW_ATTEMPTS.pop(key, None)
+        return {"ok": True, "gated": True}
+
+    with _STUDIO_PW_LOCK:
+        entry = _STUDIO_PW_ATTEMPTS.get(key) or {"count": 0, "locked_until": 0.0}
+        entry["count"] = int(entry["count"]) + 1
+        remaining = _STUDIO_PW_MAX_ATTEMPTS - entry["count"]
+        if entry["count"] >= _STUDIO_PW_MAX_ATTEMPTS:
+            entry["locked_until"] = now + _STUDIO_PW_LOCKOUT_SECONDS
+            entry["count"] = 0
+            _STUDIO_PW_ATTEMPTS[key] = entry
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many attempts. Locked for {_STUDIO_PW_LOCKOUT_SECONDS // 60} minutes.",
+                headers={"Retry-After": str(_STUDIO_PW_LOCKOUT_SECONDS)},
+            )
+        _STUDIO_PW_ATTEMPTS[key] = entry
+
+    raise HTTPException(
+        status_code=401,
+        detail=f"Incorrect password. {remaining} attempt{'s' if remaining != 1 else ''} remaining.",
+    )
 
 
 class AspectValue(BaseModel):
