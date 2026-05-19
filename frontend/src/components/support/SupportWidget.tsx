@@ -4,6 +4,7 @@ import { SupportChat } from "./SupportChat";
 
 export function SupportWidget() {
   const [open, setOpen] = useState(false);
+
   return (
     <>
       <button
