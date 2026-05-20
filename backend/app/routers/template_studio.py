@@ -10,7 +10,7 @@ from threading import Lock
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,8 @@ from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
+from app.services.template_studio_codegen import coerce_prop_default
+from app.services.template_studio_llm import template_studio_chat
 
 router = APIRouter(prefix="/api/template-studio", tags=["template-studio"])
 
@@ -156,6 +158,11 @@ class PropDef(BaseModel):
     description: str = Field(default="", max_length=400)
     default: str | None = None
 
+    @field_validator("default", mode="before")
+    @classmethod
+    def _normalize_default(cls, v: object) -> str | None:
+        return coerce_prop_default(v)
+
 
 class AiLayoutRebuildRequest(BaseModel):
     template_id: str
@@ -185,10 +192,42 @@ class RenderLayoutRequest(BaseModel):
     resolution: str | None = None
 
 
-class CreateTemplateRequest(BaseModel):
+class PlanTemplateRequest(BaseModel):
+    """Phase 1: normalize the raw design doc and extract the plan only."""
     template_id: str = Field(min_length=2, max_length=40, pattern=r"^[a-z][a-z0-9_]*$")
     design_doc: str = Field(min_length=50, max_length=40000)
     overwrite: bool = False
+
+
+class CreateTemplateRequest(BaseModel):
+    """Phase 2: build the template. Either supply a pre-extracted `plan`
+    (from POST /template/plan — what the user saw is what gets built) or a raw
+    `design_doc` (legacy path — normalized + extracted inline)."""
+    template_id: str = Field(min_length=2, max_length=40, pattern=r"^[a-z][a-z0-9_]*$")
+    design_doc: str | None = Field(default=None, max_length=40000)
+    normalized_doc: str | None = Field(default=None, max_length=40000)
+    plan: dict | None = None
+    keep_layout_ids: list[str] | None = Field(
+        default=None,
+        max_length=24,
+        description="With plan only: layout ids to generate after Studio review.",
+    )
+    overwrite: bool = False
+
+    @model_validator(mode="after")
+    def _need_plan_or_doc(self) -> "CreateTemplateRequest":
+        has_doc = bool(self.design_doc and self.design_doc.strip())
+        if not self.plan and not has_doc:
+            raise ValueError("Either 'plan' or 'design_doc' is required.")
+        if not self.plan and has_doc and len(self.design_doc.strip()) < 50:
+            raise ValueError("design_doc must be at least 50 characters.")
+        return self
+
+    @model_validator(mode="after")
+    def _keep_layouts_need_plan(self) -> "CreateTemplateRequest":
+        if self.keep_layout_ids is not None and self.plan is None:
+            raise ValueError("keep_layout_ids may only be sent together with plan.")
+        return self
 
 
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -485,108 +524,34 @@ def _build_code_edit_user_text(
     )
 
 
-def _call_claude_code_edit(
+def _call_anthropic_code_edit(
     instruction: str,
     current_code: str,
     template_id: str,
     layout_id: str,
-    *,
-    image_base64: str | None = None,
-    image_mime_type: str | None = None,
 ) -> str:
-    api_key = (settings.ANTHROPIC_API_KEY or "").strip()
-    if not api_key:
-        raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY is not configured.")
-    try:
-        from anthropic import Anthropic
-    except Exception as e:  # pragma: no cover
-        raise HTTPException(
-            status_code=500,
-            detail=f"Claude code edit requires anthropic package: {e}",
-        )
-
-    model_name = (getattr(settings, "CLAUDE_CODE_MODEL", "") or "claude-sonnet-4-6").strip()
-    client = Anthropic(api_key=api_key)
-
+    """Generate / edit a layout TSX via Anthropic (Claude Sonnet). Text-only — used by template creation."""
     user_text = _build_code_edit_user_text(
         instruction=instruction,
         current_code=current_code,
         template_id=template_id,
         layout_id=layout_id,
-        has_image=bool(image_base64 and image_mime_type),
+        has_image=False,
     )
-
-    content_blocks: list[dict] = []
-    if image_base64 and image_mime_type:
-        try:
-            base64.b64decode(image_base64)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid image_base64.")
-        mime = (image_mime_type or "image/jpeg").strip().lower()
-        if mime not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
-            mime = "image/jpeg"
-        content_blocks.append({
-            "type": "image",
-            "source": {"type": "base64", "media_type": mime, "data": image_base64},
-        })
-    content_blocks.append({"type": "text", "text": user_text})
-
-    try:
-        response = client.messages.create(
-            model=model_name,
-            max_tokens=16000,
-            temperature=0.2,
-            system=_CODE_EDIT_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": content_blocks}],
-        )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Claude request failed: {e}")
-
-    text = ""
-    for block in getattr(response, "content", None) or []:
-        block_type = getattr(block, "type", None)
-        if block_type == "text":
-            text += getattr(block, "text", "") or ""
+    text = template_studio_chat(
+        system=_CODE_EDIT_SYSTEM_PROMPT,
+        user=user_text,
+        max_tokens=16000,
+        temperature=0.2,
+        log_label=f"layout_tsx/{template_id}/{layout_id}",
+    )
     code = _extract_code_from_model_output(text)
     if not code:
-        raise HTTPException(status_code=502, detail="Claude returned empty code output.")
+        raise HTTPException(status_code=502, detail="Model returned empty code output.")
     if "export" not in code:
-        raise HTTPException(status_code=502, detail="Claude output does not look like a component file.")
+        raise HTTPException(status_code=502, detail="Model output does not look like a component file.")
     _validate_tsx_or_raise(code, template_id, layout_id)
     return code
-
-
-def _call_code_edit(
-    instruction: str,
-    current_code: str,
-    template_id: str,
-    layout_id: str,
-    *,
-    image_base64: str | None = None,
-    image_mime_type: str | None = None,
-) -> str:
-    """Dispatcher: Claude Sonnet primary, Gemini fallback when ANTHROPIC_API_KEY missing.
-
-    Mid-call Claude failures do not silently fall back — that would mask real errors.
-    The fallback only triggers when the Anthropic key is unconfigured.
-    """
-    if (settings.ANTHROPIC_API_KEY or "").strip():
-        return _call_claude_code_edit(
-            instruction=instruction,
-            current_code=current_code,
-            template_id=template_id,
-            layout_id=layout_id,
-            image_base64=image_base64,
-            image_mime_type=image_mime_type,
-        )
-    return _call_gemini_code_edit(
-        instruction=instruction,
-        current_code=current_code,
-        template_id=template_id,
-        layout_id=layout_id,
-        image_base64=image_base64,
-        image_mime_type=image_mime_type,
-    )
 
 
 def _call_gemini_code_edit(
@@ -598,6 +563,8 @@ def _call_gemini_code_edit(
     image_base64: str | None = None,
     image_mime_type: str | None = None,
 ) -> str:
+    """Generate / edit a layout TSX via Gemini (vision-capable). Used by the
+    image-driven scene edit / layout rebuild / layout create flows."""
     api_key = (settings.GEMINI_API_KEY or "").strip()
     if not api_key:
         raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured.")
@@ -610,7 +577,7 @@ def _call_gemini_code_edit(
             detail=f"Gemini code edit requires google-genai package: {e}",
         )
 
-    default_model = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-2.5-flash").strip()
+    default_model = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-3.5-flash").strip()
     image_model = (getattr(settings, "GEMINI_CODE_MODEL_WITH_IMAGE", "") or "").strip()
     model_name = image_model if (image_base64 and image_mime_type and image_model) else default_model
     client = genai.Client(api_key=api_key)
@@ -663,6 +630,36 @@ def _call_gemini_code_edit(
     return code
 
 
+def _call_code_edit(
+    instruction: str,
+    current_code: str,
+    template_id: str,
+    layout_id: str,
+    *,
+    image_base64: str | None = None,
+    image_mime_type: str | None = None,
+    backend: str = "gemini",
+) -> str:
+    """Dispatch a layout-TSX generation/edit call.
+
+    backend="gemini"     — Gemini (vision-capable). Default — used by **scene
+                           edit** and **layout rebuild** (image optional).
+    backend="anthropic"  — Claude Sonnet via Anthropic (text-only). Used by
+                           **new template** (`template/create`) and **new layout**
+                           (`ai-layout/create`); image inputs are ignored.
+    """
+    if backend == "anthropic":
+        return _call_anthropic_code_edit(instruction, current_code, template_id, layout_id)
+    return _call_gemini_code_edit(
+        instruction,
+        current_code,
+        template_id,
+        layout_id,
+        image_base64=image_base64,
+        image_mime_type=image_mime_type,
+    )
+
+
 def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
     """
     Run a lightweight TypeScript/TSX syntax check on generated code.
@@ -706,7 +703,7 @@ def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
                 msg = msg[:4000] + "\n... (truncated)"
             raise HTTPException(
                 status_code=502,
-                detail=f"Gemini produced invalid TSX code; TypeScript reported errors:\n{msg}",
+                detail=f"Generated TSX failed type-checking; TypeScript reported errors:\n{msg}",
             )
     finally:
         # Best-effort cleanup of the temporary validation file and directory.
@@ -1521,8 +1518,16 @@ def _props_to_defaults(props: list[PropDef]) -> dict:
         elif p.type == "boolean":
             defaults[p.name] = str(raw).lower() in {"true", "1", "yes"}
         elif p.type == "string_array":
-            # Comma-separated -> list of strings
-            parts = [s.strip() for s in str(raw).split(",") if s.strip()]
+            s = str(raw).strip()
+            if s.startswith("["):
+                try:
+                    parsed = _json.loads(s)
+                    if isinstance(parsed, list):
+                        defaults[p.name] = [str(x) for x in parsed]
+                        continue
+                except _json.JSONDecodeError:
+                    pass
+            parts = [x.strip() for x in s.split(",") if x.strip()]
             defaults[p.name] = parts
         elif p.type == "object_array":
             # JSON array, or "label: value" pairs, or comma-separated values (label = "Label N", value = item)
@@ -1649,30 +1654,15 @@ def _build_doc_section_prompts(
     return system_prompt, user_prompt
 
 
-def _call_claude_layout_doc_section(
+def _call_anthropic_layout_doc_section(
     *,
     template_id: str,
     layout_id: str,
     instruction: str,
     tsx: str,
     props: list[PropDef],
-    image_base64: str | None = None,
-    image_mime_type: str | None = None,
 ) -> str:
-    api_key = (settings.ANTHROPIC_API_KEY or "").strip()
-    if not api_key:
-        raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY is not configured.")
-    try:
-        from anthropic import Anthropic
-    except Exception as e:  # pragma: no cover
-        raise HTTPException(
-            status_code=500,
-            detail=f"Claude requires anthropic package: {e}",
-        )
-
-    model_name = (getattr(settings, "CLAUDE_CODE_MODEL", "") or "claude-sonnet-4-6").strip()
-    client = Anthropic(api_key=api_key)
-
+    """Generate a prompt.md doc section via Anthropic (Claude Sonnet). Text-only — used by template creation. Returns markdown starting with '## {layout_id}'."""
     system_prompt, user_prompt = _build_doc_section_prompts(
         template_id=template_id,
         layout_id=layout_id,
@@ -1680,75 +1670,18 @@ def _call_claude_layout_doc_section(
         tsx=tsx,
         props=props,
     )
-
-    content_blocks: list[dict] = []
-    if image_base64 and image_mime_type:
-        try:
-            base64.b64decode(image_base64)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid image_base64.")
-        mime = (image_mime_type or "image/jpeg").strip().lower()
-        if mime not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
-            mime = "image/jpeg"
-        content_blocks.append({
-            "type": "image",
-            "source": {"type": "base64", "media_type": mime, "data": image_base64},
-        })
-    content_blocks.append({"type": "text", "text": user_prompt})
-
-    try:
-        response = client.messages.create(
-            model=model_name,
-            max_tokens=2000,
-            temperature=0.4,
-            system=system_prompt,
-            messages=[{"role": "user", "content": content_blocks}],
-        )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Claude doc-section request failed: {e}")
-
-    text = ""
-    for block in getattr(response, "content", None) or []:
-        if getattr(block, "type", None) == "text":
-            text += getattr(block, "text", "") or ""
-    text = text.strip()
+    text = template_studio_chat(
+        system=system_prompt,
+        user=user_prompt,
+        max_tokens=2000,
+        temperature=0.4,
+        log_label=f"prompt_md/{template_id}/{layout_id}",
+    ).strip()
     if not text:
-        raise HTTPException(status_code=502, detail="Claude returned empty prompt.md section.")
+        raise HTTPException(status_code=502, detail="Model returned empty prompt.md section.")
     if not text.lstrip().startswith(f"## {layout_id}"):
         text = f"## {layout_id}\n" + text.lstrip().lstrip("#").lstrip()
     return text.rstrip()
-
-
-def _call_layout_doc_section(
-    *,
-    template_id: str,
-    layout_id: str,
-    instruction: str,
-    tsx: str,
-    props: list[PropDef],
-    image_base64: str | None = None,
-    image_mime_type: str | None = None,
-) -> str:
-    """Dispatcher: Claude primary, Gemini fallback when ANTHROPIC_API_KEY missing."""
-    if (settings.ANTHROPIC_API_KEY or "").strip():
-        return _call_claude_layout_doc_section(
-            template_id=template_id,
-            layout_id=layout_id,
-            instruction=instruction,
-            tsx=tsx,
-            props=props,
-            image_base64=image_base64,
-            image_mime_type=image_mime_type,
-        )
-    return _call_gemini_layout_doc_section(
-        template_id=template_id,
-        layout_id=layout_id,
-        instruction=instruction,
-        tsx=tsx,
-        props=props,
-        image_base64=image_base64,
-        image_mime_type=image_mime_type,
-    )
 
 
 def _call_gemini_layout_doc_section(
@@ -1761,10 +1694,9 @@ def _call_gemini_layout_doc_section(
     image_base64: str | None = None,
     image_mime_type: str | None = None,
 ) -> str:
-    """
-    Generate a high-quality prompt.md section for a layout from the final TSX + schema props.
-    Returns markdown starting with '## {layout_id}'.
-    """
+    """Generate a prompt.md doc section via Gemini (vision-capable). Used by
+    the image-driven layout rebuild / create flows. Returns markdown starting
+    with '## {layout_id}'."""
     api_key = (settings.GEMINI_API_KEY or "").strip()
     if not api_key:
         raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured.")
@@ -1777,46 +1709,17 @@ def _call_gemini_layout_doc_section(
             detail=f"Gemini requires google-genai package: {e}",
         )
 
-    default_model = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-2.5-flash").strip()
+    default_model = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-3.5-flash").strip()
     image_model = (getattr(settings, "GEMINI_CODE_MODEL_WITH_IMAGE", "") or "").strip()
     model_name = image_model if (image_base64 and image_mime_type and image_model) else default_model
     client = genai.Client(api_key=api_key)
 
-    content_props = [p for p in props if p.name not in _PROMPT_EXCLUDE_PROPS]
-    props_desc = "\n".join(
-        f"- `{p.name}` ({p.type}){(' — ' + p.description.strip()) if p.description else ''}"
-        for p in content_props
-    ) or "- (none)"
-
-    system_prompt = (
-        "You write documentation sections for a video template layout catalog (prompt.md).\n"
-        "Output MUST be markdown ONLY, and MUST start with a header line exactly:\n"
-        f"## {layout_id}\n\n"
-        "Do not wrap in code fences. Do not add any extra sections outside this layout.\n"
-        "Be concise but specific. Use the TSX to infer the visual design.\n\n"
-        "Required structure inside the section:\n"
-        f"## {layout_id}\n"
-        "**Visual:** <1-2 sentences describing what the layout looks like>\n"
-        "\n"
-        "**Props:**\n"
-        "  - `<prop>` (<type>) — <how it affects visuals/content> (include only the important ones)\n"
-        "\n"
-        f"**When to Use:** <1-2 sentences, include `{layout_id}`>\n"
-        "\n"
-        "**Avoid When:** <1 sentence>\n"
-        "\n"
-        "**Notes:** <1-3 bullets with any constraints like image support, long text behavior, etc.>\n"
-    )
-
-    user_prompt = (
-        f"Template ID: {template_id}\n"
-        f"Layout ID: {layout_id}\n\n"
-        "User instruction (intent):\n"
-        f"{instruction.strip()}\n\n"
-        "Known props (name, type, description):\n"
-        f"{props_desc}\n\n"
-        "Final TSX implementation (source of truth for visuals/behavior):\n"
-        f"{tsx.strip()[:12000]}"
+    system_prompt, user_prompt = _build_doc_section_prompts(
+        template_id=template_id,
+        layout_id=layout_id,
+        instruction=instruction,
+        tsx=tsx,
+        props=props,
     )
 
     prompt_part = types.Part.from_text(text=system_prompt + "\n\n" + user_prompt)
@@ -1839,10 +1742,45 @@ def _call_gemini_layout_doc_section(
     text = (getattr(response, "text", "") or "").strip()
     if not text:
         raise HTTPException(status_code=502, detail="Gemini returned empty prompt.md section.")
-    # Normalize: ensure it starts with the correct header.
     if not text.lstrip().startswith(f"## {layout_id}"):
         text = f"## {layout_id}\n" + text.lstrip().lstrip("#").lstrip()
     return text.rstrip()
+
+
+def _call_layout_doc_section(
+    *,
+    template_id: str,
+    layout_id: str,
+    instruction: str,
+    tsx: str,
+    props: list[PropDef],
+    image_base64: str | None = None,
+    image_mime_type: str | None = None,
+    backend: str = "gemini",
+) -> str:
+    """Dispatch a prompt.md doc-section generation call.
+
+    backend="gemini"     — Gemini. Default — **rebuild** prompt.md updates.
+    backend="anthropic"  — Anthropic. **New template** and **new layout**
+                           prompt.md enrichment; images ignored.
+    """
+    if backend == "anthropic":
+        return _call_anthropic_layout_doc_section(
+            template_id=template_id,
+            layout_id=layout_id,
+            instruction=instruction,
+            tsx=tsx,
+            props=props,
+        )
+    return _call_gemini_layout_doc_section(
+        template_id=template_id,
+        layout_id=layout_id,
+        instruction=instruction,
+        tsx=tsx,
+        props=props,
+        image_base64=image_base64,
+        image_mime_type=image_mime_type,
+    )
 
 
 def _build_rebuild_gemini_prompt(
@@ -1909,6 +1847,13 @@ def _build_create_gemini_prompt(
         "titleFontSize, descriptionFontSize, stats, imageUrl, ...extra }}: LayoutProps) => {{\n"
         "  // access custom props via extra.propName\n}}\n\n"
         "For object_array props (items with label and value): render BOTH — show item.label as caption and item.value as main text.\n\n"
+        "Typography — REQUIRED (Template Studio edits title/body sizes via meta + Save-to-source; match patterns used in templates like newspaper):\n"
+        '  - Immediately inside the component: const p = aspectRatio === "portrait";\n'
+        "  - Main headline (`title` string): fontSize MUST include the verbatim pattern "
+        "titleFontSize ?? (p ? <int> : <int>) (optional * scale factors on the ints).\n"
+        "  - Primary body (`narration` string): fontSize MUST include "
+        "descriptionFontSize ?? (p ? <int> : <int>) similarly.\n"
+        "  - Do not rely on hard-coded px for those two roles without wiring these props.\n\n"
         f"Base your visual style on this existing layout ({base_layout_id}) — "
         "keep the same color palette, font choices, and animation approach.\n"
         "Use the current file content provided below as the style reference.\n"
@@ -2254,6 +2199,7 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
         layout_id=new_layout_id,
         image_base64=payload.image_base64,
         image_mime_type=payload.image_mime_type,
+        backend="anthropic",
     )
 
     pascal_name = _snake_to_pascal(new_layout_id)
@@ -2290,10 +2236,12 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
 
     _register_layout_in_template_config(new_layout_id, template_id)
 
+    from app.services import template_studio_codegen as codegen
+
     new_schema = _build_prop_schema_entry(
         _snake_to_pascal(new_layout_id).replace("_", " "),
-        [],
-        {},
+        [dict(f) for f in codegen.STANDARD_LAYOUT_TYPOGRAPHY_FIELDS],
+        dict(codegen.STANDARD_LAYOUT_TYPOGRAPHY_DEFAULTS),
         payload.props,
     )
     meta.setdefault("layout_prop_schema", {})[new_layout_id] = new_schema
@@ -2303,7 +2251,13 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
         meta["valid_layouts"] = valid_layouts
     _write_meta_json(meta, meta_path)
 
-    new_section = _build_prompt_section(new_layout_id, payload.layout_description, payload.props)
+    doc_prop_defs = [
+        PropDef(name="titleFontSize", type="number", description="Title font size (portrait/landscape)"),
+        PropDef(name="descriptionFontSize", type="number", description="Body font size (portrait/landscape)"),
+        *payload.props,
+    ]
+
+    new_section = _build_prompt_section(new_layout_id, payload.layout_description, doc_prop_defs)
     # Generate a richer prompt.md section using AI based on the final TSX + props.
     # Fallback to the simple section if the model call fails.
     try:
@@ -2312,12 +2266,13 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
             layout_id=new_layout_id,
             instruction=payload.layout_description,
             tsx=content,
-            props=payload.props,
+            props=doc_prop_defs,
             image_base64=payload.image_base64,
             image_mime_type=payload.image_mime_type,
+            backend="anthropic",
         )
     except HTTPException:
-        new_section = _build_prompt_section(new_layout_id, payload.layout_description, payload.props)
+        new_section = _build_prompt_section(new_layout_id, payload.layout_description, doc_prop_defs)
     prompt_path.write_text(prompt_text.rstrip() + f"\n\n---\n\n{new_section.rstrip()}\n", encoding="utf-8")
 
     # Update layout_prompt.md if it exists (pipeline uses it for layout catalog)
@@ -2622,26 +2577,93 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
 # ─── Create a brand-new built-in template from a design doc ──────────────────
 
 
+@router.post("/template/plan")
+def plan_template_from_doc(
+    payload: PlanTemplateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Phase 1 of template creation: normalize the design doc + extract a plan.
+
+    No filesystem writes. The frontend shows the proposed layouts, lets the user
+    uncheck unwanted ids, then calls POST /template/create with the same
+    ``plan`` plus ``keep_layout_ids`` so only verified layouts are generated.
+    """
+    from app.services import template_studio_codegen as codegen
+
+    db.close()
+
+    template_id = payload.template_id.strip().lower()
+
+    registry_path = _TEMPLATES_META_DIR / "registry.json"
+    if not registry_path.exists():
+        raise HTTPException(status_code=500, detail="backend/templates/registry.json missing.")
+    existing_ids = json.loads(registry_path.read_text(encoding="utf-8"))
+    if template_id in existing_ids and not payload.overwrite:
+        raise HTTPException(status_code=409, detail=f"Template '{template_id}' already exists.")
+
+    if not (settings.TEMPLATE_CREATION_ANTHROPIC_API_KEY or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="TEMPLATE_CREATION_ANTHROPIC_API_KEY is required for template planning.",
+        )
+
+    warnings: list[str] = []
+    try:
+        normalized_doc = codegen.normalize_design_doc(
+            design_doc=payload.design_doc,
+            template_id=template_id,
+        )
+    except HTTPException as e:
+        warnings.append(f"design-doc normalization failed ({e.detail}); used the raw doc")
+        normalized_doc = payload.design_doc
+
+    plan = codegen.extract_template_plan(
+        design_doc=normalized_doc,
+        template_id=template_id,
+    )
+
+    return {
+        "ok": True,
+        "template_id": template_id,
+        "name": plan.name,
+        "normalized_doc": normalized_doc,
+        "plan": plan.model_dump(),
+        "layout_ids": [layout.id for layout in plan.layouts],
+        "hero_layout": plan.hero_layout,
+        "fallback_layout": plan.fallback_layout,
+        "warnings": warnings,
+    }
+
+
 @router.post("/template/create")
 def create_template_from_doc(
     payload: CreateTemplateRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Generate a complete built-in template from a free-form design doc.
+    """Generate a complete built-in template.
+
+    Two entry modes:
+      • `plan` supplied — optionally narrowed with `keep_layout_ids` after the
+        Studio review step (subset of layouts to generate).
+      • `design_doc` only (legacy) — the raw doc is normalized, then a plan is
+        extracted from the normalized doc inline.
 
     Pipeline:
-      1. Claude extracts a structured plan from the design doc.
+      1. Resolve the plan (see modes above).
       2. Scaffold: meta.json, prompt.md, layout_prompt.md, types.ts (frontend + remotion-video).
-      3. Per-layout codegen (Claude, sequential, validated by tsc). Each call
-         is self-contained — no base-template reference TSX is provided; the
-         design doc and the plan must carry everything Claude needs.
+      3. Per-layout codegen (Claude, sequential). Each call is self-contained —
+         no base-template reference TSX; the plan must carry everything.
       4. Composition TSX (templated) + layouts/index.ts (templated).
       5. Preview component (templated) + registry edits (templateConfig.tsx,
          templatePreviewRegistry.tsx, registry.json).
+      5.5. Full-template TSX verification — type-check the new template with
+         the real tsconfig; auto-repair failing layouts (up to 2 rounds), then
+         stub any that still fail.
+      6. Enrich prompt.md / layout_prompt.md per-layout.
 
-    On any failure, all touched files are restored from their snapshot (or
-    deleted if they didn't exist before).
+    On any hard failure, all touched files are restored from their snapshot.
     """
     from app.services import template_studio_codegen as codegen
 
@@ -2661,21 +2683,46 @@ def create_template_from_doc(
     if template_id in existing_ids and not payload.overwrite:
         raise HTTPException(status_code=409, detail=f"Template '{template_id}' already exists.")
 
-    api_key = (settings.ANTHROPIC_API_KEY or "").strip()
-    if not api_key:
+    if not (settings.TEMPLATE_CREATION_ANTHROPIC_API_KEY or "").strip():
         raise HTTPException(
             status_code=400,
-            detail="ANTHROPIC_API_KEY is required for template creation.",
+            detail="TEMPLATE_CREATION_ANTHROPIC_API_KEY is required for template creation.",
         )
 
-    # ── Step 1: extract plan from design doc
-    model_name = (getattr(settings, "CLAUDE_CODE_MODEL", "") or "claude-sonnet-4-6").strip()
-    plan = codegen.extract_template_plan(
-        design_doc=payload.design_doc,
-        template_id=template_id,
-        anthropic_api_key=api_key,
-        model=model_name,
-    )
+    # ── Step 1: resolve the template plan
+    warnings: list[str] = []
+    raw_design_doc = (payload.design_doc or "").strip()
+    normalized_doc = (payload.normalized_doc or "").strip()
+
+    if payload.plan is not None:
+        # Phase-2 call from /template/plan: build exactly the plan the user saw.
+        try:
+            plan = codegen.TemplatePlan(**payload.plan)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid plan payload: {e}")
+        if payload.keep_layout_ids is not None:
+            if len(payload.keep_layout_ids) == 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="keep_layout_ids must not be empty when provided.",
+                )
+            plan = codegen.filter_plan_layouts(plan, payload.keep_layout_ids)
+        else:
+            codegen.validate_plan(plan, status_code=400)
+    else:
+        # Legacy path: normalize the raw doc, then extract a plan from it.
+        try:
+            normalized_doc = codegen.normalize_design_doc(
+                design_doc=raw_design_doc,
+                template_id=template_id,
+            )
+        except HTTPException as e:
+            warnings.append(f"design-doc normalization failed ({e.detail}); used the raw doc")
+            normalized_doc = raw_design_doc
+        plan = codegen.extract_template_plan(
+            design_doc=normalized_doc,
+            template_id=template_id,
+        )
 
     # Snake -> Pascal name maps
     pascal = codegen.snake_to_pascal(template_id)
@@ -2750,19 +2797,22 @@ def create_template_from_doc(
         )
 
         # ── Step 3: per-layout codegen (self-contained prompts; no base-template anchor)
-        warnings: list[str] = []
-        for layout in plan.layouts:
-            pascal_layout = pascal_names[layout.id]
-            instruction = codegen.build_layout_codegen_prompt(
+        def _layout_codegen_prompt(lyt) -> str:
+            return codegen.build_layout_codegen_prompt(
                 template_id=template_id,
                 template_name=plan.name,
                 template_description=plan.description,
                 accent_color=plan.preview_colors.get("accent", "#7C3AED"),
                 bg_color=plan.preview_colors.get("bg", "#FFFFFF"),
                 text_color=plan.preview_colors.get("text", "#000000"),
-                layout=layout,
-                pascal_name=pascal_layout,
+                layout=lyt,
+                pascal_name=pascal_names[lyt.id],
+                design_notes=plan.design_notes,
             )
+
+        for layout in plan.layouts:
+            pascal_layout = pascal_names[layout.id]
+            instruction = _layout_codegen_prompt(layout)
 
             try:
                 tsx = _call_code_edit(
@@ -2770,6 +2820,7 @@ def create_template_from_doc(
                     current_code="",
                     template_id=template_id,
                     layout_id=layout.id,
+                    backend="anthropic",
                 )
             except HTTPException as e:
                 warnings.append(f"layout {layout.id}: AI codegen failed ({e.detail}); wrote stub")
@@ -2827,6 +2878,91 @@ def create_template_from_doc(
             subtitle=plan.subtitle or plan.description.split(".")[0][:60],
         )
 
+        # ── Step 5.5: full-template TSX verification + auto-repair
+        # Type-check the new template with the real tsconfig (imports + cross-
+        # file types resolve). Failing layouts are repaired by the AI for up to
+        # 2 rounds; any still invalid are replaced with a safe stub.
+        verification: dict = {
+            "ok": True,
+            "checked": list(layout_ids),
+            "repaired": [],
+            "stubbed": [],
+            "errors": {},
+        }
+        layouts_by_id = {layout.id: layout for layout in plan.layouts}
+
+        def _write_layout_tsx(lid: str, code: str) -> None:
+            stem = pascal_names[lid]
+            body = code.rstrip() + "\n"
+            (frontend_layouts_dir / f"{stem}.tsx").write_text(body, encoding="utf-8")
+            (remotion_layouts_dir / f"{stem}.tsx").write_text(body, encoding="utf-8")
+
+        tc = codegen.run_template_typecheck(root=_ROOT, template_id=template_id, scope="frontend")
+        for _repair_round in range(2):
+            if tc["ok"]:
+                break
+            failing: dict[str, list[str]] = {}
+            for relpath, errs in tc["errors_by_file"].items():
+                lid = codegen.tsx_file_to_layout_id(relpath, pascal_names)
+                if lid in layouts_by_id:
+                    failing.setdefault(lid, []).extend(errs)
+            if not failing:
+                break  # only non-layout templated files erred — cannot AI-repair
+            for lid, errs in failing.items():
+                stem = pascal_names[lid]
+                broken = (frontend_layouts_dir / f"{stem}.tsx").read_text(encoding="utf-8")
+                repair_instruction = (
+                    _layout_codegen_prompt(layouts_by_id[lid])
+                    + "\n\nThe previous attempt FAILED TypeScript verification with "
+                    "these errors:\n"
+                    + "\n".join(errs[:30])
+                    + "\n\nReturn the corrected full TSX file with every error fixed."
+                )
+                try:
+                    fixed = _call_code_edit(
+                        instruction=repair_instruction,
+                        current_code=broken,
+                        template_id=template_id,
+                        layout_id=lid,
+                        backend="anthropic",
+                    )
+                    _write_layout_tsx(lid, fixed)
+                    if lid not in verification["repaired"]:
+                        verification["repaired"].append(lid)
+                except HTTPException:
+                    pass  # leave broken; the next round or stubbing handles it
+            tc = codegen.run_template_typecheck(root=_ROOT, template_id=template_id, scope="frontend")
+
+        # Stub any layout still failing; record non-layout errors as warnings.
+        if not tc["ok"]:
+            for relpath, errs in tc["errors_by_file"].items():
+                lid = codegen.tsx_file_to_layout_id(relpath, pascal_names)
+                if lid in layouts_by_id:
+                    _write_layout_tsx(lid, _build_stub_layout_tsx(pascal_names[lid]))
+                    if lid in verification["repaired"]:
+                        verification["repaired"].remove(lid)
+                    if lid not in verification["stubbed"]:
+                        verification["stubbed"].append(lid)
+                    warnings.append(
+                        f"layout {lid}: still invalid TSX after repair; replaced with a stub"
+                    )
+                else:
+                    verification["errors"][relpath] = errs
+                    warnings.append(f"verification: unresolved TypeScript errors in {relpath}")
+
+        # Final remotion-video pass — covers the deterministic <Pascal>Video.tsx.
+        tc_remotion = codegen.run_template_typecheck(
+            root=_ROOT, template_id=template_id, scope="remotion",
+        )
+        if not tc_remotion["ok"]:
+            for relpath, errs in tc_remotion["errors_by_file"].items():
+                verification["errors"].setdefault(relpath, errs)
+                warnings.append(
+                    f"verification (remotion-video): TypeScript errors in {relpath}"
+                )
+
+        verification["ok"] = not verification["stubbed"] and not verification["errors"]
+
         # ── Step 6: enrich prompt.md sections per-layout (best-effort)
         prompt_path_obj = backend_dir / "prompt.md"
         prompt_text = prompt_path_obj.read_text(encoding="utf-8")
@@ -2845,6 +2981,7 @@ def create_template_from_doc(
                     instruction=layout.visual,
                     tsx=tsx,
                     props=prop_defs,
+                    backend="anthropic",
                 )
             except HTTPException:
                 section = _build_prompt_section(layout.id, layout.visual, prop_defs)
@@ -2863,6 +3000,19 @@ def create_template_from_doc(
             json.dumps(snaps, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+        # Persist creation artifacts for debugging / re-runs.
+        if raw_design_doc:
+            (version_dir / "raw_design_doc.md").write_text(raw_design_doc, encoding="utf-8")
+        if normalized_doc:
+            (version_dir / "normalized_design_doc.md").write_text(normalized_doc, encoding="utf-8")
+        (version_dir / "plan.json").write_text(
+            json.dumps(plan.model_dump(), indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        (version_dir / "verification.json").write_text(
+            json.dumps(verification, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
 
         created_files_rel = [
             p.relative_to(_ROOT).as_posix()
@@ -2878,6 +3028,8 @@ def create_template_from_doc(
             "hero_layout": plan.hero_layout,
             "fallback_layout": plan.fallback_layout,
             "created_files": created_files_rel,
+            "normalized_doc": normalized_doc,
+            "verification": verification,
             "warnings": warnings,
             "note": (
                 "Generated. Restart the frontend dev server so the new imports in "
@@ -2919,13 +3071,14 @@ def _build_stub_layout_tsx(pascal_name: str) -> str:
         'import React from "react";\n'
         'import { AbsoluteFill, useCurrentFrame, interpolate } from "remotion";\n'
         'import { SceneLayoutProps } from "../types";\n\n'
-        f"export const {pascal_name}: React.FC<SceneLayoutProps> = ({{ title, narration, accentColor, bgColor, textColor, titleFontSize, descriptionFontSize, fontFamily }}) => {{\n"
+        f"export const {pascal_name}: React.FC<SceneLayoutProps> = ({{ title, narration, accentColor, bgColor, textColor, aspectRatio, titleFontSize, descriptionFontSize, fontFamily }}) => {{\n"
+        '  const p = aspectRatio === "portrait";\n'
         "  const frame = useCurrentFrame();\n"
         "  const opacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: \"clamp\" });\n"
         "  return (\n"
         "    <AbsoluteFill style={{ backgroundColor: bgColor, color: textColor, fontFamily, padding: 80, opacity, display: \"flex\", flexDirection: \"column\", justifyContent: \"center\" }}>\n"
-        "      <h1 style={{ color: accentColor, fontSize: titleFontSize ?? 76, margin: 0 }}>{title}</h1>\n"
-        "      <p style={{ fontSize: descriptionFontSize ?? 36, marginTop: 24 }}>{narration}</p>\n"
+        "      <h1 style={{ color: accentColor, fontSize: titleFontSize ?? (p ? 92 : 76), margin: 0 }}>{title}</h1>\n"
+        "      <p style={{ fontSize: descriptionFontSize ?? (p ? 52 : 40), marginTop: 24 }}>{narration}</p>\n"
         "    </AbsoluteFill>\n"
         "  );\n"
         "};\n"

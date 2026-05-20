@@ -11,6 +11,9 @@ class Settings(BaseSettings):
 
     # API Keys
     ANTHROPIC_API_KEY: str = ""
+    # Used only for Template Studio **template creation** (plan, normalize, layout
+    # TSX, prompt.md). Other features keep using ANTHROPIC_API_KEY above.
+    TEMPLATE_CREATION_ANTHROPIC_API_KEY: str = ""
     ELEVENLABS_API_KEY: str = ""
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
     EXA_API_KEY: str = ""
@@ -18,18 +21,20 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPEN_ROUTER_KEY: str = ""
     GEMINI_API_KEY: str = ""
-    GEMINI_CODE_MODEL: str = "gemini-2.5-flash"
-    # Used automatically when an image is attached (vision-guided layout editing).
-    GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-2.5-pro"
+    GEMINI_CODE_MODEL: str = "gemini-3.5-flash"
+    # Used when a reference image is attached (vision-guided layout editing / rebuild).
+    GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-3.5-flash"
 
     # Template studio access password. Kept server-side so it doesn't leak in
     # the JS bundle. Empty disables the gate (any password passes — useful for
     # local dev). Set via TEMPLATE_STUDIO_PASSWORD in .env.
     TEMPLATE_STUDIO_PASSWORD: str = ""
 
-    # Template studio AI codegen: Claude Sonnet via Anthropic. Used by ai-edit,
-    # ai-layout/rebuild, ai-layout/create, and template/create. Falls back to
-    # Gemini when ANTHROPIC_API_KEY is empty.
+    # Template Studio — **new template** + **new layout** (plan/normalize/layout TSX/prompt.md):
+    #  Claude via Anthropic. Requires TEMPLATE_CREATION_ANTHROPIC_API_KEY; model is
+    #  CLAUDE_CODE_MODEL. See app/services/template_studio_llm.py.
+    # Scene edit + layout rebuild use Gemini (GEMINI_API_KEY, GEMINI_CODE_MODEL,
+    # GEMINI_CODE_MODEL_WITH_IMAGE). Defaults: gemini-3.5-flash; override in .env if needed.
     CLAUDE_CODE_MODEL: str = "claude-sonnet-4-6"
 
     # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini") and DSPY_IMAGE_LM in env
