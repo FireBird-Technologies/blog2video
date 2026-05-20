@@ -234,60 +234,6 @@ export const tools: ToolDefinition[] = [
     ],
   },
   {
-    slug: "substack-directory",
-    path: "/tools/substack-directory",
-    title: "Substack Directory by Niche",
-    description:
-      "Browse curated Substack niches, pricing-model pages, and publication profiles through a scalable directory built for discovery and internal linking.",
-    eyebrow: "Directory",
-    heroTitle: "Find the right Substack niches, not just a random list of newsletters.",
-    heroDescription:
-      "Explore curated niche pages, pricing slices, and publication profiles designed to help creators map where a newsletter brand fits.",
-    category: "directory",
-    icon: "SD",
-    primaryKeyword: "substack directory by niche",
-    keywordVariant: "best substacks by niche",
-    badges: ["Niche pages", "Pricing filters", "Publication profiles"],
-    proofPoints: [
-      "Niche pages are internally linked for discovery instead of living as isolated listicles.",
-      "Pricing-model variants create useful slices for free, paid, and freemium newsletter research.",
-      "Publication profiles add depth beyond a single scrolling directory page.",
-    ],
-    sections: [
-      {
-        title: "How this directory is organized",
-        body: [
-          "The directory starts with niches, then gives you pricing-model views inside each niche, plus publication profile pages that explain positioning, audience fit, and editorial differentiators.",
-          "That structure makes the directory easier to browse and much more scalable than a single mega-list.",
-        ],
-      },
-      {
-        title: "How to use the niche and pricing pages",
-        body: [
-          "Start with the closest niche page, then narrow further using free, paid, or freemium pricing slices. If you want deeper context on a publication, open the profile page for its audience, tone, and best-fit use case.",
-        ],
-      },
-    ],
-    faq: [
-      {
-        question: "Is this directory editorial or official?",
-        answer:
-          "It is curated editorially for discovery. Pricing model, cadence, and positioning should be treated as a practical classification layer rather than an official platform listing.",
-      },
-      {
-        question: "Why include pricing-model pages?",
-        answer:
-          "Because many creators are not just choosing by topic. They are benchmarking what free, paid, and freemium newsletter businesses look like inside a niche.",
-      },
-    ],
-    relatedPaths: [
-      "/tools/substack-revenue-calculator",
-      "/tools/markdown-to-medium-substack-formatter",
-      "/for-substack-writers",
-      "/blogs/substack-newsletter-to-video-workflow",
-    ],
-  },
-  {
     slug: "headline-analyzer",
     path: "/tools/headline-analyzer",
     title: "Headline Analyzer",
