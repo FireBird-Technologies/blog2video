@@ -12,8 +12,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from sqlalchemy.orm import Session
+
 from app.auth import get_current_user
 from app.config import settings
+from app.database import get_db
 from app.models.user import User
 
 router = APIRouter(prefix="/api/template-studio", tags=["template-studio"])
@@ -180,6 +183,12 @@ class RenderLayoutRequest(BaseModel):
     duration_seconds: float | None = None
     layout_props: dict | None = None
     resolution: str | None = None
+
+
+class CreateTemplateRequest(BaseModel):
+    template_id: str = Field(min_length=2, max_length=40, pattern=r"^[a-z][a-z0-9_]*$")
+    design_doc: str = Field(min_length=50, max_length=40000)
+    overwrite: bool = False
 
 
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -441,6 +450,143 @@ def _extract_code_from_model_output(text: str) -> str:
     if fenced:
         return fenced.group(1).strip()
     return content
+
+
+_CODE_EDIT_SYSTEM_PROMPT = (
+    "You are editing a React TSX component file used in a video template system.\n"
+    "Return ONLY the full updated file contents for this single component.\n"
+    "Do not include markdown fences, explanations, or extra text."
+)
+
+
+def _build_code_edit_user_text(
+    *,
+    instruction: str,
+    current_code: str,
+    template_id: str,
+    layout_id: str,
+    has_image: bool,
+) -> str:
+    image_note = ""
+    if has_image:
+        image_note = (
+            "\n\nThe user attached a reference image above.\n"
+            "- Use it as the primary source of truth for spatial layout, hierarchy, and visual motifs.\n"
+            "- Silently inspect the image first; do NOT output analysis text.\n"
+            "- Then implement the TSX to match the image as closely as possible.\n"
+        )
+    return (
+        f"Template ID: {template_id}\n"
+        f"Layout ID: {layout_id}\n\n"
+        "User instruction:\n"
+        f"{instruction}{image_note}\n\n"
+        "Current file content:\n"
+        f"{current_code}"
+    )
+
+
+def _call_claude_code_edit(
+    instruction: str,
+    current_code: str,
+    template_id: str,
+    layout_id: str,
+    *,
+    image_base64: str | None = None,
+    image_mime_type: str | None = None,
+) -> str:
+    api_key = (settings.ANTHROPIC_API_KEY or "").strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY is not configured.")
+    try:
+        from anthropic import Anthropic
+    except Exception as e:  # pragma: no cover
+        raise HTTPException(
+            status_code=500,
+            detail=f"Claude code edit requires anthropic package: {e}",
+        )
+
+    model_name = (getattr(settings, "CLAUDE_CODE_MODEL", "") or "claude-sonnet-4-6").strip()
+    client = Anthropic(api_key=api_key)
+
+    user_text = _build_code_edit_user_text(
+        instruction=instruction,
+        current_code=current_code,
+        template_id=template_id,
+        layout_id=layout_id,
+        has_image=bool(image_base64 and image_mime_type),
+    )
+
+    content_blocks: list[dict] = []
+    if image_base64 and image_mime_type:
+        try:
+            base64.b64decode(image_base64)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid image_base64.")
+        mime = (image_mime_type or "image/jpeg").strip().lower()
+        if mime not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
+            mime = "image/jpeg"
+        content_blocks.append({
+            "type": "image",
+            "source": {"type": "base64", "media_type": mime, "data": image_base64},
+        })
+    content_blocks.append({"type": "text", "text": user_text})
+
+    try:
+        response = client.messages.create(
+            model=model_name,
+            max_tokens=16000,
+            temperature=0.2,
+            system=_CODE_EDIT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": content_blocks}],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Claude request failed: {e}")
+
+    text = ""
+    for block in getattr(response, "content", None) or []:
+        block_type = getattr(block, "type", None)
+        if block_type == "text":
+            text += getattr(block, "text", "") or ""
+    code = _extract_code_from_model_output(text)
+    if not code:
+        raise HTTPException(status_code=502, detail="Claude returned empty code output.")
+    if "export" not in code:
+        raise HTTPException(status_code=502, detail="Claude output does not look like a component file.")
+    _validate_tsx_or_raise(code, template_id, layout_id)
+    return code
+
+
+def _call_code_edit(
+    instruction: str,
+    current_code: str,
+    template_id: str,
+    layout_id: str,
+    *,
+    image_base64: str | None = None,
+    image_mime_type: str | None = None,
+) -> str:
+    """Dispatcher: Claude Sonnet primary, Gemini fallback when ANTHROPIC_API_KEY missing.
+
+    Mid-call Claude failures do not silently fall back — that would mask real errors.
+    The fallback only triggers when the Anthropic key is unconfigured.
+    """
+    if (settings.ANTHROPIC_API_KEY or "").strip():
+        return _call_claude_code_edit(
+            instruction=instruction,
+            current_code=current_code,
+            template_id=template_id,
+            layout_id=layout_id,
+            image_base64=image_base64,
+            image_mime_type=image_mime_type,
+        )
+    return _call_gemini_code_edit(
+        instruction=instruction,
+        current_code=current_code,
+        template_id=template_id,
+        layout_id=layout_id,
+        image_base64=image_base64,
+        image_mime_type=image_mime_type,
+    )
 
 
 def _call_gemini_code_edit(
@@ -863,7 +1009,7 @@ def propose_ai_edit(payload: AiEditProposeRequest, _: User = Depends(get_current
         raise HTTPException(status_code=404, detail=f"Layout source file not found: {', '.join(missing_rel)}")
 
     original_code = frontend_target.read_text(encoding="utf-8")
-    proposed_code = _call_gemini_code_edit(
+    proposed_code = _call_code_edit(
         instruction=payload.instruction.strip(),
         current_code=original_code,
         template_id=template_id,
@@ -932,7 +1078,7 @@ def preview_ai_edit(payload: AiEditProposeRequest, user: User = Depends(get_curr
     # Reuse an existing session for this user+template+layout, if one exists.
     session: dict | None = _get_user_layout_session(user, template_id, layout_id)
 
-    proposed_code = _call_gemini_code_edit(
+    proposed_code = _call_code_edit(
         instruction=payload.instruction.strip(),
         current_code=current_code,
         template_id=template_id,
@@ -1456,6 +1602,155 @@ def _extract_visual_from_prompt_section(section_md: str) -> str:
     return ""
 
 
+def _build_doc_section_prompts(
+    *,
+    template_id: str,
+    layout_id: str,
+    instruction: str,
+    tsx: str,
+    props: list[PropDef],
+) -> tuple[str, str]:
+    content_props = [p for p in props if p.name not in _PROMPT_EXCLUDE_PROPS]
+    props_desc = "\n".join(
+        f"- `{p.name}` ({p.type}){(' — ' + p.description.strip()) if p.description else ''}"
+        for p in content_props
+    ) or "- (none)"
+
+    system_prompt = (
+        "You write documentation sections for a video template layout catalog (prompt.md).\n"
+        "Output MUST be markdown ONLY, and MUST start with a header line exactly:\n"
+        f"## {layout_id}\n\n"
+        "Do not wrap in code fences. Do not add any extra sections outside this layout.\n"
+        "Be concise but specific. Use the TSX to infer the visual design.\n\n"
+        "Required structure inside the section:\n"
+        f"## {layout_id}\n"
+        "**Visual:** <1-2 sentences describing what the layout looks like>\n"
+        "\n"
+        "**Props:**\n"
+        "  - `<prop>` (<type>) — <how it affects visuals/content> (include only the important ones)\n"
+        "\n"
+        f"**When to Use:** <1-2 sentences, include `{layout_id}`>\n"
+        "\n"
+        "**Avoid When:** <1 sentence>\n"
+        "\n"
+        "**Notes:** <1-3 bullets with any constraints like image support, long text behavior, etc.>\n"
+    )
+
+    user_prompt = (
+        f"Template ID: {template_id}\n"
+        f"Layout ID: {layout_id}\n\n"
+        "User instruction (intent):\n"
+        f"{instruction.strip()}\n\n"
+        "Known props (name, type, description):\n"
+        f"{props_desc}\n\n"
+        "Final TSX implementation (source of truth for visuals/behavior):\n"
+        f"{tsx.strip()[:12000]}"
+    )
+    return system_prompt, user_prompt
+
+
+def _call_claude_layout_doc_section(
+    *,
+    template_id: str,
+    layout_id: str,
+    instruction: str,
+    tsx: str,
+    props: list[PropDef],
+    image_base64: str | None = None,
+    image_mime_type: str | None = None,
+) -> str:
+    api_key = (settings.ANTHROPIC_API_KEY or "").strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY is not configured.")
+    try:
+        from anthropic import Anthropic
+    except Exception as e:  # pragma: no cover
+        raise HTTPException(
+            status_code=500,
+            detail=f"Claude requires anthropic package: {e}",
+        )
+
+    model_name = (getattr(settings, "CLAUDE_CODE_MODEL", "") or "claude-sonnet-4-6").strip()
+    client = Anthropic(api_key=api_key)
+
+    system_prompt, user_prompt = _build_doc_section_prompts(
+        template_id=template_id,
+        layout_id=layout_id,
+        instruction=instruction,
+        tsx=tsx,
+        props=props,
+    )
+
+    content_blocks: list[dict] = []
+    if image_base64 and image_mime_type:
+        try:
+            base64.b64decode(image_base64)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid image_base64.")
+        mime = (image_mime_type or "image/jpeg").strip().lower()
+        if mime not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
+            mime = "image/jpeg"
+        content_blocks.append({
+            "type": "image",
+            "source": {"type": "base64", "media_type": mime, "data": image_base64},
+        })
+    content_blocks.append({"type": "text", "text": user_prompt})
+
+    try:
+        response = client.messages.create(
+            model=model_name,
+            max_tokens=2000,
+            temperature=0.4,
+            system=system_prompt,
+            messages=[{"role": "user", "content": content_blocks}],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Claude doc-section request failed: {e}")
+
+    text = ""
+    for block in getattr(response, "content", None) or []:
+        if getattr(block, "type", None) == "text":
+            text += getattr(block, "text", "") or ""
+    text = text.strip()
+    if not text:
+        raise HTTPException(status_code=502, detail="Claude returned empty prompt.md section.")
+    if not text.lstrip().startswith(f"## {layout_id}"):
+        text = f"## {layout_id}\n" + text.lstrip().lstrip("#").lstrip()
+    return text.rstrip()
+
+
+def _call_layout_doc_section(
+    *,
+    template_id: str,
+    layout_id: str,
+    instruction: str,
+    tsx: str,
+    props: list[PropDef],
+    image_base64: str | None = None,
+    image_mime_type: str | None = None,
+) -> str:
+    """Dispatcher: Claude primary, Gemini fallback when ANTHROPIC_API_KEY missing."""
+    if (settings.ANTHROPIC_API_KEY or "").strip():
+        return _call_claude_layout_doc_section(
+            template_id=template_id,
+            layout_id=layout_id,
+            instruction=instruction,
+            tsx=tsx,
+            props=props,
+            image_base64=image_base64,
+            image_mime_type=image_mime_type,
+        )
+    return _call_gemini_layout_doc_section(
+        template_id=template_id,
+        layout_id=layout_id,
+        instruction=instruction,
+        tsx=tsx,
+        props=props,
+        image_base64=image_base64,
+        image_mime_type=image_mime_type,
+    )
+
+
 def _call_gemini_layout_doc_section(
     *,
     template_id: str,
@@ -1766,7 +2061,7 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
     gemini_prompt = _build_rebuild_gemini_prompt(
         template_id, layout_id, payload.instruction, current_tsx, all_fields
     )
-    new_tsx = _call_gemini_code_edit(
+    new_tsx = _call_code_edit(
         instruction=gemini_prompt,
         current_code=current_tsx,
         template_id=template_id,
@@ -1785,10 +2080,10 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
         PropDef(name=f["key"], type=f.get("type", "string"), description=f.get("description", f.get("label", "")))
         for f in all_fields
     ]
-    # Build a richer prompt.md section using Gemini, based on the final TSX + props.
-    # Fallback to simple section generation if Gemini fails for any reason.
+    # Build a richer prompt.md section using AI, based on the final TSX + props.
+    # Fallback to simple section generation if the model call fails for any reason.
     try:
-        new_section = _call_gemini_layout_doc_section(
+        new_section = _call_layout_doc_section(
             template_id=template_id,
             layout_id=layout_id,
             instruction=payload.instruction,
@@ -1952,7 +2247,7 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
         template_id, new_layout_id, payload.layout_description,
         payload.props, base_tsx, base_layout_id, reference_tsvs,
     )
-    new_tsx = _call_gemini_code_edit(
+    new_tsx = _call_code_edit(
         instruction=gemini_prompt,
         current_code=base_tsx,
         template_id=template_id,
@@ -2009,10 +2304,10 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
     _write_meta_json(meta, meta_path)
 
     new_section = _build_prompt_section(new_layout_id, payload.layout_description, payload.props)
-    # Generate a richer prompt.md section using Gemini based on the final TSX + props.
-    # Fallback to the simple section if Gemini fails.
+    # Generate a richer prompt.md section using AI based on the final TSX + props.
+    # Fallback to the simple section if the model call fails.
     try:
-        new_section = _call_gemini_layout_doc_section(
+        new_section = _call_layout_doc_section(
             template_id=template_id,
             layout_id=new_layout_id,
             instruction=payload.layout_description,
@@ -2322,3 +2617,316 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
         except Exception:
             # Best effort cleanup; ignore failures.
             pass
+
+
+# ─── Create a brand-new built-in template from a design doc ──────────────────
+
+
+@router.post("/template/create")
+def create_template_from_doc(
+    payload: CreateTemplateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate a complete built-in template from a free-form design doc.
+
+    Pipeline:
+      1. Claude extracts a structured plan from the design doc.
+      2. Scaffold: meta.json, prompt.md, layout_prompt.md, types.ts (frontend + remotion-video).
+      3. Per-layout codegen (Claude, sequential, validated by tsc). Each call
+         is self-contained — no base-template reference TSX is provided; the
+         design doc and the plan must carry everything Claude needs.
+      4. Composition TSX (templated) + layouts/index.ts (templated).
+      5. Preview component (templated) + registry edits (templateConfig.tsx,
+         templatePreviewRegistry.tsx, registry.json).
+
+    On any failure, all touched files are restored from their snapshot (or
+    deleted if they didn't exist before).
+    """
+    from app.services import template_studio_codegen as codegen
+
+    # Auth already happened via get_current_user. The codegen loop runs for
+    # minutes, which is long enough for a remote Postgres (e.g. Supabase) to
+    # drop the idle SSL connection — the teardown rollback then 500s. Close
+    # the session now; we don't touch the DB again in this endpoint.
+    db.close()
+
+    template_id = payload.template_id.strip().lower()
+
+    # ── Validation
+    registry_path = _TEMPLATES_META_DIR / "registry.json"
+    if not registry_path.exists():
+        raise HTTPException(status_code=500, detail="backend/templates/registry.json missing.")
+    existing_ids = json.loads(registry_path.read_text(encoding="utf-8"))
+    if template_id in existing_ids and not payload.overwrite:
+        raise HTTPException(status_code=409, detail=f"Template '{template_id}' already exists.")
+
+    api_key = (settings.ANTHROPIC_API_KEY or "").strip()
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="ANTHROPIC_API_KEY is required for template creation.",
+        )
+
+    # ── Step 1: extract plan from design doc
+    model_name = (getattr(settings, "CLAUDE_CODE_MODEL", "") or "claude-sonnet-4-6").strip()
+    plan = codegen.extract_template_plan(
+        design_doc=payload.design_doc,
+        template_id=template_id,
+        anthropic_api_key=api_key,
+        model=model_name,
+    )
+
+    # Snake -> Pascal name maps
+    pascal = codegen.snake_to_pascal(template_id)
+    type_name = f"{pascal}LayoutType"
+    registry_name = f"{template_id.upper()}_LAYOUT_REGISTRY"
+    pascal_names = {layout.id: codegen.snake_to_pascal(layout.id) for layout in plan.layouts}
+    composition_id = f"{pascal}Video"
+
+    # ── Path resolution
+    backend_dir = _TEMPLATES_META_DIR / template_id
+    frontend_dir = _FRONTEND_REMOTION_DIR / template_id
+    frontend_layouts_dir = frontend_dir / "layouts"
+    remotion_dir = _REMOTION_VIDEO_DIR / template_id
+    remotion_layouts_dir = remotion_dir / "layouts"
+    preview_path = _FRONTEND_REMOTION_DIR.parent / "templatePreviews" / f"{pascal}Preview.tsx"
+    config_path = _FRONTEND_REMOTION_DIR / "templateConfig.tsx"
+    preview_registry_path = _FRONTEND_REMOTION_DIR.parent / "templatePreviewRegistry.tsx"
+
+    # All paths that may be created or modified
+    paths_to_snapshot = [
+        registry_path,
+        config_path,
+        preview_registry_path,
+        backend_dir / "meta.json",
+        backend_dir / "prompt.md",
+        backend_dir / "layout_prompt.md",
+        frontend_dir / "types.ts",
+        frontend_dir / f"{pascal}VideoComposition.tsx",
+        frontend_layouts_dir / "index.ts",
+        remotion_dir / "types.ts",
+        remotion_dir / f"{pascal}Video.tsx",
+        remotion_layouts_dir / "index.ts",
+        preview_path,
+    ]
+    for layout in plan.layouts:
+        stem = pascal_names[layout.id]
+        paths_to_snapshot.append(frontend_layouts_dir / f"{stem}.tsx")
+        paths_to_snapshot.append(remotion_layouts_dir / f"{stem}.tsx")
+
+    snaps = codegen.snapshot_files(paths_to_snapshot)
+    created_dirs: list[Path] = []
+
+    def _rollback() -> None:
+        codegen.restore_files(snaps)
+        # Remove dirs that we created and that are now empty.
+        for d in reversed(created_dirs):
+            try:
+                d.rmdir()
+            except OSError:
+                pass
+
+    try:
+        # ── Step 2: scaffold directories
+        for d in (backend_dir, frontend_dir, frontend_layouts_dir, remotion_dir, remotion_layouts_dir):
+            if not d.exists():
+                d.mkdir(parents=True, exist_ok=True)
+                created_dirs.append(d)
+
+        # types.ts (frontend + remotion-video share the same shape)
+        types_ts = codegen.build_types_ts(plan, type_name=type_name)
+        (frontend_dir / "types.ts").write_text(types_ts, encoding="utf-8")
+        (remotion_dir / "types.ts").write_text(types_ts, encoding="utf-8")
+
+        # meta.json
+        meta = codegen.build_meta_json(plan=plan, template_id=template_id, composition_id=composition_id)
+        _write_meta_json(meta, backend_dir / "meta.json")
+
+        # prompt.md / layout_prompt.md scaffolds
+        (backend_dir / "prompt.md").write_text(codegen.build_prompt_md_header(plan), encoding="utf-8")
+        (backend_dir / "layout_prompt.md").write_text(
+            codegen.build_layout_prompt_md_header(template_id), encoding="utf-8",
+        )
+
+        # ── Step 3: per-layout codegen (self-contained prompts; no base-template anchor)
+        warnings: list[str] = []
+        for layout in plan.layouts:
+            pascal_layout = pascal_names[layout.id]
+            instruction = codegen.build_layout_codegen_prompt(
+                template_id=template_id,
+                template_name=plan.name,
+                template_description=plan.description,
+                accent_color=plan.preview_colors.get("accent", "#7C3AED"),
+                bg_color=plan.preview_colors.get("bg", "#FFFFFF"),
+                text_color=plan.preview_colors.get("text", "#000000"),
+                layout=layout,
+                pascal_name=pascal_layout,
+            )
+
+            try:
+                tsx = _call_code_edit(
+                    instruction=instruction,
+                    current_code="",
+                    template_id=template_id,
+                    layout_id=layout.id,
+                )
+            except HTTPException as e:
+                warnings.append(f"layout {layout.id}: AI codegen failed ({e.detail}); wrote stub")
+                tsx = _build_stub_layout_tsx(pascal_layout)
+
+            content = tsx.rstrip() + "\n"
+            (frontend_layouts_dir / f"{pascal_layout}.tsx").write_text(content, encoding="utf-8")
+            (remotion_layouts_dir / f"{pascal_layout}.tsx").write_text(content, encoding="utf-8")
+
+        # ── Step 4: composition + layouts index
+        layout_ids = [layout.id for layout in plan.layouts]
+        index_ts = codegen.build_layouts_index_ts(
+            layout_ids=layout_ids,
+            pascal_names=pascal_names,
+            type_name=type_name,
+            registry_name=registry_name,
+        )
+        (frontend_layouts_dir / "index.ts").write_text(index_ts, encoding="utf-8")
+        (remotion_layouts_dir / "index.ts").write_text(index_ts, encoding="utf-8")
+
+        (frontend_dir / f"{pascal}VideoComposition.tsx").write_text(
+            codegen.build_frontend_composition_tsx(
+                plan=plan, pascal=pascal, type_name=type_name, registry_name=registry_name,
+            ),
+            encoding="utf-8",
+        )
+        (remotion_dir / f"{pascal}Video.tsx").write_text(
+            codegen.build_remotion_video_tsx(
+                plan=plan, pascal=pascal, type_name=type_name, registry_name=registry_name,
+            ),
+            encoding="utf-8",
+        )
+
+        # ── Step 5: preview + registry edits
+        preview_path.parent.mkdir(parents=True, exist_ok=True)
+        preview_path.write_text(codegen.build_preview_tsx(plan, pascal), encoding="utf-8")
+
+        codegen.append_template_to_registry_json(registry_path, template_id)
+        codegen.insert_template_in_template_config(
+            config_path=config_path,
+            template_id=template_id,
+            pascal=pascal,
+            layouts=layout_ids,
+            colors=plan.preview_colors,
+            base_width=plan.base_width,
+            base_height=plan.base_height,
+            hero_layout=plan.hero_layout,
+            fallback_layout=plan.fallback_layout,
+        )
+        codegen.insert_template_in_preview_registry(
+            preview_registry_path=preview_registry_path,
+            template_id=template_id,
+            pascal=pascal,
+            title=plan.name,
+            subtitle=plan.subtitle or plan.description.split(".")[0][:60],
+        )
+
+        # ── Step 6: enrich prompt.md sections per-layout (best-effort)
+        prompt_path_obj = backend_dir / "prompt.md"
+        prompt_text = prompt_path_obj.read_text(encoding="utf-8")
+        layout_prompt_text = (backend_dir / "layout_prompt.md").read_text(encoding="utf-8")
+        for layout in plan.layouts:
+            pascal_layout = pascal_names[layout.id]
+            tsx = (frontend_layouts_dir / f"{pascal_layout}.tsx").read_text(encoding="utf-8")
+            prop_defs = [
+                PropDef(name=p.name, type=p.type, description=p.description or "", default=p.default)
+                for p in layout.props
+            ]
+            try:
+                section = _call_layout_doc_section(
+                    template_id=template_id,
+                    layout_id=layout.id,
+                    instruction=layout.visual,
+                    tsx=tsx,
+                    props=prop_defs,
+                )
+            except HTTPException:
+                section = _build_prompt_section(layout.id, layout.visual, prop_defs)
+            prompt_text = prompt_text.rstrip() + f"\n\n---\n\n{section.rstrip()}\n"
+            layout_prompt_text = _add_or_update_layout_in_layout_prompt(
+                layout_prompt_text, layout.id, layout.best_for or layout.visual,
+            )
+        prompt_path_obj.write_text(prompt_text, encoding="utf-8")
+        (backend_dir / "layout_prompt.md").write_text(layout_prompt_text, encoding="utf-8")
+
+        # ── Session for rollback via /ai-edit/preview-discard
+        session_id = f"ai-{uuid.uuid4().hex}"
+        version_dir = _AI_TMP_DIR / str(user.id) / template_id / "_create_template"
+        version_dir.mkdir(parents=True, exist_ok=True)
+        (version_dir / "snapshots.json").write_text(
+            json.dumps(snaps, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+        created_files_rel = [
+            p.relative_to(_ROOT).as_posix()
+            for p in paths_to_snapshot
+            if Path(p).exists()
+        ]
+        return {
+            "ok": True,
+            "session_id": session_id,
+            "template_id": template_id,
+            "name": plan.name,
+            "layout_ids": layout_ids,
+            "hero_layout": plan.hero_layout,
+            "fallback_layout": plan.fallback_layout,
+            "created_files": created_files_rel,
+            "warnings": warnings,
+            "note": (
+                "Generated. Restart the frontend dev server so the new imports in "
+                "templateConfig.tsx / templatePreviewRegistry.tsx are picked up."
+            ),
+        }
+    except HTTPException:
+        _rollback()
+        raise
+    except Exception as e:
+        _rollback()
+        raise HTTPException(status_code=500, detail=f"Template creation failed: {e}")
+
+
+@router.post("/template/extract-doc")
+def extract_design_doc(
+    file: UploadFile = File(...),
+    _: User = Depends(get_current_user),
+):
+    """Extract text from an uploaded design-doc file (PDF, DOCX, PPTX, MD, TXT,
+    VTT, JSON, HTML, RTF, etc.) and return it as a markdown string suitable
+    for the design-doc textarea on the New Template tab."""
+    from app.services.doc_extractor import extract_text_from_upload
+
+    if file.size is not None and file.size > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 10 MB).")
+
+    text = extract_text_from_upload(file)
+    if len(text) > 40_000:
+        # The design_doc field has a 40k cap on the JSON endpoint; truncate
+        # rather than fail outright so the user can edit it down.
+        text = text[:40_000]
+    return {"ok": True, "filename": file.filename, "text": text}
+
+
+def _build_stub_layout_tsx(pascal_name: str) -> str:
+    """Minimal valid TSX used as a fallback when per-layout AI codegen fails."""
+    return (
+        'import React from "react";\n'
+        'import { AbsoluteFill, useCurrentFrame, interpolate } from "remotion";\n'
+        'import { SceneLayoutProps } from "../types";\n\n'
+        f"export const {pascal_name}: React.FC<SceneLayoutProps> = ({{ title, narration, accentColor, bgColor, textColor, titleFontSize, descriptionFontSize, fontFamily }}) => {{\n"
+        "  const frame = useCurrentFrame();\n"
+        "  const opacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: \"clamp\" });\n"
+        "  return (\n"
+        "    <AbsoluteFill style={{ backgroundColor: bgColor, color: textColor, fontFamily, padding: 80, opacity, display: \"flex\", flexDirection: \"column\", justifyContent: \"center\" }}>\n"
+        "      <h1 style={{ color: accentColor, fontSize: titleFontSize ?? 76, margin: 0 }}>{title}</h1>\n"
+        "      <p style={{ fontSize: descriptionFontSize ?? 36, marginTop: 24 }}>{narration}</p>\n"
+        "    </AbsoluteFill>\n"
+        "  );\n"
+        "};\n"
+    )

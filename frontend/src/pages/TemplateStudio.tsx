@@ -28,6 +28,8 @@ import {
   rebuildTemplateLayoutFile,
   createTemplateLayout,
   createTemplateLayoutFile,
+  createTemplateFromDoc,
+  extractDesignDocFile,
   renderTemplateLayout,
   type PropDef,
   SUPPORTED_PROP_TYPES,
@@ -985,7 +987,7 @@ export default function TemplateStudio() {
   const [rebuildStatus, setRebuildStatus]   = useState("");
 
   // ── New layout tab state ────────────────────────────────────────────────────
-  const [rightTab, setRightTab]           = useState<"edit" | "new-layout">("edit");
+  const [rightTab, setRightTab]           = useState<"edit" | "new-layout" | "new-template">("edit");
   const [newLayoutId, setNewLayoutId]     = useState("");
   const [newBaseLayoutId, setNewBaseLayoutId] = useState("");
   const [newLayoutDesc, setNewLayoutDesc] = useState("");
@@ -994,6 +996,39 @@ export default function TemplateStudio() {
   const [newLayoutLoading, setNewLayoutLoading] = useState(false);
   const [newLayoutError, setNewLayoutError]     = useState("");
   const [newLayoutStatus, setNewLayoutStatus]   = useState("");
+
+  // ── New template (from design doc) tab state ────────────────────────────────
+  const [newTemplateId, setNewTemplateId]       = useState("");
+  const [newTemplateDoc, setNewTemplateDoc]     = useState("");
+  const [newTemplateDocFileName, setNewTemplateDocFileName] = useState("");
+  const [newTemplateLoading, setNewTemplateLoading] = useState(false);
+  const [newTemplateError, setNewTemplateError]   = useState("");
+  const [newTemplateStatus, setNewTemplateStatus] = useState("");
+  const newTemplateDocFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [newTemplateDocExtracting, setNewTemplateDocExtracting] = useState(false);
+
+  const handleNewTemplateDocFileSelect = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setNewTemplateError("Design doc file is too large (max 10 MB).");
+      return;
+    }
+    try {
+      setNewTemplateDocExtracting(true);
+      setNewTemplateError("");
+      const result = await extractDesignDocFile(file);
+      setNewTemplateDoc(result.data.text);
+      setNewTemplateDocFileName(file.name);
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : "Failed to extract text from the file.";
+      setNewTemplateError(String(msg || "Failed to extract text from the file."));
+    } finally {
+      setNewTemplateDocExtracting(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -1619,6 +1654,51 @@ export default function TemplateStudio() {
         : "Create failed.";
       setNewLayoutError(String(msg || "Create failed."));
     } finally { setNewLayoutLoading(false); }
+  };
+
+  // ── New template (from design doc) handler ────────────────────────────────
+  const handleCreateTemplateFromDoc = async () => {
+    const id = newTemplateId.trim().toLowerCase();
+    if (!id || !/^[a-z][a-z0-9_]*$/.test(id)) {
+      setNewTemplateError("Template id must be snake_case starting with a letter.");
+      return;
+    }
+    if (newTemplateDoc.trim().length < 50) {
+      setNewTemplateError("Design doc is too short. Describe the visual style and layouts.");
+      return;
+    }
+    try {
+      setNewTemplateLoading(true);
+      setNewTemplateError("");
+      setNewTemplateStatus(`Generating ${id} — this may take a couple of minutes…`);
+      const result = await createTemplateFromDoc({
+        template_id: id,
+        design_doc: newTemplateDoc.trim(),
+      });
+      const data = result.data;
+      const summary =
+        `Created '${data.template_id}' (${data.layout_ids.length} layouts). ` +
+        (data.warnings && data.warnings.length > 0
+          ? `Warnings: ${data.warnings.join("; ")}`
+          : "No warnings.");
+      setNewTemplateStatus(summary);
+      const refreshed = await getTemplates();
+      setTemplates(refreshed.data);
+      setSelectedTemplateId(data.template_id);
+      setSelectedLayout(data.hero_layout);
+      setRightTab("edit");
+      setNewTemplateId("");
+      setNewTemplateDoc("");
+      setNewTemplateDocFileName("");
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : "Template creation failed.";
+      setNewTemplateError(String(msg || "Template creation failed."));
+      setNewTemplateStatus("");
+    } finally {
+      setNewTemplateLoading(false);
+    }
   };
 
   const handleRenderSingleLayout = async () => {
@@ -2351,23 +2431,30 @@ export default function TemplateStudio() {
 
                 {/* Tab bar */}
                 <div style={{
-                  display: "flex", borderBottom: `1px solid ${T.border}`,
+                  display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+                  borderBottom: `1px solid ${T.border}`,
                   background: T.surfaceAlt, borderRadius: "12px 12px 0 0", flexShrink: 0,
                 }}>
-                  {(["edit", "new-layout"] as const).map((tab) => {
-                    const label = tab === "edit" ? "Edit" : "New Layout";
+                  {(["edit", "new-layout", "new-template"] as const).map((tab) => {
+                    const label = tab === "edit"
+                      ? "Edit"
+                      : tab === "new-layout"
+                        ? "New Layout"
+                        : "New Template";
                     const isActive = rightTab === tab;
                     return (
                       <button
                         key={tab} type="button"
                         onClick={() => setRightTab(tab)}
                         style={{
-                          flex: 1, padding: "10px 8px", border: "none",
+                          padding: "10px 8px", border: "none",
                           borderBottom: isActive ? `2px solid ${T.accent}` : "2px solid transparent",
                           background: "transparent",
                           fontSize: "11px", fontWeight: isActive ? 700 : 500, fontFamily: FONT,
                           color: isActive ? T.accent : T.textSub,
                           cursor: "pointer", transition: "all 0.13s",
+                          whiteSpace: "nowrap",
+                          textAlign: "center",
                         }}
                       >
                         {label}
@@ -2649,6 +2736,101 @@ export default function TemplateStudio() {
                       {newLayoutError}
                     </div>
                   )}
+                </div>
+                )}
+
+                {/* ── Tab: New Template (from design doc) ── */}
+                {rightTab === "new-template" && (
+                <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
+
+                  <div>
+                    <FieldLabel>Template ID (snake_case)</FieldLabel>
+                    <input
+                      className="studio-input"
+                      placeholder="e.g. neon_grid"
+                      value={newTemplateId}
+                      onChange={(e) => setNewTemplateId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))}
+                      style={{ ...inputBase, background: T.surfaceAlt }}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <FieldLabel>Design doc</FieldLabel>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {newTemplateDocFileName && (
+                          <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: FONT }}>
+                            {newTemplateDocFileName}
+                          </span>
+                        )}
+                        <input
+                          ref={newTemplateDocFileInputRef}
+                          type="file"
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            void handleNewTemplateDocFileSelect(e.target.files?.[0] ?? undefined);
+                            if (e.target) e.target.value = "";
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={newTemplateDocExtracting}
+                          onClick={() => newTemplateDocFileInputRef.current?.click()}
+                          style={{
+                            padding: "4px 8px", border: `1px solid ${T.border}`, borderRadius: 6,
+                            background: T.surfaceAlt, color: T.textSub,
+                            fontSize: "10px", fontFamily: FONT,
+                            cursor: newTemplateDocExtracting ? "wait" : "pointer",
+                            opacity: newTemplateDocExtracting ? 0.6 : 1,
+                          }}
+                        >
+                          {newTemplateDocExtracting ? "Extracting…" : "Upload file"}
+                        </button>
+                      </div>
+                    </div>
+                    <textarea
+                      className="studio-input"
+                      placeholder={`Describe the template.`}
+                      value={newTemplateDoc}
+                      onChange={(e) => { setNewTemplateDoc(e.target.value); if (newTemplateDocFileName) setNewTemplateDocFileName(""); }}
+                      rows={16}
+                      style={{ ...inputBase, resize: "vertical" as const, lineHeight: "1.55", background: T.surfaceAlt, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "11px" }}
+                    />
+                    <p style={{ margin: "6px 0 0", fontSize: "10px", color: T.textMuted, fontFamily: FONT, lineHeight: "1.5" }}>
+                      Paste your design doc or upload a file — PDF, DOCX, PPTX, MD, TXT, HTML, JSON, etc. The server extracts the text and fills this box. Claude then extracts a plan and generates each layout TSX, the composition, registries, and meta files.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button" className="btn-primary"
+                    disabled={newTemplateLoading || !newTemplateId.trim() || newTemplateDoc.trim().length < 50}
+                    onClick={handleCreateTemplateFromDoc}
+                  >
+                    <IconWand />
+                    {newTemplateLoading ? "Generating…" : "Generate template"}
+                  </button>
+
+                  {newTemplateStatus && (
+                    <div style={{
+                      padding: "8px 10px", borderRadius: "6px",
+                      background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                      fontSize: "11px", fontFamily: FONT, color: T.textSub,
+                      whiteSpace: "pre-wrap" as const,
+                    }}>
+                      {newTemplateStatus}
+                    </div>
+                  )}
+
+                  {newTemplateError && (
+                    <div style={{
+                      padding: "8px 10px", borderRadius: "6px",
+                      background: "#fee2e2", border: "1px solid #fecaca",
+                      fontSize: "11px", fontFamily: FONT, color: "#dc2626",
+                    }}>
+                      {newTemplateError}
+                    </div>
+                  )}
+
                 </div>
                 )}
 
