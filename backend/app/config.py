@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # local dev). Set via TEMPLATE_STUDIO_PASSWORD in .env.
     TEMPLATE_STUDIO_PASSWORD: str = ""
 
+    # Template studio AI codegen: Claude Sonnet via Anthropic. Used by ai-edit,
+    # ai-layout/rebuild, ai-layout/create, and template/create. Falls back to
+    # Gemini when ANTHROPIC_API_KEY is empty.
+    CLAUDE_CODE_MODEL: str = "claude-sonnet-4-6"
+
     # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini") and DSPY_IMAGE_LM in env
     IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
     DSPY_IMAGE_LM: str =  "openai/gpt-4o-mini"
