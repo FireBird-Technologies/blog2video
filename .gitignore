@@ -15,6 +15,7 @@ dist/
 
 # Media files
 backend/media/
+backend/tmp/
 
 # Remotion output
 remotion-video/out/
