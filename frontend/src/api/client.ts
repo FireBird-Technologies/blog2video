@@ -778,9 +778,52 @@ export const createTemplateLayoutFile = (payload: {
   });
 };
 
-export interface CreateTemplateRequest {
+// The structured plan extracted from a (normalized) design doc. Passed
+// opaquely from POST /template/plan back into POST /template/create.
+export type TemplatePlan = Record<string, unknown>;
+
+export interface TemplateVerification {
+  ok: boolean;
+  checked: string[];
+  repaired: string[];
+  stubbed: string[];
+  errors: Record<string, string[]>;
+}
+
+// Phase 1: normalize the design doc + extract the plan (fast, no codegen).
+export interface PlanTemplateRequest {
   template_id: string;
   design_doc: string;
+  overwrite?: boolean;
+}
+
+export interface PlanTemplateResponse {
+  ok: boolean;
+  template_id: string;
+  name: string;
+  normalized_doc: string;
+  plan: TemplatePlan;
+  layout_ids: string[];
+  hero_layout: string;
+  fallback_layout: string;
+  warnings: string[];
+}
+
+export const planTemplateFromDoc = (payload: PlanTemplateRequest) =>
+  api.post<PlanTemplateResponse>("/template-studio/template/plan", payload, {
+    timeout: 240000, // 4 min — two Claude calls, no codegen
+  });
+
+// Phase 2: build the template. Supply `plan` (from planTemplateFromDoc) so
+// what the user previewed is exactly what gets built; `design_doc` alone is
+// the legacy path.
+export interface CreateTemplateRequest {
+  template_id: string;
+  design_doc?: string;
+  normalized_doc?: string;
+  plan?: TemplatePlan;
+  /** With plan: subset of layout ids to generate (Studio verify step). */
+  keep_layout_ids?: string[];
   overwrite?: boolean;
 }
 
@@ -793,13 +836,15 @@ export interface CreateTemplateResponse {
   hero_layout: string;
   fallback_layout: string;
   created_files: string[];
+  normalized_doc?: string;
+  verification?: TemplateVerification;
   warnings: string[];
   note?: string;
 }
 
 export const createTemplateFromDoc = (payload: CreateTemplateRequest) =>
   api.post<CreateTemplateResponse>("/template-studio/template/create", payload, {
-    timeout: 600000, // 10 min — per-layout codegen is sequential
+    timeout: 900000, // 15 min — sequential codegen + full-template typechecks
   });
 
 export interface ExtractDesignDocResponse {
