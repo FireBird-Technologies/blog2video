@@ -778,6 +778,45 @@ export const createTemplateLayoutFile = (payload: {
   });
 };
 
+export interface CreateTemplateRequest {
+  template_id: string;
+  design_doc: string;
+  overwrite?: boolean;
+}
+
+export interface CreateTemplateResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  name: string;
+  layout_ids: string[];
+  hero_layout: string;
+  fallback_layout: string;
+  created_files: string[];
+  warnings: string[];
+  note?: string;
+}
+
+export const createTemplateFromDoc = (payload: CreateTemplateRequest) =>
+  api.post<CreateTemplateResponse>("/template-studio/template/create", payload, {
+    timeout: 600000, // 10 min — per-layout codegen is sequential
+  });
+
+export interface ExtractDesignDocResponse {
+  ok: boolean;
+  filename: string;
+  text: string;
+}
+
+export const extractDesignDocFile = (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<ExtractDesignDocResponse>("/template-studio/template/extract-doc", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 120000,
+  });
+};
+
 export const renderTemplateLayout = (payload: {
   template_id: string;
   layout_id: string;
