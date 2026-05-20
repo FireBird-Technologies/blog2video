@@ -13,10 +13,13 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 from fastapi import HTTPException
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+from app.services.template_studio_llm import template_studio_chat
 
 
 # ─── Plan schema ──────────────────────────────────────────────────────────────
@@ -27,11 +30,40 @@ ALLOWED_PROP_TYPES = {
 }
 
 
+def coerce_prop_default(value: object) -> str | None:
+    """Maps LLM/JSON output into `str | None` for plan prop defaults.
+
+    Models sometimes emit `[]` or JSON arrays/objects instead of a string; empty
+    lists mean "no default".
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        s = value.strip()
+        return s if s else None
+    if isinstance(value, list):
+        if len(value) == 0:
+            return None
+        return json.dumps(value)
+    if isinstance(value, dict):
+        return json.dumps(value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return str(value)
+
+
 class PlanProp(BaseModel):
     name: str = Field(min_length=1, max_length=80, pattern=r"^[a-zA-Z][a-zA-Z0-9_]*$")
     type: str
     description: str = Field(default="", max_length=400)
     default: str | None = None
+
+    @field_validator("default", mode="before")
+    @classmethod
+    def _normalize_default(cls, v: object) -> str | None:
+        return coerce_prop_default(v)
 
 
 class PlanLayout(BaseModel):
@@ -39,6 +71,10 @@ class PlanLayout(BaseModel):
     label: str = Field(min_length=1, max_length=80)
     visual: str = Field(min_length=4, max_length=600)
     best_for: str = Field(default="", max_length=400)
+    # Layout-specific SVG markup, animation specifics, and DOM/structure
+    # instructions carried verbatim from the design doc. `visual` is too small
+    # to hold this — codegen reads both.
+    implementation_notes: str = Field(default="", max_length=4000)
     props: list[PlanProp] = Field(default_factory=list, max_length=30)
     supports_image: bool = False
 
@@ -51,14 +87,47 @@ class TemplatePlan(BaseModel):
     preview_colors: dict[str, str]
     base_width: int = Field(default=1920, ge=480, le=4096)
     base_height: int = Field(default=1080, ge=270, le=4096)
+    # Global visual / animation / shared-SVG system carried from the design
+    # doc. Injected into every per-layout codegen prompt.
+    design_notes: str = Field(default="", max_length=6000)
     hero_layout: str
     fallback_layout: str
     layouts: list[PlanLayout] = Field(min_length=2, max_length=20)
 
 
+# Newspaper-style responsive typography for meta.json (matches built-ins like
+# `newspaper`). TSX from layout codegen must use `prop ?? (p ? n : m)` so
+# Template Studio Save-to-source can rewrite literals (see _replace_responsive_expr).
+STANDARD_LAYOUT_TYPOGRAPHY_FIELDS: list[dict[str, object]] = [
+    {
+        "key": "titleFontSize",
+        "label": "Title Font Size",
+        "type": "number",
+        "responsive": True,
+        "min": 18,
+        "max": 220,
+        "step": 1,
+    },
+    {
+        "key": "descriptionFontSize",
+        "label": "Body Font Size",
+        "type": "number",
+        "responsive": True,
+        "min": 10,
+        "max": 140,
+        "step": 1,
+    },
+]
+
+STANDARD_LAYOUT_TYPOGRAPHY_DEFAULTS: dict[str, dict[str, int]] = {
+    "titleFontSize": {"portrait": 92, "landscape": 76},
+    "descriptionFontSize": {"portrait": 52, "landscape": 40},
+}
+
+
 # ─── Plan extraction ──────────────────────────────────────────────────────────
 
-_PLAN_SYSTEM_PROMPT = """You convert a free-form video-template design doc into a strict JSON plan for codegen.
+_PLAN_SYSTEM_PROMPT = """You convert a canonical video-template design doc into a strict JSON plan for codegen.
 
 Return JSON ONLY (no markdown fences, no commentary). Schema:
 
@@ -70,6 +139,7 @@ Return JSON ONLY (no markdown fences, no commentary). Schema:
   "preview_colors": {"accent": "#hexcolor", "bg": "#hexcolor", "text": "#hexcolor"},
   "base_width": 1920,
   "base_height": 1080,
+  "design_notes": "The global visual & animation system — shared SVG motifs, the animation language, easing/timing conventions, backgrounds. Copy this from the doc's 'Global Visual & Animation System' section verbatim and in full.",
   "hero_layout": "snake_case_id of the opening layout",
   "fallback_layout": "snake_case_id used when no other layout fits",
   "layouts": [
@@ -78,6 +148,7 @@ Return JSON ONLY (no markdown fences, no commentary). Schema:
       "label": "Human Label",
       "visual": "1-2 sentence description of what the layout looks like",
       "best_for": "1 sentence — when to use it",
+      "implementation_notes": "Layout-specific SVG markup, animation specifics, DOM/structure. Copy this from the layout's 'implementation notes' in the doc verbatim and in full.",
       "supports_image": true,
       "props": [
         {"name": "camelCaseProp", "type": "string", "description": "...", "default": "..."}
@@ -88,51 +159,94 @@ Return JSON ONLY (no markdown fences, no commentary). Schema:
 
 Rules:
 - Layout ids and prop names must match the regex shown.
+- Prop "default" must be a JSON string, number, boolean, or null — never a raw
+  JSON array/object at the JSON level. For array-type props, either omit the
+  default or use a string whose contents are JSON (e.g. the two-character
+  string [] for an empty list).
 - Allowed prop types: string, text, number, boolean, color, imageUrl, string_array, object_array.
 - Every template MUST include an "ending_socials" layout. Add it if missing — it is the standard outro.
 - hero_layout and fallback_layout MUST appear in layouts[].id.
 - Always include at least these standard layouts: hero_image (or template-specific opening), text_narration, and ending_socials.
 - Prefer 6-12 layouts total. Stay under 14.
 - DO NOT include titleFontSize or descriptionFontSize in props — those are added automatically.
+- design_notes and implementation_notes are NOT summaries. Copy every concrete
+  SVG path/shape, animation, easing curve, frame timing, and structural
+  instruction from the doc into them verbatim — codegen depends on this detail.
+  Leave them as "" only when the doc truly says nothing about that scope.
 """
 
 
-def extract_template_plan(
-    *,
-    design_doc: str,
-    template_id: str,
-    anthropic_api_key: str,
-    model: str,
-) -> TemplatePlan:
-    """Call Claude to convert a free-form design doc into a strict TemplatePlan."""
-    try:
-        from anthropic import Anthropic
-    except Exception as e:  # pragma: no cover
-        raise HTTPException(status_code=500, detail=f"anthropic package required: {e}")
+_NORMALIZE_SYSTEM_PROMPT = """You are a senior video-template designer. You receive a free-form, possibly messy, partial, or inconsistently formatted design doc for a video template. Analyze it, then REWRITE it into ONE canonical design doc with a fixed structure so downstream codegen is consistent and predictable.
 
-    client = Anthropic(api_key=anthropic_api_key)
+Output the canonical doc as Markdown ONLY — no commentary, no code fences.
+
+Required structure:
+
+# <Template Name> — Video Template Design Doc
+
+## Purpose
+1-3 sentences on what the template is for.
+
+## Identity
+- name: <display name>
+- subtitle: <short tagline for the picker>
+- genres: <comma-separated genres>
+- base_width: <int, default 1920>
+- base_height: <int, default 1080>
+- description: <1-2 sentence template description>
+
+## Global Visual & Animation System
+- preview_colors: accent <#hex>, bg <#hex>, text <#hex>
+- Shared SVG motifs, the animation language, easing/timing conventions, and
+  background treatment that apply to EVERY layout.
+
+## Layouts
+hero_layout: <snake_case id>
+fallback_layout: <snake_case id>
+
+### N. <snake_case_id> — label: <Human Label>
+- best_for: <1 sentence — when to use it>
+- supports_image: <true|false>
+- visual: <2-3 dense sentences naming concrete colors, shapes, sizes, positions>
+- implementation notes: <layout-specific SVG markup/paths, exact animations,
+  easing, frame timing, and DOM/structure — be concrete>
+- props:
+  - <camelCaseName> (<type>): <description>
+
+Rules:
+- PRESERVE the author's creative and technical intent. If the input contains
+  concrete instructions about SVGs, animations, easing, timing, or layout
+  structure, carry them through FULLY into 'Global Visual & Animation System'
+  (if shared) or the relevant layout's 'implementation notes' (if specific).
+  Never summarize this detail away — downstream codegen sees only this doc and
+  has no reference component.
+- Fill genuine gaps with sensible, internally consistent choices.
+- 6-12 layouts total. Always include an opening/hero layout, a text_narration
+  baseline layout, and an ending_socials outro layout.
+- hero_layout and fallback_layout must be ids you listed under ## Layouts.
+- Layout ids are snake_case; prop names are camelCase.
+- Allowed prop types ONLY: string, text, number, boolean, color, imageUrl,
+  string_array, object_array.
+- Do NOT add titleFontSize or descriptionFontSize props — they are automatic.
+"""
+
+
+def extract_template_plan(*, design_doc: str, template_id: str) -> TemplatePlan:
+    """Convert a (canonical) design doc into a strict TemplatePlan.
+
+    Runs through the Anthropic API — Claude Sonnet (see app.services.template_studio_llm)."""
     user_text = (
         f"Template id (preassigned, must be kept consistent): {template_id}\n\n"
         f"DESIGN DOC:\n{design_doc.strip()}\n\n"
         "Output the JSON plan only."
     )
-
-    try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=8000,
-            temperature=0.2,
-            system=_PLAN_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": [{"type": "text", "text": user_text}]}],
-        )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Claude plan-extraction request failed: {e}")
-
-    raw = ""
-    for block in getattr(response, "content", None) or []:
-        if getattr(block, "type", None) == "text":
-            raw += getattr(block, "text", "") or ""
-    raw = raw.strip()
+    raw = template_studio_chat(
+        system=_PLAN_SYSTEM_PROMPT,
+        user=user_text,
+        max_tokens=8000,
+        temperature=0.2,
+        log_label="extract_plan",
+    ).strip()
     fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw, re.IGNORECASE)
     if fenced:
         raw = fenced.group(1).strip()
@@ -142,34 +256,125 @@ def extract_template_plan(
     except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=502,
-            detail=f"Claude plan was not valid JSON: {e}. First 400 chars: {raw[:400]}",
+            detail=f"plan was not valid JSON: {e}. First 400 chars: {raw[:400]}",
         )
 
     try:
         plan = TemplatePlan(**data)
     except ValidationError as e:
-        raise HTTPException(status_code=502, detail=f"Claude plan failed schema validation: {e}")
+        raise HTTPException(status_code=502, detail=f"plan failed schema validation: {e}")
 
+    validate_plan(plan)
+    return plan
+
+
+def validate_plan(plan: TemplatePlan, *, status_code: int = 502) -> None:
+    """Cross-field plan checks beyond the pydantic schema: hero/fallback
+    membership and the prop-type allowlist. Raises HTTPException when invalid.
+    Used by `extract_template_plan` and by the create endpoint when a
+    client-supplied plan is accepted directly."""
     layout_ids = {layout.id for layout in plan.layouts}
     if plan.hero_layout not in layout_ids:
         raise HTTPException(
-            status_code=502,
+            status_code=status_code,
             detail=f"hero_layout '{plan.hero_layout}' not in layouts list.",
         )
     if plan.fallback_layout not in layout_ids:
         raise HTTPException(
-            status_code=502,
+            status_code=status_code,
             detail=f"fallback_layout '{plan.fallback_layout}' not in layouts list.",
         )
     for layout in plan.layouts:
         for prop in layout.props:
             if prop.type not in ALLOWED_PROP_TYPES:
                 raise HTTPException(
-                    status_code=502,
+                    status_code=status_code,
                     detail=f"Prop {layout.id}.{prop.name} has unknown type '{prop.type}'.",
                 )
 
-    return plan
+
+def filter_plan_layouts(plan: TemplatePlan, keep_layout_ids: list[str]) -> TemplatePlan:
+    """Keep only layouts listed in ``keep_layout_ids`` (preserving plan order).
+
+    Used after the Studio review step when the user removes layouts the model
+    invented beyond the design doc. Re-points ``hero_layout`` and
+    ``fallback_layout`` if those ids were removed.
+    """
+    keep_set = set(keep_layout_ids)
+    if not keep_set:
+        raise HTTPException(
+            status_code=400,
+            detail="keep_layout_ids must include at least one layout.",
+        )
+    known = {ly.id for ly in plan.layouts}
+    unknown = keep_set - known
+    if unknown:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown layout id(s): {', '.join(sorted(unknown))}",
+        )
+    kept: list[PlanLayout] = [ly for ly in plan.layouts if ly.id in keep_set]
+    if len(kept) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="At least 2 layouts must remain (schema minimum).",
+        )
+
+    hero = plan.hero_layout if plan.hero_layout in keep_set else kept[0].id
+    if plan.fallback_layout in keep_set:
+        fallback = plan.fallback_layout
+    elif "text_narration" in keep_set:
+        fallback = "text_narration"
+    elif "ending_socials" in keep_set:
+        fallback = "ending_socials"
+    else:
+        fallback = next((ly.id for ly in kept if ly.id != hero), kept[-1].id)
+    if fallback == hero:
+        fallback = next((ly.id for ly in kept if ly.id != hero), kept[-1].id)
+
+    trimmed = plan.model_copy(
+        update={
+            "layouts": kept,
+            "hero_layout": hero,
+            "fallback_layout": fallback,
+        }
+    )
+    validate_plan(trimmed, status_code=400)
+    return trimmed
+
+
+def normalize_design_doc(*, design_doc: str, template_id: str) -> str:
+    """Rewrite a free-form design doc into the canonical structure.
+
+    Runs before `extract_template_plan` so every template is generated from a
+    consistent, complete spec. Any concrete SVG / animation / layout
+    instructions in the input are preserved (see `_NORMALIZE_SYSTEM_PROMPT`).
+    Runs through the Anthropic API (Claude Sonnet). Returns canonical Markdown.
+    Raises HTTPException on API/parse failure — the caller may fall back to the
+    raw doc.
+    """
+    user_text = (
+        f"Template id (preassigned, keep it consistent): {template_id}\n\n"
+        f"RAW DESIGN DOC:\n{design_doc.strip()}\n\n"
+        "Rewrite it into the canonical design doc. Output Markdown only."
+    )
+    raw = template_studio_chat(
+        system=_NORMALIZE_SYSTEM_PROMPT,
+        user=user_text,
+        max_tokens=12000,
+        temperature=0.2,
+        log_label="normalize_design_doc",
+    ).strip()
+    fenced = re.search(r"```(?:markdown|md)?\s*([\s\S]*?)```", raw, re.IGNORECASE)
+    if fenced:
+        raw = fenced.group(1).strip()
+
+    if len(raw) < 50:
+        raise HTTPException(
+            status_code=502,
+            detail="Claude normalization returned an empty / too-short doc.",
+        )
+    return raw
 
 
 # ─── String helpers ───────────────────────────────────────────────────────────
@@ -202,18 +407,34 @@ def build_layout_codegen_prompt(
     text_color: str,
     layout: PlanLayout,
     pascal_name: str,
+    design_notes: str = "",
 ) -> str:
     """Build a self-contained per-layout codegen prompt.
 
     The prompt carries everything Claude needs to write a competent Remotion
-    layout: the template's aesthetic (colors, description), the layout brief
-    (visual, props, image policy), the exact component signature, and the
-    allowed import surface. No reference TSX is included — the design doc is
-    expected to be detailed enough on its own."""
+    layout: the template's aesthetic (colors, description, global visual &
+    animation system), the layout brief (visual, implementation notes, props,
+    image policy), the exact component signature, and the allowed import
+    surface. No reference TSX is included — the design doc is expected to be
+    detailed enough on its own."""
     props_desc = "\n".join(
         f"  - {p.name} ({p.type}): {p.description}"
         for p in layout.props
     ) or "  - (no custom props — uses title + narration + imageUrl from runtime)"
+
+    design_notes_block = (
+        f"Global visual & animation system (applies to every layout — follow it):\n"
+        f"{design_notes.strip()}\n\n"
+        if design_notes.strip()
+        else ""
+    )
+    impl_notes_block = (
+        f"Layout implementation notes (SVG markup, exact animations, easing, "
+        f"frame timing, DOM/structure — implement these precisely):\n"
+        f"{layout.implementation_notes.strip()}\n\n"
+        if layout.implementation_notes.strip()
+        else ""
+    )
 
     image_clause = (
         "This layout SHOULD render an image — use the `imageUrl` prop with an "
@@ -230,11 +451,13 @@ def build_layout_codegen_prompt(
         f"Template aesthetic: {template_description}\n"
         f"Default colors (these are passed as runtime props — do NOT hard-code them, "
         f"but design with this palette in mind): accent={accent_color}, bg={bg_color}, text={text_color}\n\n"
+        f"{design_notes_block}"
         f"Layout ID: {layout.id}\n"
         f"Layout label: {layout.label}\n"
         f"Component export name: {pascal_name}\n\n"
         f"Visual brief: {layout.visual}\n"
         f"Best used for: {layout.best_for}\n\n"
+        f"{impl_notes_block}"
         "Required component signature:\n"
         '  import React from "react";\n'
         '  import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Img } from "remotion";\n'
@@ -244,9 +467,30 @@ def build_layout_codegen_prompt(
         "    const { title, narration, imageUrl, imageObjectPosition, imageZoom,\n"
         "            accentColor, bgColor, textColor, aspectRatio,\n"
         "            titleFontSize, descriptionFontSize, fontFamily } = props;\n"
+        '    const p = aspectRatio === "portrait";\n'
         "    // access custom props via (props as any).propName\n"
         "    // ...\n"
         "  };\n\n"
+        "Typography — REQUIRED (same contract as built-in templates e.g. newspaper; "
+        "Template Studio edits these via meta.json + Save-to-source):\n"
+        "  - Right after destructuring props, you MUST have: "
+        '`const p = aspectRatio === "portrait";`\n'
+        "  - The main headline (render the `title` string prominently) MUST set "
+        "fontSize using this exact pattern so defaults can be synced into TSX:\n"
+        "      fontSize: titleFontSize ?? (p ? <portraitInt> : <landscapeInt>)\n"
+        "    Choose sensible integer fallbacks for this layout (e.g. 80 and 72).\n"
+        "  - The primary narration / body text (the `narration` string) MUST set "
+        "fontSize using:\n"
+        "      fontSize: descriptionFontSize ?? (p ? <portraitInt> : <landscapeInt>)\n"
+        "    Choose sensible fallbacks (e.g. 38 and 32).\n"
+        "  - You MAY assign to locals like "
+        "`const titlePx = titleFontSize ?? (p ? 80 : 72);` but the substring "
+        "`titleFontSize ?? (p ? … : …)` MUST appear verbatim in the file at least "
+        "once for the title, and `descriptionFontSize ?? (p ? … : …)` at least "
+        "once for the body — do not use only raw numbers for those two roles.\n"
+        "  - Optional `* scale` form is allowed, e.g. "
+        "`titleFontSize ?? (p ? 80 * scale : 72 * scale)`, when you define a "
+        "positive numeric `scale` from canvas size.\n\n"
         "Standard props you may rely on (always present at runtime):\n"
         "  title: string                — the scene title\n"
         "  narration: string             — the scene narration / body\n"
@@ -297,21 +541,8 @@ def build_meta_json(
 
     layouts_without_image = [layout.id for layout in plan.layouts if not layout.supports_image]
 
-    # Standard responsive font fields all layouts get for free.
-    base_fields = [
-        {
-            "key": "titleFontSize", "label": "Title Font Size", "type": "number",
-            "responsive": True, "min": 18, "max": 180, "step": 1,
-        },
-        {
-            "key": "descriptionFontSize", "label": "Body Font Size", "type": "number",
-            "responsive": True, "min": 12, "max": 120, "step": 1,
-        },
-    ]
-    base_defaults = {
-        "titleFontSize": {"portrait": 92, "landscape": 76},
-        "descriptionFontSize": {"portrait": 52, "landscape": 40},
-    }
+    base_fields = [dict(f) for f in STANDARD_LAYOUT_TYPOGRAPHY_FIELDS]
+    base_defaults = dict(STANDARD_LAYOUT_TYPOGRAPHY_DEFAULTS)
 
     layout_prop_schema: dict[str, dict] = {}
     for layout in plan.layouts:
@@ -985,3 +1216,81 @@ def cleanup_created_paths(paths: list[Path]) -> None:
             p.unlink(missing_ok=True)
         elif p.is_dir():
             shutil.rmtree(p, ignore_errors=True)
+
+
+# ─── Full-template TSX verification ───────────────────────────────────────────
+
+# scope -> (project subdir, path markers that scope tsc output to this template)
+_TSC_SCOPES: dict[str, tuple[str, tuple[str, ...]]] = {
+    "frontend": ("frontend", ("remotion/{tid}/",)),
+    "remotion": ("remotion-video", ("templates/{tid}/",)),
+}
+
+
+def run_template_typecheck(*, root: Path, template_id: str, scope: str) -> dict:
+    """Type-check a generated template with the project's real tsconfig.
+
+    `scope` is "frontend" or "remotion". Runs the project-local `tsc --noEmit
+    -p tsconfig.json` in the matching project so imports and cross-file types
+    (SceneLayoutProps, the layouts index registry) resolve. tsc output is
+    filtered to files under the new template's directory, so unrelated
+    pre-existing repo errors are ignored.
+
+    Returns {"ok": bool, "errors_by_file": {relpath: [lines]}, "raw": str}.
+    The check is skipped (ok=True) when the project has no local tsc binary or
+    no tsconfig — running `npx tsc` without installed node_modules would
+    download a compiler that cannot resolve `react`/`remotion` and would report
+    false positives. This mirrors `_validate_tsx_or_raise`'s tolerant behavior.
+    """
+    spec = _TSC_SCOPES.get(scope)
+    if spec is None:
+        raise ValueError(f"unknown typecheck scope: {scope}")
+    subdir, path_markers = spec
+    project_dir = root / subdir
+    if not (project_dir / "tsconfig.json").exists():
+        return {"ok": True, "errors_by_file": {}, "raw": "", "skipped": "no tsconfig"}
+
+    tsc_bin = project_dir / "node_modules" / ".bin" / "tsc"
+    if not tsc_bin.exists():
+        return {"ok": True, "errors_by_file": {}, "raw": "", "skipped": "no local tsc"}
+
+    markers = [m.format(tid=template_id) for m in path_markers]
+    cmd = [str(tsc_bin), "--noEmit", "--pretty", "false", "-p", "tsconfig.json"]
+    try:
+        result = subprocess.run(
+            cmd, cwd=project_dir, capture_output=True, text=True, timeout=300,
+        )
+    except Exception as e:
+        # tsc / node missing, or timeout — don't block the flow.
+        return {"ok": True, "errors_by_file": {}, "raw": "", "skipped": str(e)}
+
+    output = (result.stdout or "")
+    if result.stderr:
+        output += "\n" + result.stderr
+
+    errors_by_file: dict[str, list[str]] = {}
+    for line in output.splitlines():
+        stripped = line.strip()
+        if "error TS" not in stripped:
+            continue
+        if not any(marker in stripped for marker in markers):
+            continue
+        # tsc line shape: "path/File.tsx(line,col): error TSxxxx: message"
+        m = re.match(r"^(.*?\.tsx?)[(:]", stripped)
+        relpath = m.group(1).strip() if m else stripped
+        errors_by_file.setdefault(relpath, []).append(stripped)
+
+    return {
+        "ok": not errors_by_file,
+        "errors_by_file": errors_by_file,
+        "raw": output[-8000:],
+    }
+
+
+def tsx_file_to_layout_id(path: str, pascal_names: dict[str, str]) -> str | None:
+    """Map an errored `layouts/<Pascal>.tsx` path back to its layout id."""
+    stem = Path(path).stem
+    for layout_id, pascal in pascal_names.items():
+        if pascal == stem:
+            return layout_id
+    return None
