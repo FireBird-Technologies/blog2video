@@ -78,8 +78,9 @@ function CustomTemplateRequestModal({
             </h3>
 
             <p className="text-sm text-gray-500 max-w-sm">
-              Our design team will review your request and reach out with next
-              steps shortly. We’re excited to bring your vision to life.
+              Thank you, our design team will review your request and reach out with next
+              steps shortly. We’re excited to bring your vision to life. You’ll
+              hear back from us within 1-2 business days.
             </p>
           </div>
         ) : (
