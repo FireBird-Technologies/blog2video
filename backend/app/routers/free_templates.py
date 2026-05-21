@@ -228,6 +228,7 @@ two seconds. Pacing is intentionally fast.
 
 ## Blog2Video
 
+
 This template is powered by Blog2Video — paste any blog URL to generate a
 bold, kinetic video using Spotlight automatically.
 
