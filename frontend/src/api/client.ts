@@ -811,7 +811,7 @@ export interface PlanTemplateResponse {
 
 export const planTemplateFromDoc = (payload: PlanTemplateRequest) =>
   api.post<PlanTemplateResponse>("/template-studio/template/plan", payload, {
-    timeout: 240000, // 4 min — two Claude calls, no codegen
+    timeout: 600000, // 10 min — two sequential Claude calls (normalize + extract) on a large doc
   });
 
 // Phase 2: build the template. Supply `plan` (from planTemplateFromDoc) so
