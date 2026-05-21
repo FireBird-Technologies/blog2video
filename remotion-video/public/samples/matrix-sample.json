@@ -1,0 +1,130 @@
+{
+  "projectName": "Matrix Sample",
+  "accentColor": "#00FF41",
+  "bgColor": "#000000",
+  "textColor": "#00FF41",
+  "scenes": [
+    {
+      "id": 1, "order": 1,
+      "title": "SYSTEM BOOT",
+      "narration": "Initializing sequence. Welcome to the grid.",
+      "layout": "awakening",
+      "layoutProps": {},
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2, "order": 2,
+      "title": "DECRYPTING: THE TRUTH ABOUT OPEN SOURCE",
+      "narration": "Open source software powers ninety percent of the modern internet. Here is why that matters.",
+      "layout": "matrix_title",
+      "layoutProps": {},
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3, "order": 3,
+      "title": "LOADING DATA STREAM",
+      "narration": "These are the facts. Process them carefully.",
+      "layout": "data_stream",
+      "layoutProps": {
+        "items": [
+          "> 90% of cloud infrastructure runs Linux",
+          "> Git is used by 94% of developers worldwide",
+          "> 78% of companies use open source in production",
+          "> The top 1000 npm packages get 1B+ downloads/week"
+        ]
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4, "order": 4,
+      "title": "PROCESSING",
+      "narration": "Decoding the signal from the noise.",
+      "layout": "terminal_text",
+      "layoutProps": {
+        "lines": [
+          "$ initializing analysis...",
+          "$ scanning repositories: 420M found",
+          "$ cross-referencing contributors...",
+          "$ result: open source won."
+        ]
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5, "order": 5,
+      "title": "DECRYPTED",
+      "narration": "The truth has been decoded.",
+      "layout": "glitch_punch",
+      "layoutProps": {},
+      "durationSeconds": 3,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 6, "order": 6,
+      "title": "CHOOSE YOUR PATH",
+      "narration": "Every developer faces this choice. Which side are you on?",
+      "layout": "fork_choice",
+      "layoutProps": {
+        "leftLabel": "Closed Source",
+        "rightLabel": "Open Source",
+        "leftDescription": "Vendor lock-in. Black box. Their roadmap.",
+        "rightDescription": "Full control. Transparent. Community driven."
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 7, "order": 7,
+      "title": "420M",
+      "narration": "Over four hundred million repositories exist on GitHub alone.",
+      "layout": "cipher_metric",
+      "layoutProps": {
+        "value": "420M",
+        "label": "GitHub repositories"
+      },
+      "durationSeconds": 4,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 8, "order": 8,
+      "title": "INCOMING TRANSMISSION",
+      "narration": "Final message from the system.",
+      "layout": "transmission",
+      "layoutProps": {
+        "messages": [
+          "// the code is the documentation",
+          "// contribute or consume",
+          "// everything is a fork"
+        ]
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 9, "order": 9,
+      "title": "CONNECTION ESTABLISHED",
+      "narration": "Join the network. Follow for more transmissions.",
+      "layout": "ending_socials",
+      "layoutProps": {
+        "socials": { "twitter": "@blog2video", "youtube": "Blog2Video" },
+        "websiteLink": "blog2video.com",
+        "ctaButtonText": "CONNECT"
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

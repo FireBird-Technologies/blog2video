@@ -383,6 +383,7 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             />
         </AbsoluteFill>
       )}
+
     </AbsoluteFill>
   );
 };

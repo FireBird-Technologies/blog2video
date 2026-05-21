@@ -395,6 +395,76 @@ export const tools: ToolDefinition[] = [
       "/blogs/how-to-distribute-one-article-across-blog-newsletter-youtube-and-shorts",
     ],
   },
+  {
+    slug: "free-remotion-templates",
+    path: "/tools/free-remotion-templates",
+    title: "Free Remotion Templates",
+    description:
+      "Download 5 free video templates: Nightfall, Spotlight, Matrix, Gridcraft, and Geometric Explainer. Each is a complete TypeScript source project — unzip, npm install, and run in Remotion Studio.",
+    eyebrow: "Free Download",
+    heroTitle: "5 free Remotion templates for blog-to-video content.",
+    heroDescription:
+      "Download Geometric Explainer, Nightfall, Spotlight, Matrix, and Gridcraft — complete TypeScript source code, ready to run in Remotion Studio. Sign in to download the full ZIP.",
+    category: "download",
+    icon: "FT",
+    primaryKeyword: "free remotion templates",
+    keywordVariant: "blog to video remotion templates download",
+    badges: ["5 Templates", "ZIP Download", "TypeScript Source"],
+    proofPoints: [
+      "Each template is a standalone Remotion project — unzip, npm install, npx remotion studio, and it runs.",
+      "Templates cover cinematic dark, bold kinetic, editorial grid, cyberpunk terminal, and clean explainer visual styles.",
+      "Download is free with a Blog2Video account — no credit card required.",
+    ],
+    sections: [
+      {
+        title: "What these templates include",
+        body: [
+          "Each ZIP is a complete standalone Remotion project: TypeScript compositions, all layout components, shared utilities, sample data, and everything needed to run npx remotion studio out of the box.",
+          "These are the exact compositions used by Blog2Video's production pipeline — cinematic dark, bold kinetic typography, editorial bento grids, cyberpunk terminal, and structured explainer styles.",
+        ],
+      },
+      {
+        title: "How to use the templates",
+        body: [
+          "After downloading, unzip the archive, run npm install, then npx remotion studio to preview the composition with sample data. Swap in your own data JSON to render your content.",
+        ],
+        bullets: [
+          "Each template folder contains the full Remotion composition in TypeScript/TSX.",
+          "Sample data JSON files are included so every layout scene renders correctly on first run.",
+          "Swap the sample data for your own content and render with npx remotion render.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need a paid Blog2Video account to download?",
+        answer:
+          "No. A free Blog2Video account is all that's required. Sign in with Google and download instantly.",
+      },
+      {
+        question: "Can I use these templates commercially?",
+        answer:
+          "Yes. The templates are provided for personal and commercial use.",
+      },
+      {
+        question: "Which Remotion version are these templates designed for?",
+        answer:
+          "The templates are built and tested with Remotion 4.x. Run npm install inside the unzipped project and all correct versions are installed automatically.",
+      },
+      {
+        question: "Can Blog2Video build a custom template for my brand?",
+        answer:
+          "Yes. Blog2Video Pro includes access to custom template creation tailored to your brand identity, color palette, and content style. See the pricing page for details.",
+      },
+    ],
+    relatedPaths: [
+      "/templates/nightfall",
+      "/templates/spotlight",
+      "/templates/matrix",
+      "/templates/gridcraft",
+      "/templates/geometric-explainer",
+    ],
+  },
 ];
 
 export function getTool(slug: string) {
