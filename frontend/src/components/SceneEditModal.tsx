@@ -2174,7 +2174,6 @@ export default function SceneEditModal({
     setImagePreviewUrl(null);
     setImageFocusX(50);
     setImageFocusY(50);
-    setGeneratingImage(false);
     setGeneratedImageBase64(null);
     setGeneratedPrompt(null);
     setShowAiImageUpgradeModal(false);
