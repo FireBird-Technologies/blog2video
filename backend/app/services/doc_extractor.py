@@ -160,6 +160,63 @@ def extract_from_documents(
 # ─── PDF extraction ──────────────────────────────────────────
 
 
+def extract_text_from_upload(file: UploadFile) -> str:
+    """Extract markdown-style text from any uploaded document.
+
+    Lightweight wrapper around the per-format extractors that:
+      - reads the upload into a temp file
+      - dispatches by extension (PDF/DOCX/PPTX/VTT have dedicated parsers;
+        everything else falls through to the text decoder)
+      - returns the extracted text only (no DB writes, no image side-effects)
+
+    Raises HTTPException on parse failure or empty output."""
+    from fastapi import HTTPException
+
+    filename = file.filename or "document"
+    ext = os.path.splitext(filename)[1].lower()
+    raw = file.file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    # Use a throwaway dir for images; we discard them.
+    with tempfile.TemporaryDirectory(prefix="docextract-") as tmp_dir:
+        tmp_path = os.path.join(tmp_dir, f"upload{ext or '.bin'}")
+        with open(tmp_path, "wb") as f:
+            f.write(raw)
+
+        try:
+            if ext == ".pdf":
+                md, _imgs, _tables = _extract_pdf(tmp_path, tmp_dir)
+            elif ext == ".docx":
+                md, _imgs, _tables = _extract_docx(tmp_path, tmp_dir)
+            elif ext == ".pptx":
+                md, _imgs, _tables = _extract_pptx(tmp_path, tmp_dir)
+            elif ext == ".vtt":
+                md, _imgs, _tables = _extract_vtt_document(tmp_path)
+            else:
+                # JSON, HTML, RTF, code files, .md, .txt, unknown extensions —
+                # try plain-text decoding. _extract_text_document raises
+                # ValueError if the bytes look binary.
+                md, _imgs, _tables = _extract_text_document(tmp_path)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"'{filename}': {e}") from e
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to extract text from '{filename}': {e}",
+            ) from e
+
+    text = (md or "").replace("\x00", "").strip()
+    if not text:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No text content extracted from '{filename}'.",
+        )
+    return text
+
+
 def _extract_pdf(
     file_path: str, image_dir: str
 ) -> tuple[str, list[tuple[str, str]], list[dict]]:
