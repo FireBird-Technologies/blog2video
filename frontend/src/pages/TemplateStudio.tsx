@@ -27,9 +27,12 @@ import {
   rebuildTemplateLayout,
   rebuildTemplateLayoutFile,
   createTemplateLayout,
-  createTemplateLayoutFile,
+  createTemplateFromDoc,
+  planTemplateFromDoc,
+  extractDesignDocFile,
   renderTemplateLayout,
   type PropDef,
+  type TemplatePlan,
   SUPPORTED_PROP_TYPES,
 } from "../api/client";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
@@ -62,6 +65,19 @@ function normalizeTemplateId(templateId: string): string {
 
 function humanize(value: string): string {
   return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function planLayoutRowsForReview(
+  plan: TemplatePlan,
+  layoutOrder: string[],
+): { id: string; label: string }[] {
+  const raw = plan && typeof plan === "object" && Array.isArray((plan as { layouts?: unknown }).layouts)
+    ? (plan as { layouts: { id?: string; label?: string }[] }).layouts
+    : [];
+  const labelById = new Map(
+    raw.filter((l) => l && typeof l.id === "string").map((l) => [l.id as string, String(l.label || l.id)]),
+  );
+  return layoutOrder.map((id) => ({ id, label: labelById.get(id) ?? id }));
 }
 
 const TYPOGRAPHY_FIELDS: LayoutPropField[] = [
@@ -985,15 +1001,55 @@ export default function TemplateStudio() {
   const [rebuildStatus, setRebuildStatus]   = useState("");
 
   // ── New layout tab state ────────────────────────────────────────────────────
-  const [rightTab, setRightTab]           = useState<"edit" | "new-layout">("edit");
+  const [rightTab, setRightTab]           = useState<"edit" | "new-layout" | "new-template">("edit");
   const [newLayoutId, setNewLayoutId]     = useState("");
   const [newBaseLayoutId, setNewBaseLayoutId] = useState("");
   const [newLayoutDesc, setNewLayoutDesc] = useState("");
-  const [newLayoutImage, setNewLayoutImage] = useState<File | null>(null);
   const [newLayoutProps, setNewLayoutProps] = useState<PropDef[]>([]);
   const [newLayoutLoading, setNewLayoutLoading] = useState(false);
   const [newLayoutError, setNewLayoutError]     = useState("");
   const [newLayoutStatus, setNewLayoutStatus]   = useState("");
+
+  // ── New template (from design doc) tab state ────────────────────────────────
+  const [newTemplateId, setNewTemplateId]       = useState("");
+  const [newTemplateDoc, setNewTemplateDoc]     = useState("");
+  const [newTemplateDocFileName, setNewTemplateDocFileName] = useState("");
+  const [newTemplateError, setNewTemplateError]   = useState("");
+  const [newTemplateStatus, setNewTemplateStatus] = useState("");
+  const [newTemplateBusy, setNewTemplateBusy]     = useState<null | "analyze" | "create">(null);
+  /** After POST /template/plan — user verifies layout list before POST /template/create. */
+  const [newTemplateReview, setNewTemplateReview] = useState<{
+    templateId: string;
+    normalizedDoc: string;
+    plan: TemplatePlan;
+    layoutOrder: string[];
+  } | null>(null);
+  const [newTemplateKeepLayoutIds, setNewTemplateKeepLayoutIds] = useState<string[]>([]);
+  const newTemplateDocFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [newTemplateDocExtracting, setNewTemplateDocExtracting] = useState(false);
+
+  const handleNewTemplateDocFileSelect = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setNewTemplateError("Design doc file is too large (max 10 MB).");
+      return;
+    }
+    try {
+      setNewTemplateDocExtracting(true);
+      setNewTemplateError("");
+      const result = await extractDesignDocFile(file);
+      setNewTemplateDoc(result.data.text);
+      setNewTemplateDocFileName(file.name);
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : "Failed to extract text from the file.";
+      setNewTemplateError(String(msg || "Failed to extract text from the file."));
+    } finally {
+      setNewTemplateDocExtracting(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -1586,22 +1642,13 @@ export default function TemplateStudio() {
     }
     try {
       setNewLayoutLoading(true); setNewLayoutError(""); setNewLayoutStatus("");
-      const result = newLayoutImage
-        ? await createTemplateLayoutFile({
-            template_id: selectedTemplateId,
-            base_layout_id: newBaseLayoutId,
-            new_layout_id: newLayoutId.trim(),
-            layout_description: newLayoutDesc.trim(),
-            props: newLayoutProps,
-            image: newLayoutImage,
-          })
-        : await createTemplateLayout({
-            template_id: selectedTemplateId,
-            base_layout_id: newBaseLayoutId,
-            new_layout_id: newLayoutId.trim(),
-            layout_description: newLayoutDesc.trim(),
-            props: newLayoutProps,
-          });
+      const result = await createTemplateLayout({
+        template_id: selectedTemplateId,
+        base_layout_id: newBaseLayoutId,
+        new_layout_id: newLayoutId.trim(),
+        layout_description: newLayoutDesc.trim(),
+        props: newLayoutProps,
+      });
       const data = result.data;
       setAiPreviewSessionId(data.session_id);
       setAiPreviewVersions(data.versions ?? ["v1"]);
@@ -1612,7 +1659,7 @@ export default function TemplateStudio() {
       setTemplates(refreshed.data);
       setSelectedLayout(data.new_layout_id);
       setRightTab("edit");
-      setNewLayoutId(""); setNewLayoutDesc(""); setNewLayoutImage(null); setNewLayoutProps([]);
+      setNewLayoutId(""); setNewLayoutDesc(""); setNewLayoutProps([]);
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -1620,6 +1667,129 @@ export default function TemplateStudio() {
       setNewLayoutError(String(msg || "Create failed."));
     } finally { setNewLayoutLoading(false); }
   };
+
+  // ── New template (from design doc): analyze plan → verify layouts → create ─
+  const resetNewTemplateReview = () => {
+    setNewTemplateReview(null);
+    setNewTemplateKeepLayoutIds([]);
+  };
+
+  const toggleNewTemplateLayoutKeep = (layoutId: string) => {
+    if (!newTemplateReview) return;
+    const { layoutOrder } = newTemplateReview;
+    setNewTemplateKeepLayoutIds((prev) => {
+      if (prev.includes(layoutId)) {
+        return prev.filter((x) => x !== layoutId);
+      }
+      const nextSet = new Set([...prev, layoutId]);
+      return layoutOrder.filter((x) => nextSet.has(x));
+    });
+  };
+
+  const handleAnalyzeTemplateDoc = async () => {
+    const id = newTemplateId.trim().toLowerCase();
+    if (!id || !/^[a-z][a-z0-9_]*$/.test(id)) {
+      setNewTemplateError("Template id must be snake_case starting with a letter.");
+      return;
+    }
+    if (newTemplateDoc.trim().length < 50) {
+      setNewTemplateError("Design doc is too short. Describe the visual style and layouts.");
+      return;
+    }
+    try {
+      setNewTemplateBusy("analyze");
+      setNewTemplateError("");
+      resetNewTemplateReview();
+      setNewTemplateStatus(`Analyzing the design doc for '${id}'…`);
+      const planRes = await planTemplateFromDoc({
+        template_id: id,
+        design_doc: newTemplateDoc.trim(),
+      });
+      const planData = planRes.data;
+      const order = planData.layout_ids.slice();
+      setNewTemplateReview({
+        templateId: id,
+        normalizedDoc: planData.normalized_doc,
+        plan: planData.plan,
+        layoutOrder: order,
+      });
+      setNewTemplateKeepLayoutIds(order.slice());
+      const warn = planData.warnings?.length ? ` Warnings: ${planData.warnings.join("; ")}` : "";
+      setNewTemplateStatus(
+        `Plan ready — ${order.length} layout(s). Uncheck any you do not want, then create.${warn}`,
+      );
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; code?: string };
+      const msg =
+        e?.response?.data?.detail ||
+        (e?.code === "ECONNABORTED"
+          ? "Plan timed out — the design doc may be long. It can take several minutes; retry, or shorten the doc."
+          : "Plan failed.");
+      setNewTemplateError(String(msg));
+      setNewTemplateStatus("");
+    } finally {
+      setNewTemplateBusy(null);
+    }
+  };
+
+  const handleCreateVerifiedTemplate = async () => {
+    if (!newTemplateReview) return;
+    if (newTemplateKeepLayoutIds.length < 2) {
+      setNewTemplateError("Keep at least two layouts (minimum for a template).");
+      return;
+    }
+    const { templateId, normalizedDoc, plan } = newTemplateReview;
+    try {
+      setNewTemplateBusy("create");
+      setNewTemplateError("");
+      setNewTemplateStatus(
+        `Generating ${newTemplateKeepLayoutIds.length} verified layout(s) for '${templateId}' — this may take several minutes…`,
+      );
+      const result = await createTemplateFromDoc({
+        template_id: templateId,
+        normalized_doc: normalizedDoc,
+        plan,
+        keep_layout_ids: newTemplateKeepLayoutIds,
+      });
+      const data = result.data;
+      const v = data.verification;
+      const verifyLine = v
+        ? ` Verification: ${v.ok ? "passed" : "issues found"}` +
+          (v.repaired.length ? `, repaired ${v.repaired.join(", ")}` : "") +
+          (v.stubbed.length ? `, stubbed ${v.stubbed.join(", ")}` : "") +
+          "."
+        : "";
+      const summary =
+        `Created '${data.template_id}' (${data.layout_ids.length} layouts).` +
+        verifyLine +
+        (data.warnings && data.warnings.length > 0
+          ? ` Warnings: ${data.warnings.join("; ")}`
+          : " No warnings.");
+      setNewTemplateStatus(summary);
+      const refreshed = await getTemplates();
+      setTemplates(refreshed.data);
+      setSelectedTemplateId(data.template_id);
+      setSelectedLayout(data.hero_layout);
+      setRightTab("edit");
+      resetNewTemplateReview();
+      setNewTemplateId("");
+      setNewTemplateDoc("");
+      setNewTemplateDocFileName("");
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : "Template creation failed.";
+      setNewTemplateError(String(msg || "Template creation failed."));
+      setNewTemplateStatus("");
+    } finally {
+      setNewTemplateBusy(null);
+    }
+  };
+
+  const newTemplateReviewRows = useMemo(() => {
+    if (!newTemplateReview) return [];
+    return planLayoutRowsForReview(newTemplateReview.plan, newTemplateReview.layoutOrder);
+  }, [newTemplateReview]);
 
   const handleRenderSingleLayout = async () => {
     if (!selectedTemplateId || !selectedLayout) return;
@@ -2351,23 +2521,30 @@ export default function TemplateStudio() {
 
                 {/* Tab bar */}
                 <div style={{
-                  display: "flex", borderBottom: `1px solid ${T.border}`,
+                  display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+                  borderBottom: `1px solid ${T.border}`,
                   background: T.surfaceAlt, borderRadius: "12px 12px 0 0", flexShrink: 0,
                 }}>
-                  {(["edit", "new-layout"] as const).map((tab) => {
-                    const label = tab === "edit" ? "Edit" : "New Layout";
+                  {(["edit", "new-layout", "new-template"] as const).map((tab) => {
+                    const label = tab === "edit"
+                      ? "Edit"
+                      : tab === "new-layout"
+                        ? "New Layout"
+                        : "New Template";
                     const isActive = rightTab === tab;
                     return (
                       <button
                         key={tab} type="button"
                         onClick={() => setRightTab(tab)}
                         style={{
-                          flex: 1, padding: "10px 8px", border: "none",
+                          padding: "10px 8px", border: "none",
                           borderBottom: isActive ? `2px solid ${T.accent}` : "2px solid transparent",
                           background: "transparent",
                           fontSize: "11px", fontWeight: isActive ? 700 : 500, fontFamily: FONT,
                           color: isActive ? T.accent : T.textSub,
                           cursor: "pointer", transition: "all 0.13s",
+                          whiteSpace: "nowrap",
+                          textAlign: "center",
                         }}
                       >
                         {label}
@@ -2601,12 +2778,6 @@ export default function TemplateStudio() {
                     />
                   </div>
 
-                  <ImageAttachRow
-                    image={newLayoutImage}
-                    onImageChange={setNewLayoutImage}
-                    label="Reference image (optional)"
-                  />
-
                   <div>
                     <FieldLabel>Props</FieldLabel>
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
@@ -2649,6 +2820,188 @@ export default function TemplateStudio() {
                       {newLayoutError}
                     </div>
                   )}
+                </div>
+                )}
+
+                {/* ── Tab: New Template (from design doc) ── */}
+                {rightTab === "new-template" && (
+                <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
+
+                  <div>
+                    <FieldLabel>Template ID (snake_case)</FieldLabel>
+                    <input
+                      className="studio-input"
+                      placeholder="e.g. neon_grid"
+                      value={newTemplateId}
+                      onChange={(e) => setNewTemplateId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))}
+                      style={{ ...inputBase, background: T.surfaceAlt }}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <FieldLabel>Design doc</FieldLabel>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {newTemplateDocFileName && (
+                          <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: FONT }}>
+                            {newTemplateDocFileName}
+                          </span>
+                        )}
+                        <input
+                          ref={newTemplateDocFileInputRef}
+                          type="file"
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            void handleNewTemplateDocFileSelect(e.target.files?.[0] ?? undefined);
+                            if (e.target) e.target.value = "";
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={newTemplateDocExtracting}
+                          onClick={() => newTemplateDocFileInputRef.current?.click()}
+                          style={{
+                            padding: "4px 8px", border: `1px solid ${T.border}`, borderRadius: 6,
+                            background: T.surfaceAlt, color: T.textSub,
+                            fontSize: "10px", fontFamily: FONT,
+                            cursor: newTemplateDocExtracting ? "wait" : "pointer",
+                            opacity: newTemplateDocExtracting ? 0.6 : 1,
+                          }}
+                        >
+                          {newTemplateDocExtracting ? "Extracting…" : "Upload file"}
+                        </button>
+                      </div>
+                    </div>
+                    <textarea
+                      className="studio-input"
+                      placeholder={`Describe the template.`}
+                      value={newTemplateDoc}
+                      onChange={(e) => { setNewTemplateDoc(e.target.value); if (newTemplateDocFileName) setNewTemplateDocFileName(""); }}
+                      rows={16}
+                      style={{ ...inputBase, resize: "vertical" as const, lineHeight: "1.55", background: T.surfaceAlt, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "11px" }}
+                    />
+                    <p style={{ margin: "6px 0 0", fontSize: "10px", color: T.textMuted, fontFamily: FONT, lineHeight: "1.5" }}>
+                      Paste your design doc or upload a file — PDF, DOCX, PPTX, MD, TXT, HTML, JSON, etc. Step 1 analyzes the doc and proposes layouts. Step 2: uncheck any layout you do not want (hero/fallback are reassigned automatically if needed), then create only the verified list.
+                    </p>
+                    {newTemplateReview && newTemplateReviewRows.length > 0 && (
+                      <div style={{
+                        marginTop: 10,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        border: `1px solid ${T.border}`,
+                        background: T.bg,
+                        maxHeight: 220,
+                        overflowY: "auto",
+                      }}>
+                        <div style={{ fontSize: "11px", fontWeight: 600, fontFamily: FONT, marginBottom: 8, color: T.text }}>
+                          Layouts to create ({newTemplateKeepLayoutIds.length} of {newTemplateReviewRows.length})
+                        </div>
+                        <p style={{ fontSize: "10px", color: T.textMuted, fontFamily: FONT, marginBottom: 8, lineHeight: 1.5 }}>
+                          Planned hero: <code style={{ fontSize: 10 }}>{String((newTemplateReview.plan as { hero_layout?: string }).hero_layout ?? "")}</code>
+                          {" · "}fallback: <code style={{ fontSize: 10 }}>{String((newTemplateReview.plan as { fallback_layout?: string }).fallback_layout ?? "")}</code>
+                          {" — if you remove either, the server picks replacements."}
+                        </p>
+                        {newTemplateReviewRows.map((row) => (
+                          <label
+                            key={row.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 8,
+                              padding: "6px 0",
+                              borderTop: `1px solid ${T.border}`,
+                              cursor: newTemplateBusy ? "default" : "pointer",
+                              fontSize: "11px",
+                              fontFamily: FONT,
+                              color: T.text,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={newTemplateKeepLayoutIds.includes(row.id)}
+                              disabled={Boolean(newTemplateBusy)}
+                              onChange={() => toggleNewTemplateLayoutKeep(row.id)}
+                              style={{ marginTop: 2 }}
+                            />
+                            <span>
+                              <strong>{row.id}</strong>
+                              {row.label !== row.id && (
+                                <span style={{ color: T.textMuted }}> — {row.label}</span>
+                              )}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={
+                      Boolean(newTemplateBusy) ||
+                      !newTemplateId.trim() ||
+                      newTemplateDoc.trim().length < 50 ||
+                      Boolean(newTemplateReview)
+                    }
+                    onClick={handleAnalyzeTemplateDoc}
+                  >
+                    <IconWand />
+                    {newTemplateBusy === "analyze" ? "Analyzing…" : "Analyze design doc"}
+                  </button>
+
+                  {newTemplateReview && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={
+                          Boolean(newTemplateBusy) ||
+                          newTemplateKeepLayoutIds.length < 2
+                        }
+                        onClick={handleCreateVerifiedTemplate}
+                      >
+                        <IconWand />
+                        {newTemplateBusy === "create"
+                          ? "Creating…"
+                          : `Create verified layouts (${newTemplateKeepLayoutIds.length})`}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        disabled={Boolean(newTemplateBusy)}
+                        onClick={() => {
+                          resetNewTemplateReview();
+                          setNewTemplateStatus("");
+                          setNewTemplateError("");
+                        }}
+                      >
+                        Cancel review
+                      </button>
+                    </>
+                  )}
+
+                  {newTemplateStatus && (
+                    <div style={{
+                      padding: "8px 10px", borderRadius: "6px",
+                      background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                      fontSize: "11px", fontFamily: FONT, color: T.textSub,
+                      whiteSpace: "pre-wrap" as const,
+                    }}>
+                      {newTemplateStatus}
+                    </div>
+                  )}
+
+                  {newTemplateError && (
+                    <div style={{
+                      padding: "8px 10px", borderRadius: "6px",
+                      background: "#fee2e2", border: "1px solid #fecaca",
+                      fontSize: "11px", fontFamily: FONT, color: "#dc2626",
+                    }}>
+                      {newTemplateError}
+                    </div>
+                  )}
+
                 </div>
                 )}
 
