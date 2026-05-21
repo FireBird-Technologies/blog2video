@@ -1,9 +1,6 @@
 {
   "routes": [
     { "handle": "filesystem" },
-    { "src": "^/dashboard$", "dest": "/index.html" },
-    { "src": "^/project/(.*)$", "dest": "/index.html" },
-    { "src": "^/subscription$", "dest": "/index.html" },
     {
       "src": "^/preview/(.*)$",
       "dest": "/index.html",
@@ -11,6 +8,7 @@
         "X-Frame-Options": "ALLOWALL",
         "Content-Security-Policy": "frame-ancestors *"
       }
-    }
+    },
+    { "src": "^/(.*)$", "dest": "/index.html" }
   ]
 }
