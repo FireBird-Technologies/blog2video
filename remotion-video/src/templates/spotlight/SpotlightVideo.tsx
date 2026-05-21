@@ -12,7 +12,6 @@ import { SPOTLIGHT_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { SpotlightLayoutType, SpotlightLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
-import { B2VWatermark } from "../../components/B2VWatermark";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -232,7 +231,6 @@ export const SpotlightVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         />
       )}
 
-      <B2VWatermark />
     </AbsoluteFill>
   );
 };

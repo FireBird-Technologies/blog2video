@@ -398,9 +398,9 @@ export const tools: ToolDefinition[] = [
   {
     slug: "free-remotion-templates",
     path: "/tools/free-remotion-templates",
-    title: "Free Remotion Templates — Download 5 Blog2Video Templates",
+    title: "Free Remotion Templates",
     description:
-      "Download 5 free Remotion video templates: Geometric Explainer, Nightfall, Spotlight, Matrix, and Gridcraft. Each is a complete TypeScript source project — unzip, npm install, and run in Remotion Studio.",
+      "Download 5 free video templates: Nightfall, Spotlight, Matrix, Gridcraft, and Geometric Explainer. Each is a complete TypeScript source project — unzip, npm install, and run in Remotion Studio.",
     eyebrow: "Free Download",
     heroTitle: "5 free Remotion templates for blog-to-video content.",
     heroDescription:
