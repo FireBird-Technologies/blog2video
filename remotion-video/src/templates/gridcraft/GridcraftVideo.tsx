@@ -15,7 +15,6 @@ import {
 import { resolveFontFamily } from "../../fonts/registry";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
-import { B2VWatermark } from "../../components/B2VWatermark";
 import { Blobs } from "./components/Blobs";
 import { COLORS } from "./utils/styles";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
@@ -385,7 +384,6 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         </AbsoluteFill>
       )}
 
-      <B2VWatermark />
     </AbsoluteFill>
   );
 };
