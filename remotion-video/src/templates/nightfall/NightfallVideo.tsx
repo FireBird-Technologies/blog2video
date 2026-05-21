@@ -13,7 +13,6 @@ import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
-import { B2VWatermark } from "../../components/B2VWatermark";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 /** Convert schema format (barChartRows, etc.) to component format (barChart, etc.) for data_visualization */
@@ -280,7 +279,6 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         />
       )}
 
-      <B2VWatermark />
     </AbsoluteFill>
   );
 };
