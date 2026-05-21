@@ -234,60 +234,6 @@ export const tools: ToolDefinition[] = [
     ],
   },
   {
-    slug: "substack-directory",
-    path: "/tools/substack-directory",
-    title: "Substack Directory by Niche",
-    description:
-      "Browse curated Substack niches, pricing-model pages, and publication profiles through a scalable directory built for discovery and internal linking.",
-    eyebrow: "Directory",
-    heroTitle: "Find the right Substack niches, not just a random list of newsletters.",
-    heroDescription:
-      "Explore curated niche pages, pricing slices, and publication profiles designed to help creators map where a newsletter brand fits.",
-    category: "directory",
-    icon: "SD",
-    primaryKeyword: "substack directory by niche",
-    keywordVariant: "best substacks by niche",
-    badges: ["Niche pages", "Pricing filters", "Publication profiles"],
-    proofPoints: [
-      "Niche pages are internally linked for discovery instead of living as isolated listicles.",
-      "Pricing-model variants create useful slices for free, paid, and freemium newsletter research.",
-      "Publication profiles add depth beyond a single scrolling directory page.",
-    ],
-    sections: [
-      {
-        title: "How this directory is organized",
-        body: [
-          "The directory starts with niches, then gives you pricing-model views inside each niche, plus publication profile pages that explain positioning, audience fit, and editorial differentiators.",
-          "That structure makes the directory easier to browse and much more scalable than a single mega-list.",
-        ],
-      },
-      {
-        title: "How to use the niche and pricing pages",
-        body: [
-          "Start with the closest niche page, then narrow further using free, paid, or freemium pricing slices. If you want deeper context on a publication, open the profile page for its audience, tone, and best-fit use case.",
-        ],
-      },
-    ],
-    faq: [
-      {
-        question: "Is this directory editorial or official?",
-        answer:
-          "It is curated editorially for discovery. Pricing model, cadence, and positioning should be treated as a practical classification layer rather than an official platform listing.",
-      },
-      {
-        question: "Why include pricing-model pages?",
-        answer:
-          "Because many creators are not just choosing by topic. They are benchmarking what free, paid, and freemium newsletter businesses look like inside a niche.",
-      },
-    ],
-    relatedPaths: [
-      "/tools/substack-revenue-calculator",
-      "/tools/markdown-to-medium-substack-formatter",
-      "/for-substack-writers",
-      "/blogs/substack-newsletter-to-video-workflow",
-    ],
-  },
-  {
     slug: "headline-analyzer",
     path: "/tools/headline-analyzer",
     title: "Headline Analyzer",
@@ -393,6 +339,76 @@ export const tools: ToolDefinition[] = [
       "/tools/markdown-to-medium-substack-formatter",
       "/distribution-flywheel",
       "/blogs/how-to-distribute-one-article-across-blog-newsletter-youtube-and-shorts",
+    ],
+  },
+  {
+    slug: "free-remotion-templates",
+    path: "/tools/free-remotion-templates",
+    title: "Free Remotion Templates",
+    description:
+      "Download 5 free video templates: Nightfall, Spotlight, Matrix, Gridcraft, and Geometric Explainer. Each is a complete TypeScript source project — unzip, npm install, and run in Remotion Studio.",
+    eyebrow: "Free Download",
+    heroTitle: "5 free Remotion templates for blog-to-video content.",
+    heroDescription:
+      "Download Geometric Explainer, Nightfall, Spotlight, Matrix, and Gridcraft — complete TypeScript source code, ready to run in Remotion Studio. Sign in to download the full ZIP.",
+    category: "download",
+    icon: "FT",
+    primaryKeyword: "free remotion templates",
+    keywordVariant: "blog to video remotion templates download",
+    badges: ["5 Templates", "ZIP Download", "TypeScript Source"],
+    proofPoints: [
+      "Each template is a standalone Remotion project — unzip, npm install, npx remotion studio, and it runs.",
+      "Templates cover cinematic dark, bold kinetic, editorial grid, cyberpunk terminal, and clean explainer visual styles.",
+      "Download is free with a Blog2Video account — no credit card required.",
+    ],
+    sections: [
+      {
+        title: "What these templates include",
+        body: [
+          "Each ZIP is a complete standalone Remotion project: TypeScript compositions, all layout components, shared utilities, sample data, and everything needed to run npx remotion studio out of the box.",
+          "These are the exact compositions used by Blog2Video's production pipeline — cinematic dark, bold kinetic typography, editorial bento grids, cyberpunk terminal, and structured explainer styles.",
+        ],
+      },
+      {
+        title: "How to use the templates",
+        body: [
+          "After downloading, unzip the archive, run npm install, then npx remotion studio to preview the composition with sample data. Swap in your own data JSON to render your content.",
+        ],
+        bullets: [
+          "Each template folder contains the full Remotion composition in TypeScript/TSX.",
+          "Sample data JSON files are included so every layout scene renders correctly on first run.",
+          "Swap the sample data for your own content and render with npx remotion render.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need a paid Blog2Video account to download?",
+        answer:
+          "No. A free Blog2Video account is all that's required. Sign in with Google and download instantly.",
+      },
+      {
+        question: "Can I use these templates commercially?",
+        answer:
+          "Yes. The templates are provided for personal and commercial use.",
+      },
+      {
+        question: "Which Remotion version are these templates designed for?",
+        answer:
+          "The templates are built and tested with Remotion 4.x. Run npm install inside the unzipped project and all correct versions are installed automatically.",
+      },
+      {
+        question: "Can Blog2Video build a custom template for my brand?",
+        answer:
+          "Yes. Blog2Video Pro includes access to custom template creation tailored to your brand identity, color palette, and content style. See the pricing page for details.",
+      },
+    ],
+    relatedPaths: [
+      "/templates/nightfall",
+      "/templates/spotlight",
+      "/templates/matrix",
+      "/templates/gridcraft",
+      "/templates/geometric-explainer",
     ],
   },
 ];

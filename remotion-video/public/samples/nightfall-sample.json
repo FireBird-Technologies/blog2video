@@ -1,0 +1,156 @@
+{
+  "projectName": "Nightfall Sample",
+  "accentColor": "#818CF8",
+  "bgColor": "#0A0A1A",
+  "textColor": "#E2E8F0",
+  "scenes": [
+    {
+      "id": 1, "order": 1,
+      "title": "The Future of AI",
+      "narration": "Artificial intelligence is reshaping how we build software, make decisions, and understand the world.",
+      "layout": "cinematic_title",
+      "layoutProps": {},
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2, "order": 2,
+      "title": "What Changed",
+      "narration": "Large language models crossed a threshold in 2023 — from novelty to infrastructure.",
+      "layout": "glass_narrative",
+      "layoutProps": {},
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3, "order": 3,
+      "title": "Part One",
+      "narration": "The rise of foundation models.",
+      "layout": "chapter_break",
+      "layoutProps": {
+        "chapterNumber": 1,
+        "subtitle": "Foundation Models"
+      },
+      "durationSeconds": 4,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4, "order": 4,
+      "title": "Adoption Numbers",
+      "narration": "The numbers tell a clear story about how fast this shift is happening.",
+      "layout": "glow_metric",
+      "layoutProps": {
+        "metrics": [
+          { "value": "1.8B", "label": "ChatGPT users", "suffix": "" },
+          { "value": "92%", "label": "Fortune 500 using AI", "suffix": "" },
+          { "value": "10x", "label": "Productivity gain", "suffix": "" }
+        ]
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5, "order": 5,
+      "title": "Key Capabilities",
+      "narration": "Modern AI models handle reasoning, code generation, and multimodal understanding out of the box.",
+      "layout": "glass_stack",
+      "layoutProps": {
+        "items": [
+          "Reasoning across long contexts",
+          "Code generation and debugging",
+          "Multimodal image + text understanding",
+          "Autonomous agent workflows"
+        ]
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 6, "order": 6,
+      "title": "The Key Insight",
+      "narration": "The bottleneck is no longer compute — it is imagination.",
+      "layout": "kinetic_insight",
+      "layoutProps": {
+        "quote": "The bottleneck is no longer compute — it is imagination.",
+        "highlightWord": "imagination"
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 7, "order": 7,
+      "title": "Open Source vs Closed",
+      "narration": "The industry is split between open-weight models and closed APIs — each with distinct tradeoffs.",
+      "layout": "split_glass",
+      "layoutProps": {
+        "leftLabel": "Open Source",
+        "rightLabel": "Closed API",
+        "leftDescription": "Full control, self-hosted, customisable weights — but requires infra expertise.",
+        "rightDescription": "Instant access, managed scaling, frontier performance — but vendor dependency."
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 8, "order": 8,
+      "title": "A Simple Example",
+      "narration": "Here is how you call a language model API in three lines of Python.",
+      "layout": "glass_code",
+      "layoutProps": {
+        "codeLines": [
+          "from openai import OpenAI",
+          "client = OpenAI()",
+          "response = client.chat.completions.create(",
+          "    model=\"gpt-4o\",",
+          "    messages=[{\"role\": \"user\", \"content\": \"Hello!\"}]",
+          ")",
+          "print(response.choices[0].message.content)"
+        ],
+        "codeLanguage": "Python"
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 9, "order": 9,
+      "title": "Market Growth",
+      "narration": "The AI market is growing at a pace that makes previous tech waves look slow.",
+      "layout": "data_visualization",
+      "layoutProps": {
+        "barChart": {
+          "labels": ["2021", "2022", "2023", "2024", "2025"],
+          "values": [12, 28, 65, 142, 300],
+          "colors": ["#818CF8", "#818CF8", "#818CF8", "#818CF8", "#818CF8"]
+        }
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 10, "order": 10,
+      "title": "Follow Along",
+      "narration": "Subscribe for more deep dives on AI, engineering, and the future of software.",
+      "layout": "ending_socials",
+      "layoutProps": {
+        "socials": {
+          "twitter": "@blog2video",
+          "youtube": "Blog2Video"
+        },
+        "websiteLink": "blog2video.com",
+        "ctaButtonText": "Subscribe"
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

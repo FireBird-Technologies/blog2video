@@ -278,6 +278,7 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}
+
     </AbsoluteFill>
   );
 };

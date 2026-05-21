@@ -173,7 +173,8 @@ export default function Contact() {
                   Thank you for the feedback
                 </h3>
                 <p className="text-xs text-gray-500">
-                  We&apos;ll get back to you soon.
+                  Thank you, you&apos;ll hear back from us
+                  within 1-2 business days.
                 </p>
               </div>
             ) : (

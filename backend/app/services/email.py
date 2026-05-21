@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import html
 import logging
+import re
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Optional
@@ -44,6 +45,27 @@ def _resend_response_id(result) -> Optional[str]:
     return str(rid) if rid is not None else None
 
 
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+
+# Appended only to the copy of a contact/request email sent back to the
+# requester — never to the internal team copy.
+_CONFIRMATION_NOTE = (
+    "Please check your spam folder in case you don't hear back within "
+    "1–2 business days, or contact arslan@firebird-technologies.com"
+)
+
+# CC'd on every requester confirmation email for internal visibility.
+_CONFIRMATION_CC = ["arslan@firebird-technologies.com"]
+
+
+def _extract_email(text: Optional[str]) -> Optional[str]:
+    """Return the first email-looking address in `text`, or None if there is none."""
+    if not text:
+        return None
+    match = _EMAIL_RE.search(text)
+    return match.group(0) if match else None
+
+
 # ─── Provider abstraction ──────────────────────────────────────
 
 
@@ -59,6 +81,7 @@ class BaseEmailProvider(ABC):
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
+        cc: Optional[list[str]] = None,
     ) -> None:
         """
         Send a transactional email (immediately or at a scheduled time).
@@ -70,6 +93,7 @@ class BaseEmailProvider(ABC):
             text_content: Plain-text body (optional if html_content is set).
             from_email:   Override the default sender address.
             scheduled_at: If set, schedule send at this time (UTC); provider must support it.
+            cc:           Optional list of addresses to copy on the email.
 
         Raises:
             EmailServiceError: If the send fails for any reason.
@@ -93,6 +117,7 @@ class ResendEmailProvider(BaseEmailProvider):
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
+        cc: Optional[list[str]] = None,
     ) -> None:
         if not self.api_key:
             raise EmailServiceError("Cannot send email: RESEND_API_KEY is not configured")
@@ -108,6 +133,8 @@ class ResendEmailProvider(BaseEmailProvider):
             "to": [to],
             "subject": subject,
         }
+        if cc:
+            params["cc"] = cc
         if html_content:
             params["html"] = html_content
         if text_content:
@@ -213,6 +240,77 @@ class EmailService:
   </table>
 </body>
 </html>"""
+
+    # ── Requester confirmation ────────────────────────────────
+
+    @staticmethod
+    def _build_confirmation_html(first_name: str) -> str:
+        """
+        Build the HTML body of the confirmation sent back to the requester.
+        A short acknowledgement plus the spam-folder note in italics (with the
+        contact email bolded). It does not echo the submitted request.
+        """
+        note_html = html.escape(_CONFIRMATION_NOTE, quote=False)
+        note_email = _extract_email(_CONFIRMATION_NOTE)
+        if note_email:
+            esc_email = html.escape(note_email, quote=False)
+            note_html = note_html.replace(esc_email, f"<strong>{esc_email}</strong>")
+        return f"""<!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8" /></head>
+        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f4f5;padding:40px 0;margin:0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="center">
+                <table width="560" cellpadding="0" cellspacing="0"
+                      style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+                  <tr>
+                    <td style="background:#9333EA;padding:24px 40px;">
+                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:32px 40px;">
+                      <p style="margin:0 0 12px;font-size:18px;font-weight:600;color:#111827;">Thanks {html.escape(first_name, quote=False)}, we&apos;ve received your request</p>
+                      <p style="margin:0 0 20px;font-size:15px;color:#4b5563;line-height:1.65;">Our team will review it and get back to you soon.</p>
+                      <p style="margin:0;font-size:14px;color:#4b5563;line-height:1.6;font-style:italic;">{note_html}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>"""
+
+    def _send_request_confirmation(self, to: str, first_name: str) -> None:
+        """
+        Send the requester a short confirmation that their submission was received.
+
+        Best-effort: this runs after the internal team email has already been
+        sent, so any failure here is logged and swallowed — it must never turn
+        a successful submission into an error for the user.
+        """
+        subject = "We've received your request — Blog2Video"
+        text = (
+            f"Hi {first_name},\n\n"
+            f"We've received your request and our team will review it and get "
+            f"back to you soon.\n\n"
+            f"{_CONFIRMATION_NOTE}\n\n"
+            f"— The Blog2Video Team\n"
+        )
+        html_body = self._build_confirmation_html(first_name=first_name)
+        try:
+            self.provider.send_email(
+                to=to,
+                subject=subject,
+                html_content=html_body,
+                text_content=text,
+                from_email="sales@blog2video.app",
+                cc=_CONFIRMATION_CC,
+            )
+        except Exception as exc:
+            logger.warning(f"[EMAIL] Failed to send request confirmation to {to}: {exc}")
 
     # ── Notification methods ──────────────────────────────────
 
@@ -382,6 +480,14 @@ class EmailService:
         </html>"""
         self.provider.send_email(to=to, subject=subject, html_content=html, text_content=text)
 
+        # Send the requester a confirmation with the spam-folder note, if they gave an email.
+        sender_email = _extract_email(contact_details)
+        if sender_email:
+            self._send_request_confirmation(
+                to=sender_email,
+                first_name=name.split()[0] if name.strip() else "there",
+            )
+
 
 
     def send_custom_template_request_email(
@@ -456,6 +562,12 @@ class EmailService:
         </body>
         </html>"""
         self.provider.send_email(to=to, subject=subject, html_content=html_body, text_content=text, from_email="sales@blog2video.app")
+
+        # Send the requester a confirmation with the spam-folder note (account email always present).
+        self._send_request_confirmation(
+            to=user_email,
+            first_name=user_name.split()[0] if user_name.strip() else "there",
+        )
 
 
 
