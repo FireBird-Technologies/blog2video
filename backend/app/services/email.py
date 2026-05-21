@@ -54,6 +54,9 @@ _CONFIRMATION_NOTE = (
     "1–2 business days, or contact arslan@firebird-technologies.com"
 )
 
+# CC'd on every requester confirmation email for internal visibility.
+_CONFIRMATION_CC = ["arslan@firebird-technologies.com"]
+
 
 def _extract_email(text: Optional[str]) -> Optional[str]:
     """Return the first email-looking address in `text`, or None if there is none."""
@@ -78,6 +81,7 @@ class BaseEmailProvider(ABC):
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
+        cc: Optional[list[str]] = None,
     ) -> None:
         """
         Send a transactional email (immediately or at a scheduled time).
@@ -89,6 +93,7 @@ class BaseEmailProvider(ABC):
             text_content: Plain-text body (optional if html_content is set).
             from_email:   Override the default sender address.
             scheduled_at: If set, schedule send at this time (UTC); provider must support it.
+            cc:           Optional list of addresses to copy on the email.
 
         Raises:
             EmailServiceError: If the send fails for any reason.
@@ -112,6 +117,7 @@ class ResendEmailProvider(BaseEmailProvider):
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
+        cc: Optional[list[str]] = None,
     ) -> None:
         if not self.api_key:
             raise EmailServiceError("Cannot send email: RESEND_API_KEY is not configured")
@@ -127,6 +133,8 @@ class ResendEmailProvider(BaseEmailProvider):
             "to": [to],
             "subject": subject,
         }
+        if cc:
+            params["cc"] = cc
         if html_content:
             params["html"] = html_content
         if text_content:
@@ -299,6 +307,7 @@ class EmailService:
                 html_content=html_body,
                 text_content=text,
                 from_email="sales@blog2video.app",
+                cc=_CONFIRMATION_CC,
             )
         except Exception as exc:
             logger.warning(f"[EMAIL] Failed to send request confirmation to {to}: {exc}")
