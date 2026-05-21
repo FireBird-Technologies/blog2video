@@ -3820,31 +3820,6 @@
     "body": "Clean up Markdown for Medium and Substack without manual reformatting.\nPreview both outputs side by side, see what changed, and copy or export publishing-safe text in one pass.\nPaste Markdown once and get cleaned Medium-ready and Substack-ready output with deterministic transforms, copy actions, and export support.\nMedium and Substack tabs share one input but apply destination-specific cleanup.\nA visible changelog explains every transform that was applied.\nCopy and export actions make it usable as a real publishing utility.\nWhat the formatter does\nThe formatter removes frontmatter, normalizes spacing, cleans heading and list structure, preserves code fences, and adapts common Markdown patterns into cleaner publishing-ready text.\nIt stays deterministic on purpose. You should be able to trust what happened and why.\nWhy there are two outputs\nMedium and Substack are similar but not identical publishing contexts. Medium usually benefits from tighter editorial cleanup, while Substack often wants clearer spacing, quote handling, and newsletter-friendly section flow.\nDoes this formatter rewrite my meaning?\nNo. The tool is for structural cleanup and publishing-safe formatting. It does not try to rewrite your argument or invent new content.\nCan I export the result?\nYes. Each output can be copied directly or downloaded as a text file for your publishing workflow."
   },
   {
-    "id": "tool:substack-directory",
-    "source": "tool",
-    "slug": "substack-directory",
-    "title": "Substack Directory by Niche",
-    "description": "Browse curated Substack niches, pricing-model pages, and publication profiles through a scalable directory built for discovery and internal linking.",
-    "primary_keyword": "substack directory by niche",
-    "keyword_variant": "best substacks by niche",
-    "related_paths": [
-      "/tools/substack-revenue-calculator",
-      "/tools/markdown-to-medium-substack-formatter",
-      "/for-substack-writers",
-      "/blogs/substack-newsletter-to-video-workflow"
-    ],
-    "route": "/tools/substack-directory",
-    "headings": [
-      "How this directory is organized",
-      "How to use the niche and pricing pages"
-    ],
-    "faq_questions": [
-      "Is this directory editorial or official?",
-      "Why include pricing-model pages?"
-    ],
-    "body": "Find the right Substack niches, not just a random list of newsletters.\nExplore curated niche pages, pricing slices, and publication profiles designed to help creators map where a newsletter brand fits.\nBrowse curated Substack niches, pricing-model pages, and publication profiles through a scalable directory built for discovery and internal linking.\nNiche pages are internally linked for discovery instead of living as isolated listicles.\nPricing-model variants create useful slices for free, paid, and freemium newsletter research.\nPublication profiles add depth beyond a single scrolling directory page.\nHow this directory is organized\nThe directory starts with niches, then gives you pricing-model views inside each niche, plus publication profile pages that explain positioning, audience fit, and editorial differentiators.\nThat structure makes the directory easier to browse and much more scalable than a single mega-list.\nHow to use the niche and pricing pages\nStart with the closest niche page, then narrow further using free, paid, or freemium pricing slices. If you want deeper context on a publication, open the profile page for its audience, tone, and best-fit use case.\nIs this directory editorial or official?\nIt is curated editorially for discovery. Pricing model, cadence, and positioning should be treated as a practical classification layer rather than an official platform listing.\nWhy include pricing-model pages?\nBecause many creators are not just choosing by topic. They are benchmarking what free, paid, and freemium newsletter businesses look like inside a niche."
-  },
-  {
     "id": "tool:headline-analyzer",
     "source": "tool",
     "slug": "headline-analyzer",

@@ -9,7 +9,6 @@ import {
   updateSceneImage,
   assignExistingImageToScene,
   updateSceneImageFocus,
-  generateSceneImage,
   regenerateScene,
   getValidLayouts,
   LayoutInfo,
@@ -21,6 +20,7 @@ import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
+import GenerateSceneImageModal from "./GenerateSceneImageModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
 import { compileDataModule } from "../utils/compileComponent";
@@ -2056,7 +2056,7 @@ export default function SceneEditModal({
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
-  const [generatingImage, setGeneratingImage] = useState(false);
+  const [showImageGenModal, setShowImageGenModal] = useState(false);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
@@ -2207,7 +2207,6 @@ export default function SceneEditModal({
     setImagePreviewUrl(null);
     setImageFocusX(50);
     setImageFocusY(50);
-    setGeneratingImage(false);
     setGeneratedImageBase64(null);
     setGeneratedPrompt(null);
     setShowAiImageUpgradeModal(false);
@@ -3085,8 +3084,6 @@ export default function SceneEditModal({
     }
   };
 
-  const hasSceneText =
-    Boolean((scene.title || "").trim()) || Boolean((scene.narration_text || "").trim());
   const scrapedImageItems = availableImageItems;
 
   const handleGenerateImageClick = () => {
@@ -3094,33 +3091,7 @@ export default function SceneEditModal({
       setShowAiImageUpgradeModal(true);
       return;
     }
-    handleGenerateImage();
-  };
-
-  const handleGenerateImage = async () => {
-    setGeneratingImage(true);
-    try {
-      const res = await generateSceneImage(project.id, scene.id);
-      setGeneratedImageBase64(res.data.image_base64);
-      setGeneratedPrompt(res.data.refined_prompt);
-    } catch (err: unknown) {
-      const status = err && typeof err === "object" && "response" in err
-        ? (err as { response?: { status?: number } }).response?.status
-        : 0;
-      if (status === 403) {
-        setShowAiImageUpgradeModal(true);
-      } else {
-        const msg =
-          err && typeof err === "object" && "response" in err
-            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-            : "Image generation failed";
-        showError(String(msg));
-      }
-      setGeneratedImageBase64(null);
-      setGeneratedPrompt(null);
-    } finally {
-      setGeneratingImage(false);
-    }
+    setShowImageGenModal(true);
   };
 
   const handleKeepGeneratedImage = () => {
@@ -4452,26 +4423,17 @@ export default function SceneEditModal({
                     <button
                       type="button"
                       onClick={handleGenerateImageClick}
-                      disabled={!hasSceneText || generatingImage}
-                      className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700"
+                      className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700"
+                      title="Generate image with AI"
                     >
-                      {generatingImage ? (
-                        <span className="text-xs">…</span>
-                      ) : (
-                        <>
-                          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                          </svg>
-                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center">
-                            {hasSceneText ? "Generate Image with AI" : "Add title or narration to generate an image"}
-                          </span>
-                        </>
-                      )}
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                      </svg>
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center">
+                        Generate image with AI
+                      </span>
                     </button>
                   </div>
-                  {!hasSceneText && (
-                    <p className="text-xs text-gray-400 mt-1.5">Add a title or narration to use AI image generation.</p>
-                  )}
                   {(imageItems.length > 0 || selectedImageFile) && (
                     <div className="mt-3">
                       <p className="text-xs text-gray-500">
@@ -4770,6 +4732,23 @@ export default function SceneEditModal({
         </div>
       </div>
     )}
+
+    <GenerateSceneImageModal
+      open={showImageGenModal}
+      scene={scene}
+      project={project}
+      isPro={isPro}
+      onClose={() => setShowImageGenModal(false)}
+      onUpgrade={() => {
+        setShowImageGenModal(false);
+        setShowAiImageUpgradeModal(true);
+      }}
+      onImageReady={(imageBase64, refinedPrompt) => {
+        setGeneratedImageBase64(imageBase64);
+        setGeneratedPrompt(refinedPrompt);
+        setShowImageGenModal(false);
+      }}
+    />
 
     {/* AI generated image preview popup */}
     {generatedImageBase64 && (
