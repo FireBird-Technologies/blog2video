@@ -1617,6 +1617,10 @@ class SceneImageAssignExistingRequest(BaseModel):
     asset_id: int
 
 
+class GenerateSceneImageRequest(BaseModel):
+    image_description: str = Field(min_length=3, max_length=4000)
+
+
 def _parse_scene_descriptor(scene: Scene) -> dict:
     if not scene.remotion_code:
         return {}
@@ -1818,12 +1822,14 @@ def delete_scene(
 def generate_scene_image(
     project_id: int,
     scene_id: int,
+    payload: GenerateSceneImageRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Generate an AI image for the scene from its title + narration. Returns base64 image and refined prompt.
-    No DB write; use POST .../image to upload the image when the user chooses to keep it.
-    Pro plan only. Image size/aspect is chosen from the scene's layout so the image fits without clipping."""
+    """Generate an AI image from the user's image description (+ optional scene context).
+
+    Returns base64 image and refined prompt. No DB write; use POST .../image when the user keeps it.
+    Pro/Standard only. Aspect ratio follows the scene layout."""
     import json
     from app.models.scene import Scene
     from app.models.user import PlanTier
@@ -1834,6 +1840,7 @@ def generate_scene_image(
         get_openai_size,
         get_gemini_image_config,
     )
+    from app.services.scene_image_context import build_scene_context_for_image
     from app.services.template_service import get_fallback_layout
 
     if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
@@ -1851,11 +1858,11 @@ def generate_scene_image(
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
 
-    scene_text = f"{scene.title or ''} {scene.narration_text or ''}".strip()
-    if not scene_text:
+    image_description = (payload.image_description or "").strip()
+    if len(image_description) < 3:
         raise HTTPException(
             status_code=400,
-            detail="Scene has no title or narration text to use as prompt.",
+            detail="Image description must be at least 3 characters.",
         )
 
     try:
@@ -1903,7 +1910,8 @@ def generate_scene_image(
             gemini_config.get("aspect_ratio"), gemini_config.get("image_size"),
         )
 
-    refined_prompt = refine_image_prompt(scene_text)
+    scene_context = build_scene_context_for_image(scene)
+    refined_prompt = refine_image_prompt(image_description, scene_context)
     try:
         image_base64 = provider.generate(refined_prompt, **gen_kwargs)
     except Exception as e:
