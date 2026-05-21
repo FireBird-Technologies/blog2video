@@ -429,12 +429,45 @@ def build_layout_codegen_prompt(
         else ""
     )
     impl_notes_block = (
-        f"Layout implementation notes (SVG markup, exact animations, easing, "
-        f"frame timing, DOM/structure — implement these precisely):\n"
+        f"Layout implementation notes — the AUTHORITATIVE spec for THIS layout "
+        f"(exact SVG markup, animations, easing, frame timing, DOM/structure). "
+        f"Implement them EXACTLY and LITERALLY — they are what makes this layout "
+        f"distinct from every other layout in the template; never swap in a "
+        f"generic pattern:\n"
         f"{layout.implementation_notes.strip()}\n\n"
         if layout.implementation_notes.strip()
         else ""
     )
+
+    # The ending_socials outro must use the shared SocialIcons component
+    # (the same one every built-in template uses) — not hand-drawn icons.
+    ending_socials_block = ""
+    if layout.id == "ending_socials":
+        ending_socials_block = (
+            "ENDING-SOCIALS — SPECIAL RULE (this layout only):\n"
+            "  - Render the social-media icon row with the SHARED component — the\n"
+            "    same one every built-in template uses. NEVER hand-draw or\n"
+            "    hard-code social/brand icons or their SVGs.\n"
+            "  - Add this import (allowed IN ADDITION to the imports below):\n"
+            '      import { SocialIcons } from "../../SocialIcons";\n'
+            "  - Destructure these runtime props too (all on SceneLayoutProps):\n"
+            "      socials, websiteLink, showWebsiteButton, ctaButtonText\n"
+            "  - Render the icon row exactly once:\n"
+            "      <SocialIcons\n"
+            "        socials={socials}\n"
+            "        accentColor={accentColor}\n"
+            "        textColor={textColor}\n"
+            '        maxPerRow={aspectRatio === "portrait" ? 3 : 4}\n'
+            "        fontFamily={fontFamily}\n"
+            "        aspectRatio={aspectRatio}\n"
+            "      />\n"
+            "  - Optionally render a website CTA button when showWebsiteButton is\n"
+            "    not false and websiteLink is a non-empty string; label it with\n"
+            "    ctaButtonText (fall back to 'Visit site').\n"
+            "  - Design everything else (headline, sign-off line, layout,\n"
+            "    background, start/end transitions) per the design doc and the\n"
+            "    template aesthetic above.\n\n"
+        )
 
     image_clause = (
         "This layout SHOULD render an image — use the `imageUrl` prop with an "
@@ -458,6 +491,7 @@ def build_layout_codegen_prompt(
         f"Visual brief: {layout.visual}\n"
         f"Best used for: {layout.best_for}\n\n"
         f"{impl_notes_block}"
+        f"{ending_socials_block}"
         "Required component signature:\n"
         '  import React from "react";\n'
         '  import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Img } from "remotion";\n'
@@ -465,7 +499,7 @@ def build_layout_codegen_prompt(
         "\n"
         f"  export const {pascal_name}: React.FC<SceneLayoutProps> = (props) => {{\n"
         "    const { title, narration, imageUrl, imageObjectPosition, imageZoom,\n"
-        "            accentColor, bgColor, textColor, aspectRatio,\n"
+        "            accentColor, bgColor, textColor, aspectRatio, sceneDurationInFrames,\n"
         "            titleFontSize, descriptionFontSize, fontFamily } = props;\n"
         '    const p = aspectRatio === "portrait";\n'
         "    // access custom props via (props as any).propName\n"
@@ -499,19 +533,40 @@ def build_layout_codegen_prompt(
         "  imageZoom?: number            — CSS transform scale factor (>=1)\n"
         "  accentColor / bgColor / textColor: string  — hex strings\n"
         "  aspectRatio?: string          — 'landscape' or 'portrait'\n"
+        "  sceneDurationInFrames?: number — THIS scene's exact length in frames\n"
         "  titleFontSize / descriptionFontSize?: number\n"
         "  fontFamily?: string\n\n"
         "Custom props for this layout (also part of SceneLayoutProps):\n"
         f"{props_desc}\n\n"
         f"Image policy: {image_clause}\n\n"
-        "Animation guidance — every layout should feel alive:\n"
-        "  - Use `useCurrentFrame()` and either `spring({ frame, fps })` or "
-        "`interpolate(frame, [a, b], [0, 1])` for entrances.\n"
-        "  - Use `useVideoConfig()` to read fps / width / height when needed.\n"
-        "  - Stagger multiple elements with frame offsets (e.g. 6-frame steps).\n"
-        "  - Keep animations between 0–30 frames; the layout sits on screen the rest of the scene.\n\n"
+        "Scene timing & transitions — REQUIRED structure:\n"
+        "  - `useCurrentFrame()` is scene-relative: it runs 0 to (sceneDurationInFrames - 1).\n"
+        "  - `sceneDurationInFrames` is THIS scene's exact length. Scenes are NOT a\n"
+        "    constant length — never hard-code a duration or assume ~5s.\n"
+        "  - START transition: animate the layout IN over the first ~12-24 frames.\n"
+        "  - END transition: animate the layout OUT over the last ~12-24 frames,\n"
+        "    anchored to sceneDurationInFrames so it always lands on the real scene end.\n"
+        "  - Between the two transitions the content holds — it must fill the WHOLE\n"
+        "    scene however long it is: no dead air, no early disappearance.\n"
+        "  - Drive both transitions from the scene length, e.g.:\n"
+        "      const dur = sceneDurationInFrames ?? 150;\n"
+        "      const enter = interpolate(frame, [0, 18], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });\n"
+        "      const exit = interpolate(frame, [dur - 18, dur], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });\n"
+        "    Use `enter` for the start transition and `exit` for the end transition.\n\n"
+        "Animation STYLE — from the design doc, do NOT generalize:\n"
+        "  - WHAT moves, which SVG paths/shapes animate, the easing, the stagger,\n"
+        "    spring vs interpolate, the exact frame offsets — all of it MUST come\n"
+        "    from this layout's implementation notes and the global visual &\n"
+        "    animation system above. Implement them literally so each layout looks\n"
+        "    and moves distinctly from the others — do not flatten them into one\n"
+        "    generic motion.\n"
+        "  - Use `useVideoConfig()` for fps / width / height when needed (e.g. spring).\n"
+        "  - Fall back to a tasteful default only for a detail the notes genuinely\n"
+        "    do not mention — never replace a specified animation with a generic one.\n\n"
         "Constraints:\n"
-        "  - Use ONLY the imports listed above. Do NOT import from any other path.\n"
+        "  - Use ONLY the imports listed above (plus the SocialIcons import when "
+        "this is the ending_socials layout, per its special rule). Do NOT import "
+        "from any other path.\n"
         "  - For object_array props (items with label/value): render BOTH — "
         "show item.label as caption text and item.value as the main value.\n"
         "  - Respect aspectRatio === 'portrait' (1080x1920) vs landscape (1920x1080) "
@@ -631,6 +686,7 @@ def build_types_ts(plan: TemplatePlan, type_name: str) -> str:
     )
 
     return (
+        f'import type {{ SocialsMap, SocialsRow }} from "../SocialIcons";\n\n'
         f"export type {type_name} =\n"
         f"  | {layout_union};\n\n"
         f"export interface SceneLayoutProps {{\n"
@@ -643,11 +699,14 @@ def build_types_ts(plan: TemplatePlan, type_name: str) -> str:
         f"  bgColor: string;\n"
         f"  textColor: string;\n"
         f"  aspectRatio?: string;\n"
+        f"  // sceneDurationInFrames is THIS scene's exact length — drive entrance/exit from it\n"
+        f"  sceneDurationInFrames?: number;\n"
         f"  fontFamily?: string;\n"
         f"  titleFontSize?: number;\n"
         f"  descriptionFontSize?: number;\n"
-        f"  // socials / website are used by the ending_socials layout\n"
-        f"  socials?: Record<string, {{ enabled?: string; label?: string }}>;\n"
+        f"  // socials / website are used by the ending_socials layout, which\n"
+        f"  // renders the shared <SocialIcons> component (../../SocialIcons)\n"
+        f"  socials?: SocialsMap | SocialsRow[];\n"
         f"  websiteLink?: string;\n"
         f"  showWebsiteButton?: boolean;\n"
         f"  ctaButtonText?: string;{obj_array_comment}\n"
@@ -763,6 +822,7 @@ export const {pascal}VideoComposition: React.FC<{pascal}VideoCompositionProps> =
           bgColor: bgColor || "{bg}",
           textColor: textColor || "{text}",
           aspectRatio,
+          sceneDurationInFrames: durationFrames,
           fontFamily,
         }};
 
@@ -941,6 +1001,7 @@ export const {pascal}Video: React.FC<VideoProps> = ({{ dataUrl }}) => {{
           bgColor: data.bgColor || "{bg}",
           textColor: data.textColor || "{text}",
           aspectRatio: data.aspectRatio || "landscape",
+          sceneDurationInFrames: durationFrames,
           imageUrl,
           imageObjectPosition: `${{focusX}}% ${{focusY}}%`,
           imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
@@ -1183,6 +1244,76 @@ def insert_template_in_preview_registry(
     content = content[:insert_at] + desc_entry + content[insert_at:]
 
     preview_registry_path.write_text(content, encoding="utf-8")
+    return original
+
+
+def insert_template_in_root_tsx(
+    *,
+    root_tsx_path: Path,
+    template_id: str,
+    pascal: str,
+    base_width: int,
+    base_height: int,
+) -> str:
+    """Patch remotion-video/src/Root.tsx — register the template's <Composition>
+    so the Remotion renderer can resolve `<Pascal>Video`. Returns original content.
+
+    Without this, rendering a project on the new template fails with
+    "Could not find composition with ID <Pascal>Video".
+    """
+    original = root_tsx_path.read_text(encoding="utf-8")
+    content = original
+
+    composition_id = f"{pascal}Video"
+    if f'id="{composition_id}"' in content:
+        # Already registered.
+        return original
+
+    # 1. Insert the import after the last template-composition import.
+    import_block = (
+        "import {\n"
+        "  " + pascal + "Video,\n"
+        "  calculate" + pascal + "Metadata,\n"
+        '} from "./templates/' + template_id + "/" + pascal + 'Video";\n'
+    )
+    import_matches = list(re.finditer(
+        r'import \{\s*\w+Video,\s*calculate\w+Metadata,\s*\}'
+        r' from "\./templates/[\w-]+/\w+Video";\n',
+        content,
+    ))
+    if not import_matches:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not find template composition imports in Root.tsx",
+        )
+    last_import_end = import_matches[-1].end()
+    content = content[:last_import_end] + import_block + content[last_import_end:]
+
+    # 2. Insert a <Composition> entry before the closing fragment of RemotionRoot.
+    composition_block = (
+        "      <Composition\n"
+        '        id="' + composition_id + '"\n'
+        "        component={" + pascal + "Video}\n"
+        "        durationInFrames={30 * 300}\n"
+        "        fps={30}\n"
+        "        width={" + str(base_width) + "}\n"
+        "        height={" + str(base_height) + "}\n"
+        "        defaultProps={{\n"
+        '          dataUrl: "/data.json",\n'
+        "        }}\n"
+        "        calculateMetadata={calculate" + pascal + "Metadata}\n"
+        "      />\n"
+    )
+    close_marker = "    </>"
+    pos = content.rfind(close_marker)
+    if pos == -1:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not find the closing fragment in Root.tsx",
+        )
+    content = content[:pos] + composition_block + content[pos:]
+
+    root_tsx_path.write_text(content, encoding="utf-8")
     return original
 
 

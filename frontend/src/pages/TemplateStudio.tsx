@@ -1719,10 +1719,13 @@ export default function TemplateStudio() {
         `Plan ready — ${order.length} layout(s). Uncheck any you do not want, then create.${warn}`,
       );
     } catch (err: unknown) {
-      const msg = err && typeof err === "object" && "response" in err
-        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        : "Plan failed.";
-      setNewTemplateError(String(msg || "Plan failed."));
+      const e = err as { response?: { data?: { detail?: string } }; code?: string };
+      const msg =
+        e?.response?.data?.detail ||
+        (e?.code === "ECONNABORTED"
+          ? "Plan timed out — the design doc may be long. It can take several minutes; retry, or shorten the doc."
+          : "Plan failed.");
+      setNewTemplateError(String(msg));
       setNewTemplateStatus("");
     } finally {
       setNewTemplateBusy(null);

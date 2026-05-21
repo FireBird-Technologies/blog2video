@@ -2740,12 +2740,14 @@ def create_template_from_doc(
     preview_path = _FRONTEND_REMOTION_DIR.parent / "templatePreviews" / f"{pascal}Preview.tsx"
     config_path = _FRONTEND_REMOTION_DIR / "templateConfig.tsx"
     preview_registry_path = _FRONTEND_REMOTION_DIR.parent / "templatePreviewRegistry.tsx"
+    root_tsx_path = _REMOTION_VIDEO_DIR.parent / "Root.tsx"
 
     # All paths that may be created or modified
     paths_to_snapshot = [
         registry_path,
         config_path,
         preview_registry_path,
+        root_tsx_path,
         backend_dir / "meta.json",
         backend_dir / "prompt.md",
         backend_dir / "layout_prompt.md",
@@ -2876,6 +2878,16 @@ def create_template_from_doc(
             pascal=pascal,
             title=plan.name,
             subtitle=plan.subtitle or plan.description.split(".")[0][:60],
+        )
+        # Register the composition in Root.tsx so the Remotion renderer can
+        # resolve it — without this, rendering fails with "Could not find
+        # composition with ID {Pascal}Video".
+        codegen.insert_template_in_root_tsx(
+            root_tsx_path=root_tsx_path,
+            template_id=template_id,
+            pascal=pascal,
+            base_width=plan.base_width,
+            base_height=plan.base_height,
         )
 
         # ── Step 5.5: full-template TSX verification + auto-repair
