@@ -1209,6 +1209,10 @@ export const assignExistingImageToScene = (
     asset_id: assetId,
   });
 
+export interface GenerateSceneImageRequest {
+  image_description: string;
+}
+
 export interface GenerateSceneImageResponse {
   image_base64: string;
   refined_prompt: string;
@@ -1216,10 +1220,12 @@ export interface GenerateSceneImageResponse {
 
 export const generateSceneImage = (
   projectId: number,
-  sceneId: number
+  sceneId: number,
+  body: GenerateSceneImageRequest
 ) =>
   api.post<GenerateSceneImageResponse>(
-    `/projects/${projectId}/scenes/${sceneId}/generate-image`
+    `/projects/${projectId}/scenes/${sceneId}/generate-image`,
+    body
   );
 
 export interface LayoutPropSchemaEntry {
