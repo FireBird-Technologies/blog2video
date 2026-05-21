@@ -13,7 +13,6 @@ import { resolveFontFamily } from "../../fonts/registry";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MatrixLayoutType, MatrixLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
-import { B2VWatermark } from "../../components/B2VWatermark";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -254,7 +253,6 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         />
       )}
 
-      <B2VWatermark />
     </AbsoluteFill>
   );
 };
