@@ -1818,6 +1818,15 @@ def delete_scene(
     return None
 
 
+# Shown to the user for any image-generation failure. Provider SDKs can raise
+# errors whose string form is a full HTML error page — that must never reach
+# the client, so every failure surfaces this single message instead.
+_IMAGE_GEN_ERROR_MESSAGE = (
+    "Image generation faced some issues, please try again. "
+    "If the issue persists, contact support."
+)
+
+
 @router.post("/{project_id}/scenes/{scene_id}/generate-image")
 def generate_scene_image(
     project_id: int,
@@ -1910,13 +1919,13 @@ def generate_scene_image(
             gemini_config.get("aspect_ratio"), gemini_config.get("image_size"),
         )
 
-    scene_context = build_scene_context_for_image(scene)
-    refined_prompt = refine_image_prompt(image_description, scene_context)
     try:
+        scene_context = build_scene_context_for_image(scene)
+        refined_prompt = refine_image_prompt(image_description, scene_context)
         image_base64 = provider.generate(refined_prompt, **gen_kwargs)
     except Exception as e:
-        print(f"[GENERATE_IMAGE] Provider error: {e}")
-        raise HTTPException(status_code=502, detail=f"Image generation failed: {e}") from e
+        logger.error("[GENERATE_IMAGE] Image generation error: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail=_IMAGE_GEN_ERROR_MESSAGE) from e
 
     return {"image_base64": image_base64, "refined_prompt": refined_prompt}
 
