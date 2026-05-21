@@ -20,7 +20,6 @@ import {
   updateScene,
   updateSceneImage,
   assignExistingImageToScene,
-  generateSceneImage,
   updateSceneImageFocus,
   deleteScene,
   getValidLayouts,
@@ -54,6 +53,7 @@ import SceneEditModal, {
   SceneImageItem,
   resolveDefaultFontSizesForScene,
 } from "../components/SceneEditModal";
+import GenerateSceneImageModal from "../components/GenerateSceneImageModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -663,7 +663,7 @@ export default function ProjectView() {
   const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
   const [localUploadTargetSceneId, setLocalUploadTargetSceneId] = useState<number | null>(null);
   const [assigningExistingImage, setAssigningExistingImage] = useState(false);
-  const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
+  const [imageGenModalSceneId, setImageGenModalSceneId] = useState<number | null>(null);
   const [generatedImageSceneId, setGeneratedImageSceneId] = useState<number | null>(null);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
@@ -2463,36 +2463,17 @@ export default function ProjectView() {
       setShowAiImageUpgradeModal(true);
       return;
     }
-    handleGenerateSceneImage(sceneId);
-  };
-
-  const handleGenerateSceneImage = async (sceneId: number) => {
     setGenerateImageError(null);
     setGenerateErrorSceneId(null);
-    setGeneratingImageSceneId(sceneId);
-    try {
-      const res = await generateSceneImage(project.id, sceneId);
-      setGeneratedImageBase64(res.data.image_base64);
-      setGeneratedPrompt(res.data.refined_prompt);
-      setGeneratedImageSceneId(sceneId);
-    } catch (err: unknown) {
-      const status = err && typeof err === "object" && "response" in err
-        ? (err as { response?: { status?: number } }).response?.status
-        : 0;
-      if (status === 403) {
-        setShowAiImageUpgradeModal(true);
-      } else {
-        const msg =
-          err && typeof err === "object" && "response" in err
-            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-            : "Image generation failed";
-        setGenerateImageError(String(msg));
-        setGenerateErrorSceneId(sceneId);
-      }
-      setGeneratedImageSceneId(null);
-    } finally {
-      setGeneratingImageSceneId(null);
-    }
+    setImageGenModalSceneId(sceneId);
+  };
+
+  const handleSceneImageReady = (sceneId: number, imageBase64: string, refinedPrompt: string) => {
+    setGeneratedImageBase64(imageBase64);
+    setGeneratedPrompt(refinedPrompt);
+    setGeneratedImageSceneId(sceneId);
+    setGenerateImageError(null);
+    setGenerateErrorSceneId(null);
   };
 
   const handleKeepGeneratedSceneImage = (sceneId: number) => {
@@ -4782,26 +4763,15 @@ export default function ProjectView() {
                                           <button
                                             type="button"
                                             onClick={() => handleGenerateSceneImageClick(scene.id)}
-                                            disabled={
-                                              !(scene.title || "").trim() && !(scene.narration_text || "").trim()
-                                                || generatingImageSceneId === scene.id
-                                            }
-                                            className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700 flex-shrink-0"
+                                            className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 flex-shrink-0"
+                                            title="Generate image with AI"
                                           >
-                                            {generatingImageSceneId === scene.id ? (
-                                              <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                            ) : (
-                                              <>
-                                                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                                                </svg>
-                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center z-10">
-                                                  {(scene.title || "").trim() || (scene.narration_text || "").trim()
-                                                    ? "Generate Image with AI"
-                                                    : "Add title or narration to generate an image"}
-                                                </span>
-                                              </>
-                                            )}
+                                            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                            </svg>
+                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center z-10">
+                                              Generate image with AI
+                                            </span>
                                           </button>
                                           <button
                                             type="button"
@@ -4824,9 +4794,6 @@ export default function ProjectView() {
                                         </div>
                                         {(generateImageError && (generateErrorSceneId === scene.id || generatedImageSceneId === scene.id)) && (
                                           <p className="text-xs text-red-600 mt-1.5">{generateImageError}</p>
-                                        )}
-                                        {!(scene.title || "").trim() && !(scene.narration_text || "").trim() && (
-                                          <p className="text-xs text-gray-400 mt-1.5">Add title or narration to use AI image generation.</p>
                                         )}
                                         </>
                                       ) : (
@@ -5118,6 +5085,25 @@ export default function ProjectView() {
                   }}
                 />
 
+
+                {project && imageGenModalSceneId !== null && (() => {
+                  const imageGenScene = project.scenes?.find((s) => s.id === imageGenModalSceneId);
+                  if (!imageGenScene) return null;
+                  return (
+                    <GenerateSceneImageModal
+                      open
+                      scene={imageGenScene}
+                      project={project}
+                      isPro={isPro}
+                      onClose={() => setImageGenModalSceneId(null)}
+                      onUpgrade={() => setShowAiImageUpgradeModal(true)}
+                      onImageReady={(imageBase64, refinedPrompt) => {
+                        handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
+                        setImageGenModalSceneId(null);
+                      }}
+                    />
+                  );
+                })()}
 
                 {/* AI generated image preview modal */}
                 {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(

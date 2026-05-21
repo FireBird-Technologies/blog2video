@@ -778,6 +778,90 @@ export const createTemplateLayoutFile = (payload: {
   });
 };
 
+// The structured plan extracted from a (normalized) design doc. Passed
+// opaquely from POST /template/plan back into POST /template/create.
+export type TemplatePlan = Record<string, unknown>;
+
+export interface TemplateVerification {
+  ok: boolean;
+  checked: string[];
+  repaired: string[];
+  stubbed: string[];
+  errors: Record<string, string[]>;
+}
+
+// Phase 1: normalize the design doc + extract the plan (fast, no codegen).
+export interface PlanTemplateRequest {
+  template_id: string;
+  design_doc: string;
+  overwrite?: boolean;
+}
+
+export interface PlanTemplateResponse {
+  ok: boolean;
+  template_id: string;
+  name: string;
+  normalized_doc: string;
+  plan: TemplatePlan;
+  layout_ids: string[];
+  hero_layout: string;
+  fallback_layout: string;
+  warnings: string[];
+}
+
+export const planTemplateFromDoc = (payload: PlanTemplateRequest) =>
+  api.post<PlanTemplateResponse>("/template-studio/template/plan", payload, {
+    timeout: 600000, // 10 min — two sequential Claude calls (normalize + extract) on a large doc
+  });
+
+// Phase 2: build the template. Supply `plan` (from planTemplateFromDoc) so
+// what the user previewed is exactly what gets built; `design_doc` alone is
+// the legacy path.
+export interface CreateTemplateRequest {
+  template_id: string;
+  design_doc?: string;
+  normalized_doc?: string;
+  plan?: TemplatePlan;
+  /** With plan: subset of layout ids to generate (Studio verify step). */
+  keep_layout_ids?: string[];
+  overwrite?: boolean;
+}
+
+export interface CreateTemplateResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  name: string;
+  layout_ids: string[];
+  hero_layout: string;
+  fallback_layout: string;
+  created_files: string[];
+  normalized_doc?: string;
+  verification?: TemplateVerification;
+  warnings: string[];
+  note?: string;
+}
+
+export const createTemplateFromDoc = (payload: CreateTemplateRequest) =>
+  api.post<CreateTemplateResponse>("/template-studio/template/create", payload, {
+    timeout: 900000, // 15 min — sequential codegen + full-template typechecks
+  });
+
+export interface ExtractDesignDocResponse {
+  ok: boolean;
+  filename: string;
+  text: string;
+}
+
+export const extractDesignDocFile = (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<ExtractDesignDocResponse>("/template-studio/template/extract-doc", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 120000,
+  });
+};
+
 export const renderTemplateLayout = (payload: {
   template_id: string;
   layout_id: string;
@@ -1125,6 +1209,10 @@ export const assignExistingImageToScene = (
     asset_id: assetId,
   });
 
+export interface GenerateSceneImageRequest {
+  image_description: string;
+}
+
 export interface GenerateSceneImageResponse {
   image_base64: string;
   refined_prompt: string;
@@ -1132,10 +1220,12 @@ export interface GenerateSceneImageResponse {
 
 export const generateSceneImage = (
   projectId: number,
-  sceneId: number
+  sceneId: number,
+  body: GenerateSceneImageRequest
 ) =>
   api.post<GenerateSceneImageResponse>(
-    `/projects/${projectId}/scenes/${sceneId}/generate-image`
+    `/projects/${projectId}/scenes/${sceneId}/generate-image`,
+    body
   );
 
 export interface LayoutPropSchemaEntry {

@@ -323,6 +323,7 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}
+
     </AbsoluteFill>
   );
 };

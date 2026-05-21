@@ -252,13 +252,6 @@ async function buildPrerenderedPages() {
     await ensureDirFor(filePath);
     await writeFile(filePath, injectRenderedMarkup(template, appHtml, head), "utf8");
   }
-
-  const notFound = renderUrl("/404");
-  await writeFile(
-    path.join(distDir, "404.html"),
-    injectRenderedMarkup(template, notFound.appHtml, notFound.head),
-    "utf8"
-  );
 }
 
 async function buildSeoFiles() {

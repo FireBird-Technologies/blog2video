@@ -13,6 +13,7 @@ const categoryLabels: Record<ToolCategory, string> = {
   directory: "Directory",
   analyzer: "Analyzer",
   generator: "Generator",
+  download: "Downloads",
 };
 
 export default function ToolsHub() {

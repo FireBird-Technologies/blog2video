@@ -252,6 +252,7 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}
+
     </AbsoluteFill>
   );
 };

@@ -93,15 +93,13 @@ _TEMPLATE_CONFIG_FILES = [
     "remotion.config.ts",
 ]
 
-# Shared files copied for every template
+# Shared files copied for every template. Everything under src/components/ is
+# copied separately via _scan_shared_components() — do NOT list components here.
 _SHARED_SRC_FILES = [
     "src/Root.tsx",
     "src/index.ts",
-    "src/components/LogoOverlay.tsx",
-    "src/components/Transitions.tsx",
     # Shared playback speed helpers imported by all template compositions.
     "src/templates/playbackSpeed.ts",
-    "src/components/LogoOverlay.tsx",
     # Shared font registry so templates can resolve font IDs to CSS families
     "src/fonts/registry.ts",
     # Newspaper template default fonts (bundled, not in registry)
@@ -127,11 +125,31 @@ def get_workspace_dir(project_id: int) -> str:
     )
 
 
+def _scan_shared_components(template_root: str) -> list[str]:
+    """All .tsx/.ts under src/components/, relative to template_root.
+
+    Copied into every workspace so any component a template composition imports
+    (LogoOverlay, Transitions, B2VWatermark, …) resolves during bundling.
+    Scanned dynamically so a newly added shared component never goes stale —
+    Root.tsx pulls in every template, so one missing component breaks all renders.
+    """
+    out: list[str] = []
+    components_dir = os.path.join(template_root, "src", "components")
+    if os.path.isdir(components_dir):
+        for root, _dirs, filenames in os.walk(components_dir):
+            for filename in filenames:
+                if filename.endswith((".tsx", ".ts")):
+                    full_path = os.path.join(root, filename)
+                    rel_path = os.path.relpath(full_path, template_root)
+                    out.append(rel_path.replace("\\", "/"))
+    return out
+
+
 def _scan_template_files(template_root: str, template_id: str) -> list[str]:
     """
     Dynamically scan and return all .tsx and .ts files for a template.
     All templates live under src/templates/{template_id}/.
-    Shared components (LogoOverlay, Transitions) are always included.
+    All shared components under src/components/ are always included.
 
     Args:
         template_root: Path to remotion-video directory
@@ -140,7 +158,7 @@ def _scan_template_files(template_root: str, template_id: str) -> list[str]:
     Returns:
         List of relative file paths from template_root
     """
-    files = list(_SHARED_SRC_FILES)
+    files = list(_SHARED_SRC_FILES) + _scan_shared_components(template_root)
 
     # Map custom_N → "custom" directory for custom templates
     scan_id = "custom" if is_custom_template(template_id) else template_id
@@ -177,7 +195,7 @@ def _get_all_template_src_files() -> list[str]:
     which template the project uses.
     """
     template_root = settings.REMOTION_PROJECT_PATH
-    files = list(_SHARED_SRC_FILES)
+    files = list(_SHARED_SRC_FILES) + _scan_shared_components(template_root)
     templates_dir = os.path.join(template_root, "src", "templates")
     if os.path.isdir(templates_dir):
         for tid in os.listdir(templates_dir):

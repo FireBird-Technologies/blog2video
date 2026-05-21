@@ -835,7 +835,7 @@ export default function Pricing() {
                   </svg>
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900">Message sent!</h3>
-                <p className="text-xs text-gray-500">We'll get back to you shortly.</p>
+                <p className="text-xs text-gray-500">Thank you, you'll hear back from us within 1-2 business days.</p>
               </div>
             ) : (
               <>
