@@ -59,6 +59,7 @@ export interface NewscastLayoutProps extends BlogLayoutProps {
   barTertiaryColor?: string;
   lineUpColor?: string;
   lineDownColor?: string;
+  lineThirdColor?: string;
   yAxisLabel?: string;
 
   /** glass_code */

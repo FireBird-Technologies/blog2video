@@ -474,7 +474,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
   );
   const s2LineColor =
     chartInputs.lineSeries.length >= 3
-      ? COLORS.blue
+      ? normalizeOptionalHex(props.lineThirdColor, COLORS.blue)
       : getSeriesTrendColor(chartInputs.lineSeries[2]?.values, lineUpColor, lineDownColor, lineFlatColor);
   const barSeriesColors = [
     normalizeOptionalHex(props.barPrimaryColor, DEFAULT_BAR_SERIES_COLORS[0]),
