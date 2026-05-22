@@ -110,6 +110,24 @@ _pipelines_failed = _meter.create_counter(
     description="Number of pipelines that failed",
 )
 
+# Wealth Your Way ending scene is fully frozen — every video closes with the
+# same title, narration, and two CTA pills (Substack + Amazon).
+# Matches both the local-template id ("wealth_your_way") and the crafted/R2
+# bundle's public_template_id ("crafted_wealth_your_way_bundle").
+WEALTH_TEMPLATE_IDS = frozenset({
+    "wealth_your_way",
+    "crafted_wealth_your_way_bundle",
+})
+WEALTH_ENDING_TITLE = "Go Deeper. Start Now."
+WEALTH_ENDING_NARRATION = (
+    "Subscribe for monthly guidance on financial independence — "
+    "or dive straight into Wealth Your Way, the book behind these insights."
+)
+WEALTH_ENDING_CTA_TEXT = "Subscribe on Substack"
+WEALTH_SUBSTACK_URL = "https://www.cosmodestefano.com"
+WEALTH_ENDING_SECONDARY_CTA_TEXT = "Buy the Book on Amazon"
+WEALTH_AMAZON_URL = "https://geni.us/wealthyourwaypb"
+
 
 def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
     """Extract effective layout from descriptor payload."""
@@ -1091,6 +1109,21 @@ async def _generate_scenes(project: Project, db: Session):
 
     scenes = project.scenes
 
+    # Wealth Your Way: freeze the ending scene's narration + title BEFORE the
+    # voiceover task reads them, so TTS speaks the locked client copy. The
+    # descriptor override later in this function locks the on-screen text and
+    # CTAs separately; this just makes sure the audio matches.
+    _is_wealth = project.template in WEALTH_TEMPLATE_IDS
+    if _is_wealth and scenes:
+        for s in scenes:
+            if getattr(s, "preferred_layout", None) == "ending_socials":
+                s.title = WEALTH_ENDING_TITLE
+                s.narration_text = WEALTH_ENDING_NARRATION
+                s.voiceover_path = None
+        db.commit()
+        db.refresh(project)
+        scenes = project.scenes
+
     # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields).
     # Each data_visualization scene already carries its single bound TABLE_DATA_HINT_JSON
     # (embedded during _generate_script); no blanket append needed here.
@@ -1250,29 +1283,47 @@ async def _generate_scenes(project: Project, db: Session):
         # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
         # We override the descriptor here so Remotion can render the themed ending consistently.
         if getattr(scene, "preferred_layout", None) == "ending_socials" and supports_ending_socials:
-            cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
-            cta = (cta_from_visual or "").strip()
-            try:
-                if scene.remotion_code:
-                    old_desc = json.loads(scene.remotion_code)
-                    old_lp = old_desc.get("layoutProps") or {}
-                    old_cta = old_lp.get("ctaButtonText")
-                    if isinstance(old_cta, str) and old_cta.strip():
-                        cta = old_cta.strip()
-            except (json.JSONDecodeError, TypeError):
-                pass
-            if not cta:
-                cta = "Get started"
-            descriptor = {
-                "layout": "ending_socials",
-                "layoutProps": {
-                    "hideImage": True,
-                    "socials": ending_socials_default,
-                    "showWebsiteButton": bool(source_link),
-                    "websiteLink": source_link,
-                    "ctaButtonText": cta,
-                },
-            }
+            if template_id in WEALTH_TEMPLATE_IDS:
+                # Client-locked ending: every wealth_your_way video closes with the
+                # same headline, sub-copy, and Subscribe/Buy pills. No LLM input.
+                descriptor = {
+                    "layout": "ending_socials",
+                    "layoutProps": {
+                        "hideImage": True,
+                        "socials": ending_socials_default,
+                        "showWebsiteButton": True,
+                        "ctaButtonText": WEALTH_ENDING_CTA_TEXT,
+                        "websiteLink": WEALTH_SUBSTACK_URL,
+                        "secondaryCtaButtonText": WEALTH_ENDING_SECONDARY_CTA_TEXT,
+                        "secondaryWebsiteLink": WEALTH_AMAZON_URL,
+                    },
+                }
+                scene.title = WEALTH_ENDING_TITLE
+                scene.narration_text = WEALTH_ENDING_NARRATION
+            else:
+                cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
+                cta = (cta_from_visual or "").strip()
+                try:
+                    if scene.remotion_code:
+                        old_desc = json.loads(scene.remotion_code)
+                        old_lp = old_desc.get("layoutProps") or {}
+                        old_cta = old_lp.get("ctaButtonText")
+                        if isinstance(old_cta, str) and old_cta.strip():
+                            cta = old_cta.strip()
+                except (json.JSONDecodeError, TypeError):
+                    pass
+                if not cta:
+                    cta = "Get started"
+                descriptor = {
+                    "layout": "ending_socials",
+                    "layoutProps": {
+                        "hideImage": True,
+                        "socials": ending_socials_default,
+                        "showWebsiteButton": bool(source_link),
+                        "websiteLink": source_link,
+                        "ctaButtonText": cta,
+                    },
+                }
 
         # Custom templates: inject CTA props into the last (outro) scene
         if is_custom_template(template_id) and i == len(scenes) - 1 and len(scenes) > 1:

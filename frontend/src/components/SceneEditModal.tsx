@@ -30,6 +30,9 @@ import { normalizeLayoutId } from "./remotion/imageBoxConfig";
 const IMAGE_ADJUST_ZOOM_MIN = 1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
+import { SpreadsheetTable } from "./SpreadsheetTable";
+import { ImportPreviewSheet } from "./ImportPreviewSheet";
+import * as XLSX from "xlsx";
 
 type CraftedImageBoxEntry = string | { landscape?: string; portrait?: string } | undefined;
 
@@ -1295,11 +1298,23 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
   newscast: {
     data_visualization: [
       { key: "chartTable", label: "Chart data table", type: "chart_table" },
+      {
+        key: "chartType",
+        label: "Chart Type",
+        type: "select",
+        default: "bar",
+        options: [
+          { label: "Bar", value: "bar" },
+          { label: "Line", value: "line" },
+          { label: "Histogram", value: "histogram" },
+        ],
+      },
       { key: "barPrimaryColor", label: "Bar color 1", type: "color", placeholder: "#FF3B30" },
       { key: "barSecondaryColor", label: "Bar color 2", type: "color", placeholder: "#1E5FD4" },
       { key: "barTertiaryColor", label: "Bar color 3", type: "color", placeholder: "#FF3B30" },
       { key: "lineUpColor", label: "Line color 1", type: "color", placeholder: "#3CE46A" },
       { key: "lineDownColor", label: "Line color 2", type: "color", placeholder: "#FF3B30" },
+      { key: "lineThirdColor", label: "Line color 3", type: "color", placeholder: "#1E5FD4" },
     ],
   },
   whiteboard: {
@@ -1352,6 +1367,17 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     terminal_dataviz: [
       { key: "chartTable", label: "Chart data table", type: "chart_table" },
+      {
+        key: "chartType",
+        label: "Chart Type",
+        type: "select",
+        options: [
+          { label: "Auto-detect", value: "auto" },
+          { label: "Bar", value: "bar" },
+          { label: "Line", value: "line" },
+          { label: "Histogram", value: "histogram" },
+        ],
+      },
       { key: "xAxisLabel", label: "X-axis label", type: "string", placeholder: "e.g. Year" },
       { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Revenue ($)" },
     ],
@@ -2053,9 +2079,29 @@ export default function SceneEditModal({
   const [chartTableModalKey, setChartTableModalKey] = useState<string | null>(null);
   const [chartTableDraft, setChartTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
   const [chartTableError, setChartTableError] = useState<string | null>(null);
+  // pipe_table modal (bloomberg terminal table etc) — same UI as chartModal
+  const [pipeTableModalOpen, setPipeTableModalOpen] = useState(false);
+  const [pipeTableModalKey, setPipeTableModalKey] = useState<string | null>(null);
+  const [pipeTableModalMaxRows, setPipeTableModalMaxRows] = useState(20);
+  const [pipeTableModalMaxCols, setPipeTableModalMaxCols] = useState(10);
+  const [pipeTableDraft, setPipeTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [tickerDropOver, setTickerDropOver] = useState(false);
+  const [chartDropOver, setChartDropOver] = useState(false);
+  // Import preview (replaces old sheet-picker + col-picker modals)
+  const [importPreview, setImportPreview] = useState<{
+    matrix: string[][];
+    sheetNames?: string[];
+    activeSheet?: string;
+    wb?: import("xlsx").WorkBook;
+    maxCols: number;
+    maxRows: number;
+    isChartTable?: boolean;
+  } | null>(null);
   const chartTableErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chartImportCallbackRef = useRef<((t: { headers: string[]; rows: string[][] }) => void) | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
   const localImageInputRef = useRef<HTMLInputElement>(null);
+  const chartFileInputRef = useRef<HTMLInputElement>(null);
   const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
   const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
   const imageAdjustPanRef = useRef<{
@@ -2208,9 +2254,16 @@ export default function SceneEditModal({
           const lpAny = lp as Record<string, unknown>;
           if (isNewscastTemplate) {
             const directChartTable = normalizeChartTableValue(lpAny.chartTable);
-            lpCopy.chartTable = chartTableHasData(directChartTable)
+            const builtTable = chartTableHasData(directChartTable)
               ? directChartTable
               : buildChartTableFromDataVizLayoutProps(lpAny);
+            if (chartTableHasData(builtTable)) {
+              lpCopy.chartTable = builtTable;
+            } else {
+              // No data at all — seed bar example so the chart renders immediately
+              lpCopy.chartTable = getLaDucMarketAnnotationExampleTable("bar");
+              lpCopy.chartType = "bar";
+            }
           }
           // Bar: { labels, values } -> barChartRows
           if (lpAny.barChart && typeof lpAny.barChart === "object") {
@@ -2606,7 +2659,8 @@ export default function SceneEditModal({
         const dsNum = parseNum(descriptionFontSize, 12, 80);
         const defTitle = defaultFontSizes.title;
         const defDesc = defaultFontSizes.desc;
-        if (tsNum !== null || dsNum !== null || scene.remotion_code) {
+        const layoutIsChanging = selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__";
+        if (tsNum !== null || dsNum !== null || scene.remotion_code || layoutIsChanging) {
           let desc: Record<string, unknown> = {};
           if (scene.remotion_code) {
             try {
@@ -2654,6 +2708,10 @@ export default function SceneEditModal({
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
             const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(1, override.imageZoom) : undefined;
+            // Apply layout switch: update desc.layout when user picked a concrete layout
+            if (selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__") {
+              desc.layout = selectedLayout;
+            }
             // data_visualization: convert editable chart form back to stored shapes
             const layoutId = (desc.layout as string) || "";
             if (layoutId === "data_visualization") {
@@ -2966,14 +3024,18 @@ export default function SceneEditModal({
    */
   const applySelectedLayout = (next: string) => {
     setSelectedLayout(next);
-    if (!isLaDucTemplate) return;
     if (next === "__keep__" || next === "__auto__") return;
-    const chartType = getLaDucMarketAnnotationChartTypeForLayout(next);
-    if (!chartType) return;
+    // Seed example chart data when switching into a chart layout with no existing data
+    const isChartLayout =
+      (isLaDucTemplate && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
+      ((isNewscastTemplate) && next === "data_visualization") ||
+      (isBloombergTemplate && next === "terminal_dataviz");
+    if (!isChartLayout) return;
     setEditableLayoutProps((prev) => {
       const existing = normalizeChartTableValue(prev.chartTable);
       if (chartTableHasData(existing)) return prev;
-      return { ...prev, chartTable: getLaDucMarketAnnotationExampleTable(chartType) };
+      const exampleType = (isLaDucTemplate ? getLaDucMarketAnnotationChartTypeForLayout(next) : null) ?? "bar";
+      return { ...prev, chartTable: getLaDucMarketAnnotationExampleTable(exampleType) };
     });
   };
 
@@ -3476,11 +3538,12 @@ export default function SceneEditModal({
                   const lineSeriesCount = mode === "line" ? Math.min(3, numericSeriesCount) : 0;
 
                   layoutFields = layoutFields.filter((field) => {
-                    if (field.key === "barPrimaryColor") return mode === "bar" && barSeriesCount >= 1;
-                    if (field.key === "barSecondaryColor") return mode === "bar" && barSeriesCount >= 2;
-                    if (field.key === "barTertiaryColor") return mode === "bar" && barSeriesCount >= 3;
-                    if (field.key === "lineUpColor") return mode === "line" && lineSeriesCount >= 1;
-                    if (field.key === "lineDownColor") return mode === "line" && lineSeriesCount >= 1;
+                    if (field.key === "barPrimaryColor") return mode === "bar";
+                    if (field.key === "barSecondaryColor") return mode === "bar";
+                    if (field.key === "barTertiaryColor") return mode === "bar";
+                    if (field.key === "lineUpColor") return mode === "line";
+                    if (field.key === "lineDownColor") return mode === "line";
+                    if (field.key === "lineThirdColor") return mode === "line";
                     return true;
                   });
                 }
@@ -3568,132 +3631,41 @@ export default function SceneEditModal({
                       }
                       if (field.type === "pipe_table") {
                         const rawItems = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
-                        // Parse pipe-delimited rows into a 2D grid
-                        const grid: string[][] = rawItems.map((row) =>
-                          String(row).split("|").map((c) => c.trim())
-                        );
-                        const colCount = Math.max(1, ...grid.map((r) => r.length));
-                        // Pad all rows to same width
-                        const paddedGrid = grid.map((r) => {
-                          const padded = [...r];
-                          while (padded.length < colCount) padded.push("");
-                          return padded;
-                        });
-                        const updateGrid = (newGrid: string[][]) => {
-                          const newItems = newGrid.map((row) => row.join(" | "));
-                          setEditableLayoutProps((prev) => ({ ...prev, [field.key]: newItems }));
-                        };
-                        const updateCell = (rowI: number, colI: number, val: string) => {
-                          const newGrid = paddedGrid.map((r) => [...r]);
-                          newGrid[rowI][colI] = val;
-                          updateGrid(newGrid);
-                        };
-                        const addRow = () => {
-                          updateGrid([...paddedGrid, Array(colCount).fill("")]);
-                        };
-                        const removeRow = (rowI: number) => {
-                          updateGrid(paddedGrid.filter((_, i) => i !== rowI));
-                        };
-                        const addColumn = () => {
-                          updateGrid(paddedGrid.map((r) => [...r, ""]));
-                        };
-                        const removeColumn = (colI: number) => {
-                          updateGrid(paddedGrid.map((r) => r.filter((_, i) => i !== colI)));
-                        };
-                        const maxRows = field.maxItems ?? 20;
+                        const ptMaxRows = field.maxItems ?? 20;
+                        const ptMaxCols = 10;
+                        // Parse to get row/col counts for the summary label
+                        const ptGrid = rawItems.map((r) => String(r).split("|").map((c) => c.trim()));
+                        const ptColCount = Math.max(0, ...ptGrid.map((r) => r.length));
+                        const ptRowCount = Math.max(0, ptGrid.length - 1); // exclude header row
+                        const ptHeaders = ptGrid[0] ?? [];
+                        const ptBodyRows = ptGrid.slice(1).length > 0 ? ptGrid.slice(1) : [Array(Math.max(ptColCount, 1)).fill("")];
+                        const fieldKey = field.key;
                         return (
                           <div key={field.key}>
-                            <div className="flex items-center justify-between mb-2">
-                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">{field.label}</label>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2 flex-wrap">
+                              <span className="text-xs text-gray-400 flex-1 min-w-0">
+                                {ptRowCount > 0 ? `${ptRowCount} row${ptRowCount !== 1 ? "s" : ""} × ${ptColCount} col${ptColCount !== 1 ? "s" : ""}` : "No data yet"}
+                              </span>
                               <button
                                 type="button"
-                                onClick={addColumn}
-                                className="text-[10px] font-medium text-gray-400 hover:text-purple-600 flex items-center gap-1"
+                                onClick={() => {
+                                  const padded = ptGrid.map((r) => { const p = [...r]; while (p.length < ptColCount) p.push(""); return p; });
+                                  const headers = padded[0]?.length ? padded[0] : Array(Math.max(ptColCount, 2)).fill("").map((_, i) => `Col ${i+1}`);
+                                  const rows = padded.slice(1).length ? padded.slice(1) : [Array(headers.length).fill("")];
+                                  setPipeTableDraft({ headers, rows });
+                                  setPipeTableModalKey(fieldKey);
+                                  setPipeTableModalMaxRows(ptMaxRows);
+                                  setPipeTableModalMaxCols(ptMaxCols);
+                                  setPipeTableModalOpen(true);
+                                }}
+                                className="px-3 py-1 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white transition-colors"
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Add column
+                                Edit table
                               </button>
                             </div>
-                            <div className="rounded-lg border border-gray-200 overflow-x-auto">
-                              <table className="w-full text-xs border-collapse">
-                                <thead>
-                                  <tr className="bg-gray-50 border-b border-gray-200">
-                                    {paddedGrid[0]?.map((_, colI) => (
-                                      <th key={colI} className="px-1 py-1 font-medium text-gray-400 text-center relative">
-                                        <div className="flex items-center justify-center gap-1">
-                                          <span className="text-[10px]">Col {colI + 1}</span>
-                                          {colCount > 1 && (
-                                            <button
-                                              type="button"
-                                              onClick={() => removeColumn(colI)}
-                                              className="text-gray-300 hover:text-red-400 transition-colors"
-                                            >
-                                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                              </svg>
-                                            </button>
-                                          )}
-                                        </div>
-                                      </th>
-                                    ))}
-                                    <th className="w-6" />
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {paddedGrid.map((row, rowI) => (
-                                    <tr
-                                      key={rowI}
-                                      className={rowI === 0
-                                        ? "bg-gray-50/80 border-b-2 border-gray-300"
-                                        : "border-b border-gray-100 last:border-0"}
-                                    >
-                                      {row.map((cell, colI) => (
-                                        <td key={colI} className="px-1 py-0.5">
-                                          <input
-                                            type="text"
-                                            value={cell}
-                                            onChange={(e) => updateCell(rowI, colI, e.target.value)}
-                                            className={`w-full px-2 py-1.5 text-xs rounded border focus:outline-none focus:ring-1 focus:ring-purple-400 ${
-                                              rowI === 0
-                                                ? "font-semibold bg-white border-gray-300 text-gray-700"
-                                                : "bg-white border-gray-200 text-gray-600"
-                                            }`}
-                                            placeholder={rowI === 0 ? `Header ${colI + 1}` : ""}
-                                          />
-                                        </td>
-                                      ))}
-                                      <td className="px-1 py-0.5 text-center">
-                                        {paddedGrid.length > 1 && (
-                                          <button
-                                            type="button"
-                                            onClick={() => removeRow(rowI)}
-                                            className="p-0.5 text-gray-300 hover:text-red-400 transition-colors rounded"
-                                          >
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                          </button>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                            {paddedGrid.length < maxRows && (
-                              <button
-                                type="button"
-                                onClick={addRow}
-                                className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Add row
-                              </button>
-                            )}
                           </div>
                         );
                       }
@@ -3706,12 +3678,12 @@ export default function SceneEditModal({
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
                               {field.label}
                             </label>
-                            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2">
+                            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2 flex-wrap">
                               <span className="text-xs text-gray-400 flex-1 min-w-0">
                                 {rowCount > 0 ? (
                                   `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}`
                                 ) : (
-                                  "No Data.You can add data by going to edit this scene"
+                                  "No data yet"
                                 )}
                               </span>
                               <button
@@ -3783,12 +3755,12 @@ export default function SceneEditModal({
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
                               {field.label}
                             </label>
-                            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2">
+                            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2 flex-wrap">
                               <span className="text-xs text-gray-400 flex-1 min-w-0">
                                 {rowCount > 0 ? (
                                   `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}`
                                 ) : (
-                                  "No Data.You can add data by going to edit this scene"
+                                  "No data yet"
                                 )}
                               </span>
                               <button
@@ -3817,6 +3789,14 @@ export default function SceneEditModal({
                           isLaDucTemplate &&
                           currentLayoutId === "market_annotation" &&
                           field.key === "chartType";
+                        const isBloombergChartTypeField =
+                          isBloombergTemplate &&
+                          currentLayoutId === "terminal_dataviz" &&
+                          field.key === "chartType";
+                        const isNewscastChartTypeField =
+                          isNewscastTemplate &&
+                          currentLayoutId === "data_visualization" &&
+                          field.key === "chartType";
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -3824,12 +3804,7 @@ export default function SceneEditModal({
                               value={sel}
                               onChange={(e) => {
                                 const nextChartType = e.target.value;
-                                if (isLaDucChartTypeField) {
-                                  // Swap chartTable to a shape-appropriate example when the
-                                  // user picks a concrete chart type so the preview renders
-                                  // cleanly (line wants dates, bar wants categories,
-                                  // histogram wants bucket ranges). "auto" leaves the table
-                                  // alone — inference decides at render time.
+                                if (isLaDucChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
                                   const concrete =
                                     nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
                                       ? (nextChartType as "line" | "bar" | "histogram")
@@ -4963,6 +4938,8 @@ export default function SceneEditModal({
 
   const TICKER_MODAL_MAX_COLS = 6;
   const TICKER_MODAL_MAX_ROWS = 20;
+  const CHART_MODAL_MAX_COLS = 4;
+  const CHART_MODAL_MAX_ROWS = 50;
   const tickerDraft = tickerTableDraft ?? { headers: ["Label", "Value"], rows: [[""]] };
 
   const tickerModal = tickerTableModalOpen && tickerTableModalKey ? (
@@ -4974,7 +4951,7 @@ export default function SceneEditModal({
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">Edit ticker table</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {TICKER_MODAL_MAX_ROWS} rows · max {TICKER_MODAL_MAX_COLS} cols</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {TICKER_MODAL_MAX_ROWS} rows · max {TICKER_MODAL_MAX_COLS} cols · drag &amp; drop CSV/Excel to import</p>
           </div>
           <button type="button" onClick={() => setTickerTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -4983,62 +4960,35 @@ export default function SceneEditModal({
           </button>
         </div>
 
+        {/* Drag-and-drop import zone */}
+        <div
+          className={`mx-4 mt-3 flex-shrink-0 rounded-lg border-2 border-dashed px-4 py-3 flex items-center gap-3 transition-colors ${tickerDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-gray-50"}`}
+          onDragOver={(e) => { e.preventDefault(); setTickerDropOver(true); }}
+          onDragLeave={() => setTickerDropOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setTickerDropOver(false);
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            handleTickerFileImport(file, (t) => setTickerTableDraft(t));
+          }}
+        >
+          <svg className={`w-5 h-5 flex-shrink-0 transition-colors ${tickerDropOver ? "text-purple-400" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span className={`text-[11px] transition-colors ${tickerDropOver ? "text-purple-600" : "text-gray-400"}`}>
+            {tickerDropOver ? "Release to import" : <>Drop a <strong className="font-medium text-gray-500">.csv</strong> or <strong className="font-medium text-gray-500">.xlsx</strong> file here to import</>}
+          </span>
+        </div>
+
         {/* Table area */}
         <div className="overflow-auto flex-1 p-4">
-          <table className="w-full border-separate border-spacing-1 text-xs">
-            <thead>
-              <tr>
-                {tickerDraft.headers.map((h, ci) => (
-                  <th key={ci} className="align-bottom pb-1">
-                    <input
-                      type="text"
-                      value={h}
-                      placeholder={`Col ${ci + 1}`}
-                      onChange={(e) => {
-                        const next = [...tickerDraft.headers];
-                        next[ci] = e.target.value;
-                        setTickerTableDraft({ ...tickerDraft, headers: next });
-                      }}
-                      className="w-full px-2 py-1.5 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 text-center"
-                    />
-                  </th>
-                ))}
-                <th className="w-6" />
-              </tr>
-            </thead>
-            <tbody>
-              {tickerDraft.rows.map((row, ri) => (
-                <tr key={ri}>
-                  {tickerDraft.headers.map((_, ci) => (
-                    <td key={ci}>
-                      <input
-                        type="text"
-                        value={row[ci] ?? ""}
-                        onChange={(e) => {
-                          const next = tickerDraft.rows.map((r) => [...r]);
-                          next[ri][ci] = e.target.value;
-                          setTickerTableDraft({ ...tickerDraft, rows: next });
-                        }}
-                        className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-                      />
-                    </td>
-                  ))}
-                  <td className="text-center">
-                    <button
-                      type="button"
-                      onClick={() => setTickerTableDraft({ ...tickerDraft, rows: tickerDraft.rows.filter((_, i) => i !== ri) })}
-                      title="Remove row"
-                      className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-400 hover:bg-red-50"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <SpreadsheetTable
+            data={tickerDraft}
+            onChange={setTickerTableDraft}
+            maxRows={TICKER_MODAL_MAX_ROWS}
+            maxCols={TICKER_MODAL_MAX_COLS}
+          />
         </div>
 
         {/* Row / Col controls + footer */}
@@ -5105,8 +5055,6 @@ export default function SceneEditModal({
     </div>
   ) : null;
 
-  const CHART_MODAL_MAX_COLS = 4;
-  const CHART_MODAL_MAX_ROWS = 20;
   const chartDraft = chartTableDraft ?? { headers: ["Label", "Value"], rows: [["", ""]] };
 
   /** Show a transient error inline at the top of the chart-data modal. */
@@ -5115,6 +5063,82 @@ export default function SceneEditModal({
     setChartTableError(msg);
     chartTableErrorTimeoutRef.current = setTimeout(() => setChartTableError(null), 4000);
   };
+
+  /** Open the ImportPreviewSheet for a raw matrix. */
+  const openImportPreview = (
+    matrix: string[][],
+    maxCols: number,
+    maxRows: number,
+    onApply: (t: { headers: string[]; rows: string[][] }) => void,
+    sheetNames?: string[],
+    activeSheet?: string,
+    wb?: import("xlsx").WorkBook,
+    isChartTable?: boolean,
+  ) => {
+    if (matrix.length === 0) return;
+    chartImportCallbackRef.current = onApply;
+    setImportPreview({ matrix, maxCols, maxRows, sheetNames, activeSheet, wb, isChartTable });
+  };
+
+  const matrixFromSheet = (wb: import("xlsx").WorkBook, sheetName: string): string[][] => {
+    const ws = wb.Sheets[sheetName];
+    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r: string[]) =>
+      (r as unknown[]).map(String)
+    );
+  };
+
+  /** Entry point for file import. maxCols/maxRows = hard limits for destination table.
+   *  onApply = where to write the result (defaults to setChartTableDraft). */
+  const handleFileImport = (
+    file: File,
+    maxCols: number,
+    maxRows: number,
+    onApply?: (t: { headers: string[]; rows: string[][] }) => void,
+    isChartTable?: boolean,
+  ) => {
+    const cb = onApply ?? ((t: { headers: string[]; rows: string[][] }) => setChartTableDraft(t));
+    const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: "array" });
+        const firstSheet = wb.SheetNames[0];
+        const matrix = matrixFromSheet(wb, firstSheet);
+        openImportPreview(
+          matrix, maxCols, maxRows, cb,
+          wb.SheetNames.length > 1 ? wb.SheetNames : undefined,
+          firstSheet,
+          wb.SheetNames.length > 1 ? wb : undefined,
+          isChartTable,
+        );
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        if (!text) return;
+        const lines = text.trim().split(/\r?\n/);
+        const matrix = lines.map((l) =>
+          l.split(",").map((c) => c.trim().replace(/^"|"$/g, ""))
+        );
+        openImportPreview(matrix, maxCols, maxRows, cb, undefined, undefined, undefined, isChartTable);
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  // Convenience wrappers
+  const handleChartFileImport = (
+    file: File,
+    onApply?: (t: { headers: string[]; rows: string[][] }) => void,
+  ) => handleFileImport(file, CHART_MODAL_MAX_COLS, CHART_MODAL_MAX_ROWS, onApply, true);
+
+  const handleTickerFileImport = (
+    file: File,
+    onApply?: (t: { headers: string[]; rows: string[][] }) => void,
+  ) => handleFileImport(file, TICKER_MODAL_MAX_COLS, TICKER_MODAL_MAX_ROWS, onApply);
 
   /**
    * Parse clipboard text into a 2-D matrix of cells.
@@ -5287,11 +5311,35 @@ export default function SceneEditModal({
             <h3 className="text-sm font-semibold text-gray-900">Edit chart data</h3>
             <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {CHART_MODAL_MAX_ROWS} rows · max {CHART_MODAL_MAX_COLS} cols · paste TSV/CSV into any cell to bulk-fill</p>
           </div>
-          <button type="button" onClick={() => setChartTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Help button */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="w-6 h-6 flex items-center justify-center rounded-full border border-purple-200 text-purple-500 bg-purple-50 hover:bg-purple-100 text-[11px] font-bold leading-none"
+                title="How to use this table"
+              >
+                ?
+              </button>
+              <div className="absolute right-0 top-8 z-50 w-72 rounded-xl border border-gray-200 bg-white shadow-xl p-4 text-[11px] text-gray-600 leading-relaxed hidden group-hover:block">
+                <p className="font-semibold text-gray-800 mb-2">How to use the chart table</p>
+                <ul className="space-y-1.5 list-none">
+                  <li><span className="font-medium text-purple-600">Upload CSV / Excel</span> — drag a file onto the drop zone or click the upload button. For Excel files with multiple sheets, you'll be asked to pick one.</li>
+                  <li><span className="font-medium text-purple-600">Column picker</span> — if your file has more than {CHART_MODAL_MAX_COLS} columns, choose which {CHART_MODAL_MAX_COLS} to keep.</li>
+                  <li><span className="font-medium text-purple-600">Max size</span> — data is clipped to {CHART_MODAL_MAX_ROWS} rows × {CHART_MODAL_MAX_COLS} columns automatically.</li>
+                  <li><span className="font-medium text-purple-600">Select cells</span> — click a cell, then Shift-click or drag to select a range.</li>
+                  <li><span className="font-medium text-purple-600">Copy / Paste</span> — Ctrl+C to copy, Ctrl+V to paste (works with Excel / Google Sheets).</li>
+                  <li><span className="font-medium text-purple-600">Delete</span> — select rows or cells, then press Delete or Backspace.</li>
+                  <li><span className="font-medium text-purple-600">Row numbers</span> — click or drag the row-number gutter to select whole rows.</li>
+                </ul>
+              </div>
+            </div>
+            <button type="button" onClick={() => setChartTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Transient paste-limit error banner */}
@@ -5304,101 +5352,62 @@ export default function SceneEditModal({
           </div>
         )}
 
+        {/* Drag-and-drop / click-to-upload import zone */}
+        <div
+          className={`mx-3 sm:mx-4 mt-3 flex-shrink-0 rounded-lg border-2 border-dashed px-4 py-3 flex items-center gap-3 transition-colors cursor-pointer ${chartDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-gray-50 hover:border-purple-300 hover:bg-purple-50/40"}`}
+          onClick={() => chartFileInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setChartDropOver(true); }}
+          onDragLeave={() => setChartDropOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setChartDropOver(false);
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            handleChartFileImport(file);
+          }}
+        >
+          <svg className={`w-5 h-5 flex-shrink-0 transition-colors ${chartDropOver ? "text-purple-400" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span className={`text-[11px] transition-colors ${chartDropOver ? "text-purple-600" : "text-gray-400"}`}>
+            {chartDropOver ? "Release to import" : <>Drop a <strong className="font-medium text-gray-500">.csv</strong> or <strong className="font-medium text-gray-500">.xlsx</strong> file here to import, or <strong className="font-medium text-purple-500">click to browse</strong></>}
+          </span>
+          <input
+            ref={chartFileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls,text/csv"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleChartFileImport(file);
+              e.target.value = "";
+            }}
+          />
+        </div>
+
         {/* Table area */}
         <div className="overflow-auto flex-1 p-3 sm:p-4">
-          <table className="w-full border-separate border-spacing-1 text-xs" style={{ minWidth: chartDraft.headers.length * 96 }}>
-            <thead>
-              <tr>
-                {chartDraft.headers.map((h, ci) => (
-                  <th key={ci} className="align-bottom pb-1">
-                    <input
-                      type="text"
-                      value={h}
-                      placeholder={ci === 0 ? "Label" : `Series ${ci}`}
-                      onChange={(e) => {
-                        const next = [...chartDraft.headers];
-                        next[ci] = e.target.value;
-                        setChartTableDraft({ ...chartDraft, headers: next });
-                      }}
-                      onPaste={(e) => {
-                        const pasted = e.clipboardData.getData("text");
-                        if (pasted.includes("\t") || pasted.includes("\n")) {
-                          e.preventDefault();
-                          // Paste into header row: row index 0 means headers, body fills from row 0.
-                          const matrix = parseClipboardTable(pasted);
-                          if (matrix.length === 0) return;
-                          const headerLine = matrix[0];
-                          const bodyMatrix = matrix.slice(1);
-                          if (ci + headerLine.length > CHART_MODAL_MAX_COLS) {
-                            showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
-                          } else if (bodyMatrix.length > CHART_MODAL_MAX_ROWS) {
-                            showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
-                          }
-                          const neededCols = Math.min(CHART_MODAL_MAX_COLS, ci + headerLine.length);
-                          const nextHeaders = [...chartDraft.headers];
-                          while (nextHeaders.length < neededCols) nextHeaders.push(`Series ${nextHeaders.length}`);
-                          for (let i = 0; i < headerLine.length; i++) {
-                            const targetCol = ci + i;
-                            if (targetCol >= CHART_MODAL_MAX_COLS) break;
-                            nextHeaders[targetCol] = headerLine[i];
-                          }
-                          // Update headers first, then bulk-fill any body rows.
-                          setChartTableDraft({ headers: nextHeaders, rows: chartDraft.rows });
-                          if (bodyMatrix.length > 0) {
-                            // Re-use the body filler against the just-updated headers/rows.
-                            setTimeout(() => handleChartPaste(0, ci, bodyMatrix.map((r) => r.join("\t")).join("\n")), 0);
-                          }
-                        }
-                      }}
-                      className="w-full px-2 py-1.5 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 text-center"
-                    />
-                  </th>
-                ))}
-                <th className="w-6" />
-              </tr>
-            </thead>
-            <tbody>
-              {chartDraft.rows.map((row, ri) => (
-                <tr key={ri}>
-                  {chartDraft.headers.map((_, ci) => (
-                    <td key={ci}>
-                      <input
-                        type="text"
-                        value={row[ci] ?? ""}
-                        onChange={(e) => {
-                          const next = chartDraft.rows.map((r) => [...r]);
-                          while (next[ri].length < chartDraft.headers.length) next[ri].push("");
-                          next[ri][ci] = e.target.value;
-                          setChartTableDraft({ ...chartDraft, rows: next });
-                        }}
-                        onPaste={(e) => {
-                          const pasted = e.clipboardData.getData("text");
-                          // If the paste is multi-cell (has tab or newline), intercept and bulk-fill.
-                          if (pasted.includes("\t") || pasted.includes("\n")) {
-                            e.preventDefault();
-                            handleChartPaste(ri, ci, pasted);
-                          }
-                        }}
-                        className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-                      />
-                    </td>
-                  ))}
-                  <td className="text-center">
-                    <button
-                      type="button"
-                      onClick={() => setChartTableDraft({ ...chartDraft, rows: chartDraft.rows.filter((_, i) => i !== ri) })}
-                      title="Remove row"
-                      className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-400 hover:bg-red-50"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <SpreadsheetTable
+            data={chartDraft}
+            onChange={setChartTableDraft}
+            maxRows={CHART_MODAL_MAX_ROWS}
+            maxCols={CHART_MODAL_MAX_COLS}
+            onBulkPaste={(ri, ci, text) => handleChartPaste(ri, ci, text)}
+            onHeaderPaste={(ci, text) => {
+              const matrix = parseClipboardTable(text);
+              if (matrix.length === 0) return;
+              const headerLine = matrix[0];
+              const bodyMatrix = matrix.slice(1);
+              if (ci + headerLine.length > CHART_MODAL_MAX_COLS) showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+              else if (bodyMatrix.length > CHART_MODAL_MAX_ROWS) showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+              const neededCols = Math.min(CHART_MODAL_MAX_COLS, ci + headerLine.length);
+              const nextHeaders = [...chartDraft.headers];
+              while (nextHeaders.length < neededCols) nextHeaders.push(`Series ${nextHeaders.length}`);
+              for (let i = 0; i < headerLine.length; i++) { const tc = ci + i; if (tc >= CHART_MODAL_MAX_COLS) break; nextHeaders[tc] = headerLine[i]; }
+              setChartTableDraft({ headers: nextHeaders, rows: chartDraft.rows });
+              if (bodyMatrix.length > 0) setTimeout(() => handleChartPaste(0, ci, bodyMatrix.map((r) => r.join("\t")).join("\n")), 0);
+            }}
+          />
         </div>
 
         {/* Toolbar — wraps on narrow viewports so all controls remain reachable */}
@@ -5445,39 +5454,32 @@ export default function SceneEditModal({
             Col
           </button>
 
-          <div className="w-px h-5 bg-gray-200 mx-1" />
-
-          {/* Bulk copy / paste */}
-          <button
-            type="button"
-            onClick={handleChartCopyAll}
-            title="Copy entire table to clipboard (TSV — paste into Excel/Sheets)"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            Copy
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const text = await navigator.clipboard.readText();
-                if (text) handleChartPasteWholeTable(text);
-              } catch {
-                // Clipboard read may be blocked; user can still paste into a cell directly.
-              }
-            }}
-            title="Paste TSV/CSV from clipboard — first line becomes headers, rest become rows"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            Paste
-          </button>
         </div>
+
+        {/* Numeric columns warning */}
+        {(() => {
+          // cols 2+ (index 1+) should be numeric for charts to render
+          const badCols = chartDraft.headers.slice(1).filter((_, ci) => {
+            const colIdx = ci + 1;
+            return chartDraft.rows.some((row) => {
+              const v = row[colIdx];
+              return v !== undefined && v !== "" && isNaN(Number(v));
+            });
+          });
+          if (badCols.length === 0) return null;
+          return (
+            <div className="mx-3 sm:mx-4 mb-2 px-3 py-2 rounded-md border border-amber-200 bg-amber-50 text-[11px] text-amber-800 flex items-start gap-2">
+              <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <span>
+                <span className="font-semibold">Non-numeric data in series columns: </span>
+                {badCols.map((h) => <span key={h} className="font-mono bg-amber-100 rounded px-1 mr-1">{h}</span>)}
+                — charts need numeric values in columns 2+. Column 1 is the X-axis label.
+              </span>
+            </div>
+          );
+        })()}
 
         {/* Action row — always pinned to bottom of the modal so Cancel/Save remain reachable on every viewport */}
         <div className="px-3 sm:px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0 bg-white rounded-b-2xl">
@@ -5504,7 +5506,170 @@ export default function SceneEditModal({
     </div>
   ) : null;
 
+  // ─── Import Preview modal (replaces old sheet/col pickers) ────
+  const importPreviewModal = importPreview ? (
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setImportPreview(null)} />
+      <div className="relative w-full max-w-5xl rounded-2xl bg-white shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: "90dvh" }}>
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Preview & select data to import</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              Showing up to 100 columns × 20 rows · click headers/row numbers to select · max {importPreview.maxCols} cols × {importPreview.maxRows} rows will be imported
+            </p>
+          </div>
+          <button type="button" onClick={() => setImportPreview(null)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div className="overflow-auto flex-1 p-4">
+          <ImportPreviewSheet
+            matrix={importPreview.matrix}
+            sheetNames={importPreview.sheetNames}
+            activeSheet={importPreview.activeSheet}
+            onSheetChange={(name) => {
+              if (!importPreview.wb) return;
+              const matrix = matrixFromSheet(importPreview.wb, name);
+              setImportPreview((prev) => prev ? { ...prev, matrix, activeSheet: name } : null);
+            }}
+            maxCols={importPreview.maxCols}
+            maxRows={importPreview.maxRows}
+            isChartTable={importPreview.isChartTable}
+            onApply={(result) => {
+              chartImportCallbackRef.current?.(result);
+              setImportPreview(null);
+            }}
+            onCancel={() => setImportPreview(null)}
+          />
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  // ─── Pipe-table modal (bloomberg terminal_table etc.) ─────────
+  const pipeDraft = pipeTableDraft ?? { headers: ["Col 1", "Col 2"], rows: [["", ""]] };
+
+  const pipeModal = pipeTableModalOpen && pipeTableModalKey ? (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setPipeTableModalOpen(false)} />
+      <div className="relative w-full max-w-3xl rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl flex flex-col" style={{ maxHeight: "92dvh" }}>
+
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Edit table data</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {pipeTableModalMaxRows} rows · max {pipeTableModalMaxCols} cols · paste TSV/CSV into any cell to bulk-fill</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Help button */}
+            <div className="relative group">
+              <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full border border-purple-200 text-purple-500 bg-purple-50 hover:bg-purple-100 text-[11px] font-bold leading-none" title="How to use this table">?</button>
+              <div className="absolute right-0 top-8 z-50 w-72 rounded-xl border border-gray-200 bg-white shadow-xl p-4 text-[11px] text-gray-600 leading-relaxed hidden group-hover:block">
+                <p className="font-semibold text-gray-800 mb-2">How to use the table</p>
+                <ul className="space-y-1.5 list-none">
+                  <li><span className="font-medium text-purple-600">Upload CSV / Excel</span> — drag a file onto the drop zone or click Upload. Multi-sheet Excel shows a sheet picker.</li>
+                  <li><span className="font-medium text-purple-600">Column picker</span> — if your file has more than {pipeTableModalMaxCols} columns, choose which to keep.</li>
+                  <li><span className="font-medium text-purple-600">Max size</span> — clipped to {pipeTableModalMaxRows} rows × {pipeTableModalMaxCols} cols automatically.</li>
+                  <li><span className="font-medium text-purple-600">Select cells</span> — click then Shift-click or drag.</li>
+                  <li><span className="font-medium text-purple-600">Copy / Paste</span> — Ctrl+C / Ctrl+V (Excel/Sheets compatible).</li>
+                  <li><span className="font-medium text-purple-600">Delete</span> — select rows or cells, press Delete or Backspace.</li>
+                  <li><span className="font-medium text-purple-600">Row numbers</span> — click or drag gutter to select whole rows.</li>
+                </ul>
+              </div>
+            </div>
+            <button type="button" onClick={() => setPipeTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Drag-and-drop import zone */}
+        <div
+          className={`mx-3 sm:mx-4 mt-3 flex-shrink-0 rounded-lg border-2 border-dashed px-4 py-3 flex items-center gap-3 transition-colors ${chartDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-gray-50"}`}
+          onDragOver={(e) => { e.preventDefault(); setChartDropOver(true); }}
+          onDragLeave={() => setChartDropOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setChartDropOver(false);
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            handleFileImport(file, pipeTableModalMaxCols, pipeTableModalMaxRows, (t) => setPipeTableDraft(t));
+          }}
+        >
+          <svg className={`w-5 h-5 flex-shrink-0 transition-colors ${chartDropOver ? "text-purple-400" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span className={`text-[11px] transition-colors ${chartDropOver ? "text-purple-600" : "text-gray-400"}`}>
+            {chartDropOver ? "Release to import" : <><strong className="font-medium text-gray-500">.csv</strong> or <strong className="font-medium text-gray-500">.xlsx</strong> — drop here, or use the Upload button above</>}
+          </span>
+          <label className="ml-auto flex-shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:text-purple-600 hover:border-purple-400 cursor-pointer transition-colors">
+            Upload
+            <input type="file" accept=".csv,.xlsx,.xls,text/csv" className="sr-only" onChange={(e) => {
+              const file = e.target.files?.[0]; if (!file) return;
+              handleFileImport(file, pipeTableModalMaxCols, pipeTableModalMaxRows, (t) => setPipeTableDraft(t));
+              e.target.value = "";
+            }} />
+          </label>
+        </div>
+
+        {/* Table area */}
+        <div className="overflow-auto flex-1 p-3 sm:p-4">
+          <SpreadsheetTable
+            data={pipeDraft}
+            onChange={setPipeTableDraft}
+            maxRows={pipeTableModalMaxRows}
+            maxCols={pipeTableModalMaxCols}
+          />
+        </div>
+
+        {/* Toolbar */}
+        <div className="px-3 sm:px-4 py-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5 flex-shrink-0">
+          <button type="button"
+            onClick={() => setPipeTableDraft({ ...pipeDraft, rows: [...pipeDraft.rows, Array(pipeDraft.headers.length).fill("")] })}
+            disabled={pipeDraft.rows.length >= pipeTableModalMaxRows}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>Row
+          </button>
+          <button type="button"
+            onClick={() => pipeDraft.rows.length > 1 && setPipeTableDraft({ ...pipeDraft, rows: pipeDraft.rows.slice(0, -1) })}
+            disabled={pipeDraft.rows.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>Row
+          </button>
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <button type="button"
+            onClick={() => setPipeTableDraft({ headers: [...pipeDraft.headers, `Col ${pipeDraft.headers.length + 1}`], rows: pipeDraft.rows.map((r) => [...r, ""]) })}
+            disabled={pipeDraft.headers.length >= pipeTableModalMaxCols}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>Col
+          </button>
+          <button type="button"
+            onClick={() => pipeDraft.headers.length > 1 && setPipeTableDraft({ headers: pipeDraft.headers.slice(0, -1), rows: pipeDraft.rows.map((r) => r.slice(0, -1)) })}
+            disabled={pipeDraft.headers.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>Col
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="px-3 sm:px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0 bg-white rounded-b-2xl">
+          <button type="button" onClick={() => setPipeTableModalOpen(false)} className="flex-1 sm:flex-none px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!pipeTableModalKey) return;
+              const allRows = [pipeDraft.headers, ...pipeDraft.rows];
+              setEditableLayoutProps((prev) => ({ ...prev, [pipeTableModalKey]: allRows.map((r) => r.join(" | ")) }));
+              setPipeTableModalOpen(false);
+            }}
+            className="flex-1 sm:flex-none sm:ml-auto px-4 py-2 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+          >Save</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return isDemo
-    ? <>{modalTree}{tickerModal}{chartModal}</>
-    : ReactDOM.createPortal(<>{modalTree}{tickerModal}{chartModal}</>, document.body);
+    ? <>{modalTree}{tickerModal}{chartModal}{pipeModal}{importPreviewModal}</>
+    : ReactDOM.createPortal(<>{modalTree}{tickerModal}{chartModal}{pipeModal}{importPreviewModal}</>, document.body);
 }
