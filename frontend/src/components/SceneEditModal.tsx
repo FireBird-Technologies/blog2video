@@ -5048,7 +5048,7 @@ export default function SceneEditModal({
 
   const matrixFromSheet = (wb: import("xlsx").WorkBook, sheetName: string): string[][] => {
     const ws = wb.Sheets[sheetName];
-    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r) =>
+    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r: string[]) =>
       (r as unknown[]).map(String)
     );
   };
