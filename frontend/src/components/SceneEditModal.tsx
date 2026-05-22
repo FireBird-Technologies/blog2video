@@ -1298,11 +1298,23 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
   newscast: {
     data_visualization: [
       { key: "chartTable", label: "Chart data table", type: "chart_table" },
+      {
+        key: "chartType",
+        label: "Chart Type",
+        type: "select",
+        default: "bar",
+        options: [
+          { label: "Bar", value: "bar" },
+          { label: "Line", value: "line" },
+          { label: "Histogram", value: "histogram" },
+        ],
+      },
       { key: "barPrimaryColor", label: "Bar color 1", type: "color", placeholder: "#FF3B30" },
       { key: "barSecondaryColor", label: "Bar color 2", type: "color", placeholder: "#1E5FD4" },
       { key: "barTertiaryColor", label: "Bar color 3", type: "color", placeholder: "#FF3B30" },
       { key: "lineUpColor", label: "Line color 1", type: "color", placeholder: "#3CE46A" },
       { key: "lineDownColor", label: "Line color 2", type: "color", placeholder: "#FF3B30" },
+      { key: "lineThirdColor", label: "Line color 3", type: "color", placeholder: "#1E5FD4" },
     ],
   },
   whiteboard: {
@@ -2241,9 +2253,16 @@ export default function SceneEditModal({
           const lpAny = lp as Record<string, unknown>;
           if (isNewscastTemplate) {
             const directChartTable = normalizeChartTableValue(lpAny.chartTable);
-            lpCopy.chartTable = chartTableHasData(directChartTable)
+            const builtTable = chartTableHasData(directChartTable)
               ? directChartTable
               : buildChartTableFromDataVizLayoutProps(lpAny);
+            if (chartTableHasData(builtTable)) {
+              lpCopy.chartTable = builtTable;
+            } else {
+              // No data at all — seed bar example so the chart renders immediately
+              lpCopy.chartTable = getLaDucMarketAnnotationExampleTable("bar");
+              lpCopy.chartType = "bar";
+            }
           }
           // Bar: { labels, values } -> barChartRows
           if (lpAny.barChart && typeof lpAny.barChart === "object") {
@@ -2639,7 +2658,8 @@ export default function SceneEditModal({
         const dsNum = parseNum(descriptionFontSize, 12, 80);
         const defTitle = defaultFontSizes.title;
         const defDesc = defaultFontSizes.desc;
-        if (tsNum !== null || dsNum !== null || scene.remotion_code) {
+        const layoutIsChanging = selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__";
+        if (tsNum !== null || dsNum !== null || scene.remotion_code || layoutIsChanging) {
           let desc: Record<string, unknown> = {};
           if (scene.remotion_code) {
             try {
@@ -2687,6 +2707,10 @@ export default function SceneEditModal({
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
             const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(1, override.imageZoom) : undefined;
+            // Apply layout switch: update desc.layout when user picked a concrete layout
+            if (selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__") {
+              desc.layout = selectedLayout;
+            }
             // data_visualization: convert editable chart form back to stored shapes
             const layoutId = (desc.layout as string) || "";
             if (layoutId === "data_visualization") {
@@ -2999,14 +3023,18 @@ export default function SceneEditModal({
    */
   const applySelectedLayout = (next: string) => {
     setSelectedLayout(next);
-    if (!isLaDucTemplate) return;
     if (next === "__keep__" || next === "__auto__") return;
-    const chartType = getLaDucMarketAnnotationChartTypeForLayout(next);
-    if (!chartType) return;
+    // Seed example chart data when switching into a chart layout with no existing data
+    const isChartLayout =
+      (isLaDucTemplate && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
+      ((isNewscastTemplate) && next === "data_visualization") ||
+      (isBloombergTemplate && next === "terminal_dataviz");
+    if (!isChartLayout) return;
     setEditableLayoutProps((prev) => {
       const existing = normalizeChartTableValue(prev.chartTable);
       if (chartTableHasData(existing)) return prev;
-      return { ...prev, chartTable: getLaDucMarketAnnotationExampleTable(chartType) };
+      const exampleType = (isLaDucTemplate ? getLaDucMarketAnnotationChartTypeForLayout(next) : null) ?? "bar";
+      return { ...prev, chartTable: getLaDucMarketAnnotationExampleTable(exampleType) };
     });
   };
 
@@ -3509,11 +3537,12 @@ export default function SceneEditModal({
                   const lineSeriesCount = mode === "line" ? Math.min(3, numericSeriesCount) : 0;
 
                   layoutFields = layoutFields.filter((field) => {
-                    if (field.key === "barPrimaryColor") return mode === "bar" && barSeriesCount >= 1;
-                    if (field.key === "barSecondaryColor") return mode === "bar" && barSeriesCount >= 2;
-                    if (field.key === "barTertiaryColor") return mode === "bar" && barSeriesCount >= 3;
-                    if (field.key === "lineUpColor") return mode === "line" && lineSeriesCount >= 1;
-                    if (field.key === "lineDownColor") return mode === "line" && lineSeriesCount >= 1;
+                    if (field.key === "barPrimaryColor") return mode === "bar";
+                    if (field.key === "barSecondaryColor") return mode === "bar";
+                    if (field.key === "barTertiaryColor") return mode === "bar";
+                    if (field.key === "lineUpColor") return mode === "line";
+                    if (field.key === "lineDownColor") return mode === "line";
+                    if (field.key === "lineThirdColor") return mode === "line";
                     return true;
                   });
                 }
@@ -3763,6 +3792,10 @@ export default function SceneEditModal({
                           isBloombergTemplate &&
                           currentLayoutId === "terminal_dataviz" &&
                           field.key === "chartType";
+                        const isNewscastChartTypeField =
+                          isNewscastTemplate &&
+                          currentLayoutId === "data_visualization" &&
+                          field.key === "chartType";
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -3770,7 +3803,7 @@ export default function SceneEditModal({
                               value={sel}
                               onChange={(e) => {
                                 const nextChartType = e.target.value;
-                                if (isLaDucChartTypeField || isBloombergChartTypeField) {
+                                if (isLaDucChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
                                   const concrete =
                                     nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
                                       ? (nextChartType as "line" | "bar" | "histogram")
