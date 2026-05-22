@@ -2101,6 +2101,7 @@ export default function SceneEditModal({
   const chartImportCallbackRef = useRef<((t: { headers: string[]; rows: string[][] }) => void) | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
   const localImageInputRef = useRef<HTMLInputElement>(null);
+  const chartFileInputRef = useRef<HTMLInputElement>(null);
   const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
   const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
   const imageAdjustPanRef = useRef<{
@@ -5351,9 +5352,10 @@ export default function SceneEditModal({
           </div>
         )}
 
-        {/* Drag-and-drop import zone */}
+        {/* Drag-and-drop / click-to-upload import zone */}
         <div
-          className={`mx-3 sm:mx-4 mt-3 flex-shrink-0 rounded-lg border-2 border-dashed px-4 py-3 flex items-center gap-3 transition-colors ${chartDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-gray-50"}`}
+          className={`mx-3 sm:mx-4 mt-3 flex-shrink-0 rounded-lg border-2 border-dashed px-4 py-3 flex items-center gap-3 transition-colors cursor-pointer ${chartDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-gray-50 hover:border-purple-300 hover:bg-purple-50/40"}`}
+          onClick={() => chartFileInputRef.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setChartDropOver(true); }}
           onDragLeave={() => setChartDropOver(false)}
           onDrop={(e) => {
@@ -5368,8 +5370,19 @@ export default function SceneEditModal({
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
           <span className={`text-[11px] transition-colors ${chartDropOver ? "text-purple-600" : "text-gray-400"}`}>
-            {chartDropOver ? "Release to import" : <>Drop a <strong className="font-medium text-gray-500">.csv</strong> or <strong className="font-medium text-gray-500">.xlsx</strong> file here to import</>}
+            {chartDropOver ? "Release to import" : <>Drop a <strong className="font-medium text-gray-500">.csv</strong> or <strong className="font-medium text-gray-500">.xlsx</strong> file here to import, or <strong className="font-medium text-purple-500">click to browse</strong></>}
           </span>
+          <input
+            ref={chartFileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls,text/csv"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleChartFileImport(file);
+              e.target.value = "";
+            }}
+          />
         </div>
 
         {/* Table area */}
