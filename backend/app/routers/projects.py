@@ -2544,6 +2544,60 @@ async def regenerate_scene(
         db.refresh(scene)
         return scene
 
+    # Pure layout switch for built-in templates: no description → skip AI, just swap layout
+    is_builtin_layout_switch = (
+        not is_custom_template(project.template)
+        and normalized_layout
+        and not has_description
+    )
+    if is_builtin_layout_switch:
+        descriptor = current_descriptor if current_descriptor else {}
+        descriptor["layout"] = normalized_layout
+        # Seed example chart data when switching into a chart layout with no existing chartTable
+        _chart_layouts = {"data_visualization", "terminal_dataviz"}
+        if normalized_layout in _chart_layouts:
+            lp = descriptor.get("layoutProps") if isinstance(descriptor.get("layoutProps"), dict) else {}
+            existing_table = lp.get("chartTable")
+            has_data = (
+                isinstance(existing_table, dict)
+                and isinstance(existing_table.get("rows"), list)
+                and len(existing_table["rows"]) > 0
+            )
+            if not has_data:
+                lp = dict(lp)
+                lp["chartType"] = "bar"
+                lp["chartTable"] = {
+                    "headers": ["Sector", "Close", "Flow index", "Positioning"],
+                    "rows": [
+                        ["Tech", "324", "72", "41"],
+                        ["Energy", "308", "55", "36"],
+                        ["Healthcare", "315", "61", "39"],
+                        ["Financials", "298", "68", "44"],
+                        ["Semis", "318", "59", "33"],
+                    ],
+                }
+                descriptor["layoutProps"] = lp
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
+        if hasattr(scene, "display_text"):
+            scene.display_text = new_display_text
+        track_scene_edit(
+            db,
+            project_id=project_id,
+            scene_id=scene.id,
+            field_name="remotion_code",
+            old_value=old_remotion_code,
+            new_value=scene.remotion_code,
+            is_ai_assisted=False,
+            user_instruction=f"Layout switch to {normalized_layout}",
+        )
+        db.commit()
+        print(f"[REGENERATE] Layout switch → {normalized_layout} (no AI call)")
+
+        scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
+        rebuild_workspace(project, scenes, db)
+        db.refresh(scene)
+        return scene
+
     # Regenerate visual_description only if description is provided
     if has_description:
         from app.dspy_modules.visual_description import regenerate_visual_description

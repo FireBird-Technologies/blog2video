@@ -65,7 +65,8 @@
     "remark-gfm": "^4.0.1",
     "remotion": "4.0.434",
     "topojson-client": "^3.1.0",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/babel__standalone": "^7.1.9",
