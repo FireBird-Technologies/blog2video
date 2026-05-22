@@ -2021,6 +2021,8 @@ export default function SceneEditModal({
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
   const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(demoMode?.regenerateVoiceover ?? false);
+  // When true, the narration is spoken word-for-word (no AI rephrasing on regeneration).
+  const [matchNarrationExactly, setMatchNarrationExactly] = useState(true);
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
   const ENDING_SOCIALS_KEYS = [
     "instagram",
@@ -3000,7 +3002,8 @@ export default function SceneEditModal({
           "",
           regenerateVoiceover,
           keepLayout ? "__keep__" : (selectedLayout === "__auto__" ? undefined : selectedLayout || undefined),
-          selectedImageFile || undefined
+          selectedImageFile || undefined,
+          matchNarrationExactly
         );
         onSaved();
         onClose();
@@ -4507,7 +4510,14 @@ export default function SceneEditModal({
                 </h4>
                 <AutoGrowTextarea
                   value={aiNarration}
-                  onChange={(e) => setAiNarration(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setAiNarration(next);
+                    // Editing the narration implies the voiceover is now stale.
+                    if (next.trim() !== (scene.narration_text || "").trim()) {
+                      setRegenerateVoiceover(true);
+                    }
+                  }}
                   placeholder="Edit the narration that will be spoken in the voiceover..."
                   className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                   minRows={3}
@@ -4537,6 +4547,34 @@ export default function SceneEditModal({
                   />
                 </button>
               </div>
+
+              {regenerateVoiceover && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+                      Match narration exactly
+                    </h4>
+                    <p className="mt-0.5 text-[11px] text-gray-400">
+                      Speak the narration word-for-word, without AI rephrasing.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMatchNarrationExactly(!matchNarrationExactly)}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                      matchNarrationExactly ? "bg-purple-600" : "bg-gray-200"
+                    }`}
+                    role="switch"
+                    aria-checked={matchNarrationExactly}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        matchNarrationExactly ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
 
               <div ref={layoutRef} className="relative">
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">

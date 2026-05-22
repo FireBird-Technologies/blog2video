@@ -1265,7 +1265,8 @@ export const regenerateScene = (
   narrationText: string,
   regenerateVoiceover: boolean,
   layout?: string,
-  imageFile?: File
+  imageFile?: File,
+  voiceoverVerbatim: boolean = true
 ) => {
   const formData = new FormData();
   // Only append description if it has a value
@@ -1274,6 +1275,7 @@ export const regenerateScene = (
   }
   formData.append("narration_text", narrationText);
   formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
+  formData.append("voiceover_verbatim", voiceoverVerbatim ? "true" : "false");
   if (layout) formData.append("layout", layout);
   if (imageFile) formData.append("image", imageFile);
   
