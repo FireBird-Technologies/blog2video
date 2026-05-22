@@ -6439,4 +6439,507 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "bloghub-product-hunt-for-blogs",
+    title: "Introducing BlogHub: The Discovery Platform Built for Blogs and Publications",
+    description:
+      "BlogHub is a Product Hunt-style platform for blogs and publications. Get free backlinks, an SEO and AEO-optimized profile page, and community rankings that help early-stage writers get discovered.",
+    category: "Product updates",
+    heroImage: "/blog/blog-cover-bloghub-product-hunt-for-blogs.png",
+    heroImageAlt:
+      "BlogHub platform showing a ranked feed of blogs and publications with community upvotes and SEO-optimized profile pages.",
+    publishedAt: "2026-05-23",
+    readTime: "5 min read",
+    heroEyebrow: "Product updates",
+    heroTitle: "Your first posts deserve to be found. BlogHub fixes the discovery problem.",
+    heroDescription:
+      "After five years of building and studying publications, one pattern keeps showing up: great early content goes unread — not because it's bad, but because nobody knows the writer exists yet. BlogHub is built to change that.",
+    primaryKeyword: "product hunt for blogs",
+    keywordVariant: "blog discovery platform",
+    relatedPaths: [
+      "/blog-to-video",
+      "/blogs/whats-new-in-blog2video-six-features",
+      "/blogs/ai-linkedin-carousel-generator-from-existing-content",
+    ],
+    sections: [
+      {
+        heading: "The problem: early publications are invisible by default",
+        paragraphs: [
+          "After 5+ years of blogging, one thing became painfully clear: your first posts almost always go unnoticed. Not because the writing is weak — but because discoverability is a compounding advantage. Publications that already have readers get more readers. Publications starting from zero have almost no mechanism to break in.",
+          "Google takes months to index and rank new sites. Social algorithms reward accounts that already have engagement. Directories are cluttered with spam. There has never been a good platform purpose-built for early-stage publications to get legitimate visibility.",
+        ],
+      },
+      {
+        heading: "What is BlogHub?",
+        paragraphs: [
+          "BlogHub is a discovery platform for blogs and publications, designed the same way Product Hunt is designed for products: community-ranked, SEO-optimized, and built so quality rises to the top through reader support.",
+          "If you are starting or growing a publication, BlogHub gives you a structured way to get in front of readers who are actively looking for new things to follow — rather than waiting months for search traffic to compound.",
+        ],
+      },
+      {
+        heading: "Free backlinks to your publication and posts",
+        paragraphs: [
+          "Every publication listed on BlogHub gets a free backlink to the publication itself, plus up to five backlinks to individual blog posts.",
+          "These are real, indexed links from a domain built around discoverability. For a new publication that has almost no external links yet, even a small number of quality backlinks meaningfully changes how search engines understand and rank the site.",
+        ],
+      },
+      {
+        heading: "An SEO and AEO-optimized profile page",
+        paragraphs: [
+          "Each publication gets a dedicated profile page on BlogHub that is built to rank in Google search and to appear in AI-generated answers — sometimes called AEO, or Answer Engine Optimization.",
+          "As AI search tools like ChatGPT, Perplexity, and Claude increasingly surface recommendations in response to queries like 'what are the best newsletters about X,' a well-structured profile page on an authoritative directory is one of the most direct ways to appear in those results. BlogHub profile pages are structured for exactly this.",
+        ],
+      },
+      {
+        heading: "Community rankings that give quality a path upward",
+        paragraphs: [
+          "The ranked feed works like Product Hunt's: readers can upvote publications they genuinely find valuable, and quality rises through community support rather than paid placement or existing authority.",
+          "This creates a discovery flywheel. New publications that produce strong content can get real visibility the same week they launch, not after six months of SEO grinding.",
+        ],
+      },
+      {
+        heading: "Why BlogHub, and why now",
+        paragraphs: [
+          "Blog2Video was built to help creators repurpose written content into video — expanding distribution to channels beyond the blog itself. BlogHub tackles the earlier problem: getting the blog noticed in the first place.",
+          "Both tools are built around the same underlying belief: content that took time and care to produce deserves more than an empty analytics dashboard.",
+          "If you are building a publication from zero, BlogHub is the fastest way to get indexed backlinks, a discoverable profile, and an early audience — without paying for ads or waiting months for organic traction.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your publication on BlogHub",
+      },
+    ],
+    faq: [
+      {
+        question: "Is BlogHub free to list a publication?",
+        answer:
+          "Yes. Listing your publication on BlogHub is free. You get a profile page, backlinks to your publication and up to five blog posts, and community ranking — all at no cost.",
+      },
+      {
+        question: "What makes BlogHub different from other blog directories?",
+        answer:
+          "Most blog directories are static lists with little SEO value and no community layer. BlogHub is built like Product Hunt: community-ranked so quality rises, and profile pages are structured for both Google search and AI answer engines, meaning your publication can appear in AI-generated recommendations, not just traditional search results.",
+      },
+      {
+        question: "What does AEO-optimized mean for my profile page?",
+        answer:
+          "AEO stands for Answer Engine Optimization — structuring content so that AI tools like ChatGPT, Perplexity, and Claude can surface it in response to conversational queries. BlogHub profile pages are built with structured data and clear topical signals so that when someone asks an AI 'what are the best blogs about X,' your publication has a real chance of appearing.",
+      },
+      {
+        question: "Who is BlogHub built for?",
+        answer:
+          "BlogHub is built for writers and publications that are in early growth — blogs with real content but not yet enough authority or distribution to be easily discovered. If you have been publishing for a while and still feel invisible, BlogHub gives you a structured mechanism to change that.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Introducing BlogHub: The Discovery Platform Built for Blogs and Publications",
+        angle:
+          "Target writers searching for blog directories, backlink sources for new blogs, and 'how to get my blog discovered' — position BlogHub as the first purpose-built discovery layer for publications.",
+      },
+      {
+        channel: "video",
+        title: "BlogHub: Product Hunt for blogs — here's how it works",
+        angle:
+          "Walk through listing a publication, show the profile page, explain the backlink structure, and demonstrate how community ranking works — keep it under three minutes.",
+      },
+      {
+        channel: "substack",
+        title: "I built a discovery platform for publications — here's the problem it solves",
+        angle:
+          "First-person founder note to newsletter readers who have experienced the early-publication invisibility problem firsthand. Lead with the pain, then introduce the solution.",
+      },
+      {
+        channel: "medium",
+        title: "Why your blog goes unread in year one — and what BlogHub does about it",
+        angle:
+          "Longer analytical piece on the discoverability gap for early publications, positioning BlogHub as the structural fix rather than another growth hack.",
+      },
+    ],
+  },
+  {
+    slug: "claude-chat-to-video",
+    title: "How to Turn Your Claude AI Chat Into a Video",
+    description:
+      "Convert a Claude conversation into a structured, shareable video in minutes. Share the chat link first, then paste it into Blog2Video.",
+    category: "AI workflow",
+    heroImage: "/blog/blog-cover-claude-chat-to-video.png",
+    heroImageAlt:
+      "A Claude AI chat conversation being transformed into a polished explainer video with structured slides.",
+    publishedAt: "2026-05-22",
+    readTime: "5 min read",
+    heroEyebrow: "AI workflow",
+    heroTitle: "Your best Claude answers deserve to be more than a chat thread.",
+    heroDescription:
+      "If you asked Claude something worth keeping — a deep research answer, a step-by-step breakdown, a strategic explainer — you can turn that conversation into a shareable video in minutes, without rewriting a word.",
+    primaryKeyword: "claude chat to video",
+    keywordVariant: "convert claude conversation to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/chatgpt-conversation-to-video",
+      "/blogs/gemini-chat-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why Claude chats make great video source material",
+        paragraphs: [
+          "Claude is unusually good at structured reasoning. When you ask it to explain a concept, break down a decision, or walk through a process, the answer often comes back with natural headings, logical steps, and a clear narrative arc.",
+          "That structure is exactly what a good explainer video needs. Instead of re-drafting the content from scratch, you can capture the conversation and let Blog2Video turn that logic into scenes.",
+        ],
+      },
+      {
+        heading: "Step 1: Share your Claude chat to get a public link",
+        paragraphs: [
+          "Claude conversations are private by default. Before Blog2Video can read the content, you need to make the chat public.",
+          "Open the conversation in Claude.ai, then click the Share button in the top-right corner of the chat. Toggle the link to 'Public' and copy the URL. That link is what you will paste into Blog2Video.",
+        ],
+        bullets: [
+          "Open your Claude conversation at claude.ai",
+          "Click the Share icon in the top-right corner",
+          "Set visibility to Public and copy the URL",
+        ],
+      },
+      {
+        heading: "Step 2: Paste the URL into Blog2Video",
+        paragraphs: [
+          "Go to Blog2Video and paste the shared Claude URL into the input field. Blog2Video fetches the conversation, reads the message thread, and extracts the key points, structure, and explanations from Claude's responses.",
+          "You do not need to copy-paste text manually or reformat anything. The tool works directly from the public URL.",
+        ],
+      },
+      {
+        heading: "Step 3: Generate and export your video",
+        paragraphs: [
+          "Blog2Video builds a scene-by-scene video from the conversation content. Each major point in Claude's answer becomes a slide, keeping the logical flow intact.",
+          "Pick a template that matches the tone — technical, educational, professional — then export as MP4, PDF, PowerPoint, or PNG slides. The same generation run gives you a video for YouTube, slides for LinkedIn, and a deck for wherever else it needs to go.",
+        ],
+      },
+      {
+        heading: "What Claude chats work best",
+        paragraphs: [
+          "The highest-value chats to convert are ones where Claude gave you a thorough, structured answer: research breakdowns, how-to walkthroughs, comparison analyses, code explanations, strategic plans, or concept deep dives.",
+          "If you have ever re-read a Claude thread and thought 'I should turn this into a post,' the video path is faster.",
+        ],
+        bullets: [
+          "Research summaries and topic deep dives",
+          "Step-by-step how-to explanations",
+          "Comparison and pros-and-cons breakdowns",
+          "Technical concept explainers",
+          "Strategic plans and decision frameworks",
+        ],
+      },
+      {
+        heading: "Try it now",
+        paragraphs: [
+          "Share a Claude conversation, copy the link, and paste it into Blog2Video. The video is ready in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert Claude chat to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Does my Claude chat need to be public for Blog2Video to read it?",
+        answer:
+          "Yes. Claude conversations are private by default. You need to click Share inside the conversation and set the link to Public before Blog2Video can access the content. You can remove public access again after generating the video.",
+      },
+      {
+        question: "Can Blog2Video read both sides of the conversation — my questions and Claude's answers?",
+        answer:
+          "Blog2Video focuses on the content in the conversation and structures the key points into video scenes. Claude's detailed answers typically form the bulk of the useful content, and the tool is optimized to extract and sequence those clearly.",
+      },
+      {
+        question: "What video formats can I export from a Claude chat?",
+        answer:
+          "You can export as MP4 video, PDF slides, PowerPoint, or PNG frames — the same options available for any Blog2Video project. That means one Claude conversation can produce a YouTube video, a LinkedIn carousel PDF, and a shareable deck from one generation run.",
+      },
+      {
+        question: "Does this work with long Claude conversations?",
+        answer:
+          "Yes. Blog2Video reads the full conversation and extracts the most structured, informative content. Longer threads that cover multiple topics can be trimmed or split into focused scenes during the editing step.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn Your Claude AI Chat Into a Video",
+        angle:
+          "Capture searches from people who get great Claude answers and want a repeatable way to repurpose them as video or slides.",
+      },
+      {
+        channel: "video",
+        title: "Claude chat → Blog2Video: turn AI answers into shareable videos",
+        angle:
+          "Screen-record the three-step flow: open Claude, hit Share, paste URL into Blog2Video, watch the video generate.",
+      },
+      {
+        channel: "substack",
+        title: "The fastest way to repurpose a Claude conversation",
+        angle:
+          "Written-first newsletter readers who use Claude for research will recognize the value immediately — position it as a distribution unlock.",
+      },
+      {
+        channel: "medium",
+        title: "Stop letting great Claude answers die in a chat tab",
+        angle:
+          "Frame the post around the waste of letting a well-structured AI answer live only as a conversation, and show the three-step path to video.",
+      },
+    ],
+  },
+  {
+    slug: "chatgpt-conversation-to-video",
+    title: "How to Turn a ChatGPT Conversation Into a Video",
+    description:
+      "Convert a ChatGPT chat into a structured explainer video. Share the conversation link first, then paste it into Blog2Video to generate slides and MP4 in minutes.",
+    category: "AI workflow",
+    heroImage: "/blog/blog-cover-chatgpt-conversation-to-video.png",
+    heroImageAlt:
+      "A ChatGPT conversation thread being converted into a polished video with structured slides and narration.",
+    publishedAt: "2026-05-22",
+    readTime: "5 min read",
+    heroEyebrow: "AI workflow",
+    heroTitle: "Great ChatGPT answers shouldn't live and die in a browser tab.",
+    heroDescription:
+      "If ChatGPT helped you think through a problem, draft a strategy, or break down a complex topic, that conversation is already a video script. Here's how to turn it into one.",
+    primaryKeyword: "chatgpt conversation to video",
+    keywordVariant: "convert chatgpt chat to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/claude-chat-to-video",
+      "/blogs/gemini-chat-to-video",
+    ],
+    sections: [
+      {
+        heading: "The problem with great ChatGPT answers",
+        paragraphs: [
+          "ChatGPT regularly produces answers that are genuinely useful: detailed explanations, structured frameworks, step-by-step walkthroughs, and comparative analyses. The problem is that those answers stay locked inside a conversation thread that almost no one else will ever see.",
+          "Converting a ChatGPT conversation to video solves that. Instead of starting from scratch or manually reformatting the content, you can take the structure that already exists in the chat and publish it as a shareable video.",
+        ],
+      },
+      {
+        heading: "Step 1: Share your ChatGPT conversation",
+        paragraphs: [
+          "ChatGPT conversations are private by default, so the first step is generating a public link.",
+          "Open the conversation in ChatGPT, click the Share button (the upload icon near the top of the chat), and choose 'Copy link.' That public URL is what you will paste into Blog2Video. The link can be revoked any time after you finish generating the video.",
+        ],
+        bullets: [
+          "Open your conversation at chatgpt.com",
+          "Click the Share icon at the top of the thread",
+          "Select 'Copy link' to get the public URL",
+        ],
+      },
+      {
+        heading: "Step 2: Paste the link into Blog2Video",
+        paragraphs: [
+          "Head to Blog2Video and paste your ChatGPT share link into the input. Blog2Video fetches the conversation, parses the thread, and structures the key insights, steps, and explanations into video-ready scenes.",
+          "No copy-pasting text, no manual outlining. The extraction happens automatically from the public URL.",
+        ],
+      },
+      {
+        heading: "Step 3: Choose a template and export",
+        paragraphs: [
+          "After Blog2Video generates scenes from the conversation, pick a visual template that fits the content tone. Technical answers work well with clean, minimal layouts; strategy and business content fits presentation-style templates.",
+          "Export as MP4 for YouTube or social video, PDF for a shareable slide deck, PowerPoint for editing, or PNG for individual carousel frames. One ChatGPT chat, multiple distribution formats.",
+        ],
+      },
+      {
+        heading: "Best ChatGPT chats to convert",
+        paragraphs: [
+          "The conversations that produce the highest-quality videos are ones where ChatGPT gave a thorough, well-organized response. Short one-liners rarely have enough substance; rich, multi-paragraph answers with internal structure are ideal.",
+        ],
+        bullets: [
+          "How-to guides and tutorials ChatGPT walked you through",
+          "Research summaries and literature reviews",
+          "Business strategy or decision frameworks",
+          "Technical explanations of tools, concepts, or systems",
+          "Comparison tables and pros-and-cons breakdowns",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "Share a ChatGPT conversation, copy the public link, and paste it into Blog2Video. The video generates in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert ChatGPT chat to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to share my ChatGPT conversation publicly to use Blog2Video?",
+        answer:
+          "Yes. ChatGPT conversations are private until you generate a share link. Click the Share icon inside the conversation and copy the public link — that is what Blog2Video reads. You can revoke the public link after your video is generated.",
+      },
+      {
+        question: "Will Blog2Video use my questions and ChatGPT's answers, or just one side?",
+        answer:
+          "Blog2Video reads the full conversation and structures the informative content into scenes. In practice, ChatGPT's detailed answers form the basis of the video content, though your questions provide context that helps determine the scene flow.",
+      },
+      {
+        question: "Can I convert a long ChatGPT conversation with many topics?",
+        answer:
+          "Yes, though longer conversations that span many unrelated topics work best when you focus on one thread or section. Blog2Video will extract the most structured content and you can trim or reorder scenes before exporting.",
+      },
+      {
+        question: "What formats can I download after converting a ChatGPT chat?",
+        answer:
+          "MP4 video, PDF slides, PowerPoint, and PNG frames. This means one ChatGPT conversation can produce a YouTube video, a LinkedIn carousel, and a shareable presentation from a single generation run.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a ChatGPT Conversation Into a Video",
+        angle:
+          "Target users who regularly get valuable ChatGPT answers and want a repeatable repurposing workflow without manual reformatting.",
+      },
+      {
+        channel: "video",
+        title: "ChatGPT chat → Blog2Video: the three-step conversion",
+        angle:
+          "Screen-record the exact flow: open ChatGPT, hit Share, paste the URL into Blog2Video, export the result — under two minutes of actual work.",
+      },
+      {
+        channel: "substack",
+        title: "How I repurpose ChatGPT threads into video in three steps",
+        angle:
+          "First-person workflow note for newsletter writers who use ChatGPT for research and want video distribution without a separate production step.",
+      },
+      {
+        channel: "medium",
+        title: "Stop leaving your best ChatGPT answers in a tab no one will read",
+        angle:
+          "Position the share-link-to-video flow as the simplest possible repurposing path for AI-assisted content creators.",
+      },
+    ],
+  },
+  {
+    slug: "gemini-chat-to-video",
+    title: "How to Turn a Google Gemini Chat Into a Video",
+    description:
+      "Convert a Gemini conversation into a shareable explainer video. Share the Gemini chat link first, then paste it into Blog2Video to generate structured slides and MP4.",
+    category: "AI workflow",
+    heroImage: "/blog/blog-cover-gemini-chat-to-video.png",
+    heroImageAlt:
+      "A Google Gemini AI conversation being converted into a structured video with professional slides.",
+    publishedAt: "2026-05-22",
+    readTime: "5 min read",
+    heroEyebrow: "AI workflow",
+    heroTitle: "Gemini gave you a great answer. Now make it a video.",
+    heroDescription:
+      "Google Gemini produces thorough, well-structured explanations. If you have a Gemini conversation worth keeping, you can turn it into a video in three steps — no rewriting required.",
+    primaryKeyword: "gemini chat to video",
+    keywordVariant: "convert gemini conversation to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/claude-chat-to-video",
+      "/blogs/chatgpt-conversation-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why Gemini conversations translate well to video",
+        paragraphs: [
+          "Google Gemini tends to give answers that are detailed, factual, and well-structured — especially for research questions, technical topics, and anything that benefits from Google's knowledge integration. That combination of structure and depth is exactly what makes a strong explainer video.",
+          "Instead of taking notes from a Gemini answer and building a video from scratch, you can route the conversation directly into Blog2Video and let the existing structure do the work.",
+        ],
+      },
+      {
+        heading: "Step 1: Share your Gemini conversation to get a public link",
+        paragraphs: [
+          "Gemini conversations are private by default. To let Blog2Video read the content, you need to create a shareable link first.",
+          "Open the conversation at gemini.google.com, click the Share and Export button (the icon in the top-right area of the chat), and choose 'Create a public link.' Copy that URL — it is what you will paste into Blog2Video. You can disable the link at any time from your Gemini settings.",
+        ],
+        bullets: [
+          "Open your conversation at gemini.google.com",
+          "Click Share and Export near the top of the chat",
+          "Choose 'Create a public link' and copy the URL",
+        ],
+      },
+      {
+        heading: "Step 2: Paste the Gemini link into Blog2Video",
+        paragraphs: [
+          "Go to Blog2Video and paste the shared Gemini URL into the input field. Blog2Video fetches the conversation and structures the key points, explanations, and steps from Gemini's responses into video-ready scenes.",
+          "The extraction is automatic — no text editing, no manual outlining.",
+        ],
+      },
+      {
+        heading: "Step 3: Generate scenes, pick a template, and export",
+        paragraphs: [
+          "Blog2Video turns the conversation into a sequence of scenes, each covering one key idea or step. Choose a visual template that fits the content: clean and minimal for technical topics, bold and structured for educational content.",
+          "Export as MP4 for video platforms, PDF or PowerPoint for presentation use, or PNG slides for LinkedIn carousels. One Gemini conversation becomes assets for every channel in one step.",
+        ],
+      },
+      {
+        heading: "The Gemini answers worth converting",
+        paragraphs: [
+          "The best source material is any Gemini answer where the response is thorough and logically organized. Quick factual answers are thinner; deep explanations, multi-step processes, and comparative analyses generate the richest video content.",
+        ],
+        bullets: [
+          "Research questions with detailed multi-paragraph answers",
+          "How-to and step-by-step guides",
+          "Concept explanations with definitions and examples",
+          "Comparisons between tools, approaches, or products",
+          "Summaries of reports, topics, or current events",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "Share a Gemini conversation, copy the public link, and paste it into Blog2Video. Your video is ready in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert Gemini chat to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to make my Gemini chat public before using Blog2Video?",
+        answer:
+          "Yes. Gemini conversations are private until you generate a share link. Inside Gemini, click Share and Export, then 'Create a public link.' Paste that URL into Blog2Video. You can turn off the public link from your Gemini settings once the video is generated.",
+      },
+      {
+        question: "Can Blog2Video handle Gemini's longer, research-style answers?",
+        answer:
+          "Yes. Gemini often gives thorough multi-section answers, and Blog2Video is designed to handle that length. Each major section or point becomes its own scene, keeping the detail intact while giving the video a clear structure.",
+      },
+      {
+        question: "What if my Gemini conversation covers multiple unrelated topics?",
+        answer:
+          "You can still convert the full conversation, then trim or reorder scenes before exporting. For conversations that span many topics, it often works better to focus on a single thread — one Gemini answer — and run it as its own video project.",
+      },
+      {
+        question: "What can I export from a Gemini chat converted with Blog2Video?",
+        answer:
+          "MP4 video, PDF, PowerPoint, and PNG slides. The same conversation can produce a YouTube explainer, a LinkedIn PDF carousel, and a shareable deck without any duplicate work.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Google Gemini Chat Into a Video",
+        angle:
+          "Capture search intent from Gemini users who want to repurpose AI conversations as video without a separate production workflow.",
+      },
+      {
+        channel: "video",
+        title: "Gemini chat → Blog2Video: share link to video in three steps",
+        angle:
+          "Screen-record the workflow: open Gemini, click Share, paste the URL into Blog2Video, export — keep it under ninety seconds to show how fast the turnaround is.",
+      },
+      {
+        channel: "substack",
+        title: "Gemini gave me a great research answer — here's how I turned it into a video",
+        angle:
+          "First-person case study for newsletter writers who use Gemini for research and want an effortless path from AI answer to distributed video content.",
+      },
+      {
+        channel: "medium",
+        title: "The easiest way to repurpose a Gemini conversation as a video",
+        angle:
+          "Position the workflow as the missing distribution step for Gemini power users — the answer already exists, the video is three steps away.",
+      },
+    ],
+  },
 ];
