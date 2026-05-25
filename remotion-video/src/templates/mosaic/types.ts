@@ -33,6 +33,8 @@ export interface MosaicLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+  /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
+  ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
   // Mosaic tile customization
   mosaicPattern?: "linear" | "diagonal" | "center" | "scatter";
   mosaicIntensity?: number;

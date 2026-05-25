@@ -2031,12 +2031,30 @@ export default function SceneEditModal({
     linkedin: { enabled: false, label: "LinkedIn" },
     tiktok: { enabled: false, label: "TikTok" },
   };
+  type EndingSocialKey = typeof ENDING_SOCIALS_KEYS[number];
+  type CtaDraft = {
+    ctaButtonText: string;
+    websiteLink: string;
+    showWebsiteButton: boolean;
+  };
+  const MAX_CTAS = 3;
+  const makeDefaultCta = (): CtaDraft => ({
+    ctaButtonText: "",
+    websiteLink: "",
+    showWebsiteButton: true,
+  });
+  // Multi-CTA: array of 1..3 CTAs. The socials list below is global to the scene
+  // (matches the original single-CTA UX). Each CTA is just a pill + URL.
+  const [ctas, setCtas] = useState<CtaDraft[]>([makeDefaultCta()]);
   const [endingSocials, setEndingSocials] = useState<
-    Record<typeof ENDING_SOCIALS_KEYS[number], { enabled: boolean; label: string }>
+    Record<EndingSocialKey, { enabled: boolean; label: string }>
   >(ENDING_SOCIALS_DEFAULT);
-  const [endingShowWebsiteButton, setEndingShowWebsiteButton] = useState(true);
-  const [endingWebsiteLink, setEndingWebsiteLink] = useState("");
-  const [endingCtaButtonText, setEndingCtaButtonText] = useState("");
+  // Derived single-CTA mirror, fed from ctas[0]. Renderers that still read the
+  // flat layoutProps fields (most crafted templates) see this; the new ctas array
+  // is also persisted so updated renderers can fan out into columns.
+  const endingShowWebsiteButton = ctas[0]?.showWebsiteButton ?? true;
+  const endingWebsiteLink = ctas[0]?.websiteLink ?? "";
+  const endingCtaButtonText = ctas[0]?.ctaButtonText ?? "";
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
@@ -2421,37 +2439,59 @@ export default function SceneEditModal({
     );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
-      const lpSocials = (lpCopy as Record<string, unknown>).socials;
-      if (
-        lpSocials &&
-        typeof lpSocials === "object" &&
-        !Array.isArray(lpSocials)
-      ) {
+      const projectUrl = (project.blog_url || "").trim();
+      const fallbackUrl =
+        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
+
+      const lpRecord = lpCopy as Record<string, unknown>;
+
+      // --- Socials (global to the scene, kept as in the original UX) ---
+      const lpSocials = lpRecord.socials;
+      if (lpSocials && typeof lpSocials === "object" && !Array.isArray(lpSocials)) {
         setEndingSocials(lpSocials as Record<
-          typeof ENDING_SOCIALS_KEYS[number],
+          EndingSocialKey,
           { enabled: boolean; label: string }
         >);
       } else {
         setEndingSocials(ENDING_SOCIALS_DEFAULT);
       }
-      const lpShowWebsiteButton = (lpCopy as Record<string, unknown>).showWebsiteButton;
-      setEndingShowWebsiteButton(lpShowWebsiteButton !== false);
-      const lpWebsiteLink = (lpCopy as Record<string, unknown>).websiteLink;
-      const projectUrl = (project.blog_url || "").trim();
-      const fallbackUrl =
-        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
-      const normalizedWebsiteLink =
-        typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
-          ? lpWebsiteLink.trim()
-          : fallbackUrl;
-      setEndingWebsiteLink(normalizedWebsiteLink);
-      const lpCta = (lpCopy as Record<string, unknown>).ctaButtonText;
-      setEndingCtaButtonText(typeof lpCta === "string" ? lpCta : "");
+
+      // --- CTA cards: prefer the new `ctas` array, else fall back to the flat fields ---
+      const lpCtasRaw = lpRecord.ctas;
+      const hydratedFromArray =
+        Array.isArray(lpCtasRaw) && lpCtasRaw.length > 0
+          ? lpCtasRaw
+              .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
+              .slice(0, MAX_CTAS)
+              .map((raw): CtaDraft => ({
+                ctaButtonText: typeof raw.ctaButtonText === "string" ? raw.ctaButtonText : "",
+                websiteLink: typeof raw.websiteLink === "string" ? raw.websiteLink : "",
+                showWebsiteButton: raw.showWebsiteButton !== false,
+              }))
+          : null;
+
+      if (hydratedFromArray && hydratedFromArray.length > 0) {
+        setCtas(hydratedFromArray);
+      } else {
+        // Legacy fallback: build a single CTA card from the flat fields.
+        const lpShowWebsiteButton = lpRecord.showWebsiteButton;
+        const lpWebsiteLink = lpRecord.websiteLink;
+        const lpCta = lpRecord.ctaButtonText;
+        const normalizedWebsiteLink =
+          typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
+            ? lpWebsiteLink.trim()
+            : fallbackUrl;
+        setCtas([
+          {
+            ctaButtonText: typeof lpCta === "string" ? lpCta : "",
+            websiteLink: normalizedWebsiteLink,
+            showWebsiteButton: lpShowWebsiteButton !== false,
+          },
+        ]);
+      }
     } else {
+      setCtas([makeDefaultCta()]);
       setEndingSocials(ENDING_SOCIALS_DEFAULT);
-      setEndingShowWebsiteButton(true);
-      setEndingWebsiteLink("");
-      setEndingCtaButtonText("");
     }
     // Initialize structured content for custom templates
     let scInit: Record<string, unknown> = {};
@@ -2677,10 +2717,19 @@ export default function SceneEditModal({
             }
             if (isEndingScene) {
               desc.ctaProps = {
+                // Socials are global to the scene (matches original UX).
                 socials: endingSocials,
+                // Legacy single-CTA mirror (from ctas[0]) so renderers that haven't
+                // opted in to `ctas` still work.
                 showWebsiteButton: endingShowWebsiteButton,
                 websiteLink: (endingWebsiteLink || "").trim(),
                 ctaButtonText: (endingCtaButtonText || "").trim(),
+                // New multi-CTA array (up to 3). Each CTA is just pill + URL.
+                ctas: ctas.map((c) => ({
+                  ctaButtonText: (c.ctaButtonText || "").trim(),
+                  websiteLink: (c.websiteLink || "").trim(),
+                  showWebsiteButton: c.showWebsiteButton,
+                })),
               };
             }
             remotionCode = JSON.stringify(desc);
@@ -2846,10 +2895,18 @@ export default function SceneEditModal({
               delete lp.imageFocusX;
               delete lp.imageFocusY;
               delete lp.imageZoom;
+              // Socials are global to the scene.
               lp.socials = endingSocials;
+              // Legacy single-CTA mirror (from ctas[0]) — crafted layouts still read these flat fields.
               lp.showWebsiteButton = endingShowWebsiteButton;
               lp.websiteLink = (endingWebsiteLink || "").trim();
               lp.ctaButtonText = (endingCtaButtonText || "").trim();
+              // New multi-CTA array — crafted layouts can opt-in to render this later.
+              lp.ctas = ctas.map((c) => ({
+                ctaButtonText: (c.ctaButtonText || "").trim(),
+                websiteLink: (c.websiteLink || "").trim(),
+                showWebsiteButton: c.showWebsiteButton,
+              }));
             } else if (zoomToSave !== undefined) {
               lp.imageZoom = zoomToSave;
             }
@@ -3356,43 +3413,77 @@ export default function SceneEditModal({
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               {(() => {
                 if (isEndingScene) {
+                  const updateCta = (idx: number, patch: Partial<CtaDraft>) => {
+                    setCtas((prev) =>
+                      prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
+                    );
+                  };
+                  const removeCta = (idx: number) => {
+                    setCtas((prev) =>
+                      prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx),
+                    );
+                  };
+                  const addCta = () => {
+                    setCtas((prev) =>
+                      prev.length >= MAX_CTAS ? prev : [...prev, makeDefaultCta()],
+                    );
+                  };
                   return (
                     <div className="space-y-3">
                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                         Social media Links
                       </h4>
                       <div className="space-y-3">
-                        <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-medium text-gray-800">
-                              Call to Action Button
+                        {ctas.map((cta, idx) => (
+                          <div
+                            key={idx}
+                            className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-medium text-gray-800">
+                                {idx === 0 ? "Call to Action Button" : `Call to Action Button ${idx + 1}`}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateCta(idx, { showWebsiteButton: !cta.showWebsiteButton })
+                                  }
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                    cta.showWebsiteButton ? "bg-purple-600" : "bg-gray-200"
+                                  }`}
+                                  role="switch"
+                                  aria-checked={cta.showWebsiteButton}
+                                  aria-label="Toggle website call to action"
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                      cta.showWebsiteButton ? "translate-x-4" : "translate-x-0"
+                                    }`}
+                                  />
+                                </button>
+                                {idx > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeCta(idx)}
+                                    className="text-gray-400 hover:text-red-500 text-base leading-none w-5 h-5 flex items-center justify-center"
+                                    aria-label={`Remove CTA ${idx + 1}`}
+                                  >
+                                    ×
+                                  </button>
+                                ) : null}
+                              </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setEndingShowWebsiteButton((prev) => !prev)}
-                              className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
-                                endingShowWebsiteButton ? "bg-purple-600" : "bg-gray-200"
-                              }`}
-                              role="switch"
-                              aria-checked={endingShowWebsiteButton}
-                              aria-label="Toggle website call to action"
-                            >
-                              <span
-                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                                  endingShowWebsiteButton ? "translate-x-4" : "translate-x-0"
-                                }`}
-                              />
-                            </button>
-                          </div>
-                          <div className="space-y-2">
                             <div>
                               <label className="block text-[11px] font-medium text-gray-500 mb-1">
                                 CTA button label
                               </label>
                               <input
                                 type="text"
-                                value={endingCtaButtonText}
-                                onChange={(e) => setEndingCtaButtonText(e.target.value)}
+                                value={cta.ctaButtonText}
+                                onChange={(e) =>
+                                  updateCta(idx, { ctaButtonText: e.target.value })
+                                }
                                 className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 placeholder="e.g. Read the full article"
                               />
@@ -3400,31 +3491,41 @@ export default function SceneEditModal({
                                 Short text on the pill above the link (matches the project font in the video).
                               </p>
                             </div>
+                            {cta.showWebsiteButton ? (
+                              <div>
+                                <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                  Website URL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={cta.websiteLink}
+                                  onChange={(e) =>
+                                    updateCta(idx, { websiteLink: e.target.value })
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                  placeholder="https://example.com/article"
+                                />
+                                <p className="mt-1 text-[11px] text-gray-500">
+                                  Shown under the CTA pill when the toggle is on.
+                                </p>
+                              </div>
+                            ) : null}
                           </div>
-                          {endingShowWebsiteButton ? (
-                            <div>
-                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                                Website URL
-                              </label>
-                              <input
-                                type="text"
-                                value={endingWebsiteLink}
-                                onChange={(e) => setEndingWebsiteLink(e.target.value)}
-                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                placeholder="https://example.com/article"
-                              />
-                              <p className="mt-1 text-[11px] text-gray-500">
-                                Shown under the CTA pill when the toggle is on.
-                              </p>
-                            </div>
-                          ) : null}
-                        </div>
+                        ))}
+                        {ctas.length < MAX_CTAS ? (
+                          <button
+                            type="button"
+                            onClick={addCta}
+                            className="w-full px-3 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 border border-dashed border-gray-300 hover:border-purple-400 rounded-lg bg-white/50 transition-colors"
+                          >
+                            + Add another CTA
+                          </button>
+                        ) : null}
                         {ENDING_SOCIALS_KEYS.map((k) => {
                           const item = endingSocials[k];
                           const enabled = Boolean(item?.enabled ?? false);
                           const label = (item?.label ?? ENDING_SOCIALS_DEFAULT[k].label) as string;
                           const platformLabel = ENDING_SOCIALS_DEFAULT[k].label;
-                          const platformInitials = platformLabel.slice(0, 2).toUpperCase();
                           return (
                             <div key={k} className="space-y-2">
                               <div className="flex items-center gap-3">
