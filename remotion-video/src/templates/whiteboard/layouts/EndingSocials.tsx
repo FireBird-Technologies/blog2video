@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } fr
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
+import { resolveCtas } from "../../shared/resolveCtas";
 
 export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
   title,
@@ -11,6 +12,7 @@ export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+  ctas,
   accentColor,
   bgColor,
   textColor,
@@ -49,10 +51,17 @@ const legSway = Math.cos(frame * motionSpeed) * 4 * presentProgress;
 const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
 
   const subtext = (narration ?? "").trim();
-  const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   const markerFont = (fontFamily ?? "").trim() || "'Patrick Hand', system-ui, sans-serif";
+
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const firstCard = cards[0];
+  const extraCards = cards.slice(1);
+  const showWebsiteCta = !!firstCard;
+  const resolvedCta = firstCard?.ctaButtonText.trim() || "Get started";
+  const resolvedWebsiteLink = firstCard?.websiteLink ?? "";
 
   // --- Stickman Bone Map ---
   const hipX = 50 + legSway;
@@ -202,6 +211,59 @@ const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
                 marginTop: -8,
               }}
             />
+          </div>
+        ) : null}
+
+        {/* Extra CTA cards (cards 2 & 3) — plain pills without the stickman */}
+        {extraCards.length > 0 ? (
+          <div style={{
+            marginTop: 24,
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "flex-start",
+            gap: p ? 18 : 28,
+            opacity: entrance,
+          }}>
+            {extraCards.map((card, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: p ? "10px 18px" : "12px 24px",
+                  border: `4px solid ${textColor || "#111"}`,
+                  borderRadius: 12,
+                  backgroundColor: "#FFFFFF",
+                  color: textColor || "#111",
+                  fontSize: p ? 22 : 24,
+                  fontWeight: 800,
+                  fontFamily: markerFont,
+                  boxShadow: `6px 6px 0px ${accentColor}44`,
+                }}>
+                  {card.ctaButtonText.trim() || "Get started"}
+                </div>
+                <div style={{
+                  fontSize: p ? 18 : 20,
+                  fontWeight: 600,
+                  color: textColor || "#111111",
+                  fontFamily: markerFont,
+                  maxWidth: 280,
+                  wordBreak: "break-word",
+                  textAlign: "center",
+                }}>
+                  {card.websiteLink}
+                </div>
+              </div>
+            ))}
           </div>
         ) : null}
 

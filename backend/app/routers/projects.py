@@ -2362,6 +2362,7 @@ async def regenerate_scene(
     description: Optional[str] = Form(None),
     narration_text: Optional[str] = Form(None),
     regenerate_voiceover: str = Form("false"),
+    voiceover_verbatim: str = Form("true"),
     layout: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     user: User = Depends(get_current_user),
@@ -2801,36 +2802,44 @@ async def regenerate_scene(
 
     # Regenerate voiceover only if requested
     should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
+    # When verbatim, the narration_text is sent to TTS word-for-word, skipping
+    # the DSPy expansion step (so the spoken voiceover matches the edited script).
+    verbatim = voiceover_verbatim.lower() == "true"
     # Voiceover should continue to be based on the underlying narration_text script,
     # not the shorter display_text.
     narration_source = (scene.narration_text or "").strip()
     if should_regenerate_voiceover and narration_source:
-        from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
-        from app.services.language_detection import get_content_language_for_project
-        video_style = getattr(project, "video_style", None) or "explainer"
-        content_language = get_content_language_for_project(project)
-        expanded_voiceover = await expand_narration_to_voiceover(
-            narration_source, scene.title, video_style=video_style, content_language=content_language
-        )
+        if verbatim:
+            # scene.narration_text already holds the user's edited script.
+            generate_voiceover(scene, db)
+        else:
+            from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
+            from app.services.language_detection import get_content_language_for_project
+            video_style = getattr(project, "video_style", None) or "explainer"
+            content_language = get_content_language_for_project(project)
+            expanded_voiceover = await expand_narration_to_voiceover(
+                narration_source, scene.title, video_style=video_style, content_language=content_language
+            )
 
-        original_narration = scene.narration_text
-        scene.narration_text = expanded_voiceover
-        db.commit()
+            original_narration = scene.narration_text
+            scene.narration_text = expanded_voiceover
+            db.commit()
 
-        generate_voiceover(scene, db, use_expanded=False)
-        
+            generate_voiceover(scene, db, use_expanded=False)
+
+            scene.narration_text = original_narration
+            db.commit()
+
         track_scene_edit(
                         db,
                         project_id=project.id,
                         scene_id=scene.id,
                         field_name="voiceover",
-                        old_value=None, 
+                        old_value=None,
                         new_value="regenerated",
-                        is_ai_assisted=True,
+                        is_ai_assisted=not verbatim,
                         user_instruction="Regenerated voiceover via API",
                     )
-
-        scene.narration_text = original_narration
         db.commit()
 
     # Increment usage count only when AI was actually used

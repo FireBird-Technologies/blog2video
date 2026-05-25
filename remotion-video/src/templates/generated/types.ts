@@ -92,11 +92,20 @@ export interface GeneratedSceneData {
   /** Layout config with font sizes and other per-scene settings */
   layoutConfig?: { titleFontSize?: number; descriptionFontSize?: number; [key: string]: unknown };
   layoutProps?: { imageFocusX?: number; imageFocusY?: number; imageBoxAspectRatio?: string; [key: string]: unknown };
-  /** CTA props for outro scenes (socials, website link, CTA button) */
+  /** CTA props for outro scenes. Socials are scene-level (one global list).
+   *  CTAs are an array of up to 3 pill+URL cards rendered as columns. */
   ctaProps?: {
     socials?: Record<string, { enabled?: boolean; label?: string }>;
+    /** Legacy single-CTA fields. Kept as a mirror of ctas[0] for renderers that
+     *  haven't been updated to read the `ctas` array yet. */
     showWebsiteButton?: boolean;
     websiteLink?: string;
     ctaButtonText?: string;
+    /** New: up to 3 CTA cards. When present, takes precedence over the legacy fields. */
+    ctas?: Array<{
+      ctaButtonText?: string;
+      websiteLink?: string;
+      showWebsiteButton?: boolean;
+    }>;
   };
 }
