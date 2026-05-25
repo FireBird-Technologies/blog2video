@@ -113,7 +113,7 @@ function PlatformLogoImg({ src, alt }: { src: string; alt: string }) {
 /** Fixed width per item so exactly 4 fill the viewport (4 × 140px = 560px). */
 const PUB_ITEM_W = 140;
 const PUB_VISIBLE = 4;
-const PUB_TICKER_LOOP_SECONDS = 18;
+const PUB_TICKER_LOOP_SECONDS = 27;
 
 function PublicationLogoTicker({ running }: { running: boolean }) {
   const track = [...PUBLICATIONS, ...PUBLICATIONS, ...PUBLICATIONS];
@@ -222,7 +222,7 @@ export default function PlatformShowcaseSection() {
   const currentPlatform = PLATFORMS[platform.index];
 
   return (
-    <section ref={sectionRef} className="pt-16 pb-6 border-t border-gray-100 overflow-hidden">
+    <section ref={sectionRef} className="pt-16 border-t border-gray-100 overflow-hidden">
 
       {/* ── Header ── */}
       <div className="max-w-5xl mx-auto px-6 mb-8 text-center">
@@ -265,7 +265,7 @@ export default function PlatformShowcaseSection() {
       </div>
 
       {/* ── Publication logo ticker (left → right, independent) ── */}
-      <div className="mt-10 mb-12">
+      <div className="mt-10 mb-10">
         <p className="text-xs font-medium text-gray-400 text-center tracking-widest uppercase mb-6">
           <span>❤️</span> by writers of
         </p>
