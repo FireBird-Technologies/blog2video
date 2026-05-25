@@ -10,6 +10,7 @@ import { SocialIcons } from "../../SocialIcons";
 import { OrnamentalBorder, InkDivider } from "../components/OrnamentalBorder";
 import { WaxSeal } from "../components/WaxSeal";
 import { QuillText } from "../components/QuillInk";
+import { resolveCtas } from "../../../../utils/resolveCtas";
 
 /**
  * EndingSocials — "The End" colophon page.
@@ -26,6 +27,7 @@ export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+  ctas,
   accentColor = "#B8860B",
   textColor = "#2A1810",
   aspectRatio = "landscape",
@@ -37,9 +39,11 @@ export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
   const { durationInFrames, fps, height, width } = useVideoConfig();
   const p = aspectRatio === "portrait" || height > width;
 
-  const ctaText = (ctaButtonText ?? "Read the full chronicle").trim();
-  const site = (websiteLink ?? "").trim();
-  const shouldShowWebsite = showWebsiteButton !== false && site;
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const shouldShowWebsite = cards.length > 0;
 
   // Title writes in
   const titleOp = interpolate(frame, [5, 28], [0, 1], {
@@ -161,48 +165,71 @@ export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
         </div>
       )}
 
-      {/* Website ribbon CTA */}
+      {/* Website ribbon CTAs — 1/2/3 columns */}
       {shouldShowWebsite && (
         <div
           style={{
             marginTop: 18,
             opacity: Math.min(1, ctaSpring),
             transform: `scale(${0.8 + ctaSpring * 0.2})`,
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "flex-start",
+            gap: 24,
           }}
         >
-          <div
-            style={{
-              padding: p ? "14px 34px" : "16px 44px",
-              background: `linear-gradient(to bottom, ${accentColor} 0%, #8A6510 100%)`,
-              clipPath: "polygon(6% 0%, 94% 0%, 100% 50%, 94% 100%, 6% 100%, 0% 50%)",
-              color: "#F8EFD6",
-              fontFamily: CHRONICLE_SMALLCAPS_FONT,
-              fontSize: descriptionFontSize ?? (p ? 26 : 22),
-              fontWeight: 700,
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              boxShadow: "0 6px 18px rgba(40,25,12,0.45)",
-              textAlign: "center",
-              textShadow: "1px 1px 0 rgba(40,25,12,0.5)",
-            }}
-          >
-            {ctaText}
-          </div>
-          {site && (
-            <div
-              style={{
-                marginTop: 10,
-                textAlign: "center",
-                color: textColor,
-                fontFamily: fontFamily ?? CHRONICLE_BODY_FONT,
-                fontSize: p ? 22 : 20,
-                opacity: 0.78,
-                fontStyle: "italic",
-              }}
-            >
-              {site.replace(/^https?:\/\//, "")}
-            </div>
-          )}
+          {cards.map((card, idx) => {
+            const ctaText = card.ctaButtonText.trim() || "Read the full chronicle";
+            const site = card.websiteLink;
+            return (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  flex: cards.length === 1 ? "0 1 auto" : "1 1 0",
+                  minWidth: 200,
+                  maxWidth: cards.length === 1 ? "100%" : cards.length === 2 ? "46%" : "32%",
+                }}
+              >
+                <div
+                  style={{
+                    padding: cards.length === 1 ? (p ? "14px 34px" : "16px 44px") : (p ? "10px 24px" : "12px 32px"),
+                    background: `linear-gradient(to bottom, ${accentColor} 0%, #8A6510 100%)`,
+                    clipPath: "polygon(6% 0%, 94% 0%, 100% 50%, 94% 100%, 6% 100%, 0% 50%)",
+                    color: "#F8EFD6",
+                    fontFamily: CHRONICLE_SMALLCAPS_FONT,
+                    fontSize: cards.length === 1 ? (descriptionFontSize ?? (p ? 26 : 22)) : (p ? 20 : 18),
+                    fontWeight: 700,
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    boxShadow: "0 6px 18px rgba(40,25,12,0.45)",
+                    textAlign: "center",
+                    textShadow: "1px 1px 0 rgba(40,25,12,0.5)",
+                  }}
+                >
+                  {ctaText}
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    textAlign: "center",
+                    color: textColor,
+                    fontFamily: fontFamily ?? CHRONICLE_BODY_FONT,
+                    fontSize: cards.length === 1 ? (p ? 22 : 20) : (p ? 18 : 16),
+                    opacity: 0.78,
+                    fontStyle: "italic",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {site.replace(/^https?:\/\//, "")}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </AbsoluteFill>

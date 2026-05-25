@@ -8,6 +8,7 @@ import {
 } from "remotion";
 import type { BlogLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
+import { resolveCtas } from "../../shared/resolveCtas";
 
 export const EndingSocials: React.FC<
   BlogLayoutProps & { narration?: string }
@@ -18,6 +19,7 @@ export const EndingSocials: React.FC<
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+  ctas,
   accentColor,
   bgColor,
   textColor,
@@ -37,7 +39,13 @@ export const EndingSocials: React.FC<
     "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
   const subtext = (narration ?? "").trim();
   const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Read More";
+
+  // CTA cards (1-3). Newspaper shows the highlighted CTA label whenever the toggle
+  // is on (original behaviour), even with no link, so a card needs a label OR a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && (c.websiteLink.length > 0 || c.ctaButtonText.trim().length > 0),
+  );
+  const hasAnyCard = cards.length > 0;
 
   const textCol = textColor ?? "#000000";
   const newsprintBg = bgColor ?? "#F4F1EA";
@@ -295,34 +303,62 @@ export const EndingSocials: React.FC<
             }}
           />
 
-          {showWebsiteButton && (
-            <div style={{ marginBottom: 35 }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  backgroundColor: `${highlightCol}CC`,
-                  color: "#000",
-                  padding: "4px 12px",
-                  fontSize: p ? 38 : 34,
-                  fontWeight: 800,
-                  fontFamily: H_FONT,
-                  transform: "rotate(-1deg)",
-                  boxShadow: `2px 2px 0px rgba(0,0,0,0.1)`,
-                }}
-              >
-                {resolvedCta}
-              </span>
-              <div
-                style={{
-                  marginTop: 12,
-                  fontSize: 20,
-                  fontWeight: 700,
-                  color: textCol,
-                  textDecoration: "underline",
-                }}
-              >
-                {resolvedWebsiteLink}
-              </div>
+          {hasAnyCard && (
+            <div
+              style={{
+                marginBottom: 35,
+                display: "flex",
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                alignItems: "flex-start",
+                gap: 30,
+              }}
+            >
+              {cards.map((card, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    flex: cards.length === 1 ? "0 1 auto" : "1 1 0",
+                    minWidth: 200,
+                    maxWidth: cards.length === 1 ? "100%" : cards.length === 2 ? "46%" : "32%",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      backgroundColor: `${highlightCol}CC`,
+                      color: "#000",
+                      padding: "4px 12px",
+                      fontSize: cards.length === 1 ? (p ? 38 : 34) : (p ? 28 : 26),
+                      fontWeight: 800,
+                      fontFamily: H_FONT,
+                      transform: "rotate(-1deg)",
+                      boxShadow: `2px 2px 0px rgba(0,0,0,0.1)`,
+                    }}
+                  >
+                    {card.ctaButtonText.trim() || "Read More"}
+                  </span>
+                  {card.websiteLink ? (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        fontSize: cards.length === 1 ? 20 : 16,
+                        fontWeight: 700,
+                        color: textCol,
+                        textDecoration: "underline",
+                        wordBreak: "break-word",
+                        textAlign: "center",
+                      }}
+                    >
+                      {card.websiteLink}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
             </div>
           )}
 

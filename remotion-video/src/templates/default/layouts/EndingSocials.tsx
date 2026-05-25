@@ -9,6 +9,7 @@ import {
 } from "remotion";
 import type { SceneLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
+import { resolveCtas } from "../../shared/resolveCtas";
 
 export const EndingSocials: React.FC<SceneLayoutProps> = ({
   title,
@@ -17,6 +18,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+  ctas,
   accentColor,
   textColor,
   bgColor,
@@ -132,8 +134,15 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
 
   // --- UI LOGIC ---
   const dividerOpacity = Math.min(1, (subEntranceOp ?? 0) * 1.2) * interpolate(vanishSpring, [0, 0.2], [1, 0]);
-  const showWebsiteCta = (showWebsiteButton !== false) && (websiteLink ?? "").trim().length > 0;
   const bodyFont = fontFamily ?? "'Roboto Slab', serif";
+
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const hasAnyCard = cards.length > 0;
+  const cardCount = Math.min(Math.max(cards.length, 1), 3);
+  const cardBasis = cardCount === 1 ? (p ? "80%" : "60%") : cardCount === 2 ? "45%" : "30%";
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#F0F0F0", overflow: "hidden" }}>
@@ -194,47 +203,65 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
           />
         </div>
 
-        {/* CTA SECTION - Fades out standardly to avoid complexity with button shapes */}
-        {showWebsiteCta && (
+        {/* CTA SECTION - 1/2/3 columns based on count. Fades out standardly. */}
+        {hasAnyCard && (
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: p ? 10 : 12,
+              flexDirection: "row",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "flex-start",
+              gap: p ? 18 : 28,
+              width: "100%",
               opacity: interpolate(vanishSpring, [0, 0.3], [1, 0]),
               transform: `scale(${interpolate(vanishSpring, [0, 0.3], [1, 0.8])})`,
             }}
           >
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                borderRadius: 999,
-                padding: p ? "18px 36px" : "16px 32px",
-                backgroundColor: accentColor || "#7C3AED",
-                color: "#FFFFFF",
-                fontSize: p ? 28 : 26,
-                fontWeight: 700,
-                fontFamily: bodyFont,
-              }}
-            >
-              <span>{(ctaButtonText ?? "").trim() || "Get started"}</span>
-              <span style={{ fontSize: p ? 30 : 28 }}>→</span>
-            </div>
-            <div
-              style={{
-                fontSize: p ? 26 : 24,
-                fontWeight: 600,
-                color: textColor || "#404040",
-                fontFamily: bodyFont,
-                maxWidth: p ? 560 : 760,
-                wordBreak: "break-word",
-              }}
-            >
-              {(websiteLink ?? "").trim()}
-            </div>
+            {cards.map((card, idx) => (
+              <div
+                key={idx}
+                style={{
+                  flex: `0 1 ${cardBasis}`,
+                  maxWidth: cardBasis,
+                  minWidth: p ? 220 : 240,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: p ? 10 : 12,
+                }}
+              >
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    borderRadius: 999,
+                    padding: p ? "16px 28px" : "14px 26px",
+                    backgroundColor: accentColor || "#7C3AED",
+                    color: "#FFFFFF",
+                    fontSize: p ? 26 : 24,
+                    fontWeight: 700,
+                    fontFamily: bodyFont,
+                  }}
+                >
+                  <span>{card.ctaButtonText.trim() || "Get started"}</span>
+                  <span style={{ fontSize: p ? 28 : 26 }}>→</span>
+                </div>
+                <div
+                  style={{
+                    fontSize: p ? 22 : 20,
+                    fontWeight: 600,
+                    color: textColor || "#404040",
+                    fontFamily: bodyFont,
+                    maxWidth: "100%",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {card.websiteLink}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
