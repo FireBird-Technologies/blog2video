@@ -56,6 +56,13 @@ export const PUBLICATIONS: Publication[] = [
     initials: "FB",
     avatarBg: "bg-indigo-500",
   },
+  {
+    id: "cosmodestefano",
+    name: "Cosmo P DeStefano",
+    logoSrc: publicAsset("pub-wealth-your-way.png"),
+    initials: "CD",
+    avatarBg: "bg-indigo-500",
+  },
 ];
 
 export const pubById = Object.fromEntries(PUBLICATIONS.map((p) => [p.id, p]));
