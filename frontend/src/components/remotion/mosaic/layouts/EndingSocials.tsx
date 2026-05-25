@@ -5,6 +5,7 @@ import type { MosaicLayoutProps } from "../types";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 import { SocialIcons } from "../../SocialIcons";
 import { getSceneTransition, getStaggeredReveal } from "../transitions";
+import { resolveCtas } from "../../../../utils/resolveCtas";
 
 export const EndingSocials: React.FC<MosaicLayoutProps> = ({
   title,
@@ -13,6 +14,7 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+  ctas,
   accentColor,
   bgColor,
   textColor,
@@ -47,7 +49,12 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
   const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const line = accentColor || MOSAIC_COLORS.gold;
-  const showCta = showWebsiteButton !== false && Boolean((websiteLink || "").trim());
+
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const hasAnyCard = cards.length > 0;
 
   return (
     <AbsoluteFill>
@@ -82,14 +89,49 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
         <div style={{ fontFamily: family, fontSize: descriptionFontSize ?? (p ? 38 : 30), color: textColor || MOSAIC_COLORS.textSecondary, opacity: bodyIn }}>
           {narration}
         </div>
-        {showCta ? (
-          <div style={{ marginTop: 20, color: line, fontFamily: family, fontSize: 28, fontWeight: 700, opacity: bodyIn }}>
-            {(ctaButtonText || "Explore more on").trim()}
-          </div>
-        ) : null}
-        {showCta ? (
-          <div style={{ marginTop: 8, color: textColor || MOSAIC_COLORS.textPrimary, fontFamily: family, fontSize: 20, opacity: bodyIn }}>
-            {(websiteLink || "").trim()}
+        {hasAnyCard ? (
+          <div
+            style={{
+              marginTop: 20,
+              display: "flex",
+              flexDirection: "row",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "flex-start",
+              gap: p ? 18 : 28,
+              width: "100%",
+              opacity: bodyIn,
+            }}
+          >
+            {cards.map((card, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 8,
+                  flex: cards.length === 1 ? "0 1 auto" : "1 1 0",
+                  minWidth: 200,
+                  maxWidth: cards.length === 1 ? "100%" : cards.length === 2 ? "48%" : "32%",
+                }}
+              >
+                <div style={{ color: line, fontFamily: family, fontSize: 28, fontWeight: 700 }}>
+                  {card.ctaButtonText.trim() || "Explore more on"}
+                </div>
+                <div
+                  style={{
+                    color: textColor || MOSAIC_COLORS.textPrimary,
+                    fontFamily: family,
+                    fontSize: 20,
+                    wordBreak: "break-word",
+                    textAlign: "center",
+                  }}
+                >
+                  {card.websiteLink}
+                </div>
+              </div>
+            ))}
           </div>
         ) : null}
         <div style={{ marginTop: 24, width: "100%", opacity: iconsIn * motion.exit }}>
