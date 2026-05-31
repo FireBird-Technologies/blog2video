@@ -110,7 +110,7 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
         const imageFocusX = Number(lp?.imageFocusX ?? 50);
         const imageFocusY = Number(lp?.imageFocusY ?? 50);
         const imageObjectPosition = `${Math.max(0, Math.min(100, imageFocusX))}% ${Math.max(0, Math.min(100, imageFocusY))}%`;
-        const imageZoom = Math.max(1, Number(lp?.imageZoom ?? 1));
+        const imageZoom = Math.max(0.1, Number(lp?.imageZoom ?? 1));
 
         const layoutProps: SceneLayoutProps = {
           ...(rawLayoutProps as Record<string, unknown>),
