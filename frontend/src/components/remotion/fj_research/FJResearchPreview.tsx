@@ -3,10 +3,9 @@
  *
  * Editorial paper system — flat white canvas, ink-black IBM Plex Mono type,
  * graphite eyebrows/accents, silver hairlines, no shadows. Mirrors the live
- * template (see FJ_RESEARCH_LAYOUT_COLOR_DEFAULTS: every scene is paper/ink/
- * graphite). Cycles 4 representative scenes:
+ * template with actual animation timings from the layouts. Cycles 4 scenes:
  *   1. Masthead        2. Thesis Statement
- *   3. Deep Dive       4. Ending Socials
+ *   3. Framework Flow  4. Deep Dive
  */
 import { useEffect, useRef, useState } from "react";
 
@@ -26,11 +25,23 @@ const T = {
 };
 
 const FONT = "'IBM Plex Mono', 'IBMPlexMono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+const SERIF = "'Playfair Display', serif";
+const FUNCION = "'IBM Plex Sans', sans-serif";
+
+// ── Animation easing function copied from real template (themeUtils.ts) ──────
+// r(frame_position, start, end) creates smooth easing from 0→1 over the interval
+function r(pos: number, start: number, end: number): number {
+  if (pos < start) return 0;
+  if (pos > end) return 1;
+  const t = (pos - start) / (end - start);
+  return Math.sin((t - 0.5) * Math.PI) * 0.5 + 0.5;
+}
 
 // ── Scaled 16:9 stage ────────────────────────────────────────────────────────
-function ScaledCanvas({ children }: { children: React.ReactNode }) {
+function ScaledCanvas({ children }: { children: (framePos: number) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
+  const [frame, setFrame] = useState(0);
 
   useEffect(() => {
     const el = ref.current;
@@ -40,6 +51,19 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
     const obs = new ResizeObserver(update);
     obs.observe(el);
     return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    // Animate the preview scene through one full cycle (~3.8 seconds at 30fps = ~114 frames)
+    let animFrame: number;
+    let frameNum = 0;
+    const animate = () => {
+      frameNum = (frameNum + 1) % 114;
+      setFrame(frameNum / 90); // Normalize to 0-1.27 range for animation easing
+      animFrame = requestAnimationFrame(animate);
+    };
+    animFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animFrame);
   }, []);
 
   return (
@@ -62,7 +86,7 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
           position: "absolute",
         }}
       >
-        {children}
+        {children(frame)}
       </div>
     </div>
   );
@@ -149,12 +173,28 @@ function SocialGlyph({ kind, size }: { kind: string; size: number }) {
 
 // ── Scene 1 · Masthead ───────────────────────────────────────────────────────
 // Centered chrome rail · big ink headline · sharp ink line chart · deck · byline.
-function MastheadSlide({ active }: { active: boolean }) {
+// Animations copied from FJResearchMasthead.tsx
+function MastheadSlide({ framePos }: { framePos: number }) {
   const chart = [
     [10, 56], [48, 30], [78, 44], [110, 18], [150, 34], [190, 8],
     [230, 26], [270, 6], [310, 30], [350, 22], [392, 48], [432, 38], [470, 58],
   ];
   const path = `M ${chart.map((p) => p.join(",")).join(" L ")}`;
+  const totalPathLength = chart.reduce((sum, pt, i, arr) => {
+    if (i === 0) return 0;
+    const prev = arr[i - 1];
+    const dx = pt[0] - prev[0];
+    const dy = pt[1] - prev[1];
+    return sum + Math.sqrt(dx * dx + dy * dy);
+  }, 0);
+
+  // Animation timings from FJResearchMasthead
+  const ra = r(framePos, 0, 0.20);      // Chrome / top rail
+  const rb = r(framePos, 0.10, 0.35);   // Title entry
+  const rc = r(framePos, 0.38, 0.72);   // Chart draw (CAMERA_END + 2 frames, then 60 frame window)
+  const re = r(framePos, 0.62, 0.86);   // Subheading deck
+  const rd = r(framePos, 0.72, 0.96);   // Byline footer
+
   return (
     <PaperCanvas>
       <div
@@ -180,8 +220,8 @@ function MastheadSlide({ active }: { active: boolean }) {
             letterSpacing: "0.18em",
             textTransform: "uppercase",
             color: T.graphite,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.6s ease",
+            opacity: ra,
+            transition: "opacity 0.2s ease",
           }}
         >
           <span>Positioning Digest</span>
@@ -198,9 +238,9 @@ function MastheadSlide({ active }: { active: boolean }) {
             lineHeight: 1.12,
             color: T.ink,
             maxWidth: "90%",
-            opacity: active ? 1 : 0,
-            transform: active ? "translateY(0)" : "translateY(10px)",
-            transition: "opacity 0.6s ease 0.2s, transform 0.6s ease 0.2s",
+            opacity: rb,
+            transform: `translateY(${(1 - rb) * 15}px)`,
+            fontFamily: SERIF,
           }}
         >
           Get the trade before it happens.
@@ -211,13 +251,12 @@ function MastheadSlide({ active }: { active: boolean }) {
           style={{
             width: "82%",
             marginTop: 14,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.8s ease 0.5s",
+            opacity: Math.min(rc * 1.3, 1),
           }}
         >
           <svg viewBox="0 0 480 64" style={{ width: "100%", height: 56, overflow: "visible" }} preserveAspectRatio="none">
             <line x1="0" y1="60" x2="480" y2="60" stroke={T.silver} strokeWidth={1} />
-            {/* Line draws itself left→right via dash-offset when the slide activates */}
+            {/* Line draws itself left→right via dash-offset */}
             <path
               d={path}
               fill="none"
@@ -225,14 +264,13 @@ function MastheadSlide({ active }: { active: boolean }) {
               strokeWidth={2}
               strokeLinejoin="miter"
               strokeLinecap="square"
-              pathLength={1}
-              strokeDasharray={1}
-              strokeDashoffset={active ? 0 : 1}
-              style={{ transition: "stroke-dashoffset 1.4s ease 0.5s" }}
+              strokeDasharray={totalPathLength}
+              strokeDashoffset={totalPathLength * (1 - rc)}
+              opacity={0.85}
             />
             {/* Peak nodes pop in after the line reaches them */}
-            <circle cx={190} cy={8} r={active ? 3.2 : 0} fill={T.graphite} style={{ transition: "r 0.3s ease 1.3s" }} />
-            <circle cx={270} cy={6} r={active ? 3.2 : 0} fill={T.graphite} style={{ transition: "r 0.3s ease 1.5s" }} />
+            <circle cx={190} cy={8} r={rc > 0.6 ? 3.2 : 0} fill={T.graphite} />
+            <circle cx={270} cy={6} r={rc > 0.7 ? 3.2 : 0} fill={T.graphite} />
           </svg>
         </div>
 
@@ -248,14 +286,14 @@ function MastheadSlide({ active }: { active: boolean }) {
               maxWidth: "80%",
               margin: "0 auto 9px",
               lineHeight: 1.4,
-              opacity: active ? 1 : 0,
-              transition: "opacity 0.6s ease 0.7s",
+              opacity: re * 0.9,
+              transform: `translateY(${(1 - re) * 10}px)`,
             }}
           >
             Macro-to-Micro · April 2026 Positioning Digest
           </div>
-          <div style={{ opacity: active ? 1 : 0, transition: "opacity 0.6s ease 0.85s" }}>
-            <div style={{ width: "40%", margin: "0 auto 6px", height: 1, background: T.ink, opacity: 0.45 }} />
+          <div style={{ opacity: rd }}>
+            <div style={{ width: "40%", margin: "0 auto 6px", height: 1, background: T.ink, opacity: 0.3, marginBottom: 6 }} />
             <span style={{ fontSize: 9.5, fontWeight: 500, color: T.ink, opacity: 0.85, letterSpacing: "0.02em" }}>
               FJ Research Desk · Issue 14
             </span>
@@ -268,11 +306,21 @@ function MastheadSlide({ active }: { active: boolean }) {
 
 // ── Scene 2 · Thesis Statement ────────────────────────────────────────────────
 // 2px graphite left rule · eyebrow · subheading kicker · check-circle bullets.
-function ThesisSlide({ active }: { active: boolean }) {
+// Animations copied from FJResearchThesisStatement.tsx
+function ThesisSlide({ framePos }: { framePos: number }) {
   const bullets = [
     "A synthetic bull rally cannot afford to stall.",
     "When flows exhaust, the bid disappears.",
   ];
+
+  // Animation timings from FJResearchThesisStatement
+  const ra = r(framePos, 0, 0.20);
+  const rb = r(framePos, 0.14, 0.40);   // subheading / left rule
+  const rn = r(framePos, 0.5, 0.74);    // narration sub-text
+  const rd = r(framePos, 0.68, 0.92);   // footer
+
+  const ruleH = rb * (270 * 0.62);
+
   return (
     <PaperCanvas>
       {/* 2px graphite left rule */}
@@ -282,9 +330,8 @@ function ThesisSlide({ active }: { active: boolean }) {
           left: "13%",
           top: "20%",
           width: 2,
-          height: active ? "56%" : 0,
+          height: ruleH,
           background: T.graphite,
-          transition: "height 0.8s ease 0.2s",
         }}
       />
       <div
@@ -306,8 +353,8 @@ function ThesisSlide({ active }: { active: boolean }) {
             textTransform: "uppercase",
             color: T.graphite,
             marginBottom: 8,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.6s ease 0.1s",
+            opacity: ra,
+            fontFamily: FUNCION,
           }}
         >
           Thesis
@@ -322,49 +369,53 @@ function ThesisSlide({ active }: { active: boolean }) {
             color: T.graphite,
             marginBottom: 14,
             lineHeight: 1.25,
-            opacity: active ? 0.95 : 0,
-            transform: active ? "translateY(0)" : "translateY(8px)",
-            transition: "opacity 0.6s ease 0.3s, transform 0.6s ease 0.3s",
+            opacity: rb * 0.92,
+            transform: `translateY(${(1 - rb) * 14}px)`,
+            fontFamily: SERIF,
           }}
         >
           Flows are the tell.
         </div>
 
         {/* Bulleted argument */}
-        {bullets.map((line, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 9,
-              marginBottom: 11,
-              opacity: active ? 1 : 0,
-              transform: active ? "translateY(0)" : "translateY(10px)",
-              transition: `opacity 0.6s ease ${0.5 + i * 0.18}s, transform 0.6s ease ${0.5 + i * 0.18}s`,
-            }}
-          >
-            <div style={{ marginTop: 2 }}>
-              <CheckCircle size={15} />
+        {bullets.map((line, i) => {
+          const stagger = 0.078;
+          const start = 0.2 + i * stagger;
+          const end = 0.3 + i * stagger;
+          const rb_i = r(framePos, start, end);
+          return (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 9,
+                marginBottom: 11,
+                opacity: rb_i,
+                transform: `translateY(${(1 - rb_i) * 14}px)`,
+              }}
+            >
+              <div style={{ marginTop: 2 }}>
+                <CheckCircle size={15} />
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.22, color: T.ink, letterSpacing: "-0.005em", fontFamily: SERIF }}>
+                {line}
+              </span>
             </div>
-            <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.22, color: T.ink, letterSpacing: "-0.005em" }}>
-              {line}
-            </span>
-          </div>
-        ))}
+          );
+        })}
 
-        {/* Footer tag with hand-drawn underline */}
+        {/* Footer tag */}
         <div
           style={{
             marginTop: 6,
             alignSelf: "flex-start",
             position: "relative",
             paddingBottom: 5,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.6s ease 0.95s",
+            opacity: rd,
           }}
         >
-          <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: "0.08em", color: T.graphite }}>
+          <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: "0.08em", color: T.graphite, fontFamily: FUNCION }}>
             MACRO-TO-MICRO · 2026
           </span>
           <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 2, background: T.graphite }} />
@@ -374,15 +425,23 @@ function ThesisSlide({ active }: { active: boolean }) {
   );
 }
 
-// ── Scene 2.5 · Market Annotation ─────────────────────────────────────────────
-// Top chrome · chart label · animated line chart · axis labels · summary · footer.
-function MarketAnnotationSlide({ active }: { active: boolean }) {
-  const chartData = [
-    [15, 60], [35, 48], [55, 72], [75, 42], [95, 68],
-    [115, 38], [135, 58], [155, 32], [175, 64], [195, 45],
-    [215, 74], [235, 52], [255, 80], [275, 48],
+// ── Scene 3 · Framework Flow ───────────────────────────────────────────────
+// Numbered methodology with vertical flow animation. Steps appear with stagger.
+// Animations copied from FJResearchFrameworkFlow.tsx
+function FrameworkFlowSlide({ framePos }: { framePos: number }) {
+  const steps = [
+    { number: "01", label: "Macro", sub: "Worldview" },
+    { number: "02", label: "Intermarket", sub: "Cross-asset" },
+    { number: "03", label: "Pattern", sub: "Recognition" },
+    { number: "04", label: "Technical", sub: "Levels" },
   ];
-  const path = `M ${chartData.map((p) => p.join(",")).join(" L ")}`;
+
+  // Animation timings from FJResearchFrameworkFlow
+  const ra = r(framePos, 0, 0.17);     // header
+  const rFooter = r(framePos, 0.66, 0.83); // footer
+  const stagger = 0.078;
+  const n = steps.length;
+
   return (
     <PaperCanvas>
       <div
@@ -393,133 +452,131 @@ function MarketAnnotationSlide({ active }: { active: boolean }) {
           flexDirection: "column",
           padding: "16px 20px",
           boxSizing: "border-box",
-          textAlign: "center",
         }}
       >
-        {/* Top chrome */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 18,
-            fontSize: 6,
-            fontWeight: 700,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: T.graphite,
-            marginBottom: 8,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.5s ease",
-          }}
-        >
-          <span>Market Analysis</span>
-          <span>May 2026</span>
+        {/* Header */}
+        <div style={{ opacity: ra, marginBottom: 12 }}>
+          <div
+            style={{
+              fontFamily: FUNCION,
+              fontWeight: 700,
+              fontSize: 6,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: T.graphite,
+              marginBottom: 4,
+            }}
+          >
+            THE PROCESS · 4 STEPS
+          </div>
+          <div
+            style={{
+              fontFamily: SERIF,
+              fontWeight: 700,
+              fontSize: 18,
+              letterSpacing: "-0.015em",
+              lineHeight: 1.08,
+              color: T.ink,
+            }}
+          >
+            Macro down to micro.
+          </div>
         </div>
 
-        {/* Chart label */}
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "-0.01em",
-            color: T.ink,
-            marginBottom: 8,
-            opacity: active ? 1 : 0,
-            transform: active ? "translateY(0)" : "translateY(6px)",
-            transition: "opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s",
-          }}
-        >
-          S&P 500 · Daily Trend
+        {/* Steps flow */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          {steps.map((step, i) => {
+            const start = 0.2 + i * stagger;
+            const end = 0.3 + i * stagger;
+            const numP = r(framePos, start, end);
+            const labelP = r(framePos, start + 0.07, end + 0.07);
+            const isLast = i === n - 1;
+
+            return (
+              <div key={i} style={{ display: "flex", position: "relative", marginBottom: 8 }}>
+                {/* Number + connector */}
+                <div style={{ flex: "0 0 auto", width: 48, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div
+                    style={{
+                      fontFamily: FUNCION,
+                      fontWeight: 700,
+                      fontSize: 18,
+                      letterSpacing: "-0.04em",
+                      lineHeight: 1,
+                      color: T.ink,
+                      opacity: numP,
+                      transform: `translateY(${(1 - numP) * 16}px)`,
+                    }}
+                  >
+                    {step.number}
+                  </div>
+                  {!isLast && (
+                    <div style={{ flex: 1, minHeight: 16, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 4 }}>
+                      <div
+                        style={{
+                          width: 1,
+                          height: "100%",
+                          background: T.silver,
+                          transformOrigin: "top",
+                          transform: `scaleY(${labelP})`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Label + sub */}
+                <div style={{ flex: 1, paddingTop: 3, paddingBottom: 6, opacity: labelP, transform: `translateY(${(1 - labelP) * 10}px)` }}>
+                  <div
+                    style={{
+                      fontFamily: FUNCION,
+                      fontWeight: 700,
+                      fontSize: 10,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: T.ink,
+                    }}
+                  >
+                    {step.label}
+                  </div>
+                  <div style={{ fontFamily: FONT, fontSize: 7, color: T.graphite, letterSpacing: "0.04em" }}>{step.sub}</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Chart area */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.6s ease 0.3s",
-            marginBottom: 6,
-          }}
-        >
-          <svg viewBox="0 0 280 80" style={{ width: "92%", height: "100%" }} preserveAspectRatio="xMidYMid meet">
-            {/* Baseline */}
-            <line x1="2" y1="76" x2="278" y2="76" stroke={T.silver} strokeWidth={0.8} />
-            {/* Y axis ticks */}
-            <line x1="0" y1="40" x2="280" y2="40" stroke={T.silver} strokeWidth={0.4} opacity={0.3} />
-            {/* Chart line with animation */}
-            <path
-              d={path}
-              fill="none"
-              stroke={T.ink}
-              strokeWidth={1.6}
-              strokeLinejoin="miter"
-              strokeLinecap="square"
-              pathLength={1}
-              strokeDasharray={1}
-              strokeDashoffset={active ? 0 : 1}
-              style={{ transition: "stroke-dashoffset 1.2s ease 0.4s" }}
-            />
-            {/* Peak indicator dot */}
-            <circle cx={255} cy={40} r={active ? 2.2 : 0} fill={T.graphite} style={{ transition: "r 0.3s ease 1.5s" }} />
-          </svg>
-        </div>
-
-        {/* Axis labels + summary */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 8,
-            fontSize: 7,
-            fontWeight: 500,
-            color: T.graphite,
-            marginBottom: 6,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.5s ease 0.6s",
-          }}
-        >
-          <span>Trading Date</span>
-          <span>Price Index</span>
-          <span>YTD · Daily</span>
-        </div>
-
-        {/* Footer summary */}
-        <div
-          style={{
-            fontSize: 7,
-            fontWeight: 400,
-            lineHeight: 1.4,
-            color: T.ink,
-            maxWidth: "90%",
-            margin: "0 auto",
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.5s ease 0.75s",
-          }}
-        >
-          Uptrend holds through May. Vol absorption supports continuation.
+        {/* Footer */}
+        <div style={{ opacity: rFooter, fontSize: 7, color: T.graphite, fontFamily: FUNCION, textAlign: "center" }}>
+          A funnel from worldview to trade.
         </div>
       </div>
     </PaperCanvas>
   );
 }
 
-// ── Scene 3 · Deep Dive ───────────────────────────────────────────────────────
+// ── Scene 4 · Deep Dive ───────────────────────────────────────────────────────
 // Eyebrow · title with underlined last word · narration · labeled stat cards.
-function DeepDiveSlide({ active }: { active: boolean }) {
+// Animations copied from FJResearchDeepDive.tsx
+function DeepDiveSlide({ framePos }: { framePos: number }) {
   const stats = [
-    { label: "Flows", value: "401(k) inflows 12th strongest on record" },
+    { label: "Flows", value: "401(k) inflows 12th strongest" },
     { label: "Positioning", value: "Vol-control near full re-allocation" },
   ];
+
+  // Animation timings from FJResearchDeepDive
+  const ra = r(framePos, 0, 0.20);
+  const rb = r(framePos, 0.10, 0.38);   // title
+  const rn = r(framePos, 0.28, 0.55);   // narration
+  const rd = r(framePos, 0.45, 0.72);   // stat cards
+
   return (
     <PaperCanvas>
       <div
         style={{
           position: "absolute",
           inset: 0,
-          padding: "20px 26px",
+          padding: "16px 20px",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
@@ -528,14 +585,14 @@ function DeepDiveSlide({ active }: { active: boolean }) {
         {/* Eyebrow */}
         <div
           style={{
-            fontSize: 7.5,
+            fontSize: 6,
             fontWeight: 700,
             letterSpacing: "0.2em",
             textTransform: "uppercase",
             color: T.graphite,
             marginBottom: 6,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.6s ease",
+            opacity: ra,
+            fontFamily: FUNCION,
           }}
         >
           Mechanism · Why the Bid Holds
@@ -544,14 +601,15 @@ function DeepDiveSlide({ active }: { active: boolean }) {
         {/* Title with underlined last word */}
         <div
           style={{
-            fontSize: 22,
+            fontSize: 18,
             fontWeight: 700,
             letterSpacing: "-0.01em",
             lineHeight: 1.12,
             color: T.ink,
-            opacity: active ? 1 : 0,
-            transform: active ? "translateY(0)" : "translateY(8px)",
-            transition: "opacity 0.6s ease 0.15s, transform 0.6s ease 0.15s",
+            opacity: rb,
+            transform: `translateY(${(1 - rb) * 12}px)`,
+            marginBottom: 8,
+            fontFamily: SERIF,
           }}
         >
           Why the bid hasn&rsquo;t{" "}
@@ -561,11 +619,10 @@ function DeepDiveSlide({ active }: { active: boolean }) {
               style={{
                 position: "absolute",
                 left: 0,
-                bottom: -3,
-                height: 2.5,
-                width: active ? "100%" : 0,
+                bottom: -2,
+                height: 1.5,
+                width: `${rb * 100}%`,
                 background: T.graphite,
-                transition: "width 0.6s ease 0.5s",
               }}
             />
           </span>{" "}
@@ -573,65 +630,79 @@ function DeepDiveSlide({ active }: { active: boolean }) {
         </div>
 
         {/* Divider */}
-        <div style={{ height: 1, background: T.silver, margin: "11px 0", opacity: active ? 1 : 0, transition: "opacity 0.6s ease 0.3s" }} />
+        <div style={{ height: 0.5, background: T.silver, margin: "8px 0", opacity: rb * 0.5 }} />
 
         {/* Narration */}
         <div
           style={{
-            fontSize: 9,
+            fontSize: 7,
             fontWeight: 400,
-            lineHeight: 1.5,
+            lineHeight: 1.4,
             color: T.ink,
-            opacity: active ? 0.92 : 0,
-            transform: active ? "translateY(0)" : "translateY(8px)",
-            transition: "opacity 0.6s ease 0.4s, transform 0.6s ease 0.4s",
-            marginBottom: 14,
+            opacity: rn * 0.92,
+            transform: `translateY(${(1 - rn) * 8}px)`,
+            marginBottom: 10,
+            fontFamily: FONT,
           }}
         >
-          Mechanical flows from allocators and trend-followers form a persistent
-          backstop. Until that absorption fails, the path stays higher.
+          Mechanical flows form a persistent backstop. The path stays higher.
         </div>
 
         {/* Stat cards */}
-        <div style={{ display: "flex", gap: 10, marginTop: "auto" }}>
-          {stats.map((s, i) => (
-            <div
-              key={i}
-              style={{
-                flex: 1,
-                border: `1px solid ${T.ink}`,
-                borderRadius: 3,
-                padding: "8px 9px",
-                opacity: active ? 1 : 0,
-                transform: active ? "translateY(0)" : "translateY(10px)",
-                transition: `opacity 0.6s ease ${0.55 + i * 0.15}s, transform 0.6s ease ${0.55 + i * 0.15}s`,
-              }}
-            >
+        <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
+          {stats.map((s, i) => {
+            const cardDelay = 0.08 + i * 0.1;
+            const cardOpacity = r(framePos, 0.45 + cardDelay, 0.6 + cardDelay);
+            return (
               <div
+                key={i}
                 style={{
-                  fontSize: 7,
-                  fontWeight: 600,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: T.graphite,
-                  marginBottom: 5,
+                  flex: 1,
+                  border: `0.8px solid ${T.ink}`,
+                  borderRadius: 2,
+                  padding: "6px 7px",
+                  opacity: cardOpacity,
+                  transform: `translateY(${(1 - cardOpacity) * 10}px)`,
                 }}
               >
-                {s.label}
+                <div
+                  style={{
+                    fontSize: 6,
+                    fontWeight: 600,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: T.graphite,
+                    marginBottom: 4,
+                    fontFamily: FUNCION,
+                  }}
+                >
+                  {s.label}
+                </div>
+                <div style={{ fontSize: 8, fontWeight: 500, lineHeight: 1.3, color: T.ink, fontFamily: FONT }}>{s.value}</div>
               </div>
-              <div style={{ fontSize: 10, fontWeight: 500, lineHeight: 1.35, color: T.ink }}>{s.value}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </PaperCanvas>
   );
 }
 
-// ── Scene 4 · Ending Socials ──────────────────────────────────────────────────
+// ── Scene 5 · Ending Socials ──────────────────────────────────────────────────
 // Centered ink monogram · brand wordmark · sign-off · caption · social row · CTA.
-function EndingSocialsSlide({ active }: { active: boolean }) {
+// Animations copied from FJResearchEndingSocials.tsx
+function EndingSocialsSlide({ framePos }: { framePos: number }) {
   const socials = ["instagram", "youtube", "linkedin", "substack"];
+
+  // Animation timings from FJResearchEndingSocials
+  const rm = r(framePos, 0, 0.12);      // monogram outline
+  const rb = r(framePos, 0.08, 0.22);   // "FJ" text
+  const rn = r(framePos, 0.12, 0.32);   // brand name
+  const rt = r(framePos, 0.18, 0.42);   // title
+  const rc = r(framePos, 0.28, 0.52);   // caption
+  const rs = r(framePos, 0.38, 0.62);   // social icons (staggered)
+  const rc_final = r(framePos, 0.48, 0.72); // CTA
+
   return (
     <PaperCanvas>
       <div
@@ -642,14 +713,14 @@ function EndingSocialsSlide({ active }: { active: boolean }) {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: "18px 26px",
+          padding: "14px 20px",
           boxSizing: "border-box",
-          gap: 9,
+          gap: 7,
         }}
       >
-        {/* Square ink monogram — outline draws on entry, then "FJ" fades in */}
-        <div style={{ position: "relative", width: 34, height: 34 }}>
-          <svg width={34} height={34} viewBox="0 0 34 34" style={{ display: "block", position: "absolute", inset: 0 }}>
+        {/* Square ink monogram */}
+        <div style={{ position: "relative", width: 32, height: 32 }}>
+          <svg width={32} height={32} viewBox="0 0 34 34" style={{ display: "block", position: "absolute", inset: 0 }}>
             <rect
               x="1.5"
               y="1.5"
@@ -660,8 +731,7 @@ function EndingSocialsSlide({ active }: { active: boolean }) {
               strokeWidth="1.5"
               pathLength={1}
               strokeDasharray={1}
-              strokeDashoffset={active ? 0 : 1}
-              style={{ transition: "stroke-dashoffset 0.7s ease" }}
+              strokeDashoffset={1 - rm}
             />
           </svg>
           <span
@@ -671,12 +741,12 @@ function EndingSocialsSlide({ active }: { active: boolean }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: 700,
               color: T.ink,
               letterSpacing: "-0.02em",
-              opacity: active ? 1 : 0,
-              transition: "opacity 0.5s ease 0.5s",
+              opacity: rb,
+              fontFamily: FUNCION,
             }}
           >
             FJ
@@ -686,13 +756,13 @@ function EndingSocialsSlide({ active }: { active: boolean }) {
         {/* Brand wordmark */}
         <div
           style={{
-            fontSize: 12,
+            fontSize: 10,
             fontWeight: 600,
             letterSpacing: "0.16em",
             textTransform: "uppercase",
             color: T.ink,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.6s ease 0.2s",
+            opacity: rn,
+            fontFamily: FUNCION,
           }}
         >
           FJ Research
@@ -701,14 +771,14 @@ function EndingSocialsSlide({ active }: { active: boolean }) {
         {/* Sign-off title */}
         <div
           style={{
-            fontSize: 23,
+            fontSize: 19,
             fontWeight: 700,
             letterSpacing: "-0.01em",
             color: T.ink,
             textAlign: "center",
-            opacity: active ? 1 : 0,
-            transform: active ? "translateY(0)" : "translateY(8px)",
-            transition: "opacity 0.6s ease 0.3s, transform 0.6s ease 0.3s",
+            opacity: rt,
+            transform: `translateY(${(1 - rt) * 8}px)`,
+            fontFamily: SERIF,
           }}
         >
           Follow the desk.
@@ -717,31 +787,34 @@ function EndingSocialsSlide({ active }: { active: boolean }) {
         {/* Caption */}
         <div
           style={{
-            fontSize: 8.5,
+            fontSize: 7,
             fontWeight: 500,
             letterSpacing: "0.06em",
             color: T.graphite,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.6s ease 0.4s",
+            opacity: rc,
+            fontFamily: FUNCION,
           }}
         >
-          Newsletter · Podcast · Live sessions
+          Newsletter · Podcast · Live
         </div>
 
         {/* Social row */}
-        <div style={{ display: "flex", gap: 16, marginTop: 2 }}>
-          {socials.map((kind, i) => (
-            <div
-              key={kind}
-              style={{
-                opacity: active ? 1 : 0,
-                transform: active ? "translateY(0)" : "translateY(6px)",
-                transition: `opacity 0.5s ease ${0.5 + i * 0.07}s, transform 0.5s ease ${0.5 + i * 0.07}s`,
-              }}
-            >
-              <SocialGlyph kind={kind} size={18} />
-            </div>
-          ))}
+        <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
+          {socials.map((kind, i) => {
+            const socialDelay = i * 0.07;
+            const socialOpacity = r(framePos, 0.38 + socialDelay, 0.54 + socialDelay);
+            return (
+              <div
+                key={kind}
+                style={{
+                  opacity: socialOpacity,
+                  transform: `translateY(${(1 - socialOpacity) * 6}px)`,
+                }}
+              >
+                <SocialGlyph kind={kind} size={16} />
+              </div>
+            );
+          })}
         </div>
 
         {/* CTA pill + ribbon */}
@@ -750,18 +823,17 @@ function EndingSocialsSlide({ active }: { active: boolean }) {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: 7,
-            marginTop: 4,
-            opacity: active ? 1 : 0,
-            transition: "opacity 0.6s ease 0.75s",
+            gap: 5,
+            marginTop: 3,
+            opacity: rc_final,
           }}
         >
-          <div style={{ border: `1.5px solid ${T.ink}`, borderRadius: 3, padding: "5px 12px" }}>
-            <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: T.ink }}>
+          <div style={{ border: `1px solid ${T.ink}`, borderRadius: 2, padding: "4px 10px" }}>
+            <span style={{ fontSize: 7, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: T.ink, fontFamily: FUNCION }}>
               Subscribe
             </span>
           </div>
-          <span style={{ fontSize: 8, fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase", color: T.graphite }}>
+          <span style={{ fontSize: 7, fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", color: T.graphite, fontFamily: FUNCION }}>
             fjresearch.com
           </span>
         </div>
@@ -774,24 +846,18 @@ function EndingSocialsSlide({ active }: { active: boolean }) {
 const SLIDES = [
   { Comp: MastheadSlide, layout: "masthead" },
   { Comp: ThesisSlide, layout: "thesis_statement" },
-  { Comp: MarketAnnotationSlide, layout: "market_annotation" },
+  { Comp: FrameworkFlowSlide, layout: "framework_flow" },
   { Comp: DeepDiveSlide, layout: "deep_dive" },
   { Comp: EndingSocialsSlide, layout: "ending_socials" },
 ];
 
 export default function FJResearchPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [current, setCurrent] = useState(0);
-  const [active, setActive] = useState(false);
 
   useEffect(() => {
-    setActive(true);
     if (thumbnailMode) return;
     const id = setInterval(() => {
-      setActive(false);
-      setTimeout(() => {
-        setCurrent((c) => (c + 1) % SLIDES.length);
-        setActive(true);
-      }, 150);
+      setCurrent((c) => (c + 1) % SLIDES.length);
     }, 3800);
     return () => clearInterval(id);
   }, [thumbnailMode]);
@@ -800,9 +866,11 @@ export default function FJResearchPreview({ thumbnailMode = false }: { thumbnail
 
   return (
     <ScaledCanvas>
-      <div style={{ width: "100%", height: "100%", position: "relative" }}>
-        <Comp active={active} />
-      </div>
+      {(framePos: number) => (
+        <div style={{ width: "100%", height: "100%", position: "relative" }}>
+          <Comp framePos={framePos} />
+        </div>
+      )}
     </ScaledCanvas>
   );
 }
