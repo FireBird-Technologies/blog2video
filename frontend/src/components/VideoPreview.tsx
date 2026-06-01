@@ -261,6 +261,10 @@ function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | CraftedT
     return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/laduc/laduc-brand-logo.png");
   }
 
+  if (template.id === "crafted_fj_market_brief_bundle" && typeof template.preview_image_url === "string") {
+    return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/fj_market_brief/fj-brand-logo.png");
+  }
+
   return null;
 }
 

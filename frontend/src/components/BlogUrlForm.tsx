@@ -16,7 +16,7 @@ import UpgradePlanModal from "./UpgradePlanModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
-import CraftedTemplatePreview from "./templatePreviews/CraftedTemplatePreview";
+import CraftedTemplatePreviewSmart from "./templatePreviews/CraftedTemplatePreviewSmart";
 import CraftYourTemplateCard from "./CraftYourTemplateCard";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
 
@@ -805,7 +805,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
-  const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized } = useCraftedTemplates();
+  const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized, ensureCraftedTemplateDetail } = useCraftedTemplates();
+  // When a crafted template is selected, fetch its full bundle (frontend_files,
+  // entry, public assets) on demand so its picker card can render the REAL
+  // composition via the module graph (falls back to the marquee until ready).
+  useEffect(() => {
+    if (template.startsWith("crafted_")) {
+      void ensureCraftedTemplateDetail(template);
+    }
+  }, [template, ensureCraftedTemplateDetail]);
   /** Built-in template list fetch — drives step 2 loading overlay (often warmed by Dashboard prefetch). */
   const [builtinTemplatesLoading, setBuiltinTemplatesLoading] = useState(true);
   /** After built-ins load: session random pick (or skip) has finished — step 2 can interact. */
@@ -2232,13 +2240,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               demoMode.templatePreviewOverride({ templateId: template, selected: true, thumbnail: false })
             ) : selectedCustom ? (
               <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
-            ) : selectedCrafted && (selectedCrafted.preview_file || selectedCrafted.preview_image_url || selectedCrafted.theme) ? (
-              <CraftedTemplatePreview
-                templateId={selectedCrafted.id}
+            ) : selectedCrafted && ((selectedCrafted as any).frontend_files || selectedCrafted.preview_file || selectedCrafted.preview_image_url || selectedCrafted.theme) ? (
+              <CraftedTemplatePreviewSmart
+                item={selectedCrafted}
                 compileCacheScope={user?.id != null ? String(user.id) : undefined}
-                previewSource={selectedCrafted.preview_file ?? null}
-                previewImageUrl={selectedCrafted.preview_image_url ?? null}
-                name={selectedCrafted.name}
                 showLoaderOnEmptyOrError
                 key={`selected-crafted-${selectedCrafted.id}-${step}`}
               />
@@ -2415,12 +2420,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
                           {item.type === "crafted" ? (
-                            <CraftedTemplatePreview
-                              templateId={item.id}
+                            <CraftedTemplatePreviewSmart
+                              item={ct as any}
                               compileCacheScope={user?.id != null ? String(user.id) : undefined}
-                              previewSource={(ct as any).preview_file ?? null}
-                              previewImageUrl={ct.preview_image_url ?? null}
-                              name={ct.name}
                               thumbnailMode
                               showLoaderOnEmptyOrError
                               key={`${customId}-${step}`}
@@ -2956,13 +2958,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <div className="relative">
               {selectedCustomBulk ? (
                 <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
-              ) : selectedCraftedBulk && (selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
-                <CraftedTemplatePreview
-                  templateId={selectedCraftedBulk.id}
+              ) : selectedCraftedBulk && ((selectedCraftedBulk as any).frontend_files || selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
+                <CraftedTemplatePreviewSmart
+                  item={selectedCraftedBulk}
                   compileCacheScope={user?.id != null ? String(user.id) : undefined}
-                  previewSource={selectedCraftedBulk.preview_file ?? null}
-                  previewImageUrl={selectedCraftedBulk.preview_image_url ?? null}
-                  name={selectedCraftedBulk.name}
                   showLoaderOnEmptyOrError
                   key={`selected-bulk-crafted-${tpl}-${activeIndex}-${step}`}
                 />
@@ -3138,12 +3137,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
                           {item.type === "crafted" ? (
-                            <CraftedTemplatePreview
-                              templateId={item.id}
+                            <CraftedTemplatePreviewSmart
+                              item={ct as any}
                               compileCacheScope={user?.id != null ? String(user.id) : undefined}
-                              previewSource={(ct as any).preview_file ?? null}
-                              previewImageUrl={ct.preview_image_url ?? null}
-                              name={ct.name}
                               thumbnailMode
                               showLoaderOnEmptyOrError
                               key={`${customId}-bulk-${activeIndex}`}
