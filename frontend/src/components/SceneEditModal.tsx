@@ -2158,6 +2158,8 @@ export default function SceneEditModal({
   const isDefaultTemplate = normalizedTemplateId === "default";
   const isBloombergTemplate = normalizedTemplateId === "bloomberg";
   const isLaDucTemplate = normalizedTemplateId === "laduc";
+  // FJ Market Brief is a crafted template — project.template carries the public id.
+  const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
 
   const currentLayoutId = (() => {
     try {
@@ -3087,14 +3089,14 @@ export default function SceneEditModal({
     if (next === "__keep__" || next === "__auto__") return;
     // Seed example chart data when switching into a chart layout with no existing data
     const isChartLayout =
-      (isLaDucTemplate && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
+      ((isLaDucTemplate || isFjBriefTemplate) && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
       ((isNewscastTemplate) && next === "data_visualization") ||
       (isBloombergTemplate && next === "terminal_dataviz");
     if (!isChartLayout) return;
     setEditableLayoutProps((prev) => {
       const existing = normalizeChartTableValue(prev.chartTable);
       if (chartTableHasData(existing)) return prev;
-      const exampleType = (isLaDucTemplate ? getLaDucMarketAnnotationChartTypeForLayout(next) : null) ?? "bar";
+      const exampleType = ((isLaDucTemplate || isFjBriefTemplate) ? getLaDucMarketAnnotationChartTypeForLayout(next) : null) ?? "bar";
       return { ...prev, chartTable: getLaDucMarketAnnotationExampleTable(exampleType) };
     });
   };
@@ -3893,6 +3895,10 @@ export default function SceneEditModal({
                           isLaDucTemplate &&
                           currentLayoutId === "market_annotation" &&
                           field.key === "chartType";
+                        const isFjBriefChartTypeField =
+                          isFjBriefTemplate &&
+                          currentLayoutId === "market_annotation" &&
+                          field.key === "chartType";
                         const isBloombergChartTypeField =
                           isBloombergTemplate &&
                           currentLayoutId === "terminal_dataviz" &&
@@ -3908,7 +3914,7 @@ export default function SceneEditModal({
                               value={sel}
                               onChange={(e) => {
                                 const nextChartType = e.target.value;
-                                if (isLaDucChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
+                                if (isLaDucChartTypeField || isFjBriefChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
                                   const concrete =
                                     nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
                                       ? (nextChartType as "line" | "bar" | "histogram")

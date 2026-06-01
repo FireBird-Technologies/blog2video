@@ -128,6 +128,17 @@ WEALTH_SUBSTACK_URL = "https://www.cosmodestefano.com"
 WEALTH_ENDING_SECONDARY_CTA_TEXT = "Buy the Book on Amazon"
 WEALTH_AMAZON_URL = "https://geni.us/wealthyourwaypb"
 
+# FJ Market Brief shares LaDuc's chart contract (market_annotation + ticker
+# layouts, chartTable/tickerTable schemas). Matches the local built-in id AND
+# the crafted/R2 bundle's public id.
+FJ_TEMPLATE_IDS = frozenset({"fj_market_brief", "crafted_fj_market_brief_bundle"})
+
+
+def _is_laduc_or_fj(template_id: str) -> bool:
+    """True for LaDuc (any id variant) or FJ Market Brief — the templates that
+    share the market_annotation/ticker chart-binding pipeline."""
+    return ("laduc" in (template_id or "")) or (template_id in FJ_TEMPLATE_IDS)
+
 
 def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
     """Extract effective layout from descriptor payload."""
@@ -873,8 +884,8 @@ async def _generate_script(project: Project, db: Session):
                     max_rows=20,
                 )
 
-    elif ("laduc" in template_id):
-        # laduc: classify chartable tables once upfront (bloomberg-style).
+    elif _is_laduc_or_fj(template_id):
+        # laduc / FJ market brief: classify chartable tables once upfront (bloomberg-style).
         # Run extraction + classification in the thread pool so CPU-bound
         # HTML parsing doesn't block the event loop.
         _laduc_blog_text = getattr(project, "blog_content", None) or ""
@@ -998,9 +1009,9 @@ async def _generate_script(project: Project, db: Session):
                     if is_candlestick_table(_ct):
                         bound_idx = _ci
                         break
-            # For laduc market_annotation with no bound index, auto-find the first chartable table.
+            # For laduc/FJ market_annotation with no bound index, auto-find the first chartable table.
             if (
-                "laduc" in template_id
+                _is_laduc_or_fj(template_id)
                 and scene_data.get("preferred_layout") == "market_annotation"
                 and not isinstance(bound_idx, int)
             ):
@@ -1018,7 +1029,7 @@ async def _generate_script(project: Project, db: Session):
             # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
             # the table binding was supposed to force a data layout.
             # Embed the table hint so scene_gen has the data and can produce the right chart.
-            (template_id == "bloomberg" or "laduc" in template_id)
+            (template_id == "bloomberg" or _is_laduc_or_fj(template_id))
             and scene_data.get("data_table_index") is not None
             and _all_extracted_tables
         ):
@@ -1034,7 +1045,7 @@ async def _generate_script(project: Project, db: Session):
                         scene_data["preferred_layout"] = "terminal_dataviz"
                     else:
                         scene_data["preferred_layout"] = "terminal_chart"
-                elif "laduc" in template_id:
+                elif _is_laduc_or_fj(template_id):
                     scene_data["preferred_layout"] = (
                         "ticker" if is_laduc_ticker_table(_fb_table) else "market_annotation"
                     )

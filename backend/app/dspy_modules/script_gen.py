@@ -271,7 +271,7 @@ class BlogToScript(dspy.Signature):
             "These scenes must be placed after the hero/opening scene and before the ending_socials scene. "
             "Scenes using these layouts MUST NOT appear in any other scene, and other scenes "
             "MUST NOT reference these tables in their narration. "
-            "LAYOUT PRIORITY FOR LADUC — apply in this order: "
+            "LAYOUT PRIORITY FOR MARKET-ANNOTATION TEMPLATES (LaDuc, FJ Market Brief) — apply in this order: "
             "(1) If the entry's preferred_layout is 'market_annotation' → emit a scene with "
             "preferred_layout='market_annotation'. DO NOT downgrade it to data_impact, deep_dive, "
             "two_column, or any other layout. The chartable_tables_json bindings are AUTHORITATIVE "
