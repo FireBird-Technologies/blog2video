@@ -817,7 +817,7 @@ export const {pascal}VideoComposition: React.FC<{pascal}VideoCompositionProps> =
           narration: scene.narration,
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${{focusX}}% ${{focusY}}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor: accentColor || "{accent}",
           bgColor: bgColor || "{bg}",
           textColor: textColor || "{text}",
@@ -1004,7 +1004,7 @@ export const {pascal}Video: React.FC<VideoProps> = ({{ dataUrl }}) => {{
           sceneDurationInFrames: durationFrames,
           imageUrl,
           imageObjectPosition: `${{focusX}}% ${{focusY}}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily: resolvedFontFamily || undefined,
         }};
 
