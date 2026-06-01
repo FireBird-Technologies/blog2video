@@ -38,10 +38,9 @@ function r(pos: number, start: number, end: number): number {
 }
 
 // ── Scaled 16:9 stage ────────────────────────────────────────────────────────
-function ScaledCanvas({ children }: { children: (framePos: number) => React.ReactNode }) {
+function ScaledCanvas({ children }: { children: () => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
-  const [frame, setFrame] = useState(0);
 
   useEffect(() => {
     const el = ref.current;
@@ -51,19 +50,6 @@ function ScaledCanvas({ children }: { children: (framePos: number) => React.Reac
     const obs = new ResizeObserver(update);
     obs.observe(el);
     return () => obs.disconnect();
-  }, []);
-
-  useEffect(() => {
-    // Animate the preview scene through one full cycle (~3.8 seconds at 30fps = ~114 frames)
-    let animFrame: number;
-    let frameNum = 0;
-    const animate = () => {
-      frameNum = (frameNum + 1) % 114;
-      setFrame(frameNum / 90); // Normalize to 0-1.27 range for animation easing
-      animFrame = requestAnimationFrame(animate);
-    };
-    animFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animFrame);
   }, []);
 
   return (
@@ -86,7 +72,7 @@ function ScaledCanvas({ children }: { children: (framePos: number) => React.Reac
           position: "absolute",
         }}
       >
-        {children(frame)}
+        {children()}
       </div>
     </div>
   );
@@ -852,23 +838,49 @@ const SLIDES = [
 ];
 
 export default function FJResearchPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
-  const [current, setCurrent] = useState(0);
+  const [globalFrame, setGlobalFrame] = useState(0);
 
   useEffect(() => {
     if (thumbnailMode) return;
-    const id = setInterval(() => {
-      setCurrent((c) => (c + 1) % SLIDES.length);
-    }, 3800);
-    return () => clearInterval(id);
+    // Continuous animation: each scene is 114 frames, 5 scenes = 570 frames total
+    let animFrame: number;
+    let frameNum = 0;
+    const animate = () => {
+      frameNum = (frameNum + 1) % (114 * SLIDES.length);
+      setGlobalFrame(frameNum / 90);
+      animFrame = requestAnimationFrame(animate);
+    };
+    animFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animFrame);
   }, [thumbnailMode]);
 
-  const { Comp } = SLIDES[current];
+  // Calculate which scene we're in and the local frame position within that scene
+  const framesPerScene = 114;
+  const sceneIndex = Math.floor((globalFrame * 90) / framesPerScene) % SLIDES.length;
+  const localFrame = (globalFrame * 90) % framesPerScene;
+  const framePos = localFrame / 90;
+  const prevSceneIndex = (sceneIndex - 1 + SLIDES.length) % SLIDES.length;
+
+  // Fade transition: fade out prev scene, fade in current scene
+  const transitionPhase = (localFrame % framesPerScene) / framesPerScene;
+  const fadeOutPrevious = Math.max(0, Math.min(1, transitionPhase < 0.15 ? transitionPhase / 0.15 : 1));
+  const fadeInCurrent = Math.max(0, Math.min(1, transitionPhase > 0.85 ? (transitionPhase - 0.85) / 0.15 : (transitionPhase < 0.15 ? transitionPhase / 0.15 : 1)));
+
+  const CurrentComp = SLIDES[sceneIndex].Comp;
+  const PrevComp = SLIDES[prevSceneIndex].Comp;
 
   return (
     <ScaledCanvas>
-      {(framePos: number) => (
-        <div style={{ width: "100%", height: "100%", position: "relative" }}>
-          <Comp framePos={framePos} />
+      {() => (
+        <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden" }}>
+          {/* Previous scene fade out */}
+          <div style={{ position: "absolute", inset: 0, opacity: Math.max(0, 1 - fadeInCurrent) }}>
+            <PrevComp framePos={framePos} />
+          </div>
+          {/* Current scene fade in */}
+          <div style={{ position: "absolute", inset: 0, opacity: fadeInCurrent }}>
+            <CurrentComp framePos={framePos} />
+          </div>
         </div>
       )}
     </ScaledCanvas>
