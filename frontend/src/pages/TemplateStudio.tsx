@@ -43,7 +43,7 @@ import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layo
 const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
 
-const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MIN = 0.1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 
 type AspectRatio = "landscape" | "portrait";
@@ -3077,11 +3077,12 @@ export default function TemplateStudio() {
                     <img
                       src={imageAdjustSrc}
                       alt="Adjust preview"
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full"
                       style={{
-                        objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                        objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
+                        objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                         transform: `scale(${imageAdjustZoom})`,
-                        transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                        transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                       }}
                       draggable={false}
                     />

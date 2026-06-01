@@ -197,7 +197,7 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
             narration: scene.narration,
             imageUrl: scene.imageUrl,
             imageObjectPosition: `${focusX}% ${focusY}%`,
-            imageZoom: Math.max(1, Number(rawProps.imageZoom ?? 1)),
+            imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
             accentColor: accentColor || "#B8860B",
             bgColor: bgColor || "#F1E4C9",
             textColor: textColor || "#2A1810",
