@@ -705,6 +705,47 @@ function getLaDucMarketAnnotationExampleTable(
   };
 }
 
+function getFJResearchMarketAnnotationExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "line") {
+    return {
+      headers: ["Date", "Close", "Flow index", "Positioning"],
+      rows: [
+        ["2024-01-02", "298", "72", "41"],
+        ["2024-02-01", "308", "68", "44"],
+        ["2024-03-01", "315", "61", "39"],
+        ["2024-04-01", "324", "55", "36"],
+        ["2024-05-01", "318", "59", "33"],
+      ],
+    };
+  }
+  if (chartType === "bar") {
+    return {
+      headers: ["Sector", "Series A", "Series B"],
+      rows: [
+        ["Semis", "42", "28"],
+        ["Energy", "38", "35"],
+        ["Financials", "45", "32"],
+        ["Healthcare", "40", "38"],
+        ["Industrials", "36", "34"],
+        ["Tech", "50", "41"],
+      ],
+    };
+  }
+  return {
+    headers: ["Score bucket", "Count"],
+    rows: [
+      ["0–10", "2"],
+      ["10–20", "6"],
+      ["20–30", "14"],
+      ["30–40", "18"],
+      ["40–50", "10"],
+      ["50–60", "4"],
+    ],
+  };
+}
+
 /**
  * Mirrors `mergeMarketAnnotationChartDefaults()` in
  * [VideoPreview.tsx](./VideoPreview.tsx) — fills `chartTable` (and
@@ -1574,6 +1615,35 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "brandName", label: "Brand name", type: "string", placeholder: "e.g. LaDucTrading" },
       { key: "ctaButtonText", label: "CTA button text", type: "string", placeholder: "e.g. Join LaDucTrading" },
       { key: "websiteLink", label: "Website URL", type: "string", placeholder: "e.g. https://laductrading.com" },
+    ],
+  },
+  fj_research: {
+    market_annotation: [
+      { key: "category", label: "Chart label", type: "string", placeholder: "e.g. S&P 500 · Daily · May 2026" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "FJResearch · Chart Desk" },
+      {
+        key: "chartType",
+        label: "Chart type",
+        type: "select",
+        default: "auto",
+        options: [
+          { value: "auto", label: "Auto (infer from data)" },
+          { value: "line", label: "Line" },
+          { value: "bar", label: "Bar" },
+          { value: "histogram", label: "Histogram" },
+        ],
+      },
+      { key: "subtitle", label: "X-axis / category caption", type: "string", placeholder: "e.g. Trading date" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Index level" },
+      { key: "chartSummary", label: "Chart summary (short read beside the graphic)", type: "string", placeholder: "Market context and key takeaway..." },
+      { key: "chartTimeframeLabel", label: "Chart timeframe label (top-right)", type: "string", placeholder: "1D / 5m" },
+      { key: "footerNote", label: "Y-axis caption / footer note", type: "string", placeholder: "Source: Bloomberg Terminal" },
+      { key: "narration", label: "Thesis quote (bottom italic)", type: "string" },
+      { key: "barPrimaryColor", label: "Bar / line color 1", type: "color", placeholder: "#0A0A0A" },
+      { key: "barSecondaryColor", label: "Bar / line color 2", type: "color", placeholder: "#B5B5B5" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "fj_researchtrading.com" },
+      { key: "chartYAxisTicks", label: "Y-axis tick labels (top → bottom, 2–4 values)", type: "string_array", maxItems: 4 },
+      { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
     ],
   },
 };
@@ -3893,6 +3963,10 @@ export default function SceneEditModal({
                           isLaDucTemplate &&
                           currentLayoutId === "market_annotation" &&
                           field.key === "chartType";
+                        const isFJResearchChartTypeField =
+                          normalizedTemplateId === "fj_research" &&
+                          currentLayoutId === "market_annotation" &&
+                          field.key === "chartType";
                         const isBloombergChartTypeField =
                           isBloombergTemplate &&
                           currentLayoutId === "terminal_dataviz" &&
@@ -3908,13 +3982,13 @@ export default function SceneEditModal({
                               value={sel}
                               onChange={(e) => {
                                 const nextChartType = e.target.value;
-                                if (isLaDucChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
+                                if (isLaDucChartTypeField || isFJResearchChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
                                   const concrete =
                                     nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
                                       ? (nextChartType as "line" | "bar" | "histogram")
                                       : null;
                                   if (concrete) {
-                                    const example = getLaDucMarketAnnotationExampleTable(concrete);
+                                    const example = isLaDucChartTypeField ? getLaDucMarketAnnotationExampleTable(concrete) : getFJResearchMarketAnnotationExampleTable(concrete);
                                     setEditableLayoutProps((prev) => ({
                                       ...prev,
                                       [field.key]: nextChartType,
