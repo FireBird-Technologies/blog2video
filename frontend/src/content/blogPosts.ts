@@ -6942,4 +6942,298 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "how-we-make-custom-branded-video-templates",
+    title: "How We Make Custom Branded Video Templates at Blog2Video",
+    description:
+      "An inside look at how our designers research, document, and build custom branded video templates for clients, from gathering brand essentials to final delivery.",
+    category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Blog2Video designers building a custom branded video template using an AI-assisted motion graphics editor.",
+    publishedAt: "2026-05-29",
+    readTime: "7 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "How we make custom branded video templates at Blog2Video",
+    heroDescription:
+      "A custom template is not a skin swap or a color tweak. It is a designed product built around your specific brand. Here is exactly how our team makes them.",
+    primaryKeyword: "custom branded video templates",
+    keywordVariant: "how to make branded video templates",
+    relatedPaths: [
+      "/custom-branded-video-templates",
+      "/for-finance-publishers",
+      "/for-substack-writers",
+      "/pricing",
+    ],
+    sections: [
+      {
+        heading: "Why we build templates the way we do",
+        paragraphs: [
+          "Most video tools give you a library of templates and ask you to pick the closest one to your brand. That works well enough when brand consistency is not a priority. But for writers, analysts, authors, and publishers who have built a recognizable identity, a generic template is not a starting point. It is a compromise.",
+          "Custom branded templates exist for people who refuse that compromise. The goal is a video template that your existing audience recognizes immediately as yours, built around your actual fonts, colors, layout logic, and content style, not approximated from someone else's design.",
+          "Here is how our team builds them.",
+        ],
+      },
+      {
+        heading: "Step one: gathering the essentials",
+        paragraphs: [
+          "Every custom template starts with research. Before we open a design tool, we need to understand your brand from the ground up.",
+          "We collect the fundamentals: your website, social pages, fonts, colors, themes, and your brand design philosophy. We also look at the design patterns common in your industry, because good branded content does not just reflect the client, it fits naturally into the visual context their audience already lives in.",
+          "We ask you for this directly, and we also do our own research into whatever branded material we can find publicly. The combination of what you tell us and what we observe gives us a complete picture before we write a single line of the design document.",
+        ],
+        bullets: [
+          "Website and social presence",
+          "Fonts, colors, and visual themes",
+          "Brand design philosophy and tone",
+          "Industry-specific design patterns and conventions",
+        ],
+      },
+      {
+        heading: "Step two: writing the design document",
+        paragraphs: [
+          "Once we have the research, we write an extensive design document before anything is built. This is not a brief or a mood board. It is a detailed specification that covers every aspect of how the template should look, behave, and feel.",
+          "The design document draws on everything we gathered from you, and it also draws on the collective knowledge our team has built up working across all our clients, with particular depth in whatever industry you work in. We have made templates for finance publishers, newsletter writers, technical bloggers, book authors, and many others. That accumulated experience feeds every new document we write.",
+          "We give the document to our design experts to review and refine. We also feed it through our AI systems to stress-test the logic and surface anything that might be inconsistent or underdeveloped. Only once the document is solid do we move to production.",
+        ],
+      },
+      {
+        heading: "Step three: building in our custom AI editor",
+        paragraphs: [
+          "We have built a custom AI editor internally, designed specifically for motion graphics production. This is not an off-the-shelf tool. It is a system our team built around the specific workflow of creating video templates, with all the controls and feedback loops that process requires.",
+          "The design document feeds into the editor to produce an initial skin for the template. From there, a dedicated designer takes over. They review every scene individually, request regenerations where the output is not right, add detail manually, and fix every element precisely in place. Nothing ships because it looks close enough. It ships because the designer has confirmed it is right.",
+          "Our designers also have access to other AI tools that let them bring additional reference material into the template as needed: brand artifacts, image assets, typography samples, layout references. The editor is a harness, not an autopilot.",
+        ],
+      },
+      {
+        heading: "Step four: client review and refinement",
+        paragraphs: [
+          "Once we have a complete initial template, we share it with the client. We walk through every scene and ask for honest feedback. What looks right, what does not, and what is missing.",
+          "We incorporate that feedback and refine. This step is not a courtesy round. It is a genuine part of the process, because the client knows their brand better than anyone else, and there are always things that only become visible once the template is in front of them.",
+          "We keep refining until the client is confident. The template we deliver is one they can use immediately and indefinitely, knowing that every video produced from it will look like their brand on first impression.",
+        ],
+      },
+      {
+        heading: "What the finished template includes",
+        paragraphs: [
+          "A finished custom template is a complete video production system built around your brand. It is not a single scene or a single look. It covers the full range of content types you are likely to produce.",
+        ],
+        bullets: [
+          "Branded templates are infinitely reusable with no additional design cost per video.",
+          "Custom charts, infographics, animations, and typefaces built in from the start.",
+          "Support for every content type in your publishing workflow.",
+          "The option to add customizations at any point as your brand evolves.",
+        ],
+      },
+      {
+        heading: "What clients say",
+        paragraphs: [
+          "Cosmo DeStefano is a finance strategist and author of Wealth Your Way, a book and Substack newsletter focused on practical financial independence. He was skeptical going in.",
+          "\"As a book author and Substack writer, I was genuinely skeptical that any tool or team could translate my writing into video content that actually sounded like me. Blog2Video changed my mind completely. The production quality is sharp, turnaround has been consistently fast, and the team has been genuinely responsive at every step. What impressed me most was their commitment to building a custom template that matched my brand rather than simply dropping my posts into a generic layout. The result is video content that feels like a natural extension of my writing, not a diluted version of it. The experience has been professional, collaborative, and worth every dollar, at a fraction of what traditional video production would have cost.\"",
+          "Cosmo DeStefano, Finance Strategist and Author, Wealth Your Way",
+        ],
+      },
+      {
+        heading: "Request your own custom template",
+        paragraphs: [
+          "If you publish written content and want video that looks like your brand rather than a generic production, a custom template is the most direct path there.",
+          "Tell us about your brand, your content, and your audience. We will take it from there.",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "Request a custom template",
+      },
+    ],
+    faq: [
+      {
+        question: "How is a custom template different from your standard templates?",
+        answer:
+          "Standard templates are high quality and designed for broad use. A custom template is built entirely from scratch around your specific brand: your fonts, colors, layout preferences, and content style. Every video produced from it is unmistakably yours.",
+      },
+      {
+        question: "What do you need from me to get started?",
+        answer:
+          "We ask for the basics: your website, any social pages, your fonts and colors if you have them, and a sense of your brand philosophy. We supplement that with our own research. The more you can share, the faster and more accurate the first draft will be.",
+      },
+      {
+        question: "How many rounds of revision are included?",
+        answer:
+          "We refine until you are satisfied. The review step is a genuine part of our process, not a single pass. We continue until the template accurately represents your brand.",
+      },
+      {
+        question: "Can the template be updated later?",
+        answer:
+          "Yes. As your brand evolves you can request updates and additional customizations. The template grows with you rather than locking you into the design decisions made at launch.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How we make custom branded video templates at Blog2Video",
+        angle:
+          "Behind-the-scenes explainer that builds trust with potential custom template clients by showing the rigour and care behind every template we produce.",
+      },
+      {
+        channel: "substack",
+        title: "The four-step process behind every Blog2Video custom template",
+        angle:
+          "Newsletter-friendly breakdown for writers and publishers curious about what a custom template actually involves before they commit.",
+      },
+      {
+        channel: "medium",
+        title: "What goes into a custom branded video template",
+        angle:
+          "Process-focused post for content creators and brand managers who want to understand what separates a purpose-built template from a generic one.",
+      },
+      {
+        channel: "video",
+        title: "Inside our custom template process",
+        angle:
+          "Short walkthrough showing the four stages from brand research to final delivery, with examples of what the design document and editor workflow look like in practice.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-increase-your-audience-on-linkedin",
+    title: "How to Increase Your Audience on LinkedIn",
+    description:
+      "Five practical ways to grow your LinkedIn audience in 2026 — from posting consistently to turning your existing content into video and carousels that drive both engagement and external traffic.",
+    category: "Strategy",
+    heroImage: "/blog/blog-cover-repurpose-blog-content.png",
+    heroImageAlt:
+      "A creator publishing a mix of text posts, carousels, and short videos to grow their LinkedIn audience.",
+    publishedAt: "2026-05-31",
+    readTime: "6 min read",
+    heroEyebrow: "LinkedIn growth",
+    heroTitle: "Five ways to grow your LinkedIn audience — including one most people skip entirely.",
+    heroDescription:
+      "Consistency, comments, and hashtags will only take you so far. The creators who build audiences fastest combine those fundamentals with a content format that most of their competitors are not producing yet.",
+    primaryKeyword: "how to increase your audience on linkedin",
+    keywordVariant: "grow linkedin audience",
+    relatedPaths: [
+      "/blog-to-linkedin-video",
+      "/blog-to-video",
+      "/blogs/ai-linkedin-carousel-generator-from-existing-content",
+      "/pricing",
+    ],
+    sections: [
+      {
+        heading: "1. Post consistently — even when reach feels low",
+        paragraphs: [
+          "LinkedIn's algorithm rewards accounts that show up regularly. A profile that posts three to five times a week builds a pattern the algorithm recognises — and over time, that pattern gets rewarded with broader distribution.",
+          "The goal is not to go viral. The goal is to stay visible long enough that your name appears in someone's feed right when they need what you offer. Consistency is the simplest edge that most people abandon too early.",
+        ],
+        bullets: [
+          "Aim for three to five posts per week as a sustainable baseline.",
+          "Use a content calendar to batch and schedule ahead so weeks do not go dark.",
+          "Repurpose existing work — a blog post, a meeting recap, or a lesson learned — rather than inventing from scratch every time.",
+        ],
+      },
+      {
+        heading: "2. Write for comments, not just impressions",
+        paragraphs: [
+          "LinkedIn's feed is driven by engagement signals, and comments carry more weight than likes. A post that sparks a genuine reply from five people will outperform a post that gets fifty passive likes.",
+          "The easiest way to invite comments is to end a post with a direct question, a contrarian take, or a genuine ask for experience. Something that makes reading it feel incomplete without responding.",
+        ],
+        bullets: [
+          "Close posts with a specific, answerable question rather than a vague \"thoughts?\"",
+          "Share a position that readers might push back on — polite disagreement drives thread depth.",
+          "Reply to every comment in the first hour to extend the window the algorithm watches.",
+        ],
+      },
+      {
+        heading: "3. Optimise your profile before you grow it",
+        paragraphs: [
+          "Traffic you generate through content lands on your profile. If the profile does not immediately communicate who you help and why it matters, you lose the follow even when the post earns the click.",
+          "The headline is the most important field. It should not describe your job title — it should describe the outcome you create for the people you work with. A summary that opens with a specific result beats one that opens with a resume.",
+        ],
+        bullets: [
+          "Rewrite your headline around the outcome you deliver, not your current role.",
+          "Add a Featured section with your best post, a lead magnet, or a relevant link.",
+          "Pin a recent post that represents the clearest version of what you talk about.",
+        ],
+      },
+      {
+        heading: "4. Engage with your target audience before you expect them to find you",
+        paragraphs: [
+          "Outbound engagement is underrated. Spending fifteen minutes a day leaving substantive comments on posts from people in your target audience does two things: it puts your name in front of their followers, and it starts a relationship before you ever need anything from them.",
+          "The accounts that grow fastest on LinkedIn are rarely passive broadcasters. They are people who show up in the comments of relevant conversations and add something worth reading.",
+        ],
+        bullets: [
+          "Follow twenty to thirty creators in your niche and comment on their posts daily.",
+          "Add insight rather than agreement — \"great post\" does not surface your name.",
+          "DM people whose content you genuinely find useful before you need anything from them.",
+        ],
+      },
+      {
+        heading: "5. Turn your written content into video and carousels with Blog2Video",
+        paragraphs: [
+          "This is the tactic that separates fast-growing LinkedIn accounts from stalled ones: publishing content formats that the majority of your competitors are not producing.",
+          "Most people on LinkedIn post text. Some post images. Very few post polished short videos or multi-slide carousels — and those formats get meaningfully more reach per post because LinkedIn actively promotes them in the feed.",
+          "Blog2Video lets you take an article, blog post, or any written piece and convert it into a LinkedIn-ready video or carousel in minutes. You paste the URL or text, choose a visual template, and export the result as an MP4 video to post directly, a PDF carousel to upload as a LinkedIn document post, or individual PNG slides to use across other channels.",
+          "The compounding effect is significant. A single blog post becomes a video your LinkedIn audience watches in the feed, a carousel your followers swipe through and save, and an asset you can share externally — driving traffic back to your original article from people who would never have found the text version alone.",
+          "For creators who already write regularly, Blog2Video closes the gap between the content they produce and the formats that actually grow an audience on LinkedIn. You are not writing twice — you are distributing once.",
+        ],
+        bullets: [
+          "Paste a blog post URL and generate a full video in minutes — no editing software needed.",
+          "Export as MP4 for LinkedIn video posts, PDF for carousel document posts, or PNG slides for feed images.",
+          "Drive external traffic back to your original article from viewers who discover the video first.",
+          "Maintain a consistent visual identity across every piece of video content you publish.",
+        ],
+        ctaPath: "/blog-to-linkedin-video",
+        ctaLabel: "Turn your blog into a LinkedIn video",
+      },
+    ],
+    faq: [
+      {
+        question: "How often should I post on LinkedIn to grow my audience?",
+        answer:
+          "Three to five times per week is a reliable baseline for most creators. What matters more than frequency is showing up consistently — an account that posts four times a week every week outperforms one that posts daily for two weeks and then disappears.",
+      },
+      {
+        question: "What type of content gets the most reach on LinkedIn?",
+        answer:
+          "Video and carousel posts typically receive broader organic distribution than text-only posts because LinkedIn's algorithm actively promotes formats that keep users on the platform longer. Short video posts in particular are underused by most creators, which means less competition for that distribution.",
+      },
+      {
+        question: "How do I use Blog2Video to grow my LinkedIn audience?",
+        answer:
+          "You paste a blog post URL or text into Blog2Video, choose a visual template, and export the result as an MP4 video or PDF carousel. Post the video directly on LinkedIn for organic reach, or upload the PDF as a document post. Both formats outperform plain text posts and drive viewers back to your original written content.",
+      },
+      {
+        question: "Does posting video on LinkedIn actually increase followers?",
+        answer:
+          "Yes. LinkedIn video posts consistently reach non-followers through the feed and Discover sections, which text posts rarely do. Viewers who find value in the video tend to visit the poster's profile and follow, especially when the profile headline clearly communicates what the account is about.",
+      },
+      {
+        question: "Can I repurpose one piece of content for LinkedIn and other platforms at the same time?",
+        answer:
+          "Yes, and that is exactly the workflow Blog2Video is built for. A single blog post can become a LinkedIn MP4 video, a PDF carousel, individual PNG slides for Instagram or Twitter, and a shareable link — without writing or designing anything new.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Increase Your Audience on LinkedIn",
+        angle:
+          "SEO-driven guide targeting creators looking for LinkedIn growth strategies, with a natural product placement around Blog2Video for video and carousel creation.",
+      },
+      {
+        channel: "video",
+        title: "Five Ways to Grow Your LinkedIn Audience (Including One Most People Skip)",
+        angle:
+          "Short walkthrough of the five tips with a demo of Blog2Video converting a blog post into a LinkedIn carousel — shareable on LinkedIn itself as a meta-demonstration.",
+      },
+      {
+        channel: "substack",
+        title: "Why your LinkedIn reach stalled — and what to do about it",
+        angle:
+          "Newsletter-format take aimed at writers who already post but are not seeing follower growth, with video and carousel formats framed as the missing distribution layer.",
+      },
+      {
+        channel: "medium",
+        title: "How to grow on LinkedIn in 2026: five tactics that actually work",
+        angle:
+          "Practical breakdown for content creators and founders who want a LinkedIn strategy that compounds, with Blog2Video positioned as the workflow that unlocks video without extra production effort.",
+      },
+    ],
+  },
 ];
