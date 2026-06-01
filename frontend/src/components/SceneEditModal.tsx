@@ -27,7 +27,7 @@ import { compileDataModule } from "../utils/compileComponent";
 import { normalizeLayoutId } from "./remotion/imageBoxConfig";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
-const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MIN = 0.1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
 import { SpreadsheetTable } from "./SpreadsheetTable";
@@ -2758,7 +2758,7 @@ export default function SceneEditModal({
             remotionCode = JSON.stringify(desc);
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
-            const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(1, override.imageZoom) : undefined;
+            const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(IMAGE_ADJUST_ZOOM_MIN, override.imageZoom) : undefined;
             // Apply layout switch: update desc.layout when user picked a concrete layout
             if (selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__") {
               desc.layout = selectedLayout;
@@ -3018,9 +3018,9 @@ export default function SceneEditModal({
         const focusYToSave = override?.imageFocusY ?? imageFocusY;
         const zoomToPatch =
           typeof override?.imageZoom === "number"
-            ? Math.max(1, override.imageZoom)
+            ? Math.max(IMAGE_ADJUST_ZOOM_MIN, override.imageZoom)
             : typeof editableLayoutProps.imageZoom === "number"
-              ? Math.max(1, Number(editableLayoutProps.imageZoom))
+              ? Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(editableLayoutProps.imageZoom))
               : undefined;
         if (supportsImage && (selectedImageFile || hasExistingSceneImage)) {
           await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
@@ -3274,7 +3274,7 @@ export default function SceneEditModal({
   const openImageAdjustModal = (src: string) => {
     setImageAdjustSrc(src);
     setIsAdjustDragging(false);
-    const currentZoom = Math.max(1, Number((editableLayoutProps.imageZoom as number) || 1));
+    const currentZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Number((editableLayoutProps.imageZoom as number) || 1));
     setImageAdjustFocusX(imageFocusX);
     setImageAdjustFocusY(imageFocusY);
     setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
@@ -3292,7 +3292,7 @@ export default function SceneEditModal({
   const saveImageAdjustModal = async () => {
     const nextFocusX = clampFocus(imageAdjustFocusX);
     const nextFocusY = clampFocus(imageAdjustFocusY);
-    const nextZoom = Math.max(1, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
+    const nextZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
     setImageFocusX(nextFocusX);
     setImageFocusY(nextFocusY);
     setEditableLayoutProps((prev) => ({ ...prev, imageZoom: nextZoom }));
@@ -5014,11 +5014,12 @@ export default function SceneEditModal({
               <img
                 src={imageAdjustSrc}
                 alt="Adjust preview"
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full"
                 style={{
-                  objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                  objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
+                  objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                   transform: `scale(${imageAdjustZoom})`,
-                  transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                  transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                 }}
                 draggable={false}
               />
