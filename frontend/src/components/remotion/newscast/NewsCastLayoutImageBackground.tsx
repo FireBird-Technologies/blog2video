@@ -4,8 +4,10 @@ import { DEFAULT_NEWSCAST_ACCENT, toRgba } from "./themeUtils";
 import { ZoomCropImg } from "./components/ZoomCropImg";
 
 /**
- * Shared “photo plate” background used by NEWSCAST layouts.
+ * Shared "photo plate" background used by NEWSCAST layouts.
  * It fills the scene and adds a navy/red editorial overlay for readability.
+ * Empty areas when imageZoom < 1 are transparent — the composition's base
+ * background and the editorial overlay above handle visual consistency.
  */
 export const NewsCastLayoutImageBackground: React.FC<{
   imageUrl?: string;
@@ -16,7 +18,7 @@ export const NewsCastLayoutImageBackground: React.FC<{
   if (!imageUrl) return null;
 
   // 1.04× overscan so plate edges never show seams; multiplied with scene zoom.
-  const plateZoom = 1.04 * Math.max(1, imageZoom ?? 1);
+  const plateZoom = 1.04 * Math.max(0.1, imageZoom ?? 1);
 
   return (
     <AbsoluteFill aria-hidden style={{ zIndex: 0, overflow: "hidden" }}>
@@ -51,4 +53,3 @@ export const NewsCastLayoutImageBackground: React.FC<{
     </AbsoluteFill>
   );
 };
-

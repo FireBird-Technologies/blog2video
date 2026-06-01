@@ -326,7 +326,7 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
         const lp = scene.layoutProps as Record<string, unknown> | undefined;
         const focusX = Number(lp?.imageFocusX ?? 50);
         const focusY = Number(lp?.imageFocusY ?? 50);
-        const imageZoom = Math.max(1, Number(lp?.imageZoom ?? 1));
+        const imageZoom = Math.max(0.1, Number(lp?.imageZoom ?? 1));
         const imageObjectPosition = `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`;
         const layoutProps: NewscastLayoutProps = {
           ...normalizedBase,

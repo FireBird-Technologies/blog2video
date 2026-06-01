@@ -86,7 +86,7 @@ type PlaybackSpeedOption = number;
 const PLAYBACK_SPEED_OPTIONS: readonly number[] = [0.5, 1, 1.5, 2, 2.5] as const;
 
 /** Image framing modal: uniform zoom only (no rectangular crop resize). */
-const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MIN = 0.1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
 const TABS_CONTAINER_STEP: Step = {
@@ -2345,7 +2345,7 @@ export default function ProjectView() {
       if (!scene.remotion_code) return 1;
       const parsed = JSON.parse(scene.remotion_code) as { layoutProps?: { imageZoom?: unknown } };
       const zoomRaw = typeof parsed.layoutProps?.imageZoom === "number" ? parsed.layoutProps.imageZoom : 1;
-      return Math.max(1, zoomRaw);
+      return Math.max(IMAGE_ADJUST_ZOOM_MIN, zoomRaw);
     } catch {
       return 1;
     }
@@ -2424,7 +2424,7 @@ export default function ProjectView() {
     if (!imageAdjustSceneId) return;
     setSavingImageAdjust(true);
     try {
-      const zoomToSave = Math.max(1, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
+      const zoomToSave = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
       const targetScene = project.scenes.find((s) => s.id === imageAdjustSceneId);
       if (targetScene?.remotion_code) {
         const descriptor = JSON.parse(targetScene.remotion_code) as { layoutProps?: Record<string, unknown> };
@@ -4670,7 +4670,7 @@ export default function ProjectView() {
                                                     const p = JSON.parse(scene.remotion_code) as { layoutProps?: { imageFocusX?: unknown; imageFocusY?: unknown; imageZoom?: unknown } };
                                                     if (typeof p.layoutProps?.imageFocusX === "number") focusX = p.layoutProps.imageFocusX;
                                                     if (typeof p.layoutProps?.imageFocusY === "number") focusY = p.layoutProps.imageFocusY;
-                                                    if (typeof p.layoutProps?.imageZoom === "number") zoom = Math.max(1, p.layoutProps.imageZoom);
+                                                    if (typeof p.layoutProps?.imageZoom === "number") zoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, p.layoutProps.imageZoom);
                                                   }
                                                 } catch { /* ignore */ }
                                                 return (
@@ -4712,7 +4712,7 @@ export default function ProjectView() {
                                                     };
                                                     if (typeof parsed.layoutProps?.imageFocusX === "number") focusX = clampFocus(parsed.layoutProps.imageFocusX);
                                                     if (typeof parsed.layoutProps?.imageFocusY === "number") focusY = clampFocus(parsed.layoutProps.imageFocusY);
-                                                    if (typeof parsed.layoutProps?.imageZoom === "number") zoom = Math.max(1, parsed.layoutProps.imageZoom);
+                                                    if (typeof parsed.layoutProps?.imageZoom === "number") zoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, parsed.layoutProps.imageZoom);
                                                   }
                                                 } catch {
                                                   /* ignore */
@@ -5002,11 +5002,12 @@ export default function ProjectView() {
                           <img
                             src={imageAdjustSrc}
                             alt="Adjust preview"
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="absolute inset-0 w-full h-full"
                             style={{
-                              objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                              objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
+                              objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                               transform: `scale(${imageAdjustZoom})`,
-                              transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                              transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                             }}
                             draggable={false}
                           />

@@ -74,7 +74,7 @@ export const BlackswanVideoComposition: React.FC<
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           layoutType: scene.layout,
           fontFamily,
         };
