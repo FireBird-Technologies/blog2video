@@ -32,7 +32,7 @@ const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error", "failed"]);
 
 export default function Dashboard() {
-  const { user, refreshUser } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
   const { showError } = useErrorModal();
   const offer = useOutOfVideosOffer();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
@@ -194,12 +194,13 @@ export default function Dashboard() {
   // the user-initiated 403 path never fires. The hook's open() enforces the
   // 5-min window internally and silently no-ops past it.
   useEffect(() => {
+    if (loading) return; // wait until getMe() confirms fresh user data
     if (!user) return;
     if (offer.isOpen) return;
     if (user.plan === "free" && user.can_create_video === false) {
       offer.open();
     }
-  }, [user?.plan, user?.can_create_video, offer.isOpen, offer.open]);
+  }, [loading, user?.plan, user?.can_create_video, offer.isOpen, offer.open]);
 
   const loadProjects = async () => {
     try {
@@ -379,8 +380,13 @@ export default function Dashboard() {
 
   // ─── Onboarding (0 projects): show form on first load; hide when show_form=0 (e.g. logo click) ───
   // Deep-linking to My Templates / Voices (?tab=) must use the normal tabbed layout even with 0 projects.
+  // A walled free user (out of videos) must NOT be shown the create form — they can't
+  // make a project. They fall through to the normal dashboard where the "+ New" button
+  // is disabled and the out-of-videos upgrade modal opens instead.
+  const isWalled = user?.plan === "free" && user?.can_create_video === false;
   const emptyOnboarding =
     loaded &&
+    !isWalled &&
     projects.length === 0 &&
     searchParams.get("show_form") !== "0" &&
     searchParams.get("tab") !== "templates" &&

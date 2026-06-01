@@ -401,7 +401,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const lc = scene.layoutConfig;
         const focusX = Number((lp.imageFocusX as number | undefined) ?? 50);
         const focusY = Number((lp.imageFocusY as number | undefined) ?? 50);
-        const imageZoom = Math.max(1, Number((lp.imageZoom as number | undefined) ?? 1));
+        const imageZoom = Math.max(0.1, Number((lp.imageZoom as number | undefined) ?? 1));
         const imageObjectPosition = `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`;
 
         const layoutProps: NewscastLayoutProps = {
