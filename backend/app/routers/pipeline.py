@@ -873,8 +873,8 @@ async def _generate_script(project: Project, db: Session):
                     max_rows=20,
                 )
 
-    elif ("laduc" in template_id):
-        # laduc: classify chartable tables once upfront (bloomberg-style).
+    elif ("laduc" in template_id or "fj_research" in template_id):
+        # laduc/fj_research: classify chartable tables once upfront (bloomberg-style).
         # Run extraction + classification in the thread pool so CPU-bound
         # HTML parsing doesn't block the event loop.
         _laduc_blog_text = getattr(project, "blog_content", None) or ""

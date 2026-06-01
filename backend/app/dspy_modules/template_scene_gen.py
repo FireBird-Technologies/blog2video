@@ -1336,7 +1336,7 @@ class TemplateSceneGenerator:
         # set by ScriptGenerator (via chartable_tables_json upfront binding).
         # This lets _merge_laduc_chart_props use the correct pre-bound table index
         # instead of re-scoring all tables on every market_annotation scene call.
-        if "laduc" in self.template_id:
+        if "laduc" in self.template_id or "fj_research" in self.template_id:
             for i, scene in enumerate(scenes_data):
                 pl = str(scene.get("preferred_layout") or "").strip().lower()
                 if (
