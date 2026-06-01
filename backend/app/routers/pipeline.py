@@ -135,9 +135,10 @@ FJ_TEMPLATE_IDS = frozenset({"fj_market_brief", "crafted_fj_market_brief_bundle"
 
 
 def _is_laduc_or_fj(template_id: str) -> bool:
-    """True for LaDuc (any id variant) or FJ Market Brief — the templates that
-    share the market_annotation/ticker chart-binding pipeline."""
-    return ("laduc" in (template_id or "")) or (template_id in FJ_TEMPLATE_IDS)
+    """True for LaDuc (any id variant), FJ Market Brief, or fj_research — the
+    templates that share the market_annotation/ticker chart-binding pipeline."""
+    tid = template_id or ""
+    return ("laduc" in tid) or ("fj_research" in tid) or (tid in FJ_TEMPLATE_IDS)
 
 
 def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
@@ -885,7 +886,7 @@ async def _generate_script(project: Project, db: Session):
                 )
 
     elif _is_laduc_or_fj(template_id):
-        # laduc / FJ market brief: classify chartable tables once upfront (bloomberg-style).
+        # laduc / FJ Market Brief / fj_research: classify chartable tables once upfront (bloomberg-style).
         # Run extraction + classification in the thread pool so CPU-bound
         # HTML parsing doesn't block the event loop.
         _laduc_blog_text = getattr(project, "blog_content", None) or ""

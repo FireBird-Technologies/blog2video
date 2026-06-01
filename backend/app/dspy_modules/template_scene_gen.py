@@ -1332,14 +1332,16 @@ class TemplateSceneGenerator:
             self._plan_newscast_data_visualization_targets(scenes_data)
             self._plan_bloomberg_dataviz_targets(scenes_data)
 
-        # Laduc / FJ Market Brief: populate _newscast_data_viz_table_by_scene from
-        # data_table_index set by ScriptGenerator (via chartable_tables_json upfront
-        # binding). This lets _merge_laduc_chart_props use the correct pre-bound table
-        # index instead of re-scoring all tables on every market_annotation scene call.
-        if "laduc" in self.template_id or self.template_id in {
-            "fj_market_brief",
-            "crafted_fj_market_brief_bundle",
-        }:
+        # Laduc / FJ Market Brief / fj_research: populate
+        # _newscast_data_viz_table_by_scene from data_table_index set by
+        # ScriptGenerator (via chartable_tables_json upfront binding). This lets
+        # _merge_laduc_chart_props use the correct pre-bound table index instead of
+        # re-scoring all tables on every market_annotation scene call.
+        if (
+            "laduc" in self.template_id
+            or "fj_research" in self.template_id
+            or self.template_id in {"fj_market_brief", "crafted_fj_market_brief_bundle"}
+        ):
             for i, scene in enumerate(scenes_data):
                 pl = str(scene.get("preferred_layout") or "").strip().lower()
                 if (
