@@ -394,8 +394,8 @@ def _clamp_image_zoom(value: object | None) -> float:
         num = float(value)
     except Exception:
         return 1.0
-    if num < 1:
-        return 1.0
+    if num < 0.1:
+        return 0.1
     if num > 12:
         return 12.0
     return round(num, 2)
@@ -1594,7 +1594,7 @@ MANUAL_TRACKED_FIELDS = {
 class SceneImageFocusUpdate(BaseModel):
     image_focus_x: float = Field(default=50, ge=0, le=100)
     image_focus_y: float = Field(default=50, ge=0, le=100)
-    image_zoom: float | None = Field(default=None, ge=1, le=12)
+    image_zoom: float | None = Field(default=None, ge=0.1, le=12)
 
 
 class SceneImageMoveRequest(BaseModel):
