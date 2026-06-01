@@ -1,4 +1,8 @@
-/** Canvas drawing matching ZoomCropImg: cover, object-position, scale about focus. */
+/**
+ * Canvas drawing matching ZoomCropImg:
+ *   zoom >= 1  →  object-fit: cover, scale from focus point (zoom-in, crops edges)
+ *   zoom <  1  →  object-fit: contain, scale from center (zoom-out, reveals full image)
+ */
 export function parseObjectPositionPercent(s?: string): { px: number; py: number } {
   const p = (s ?? "50% 50%").trim().split(/\s+/);
   const x = parseFloat(String(p[0] ?? "50%").replace("%", "")) || 50;
@@ -33,24 +37,37 @@ export function drawZoomCroppedImage(
     return;
   }
 
-  const { px, py } = parseObjectPositionPercent(imageObjectPosition);
-  const z = Math.max(1, imageZoom ?? 1);
-  const fx = (destW * px) / 100;
-  const fy = (destH * py) / 100;
+  const z = Math.max(0.1, imageZoom ?? 1);
+  const isZoomedOut = z < 1;
 
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, destW, destH);
   ctx.clip();
-  ctx.translate(fx, fy);
-  ctx.scale(z, z);
-  ctx.translate(-fx, -fy);
 
-  const scale = Math.max(destW / nw, destH / nh);
-  const w = nw * scale;
-  const h = nh * scale;
-  const dx = (destW - w) * (px / 100);
-  const dy = (destH - h) * (py / 100);
-  ctx.drawImage(img, 0, 0, nw, nh, dx, dy, w, h);
+  if (isZoomedOut) {
+    // object-fit: contain — scale to fit, center the image, then apply user zoom from center
+    const scale = Math.min(destW / nw, destH / nh);
+    const w = nw * scale * z;
+    const h = nh * scale * z;
+    const dx = (destW - w) / 2;
+    const dy = (destH - h) / 2;
+    ctx.drawImage(img, 0, 0, nw, nh, dx, dy, w, h);
+  } else {
+    // object-fit: cover — scale to fill, pan to focus point, then apply user zoom
+    const { px, py } = parseObjectPositionPercent(imageObjectPosition);
+    const fx = (destW * px) / 100;
+    const fy = (destH * py) / 100;
+    ctx.translate(fx, fy);
+    ctx.scale(z, z);
+    ctx.translate(-fx, -fy);
+    const scale = Math.max(destW / nw, destH / nh);
+    const w = nw * scale;
+    const h = nh * scale;
+    const dx = (destW - w) * (px / 100);
+    const dy = (destH - h) * (py / 100);
+    ctx.drawImage(img, 0, 0, nw, nh, dx, dy, w, h);
+  }
+
   ctx.restore();
 }
