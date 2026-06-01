@@ -380,8 +380,13 @@ export default function Dashboard() {
 
   // ─── Onboarding (0 projects): show form on first load; hide when show_form=0 (e.g. logo click) ───
   // Deep-linking to My Templates / Voices (?tab=) must use the normal tabbed layout even with 0 projects.
+  // A walled free user (out of videos) must NOT be shown the create form — they can't
+  // make a project. They fall through to the normal dashboard where the "+ New" button
+  // is disabled and the out-of-videos upgrade modal opens instead.
+  const isWalled = user?.plan === "free" && user?.can_create_video === false;
   const emptyOnboarding =
     loaded &&
+    !isWalled &&
     projects.length === 0 &&
     searchParams.get("show_form") !== "0" &&
     searchParams.get("tab") !== "templates" &&
