@@ -71,6 +71,13 @@ class ProjectUpdate(BaseModel):
         return value
 
 
+class ProjectVoiceChange(BaseModel):
+    """Body for changing a project's voice and regenerating all voiceovers."""
+    voice_gender: Optional[str] = None
+    voice_accent: Optional[str] = None
+    custom_voice_id: Optional[str] = None
+
+
 class ProjectTemplateChangeRequest(BaseModel):
     template: str
 

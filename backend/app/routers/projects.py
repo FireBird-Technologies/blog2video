@@ -7,7 +7,7 @@ import time
 import requests
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, text
@@ -30,7 +30,7 @@ from app.schemas.schemas import (
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
     SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest,
     SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
-    ProjectTemplateChangeJobOut,
+    ProjectTemplateChangeJobOut, ProjectVoiceChange,
 )
 from app.services import r2_storage
 from app.services.remotion import (
@@ -2821,13 +2821,24 @@ async def regenerate_scene(
                 narration_source, scene.title, video_style=video_style, content_language=content_language
             )
 
-            original_narration = scene.narration_text
+            # Persist the AI-expanded text so the narration shown in the scene
+            # always matches the spoken voiceover (do not revert to the original).
+            old_narration = scene.narration_text
             scene.narration_text = expanded_voiceover
             db.commit()
 
             generate_voiceover(scene, db, use_expanded=False)
 
-            scene.narration_text = original_narration
+            track_scene_edit(
+                db,
+                project_id=project.id,
+                scene_id=scene.id,
+                field_name="narration_text",
+                old_value=old_narration,
+                new_value=expanded_voiceover,
+                is_ai_assisted=True,
+                user_instruction="AI-expanded narration for voiceover",
+            )
             db.commit()
 
         track_scene_edit(
@@ -2867,6 +2878,184 @@ def _get_user_project(project_id: int, user_id: int, db: Session) -> Project:
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
+
+
+async def _run_voice_change(project_id: int) -> None:
+    """Background worker: regenerate every scene's voiceover in the new voice.
+
+    Runs in its own DB session (the request's session is closed once the response
+    is sent) and advances the progress store one step per scene.
+    """
+    from app.database import SessionLocal
+    from app.services.voiceover import generate_all_voiceovers
+    from app.services.remotion import rebuild_workspace
+    from app.services.language_detection import get_content_language_for_project
+    from app.services import voice_change_progress
+
+    db = SessionLocal()
+    try:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            voice_change_progress.finish(project_id, error="Project not found.")
+            return
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        content_language = get_content_language_for_project(project)
+        await generate_all_voiceovers(
+            scenes,
+            db,
+            video_style=getattr(project, "video_style", None) or "explainer",
+            content_language=content_language,
+            verbatim=True,
+            progress_cb=lambda: voice_change_progress.advance(project_id),
+        )
+
+        # Rebuild the Remotion workspace so the new audio is referenced.
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        rebuild_workspace(project, scenes, db)
+
+        # Clear the stale rendered video and reset status so the user can re-render.
+        project.r2_video_url = None
+        project.status = ProjectStatus.GENERATED
+        db.commit()
+        voice_change_progress.finish(project_id)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("[VOICE-CHANGE] Failed for project %s: %s", project_id, e)
+        try:
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if project and project.status == ProjectStatus.GENERATING:
+                project.status = ProjectStatus.GENERATED
+                db.commit()
+        except Exception:
+            db.rollback()
+        voice_change_progress.finish(project_id, error="Failed to regenerate voiceovers. Please try again.")
+    finally:
+        db.close()
+
+
+@router.post("/{project_id}/change-voice")
+async def change_project_voice(
+    project_id: int,
+    body: ProjectVoiceChange,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change the project voice and regenerate every scene's voiceover.
+
+    The narration is spoken verbatim (same-to-same) in the new voice. Changing
+    the voice counts as a new video, so it deducts one video credit. Regeneration
+    runs in the background (status -> regenerating); poll ``/voice-change-status``
+    for scene-by-scene progress. On completion the stale render is cleared and the
+    project returns to GENERATED so the user can re-render freely.
+    """
+    from app.services import voice_change_progress
+
+    project = _get_user_project(project_id, user.id, db)
+
+    # Don't start a second regeneration while one is already running.
+    existing = voice_change_progress.get(project_id)
+    if existing and not existing.get("done", True):
+        raise HTTPException(status_code=409, detail="A voice change is already in progress.")
+
+    # Align per-video credits with Stripe before the limit check (same as render).
+    user_row = db.query(User).filter(User.id == user.id).first()
+    if not user_row:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_row.sync_video_limit_bonus(db)
+    user_row = db.query(User).filter(User.id == user.id).first()
+    if not user_row:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not user_row.can_create_video:
+        raise HTTPException(
+            status_code=403,
+            detail="Video limit reached. Changing the voice counts as a new video. Upgrade your plan or buy more credits to continue.",
+        )
+
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+    if not scenes:
+        raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
+
+    # Apply the new voice selection.
+    if body.voice_gender is not None:
+        project.voice_gender = body.voice_gender.strip() or "female"
+    if body.voice_accent is not None:
+        project.voice_accent = body.voice_accent.strip() or "american"
+    # custom_voice_id may be intentionally cleared (empty string) when picking a prebuilt voice.
+    if body.custom_voice_id is not None:
+        project.custom_voice_id = body.custom_voice_id.strip() or None
+
+    # Deduct one video credit and mark the project as regenerating.
+    user_row.videos_used_this_period += 1
+    project.status = ProjectStatus.GENERATING
+    db.commit()
+
+    # Seed progress and kick off regeneration in the background.
+    voice_change_progress.start(project_id, len(scenes))
+    background_tasks.add_task(_run_voice_change, project_id)
+
+    return {"started": True, "total": len(scenes)}
+
+
+@router.get("/{project_id}/voice-change-status")
+async def voice_change_status(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Poll the progress of a running voice change (scene-by-scene)."""
+    from app.services import voice_change_progress
+
+    project = _get_user_project(project_id, user.id, db)
+    prog = voice_change_progress.get(project_id)
+    status_value = project.status.value if hasattr(project.status, "value") else str(project.status)
+
+    if not prog:
+        # No in-memory record on this worker: fall back to the DB status so
+        # completion is still detected reliably across workers/restarts.
+        regenerating = project.status == ProjectStatus.GENERATING
+        return {
+            "active": regenerating,
+            "done": not regenerating,
+            "error": None,
+            "total": 0,
+            "completed": 0,
+            "progress": 0 if regenerating else 100,
+            "status": status_value,
+            "r2_video_url": project.r2_video_url,
+        }
+
+    total = int(prog.get("total") or 0)
+    completed = int(prog.get("completed") or 0)
+    done = bool(prog.get("done"))
+    if total > 0:
+        progress = int(min(completed / total, 1.0) * 100)
+    else:
+        progress = 100 if done else 0
+    return {
+        "active": not done,
+        "done": done,
+        "error": prog.get("error"),
+        "total": total,
+        "completed": completed,
+        "progress": progress,
+        "status": status_value,
+        "r2_video_url": project.r2_video_url,
+    }
 
 
 def _name_from_url(url: str) -> str:
