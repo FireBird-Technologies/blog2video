@@ -64,6 +64,7 @@ import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
+import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
@@ -5456,6 +5457,19 @@ export default function ProjectView() {
               </div>
             </div>
           </div>
+
+          {project.voice_gender !== "none" && (
+            <ProjectVoiceSettingsCard
+              projectId={project.id}
+              voiceGender={project.voice_gender}
+              voiceAccent={project.voice_accent}
+              customVoiceId={project.custom_voice_id}
+              isPro={isPro}
+              onChanged={loadProject}
+              onError={(msg) => showError(msg)}
+              onUpgrade={() => setShowUpgrade(true)}
+            />
+          )}
 
         </div>
       )}

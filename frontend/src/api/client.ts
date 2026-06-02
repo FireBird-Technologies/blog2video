@@ -1135,6 +1135,39 @@ export const updateProject = (
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 
+export interface VoiceChangeStartResponse {
+  started: boolean;
+  total: number;
+}
+
+export interface VoiceChangeStatus {
+  active: boolean;
+  done: boolean;
+  error: string | null;
+  total: number;
+  completed: number;
+  progress: number;
+  status: string;
+  r2_video_url: string | null;
+}
+
+/**
+ * Change the project voice and regenerate every scene's voiceover (verbatim, in
+ * the new voice). Counts as a new video (deducts one credit). Regeneration runs
+ * in the background — poll getVoiceChangeStatus for scene-by-scene progress.
+ */
+export const changeProjectVoice = (
+  projectId: number,
+  data: {
+    voice_gender?: string;
+    voice_accent?: string;
+    custom_voice_id?: string;
+  }
+) => api.post<VoiceChangeStartResponse>(`/projects/${projectId}/change-voice`, data);
+
+export const getVoiceChangeStatus = (projectId: number) =>
+  api.get<VoiceChangeStatus>(`/projects/${projectId}/voice-change-status`);
+
 export const updateScene = (
   projectId: number,
   sceneId: number,

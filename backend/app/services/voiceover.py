@@ -2,6 +2,7 @@ import asyncio
 import os
 import re
 import time
+from typing import Callable
 import requests
 from mutagen.mp3 import MP3
 from elevenlabs import ElevenLabs
@@ -909,13 +910,28 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
 
 
 async def generate_all_voiceovers(
-    scenes: list[Scene], db: Session, video_style: str | None = None, content_language: str = "English"
+    scenes: list[Scene],
+    db: Session,
+    video_style: str | None = None,
+    content_language: str = "English",
+    verbatim: bool = False,
+    progress_cb: "Callable[[], None] | None" = None,
 ) -> list[str]:
     """Generate voiceover audio for all scenes concurrently.
 
     Phase A: Expand narration texts in parallel (Claude LLM calls, semaphore=4).
     Phase B: Generate TTS audio concurrently (ElevenLabs, semaphore=2, each in
              its own DB session via run_in_executor since the SDK is sync).
+
+    The expanded text is persisted into ``scene.narration_text`` so the script
+    shown in the editor always matches the spoken voiceover word-for-word.
+
+    When ``verbatim`` is True, Phase A is skipped entirely and each scene's
+    existing ``narration_text`` is spoken as-is (used when changing the project
+    voice, where the narration is already final and must stay same-to-same).
+
+    ``progress_cb`` is invoked once per scene as its audio finishes, so callers
+    can drive a scene-by-scene progress bar.
 
     video_style (explainer | promotional | storytelling) shapes expansion tone.
     """
@@ -924,30 +940,33 @@ async def generate_all_voiceovers(
 
     style = (video_style or "explainer").strip().lower() or "explainer"
 
-    # ── Phase A: Parallel LLM expansion ──────────────────────────
-    expand_sem = asyncio.Semaphore(4)
+    # ── Phase A: Parallel LLM expansion (skipped in verbatim mode) ─
+    if verbatim:
+        expanded_texts: list = [s.narration_text or "" for s in scenes]
+    else:
+        expand_sem = asyncio.Semaphore(4)
 
-    async def _expand(scene: Scene) -> str:
-        if not scene.narration_text or not scene.narration_text.strip():
-            return scene.narration_text or ""
-        async with expand_sem:
-            return await expand_narration_to_voiceover(
-                scene.narration_text, scene.title, video_style=style, content_language=content_language
-            )
+        async def _expand(scene: Scene) -> str:
+            if not scene.narration_text or not scene.narration_text.strip():
+                return scene.narration_text or ""
+            async with expand_sem:
+                return await expand_narration_to_voiceover(
+                    scene.narration_text, scene.title, video_style=style, content_language=content_language
+                )
 
-    expanded_texts = await asyncio.gather(
-        *[_expand(s) for s in scenes], return_exceptions=True
-    )
-    # Replace exceptions with original text
-    for i, result in enumerate(expanded_texts):
-        if isinstance(result, Exception):
-            logger.warning(
-                "[VOICEOVER] Expand failed for scene %s: %s",
-                scenes[i].order,
-                result,
-                extra={"project_id": scenes[i].project_id},
-            )
-            expanded_texts[i] = scenes[i].narration_text or ""
+        expanded_texts = await asyncio.gather(
+            *[_expand(s) for s in scenes], return_exceptions=True
+        )
+        # Replace exceptions with original text
+        for i, result in enumerate(expanded_texts):
+            if isinstance(result, Exception):
+                logger.warning(
+                    "[VOICEOVER] Expand failed for scene %s: %s",
+                    scenes[i].order,
+                    result,
+                    extra={"project_id": scenes[i].project_id},
+                )
+                expanded_texts[i] = scenes[i].narration_text or ""
 
     # ── Phase B: Concurrent TTS (semaphore=2, per-thread DB session) ─
     tts_sem = asyncio.Semaphore(2)
@@ -960,15 +979,13 @@ async def generate_all_voiceovers(
             scene = tts_db.query(Scene).filter(Scene.id == scene_id).first()
             if not scene:
                 return ""
-            original = scene.narration_text
+            # Persist the expanded text so the on-screen narration script always
+            # matches the spoken voiceover. In verbatim mode expanded_text is just
+            # the existing narration_text, so this is a no-op write.
             scene.narration_text = expanded_text
             tts_db.commit()
 
             path = generate_voiceover(scene, tts_db, use_expanded=False)
-
-            # Restore original narration_text
-            scene.narration_text = original
-            tts_db.commit()
             return path
         except Exception as e:
             logger.error(
@@ -986,9 +1003,15 @@ async def generate_all_voiceovers(
 
     async def _bounded_tts(scene: Scene, expanded_text: str) -> str:
         async with tts_sem:
-            return await loop.run_in_executor(
+            result = await loop.run_in_executor(
                 None, _tts_in_thread, scene.id, expanded_text, scene.order
             )
+            if progress_cb is not None:
+                try:
+                    progress_cb()
+                except Exception:
+                    pass
+            return result
 
     paths_raw = await asyncio.gather(
         *[_bounded_tts(s, t) for s, t in zip(scenes, expanded_texts)],
