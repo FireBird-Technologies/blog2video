@@ -48,7 +48,7 @@ export default function CraftYourVoiceCard({ onClick, onKeyDown }: Props) {
       {/* TEXT */}
       <div className="relative z-10 flex-1 min-w-0">
         <div className="text-sm font-semibold text-gray-800 truncate">
-          Create a custom voice
+          Clone Your Voice
         </div>
         <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
           Design, clone, or generate your own narration voice.
