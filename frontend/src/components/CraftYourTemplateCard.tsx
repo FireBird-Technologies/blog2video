@@ -91,7 +91,7 @@ export default function CraftYourTemplateCard({
             className="font-semibold text-gray-800 text-[10px]"
             style={{ letterSpacing: "0.02em" }}
           >
-            Craft Your Template
+            Get More Templates
           </span>
         </div>
       </div>
