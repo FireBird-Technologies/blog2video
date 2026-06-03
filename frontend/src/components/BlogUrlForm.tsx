@@ -18,6 +18,7 @@ import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreviewSmart from "./templatePreviews/CraftedTemplatePreviewSmart";
 import CraftYourTemplateCard from "./CraftYourTemplateCard";
+import CraftYourVoiceCard from "./CraftYourVoiceCard";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
 
 export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
@@ -1693,6 +1694,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     params.set("tab", "templates");
     params.set("openCustomCreator", "1");
     params.set("videoStyle", style);
+    navigate(`/dashboard?${params.toString()}`);
+  };
+
+  const openStep3CustomVoiceCreator = () => {
+    if (!isPro) {
+      setShowCustomTemplateUpgrade(true);
+      return;
+    }
+    onDismissFlow?.();
+    const params = new URLSearchParams();
+    params.set("tab", "voices");
+    params.set("openCustomVoiceCreator", "1");
     navigate(`/dashboard?${params.toString()}`);
   };
 
@@ -3556,6 +3569,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           Voice — Select and Play to Preview
         </label>
         <div className="space-y-2 max-h-[320px] overflow-y-auto">
+          <CraftYourVoiceCard
+            isPro={isPro}
+            onClick={openStep3CustomVoiceCreator}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openStep3CustomVoiceCreator();
+              }
+            }}
+          />
           {myVoicesLoading ? (
             <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
               <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
