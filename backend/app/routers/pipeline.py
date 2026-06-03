@@ -1078,12 +1078,17 @@ async def _generate_script(project: Project, db: Session):
     db.refresh(project)
 
 
-async def _generate_scenes(project: Project, db: Session):
+async def _generate_scenes(project: Project, db: Session, skip_voiceover: bool = False):
     """Generate voiceovers and scene layout descriptors concurrently, then write Remotion data.
 
     Voiceovers and scene descriptors are independent — descriptors only need
     title/narration/visual_description which don't change during TTS generation.
     Running them concurrently via asyncio.gather cuts wall-clock time significantly.
+
+    When ``skip_voiceover`` is True the TTS / narration-expansion step is skipped entirely
+    and the existing ``voiceover_path`` / ``duration_seconds`` on each scene are preserved.
+    Used by the "regenerate script" flow, which keeps the original narration + audio and only
+    refreshes titles, on-screen text, visuals, and layouts.
     """
     # Force a fresh DB checkout at the start of this step. Pipeline-step
     # boundaries (script → scenes) leave a connection that may have been
@@ -1125,8 +1130,10 @@ async def _generate_scenes(project: Project, db: Session):
     # voiceover task reads them, so TTS speaks the locked client copy. The
     # descriptor override later in this function locks the on-screen text and
     # CTAs separately; this just makes sure the audio matches.
+    # Skipped when skip_voiceover is set — that flow keeps the existing narration/audio
+    # and nulling voiceover_path here would leave the ending scene silent (no TTS re-run).
     _is_wealth = project.template in WEALTH_TEMPLATE_IDS
-    if _is_wealth and scenes:
+    if _is_wealth and scenes and not skip_voiceover:
         for s in scenes:
             if getattr(s, "preferred_layout", None) == "ending_socials":
                 s.title = WEALTH_ENDING_TITLE
@@ -1167,6 +1174,10 @@ async def _generate_scenes(project: Project, db: Session):
 
     # ── Task 1: Voiceovers ───────────────────────────────────────
     async def _voiceover_task():
+        if skip_voiceover:
+            # Regenerate-script flow: keep existing narration + audio untouched.
+            logger.info("[PIPELINE] Skipping voiceover generation for project %s (skip_voiceover)", project.id)
+            return
         if getattr(project, "voice_gender", None) == "none":
             logger.info("[PIPELINE] Skipping voiceover — no-audio mode for project %s", project.id)
             for scene in scenes:
