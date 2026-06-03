@@ -1796,6 +1796,10 @@ export default function TemplateStudio() {
     try {
       setLayoutRendering(true);
       setLayoutRenderError("");
+      // When "All Scenes" is active, render every layout back-to-back by passing
+      // the same per-layout scene array the preview Player uses. Otherwise render
+      // just the selected layout as a single scene.
+      const renderAllScenes = sequentialPreview && inputProps.scenes.length > 1;
       const res = await renderTemplateLayout({
         template_id: selectedTemplateId,
         layout_id: selectedLayout,
@@ -1803,12 +1807,28 @@ export default function TemplateStudio() {
         duration_seconds: durationSeconds,
         layout_props: resolvedLayoutProps,
         resolution: studioResolution,
+        ...(renderAllScenes
+          ? {
+              scenes: inputProps.scenes.map((s) => ({
+                id: s.id,
+                order: s.order,
+                title: s.title,
+                narration: s.narration,
+                layout: s.layout,
+                layoutProps: s.layoutProps,
+                durationSeconds: s.durationSeconds,
+                imageUrl: s.imageUrl,
+              })),
+            }
+          : {}),
       });
       const blob = res.data as unknown as Blob;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${selectedTemplateId}_${selectedLayout}.mp4`;
+      a.download = renderAllScenes
+        ? `${selectedTemplateId}_all-scenes.mp4`
+        : `${selectedTemplateId}_${selectedLayout}.mp4`;
       document.body.appendChild(a);
       a.click();
       a.remove();
