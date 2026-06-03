@@ -14,6 +14,10 @@ class ProjectStatus(str, enum.Enum):
     DONE = "done"
     ERROR = "error"
     GENERATING = "regenerating"
+    # Dedicated state for the "regenerate script" job (keep narration/voiceover, refresh
+    # titles/layouts). Distinct from SCRIPTED so a reload mid-job doesn't auto-start the
+    # full generation pipeline.
+    SCRIPT_REGENERATING = "script_regenerating"
 
 
 class Project(Base):
