@@ -2416,7 +2416,7 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     """
     from app.services.template_service import (
         validate_template_id,
-        get_valid_layouts,
+        get_meta,
         get_preview_colors,
         get_composition_id,
         is_custom_template,
@@ -2437,7 +2437,17 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     if not layout_id:
         raise HTTPException(status_code=400, detail="layout_id is required.")
 
-    valid_layouts = get_valid_layouts(template_id)
+    # Template Studio renders studio-only layouts (e.g. fj_research chart variants
+    # market_annotation_bar / market_annotation_histogram) directly, so validate
+    # against the FULL declared layout set. get_valid_layouts() strips
+    # studio_only_layouts (they must never be auto-assigned during LLM script
+    # generation), which would wrongly 400 those layouts — and any "All Scenes"
+    # render that includes them — here.
+    _meta = get_meta(template_id) or {}
+    _declared = _meta.get("valid_layouts")
+    valid_layouts = {
+        str(v).strip().lower() for v in (_declared if isinstance(_declared, list) else [])
+    }
     if layout_id not in valid_layouts:
         raise HTTPException(
             status_code=400,
