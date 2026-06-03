@@ -21,6 +21,7 @@ from app.models.project import Project, ProjectStatus
 from app.models.review import Review
 from app.models.scene import Scene
 from app.models.project_template_change_job import ProjectTemplateChangeJob
+from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
 from app.models.crafted_template import CraftedTemplate
 from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
 from app.models.custom_template import CustomTemplate
@@ -31,6 +32,7 @@ from app.schemas.schemas import (
     SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest,
     SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
     ProjectTemplateChangeJobOut, ProjectVoiceChange,
+    ProjectRegenerateScriptJobOut,
 )
 from app.services import r2_storage
 from app.services.remotion import (
@@ -880,6 +882,282 @@ def get_project_template_change_status(
     )
     return job
 
+
+
+_ACTIVE_REGENERATE_SCRIPT_STATUSES = {"queued", "running"}
+
+
+def _run_regenerate_script_job(job_id: int) -> None:
+    from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+    from app.routers.pipeline import _generate_script
+    from app.services.remotion import rebuild_workspace
+    from app.services.content_classifier import extract_structured_content_batch
+
+    db = SessionLocal()
+    try:
+        job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
+        if not job:
+            return
+        project = db.query(Project).filter(Project.id == job.project_id).first()
+        if not project:
+            job.status = "failed"
+            job.error_message = "Project not found."
+            job.completed_at = datetime.utcnow()
+            db.commit()
+            return
+
+        job.status = "running"
+        db.commit()
+
+        # Phase 1: Regenerate script — deletes existing scenes and creates new ones.
+        # total_scenes stays 0 so the UI shows ~8% (indeterminate phase).
+        asyncio.run(_generate_script(project, db))
+
+        # Phase 2: Restore narration_text, voiceover_path, and duration_seconds from snapshot.
+        snapshot = json.loads(job.scene_snapshot or "[]")
+        new_scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == job.project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        for i, scene in enumerate(new_scenes):
+            if i < len(snapshot):
+                scene.narration_text = snapshot[i]["narration_text"]
+                scene.voiceover_path = snapshot[i]["voiceover_path"]
+                scene.duration_seconds = snapshot[i]["duration_seconds"]
+                scene.extra_hold_seconds = snapshot[i].get("extra_hold_seconds")
+        db.commit()
+        db.refresh(project)
+
+        # Phase 3: Generate descriptors scene-by-scene for progress tracking.
+        job.total_scenes = len(new_scenes)
+        job.processed_scenes = 0
+        db.commit()
+
+        template_id = project.template or "default"
+        content_language = project.content_language or "English"
+        supports_ending_socials = "ending_socials" in get_valid_layouts(template_id)
+        last_scene_idx = len(new_scenes) - 1
+
+        if is_custom_template(template_id):
+            custom_scenes_data = [
+                {
+                    "title": s.title,
+                    "narration": s.narration_text,
+                    "visual_description": s.visual_description,
+                    "preferred_layout": s.preferred_layout or None,
+                }
+                for s in new_scenes
+            ]
+            structured_contents = asyncio.run(
+                extract_structured_content_batch(custom_scenes_data, content_language=content_language)
+            )
+            for idx, scene in enumerate(new_scenes):
+                sc = structured_contents[idx] if idx < len(structured_contents) else {"contentType": "plain"}
+                scene.remotion_code = json.dumps({"structuredContent": sc, "layoutConfig": {}})
+                job.processed_scenes = idx + 1
+                db.commit()
+        else:
+            template_gen = TemplateSceneGenerator(template_id)
+            for idx, scene in enumerate(new_scenes):
+                preferred_layout = scene.preferred_layout or None
+
+                if (
+                    supports_ending_socials
+                    and idx == last_scene_idx
+                    and preferred_layout == "ending_socials"
+                ):
+                    new_descriptor = {
+                        "layout": "ending_socials",
+                        "layoutProps": _build_ending_socials_props(project, scene),
+                    }
+                else:
+                    new_descriptor = asyncio.run(
+                        template_gen.generate_scene_descriptor(
+                            scene_title=scene.title,
+                            narration=scene.narration_text,
+                            visual_description=scene.visual_description,
+                            scene_index=idx,
+                            total_scenes=len(new_scenes),
+                            preferred_layout=preferred_layout,
+                            content_language=content_language,
+                        )
+                    )
+                    new_descriptor = _sanitize_descriptor_for_data_viz(new_descriptor)
+
+                descriptor_layout = _extract_layout_from_descriptor_obj(new_descriptor, template_id)
+                scene.remotion_code = json.dumps(new_descriptor)
+                scene.preferred_layout = descriptor_layout or preferred_layout or None
+                job.processed_scenes = idx + 1
+                db.commit()
+
+        # Phase 4: Deduct one video credit only on success.
+        user_row = db.query(User).filter(User.id == job.user_id).first()
+        if user_row:
+            user_row.videos_used_this_period += 1
+
+        project.status = ProjectStatus.GENERATED
+        project.r2_video_key = None
+        project.r2_video_url = None
+        db.commit()
+
+        rebuild_workspace(project, new_scenes, db)
+
+        job.status = "completed"
+        job.completed_at = datetime.utcnow()
+        db.commit()
+
+    except Exception as e:
+        logger.exception("[REGENERATE_SCRIPT_JOB] job=%s failed: %s", job_id, e)
+        # Rollback: restore original scenes from snapshot; do NOT deduct credit.
+        try:
+            snapshot_raw = job.scene_snapshot or "[]"
+            snapshot = json.loads(snapshot_raw)
+            db.query(Scene).filter(Scene.project_id == job.project_id).delete()
+            db.flush()
+            for s in snapshot:
+                db.add(Scene(
+                    project_id=job.project_id,
+                    order=s["order"],
+                    title=s["title"],
+                    narration_text=s["narration_text"],
+                    display_text=s.get("display_text"),
+                    visual_description=s["visual_description"],
+                    remotion_code=s.get("remotion_code"),
+                    voiceover_path=s.get("voiceover_path"),
+                    duration_seconds=s.get("duration_seconds", 10.0),
+                    extra_hold_seconds=s.get("extra_hold_seconds"),
+                    preferred_layout=s.get("preferred_layout"),
+                    scene_type=s.get("scene_type"),
+                ))
+            project = db.query(Project).filter(Project.id == job.project_id).first()
+            if project:
+                project.status = ProjectStatus.GENERATED
+            db.commit()
+        except Exception as restore_err:
+            logger.exception("[REGENERATE_SCRIPT_JOB] restore failed for job=%s: %s", job_id, restore_err)
+            try:
+                db.rollback()
+                project = db.query(Project).filter(Project.id == job.project_id).first()
+                if project:
+                    project.status = ProjectStatus.GENERATED
+                    db.commit()
+            except Exception:
+                pass
+
+        try:
+            job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
+            if job:
+                job.status = "failed"
+                job.error_message = str(e)
+                job.completed_at = datetime.utcnow()
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+@router.post(
+    "/{project_id}/regenerate-script",
+    response_model=ProjectRegenerateScriptJobOut,
+)
+async def regenerate_script(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Regenerate the video script while preserving narration text and voiceover audio.
+
+    Creates new scene titles, display text, visual descriptions, and layouts via the
+    script generator, then restores the original narration and voiceover from a snapshot.
+    Descriptor (layout props) generation runs after. Credit is deducted only on success;
+    if the job fails the project is rolled back to its previous state at no charge.
+    """
+    project = _get_user_project(project_id, user.id, db)
+
+    active_job = (
+        db.query(ProjectRegenerateScriptJob)
+        .filter(
+            ProjectRegenerateScriptJob.project_id == project.id,
+            ProjectRegenerateScriptJob.status.in_(_ACTIVE_REGENERATE_SCRIPT_STATUSES),
+        )
+        .order_by(ProjectRegenerateScriptJob.id.desc())
+        .first()
+    )
+    if active_job:
+        raise HTTPException(status_code=409, detail="A script regeneration job is already running for this project.")
+
+    user.sync_video_limit_bonus(db)
+    if not user.can_create_video:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Video limit reached ({user.video_limit}). Upgrade to continue regenerating.",
+        )
+
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project.id)
+        .order_by(Scene.order)
+        .all()
+    )
+    if not scenes:
+        raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
+
+    scene_snapshot = [
+        {
+            "order": s.order,
+            "title": s.title,
+            "narration_text": s.narration_text,
+            "display_text": s.display_text,
+            "visual_description": s.visual_description,
+            "remotion_code": s.remotion_code,
+            "voiceover_path": s.voiceover_path,
+            "duration_seconds": s.duration_seconds,
+            "extra_hold_seconds": s.extra_hold_seconds,
+            "preferred_layout": s.preferred_layout,
+            "scene_type": s.scene_type,
+        }
+        for s in scenes
+    ]
+
+    job = ProjectRegenerateScriptJob(
+        project_id=project.id,
+        user_id=user.id,
+        status="queued",
+        total_scenes=0,
+        processed_scenes=0,
+        scene_snapshot=json.dumps(scene_snapshot),
+    )
+    db.add(job)
+    project.status = ProjectStatus.GENERATING
+    db.commit()
+    db.refresh(job)
+
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_regenerate_script_job, job.id)
+    return job
+
+
+@router.get(
+    "/{project_id}/regenerate-script-status",
+    response_model=ProjectRegenerateScriptJobOut | None,
+)
+def get_regenerate_script_status(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Poll the status of the latest script regeneration job for a project."""
+    _ = _get_user_project(project_id, user.id, db)
+    job = (
+        db.query(ProjectRegenerateScriptJob)
+        .filter(ProjectRegenerateScriptJob.project_id == project_id)
+        .order_by(ProjectRegenerateScriptJob.id.desc())
+        .first()
+    )
+    return job
 
 
 def _apply_logo_to_project(

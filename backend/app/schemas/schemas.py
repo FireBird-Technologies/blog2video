@@ -98,6 +98,22 @@ class ProjectTemplateChangeJobOut(BaseModel):
     class Config:
         from_attributes = True
 
+
+class ProjectRegenerateScriptJobOut(BaseModel):
+    id: int
+    project_id: int
+    user_id: int
+    status: str
+    total_scenes: int
+    processed_scenes: int
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class SceneOut(BaseModel):
     id: int
     project_id: int
