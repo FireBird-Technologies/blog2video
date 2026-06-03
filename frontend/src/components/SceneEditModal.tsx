@@ -3772,7 +3772,17 @@ export default function SceneEditModal({
                       const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                       const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
                       if (field.type === "color") {
-                        const fallbackColor = normalizeColorValue(field.placeholder ?? "#1E5FD4", "#1E5FD4");
+                        // Unsaved swatch falls back to the field's declared `default`
+                        // first (the documented "display value when unset"), then its
+                        // placeholder, then a generic blue. Without the `default` branch
+                        // a field that defines only a default (e.g. fj_research bar
+                        // colors) would wrongly show the #1E5FD4 blue fallback.
+                        const fieldDefaultColor =
+                          typeof field.default === "string" ? field.default : undefined;
+                        const fallbackColor = normalizeColorValue(
+                          fieldDefaultColor ?? field.placeholder ?? "#1E5FD4",
+                          "#1E5FD4",
+                        );
                         const currentColor = normalizeColorValue(editableLayoutProps[field.key], fallbackColor);
                         return (
                           <div key={field.key}>
