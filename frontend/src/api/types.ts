@@ -99,6 +99,19 @@ export interface ProjectTemplateChangeJob {
   completed_at: string | null;
 }
 
+export interface ProjectRegenerateScriptJob {
+  id: number;
+  project_id: number;
+  user_id: number;
+  status: "queued" | "running" | "completed" | "failed";
+  total_scenes: number;
+  processed_scenes: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
 export interface ChatMessage {
   id: number;
   role: string;
