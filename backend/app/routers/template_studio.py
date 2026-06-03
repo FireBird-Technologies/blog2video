@@ -190,6 +190,11 @@ class RenderLayoutRequest(BaseModel):
     duration_seconds: float | None = None
     layout_props: dict | None = None
     resolution: str | None = None
+    # Optional multi-scene payload mirroring the Template Studio preview. When
+    # provided (non-empty), every entry is rendered as a scene in order instead
+    # of the single synthetic scene. Each entry: {id?, order?, title?, narration?,
+    # layout, layoutProps?, durationSeconds?, imageUrl?}.
+    scenes: list[dict] | None = None
 
 
 class PlanTemplateRequest(BaseModel):
@@ -2413,14 +2418,21 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     """
     from app.services.template_service import (
         validate_template_id,
-        get_valid_layouts,
+        get_all_layouts,
         get_preview_colors,
         get_composition_id,
         is_custom_template,
         is_crafted_template,
     )
-    from app.services.remotion import provision_workspace, get_workspace_dir, _build_render_cmd, safe_remove_workspace
+    from app.services.remotion import (
+        provision_workspace,
+        get_workspace_dir,
+        _build_render_cmd,
+        safe_remove_workspace,
+        _download_url_to_file,
+    )
     import os
+    import base64
     import json as _json
     import shutil as _shutil
     import tempfile as _tempfile
@@ -2434,7 +2446,9 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     if not layout_id:
         raise HTTPException(status_code=400, detail="layout_id is required.")
 
-    valid_layouts = get_valid_layouts(template_id)
+    # Studio renders studio-only layouts (e.g. chart variants) too, so validate
+    # against the full declared set rather than the LLM-facing get_valid_layouts().
+    valid_layouts = get_all_layouts(template_id)
     if layout_id not in valid_layouts:
         raise HTTPException(
             status_code=400,
@@ -2485,18 +2499,75 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
         # Layout props passed from Template Studio; fallback to empty dict.
         layout_props = payload.layout_props or {}
 
-        data = {
-            "projectName": f"TemplateStudio {template_id}/{layout_id}",
-            "accentColor": accent,
-            "bgColor": bg,
-            "textColor": text,
-            "heroImage": None,
-            "logo": None,
-            "logoPosition": "bottom_right",
-            "logoOpacity": 0.9,
-            "logoSize": 100.0,
-            "aspectRatio": aspect_ratio,
-            "scenes": [
+        # Materialize a preview scene image (data: URL or http(s) URL) into the
+        # workspace public/ dir so `staticFile(scene.images[0])` resolves during
+        # render — the studio preview supplies images as client-side data URLs.
+        _DATA_URL_EXT = {
+            "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg",
+            "image/webp": "webp", "image/gif": "gif", "image/avif": "avif",
+        }
+
+        def _materialize_scene_image(image_url, idx):
+            if not isinstance(image_url, str) or not image_url.strip():
+                return None
+            url = image_url.strip()
+            try:
+                if url.startswith("data:"):
+                    header, _, b64 = url.partition(",")
+                    if not b64:
+                        return None
+                    mime = header[5:].split(";")[0].strip().lower()
+                    ext = _DATA_URL_EXT.get(mime, "png")
+                    rel = f"studio_scene_{idx}.{ext}"
+                    with open(os.path.join(public_dir, rel), "wb") as _img:
+                        _img.write(base64.b64decode(b64))
+                    return rel
+                if url.startswith(("http://", "https://")):
+                    rel = f"studio_scene_{idx}.png"
+                    if _download_url_to_file(url, os.path.join(public_dir, rel)):
+                        return rel
+            except Exception:
+                return None
+            return None
+
+        # Build the scene list. When the caller supplies `scenes` (Template Studio
+        # "All Scenes" / per-layout preview), render every scene in order; else
+        # fall back to the legacy single synthetic scene for back-compat.
+        valid_layout_set = {str(v).strip().lower() for v in valid_layouts}
+        incoming_scenes = payload.scenes if isinstance(payload.scenes, list) else None
+        scenes_data: list[dict] = []
+        if incoming_scenes:
+            for i, sc in enumerate(incoming_scenes):
+                if not isinstance(sc, dict):
+                    continue
+                sc_layout = (str(sc.get("layout") or "").strip().lower()) or layout_id
+                if sc_layout not in valid_layout_set:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Layout '{sc_layout}' is not valid for template '{template_id}'.",
+                    )
+                try:
+                    sc_dur = float(sc.get("durationSeconds")) if sc.get("durationSeconds") is not None else dur
+                except (TypeError, ValueError):
+                    sc_dur = dur
+                if sc_dur <= 0:
+                    sc_dur = dur
+                rel_img = _materialize_scene_image(sc.get("imageUrl"), i)
+                sc_props = sc.get("layoutProps")
+                scenes_data.append({
+                    "id": int(sc.get("id") or (i + 1)),
+                    "order": int(sc.get("order") or (i + 1)),
+                    "title": str(sc.get("title") or ""),
+                    "narration": str(sc.get("narration") or ""),
+                    "layout": sc_layout,
+                    "layoutProps": sc_props if isinstance(sc_props, dict) else {},
+                    "durationSeconds": sc_dur,
+                    "voiceoverFile": None,
+                    "images": [rel_img] if rel_img else [],
+                })
+
+        if not scenes_data:
+            scenes_data = [
                 {
                     "id": 1,
                     "order": 1,
@@ -2508,7 +2579,20 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
                     "voiceoverFile": None,
                     "images": [],
                 }
-            ],
+            ]
+
+        data = {
+            "projectName": f"TemplateStudio {template_id}/{layout_id}",
+            "accentColor": accent,
+            "bgColor": bg,
+            "textColor": text,
+            "heroImage": None,
+            "logo": None,
+            "logoPosition": "bottom_right",
+            "logoOpacity": 0.9,
+            "logoSize": 100.0,
+            "aspectRatio": aspect_ratio,
+            "scenes": scenes_data,
         }
 
         data_path = os.path.join(public_dir, "data.json")
@@ -2523,8 +2607,11 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
             _json.dump({"dataUrl": "/data.json"}, f)
 
         # Render to a temp file and stream back to the client.
+        render_basename = (
+            f"{template_id}_all_scenes" if len(scenes_data) > 1 else f"{template_id}_{layout_id}"
+        )
         tmp_dir = _tempfile.mkdtemp(prefix="template-studio-layout-")
-        output_path = os.path.join(tmp_dir, f"{template_id}_{layout_id}.mp4")
+        output_path = os.path.join(tmp_dir, f"{render_basename}.mp4")
 
         npx = _shutil.which("npx") or "npx"
         composition_id = get_composition_id(template_id)
@@ -2559,7 +2646,7 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
                 detail=f"Remotion render failed: {detail}",
             )
 
-        filename = f"{template_id}_{layout_id}.mp4"
+        filename = f"{render_basename}.mp4"
         return FileResponse(
             path=output_path,
             media_type="video/mp4",

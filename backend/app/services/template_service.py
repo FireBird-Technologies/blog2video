@@ -329,6 +329,20 @@ def get_valid_layouts(template_id: str) -> set[str]:
     return all_layouts - studio_only_set
 
 
+def get_all_layouts(template_id: str) -> set[str]:
+    """All declared layout IDs for a template, INCLUDING studio_only_layouts.
+
+    Unlike get_valid_layouts() (which strips studio-only layouts so the LLM never
+    assigns them during script generation), Template Studio previews and renders
+    studio-only layouts directly — so its render validation must accept them.
+    """
+    meta = _load_meta(template_id)
+    if not meta:
+        return set()
+    layouts = meta.get("valid_layouts", [])
+    return set(layouts) if isinstance(layouts, list) else set()
+
+
 def get_layouts_without_image(template_id: str) -> set[str]:
     """Get the set of layout IDs that do not support/display images for a template."""
     meta = _load_meta(template_id)

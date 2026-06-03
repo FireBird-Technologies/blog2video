@@ -1793,6 +1793,7 @@ export default function TemplateStudio() {
 
   const handleRenderSingleLayout = async () => {
     if (!selectedTemplateId || !selectedLayout) return;
+    const isMultiScene = playAllLayouts && layouts.length > 1;
     try {
       setLayoutRendering(true);
       setLayoutRenderError("");
@@ -1803,12 +1804,19 @@ export default function TemplateStudio() {
         duration_seconds: durationSeconds,
         layout_props: resolvedLayoutProps,
         resolution: studioResolution,
+        // Mirror the preview exactly: send the same scene list the player uses.
+        // `inputProps.scenes` is already single-or-multi correct (all layouts in
+        // order when "All Scenes" is active, otherwise just the selected layout),
+        // and carries per-scene layoutProps + imageUrl.
+        scenes: inputProps.scenes,
       });
       const blob = res.data as unknown as Blob;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${selectedTemplateId}_${selectedLayout}.mp4`;
+      a.download = isMultiScene
+        ? `${selectedTemplateId}_all_scenes.mp4`
+        : `${selectedTemplateId}_${selectedLayout}.mp4`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -2035,7 +2043,13 @@ export default function TemplateStudio() {
                         <polyline points="7 10 12 15 17 10" />
                         <line x1="12" y1="15" x2="12" y2="3" />
                       </svg>
-                      <span>{layoutRendering ? "Rendering…" : "Render"}</span>
+                      <span>
+                        {layoutRendering
+                          ? "Rendering…"
+                          : playAllLayouts && layouts.length > 1
+                            ? "Render All Scenes"
+                            : "Render"}
+                      </span>
                     </button>
                   </>
                 )}
