@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import VoiceItem, {
   formatVoiceSubtitle,
   getMyVoiceDisplayName,
@@ -66,6 +67,7 @@ export default function ProjectVoiceSettingsCard({
   const [modalOpen, setModalOpen] = useState(false);
   const [changing, setChanging] = useState(false);
   const [playingKey, setPlayingKey] = useState<string | null>(null);
+  const [showVoiceConfirm, setShowVoiceConfirm] = useState(false);
 
   // Regeneration progress (scene-by-scene) while the new voiceover is generated.
   const [regenerating, setRegenerating] = useState(false);
@@ -235,12 +237,27 @@ export default function ProjectVoiceSettingsCard({
 
   return (
     <div>
+      <ConfirmDeleteModal
+        open={showVoiceConfirm}
+        onClose={() => setShowVoiceConfirm(false)}
+        title="Proceed with voice regeneration?"
+        warningMessage="This will deduct 1 video count from your quota. Do you want to continue?"
+        confirmLabel="Proceed"
+        confirmLoadingLabel="Starting..."
+        iconVariant="warning"
+        onConfirm={async () => {
+          setShowVoiceConfirm(false);
+          await handleSave();
+        }}
+      />
       <h2 className="text-base font-medium text-gray-900 mb-1">Voice</h2>
-      <p className="text-xs text-gray-400 mb-5">
-        The narration voice for this project. Changing it regenerates every scene's
-        voiceover and counts as a new video.
+      <p
+        className="text-xs text-gray-400 mb-5 truncate"
+        title="The narration voice for this project. Changing it regenerates every scene's voiceover and counts as a new video."
+      >
+        The narration voice for this project…
       </p>
-      <div className="glass-card p-6 flex flex-col gap-4">
+      <div className="glass-card p-6 flex flex-col gap-3">
         {/* Current voice — preview only (spinner while a custom voice resolves) */}
         {loadingVoices && currentCustom ? (
           <div className="flex items-center gap-3 rounded-xl border-2 border-gray-200/60 bg-white/60 p-3">
@@ -265,7 +282,7 @@ export default function ProjectVoiceSettingsCard({
           <button
             type="button"
             onClick={openModal}
-            className="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition-colors shrink-0"
+            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition-colors shrink-0"
           >
             Change voice
           </button>
@@ -388,7 +405,7 @@ export default function ProjectVoiceSettingsCard({
                 <button
                   type="button"
                   disabled={!hasChanges || changing}
-                  onClick={handleSave}
+                  onClick={() => setShowVoiceConfirm(true)}
                   className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
                 >
                   {changing ? (
@@ -397,7 +414,7 @@ export default function ProjectVoiceSettingsCard({
                       Regenerating…
                     </>
                   ) : (
-                    "Save"
+                    "Confirm"
                   )}
                 </button>
               </div>
