@@ -1820,6 +1820,8 @@ export default function TemplateStudio() {
       a.href = url;
       a.download = renderAllScenes
         ? `${selectedTemplateId}_all-scenes.mp4`
+        : isMultiScene
+        ? `${selectedTemplateId}_all_scenes.mp4`
         : `${selectedTemplateId}_${selectedLayout}.mp4`;
       document.body.appendChild(a);
       a.click();
