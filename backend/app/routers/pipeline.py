@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import asyncio
 import logging
@@ -630,8 +630,19 @@ def _set_error(project_id: int, project, db: Session, msg: str):
             )
 
 
-async def _generate_script(project: Project, db: Session):
-    """Async script generation using DSPy."""
+async def _generate_script(
+    project: Project,
+    db: Session,
+    user_instruction: str = "",
+    progress_callback=None,
+):
+    """Async script generation using DSPy.
+
+    ``user_instruction`` is the free-form text captured by the regeneration popup
+    (only set when this is called from the regenerate-script worker — empty for
+    the initial-pipeline path). ScriptGenerator analyzes it once and injects the
+    derived constraints into both the outline and scene-expansion stages.
+    """
     image_paths = [a.local_path for a in project.assets if a.asset_type.value == "image"]
     hero_image = image_paths[0] if image_paths else ""
 
@@ -960,6 +971,8 @@ async def _generate_script(project: Project, db: Session):
         chartable_tables_json=chartable_tables_json,
         template_id=template_id or "",
         template_style_hint=_template_style_hint,
+        user_instruction=user_instruction or "",
+        progress_callback=progress_callback,
     )
 
     # Template-aware display text generation (second LLM call — still no DB held)
@@ -1077,8 +1090,19 @@ async def _generate_script(project: Project, db: Session):
     db.commit()
     db.refresh(project)
 
+    # Surface the analyzer's distilled summary so callers (e.g. the regenerate
+    # worker) can hand it to downstream layout planners. Empty when no user
+    # instruction was provided.
+    return (result or {}).get("_user_instruction_summary", "") or ""
 
-async def _generate_scenes(project: Project, db: Session, skip_voiceover: bool = False):
+
+async def _generate_scenes(
+    project: Project,
+    db: Session,
+    skip_voiceover: bool = False,
+    preserve_image_assignments: bool = True,
+    redistribute_images: bool = False,
+):
     """Generate voiceovers and scene layout descriptors concurrently, then write Remotion data.
 
     Voiceovers and scene descriptors are independent — descriptors only need
@@ -1301,7 +1325,7 @@ async def _generate_scenes(project: Project, db: Session, skip_voiceover: bool =
         else ""
     )
 
-    # Store descriptors as JSON in remotion_code, preserving existing image assignments
+    # Store descriptors as JSON in remotion_code, optionally preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
         # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
         # We override the descriptor here so Remotion can render the themed ending consistently.
@@ -1371,7 +1395,7 @@ async def _generate_scenes(project: Project, db: Session, skip_voiceover: bool =
             }
 
         has_layout_config = "layoutConfig" in descriptor
-        if scene.remotion_code:
+        if preserve_image_assignments and scene.remotion_code:
             try:
                 old_desc = json.loads(scene.remotion_code)
                 old_lp = old_desc.get("layoutProps") or {}
@@ -1411,7 +1435,7 @@ async def _generate_scenes(project: Project, db: Session, skip_voiceover: bool =
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 
     # Write data.json + assets to per-project Remotion workspace
-    write_remotion_data(project, scenes, db)
+    write_remotion_data(project, scenes, db, redistribute_images=redistribute_images)
 
     project.status = ProjectStatus.GENERATED
     user = db.query(User).filter(User.id == project.user_id).first()

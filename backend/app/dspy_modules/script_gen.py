@@ -1,5 +1,7 @@
-﻿import asyncio
+import asyncio
 import json
+from typing import Callable
+
 import dspy
 
 from app.dspy_modules import ensure_dspy_configured
@@ -171,6 +173,16 @@ class BlogToScript(dspy.Signature):
     - BUILT-IN: layout ID from the template's layout catalog.
     - CUSTOM: arrangement name from the layout_catalog list.
     - If unsure, leave preferred_layout as empty string "" for that scene.
+
+    ═══ USER INSTRUCTION RULES (when present) ═══
+    - If `user_instruction_summary` is non-empty, treat it as a HARD CONSTRAINT.
+    - Every scene title, key_point, and the overall narrative arc MUST reflect the user's directives.
+    - `must_include` (comma-separated) lists topics/phrases the user wants emphasized — at least one
+      scene MUST surface each item; ideally weave them into the most relevant scenes naturally.
+    - `must_avoid` (comma-separated) lists topics/phrases that MUST NOT appear in any scene title,
+      key_point, narration, or visual_description — neither directly nor as a near-synonym.
+    - These constraints override stylistic defaults from video_style when they conflict.
+    - Empty strings for any of these three fields = no constraint of that kind; proceed normally.
     """
 
     blog_content: str = dspy.InputField(
@@ -295,6 +307,26 @@ class BlogToScript(dspy.Signature):
         )
     )
 
+    user_instruction_summary: str = dspy.InputField(
+        desc=(
+            "Distilled summary of the user's regeneration instructions, as imperatives. "
+            "Treat as a HARD CONSTRAINT — incorporate these directives into every scene's tone, "
+            "focus, and structure. Empty string = no special instructions, proceed normally."
+        )
+    )
+    must_include: str = dspy.InputField(
+        desc=(
+            "Comma-separated topics/phrases the user wants emphasized. At least one scene must "
+            "surface each item naturally. Empty if none."
+        )
+    )
+    must_avoid: str = dspy.InputField(
+        desc=(
+            "Comma-separated topics/phrases that must NOT appear in any scene (titles, narration, "
+            "visuals, or near-synonyms). Empty if none."
+        )
+    )
+
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     narrative_summary: str = dspy.OutputField(
         desc=(
@@ -372,6 +404,26 @@ class SceneExpander(dspy.Signature):
     )
     social_platforms_detected: str = dspy.InputField(
         desc="Social platforms referenced in the blog. Used in ending CTA narration."
+    )
+    # ── user instruction constraints ──────────────────────────────────────────
+    user_instruction_summary: str = dspy.InputField(
+        desc=(
+            "Distilled summary of the user's regeneration instructions. Treat as a HARD "
+            "CONSTRAINT — narration, visual_description, and tone must reflect these directives. "
+            "Empty string = no special instructions."
+        )
+    )
+    must_include: str = dspy.InputField(
+        desc=(
+            "Comma-separated topics/phrases the user wants emphasized in the video overall. "
+            "If any item is relevant to THIS scene's key_point, surface it in the narration."
+        )
+    )
+    must_avoid: str = dspy.InputField(
+        desc=(
+            "Comma-separated topics/phrases that MUST NOT appear in this scene's narration, "
+            "visual_description, or any near-synonym. Empty if none."
+        )
     )
     # ── outputs ───────────────────────────────────────────────────────────────
     narration: str = dspy.OutputField(
@@ -470,6 +522,8 @@ class ScriptGenerator:
         chartable_tables_json: str = "",
         template_id: str = "",
         template_style_hint: str = "",
+        user_instruction: str = "",
+        progress_callback: Callable[[str], None] | None = None,
     ) -> dict:
         """
         Generate a video script from blog content using a 2-stage parallel pipeline.
@@ -477,9 +531,40 @@ class ScriptGenerator:
         Stage 1: single call → video title + compact scene outline (titles + key points).
         Stage 2: all scenes expanded in parallel → full narration, visuals, layout per scene.
 
+        If ``user_instruction`` is non-empty, an analyzer DSPy module distills it into
+        structured constraints (must_include / must_avoid / tone / structural / summary)
+        which are injected as InputFields into both stages.
+
         Returns:
-            dict with 'title' and 'scenes' (list of scene dicts)
+            dict with 'title', 'scenes' (list of scene dicts), and
+            '_user_instruction_summary' (str — surface for downstream layout planner).
         """
+        def emit_progress(step: str) -> None:
+            if not progress_callback:
+                return
+            try:
+                progress_callback(step)
+            except Exception:
+                pass
+
+        # ── Analyze user instruction once, reuse across both stages ──────────
+        emit_progress("analyzing_instruction")
+        constraints = {
+            "must_include": "",
+            "must_avoid": "",
+            "tone_directives": "",
+            "structural_directives": "",
+            "summary": "",
+        }
+        if (user_instruction or "").strip():
+            from app.dspy_modules.user_instruction_analyzer import UserInstructionAnalyzer
+            analyzer = UserInstructionAnalyzer()
+            constraints = await analyzer.run(
+                user_instruction=user_instruction,
+                blog_summary=blog_content[:2000],
+            )
+        emit_progress("generating_script")
+
         social_flags = detect_social_platforms_in_text(blog_content)
         social_hint = format_social_platforms_for_script_prompt(social_flags)
         fallback_ending = self._build_fallback_ending_scene(social_flags)
@@ -504,6 +589,9 @@ class ScriptGenerator:
             social_platforms_detected=social_hint,
             template_style_hint=template_style_hint or "",
             chartable_tables_json=chartable_tables_json,
+            user_instruction_summary=constraints["summary"],
+            must_include=constraints["must_include"],
+            must_avoid=constraints["must_avoid"],
         )
 
         title_str = self._coerce_text_str(getattr(outline_result, "title", None)).strip() or "Untitled"
@@ -546,6 +634,9 @@ class ScriptGenerator:
                     is_hero=is_hero,
                     is_ending=is_ending,
                     social_platforms_detected=social_hint,
+                    user_instruction_summary=constraints["summary"],
+                    must_include=constraints["must_include"],
+                    must_avoid=constraints["must_avoid"],
                 )
                 suggested = []
                 try:
@@ -605,7 +696,11 @@ class ScriptGenerator:
             fallback_ending_scene=fallback_ending,
         )
 
-        return {"title": title_str, "scenes": scenes}
+        return {
+            "title": title_str,
+            "scenes": scenes,
+            "_user_instruction_summary": constraints["summary"],
+        }
 
     @staticmethod
     def _build_fallback_ending_scene(social_flags: dict[str, bool]) -> dict:

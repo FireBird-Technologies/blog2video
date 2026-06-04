@@ -104,9 +104,11 @@ export interface ProjectRegenerateScriptJob {
   project_id: number;
   user_id: number;
   status: "queued" | "running" | "completed" | "failed";
+  current_step?: "analyzing_instruction" | "generating_script" | "generating_scenes";
   total_scenes: number;
   processed_scenes: number;
   error_message: string | null;
+  user_instruction?: string | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;

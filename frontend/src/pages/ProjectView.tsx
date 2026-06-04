@@ -65,6 +65,7 @@ import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
 import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import RegenerateScriptModal from "../components/RegenerateScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
@@ -1144,12 +1145,12 @@ export default function ProjectView() {
         setRegenerateScriptJob(job);
         if (job.status === "completed") {
           stopRegenerateScriptPolling();
-          setRegenerateScriptJob(null);
           // Clear any pipeline state that may have been set by a spurious auto-start
           // (e.g. if the project was stuck in "scripted" on mount and kickOffGeneration fired).
           stopPolling();
           setPipelineRunning(false);
           await loadProject();
+          setRegenerateScriptJob(null);
         } else if (job.status === "failed") {
           stopRegenerateScriptPolling();
           stopPolling();
@@ -2087,10 +2088,10 @@ export default function ProjectView() {
     }
   };
 
-  const applyRegenerateScript = async () => {
+  const applyRegenerateScript = async (instruction: string) => {
     if (!project) return;
     try {
-      const res = await regenerateScript(project.id);
+      const res = await regenerateScript(project.id, { user_instruction: instruction });
       setRegenerateScriptJob(res.data);
       startRegenerateScriptPolling();
     } catch (err) {
@@ -2101,6 +2102,7 @@ export default function ProjectView() {
         getErrorMessage(err, "Failed to start script regeneration."),
         status === 403 ? { showUpgrade: true } : undefined
       );
+      throw err; // let the modal surface the error inline
     }
   };
 
@@ -2660,12 +2662,24 @@ export default function ProjectView() {
         ? 8
         : 0;
     const relayoutProgress = Math.max(8, Math.min(98, Math.round(relayoutProgressRaw)));
-    // Regenerate-script is shown as two steps (no percentage). The backend signals the phase
-    // via total_scenes: 0 while the script + layouts regenerate (step 1), > 0 once scene
-    // descriptors + voiceover are generating (step 2).
-    const REGEN_SCRIPT_STEPS = ["Script", "Scenes & voiceover"];
+    // Regenerate-script is shown as discrete backend phases instead of a percentage.
+    const REGEN_SCRIPT_STEPS = [
+      { id: "analyzing_instruction", label: "Analyzing instruction" },
+      { id: "generating_script", label: "Generating script" },
+      { id: "generating_scenes", label: "Generating scenes" },
+    ] as const;
+    const regenScriptStepId =
+      regenerateScriptJob?.current_step ??
+      (regenerateScriptJob && regenerateScriptJob.total_scenes > 0
+        ? "generating_scenes"
+        : regenerateScriptJob?.status === "queued"
+        ? "analyzing_instruction"
+        : "generating_script");
+    const regenScriptCompleted = regenerateScriptJob?.status === "completed";
     const regenScriptStepIdx =
-      regenerateScriptJob && regenerateScriptJob.total_scenes > 0 ? 1 : 0;
+      regenScriptCompleted
+        ? REGEN_SCRIPT_STEPS.length
+        : Math.max(0, REGEN_SCRIPT_STEPS.findIndex((step) => step.id === regenScriptStepId));
     const stepLabels =
       mode === "template-relayout" || mode === "regenerate-script"
         ? []
@@ -2704,14 +2718,14 @@ export default function ProjectView() {
             </div>
           )}
 
-          {/* Regenerate-script: two-step indicator (active step shows a spinner, done step a tick) */}
+          {/* Regenerate-script: active step is highlighted, completed steps show a tick. */}
           {mode === "regenerate-script" && (
-            <div className="flex items-center justify-center gap-10 mb-8 mt-2">
-              {REGEN_SCRIPT_STEPS.map((label, i) => {
+            <div className="flex items-center justify-center gap-4 sm:gap-10 mb-8 mt-2">
+              {REGEN_SCRIPT_STEPS.map(({ id, label }, i) => {
                 const isDone = i < regenScriptStepIdx;
                 const isActive = i === regenScriptStepIdx;
                 return (
-                  <div key={label} className="flex flex-col items-center gap-2">
+                  <div key={id} className="flex flex-col items-center gap-2">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
                         isDone
@@ -2802,7 +2816,9 @@ export default function ProjectView() {
             <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
             <span className="text-xs text-gray-400">
               {mode === "regenerate-script"
-                ? `${REGEN_SCRIPT_STEPS[regenScriptStepIdx] ?? "Finishing up"}...`
+                ? regenScriptCompleted
+                  ? "Regeneration complete..."
+                  : `${REGEN_SCRIPT_STEPS[regenScriptStepIdx]?.label ?? "Finishing up"}...`
                 : mode === "template-relayout"
                 ? `${progress}% complete`
                 : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
@@ -3743,18 +3759,12 @@ export default function ProjectView() {
         onConfirm={applyTemplateRelayout}
       />
 
-      <ConfirmDeleteModal
+      <RegenerateScriptModal
         open={showRegenerateScriptConfirm}
+        projectName={project?.name}
         onClose={() => setShowRegenerateScriptConfirm(false)}
-        title="Regenerate Script?"
-        subtitle={project?.name}
-        warningMessage="This will completely regenerate the script — titles, narration, on-screen text, visuals, layouts, and voiceover audio. Your current version will be replaced. This counts as one video credit."
-        confirmLabel="Regenerate"
-        confirmLoadingLabel="Starting..."
-        iconVariant="warning"
-        onConfirm={async () => {
-          setShowRegenerateScriptConfirm(false);
-          await applyRegenerateScript();
+        onConfirm={async (instruction) => {
+          await applyRegenerateScript(instruction);
         }}
       />
 
