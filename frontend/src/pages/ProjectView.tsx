@@ -36,6 +36,9 @@ import {
   listCustomTemplates,
   changeProjectTemplateRegenerateLayouts,
   getProjectTemplateChangeStatus,
+  regenerateScript,
+  getRegenerateScriptStatus,
+  type ProjectRegenerateScriptJob,
   generateEmbedToken,
   type TemplateMeta,
   type CraftedTemplateItem,
@@ -62,6 +65,7 @@ import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
 import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import RegenerateScriptModal from "../components/RegenerateScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
@@ -471,6 +475,9 @@ export default function ProjectView() {
   } | null>(null);
   const [submittingTemplateRelayout, setSubmittingTemplateRelayout] = useState(false);
   const templateRelayoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [regenerateScriptJob, setRegenerateScriptJob] = useState<ProjectRegenerateScriptJob | null>(null);
+  const [showRegenerateScriptConfirm, setShowRegenerateScriptConfirm] = useState(false);
+  const regenerateScriptPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
   useEffect(() => {
@@ -1121,6 +1128,48 @@ export default function ProjectView() {
     }, 2000);
   }, [loadProject, projectId, stopTemplateRelayoutPolling]);
 
+  const stopRegenerateScriptPolling = useCallback(() => {
+    if (regenerateScriptPollRef.current) {
+      clearInterval(regenerateScriptPollRef.current);
+      regenerateScriptPollRef.current = null;
+    }
+  }, []);
+
+  const startRegenerateScriptPolling = useCallback(() => {
+    stopRegenerateScriptPolling();
+    regenerateScriptPollRef.current = setInterval(async () => {
+      try {
+        const res = await getRegenerateScriptStatus(projectId);
+        const job = res.data;
+        if (!job) return;
+        setRegenerateScriptJob(job);
+        if (job.status === "completed") {
+          stopRegenerateScriptPolling();
+          // Clear any pipeline state that may have been set by a spurious auto-start
+          // (e.g. if the project was stuck in "scripted" on mount and kickOffGeneration fired).
+          stopPolling();
+          setPipelineRunning(false);
+          await loadProject();
+          setRegenerateScriptJob(null);
+        } else if (job.status === "failed") {
+          stopRegenerateScriptPolling();
+          stopPolling();
+          setPipelineRunning(false);
+          setRegenerateScriptJob(null);
+          await loadProject();
+          showError(
+            job.error_message
+              ? `We're sorry — we couldn't regenerate your script. Your previous version has been restored and no video credit was deducted. (${job.error_message})`
+              : "We're sorry — something went wrong while regenerating your script. Your previous version has been restored and no video credit was deducted. Please try again.",
+            { variant: "pipeline" }
+          );
+        }
+      } catch {
+        stopRegenerateScriptPolling();
+      }
+    }, 2000);
+  }, [loadProject, projectId, stopRegenerateScriptPolling, showError]);
+
   useEffect(() => {
     let cancelled = false;
     setCustomTemplatesLoading(true);
@@ -1158,6 +1207,22 @@ export default function ProjectView() {
     };
     refreshTemplateJob();
   }, [projectId, startTemplateRelayoutPolling]);
+
+  useEffect(() => {
+    const refreshRegenerateScriptJob = async () => {
+      try {
+        const res = await getRegenerateScriptStatus(projectId);
+        if (!res.data) return;
+        setRegenerateScriptJob(res.data);
+        if (res.data.status === "queued" || res.data.status === "running") {
+          startRegenerateScriptPolling();
+        }
+      } catch {
+        // ignore
+      }
+    };
+    refreshRegenerateScriptJob();
+  }, [projectId, startRegenerateScriptPolling]);
 
   // Handle ?purchased=true redirect from Stripe per-video checkout
   useEffect(() => {
@@ -2023,6 +2088,24 @@ export default function ProjectView() {
     }
   };
 
+  const applyRegenerateScript = async (instruction: string) => {
+    if (!project) return;
+    try {
+      const res = await regenerateScript(project.id, { user_instruction: instruction });
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+      showError(
+        getErrorMessage(err, "Failed to start script regeneration."),
+        status === 403 ? { showUpgrade: true } : undefined
+      );
+      throw err; // let the modal surface the error inline
+    }
+  };
+
   const assignedTemplateId = project?.template || "default";
   const readyCustomForPicker = customTemplatesList.filter((ct) => !!ct.intro_code);
   const readyCraftedForPicker = (craftedTemplates || []).filter((ct: CraftedTemplateItem) => !!ct.theme);
@@ -2564,8 +2647,14 @@ export default function ProjectView() {
   // ─── Generation loader ────────────────────────────────────
   const templateRelayoutRunning =
     templateRelayoutJob?.status === "running" || templateRelayoutJob?.status === "queued";
-  const statusForBadge = templateRelayoutRunning ? "regenerating" : project.status;
-  const renderGenerationLoader = (mode: "pipeline" | "template-relayout" = "pipeline") => {
+  // Also treat the project's own "script_regenerating" status as running so the loader stays
+  // visible during the brief window before the job poll loads (and on resume after reload).
+  const regenerateScriptRunning =
+    regenerateScriptJob?.status === "running" ||
+    regenerateScriptJob?.status === "queued" ||
+    project.status === "script_regenerating";
+  const statusForBadge = templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
+  const renderGenerationLoader = (mode: "pipeline" | "template-relayout" | "regenerate-script" = "pipeline") => {
     const relayoutProgressRaw =
       templateRelayoutJob && templateRelayoutJob.total_scenes > 0
         ? (templateRelayoutJob.processed_scenes / templateRelayoutJob.total_scenes) * 100
@@ -2573,12 +2662,30 @@ export default function ProjectView() {
         ? 8
         : 0;
     const relayoutProgress = Math.max(8, Math.min(98, Math.round(relayoutProgressRaw)));
+    // Regenerate-script is shown as discrete backend phases instead of a percentage.
+    const REGEN_SCRIPT_STEPS = [
+      { id: "analyzing_instruction", label: "Analyzing instruction" },
+      { id: "generating_script", label: "Generating script" },
+      { id: "generating_scenes", label: "Generating scenes" },
+    ] as const;
+    const regenScriptStepId =
+      regenerateScriptJob?.current_step ??
+      (regenerateScriptJob && regenerateScriptJob.total_scenes > 0
+        ? "generating_scenes"
+        : regenerateScriptJob?.status === "queued"
+        ? "analyzing_instruction"
+        : "generating_script");
+    const regenScriptCompleted = regenerateScriptJob?.status === "completed";
+    const regenScriptStepIdx =
+      regenScriptCompleted
+        ? REGEN_SCRIPT_STEPS.length
+        : Math.max(0, REGEN_SCRIPT_STEPS.findIndex((step) => step.id === regenScriptStepId));
     const stepLabels =
-      mode === "template-relayout"
+      mode === "template-relayout" || mode === "regenerate-script"
         ? []
         : PIPELINE_STEPS.map((s) => s.label);
     const currentStepIdx =
-      mode === "template-relayout"
+      mode === "template-relayout" || mode === "regenerate-script"
         ? 0
         : Math.max(0, pipelineStep - 1);
     const progress = mode === "template-relayout" ? relayoutProgress : smoothProgress;
@@ -2594,18 +2701,62 @@ export default function ProjectView() {
           </div>
 
           <h2 className="text-base font-semibold text-gray-900 mb-1">
-            {mode === "template-relayout" ? "Regenerating scene layouts" : "Generating your video"}
+            {mode === "regenerate-script"
+              ? "Regenerating script"
+              : mode === "template-relayout"
+              ? "Regenerating scene layouts"
+              : "Generating your video"}
           </h2>
           <p className="text-xs text-gray-400 mb-8">{project.name}</p>
 
-          <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
-            <div
-              className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+          {mode !== "regenerate-script" && (
+            <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
+              <div
+                className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
 
-          {mode !== "template-relayout" && (
+          {/* Regenerate-script: active step is highlighted, completed steps show a tick. */}
+          {mode === "regenerate-script" && (
+            <div className="flex items-center justify-center gap-4 sm:gap-10 mb-8 mt-2">
+              {REGEN_SCRIPT_STEPS.map(({ id, label }, i) => {
+                const isDone = i < regenScriptStepIdx;
+                const isActive = i === regenScriptStepIdx;
+                return (
+                  <div key={id} className="flex flex-col items-center gap-2">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                        isDone
+                          ? "bg-green-100 text-green-600"
+                          : isActive
+                          ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
+                          : "bg-gray-100 text-gray-400"
+                      }`}
+                    >
+                      {isDone ? (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        i + 1
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs font-medium ${
+                        isDone ? "text-green-600" : isActive ? "text-purple-600" : "text-gray-400"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {mode !== "template-relayout" && mode !== "regenerate-script" && (
             <div className="flex items-center justify-between mb-8">
               {stepLabels.map((label, i) => {
                 const isActive = i === currentStepIdx;
@@ -2664,7 +2815,11 @@ export default function ProjectView() {
           <div className="flex items-center justify-center gap-2">
             <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
             <span className="text-xs text-gray-400">
-              {mode === "template-relayout"
+              {mode === "regenerate-script"
+                ? regenScriptCompleted
+                  ? "Regeneration complete..."
+                  : `${REGEN_SCRIPT_STEPS[regenScriptStepIdx]?.label ?? "Finishing up"}...`
+                : mode === "template-relayout"
                 ? `${progress}% complete`
                 : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
             </span>
@@ -3604,6 +3759,15 @@ export default function ProjectView() {
         onConfirm={applyTemplateRelayout}
       />
 
+      <RegenerateScriptModal
+        open={showRegenerateScriptConfirm}
+        projectName={project?.name}
+        onClose={() => setShowRegenerateScriptConfirm(false)}
+        onConfirm={async (instruction) => {
+          await applyRegenerateScript(instruction);
+        }}
+      />
+
       <ConfirmDeleteModal
         open={imageAssetDeletePending != null}
         onClose={() => setImageAssetDeletePending(null)}
@@ -4275,8 +4439,12 @@ export default function ProjectView() {
         )}
 
       {/* Upper area: loader when running, editor when complete */}
-      {pipelineRunning || templateRelayoutRunning ? (
-        renderGenerationLoader(templateRelayoutRunning ? "template-relayout" : "pipeline")
+      {pipelineRunning || templateRelayoutRunning || regenerateScriptRunning ? (
+        renderGenerationLoader(
+          regenerateScriptRunning ? "regenerate-script"
+          : templateRelayoutRunning ? "template-relayout"
+          : "pipeline"
+        )
       ) : pipelineComplete && project.scenes.length > 0 ? (
         renderCompleted()
       ) : (
@@ -4345,6 +4513,22 @@ export default function ProjectView() {
           <ScriptPanel
             scenes={project.scenes}
             projectName={project.name}
+            projectId={project.id}
+            onSceneUpdate={(updatedScene) => {
+              setProject((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      scenes: prev.scenes.map((s) =>
+                        s.id === updatedScene.id ? updatedScene : s
+                      ),
+                    }
+                  : prev
+              );
+            }}
+            onRegenerateScript={() => setShowRegenerateScriptConfirm(true)}
+            isRegenerating={regenerateScriptRunning}
+            disabled={!["generated", "done"].includes(project.status)}
           />
         )}
 

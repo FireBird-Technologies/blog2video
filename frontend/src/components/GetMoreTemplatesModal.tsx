@@ -61,10 +61,10 @@ export default function GetMoreTemplatesModal({ open, onClose, onChooseLink, onC
           <button
             type="button"
             onClick={onChooseDesigner}
-            className="group flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-gray-200 hover:border-amber-400 hover:bg-amber-50/40 transition-all text-center"
+            className="group flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50/40 transition-all text-center"
           >
-            <div className="w-12 h-12 rounded-full bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center transition-colors">
-              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 rounded-full bg-purple-100 group-hover:bg-purple-200 flex items-center justify-center transition-colors">
+              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
               </svg>
             </div>
