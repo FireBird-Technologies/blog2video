@@ -111,6 +111,15 @@ class Blog2VideoClient:
     def get_render_status(self, project_id: int) -> dict:
         return self._get(f"/api/projects/{project_id}/render-status")
 
+    # --- Preview / embed ---
+
+    def generate_embed_token(self, project_id: int) -> dict:
+        """POST /api/embed/token/{id} -> {embed_token, preview_url}.
+
+        Mints (or returns the existing) public preview token for the project.
+        preview_url is of the form {frontend}/preview/{embed_token}."""
+        return self._post(f"/api/embed/token/{project_id}")
+
     # --- Reference data ---
 
     def list_templates(self) -> list:

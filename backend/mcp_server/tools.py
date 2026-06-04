@@ -83,6 +83,26 @@ def get_tool_definitions() -> list[Tool]:
             }},
         ),
         Tool(
+            name="get_templates_json",
+            description=(
+                "Return all built-in video templates as plain JSON (NOT a widget): a list of "
+                "{id, name, genres}. For automation contexts (e.g. n8n) that need machine-readable "
+                "options to build a dropdown. For the interactive claude.ai gallery use list_templates."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+            annotations=ToolAnnotations(readOnlyHint=True),
+        ),
+        Tool(
+            name="get_voices_json",
+            description=(
+                "Return available narration voices as plain JSON (NOT a widget): a list of "
+                "{voice_id, name, description}. For automation contexts (e.g. n8n). Pass the chosen "
+                "voice_id as custom_voice_id to create_video. For the claude.ai gallery use list_voices."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+            annotations=ToolAnnotations(readOnlyHint=True),
+        ),
+        Tool(
             name="list_projects",
             description=(
                 "List the authenticated user's video projects as a compact table "
@@ -131,7 +151,10 @@ def get_tool_definitions() -> list[Tool]:
                 "via the widgets before calling create_project.\n\n"
                 "AFTER create_project returns, IMMEDIATELY call generate_video — it handles "
                 "generation silently and asks the user about rendering when done. "
-                "Do NOT auto-call render_video."
+                "Do NOT auto-call render_video.\n\n"
+                "To narrate with ONE specific named voice, pass its id as `custom_voice_id` "
+                "(get ids from `list_voices` / the user's saved voices); it overrides "
+                "voice_gender/voice_accent."
             ),
             inputSchema={
                 "type": "object",
@@ -141,6 +164,7 @@ def get_tool_definitions() -> list[Tool]:
                     "template": {"type": "string", "default": "default", "description": "Template id selected by the user from the list_templates gallery widget. DO NOT guess or enumerate — always call list_templates first so the user picks visually."},
                     "voice_gender": {"type": "string", "enum": ["male", "female"], "default": "female"},
                     "voice_accent": {"type": "string", "enum": ["american", "british"], "default": "american"},
+                    "custom_voice_id": {"type": "string", "description": "Optional. A specific voice id to narrate with (an ElevenLabs / saved voice_id, e.g. from list_voices or the user's saved voices). When set it OVERRIDES voice_gender/voice_accent. This is the same field the web app sends when the user picks a named voice."},
                     "video_style": {"type": "string", "enum": ["auto", "explainer", "promotional", "storytelling"], "default": "auto"},
                     "video_length": {"type": "string", "enum": ["auto", "short", "medium", "detailed", "more_detailed"], "default": "auto"},
                     "aspect_ratio": {"type": "string", "enum": ["landscape", "portrait"], "default": "landscape"},
@@ -149,6 +173,60 @@ def get_tool_definitions() -> list[Tool]:
                 },
                 "required": ["blog_url"],
             },
+            **{"_meta": {
+                "openai/widgetAccessible": True,
+            }},
+        ),
+        Tool(
+            name="create_video",
+            description=(
+                "One call to make a video: creates a project from a blog URL and runs the "
+                "generation pipeline (scrape → script → scenes), waiting until the scenes are "
+                "ready (~1–5 min). Bypasses the template/voice gallery widgets — pass the "
+                "choices directly as arguments.\n\n"
+                "Voice: to narrate with one specific voice pass `custom_voice_id` (an id from "
+                "`list_voices` / the user's saved voices); `voice_gender`/`voice_accent` are "
+                "OPTIONAL (default female/american) and only used when no custom_voice_id is "
+                "given (or as a fallback if that voice id is invalid).\n\n"
+                "Set `render: true` to also produce a downloadable MP4 (slower, ~+3–8 min). "
+                "After this returns, call `get_preview_url` with the project id to get a "
+                "shareable watch link."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "blog_url": {"type": "string", "format": "uri", "minLength": 8, "description": "REQUIRED. The http(s) URL of the blog/article to convert."},
+                    "name": {"type": "string"},
+                    "template": {"type": "string", "default": "default", "description": "Template id (from list_templates), e.g. 'nightfall'. Defaults to 'default'."},
+                    "custom_voice_id": {"type": "string", "description": "Preferred voice input: a specific voice id (ElevenLabs / saved voice_id from list_voices). Overrides voice_gender/voice_accent."},
+                    "voice_gender": {"type": "string", "enum": ["male", "female"], "default": "female", "description": "Optional. Used only when custom_voice_id is not given (and as a fallback)."},
+                    "voice_accent": {"type": "string", "enum": ["american", "british"], "default": "american", "description": "Optional. Ignored when custom_voice_id is set."},
+                    "video_style": {"type": "string", "enum": ["auto", "explainer", "promotional", "storytelling"], "default": "auto"},
+                    "video_length": {"type": "string", "enum": ["auto", "short", "medium", "detailed", "more_detailed"], "default": "auto"},
+                    "aspect_ratio": {"type": "string", "enum": ["landscape", "portrait"], "default": "landscape"},
+                    "playback_speed": {"type": "number", "minimum": 0.5, "maximum": 2.5},
+                    "accent_color": {"type": "string", "description": "Hex color, e.g. #7C3AED"},
+                    "render": {"type": "boolean", "default": False, "description": "If true, also render a downloadable MP4 before returning (slower)."},
+                },
+                "required": ["blog_url"],
+            },
+            **{"_meta": {
+                "openai/widgetAccessible": True,
+            }},
+        ),
+        Tool(
+            name="get_preview_url",
+            description=(
+                "Return a shareable preview link so the user can watch a project's video in "
+                "the browser (mints or reuses the project's public /preview/<token> URL). "
+                "Use after the project has been generated (e.g. via create_video)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {"project_id": {"type": "integer"}},
+                "required": ["project_id"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=True),
             **{"_meta": {
                 "openai/widgetAccessible": True,
             }},

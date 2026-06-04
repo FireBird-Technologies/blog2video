@@ -241,6 +241,10 @@ def dispatch(
             return _setup_video(arguments, client)
         if name == "create_project":
             return _create_project(arguments, client)
+        if name == "create_video":
+            return _create_video(arguments, client)
+        if name == "get_preview_url":
+            return _get_preview_url(arguments, client)
         if name == "generate_video":
             return _generate_video(arguments, client)
         if name == "check_generation_status":
@@ -259,6 +263,10 @@ def dispatch(
             return _list_templates(client)
         if name == "list_voices":
             return _list_voices(client)
+        if name == "get_templates_json":
+            return _get_templates_json(client)
+        if name == "get_voices_json":
+            return _get_voices_json(client)
 
         # Edit tools (existing)
         if name == "update_scene":
@@ -416,6 +424,97 @@ def _create_project(args: dict, client: Blog2VideoClient) -> list[TextContent]:
         f"Next: say *generate the video* — or *show the templates* if you want to change template first."
     )
     return _md(md)
+
+
+def _create_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    """One-shot: create a project from a blog URL and generate the video.
+
+    Unlike create_project this calls the backend directly and bypasses the
+    gallery-shown gate — the caller passes template/voice as explicit args, so
+    the widget UX is irrelevant. Blocks until scenes are ready; when
+    render=True it also renders a downloadable MP4 before returning.
+    """
+    blog_url = (args.get("blog_url") or "").strip()
+    if not blog_url or not (blog_url.startswith("http://") or blog_url.startswith("https://")):
+        return _err("blog_url is required and must be a valid http(s) URL.")
+
+    do_render = bool(args.get("render", False))
+    fields = {k: v for k, v in args.items() if k != "render" and v is not None}
+
+    # Create the project directly (no gallery gate).
+    project = client.create_project(**fields)
+    pid = project["id"]
+
+    # Generate — blocking poll until scenes are ready.
+    client.start_generation(pid)
+    poll_until(
+        check_fn=lambda: client.get_generation_status(pid),
+        is_done=lambda s: s.get("status") in ("generated", "done"),
+        is_error=lambda s: (
+            bool(s.get("status") in ("failed", "error") or s.get("error")),
+            s.get("error") or "unknown error",
+        ),
+        interval=DEFAULT_POLL_INTERVAL,
+        timeout=DEFAULT_POLL_TIMEOUT_GENERATE,
+        label="Video generation",
+    )
+
+    project = client.get_project(pid)
+    scenes = project.get("scenes", [])
+    template = project.get("template", "default")
+    voice = project.get("custom_voice_id") or (
+        f"{project.get('voice_gender', 'female')} · {project.get('voice_accent', 'american')}"
+    )
+    header = (
+        f"✅ Created **project #{pid}** and generated the video — {len(scenes)} scenes ready.\n\n"
+        f"| | |\n|---|---|\n"
+        f"| **Template** | {template} |\n"
+        f"| **Voice** | {voice} |\n"
+        f"| **Source** | {project.get('blog_url')} |\n\n"
+    )
+
+    if not do_render:
+        return _md(
+            header
+            + f"[▶ Open in editor]({_project_url(pid)})\n\n"
+            f"Call `get_preview_url` with `project_id={pid}` to get a shareable watch "
+            f"link, or pass `render: true` to also produce a downloadable MP4."
+        )
+
+    # Optional render — blocking poll until the MP4 is ready.
+    resp = client.start_render(pid)
+    if resp.get("r2_video_url"):
+        return _md(header + _render_complete_markdown(pid, resp["r2_video_url"], already=True)[0].text)
+    final = poll_until(
+        check_fn=lambda: client.get_render_status(pid),
+        is_done=lambda s: bool(s.get("done")) and not s.get("error"),
+        is_error=lambda s: (
+            bool(s.get("done") and s.get("error")),
+            s.get("error") or "unknown error",
+        ),
+        interval=DEFAULT_POLL_INTERVAL,
+        timeout=DEFAULT_POLL_TIMEOUT_RENDER,
+        label="Video rendering",
+    )
+    url = final.get("r2_video_url")
+    if not url:
+        return _md(header + f"Render complete but no URL returned. [Open your project]({_project_url(pid)}).")
+    return _md(header + _render_complete_markdown(pid, url, already=False)[0].text)
+
+
+def _get_preview_url(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    """Mint (or reuse) a public preview link so the user can watch the video."""
+    pid = int(args["project_id"])
+    resp = client.generate_embed_token(pid)
+    url = resp.get("preview_url")
+    if not url:
+        return _err("No preview_url returned for this project.")
+    return _md(
+        f"🔗 **Preview link for project #{pid}:**\n\n"
+        f"[▶ Watch the video]({url})\n\n"
+        f"`{url}`\n\n"
+        f"_This link is shareable — anyone with it can view the video._"
+    )
 
 
 def _generate_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
@@ -802,6 +901,29 @@ def _list_voices(client: Blog2VideoClient) -> list[TextContent]:
     _VOICE_CACHE = _fetch_user_voices(client)
     _VOICE_GALLERY_SHOWN_AT = time.time()
     return _md("The voice gallery is shown above — click a card to hear a preview and select it.")
+
+
+def _get_templates_json(client: Blog2VideoClient) -> list[TextContent]:
+    """Plain-JSON template list for automation contexts (e.g. n8n) — no widget."""
+    templates = client.list_templates() or []
+    data = [
+        {"id": t.get("id"), "name": t.get("name") or t.get("id"), "genres": t.get("genres") or []}
+        for t in templates if t.get("id")
+    ]
+    return _ok(data)
+
+
+def _get_voices_json(client: Blog2VideoClient) -> list[TextContent]:
+    """Plain-JSON voice list for automation contexts (e.g. n8n) — no widget.
+
+    Reuses the robust tier-cascade in _fetch_user_voices (never returns empty).
+    """
+    voices = _fetch_user_voices(client)
+    data = [
+        {"voice_id": v["voice_id"], "name": v["name"], "description": v.get("description", "")}
+        for v in voices if v.get("voice_id")
+    ]
+    return _ok(data)
 
 
 # ---------------------------------------------------------------------------
