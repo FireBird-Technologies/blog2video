@@ -5411,21 +5411,21 @@ export default function ProjectView() {
           />
           </div>
 
-          {/* 2. Voiceover */}
-          {project.voice_gender !== "none" && (
-            <ProjectVoiceSettingsCard
-              projectId={project.id}
-              voiceGender={project.voice_gender}
-              voiceAccent={project.voice_accent}
-              customVoiceId={project.custom_voice_id}
-              isPro={isPro}
-              onChanged={loadProject}
-              onError={(msg) => showError(msg)}
-              onUpgrade={() => setShowUpgrade(true)}
-            />
-          )}
+          {/* 2. Voiceover (only when project has a voice) */}
+          {project.voice_gender !== "none" ? (
+            <>
+              <ProjectVoiceSettingsCard
+                projectId={project.id}
+                voiceGender={project.voice_gender}
+                voiceAccent={project.voice_accent}
+                customVoiceId={project.custom_voice_id}
+                isPro={isPro}
+                onChanged={loadProject}
+                onError={(msg) => showError(msg)}
+                onUpgrade={() => setShowUpgrade(true)}
+              />
 
-          {/* 3. Colors + Font family (one card, managed separately) */}
+              {/* 3. Colors + Font family (with voiceover present) */}
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
             <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
@@ -5616,73 +5616,337 @@ export default function ProjectView() {
             </div>
           </div>
 
-          {/* 4. Font sizes */}
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
-            <p className="text-xs text-gray-400 mb-5">Applied to all scenes at once.</p>
-            <div className="glass-card p-6 flex flex-col gap-6">
+              {/* 4. Font sizes (with voiceover present) */}
               <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
-                  <span>Title font size</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
-                </label>
-                <input
-                  type="range"
-                  min={20}
-                  max={200}
-                  step={1}
-                  value={globalTitleSize}
-                  onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
-                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                />
+                <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
+                <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
+                <div className="glass-card p-4 flex flex-col gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Title font size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={globalTitleSize}
+                      onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Display text size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={12}
+                      max={80}
+                      step={1}
+                      value={globalDescSize}
+                      onChange={(e) => setGlobalDescSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={savingGlobalTypography}
+                      onClick={async () => {
+                        setSavingGlobalTypography(true);
+                        try {
+                          await bulkUpdateSceneTypography(project.id, {
+                            title_font_size: globalTitleSize,
+                            description_font_size: globalDescSize,
+                          });
+                          await loadProject();
+                        } catch (err) {
+                          showError(getErrorMessage(err, "Failed to update typography."));
+                        } finally {
+                          setSavingGlobalTypography(false);
+                        }
+                      }}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      {savingGlobalTypography ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Applying…
+                        </>
+                      ) : (
+                        "Apply to all Scenes"
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
+            </>
+          ) : (
+            /* No voiceover: Font sizes is 2nd, Colors+Font is 3rd */
+            <>
+              {/* 2. Font sizes (no voiceover) */}
               <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
-                  <span>Display text size</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
-                </label>
-                <input
-                  type="range"
-                  min={12}
-                  max={80}
-                  step={1}
-                  value={globalDescSize}
-                  onChange={(e) => setGlobalDescSize(Number(e.target.value))}
-                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                />
+                <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
+                <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
+                <div className="glass-card p-4 flex flex-col gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Title font size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={globalTitleSize}
+                      onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Display text size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={12}
+                      max={80}
+                      step={1}
+                      value={globalDescSize}
+                      onChange={(e) => setGlobalDescSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={savingGlobalTypography}
+                      onClick={async () => {
+                        setSavingGlobalTypography(true);
+                        try {
+                          await bulkUpdateSceneTypography(project.id, {
+                            title_font_size: globalTitleSize,
+                            description_font_size: globalDescSize,
+                          });
+                          await loadProject();
+                        } catch (err) {
+                          showError(getErrorMessage(err, "Failed to update typography."));
+                        } finally {
+                          setSavingGlobalTypography(false);
+                        }
+                      }}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      {savingGlobalTypography ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Applying…
+                        </>
+                      ) : (
+                        "Apply to all Scenes"
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={savingGlobalTypography}
-                  onClick={async () => {
-                    setSavingGlobalTypography(true);
-                    try {
-                      await bulkUpdateSceneTypography(project.id, {
-                        title_font_size: globalTitleSize,
-                        description_font_size: globalDescSize,
-                      });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to update typography."));
-                    } finally {
-                      setSavingGlobalTypography(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingGlobalTypography ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Applying…
-                    </>
-                  ) : (
-                    "Apply to all Scenes"
-                  )}
-                </button>
+
+              {/* 3. Colors + Font family (no voiceover) */}
+              <div>
+                <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
+                <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
+                <div className="glass-card p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 overflow-visible relative z-30">
+                  {/* Colors */}
+                  <div className="flex flex-col gap-5">
+                    <p className="text-xs font-semibold text-gray-900">Colors</p>
+                    {(
+                      [
+                        { label: "Accent color", value: settingsAccentColor, setter: setSettingsAccentColor, hint: "Buttons, highlights, and brand color" },
+                        { label: "Text color", value: settingsTextColor, setter: setSettingsTextColor, hint: "Primary on-screen text" },
+                        { label: "Background color", value: settingsBgColor, setter: setSettingsBgColor, hint: "Scene background" },
+                      ] as const
+                    ).map(({ label, value, setter, hint }) => (
+                      <div key={label} className="flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-700">{label}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div
+                            className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm cursor-pointer overflow-hidden"
+                            style={{ backgroundColor: value }}
+                            onClick={() => (document.getElementById(`color-input-${label}-nv`) as HTMLInputElement)?.click()}
+                          >
+                            <input
+                              id={`color-input-${label}-nv`}
+                              type="color"
+                              value={value}
+                              onChange={(e) => setter(e.target.value)}
+                              className="opacity-0 w-full h-full cursor-pointer"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            value={value}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setter(v);
+                            }}
+                            className="w-24 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300 bg-white"
+                            placeholder="#000000"
+                            maxLength={7}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={savingColors}
+                        onClick={async () => {
+                          setSavingColors(true);
+                          try {
+                            await updateProject(project.id, {
+                              accent_color: settingsAccentColor,
+                              bg_color: settingsBgColor,
+                              text_color: settingsTextColor,
+                            });
+                            await loadProject();
+                          } catch (err) {
+                            showError(getErrorMessage(err, "Failed to save colors."));
+                          } finally {
+                            setSavingColors(false);
+                          }
+                        }}
+                        className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                      >
+                        {savingColors ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Saving…
+                          </>
+                        ) : (
+                          "Save colors"
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Font family */}
+                  <div className="flex flex-col gap-4 sm:border-l sm:border-gray-100 sm:pl-6">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-900">Font family</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">Leave as Default to use the template's built-in fonts.</p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <div ref={fontDropdownRef} className="relative w-full max-w-sm">
+                        <button
+                          type="button"
+                          onClick={() => setShowFontDropdown((v) => !v)}
+                          className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between"
+                          data-action="font-selector"
+                        >
+                          <span>
+                            {settingsFontId
+                              ? FONT_REGISTRY[settingsFontId as keyof typeof FONT_REGISTRY]?.label || settingsFontId
+                              : "Default (template)"}
+                          </span>
+                          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showFontDropdown && (
+                          <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 max-h-72 overflow-y-auto">
+                            <div className="grid grid-cols-1 gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSettingsFontId(null);
+                                  setShowFontDropdown(false);
+                                }}
+                                className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                  !settingsFontId ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-700"
+                                }`}
+                              >
+                                Default
+                              </button>
+                              {Object.values(FONT_REGISTRY)
+                                .filter((opt) => opt.id !== "fira_code")
+                                .map((opt) => (
+                                  <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSettingsFontId(opt.id);
+                                      setShowFontDropdown(false);
+                                    }}
+                                    className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                      settingsFontId === opt.id
+                                        ? "bg-purple-50 text-purple-700"
+                                        : "hover:bg-gray-50 text-gray-700"
+                                    }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {settingsFontId && (
+                      <div className="mt-2">
+                        <p className="text-[11px] text-gray-500 mb-1">Preview</p>
+                        <div
+                          className="px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
+                          style={{
+                            fontFamily:
+                              resolveFontFamily(settingsFontId) ??
+                              "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                          }}
+                        >
+                          The quick brown fox jumps over the lazy dog.
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={savingFontFamily}
+                        onClick={async () => {
+                          setSavingFontFamily(true);
+                          try {
+                            await updateProject(project.id, {
+                              font_family: settingsFontId || null,
+                            });
+                            await loadProject();
+                          } catch (err) {
+                            showError(getErrorMessage(err, "Failed to save font family."));
+                          } finally {
+                            setSavingFontFamily(false);
+                          }
+                        }}
+                        className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                      >
+                        {savingFontFamily ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Saving…
+                          </>
+                        ) : (
+                          "Save font"
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
         </div>
       )}
