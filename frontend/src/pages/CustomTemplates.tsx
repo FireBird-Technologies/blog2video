@@ -10,237 +10,13 @@ import {
 } from "../api/client";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useAuth } from "../hooks/useAuth";
-import { sendCustomTemplateRequest } from "../api/enterprise";
 import { preloadBabel } from "../utils/compileComponent";
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
-// ─── Request Form Modal ───────────────────────────────────────
-interface RequestModalProps {
-  description: string;
-  companyInformation: string;
-  altContact: string;
-  loading: boolean;
-  success: boolean;
-  error: string | null;
-  onDescriptionChange: (v: string) => void;
-  onCompanyInformationChange: (v: string) => void;
-  onAltContactChange: (v: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
-  onClose: () => void;
-}
-
-function CustomTemplateRequestModal({
-  description,
-  companyInformation,
-  altContact,
-  loading,
-  success,
-  error,
-  onDescriptionChange,
-  onCompanyInformationChange,
-  onAltContactChange,
-  onSubmit,
-  onClose,
-}: RequestModalProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
-        {success ? (
-          <div className="flex flex-col items-center py-8 text-center gap-4">
-            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-7 h-7 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
-
-            <h3 className="text-lg font-semibold text-gray-900">
-              Request Successfully Sent
-            </h3>
-
-            <p className="text-sm text-gray-500 max-w-sm">
-              Thank you, our design team will review your request and reach out with next
-              steps shortly. We’re excited to bring your vision to life. You’ll
-              hear back from us within 1-2 business days.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Header */}
-            <div className="flex items-start justify-between mb-5">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Get Expert Help Creating Your Template
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Share your ideas, goals, and brand preferences, and our experts will analyze your needs, design tailored concepts, and refine them with your feedback.
-                </p>
-              </div>
-
-              <button
-                onClick={onClose}
-                className="ml-4 shrink-0 text-gray-400 hover:text-gray-600 transition"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={onSubmit} className="space-y-5">
-
-              {/* Company Info */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Company / Brand Information{" "}
-                  <span className="text-gray-400 font-normal">
-                    (optional)
-                  </span>
-                </label>
-
-                <textarea
-                  rows={3}
-                  maxLength={20000}
-                  value={companyInformation}
-                  onChange={(e) =>
-                    onCompanyInformationChange(e.target.value)
-                  }
-                  placeholder="Provide context about your company (name, website, industry etc.)"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-
-              </div>
-
-               
-              {/* Contact */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Alternate Contact{" "}
-                  <span className="text-gray-400 font-normal">
-                    (optional)
-                  </span>
-                </label>
-
-                <input
-                  type="text"
-                  maxLength={300}
-                  value={altContact}
-                  onChange={(e) =>
-                    onAltContactChange(e.target.value)
-                  }
-                  placeholder="Alternate email etc"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Template Vision / Requirements{" "}
-                  <span className="text-red-400">*</span>
-                </label>
-
-                <textarea
-                  required
-                  rows={5}
-                  maxLength={3000}
-                  value={description}
-                  onChange={(e) =>
-                    onDescriptionChange(e.target.value)
-                  }
-                  placeholder="Describe your ideal template or give links to references."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-
-                <p className="text-xs text-gray-400 mt-1 text-right">
-                  {description.length}/3000
-                </p>
-              </div>
-
-
-              {/* Error */}
-              {error && (
-                <p className="text-sm text-red-500">{error}</p>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={loading || !description.trim()}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  {loading && (
-                    <svg
-                      className="w-4 h-4 animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8H4z"
-                      />
-                    </svg>
-                  )}
-
-                  {loading ? "Submitting Request…" : "Submit Request"}
-                </button>
-              </div>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
 
 export default function CustomTemplates() {
   const [searchParams] = useSearchParams();
@@ -265,12 +41,6 @@ export default function CustomTemplates() {
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(false);
-  const [requestDescription, setRequestDescription] = useState("");
-  const [requestCompanyInformation, setRequestCompanyInformation] = useState("");
-  const [requestAltContact, setRequestAltContact] = useState("");
-  const [requestLoading, setRequestLoading] = useState(false);
-  const [requestSuccess, setRequestSuccess] = useState(false);
-  const [requestError, setRequestError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const readyCraftedTemplates = craftedTemplates.filter((ct) => !!ct.theme);
 
@@ -402,35 +172,7 @@ export default function CustomTemplates() {
     }
   };
 
-  const handleRequestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!requestDescription.trim()) return;
-    setRequestLoading(true);
-    setRequestError(null);
-    try {
-      await sendCustomTemplateRequest({
-        description: requestDescription.trim(),
-        alternate_contact: requestAltContact.trim() || undefined,
-        company_information: requestCompanyInformation.trim() || undefined,
-      });
-      setRequestSuccess(true);
-      setTimeout(() => {
-        setShowRequestForm(false);
-        setRequestSuccess(false);
-        setRequestDescription("");
-        setRequestCompanyInformation("");
-        setRequestAltContact("");
-      }, 3000);
-    } catch {
-      setRequestError("Failed to send request. Please try again.");
-    } finally {
-      setRequestLoading(false);
-    }
-  };
-
   const openRequestForm = () => {
-    setRequestSuccess(false);
-    setRequestError(null);
     setShowRequestForm(true);
   };
 
@@ -462,26 +204,14 @@ export default function CustomTemplates() {
             onClick={openRequestForm}
             className="mt-3 text-sm text-purple-500 hover:text-purple-700 transition-colors underline underline-offset-2"
           >
-            Or Get Expert Template  →
+            Or Get Designer Template  →
           </button>
         </div>
 
-        {showRequestForm && ReactDOM.createPortal(
-          <CustomTemplateRequestModal
-            description={requestDescription}
-            companyInformation={requestCompanyInformation}
-            altContact={requestAltContact}
-            loading={requestLoading}
-            success={requestSuccess}
-            error={requestError}
-            onDescriptionChange={setRequestDescription}
-            onCompanyInformationChange={setRequestCompanyInformation}
-            onAltContactChange={setRequestAltContact}
-            onSubmit={handleRequestSubmit}
-            onClose={() => { setShowRequestForm(false); setRequestSuccess(false); setRequestError(null); }}
-          />,
-          document.body
-        )}
+        <DesignerTemplateRequestModal
+          open={showRequestForm}
+          onClose={() => setShowRequestForm(false)}
+        />
 
         {showCreator && (
           <CustomTemplateCreator
@@ -516,7 +246,7 @@ export default function CustomTemplates() {
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">
-              {activeTemplatesTab === "custom" ? "Custom Templates" : "Expert Customized Templates"}
+              {activeTemplatesTab === "custom" ? "Custom Templates" : "Designer Templates"}
               <span className="text-sm font-normal text-gray-400 ml-2">
                 ({activeTemplatesTab === "custom" ? templates.length : readyCraftedTemplates.length})
               </span>
@@ -537,7 +267,7 @@ export default function CustomTemplates() {
                 onClick={openRequestForm}
                 className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
               >
-                Get Expert Template
+                Get Designer Template
               </button>
             </div>
           </div>
@@ -562,7 +292,7 @@ export default function CustomTemplates() {
                   : "text-gray-400 hover:text-gray-600"
               }`}
             >
-              Expert Customized
+              Designer
             </button>
           </div>
         </div>
@@ -729,9 +459,9 @@ export default function CustomTemplates() {
           </div>
         ) : readyCraftedTemplates.length === 0 ? (
           <div className="glass-card p-10 text-center">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">No expert customized templates yet</h3>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">No designer templates yet</h3>
             <p className="text-sm text-gray-400 max-w-md mx-auto">
-              Request an expert customized template and it will appear here once assigned to your account.
+              Request a designer template and it will appear here once assigned to your account.
             </p>
           </div>
         ) : (
@@ -757,7 +487,7 @@ export default function CustomTemplates() {
                     <h3 className="text-sm font-semibold text-gray-900 truncate mb-1">{tpl.name}</h3>
                     <div className="flex flex-wrap items-center gap-1.5 mb-3">
                       <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[10px] font-medium">
-                        Expert Customized
+                        Designer
                       </span>
                     </div>
                   </div>
@@ -769,22 +499,10 @@ export default function CustomTemplates() {
       </div>
 
       {/* Request form modal */}
-      {showRequestForm && ReactDOM.createPortal(
-        <CustomTemplateRequestModal
-          description={requestDescription}
-          companyInformation={requestCompanyInformation}
-          altContact={requestAltContact}
-          loading={requestLoading}
-          success={requestSuccess}
-          error={requestError}
-          onDescriptionChange={setRequestDescription}
-          onCompanyInformationChange={setRequestCompanyInformation}
-          onAltContactChange={setRequestAltContact}
-          onSubmit={handleRequestSubmit}
-          onClose={() => { setShowRequestForm(false); setRequestSuccess(false); setRequestError(null); }}
-        />,
-        document.body
-      )}
+      <DesignerTemplateRequestModal
+        open={showRequestForm}
+        onClose={() => { setShowRequestForm(false); }}
+      />
 
       {/* Creator modal */}
       {showCreator && (

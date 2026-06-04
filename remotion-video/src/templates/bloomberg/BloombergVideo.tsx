@@ -261,7 +261,7 @@ interface VideoData {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
-  logoSize?: string;
+  logoSize?: number | string;
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
@@ -403,7 +403,7 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const lp = scene.layoutProps || {};
         const focusX = typeof lp.imageFocusX === "number" ? lp.imageFocusX : 50;
         const focusY = typeof lp.imageFocusY === "number" ? lp.imageFocusY : 50;
-        const resolvedZoom = typeof lp.imageZoom === "number" ? Math.max(1, lp.imageZoom) : 1;
+        const resolvedZoom = typeof lp.imageZoom === "number" ? Math.max(0.1, lp.imageZoom) : 1;
 
         const layoutProps: BloombergLayoutProps = {
           ...lp,

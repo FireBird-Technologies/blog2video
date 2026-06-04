@@ -320,10 +320,10 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
-                objectPosition: imageObjectPosition ?? "50% 50%",
-                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
-                transformOrigin: imageObjectPosition ?? "50% 50%",
+                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                transform: `scale(${imageZoom ?? 1})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
                 borderRadius: 12,
                 border: `1px solid ${accentColor}30`,
               }}
