@@ -34,6 +34,10 @@ backend/templates/laduc/
 remotion-video/src/components/laduc/
 remotion-video/src/templates/laduc/
 
+frontend/src/components/remotion/fj_research/
+backend/templates/fj_research/
+remotion-video/src/components/fj_research/
+remotion-video/src/templates/fj_research/
 # Build cache
 *.tsbuildinfo
 
