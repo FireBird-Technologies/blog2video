@@ -50,20 +50,12 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* Pricing link */}
+          {/* MCP Connector link */}
           <Link
-            to="/pricing"
+            to="/mcp-connector"
             className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors"
           >
-            Pricing
-          </Link>
-
-          {/* Blogs link */}
-          <Link
-            to="/blogs"
-            className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors"
-          >
-            Blogs
+            MCP Connector
           </Link>
 
           {/* Billing link */}
@@ -111,8 +103,7 @@ const Navbar = () => {
                     Share B2V
                     <span className="ml-auto text-[9px] font-semibold bg-purple-600 text-white px-1.5 rounded-full">3 free videos</span>
                   </Link>
-                  <Link to="/pricing" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Pricing</Link>
-                  <Link to="/blogs" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Blogs</Link>
+                  <Link to="/mcp-connector" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">MCP Connector</Link>
                   <Link to="/subscription" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Billing</Link>
                   <div className="px-4 py-2.5 text-xs text-gray-400 border-t border-gray-100 mt-1">
                     {user.videos_used_this_period}/{user.video_limit} videos used
@@ -136,13 +127,6 @@ const Navbar = () => {
                 {user.name[0]}
               </div>
             )}
-            <a
-              href="mailto:support@blog2video.app"
-              data-action="contact-link"
-              className="text-xs text-gray-400 hover:text-gray-900 transition-colors hidden sm:block"
-            >
-              Help
-            </a>
             <button
               onClick={logout}
               className="text-xs text-gray-400 hover:text-gray-900 transition-colors"
