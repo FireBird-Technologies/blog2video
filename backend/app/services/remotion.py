@@ -580,21 +580,31 @@ def safe_remove_workspace(workspace_dir: str) -> None:
     shutil.rmtree(workspace_dir, ignore_errors=True)
 
 
-def rebuild_workspace(project: Project, scenes: list[Scene], db: Session) -> str:
+def rebuild_workspace(
+    project: Project,
+    scenes: list[Scene],
+    db: Session,
+    redistribute_images: bool = False,
+) -> str:
     """
     Fully rebuild a project's Remotion workspace from DB data.
     Copies template-specific layout files, then writes data.json + assets.
     """
     template_id = validate_template_id(getattr(project, "template", "default"))
     workspace = provision_workspace(project.id, template_id)
-    write_remotion_data(project, scenes, db)
+    write_remotion_data(project, scenes, db, redistribute_images=redistribute_images)
     return workspace
 
 
 # ─── Write project files to workspace ────────────────────────
 
 
-def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> str:
+def write_remotion_data(
+    project: Project,
+    scenes: list[Scene],
+    db: Session,
+    redistribute_images: bool = False,
+) -> str:
     """
     Write scene data and assets to the project's Remotion workspace public folder.
     Includes layout descriptors in the scene data for data-driven rendering.
@@ -673,7 +683,25 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     # Track which scene descriptors were modified (need serialization at end)
     dirty: set[int] = set()
 
+    if redistribute_images:
+        # Full script regeneration creates a new scene sequence. Clear sticky
+        # image choices first so assignment below behaves like fresh generation.
+        for i, lp in enumerate(scene_layout_props):
+            if scene_layouts[i] in no_image_layouts:
+                continue
+            changed = False
+            for key in ("assignedImage", "imageFocusX", "imageFocusY", "imageZoom", "hideImage"):
+                if key in lp:
+                    lp.pop(key, None)
+                    changed = True
+            if changed:
+                dirty.add(i)
+
     if all_image_files and scenes:
+        # Build scene_id -> index lookup before classifying scene-specific files.
+        # In redistribution mode, files named for deleted old scene ids should
+        # behave like generic project images and be assigned to the new sequence.
+        id_to_idx = {s.id: i for i, s in enumerate(scenes)}
         image_assets = [
             a for a in project.assets
             if a.asset_type.value == "image" and not a.excluded
@@ -688,14 +716,17 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         for asset in image_assets:
             m = re.match(r"^scene_(\d+)_", asset.filename)
             if m:
-                scene_specific.append((int(m.group(1)), asset.filename))
+                scene_id = int(m.group(1))
+                if redistribute_images and scene_id not in id_to_idx:
+                    generic_files.append(asset.filename)
+                else:
+                    scene_specific.append((scene_id, asset.filename))
             else:
                 generic_files.append(asset.filename)
 
-        # Build scene_id -> index lookup
-        id_to_idx = {s.id: i for i, s in enumerate(scenes)}
-
         # Step 1: Honor stored assignedImage (any filename); multiple scenes may share one file.
+        # In redistribution mode, old assignments were cleared above so this only
+        # preserves assignments written by current descriptor generation.
         for i, scene in enumerate(scenes):
             layout = scene_layouts[i]
             lp = scene_layout_props[i]

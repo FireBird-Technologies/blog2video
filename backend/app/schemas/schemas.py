@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import Optional
 
@@ -104,6 +104,7 @@ class ProjectRegenerateScriptJobOut(BaseModel):
     project_id: int
     user_id: int
     status: str
+    current_step: str = "analyzing_instruction"
     total_scenes: int
     processed_scenes: int
     error_message: Optional[str] = None

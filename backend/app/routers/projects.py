@@ -887,6 +887,21 @@ def get_project_template_change_status(
 _ACTIVE_REGENERATE_SCRIPT_STATUSES = {"queued", "running"}
 
 
+def _set_regenerate_script_step(job_id: int, step: str) -> None:
+    db = SessionLocal()
+    try:
+        job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
+        if not job:
+            return
+        job.current_step = step
+        db.commit()
+    except Exception:
+        logger.exception("[REGENERATE_SCRIPT_JOB] failed to update current_step for job=%s", job_id)
+        db.rollback()
+    finally:
+        db.close()
+
+
 def _run_regenerate_script_job(job_id: int) -> None:
     from app.routers.pipeline import _generate_script, _generate_scenes
     from app.services.remotion import rebuild_workspace
@@ -909,13 +924,24 @@ def _run_regenerate_script_job(job_id: int) -> None:
         job_project_id = job.project_id
         job_user_id = job.user_id
         scene_snapshot_raw = job.scene_snapshot or "[]"
+        job_user_instruction = job.user_instruction or ""
 
         job.status = "running"
+        job.current_step = "analyzing_instruction"
         db.commit()
 
         # Phase 1: Regenerate script — deletes existing scenes and creates new ones.
         # total_scenes stays 0 so the UI shows ~8% (indeterminate phase).
-        asyncio.run(_generate_script(project, db))
+        # _generate_script returns the analyzer's distilled summary so we can
+        # hand it to the layout planner below without re-running the analyzer.
+        user_instruction_summary = asyncio.run(
+            _generate_script(
+                project,
+                db,
+                user_instruction=job_user_instruction,
+                progress_callback=lambda step: _set_regenerate_script_step(job_id, step),
+            )
+        ) or ""
 
         # Re-fetch job after the async call — asyncio.run() inside a thread executor
         # can leave pre-loaded ORM objects detached from the session.
@@ -953,7 +979,12 @@ def _run_regenerate_script_job(job_id: int) -> None:
             project.template or "default", db=db, user_id=job_user_id
         )
         replan_supports_ending = "ending_socials" in get_valid_layouts(replan_template_id)
-        layout_planner = TemplateLayoutPlanner(replan_template_id)
+        layout_planner = TemplateLayoutPlanner(
+            replan_template_id,
+            db=db,
+            user_id=job_user_id,
+            user_instruction_summary=user_instruction_summary,
+        )
         planner_scenes_data = [
             {
                 "title": s.title,
@@ -1000,11 +1031,19 @@ def _run_regenerate_script_job(job_id: int) -> None:
         # uniformly via the canonical pipeline function (it handles custom/builtin/crafted
         # internally and writes the Remotion workspace data). This is a complete regeneration —
         # voiceover is regenerated from the freshly written narration.
+        job.current_step = "generating_scenes"
         job.total_scenes = len(new_scenes)
         job.processed_scenes = 0
         db.commit()
 
-        asyncio.run(_generate_scenes(project, db))
+        asyncio.run(
+            _generate_scenes(
+                project,
+                db,
+                preserve_image_assignments=False,
+                redistribute_images=True,
+            )
+        )
 
         # _generate_scenes closes/re-checks out the session internally; reload the job,
         # project, and scene handles for the finalize phase.
@@ -1041,7 +1080,7 @@ def _run_regenerate_script_job(job_id: int) -> None:
 
         # Rebuild the remotion workspace BEFORE charging — if this throws, the except
         # block rolls back and no credit is deducted.
-        rebuild_workspace(project, new_scenes, db)
+        rebuild_workspace(project, new_scenes, db, redistribute_images=True)
 
         # Deduct one video credit only now that every fallible step has succeeded.
         # Committed together with job completion so a failure anywhere above never charges.
@@ -1103,22 +1142,34 @@ def _run_regenerate_script_job(job_id: int) -> None:
         db.close()
 
 
+class RegenerateScriptRequest(BaseModel):
+    user_instruction: str | None = None
+
+
 @router.post(
     "/{project_id}/regenerate-script",
     response_model=ProjectRegenerateScriptJobOut,
 )
 async def regenerate_script(
     project_id: int,
+    body: RegenerateScriptRequest = RegenerateScriptRequest(),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Regenerate the video script while preserving narration text and voiceover audio.
+    """Regenerate the video script with user-supplied instructions.
 
-    Creates new scene titles, display text, visual descriptions, and layouts via the
-    script generator, then restores the original narration and voiceover from a snapshot.
-    Descriptor (layout props) generation runs after. Credit is deducted only on success;
-    if the job fails the project is rolled back to its previous state at no charge.
+    The popup captures free-form text plus optional .txt/.md content merged in
+    client-side. The instruction is required (validated below) and is fed through
+    a DSPy analyzer into the script generator + layout planner.
     """
+    instruction = (body.user_instruction or "").strip()
+    if not instruction:
+        raise HTTPException(status_code=400, detail="user_instruction is required")
+    if len(instruction) > 25_000:
+        raise HTTPException(
+            status_code=400, detail="user_instruction is too long (max 25,000 characters)"
+        )
+
     project = _get_user_project(project_id, user.id, db)
 
     active_job = (
@@ -1170,9 +1221,11 @@ async def regenerate_script(
         project_id=project.id,
         user_id=user.id,
         status="queued",
+        current_step="analyzing_instruction",
         total_scenes=0,
         processed_scenes=0,
         scene_snapshot=json.dumps(scene_snapshot),
+        user_instruction=instruction,
     )
     db.add(job)
     project.status = ProjectStatus.SCRIPT_REGENERATING

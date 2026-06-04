@@ -96,8 +96,14 @@ export const getProjectTemplateChangeStatus = (projectId: number) =>
     `/projects/${projectId}/template-change-status`
   );
 
-export const regenerateScript = (projectId: number) =>
-  api.post<ProjectRegenerateScriptJob>(`/projects/${projectId}/regenerate-script`);
+export const regenerateScript = (
+  projectId: number,
+  body?: { user_instruction?: string },
+) =>
+  api.post<ProjectRegenerateScriptJob>(
+    `/projects/${projectId}/regenerate-script`,
+    body ?? {},
+  );
 
 export const getRegenerateScriptStatus = (projectId: number) =>
   api.get<ProjectRegenerateScriptJob | null>(
