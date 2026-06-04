@@ -248,7 +248,7 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             : (scene.ogImageUrl || undefined);
         const focusX = Number(scene.layoutProps?.imageFocusX ?? 50);
         const focusY = Number(scene.layoutProps?.imageFocusY ?? 50);
-        const imageZoom = Math.max(1, Number(scene.layoutProps?.imageZoom ?? 1));
+        const imageZoom = Math.max(0.1, Number(scene.layoutProps?.imageZoom ?? 1));
         const imageObjectPosition = `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`;
 
         // Spread structured content (bullets, metrics, quotes, etc.) onto scene props
@@ -334,6 +334,7 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
+          size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}
