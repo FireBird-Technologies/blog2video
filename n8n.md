@@ -3,8 +3,7 @@
 Use the Blog2Video **MCP server** from inside n8n to turn a blog URL into a finished, previewable
 video. This page has two complete, copy-pasteable examples.
 
-**MCP endpoint:** `https://footrest-dweeb-silt.ngrok-free.dev/mcp/sse` (HTTP Streamable transport).
-This forwards (via ngrok) to the FastAPI backend on `http://localhost:8000`.
+**MCP endpoint:** _endpoint to be added_ (HTTP Streamable transport).
 
 **Auth (every example):** every MCP call must send `Authorization: Bearer <JWT>` (or `?token=<JWT>` on
 the URL). Without it the server returns 401 and the tool list is empty.
