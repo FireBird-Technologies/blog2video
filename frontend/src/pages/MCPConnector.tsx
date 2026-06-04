@@ -131,6 +131,23 @@ export default function MCPConnector() {
                 </span>
               </li>
             </ol>
+            <div className="mt-5">
+              <div className="flex items-center gap-2 mb-2 text-xs font-medium text-orange-700">
+                <svg className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                Watch: setting up a Claude connector
+              </div>
+              <div className="relative w-full overflow-hidden rounded-xl border border-orange-100 bg-black" style={{ aspectRatio: "16 / 9" }}>
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src="https://www.youtube.com/embed/_jjSS0qGFbI?start=1"
+                  title="Setting up a Claude connector"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            </div>
           </div>
 
           {/* ChatGPT card */}
@@ -179,6 +196,44 @@ export default function MCPConnector() {
                 </span>
               </li>
             </ol>
+            <div className="mt-5">
+              <a
+                href="https://openai.com/index/more-ways-to-work-with-your-team/"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 mb-2 text-xs font-medium text-emerald-700 hover:underline"
+              >
+                <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                Read: working with apps in ChatGPT
+              </a>
+              <a
+                href="https://openai.com/index/more-ways-to-work-with-your-team/"
+                target="_blank"
+                rel="noreferrer"
+                className="relative block w-full overflow-hidden rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white group"
+                style={{ aspectRatio: "16 / 9" }}
+              >
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                  <span className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-emerald-900">OpenAI's official guide</span>
+                    <span className="block text-xs text-emerald-600 mt-0.5">More ways to work with your team →</span>
+                  </span>
+                </div>
+              </a>
+            </div>
             <p className="mt-4 text-[11px] text-gray-500 border-t border-gray-100 pt-3">
               On Business / Enterprise / Edu plans, your workspace admin may need
               to enable Developer mode org-wide first.
