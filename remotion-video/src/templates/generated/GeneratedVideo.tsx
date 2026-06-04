@@ -334,6 +334,7 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
+          size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}

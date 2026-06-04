@@ -16,8 +16,11 @@ import UpgradePlanModal from "./UpgradePlanModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
-import CraftedTemplatePreview from "./templatePreviews/CraftedTemplatePreview";
+import CraftedTemplatePreviewSmart from "./templatePreviews/CraftedTemplatePreviewSmart";
 import CraftYourTemplateCard from "./CraftYourTemplateCard";
+import GetMoreTemplatesModal from "./GetMoreTemplatesModal";
+import DesignerTemplateRequestModal from "./DesignerTemplateRequestModal";
+import CraftYourVoiceCard from "./CraftYourVoiceCard";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
 
 export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
@@ -27,11 +30,11 @@ const CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME = 128; // ~85% of 5s * 30fps first s
 
 /** Source-bucket sentinel values for the genre dropdown (not real template genres). */
 const GENRE_CUSTOM = "__custom__";
-const GENRE_CRAFTED = "__crafted__";
+export const GENRE_CRAFTED = "__crafted__";
 
 function genreTemplateListCaption(genreFilter: string): string {
   if (genreFilter === GENRE_CUSTOM) return "Custom templates";
-  if (genreFilter === GENRE_CRAFTED) return "Expert designed templates";
+  if (genreFilter === GENRE_CRAFTED) return "Designer templates";
   if (genreFilter) return `Templates for ${genreFilter}`;
   return "All templates";
 }
@@ -163,6 +166,8 @@ interface Props {
   onDismissFlow?: () => void;
   /** When set, the form renders in read-only demo mode for help videos. */
   demoMode?: BlogUrlFormDemoMode;
+  /** Pre-select a genre filter when step 2 opens (e.g. GENRE_CRAFTED to show Designer Templates). */
+  initialGenre?: string;
 }
 
 const MAX_UPLOAD_FILES = 5;
@@ -318,7 +323,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
   const desc = TEMPLATE_DESCRIPTIONS[templateId];
   const title = customTemplate ? customTemplate.name : (desc?.title ?? templateId);
   const subtitle = customTemplate
-    ? (templateId.startsWith("crafted_") ? "Expert customized template" : "Custom template")
+    ? (templateId.startsWith("crafted_") ? "Designer template" : "Custom template")
     : desc?.subtitle;
 
   // Crafted templates ship summary-only by default; the full layout package
@@ -726,7 +731,7 @@ function getFileExtension(s: string): string | null {
   }
 }
 
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow, demoMode }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -801,11 +806,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
   const styleManuallySet = useRef(false);
   /** Genre dropdown filter — populated dynamically from all templates' meta.genres. "" = show all. */
-  const [genre, setGenre] = useState<string>("");
+  const [genre, setGenre] = useState<string>(initialGenre ?? "");
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
-  const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized } = useCraftedTemplates();
+  const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized, ensureCraftedTemplateDetail } = useCraftedTemplates();
+  // When a crafted template is selected, fetch its full bundle (frontend_files,
+  // entry, public assets) on demand so its picker card can render the REAL
+  // composition via the module graph (falls back to the marquee until ready).
+  useEffect(() => {
+    if (template.startsWith("crafted_")) {
+      void ensureCraftedTemplateDetail(template);
+    }
+  }, [template, ensureCraftedTemplateDetail]);
   /** Built-in template list fetch — drives step 2 loading overlay (often warmed by Dashboard prefetch). */
   const [builtinTemplatesLoading, setBuiltinTemplatesLoading] = useState(true);
   /** After built-ins load: session random pick (or skip) has finished — step 2 can interact. */
@@ -840,6 +853,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const readyCustomTemplates = customTemplates.filter((ct) => !!ct.intro_code);
   const readyCraftedTemplates = craftedTemplates.filter((ct) => !!ct.theme);
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
+  const [showGetMoreTemplates, setShowGetMoreTemplates] = useState(false);
+  const [showDesignerRequest, setShowDesignerRequest] = useState(false);
   const [customTemplatesLoading, setCustomTemplatesLoading] = useState(false);
   const [hasCraftedTemplatesEligible, setHasCraftedTemplatesEligible] = useState(false);
   // Show the crafted-template loader until the first R2 roundtrip resolves
@@ -1688,6 +1703,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     navigate(`/dashboard?${params.toString()}`);
   };
 
+  const openStep3CustomVoiceCreator = () => {
+    if (!isPro) {
+      setShowCustomTemplateUpgrade(true);
+      return;
+    }
+    onDismissFlow?.();
+    const params = new URLSearchParams();
+    params.set("tab", "voices");
+    params.set("openCustomVoiceCreator", "1");
+    navigate(`/dashboard?${params.toString()}`);
+  };
+
   // ─── Step 1: Project (URL or Upload) ─────────────────────────
   const bulkStep1ActiveIndex = Math.min(bulkActiveIndex, Math.max(0, bulkRows.length - 1));
   const bulkStep1MasterIndex = Math.min(bulkLengthMasterIndex, Math.max(0, bulkRows.length - 1));
@@ -2184,7 +2211,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // ─── Step 2: Genre/source filter + Template list ──────────────────────────
   // Genre dropdown has two source-bucket options at the top — "Custom Templates"
-  // and "Expert Designed Templates" — encoded with sentinel values. Below them are
+  // and "Designer Templates" — encoded with sentinel values. Below them are
   // the actual genres, compiled from built-in templates' meta.json.
   const allGenres = useMemo(() => {
     const set = new Set<string>();
@@ -2232,13 +2259,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               demoMode.templatePreviewOverride({ templateId: template, selected: true, thumbnail: false })
             ) : selectedCustom ? (
               <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
-            ) : selectedCrafted && (selectedCrafted.preview_file || selectedCrafted.preview_image_url || selectedCrafted.theme) ? (
-              <CraftedTemplatePreview
-                templateId={selectedCrafted.id}
+            ) : selectedCrafted && ((selectedCrafted as any).frontend_files || selectedCrafted.preview_file || selectedCrafted.preview_image_url || selectedCrafted.theme) ? (
+              <CraftedTemplatePreviewSmart
+                item={selectedCrafted}
                 compileCacheScope={user?.id != null ? String(user.id) : undefined}
-                previewSource={selectedCrafted.preview_file ?? null}
-                previewImageUrl={selectedCrafted.preview_image_url ?? null}
-                name={selectedCrafted.name}
                 showLoaderOnEmptyOrError
                 key={`selected-crafted-${selectedCrafted.id}-${step}`}
               />
@@ -2268,14 +2292,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 )}
                 {selectedCrafted && (
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-amber-500">
-                    Expert Customized
+                    Designer
                   </span>
                 )}
               </div>
               {selectedCustom ? (
                 <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
               ) : selectedCrafted ? (
-                <div className="text-[11px] text-gray-400 mt-0.5">Expert customized template</div>
+                <div className="text-[11px] text-gray-400 mt-0.5">Designer template</div>
               ) : selectedDesc?.subtitle ? (
                 <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
               ) : null}
@@ -2305,7 +2329,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 {genre === GENRE_CUSTOM
                   ? "Custom Templates"
                   : genre === GENRE_CRAFTED
-                  ? "Expert Designed"
+                  ? "Designer"
                   : genre || "All genres"}
               </span>
               <svg
@@ -2357,7 +2381,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       genre === GENRE_CRAFTED ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    Expert Designed Templates
+                    Designer Templates
                   </button>
                   {allGenres.length > 0 && <div className="my-1 border-t border-gray-100" />}
                   {allGenres.map((g) => (
@@ -2389,11 +2413,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               <CraftYourTemplateCard
                 variant="default"
                 isPro={isPro}
-                onClick={() => openStep2CustomTemplateCreator(videoStyle, null)}
+                onClick={() => {
+                  if (!isPro) { setShowCustomTemplateUpgrade(true); return; }
+                  setShowGetMoreTemplates(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    openStep2CustomTemplateCreator(videoStyle, null);
+                    if (!isPro) { setShowCustomTemplateUpgrade(true); return; }
+                    setShowGetMoreTemplates(true);
                   }
                 }}
               />
@@ -2415,12 +2443,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
                           {item.type === "crafted" ? (
-                            <CraftedTemplatePreview
-                              templateId={item.id}
+                            <CraftedTemplatePreviewSmart
+                              item={ct as any}
                               compileCacheScope={user?.id != null ? String(user.id) : undefined}
-                              previewSource={(ct as any).preview_file ?? null}
-                              previewImageUrl={ct.preview_image_url ?? null}
-                              name={ct.name}
                               thumbnailMode
                               showLoaderOnEmptyOrError
                               key={`${customId}-${step}`}
@@ -2432,7 +2457,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         <div className="absolute top-0 left-0.5 z-[5]">
                           {item.type === "custom" ? <CustomTemplateBadge /> : (
                             <span className="pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-amber-500 ring-1 ring-amber-300">
-                              Expert Customized
+                              Designer
                             </span>
                           )}
                         </div>
@@ -2526,7 +2551,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 >
                   <span className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin shrink-0" aria-hidden />
                   <p className="text-[10px] text-gray-500 leading-snug">
-                    Loading expert customized templates, please wait.
+                    Loading designer templates, please wait.
                   </p>
                 </div>
               )}
@@ -2956,13 +2981,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <div className="relative">
               {selectedCustomBulk ? (
                 <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
-              ) : selectedCraftedBulk && (selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
-                <CraftedTemplatePreview
-                  templateId={selectedCraftedBulk.id}
+              ) : selectedCraftedBulk && ((selectedCraftedBulk as any).frontend_files || selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
+                <CraftedTemplatePreviewSmart
+                  item={selectedCraftedBulk}
                   compileCacheScope={user?.id != null ? String(user.id) : undefined}
-                  previewSource={selectedCraftedBulk.preview_file ?? null}
-                  previewImageUrl={selectedCraftedBulk.preview_image_url ?? null}
-                  name={selectedCraftedBulk.name}
                   showLoaderOnEmptyOrError
                   key={`selected-bulk-crafted-${tpl}-${activeIndex}-${step}`}
                 />
@@ -2990,14 +3012,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   )}
                   {selectedCraftedBulk && (
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-amber-500">
-                      Expert Customized
+                      Designer
                     </span>
                   )}
                 </div>
                 {selectedCustomBulk ? (
                   <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
                 ) : selectedCraftedBulk ? (
-                  <div className="text-[11px] text-gray-400 mt-0.5">Expert customized template</div>
+                  <div className="text-[11px] text-gray-400 mt-0.5">Designer template</div>
                 ) : selectedDesc?.subtitle ? (
                   <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
                 ) : null}
@@ -3027,7 +3049,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   {genre === GENRE_CUSTOM
                     ? "Custom Templates"
                     : genre === GENRE_CRAFTED
-                    ? "Expert Designed"
+                    ? "Designer"
                     : genre || "All genres"}
                 </span>
                 <svg
@@ -3078,7 +3100,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         genre === GENRE_CRAFTED ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      Expert Designed Templates
+                      Designer Templates
                     </button>
                     {allGenres.length > 0 && <div className="my-1 border-t border-gray-100" />}
                     {allGenres.map((g) => (
@@ -3112,11 +3134,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               <CraftYourTemplateCard
                 variant="compact"
                 isPro={isPro}
-                onClick={() => openStep2CustomTemplateCreator(activeVideoStyle, activeIndex)}
+                onClick={() => {
+                  if (!isPro) { setShowCustomTemplateUpgrade(true); return; }
+                  setShowGetMoreTemplates(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    openStep2CustomTemplateCreator(activeVideoStyle, activeIndex);
+                    if (!isPro) { setShowCustomTemplateUpgrade(true); return; }
+                    setShowGetMoreTemplates(true);
                   }
                 }}
               />
@@ -3138,12 +3164,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
                           {item.type === "crafted" ? (
-                            <CraftedTemplatePreview
-                              templateId={item.id}
+                            <CraftedTemplatePreviewSmart
+                              item={ct as any}
                               compileCacheScope={user?.id != null ? String(user.id) : undefined}
-                              previewSource={(ct as any).preview_file ?? null}
-                              previewImageUrl={ct.preview_image_url ?? null}
-                              name={ct.name}
                               thumbnailMode
                               showLoaderOnEmptyOrError
                               key={`${customId}-bulk-${activeIndex}`}
@@ -3155,7 +3178,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         <div className="absolute top-0.5 left-0.5 z-[5]">
                           {item.type === "custom" ? <CustomTemplateBadge /> : (
                             <span className="pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-amber-500 ring-1 ring-amber-300">
-                              Expert Customized
+                              Designer
                             </span>
                           )}
                         </div>
@@ -3247,7 +3270,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 >
                   <span className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin shrink-0" aria-hidden />
                   <p className="text-[10px] text-gray-500 leading-snug">
-                    Loading the expert customized template, please wait.
+                    Loading designer templates, please wait.
                   </p>
                 </div>
               )}
@@ -3560,6 +3583,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           Voice — Select and Play to Preview
         </label>
         <div className="space-y-2 max-h-[320px] overflow-y-auto">
+          <CraftYourVoiceCard
+            isPro={isPro}
+            onClick={openStep3CustomVoiceCreator}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openStep3CustomVoiceCreator();
+              }
+            }}
+          />
           {myVoicesLoading ? (
             <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
               <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
@@ -4119,6 +4152,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           title="Upgrade to use custom template"
           subtitle="Your custom template is ready. Upgrade to Pro to use it when creating new videos."
         />
+        <GetMoreTemplatesModal
+          open={showGetMoreTemplates}
+          onClose={() => setShowGetMoreTemplates(false)}
+          onChooseLink={() => {
+            setShowGetMoreTemplates(false);
+            openStep2CustomTemplateCreator(videoStyle, null);
+          }}
+          onChooseDesigner={() => {
+            setShowGetMoreTemplates(false);
+            setShowDesignerRequest(true);
+          }}
+        />
+        <DesignerTemplateRequestModal
+          open={showDesignerRequest}
+          onClose={() => setShowDesignerRequest(false)}
+        />
       </form>
     </>
   );
@@ -4148,6 +4197,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           onClose={() => setShowCustomTemplateUpgrade(false)}
           title="Upgrade to use custom template"
           subtitle="Your custom template is ready. Upgrade to Pro to use it when creating new videos."
+        />
+        <GetMoreTemplatesModal
+          open={showGetMoreTemplates}
+          onClose={() => setShowGetMoreTemplates(false)}
+          onChooseLink={() => {
+            setShowGetMoreTemplates(false);
+            openStep2CustomTemplateCreator(videoStyle, null);
+          }}
+          onChooseDesigner={() => {
+            setShowGetMoreTemplates(false);
+            setShowDesignerRequest(true);
+          }}
+        />
+        <DesignerTemplateRequestModal
+          open={showDesignerRequest}
+          onClose={() => setShowDesignerRequest(false)}
         />
         {videoPreviewId && (
           <TemplateVideoLightbox

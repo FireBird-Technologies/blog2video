@@ -190,6 +190,9 @@ class RenderLayoutRequest(BaseModel):
     duration_seconds: float | None = None
     layout_props: dict | None = None
     resolution: str | None = None
+    # When provided (Template Studio "All Scenes"), render every scene
+    # back-to-back instead of the single ``layout_id`` scene.
+    scenes: list[dict] | None = None
 
 
 class PlanTemplateRequest(BaseModel):
@@ -2413,7 +2416,7 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     """
     from app.services.template_service import (
         validate_template_id,
-        get_valid_layouts,
+        get_meta,
         get_preview_colors,
         get_composition_id,
         is_custom_template,
@@ -2434,7 +2437,17 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     if not layout_id:
         raise HTTPException(status_code=400, detail="layout_id is required.")
 
-    valid_layouts = get_valid_layouts(template_id)
+    # Template Studio renders studio-only layouts (e.g. fj_research chart variants
+    # market_annotation_bar / market_annotation_histogram) directly, so validate
+    # against the FULL declared layout set. get_valid_layouts() strips
+    # studio_only_layouts (they must never be auto-assigned during LLM script
+    # generation), which would wrongly 400 those layouts — and any "All Scenes"
+    # render that includes them — here.
+    _meta = get_meta(template_id) or {}
+    _declared = _meta.get("valid_layouts")
+    valid_layouts = {
+        str(v).strip().lower() for v in (_declared if isinstance(_declared, list) else [])
+    }
     if layout_id not in valid_layouts:
         raise HTTPException(
             status_code=400,
@@ -2485,18 +2498,39 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
         # Layout props passed from Template Studio; fallback to empty dict.
         layout_props = payload.layout_props or {}
 
-        data = {
-            "projectName": f"TemplateStudio {template_id}/{layout_id}",
-            "accentColor": accent,
-            "bgColor": bg,
-            "textColor": text,
-            "heroImage": None,
-            "logo": None,
-            "logoPosition": "bottom_right",
-            "logoOpacity": 0.9,
-            "logoSize": 100.0,
-            "aspectRatio": aspect_ratio,
-            "scenes": [
+        # When the caller passes a multi-scene list (Template Studio "All Scenes"),
+        # render every scene back-to-back. Otherwise fall back to the single
+        # ``layout_id`` scene built from ``layout_props``.
+        if payload.scenes:
+            scenes = []
+            for idx, raw in enumerate(payload.scenes):
+                scene_layout = (raw.get("layout") or layout_id or "").strip().lower()
+                if scene_layout not in valid_layouts:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Layout '{scene_layout}' is not valid for template '{template_id}'.",
+                    )
+                try:
+                    scene_dur = float(raw.get("durationSeconds")) if raw.get("durationSeconds") is not None else dur
+                except (TypeError, ValueError):
+                    scene_dur = dur
+                if scene_dur <= 0:
+                    scene_dur = dur
+                scenes.append(
+                    {
+                        "id": raw.get("id") or (idx + 1),
+                        "order": raw.get("order") or (idx + 1),
+                        "title": raw.get("title") or "Sample Title",
+                        "narration": raw.get("narration") or "This is a sample narration for this layout.",
+                        "layout": scene_layout,
+                        "layoutProps": raw.get("layoutProps") or {},
+                        "durationSeconds": scene_dur,
+                        "voiceoverFile": None,
+                        "images": [],
+                    }
+                )
+        else:
+            scenes = [
                 {
                     "id": 1,
                     "order": 1,
@@ -2508,7 +2542,20 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
                     "voiceoverFile": None,
                     "images": [],
                 }
-            ],
+            ]
+
+        data = {
+            "projectName": f"TemplateStudio {template_id}/{layout_id}",
+            "accentColor": accent,
+            "bgColor": bg,
+            "textColor": text,
+            "heroImage": None,
+            "logo": None,
+            "logoPosition": "bottom_right",
+            "logoOpacity": 0.9,
+            "logoSize": 100.0,
+            "aspectRatio": aspect_ratio,
+            "scenes": scenes,
         }
 
         data_path = os.path.join(public_dir, "data.json")

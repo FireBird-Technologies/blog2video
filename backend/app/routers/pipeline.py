@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import asyncio
 import logging
@@ -127,6 +127,18 @@ WEALTH_ENDING_CTA_TEXT = "Subscribe on Substack"
 WEALTH_SUBSTACK_URL = "https://www.cosmodestefano.com"
 WEALTH_ENDING_SECONDARY_CTA_TEXT = "Buy the Book on Amazon"
 WEALTH_AMAZON_URL = "https://geni.us/wealthyourwaypb"
+
+# FJ Market Brief shares LaDuc's chart contract (market_annotation + ticker
+# layouts, chartTable/tickerTable schemas). Matches the local built-in id AND
+# the crafted/R2 bundle's public id.
+FJ_TEMPLATE_IDS = frozenset({"fj_market_brief", "crafted_fj_market_brief_bundle"})
+
+
+def _is_laduc_or_fj(template_id: str) -> bool:
+    """True for LaDuc (any id variant), FJ Market Brief, or fj_research — the
+    templates that share the market_annotation/ticker chart-binding pipeline."""
+    tid = template_id or ""
+    return ("laduc" in tid) or ("fj_research" in tid) or (tid in FJ_TEMPLATE_IDS)
 
 
 def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
@@ -618,8 +630,19 @@ def _set_error(project_id: int, project, db: Session, msg: str):
             )
 
 
-async def _generate_script(project: Project, db: Session):
-    """Async script generation using DSPy."""
+async def _generate_script(
+    project: Project,
+    db: Session,
+    user_instruction: str = "",
+    progress_callback=None,
+):
+    """Async script generation using DSPy.
+
+    ``user_instruction`` is the free-form text captured by the regeneration popup
+    (only set when this is called from the regenerate-script worker — empty for
+    the initial-pipeline path). ScriptGenerator analyzes it once and injects the
+    derived constraints into both the outline and scene-expansion stages.
+    """
     image_paths = [a.local_path for a in project.assets if a.asset_type.value == "image"]
     hero_image = image_paths[0] if image_paths else ""
 
@@ -873,8 +896,8 @@ async def _generate_script(project: Project, db: Session):
                     max_rows=20,
                 )
 
-    elif ("laduc" in template_id):
-        # laduc: classify chartable tables once upfront (bloomberg-style).
+    elif _is_laduc_or_fj(template_id):
+        # laduc / FJ Market Brief / fj_research: classify chartable tables once upfront (bloomberg-style).
         # Run extraction + classification in the thread pool so CPU-bound
         # HTML parsing doesn't block the event loop.
         _laduc_blog_text = getattr(project, "blog_content", None) or ""
@@ -948,6 +971,8 @@ async def _generate_script(project: Project, db: Session):
         chartable_tables_json=chartable_tables_json,
         template_id=template_id or "",
         template_style_hint=_template_style_hint,
+        user_instruction=user_instruction or "",
+        progress_callback=progress_callback,
     )
 
     # Template-aware display text generation (second LLM call — still no DB held)
@@ -998,9 +1023,9 @@ async def _generate_script(project: Project, db: Session):
                     if is_candlestick_table(_ct):
                         bound_idx = _ci
                         break
-            # For laduc market_annotation with no bound index, auto-find the first chartable table.
+            # For laduc/FJ market_annotation with no bound index, auto-find the first chartable table.
             if (
-                "laduc" in template_id
+                _is_laduc_or_fj(template_id)
                 and scene_data.get("preferred_layout") == "market_annotation"
                 and not isinstance(bound_idx, int)
             ):
@@ -1018,7 +1043,7 @@ async def _generate_script(project: Project, db: Session):
             # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
             # the table binding was supposed to force a data layout.
             # Embed the table hint so scene_gen has the data and can produce the right chart.
-            (template_id == "bloomberg" or "laduc" in template_id)
+            (template_id == "bloomberg" or _is_laduc_or_fj(template_id))
             and scene_data.get("data_table_index") is not None
             and _all_extracted_tables
         ):
@@ -1034,7 +1059,7 @@ async def _generate_script(project: Project, db: Session):
                         scene_data["preferred_layout"] = "terminal_dataviz"
                     else:
                         scene_data["preferred_layout"] = "terminal_chart"
-                elif "laduc" in template_id:
+                elif _is_laduc_or_fj(template_id):
                     scene_data["preferred_layout"] = (
                         "ticker" if is_laduc_ticker_table(_fb_table) else "market_annotation"
                     )
@@ -1065,13 +1090,29 @@ async def _generate_script(project: Project, db: Session):
     db.commit()
     db.refresh(project)
 
+    # Surface the analyzer's distilled summary so callers (e.g. the regenerate
+    # worker) can hand it to downstream layout planners. Empty when no user
+    # instruction was provided.
+    return (result or {}).get("_user_instruction_summary", "") or ""
 
-async def _generate_scenes(project: Project, db: Session):
+
+async def _generate_scenes(
+    project: Project,
+    db: Session,
+    skip_voiceover: bool = False,
+    preserve_image_assignments: bool = True,
+    redistribute_images: bool = False,
+):
     """Generate voiceovers and scene layout descriptors concurrently, then write Remotion data.
 
     Voiceovers and scene descriptors are independent — descriptors only need
     title/narration/visual_description which don't change during TTS generation.
     Running them concurrently via asyncio.gather cuts wall-clock time significantly.
+
+    When ``skip_voiceover`` is True the TTS / narration-expansion step is skipped entirely
+    and the existing ``voiceover_path`` / ``duration_seconds`` on each scene are preserved.
+    Used by the "regenerate script" flow, which keeps the original narration + audio and only
+    refreshes titles, on-screen text, visuals, and layouts.
     """
     # Force a fresh DB checkout at the start of this step. Pipeline-step
     # boundaries (script → scenes) leave a connection that may have been
@@ -1113,8 +1154,10 @@ async def _generate_scenes(project: Project, db: Session):
     # voiceover task reads them, so TTS speaks the locked client copy. The
     # descriptor override later in this function locks the on-screen text and
     # CTAs separately; this just makes sure the audio matches.
+    # Skipped when skip_voiceover is set — that flow keeps the existing narration/audio
+    # and nulling voiceover_path here would leave the ending scene silent (no TTS re-run).
     _is_wealth = project.template in WEALTH_TEMPLATE_IDS
-    if _is_wealth and scenes:
+    if _is_wealth and scenes and not skip_voiceover:
         for s in scenes:
             if getattr(s, "preferred_layout", None) == "ending_socials":
                 s.title = WEALTH_ENDING_TITLE
@@ -1155,6 +1198,10 @@ async def _generate_scenes(project: Project, db: Session):
 
     # ── Task 1: Voiceovers ───────────────────────────────────────
     async def _voiceover_task():
+        if skip_voiceover:
+            # Regenerate-script flow: keep existing narration + audio untouched.
+            logger.info("[PIPELINE] Skipping voiceover generation for project %s (skip_voiceover)", project.id)
+            return
         if getattr(project, "voice_gender", None) == "none":
             logger.info("[PIPELINE] Skipping voiceover — no-audio mode for project %s", project.id)
             for scene in scenes:
@@ -1278,7 +1325,7 @@ async def _generate_scenes(project: Project, db: Session):
         else ""
     )
 
-    # Store descriptors as JSON in remotion_code, preserving existing image assignments
+    # Store descriptors as JSON in remotion_code, optionally preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
         # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
         # We override the descriptor here so Remotion can render the themed ending consistently.
@@ -1348,7 +1395,7 @@ async def _generate_scenes(project: Project, db: Session):
             }
 
         has_layout_config = "layoutConfig" in descriptor
-        if scene.remotion_code:
+        if preserve_image_assignments and scene.remotion_code:
             try:
                 old_desc = json.loads(scene.remotion_code)
                 old_lp = old_desc.get("layoutProps") or {}
@@ -1388,7 +1435,7 @@ async def _generate_scenes(project: Project, db: Session):
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 
     # Write data.json + assets to per-project Remotion workspace
-    write_remotion_data(project, scenes, db)
+    write_remotion_data(project, scenes, db, redistribute_images=redistribute_images)
 
     project.status = ProjectStatus.GENERATED
     user = db.query(User).filter(User.id == project.user_id).first()

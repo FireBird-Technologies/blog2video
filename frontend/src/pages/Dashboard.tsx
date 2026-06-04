@@ -16,7 +16,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
-import BlogUrlForm from "../components/BlogUrlForm";
+import BlogUrlForm, { GENRE_CRAFTED } from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import OutOfVideosOfferModal from "../components/OutOfVideosOfferModal";
@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   /** Increment when opening + New so BlogUrlForm remounts and picks a new random template each time. */
   const [blogFormMountKey, setBlogFormMountKey] = useState(0);
+  const [blogFormInitialGenre, setBlogFormInitialGenre] = useState<string | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -180,6 +181,18 @@ export default function Dashboard() {
     const tab = searchParams.get("tab");
     if (tab === "templates") setActiveTab("templates");
     else if (tab === "voices") setActiveTab("voices");
+  }, [searchParams]);
+
+  // Open BlogUrlForm modal at step 2 with Designer Templates pre-selected
+  useEffect(() => {
+    if (searchParams.get("openDesignerTemplates") !== "1") return;
+    setBlogFormInitialGenre(GENRE_CRAFTED);
+    setBlogFormMountKey((k) => k + 1);
+    setShowModal(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("openDesignerTemplates");
+    const qs = next.toString();
+    navigate(qs ? `/dashboard?${qs}` : "/dashboard", { replace: true });
   }, [searchParams]);
 
   // Leaving Projects (tab or URL) should close the new-project modal so returning does not reopen it.
@@ -513,8 +526,9 @@ export default function Dashboard() {
           onSubmitBulk={handleCreateBulk}
           loading={creating}
           asModal
-          onClose={() => setShowModal(false)}
-          onDismissFlow={() => setShowModal(false)}
+          onClose={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
+          onDismissFlow={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
+          initialGenre={blogFormInitialGenre}
         />
       )}
 

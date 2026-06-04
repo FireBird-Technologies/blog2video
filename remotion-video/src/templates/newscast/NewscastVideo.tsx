@@ -277,7 +277,7 @@ interface VideoData {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
-  logoSize?: string;
+  logoSize?: number | string;
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
