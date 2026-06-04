@@ -91,7 +91,7 @@ export default function ScriptPanel({
           </span>
         </div>
 
-        {isRegenerating ? (
+        {/* {isRegenerating ? (
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
             Regenerating…
@@ -108,7 +108,7 @@ export default function ScriptPanel({
             </svg>
             Regenerate Script
           </button>
-        )}
+        )} */}
       </div>
 
       {/* Scene cards */}
@@ -178,7 +178,7 @@ export default function ScriptPanel({
                         {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
                       </span>
                     </div>
-                    <button
+                    {/* <button
                       onClick={() => openEdit(scene)}
                       disabled={isDisabled}
                       className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors flex-shrink-0 text-xs font-medium disabled:opacity-40 disabled:pointer-events-none"
@@ -189,7 +189,7 @@ export default function ScriptPanel({
                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                       Edit
-                    </button>
+                    </button> */}
                   </div>
 
                   {/* Display text */}

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
+import CraftYourVoiceCard from "./CraftYourVoiceCard";
 import VoiceItem, {
   formatVoiceSubtitle,
   getMyVoiceDisplayName,
@@ -82,6 +84,7 @@ export default function ProjectVoiceSettingsCard({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const navigate = useNavigate();
 
   const stopPolling = () => {
     if (pollRef.current) {
@@ -338,7 +341,27 @@ export default function ProjectVoiceSettingsCard({
             ) : (
               <>
             <div className="px-6 py-4 overflow-y-auto space-y-2">
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">
+              {/* Clone your voice — always at top, navigates to voiceover page */}
+              <CraftYourVoiceCard
+                isPro={isPro}
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  params.set("tab", "voices");
+                  params.set("openCustomVoiceCreator", "1");
+                  navigate(`/dashboard?${params.toString()}`);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    const params = new URLSearchParams();
+                    params.set("tab", "voices");
+                    params.set("openCustomVoiceCreator", "1");
+                    navigate(`/dashboard?${params.toString()}`);
+                  }
+                }}
+              />
+
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 pt-1">
                 Select and play to preview
               </p>
 

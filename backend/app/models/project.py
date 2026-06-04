@@ -52,7 +52,7 @@ class Project(Base):
     logo_r2_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     logo_position: Mapped[str] = mapped_column(String(20), default="bottom_right")
     logo_opacity: Mapped[float] = mapped_column(default=0.9)
-    logo_size: Mapped[float] = mapped_column(Float, default=100.0)  # percentage, e.g. 100 = 100%, REAL for smooth slider
+    logo_size: Mapped[float] = mapped_column(Float, default=70.0)  # percentage, e.g. 70 = 70%, REAL for smooth slider
 
     # Voiceover
     custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
