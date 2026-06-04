@@ -37,6 +37,7 @@ import EmbedPreviewPage from "./pages/EmbedPreviewPage";
 import FreeTemplatesPage from "./pages/FreeTemplatesPage";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import MCPConnector from "./pages/MCPConnector";
 import { trackPageView } from "./gtag";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -144,6 +145,14 @@ function AppRoutes() {
               <main className="max-w-7xl mx-auto px-6 py-8">
                 <InviteOthers />
               </main>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mcp-connector"
+          element={
+            <ProtectedRoute>
+              <MCPConnector />
             </ProtectedRoute>
           }
         />
