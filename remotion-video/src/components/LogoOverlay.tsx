@@ -15,6 +15,7 @@ interface LogoOverlayProps {
   maxOpacity?: number; // 0.0 - 1.0 (default 0.9)
   size?: string; // "default" | "small" | "medium" | "large" | "extra_large"
   aspectRatio?: string; // "landscape" | "portrait"
+  shadow?: boolean; // drop-shadow under the logo (default true)
 }
 
 /**
@@ -32,6 +33,7 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
   maxOpacity = 0.9,
   size: sizePreset = "default",
   aspectRatio = "landscape",
+  shadow = true,
 }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -61,8 +63,8 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
     opacity,
     width: size,
     height: size,
-    // Subtle drop shadow so the logo is visible on any background
-    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.25))",
+    // Subtle drop shadow so the logo is visible on any background (opt-out via `shadow`)
+    filter: shadow ? "drop-shadow(0 1px 4px rgba(0,0,0,0.25))" : undefined,
   };
 
   switch (position) {
