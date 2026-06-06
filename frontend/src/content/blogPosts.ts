@@ -6439,4 +6439,1686 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "bloghub-product-hunt-for-blogs",
+    title: "Introducing BlogHub: The Discovery Platform Built for Blogs and Publications",
+    description:
+      "BlogHub is a Product Hunt-style platform for blogs and publications. Get free backlinks, an SEO and AEO-optimized profile page, and community rankings that help early-stage writers get discovered.",
+    category: "Product updates",
+    heroImage: "/blog/blog-cover-bloghub-product-hunt-for-blogs.png",
+    heroImageAlt:
+      "BlogHub platform showing a ranked feed of blogs and publications with community upvotes and SEO-optimized profile pages.",
+    publishedAt: "2026-05-23",
+    readTime: "5 min read",
+    heroEyebrow: "Product updates",
+    heroTitle: "Your first posts deserve to be found. BlogHub fixes the discovery problem.",
+    heroDescription:
+      "After five years of building and studying publications, one pattern keeps showing up: great early content goes unread — not because it's bad, but because nobody knows the writer exists yet. BlogHub is built to change that.",
+    primaryKeyword: "product hunt for blogs",
+    keywordVariant: "blog discovery platform",
+    relatedPaths: [
+      "/blog-to-video",
+      "/blogs/whats-new-in-blog2video-six-features",
+      "/blogs/ai-linkedin-carousel-generator-from-existing-content",
+    ],
+    sections: [
+      {
+        heading: "The problem: early publications are invisible by default",
+        paragraphs: [
+          "After 5+ years of blogging, one thing became painfully clear: your first posts almost always go unnoticed. Not because the writing is weak — but because discoverability is a compounding advantage. Publications that already have readers get more readers. Publications starting from zero have almost no mechanism to break in.",
+          "Google takes months to index and rank new sites. Social algorithms reward accounts that already have engagement. Directories are cluttered with spam. There has never been a good platform purpose-built for early-stage publications to get legitimate visibility.",
+        ],
+      },
+      {
+        heading: "What is BlogHub?",
+        paragraphs: [
+          "BlogHub is a discovery platform for blogs and publications, designed the same way Product Hunt is designed for products: community-ranked, SEO-optimized, and built so quality rises to the top through reader support.",
+          "If you are starting or growing a publication, BlogHub gives you a structured way to get in front of readers who are actively looking for new things to follow — rather than waiting months for search traffic to compound.",
+        ],
+      },
+      {
+        heading: "Free backlinks to your publication and posts",
+        paragraphs: [
+          "Every publication listed on BlogHub gets a free backlink to the publication itself, plus up to five backlinks to individual blog posts.",
+          "These are real, indexed links from a domain built around discoverability. For a new publication that has almost no external links yet, even a small number of quality backlinks meaningfully changes how search engines understand and rank the site.",
+        ],
+      },
+      {
+        heading: "An SEO and AEO-optimized profile page",
+        paragraphs: [
+          "Each publication gets a dedicated profile page on BlogHub that is built to rank in Google search and to appear in AI-generated answers — sometimes called AEO, or Answer Engine Optimization.",
+          "As AI search tools like ChatGPT, Perplexity, and Claude increasingly surface recommendations in response to queries like 'what are the best newsletters about X,' a well-structured profile page on an authoritative directory is one of the most direct ways to appear in those results. BlogHub profile pages are structured for exactly this.",
+        ],
+      },
+      {
+        heading: "Community rankings that give quality a path upward",
+        paragraphs: [
+          "The ranked feed works like Product Hunt's: readers can upvote publications they genuinely find valuable, and quality rises through community support rather than paid placement or existing authority.",
+          "This creates a discovery flywheel. New publications that produce strong content can get real visibility the same week they launch, not after six months of SEO grinding.",
+        ],
+      },
+      {
+        heading: "Why BlogHub, and why now",
+        paragraphs: [
+          "Blog2Video was built to help creators repurpose written content into video — expanding distribution to channels beyond the blog itself. BlogHub tackles the earlier problem: getting the blog noticed in the first place.",
+          "Both tools are built around the same underlying belief: content that took time and care to produce deserves more than an empty analytics dashboard.",
+          "If you are building a publication from zero, BlogHub is the fastest way to get indexed backlinks, a discoverable profile, and an early audience — without paying for ads or waiting months for organic traction.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your publication on BlogHub",
+      },
+    ],
+    faq: [
+      {
+        question: "Is BlogHub free to list a publication?",
+        answer:
+          "Yes. Listing your publication on BlogHub is free. You get a profile page, backlinks to your publication and up to five blog posts, and community ranking — all at no cost.",
+      },
+      {
+        question: "What makes BlogHub different from other blog directories?",
+        answer:
+          "Most blog directories are static lists with little SEO value and no community layer. BlogHub is built like Product Hunt: community-ranked so quality rises, and profile pages are structured for both Google search and AI answer engines, meaning your publication can appear in AI-generated recommendations, not just traditional search results.",
+      },
+      {
+        question: "What does AEO-optimized mean for my profile page?",
+        answer:
+          "AEO stands for Answer Engine Optimization — structuring content so that AI tools like ChatGPT, Perplexity, and Claude can surface it in response to conversational queries. BlogHub profile pages are built with structured data and clear topical signals so that when someone asks an AI 'what are the best blogs about X,' your publication has a real chance of appearing.",
+      },
+      {
+        question: "Who is BlogHub built for?",
+        answer:
+          "BlogHub is built for writers and publications that are in early growth — blogs with real content but not yet enough authority or distribution to be easily discovered. If you have been publishing for a while and still feel invisible, BlogHub gives you a structured mechanism to change that.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Introducing BlogHub: The Discovery Platform Built for Blogs and Publications",
+        angle:
+          "Target writers searching for blog directories, backlink sources for new blogs, and 'how to get my blog discovered' — position BlogHub as the first purpose-built discovery layer for publications.",
+      },
+      {
+        channel: "video",
+        title: "BlogHub: Product Hunt for blogs — here's how it works",
+        angle:
+          "Walk through listing a publication, show the profile page, explain the backlink structure, and demonstrate how community ranking works — keep it under three minutes.",
+      },
+      {
+        channel: "substack",
+        title: "I built a discovery platform for publications — here's the problem it solves",
+        angle:
+          "First-person founder note to newsletter readers who have experienced the early-publication invisibility problem firsthand. Lead with the pain, then introduce the solution.",
+      },
+      {
+        channel: "medium",
+        title: "Why your blog goes unread in year one — and what BlogHub does about it",
+        angle:
+          "Longer analytical piece on the discoverability gap for early publications, positioning BlogHub as the structural fix rather than another growth hack.",
+      },
+    ],
+  },
+  {
+    slug: "claude-chat-to-video",
+    title: "How to Turn Your Claude AI Chat Into a Video",
+    description:
+      "Convert a Claude conversation into a structured, shareable video in minutes. Share the chat link first, then paste it into Blog2Video.",
+    category: "AI workflow",
+    heroImage: "/blog/blog-cover-claude-chat-to-video.png",
+    heroImageAlt:
+      "A Claude AI chat conversation being transformed into a polished explainer video with structured slides.",
+    publishedAt: "2026-05-22",
+    readTime: "5 min read",
+    heroEyebrow: "AI workflow",
+    heroTitle: "Your best Claude answers deserve to be more than a chat thread.",
+    heroDescription:
+      "If you asked Claude something worth keeping — a deep research answer, a step-by-step breakdown, a strategic explainer — you can turn that conversation into a shareable video in minutes, without rewriting a word.",
+    primaryKeyword: "claude chat to video",
+    keywordVariant: "convert claude conversation to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/chatgpt-conversation-to-video",
+      "/blogs/gemini-chat-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why Claude chats make great video source material",
+        paragraphs: [
+          "Claude is unusually good at structured reasoning. When you ask it to explain a concept, break down a decision, or walk through a process, the answer often comes back with natural headings, logical steps, and a clear narrative arc.",
+          "That structure is exactly what a good explainer video needs. Instead of re-drafting the content from scratch, you can capture the conversation and let Blog2Video turn that logic into scenes.",
+        ],
+      },
+      {
+        heading: "Step 1: Share your Claude chat to get a public link",
+        paragraphs: [
+          "Claude conversations are private by default. Before Blog2Video can read the content, you need to make the chat public.",
+          "Open the conversation in Claude.ai, then click the Share button in the top-right corner of the chat. Toggle the link to 'Public' and copy the URL. That link is what you will paste into Blog2Video.",
+        ],
+        bullets: [
+          "Open your Claude conversation at claude.ai",
+          "Click the Share icon in the top-right corner",
+          "Set visibility to Public and copy the URL",
+        ],
+      },
+      {
+        heading: "Step 2: Paste the URL into Blog2Video",
+        paragraphs: [
+          "Go to Blog2Video and paste the shared Claude URL into the input field. Blog2Video fetches the conversation, reads the message thread, and extracts the key points, structure, and explanations from Claude's responses.",
+          "You do not need to copy-paste text manually or reformat anything. The tool works directly from the public URL.",
+        ],
+      },
+      {
+        heading: "Step 3: Generate and export your video",
+        paragraphs: [
+          "Blog2Video builds a scene-by-scene video from the conversation content. Each major point in Claude's answer becomes a slide, keeping the logical flow intact.",
+          "Pick a template that matches the tone — technical, educational, professional — then export as MP4, PDF, PowerPoint, or PNG slides. The same generation run gives you a video for YouTube, slides for LinkedIn, and a deck for wherever else it needs to go.",
+        ],
+      },
+      {
+        heading: "What Claude chats work best",
+        paragraphs: [
+          "The highest-value chats to convert are ones where Claude gave you a thorough, structured answer: research breakdowns, how-to walkthroughs, comparison analyses, code explanations, strategic plans, or concept deep dives.",
+          "If you have ever re-read a Claude thread and thought 'I should turn this into a post,' the video path is faster.",
+        ],
+        bullets: [
+          "Research summaries and topic deep dives",
+          "Step-by-step how-to explanations",
+          "Comparison and pros-and-cons breakdowns",
+          "Technical concept explainers",
+          "Strategic plans and decision frameworks",
+        ],
+      },
+      {
+        heading: "Try it now",
+        paragraphs: [
+          "Share a Claude conversation, copy the link, and paste it into Blog2Video. The video is ready in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert Claude chat to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Does my Claude chat need to be public for Blog2Video to read it?",
+        answer:
+          "Yes. Claude conversations are private by default. You need to click Share inside the conversation and set the link to Public before Blog2Video can access the content. You can remove public access again after generating the video.",
+      },
+      {
+        question: "Can Blog2Video read both sides of the conversation — my questions and Claude's answers?",
+        answer:
+          "Blog2Video focuses on the content in the conversation and structures the key points into video scenes. Claude's detailed answers typically form the bulk of the useful content, and the tool is optimized to extract and sequence those clearly.",
+      },
+      {
+        question: "What video formats can I export from a Claude chat?",
+        answer:
+          "You can export as MP4 video, PDF slides, PowerPoint, or PNG frames — the same options available for any Blog2Video project. That means one Claude conversation can produce a YouTube video, a LinkedIn carousel PDF, and a shareable deck from one generation run.",
+      },
+      {
+        question: "Does this work with long Claude conversations?",
+        answer:
+          "Yes. Blog2Video reads the full conversation and extracts the most structured, informative content. Longer threads that cover multiple topics can be trimmed or split into focused scenes during the editing step.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn Your Claude AI Chat Into a Video",
+        angle:
+          "Capture searches from people who get great Claude answers and want a repeatable way to repurpose them as video or slides.",
+      },
+      {
+        channel: "video",
+        title: "Claude chat → Blog2Video: turn AI answers into shareable videos",
+        angle:
+          "Screen-record the three-step flow: open Claude, hit Share, paste URL into Blog2Video, watch the video generate.",
+      },
+      {
+        channel: "substack",
+        title: "The fastest way to repurpose a Claude conversation",
+        angle:
+          "Written-first newsletter readers who use Claude for research will recognize the value immediately — position it as a distribution unlock.",
+      },
+      {
+        channel: "medium",
+        title: "Stop letting great Claude answers die in a chat tab",
+        angle:
+          "Frame the post around the waste of letting a well-structured AI answer live only as a conversation, and show the three-step path to video.",
+      },
+    ],
+  },
+  {
+    slug: "chatgpt-conversation-to-video",
+    title: "How to Turn a ChatGPT Conversation Into a Video",
+    description:
+      "Convert a ChatGPT chat into a structured explainer video. Share the conversation link first, then paste it into Blog2Video to generate slides and MP4 in minutes.",
+    category: "AI workflow",
+    heroImage: "/blog/blog-cover-chatgpt-conversation-to-video.png",
+    heroImageAlt:
+      "A ChatGPT conversation thread being converted into a polished video with structured slides and narration.",
+    publishedAt: "2026-05-22",
+    readTime: "5 min read",
+    heroEyebrow: "AI workflow",
+    heroTitle: "Great ChatGPT answers shouldn't live and die in a browser tab.",
+    heroDescription:
+      "If ChatGPT helped you think through a problem, draft a strategy, or break down a complex topic, that conversation is already a video script. Here's how to turn it into one.",
+    primaryKeyword: "chatgpt conversation to video",
+    keywordVariant: "convert chatgpt chat to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/claude-chat-to-video",
+      "/blogs/gemini-chat-to-video",
+    ],
+    sections: [
+      {
+        heading: "The problem with great ChatGPT answers",
+        paragraphs: [
+          "ChatGPT regularly produces answers that are genuinely useful: detailed explanations, structured frameworks, step-by-step walkthroughs, and comparative analyses. The problem is that those answers stay locked inside a conversation thread that almost no one else will ever see.",
+          "Converting a ChatGPT conversation to video solves that. Instead of starting from scratch or manually reformatting the content, you can take the structure that already exists in the chat and publish it as a shareable video.",
+        ],
+      },
+      {
+        heading: "Step 1: Share your ChatGPT conversation",
+        paragraphs: [
+          "ChatGPT conversations are private by default, so the first step is generating a public link.",
+          "Open the conversation in ChatGPT, click the Share button (the upload icon near the top of the chat), and choose 'Copy link.' That public URL is what you will paste into Blog2Video. The link can be revoked any time after you finish generating the video.",
+        ],
+        bullets: [
+          "Open your conversation at chatgpt.com",
+          "Click the Share icon at the top of the thread",
+          "Select 'Copy link' to get the public URL",
+        ],
+      },
+      {
+        heading: "Step 2: Paste the link into Blog2Video",
+        paragraphs: [
+          "Head to Blog2Video and paste your ChatGPT share link into the input. Blog2Video fetches the conversation, parses the thread, and structures the key insights, steps, and explanations into video-ready scenes.",
+          "No copy-pasting text, no manual outlining. The extraction happens automatically from the public URL.",
+        ],
+      },
+      {
+        heading: "Step 3: Choose a template and export",
+        paragraphs: [
+          "After Blog2Video generates scenes from the conversation, pick a visual template that fits the content tone. Technical answers work well with clean, minimal layouts; strategy and business content fits presentation-style templates.",
+          "Export as MP4 for YouTube or social video, PDF for a shareable slide deck, PowerPoint for editing, or PNG for individual carousel frames. One ChatGPT chat, multiple distribution formats.",
+        ],
+      },
+      {
+        heading: "Best ChatGPT chats to convert",
+        paragraphs: [
+          "The conversations that produce the highest-quality videos are ones where ChatGPT gave a thorough, well-organized response. Short one-liners rarely have enough substance; rich, multi-paragraph answers with internal structure are ideal.",
+        ],
+        bullets: [
+          "How-to guides and tutorials ChatGPT walked you through",
+          "Research summaries and literature reviews",
+          "Business strategy or decision frameworks",
+          "Technical explanations of tools, concepts, or systems",
+          "Comparison tables and pros-and-cons breakdowns",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "Share a ChatGPT conversation, copy the public link, and paste it into Blog2Video. The video generates in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert ChatGPT chat to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to share my ChatGPT conversation publicly to use Blog2Video?",
+        answer:
+          "Yes. ChatGPT conversations are private until you generate a share link. Click the Share icon inside the conversation and copy the public link — that is what Blog2Video reads. You can revoke the public link after your video is generated.",
+      },
+      {
+        question: "Will Blog2Video use my questions and ChatGPT's answers, or just one side?",
+        answer:
+          "Blog2Video reads the full conversation and structures the informative content into scenes. In practice, ChatGPT's detailed answers form the basis of the video content, though your questions provide context that helps determine the scene flow.",
+      },
+      {
+        question: "Can I convert a long ChatGPT conversation with many topics?",
+        answer:
+          "Yes, though longer conversations that span many unrelated topics work best when you focus on one thread or section. Blog2Video will extract the most structured content and you can trim or reorder scenes before exporting.",
+      },
+      {
+        question: "What formats can I download after converting a ChatGPT chat?",
+        answer:
+          "MP4 video, PDF slides, PowerPoint, and PNG frames. This means one ChatGPT conversation can produce a YouTube video, a LinkedIn carousel, and a shareable presentation from a single generation run.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a ChatGPT Conversation Into a Video",
+        angle:
+          "Target users who regularly get valuable ChatGPT answers and want a repeatable repurposing workflow without manual reformatting.",
+      },
+      {
+        channel: "video",
+        title: "ChatGPT chat → Blog2Video: the three-step conversion",
+        angle:
+          "Screen-record the exact flow: open ChatGPT, hit Share, paste the URL into Blog2Video, export the result — under two minutes of actual work.",
+      },
+      {
+        channel: "substack",
+        title: "How I repurpose ChatGPT threads into video in three steps",
+        angle:
+          "First-person workflow note for newsletter writers who use ChatGPT for research and want video distribution without a separate production step.",
+      },
+      {
+        channel: "medium",
+        title: "Stop leaving your best ChatGPT answers in a tab no one will read",
+        angle:
+          "Position the share-link-to-video flow as the simplest possible repurposing path for AI-assisted content creators.",
+      },
+    ],
+  },
+  {
+    slug: "gemini-chat-to-video",
+    title: "How to Turn a Google Gemini Chat Into a Video",
+    description:
+      "Convert a Gemini conversation into a shareable explainer video. Share the Gemini chat link first, then paste it into Blog2Video to generate structured slides and MP4.",
+    category: "AI workflow",
+    heroImage: "/blog/blog-cover-gemini-chat-to-video.png",
+    heroImageAlt:
+      "A Google Gemini AI conversation being converted into a structured video with professional slides.",
+    publishedAt: "2026-05-22",
+    readTime: "5 min read",
+    heroEyebrow: "AI workflow",
+    heroTitle: "Gemini gave you a great answer. Now make it a video.",
+    heroDescription:
+      "Google Gemini produces thorough, well-structured explanations. If you have a Gemini conversation worth keeping, you can turn it into a video in three steps — no rewriting required.",
+    primaryKeyword: "gemini chat to video",
+    keywordVariant: "convert gemini conversation to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/claude-chat-to-video",
+      "/blogs/chatgpt-conversation-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why Gemini conversations translate well to video",
+        paragraphs: [
+          "Google Gemini tends to give answers that are detailed, factual, and well-structured — especially for research questions, technical topics, and anything that benefits from Google's knowledge integration. That combination of structure and depth is exactly what makes a strong explainer video.",
+          "Instead of taking notes from a Gemini answer and building a video from scratch, you can route the conversation directly into Blog2Video and let the existing structure do the work.",
+        ],
+      },
+      {
+        heading: "Step 1: Share your Gemini conversation to get a public link",
+        paragraphs: [
+          "Gemini conversations are private by default. To let Blog2Video read the content, you need to create a shareable link first.",
+          "Open the conversation at gemini.google.com, click the Share and Export button (the icon in the top-right area of the chat), and choose 'Create a public link.' Copy that URL — it is what you will paste into Blog2Video. You can disable the link at any time from your Gemini settings.",
+        ],
+        bullets: [
+          "Open your conversation at gemini.google.com",
+          "Click Share and Export near the top of the chat",
+          "Choose 'Create a public link' and copy the URL",
+        ],
+      },
+      {
+        heading: "Step 2: Paste the Gemini link into Blog2Video",
+        paragraphs: [
+          "Go to Blog2Video and paste the shared Gemini URL into the input field. Blog2Video fetches the conversation and structures the key points, explanations, and steps from Gemini's responses into video-ready scenes.",
+          "The extraction is automatic — no text editing, no manual outlining.",
+        ],
+      },
+      {
+        heading: "Step 3: Generate scenes, pick a template, and export",
+        paragraphs: [
+          "Blog2Video turns the conversation into a sequence of scenes, each covering one key idea or step. Choose a visual template that fits the content: clean and minimal for technical topics, bold and structured for educational content.",
+          "Export as MP4 for video platforms, PDF or PowerPoint for presentation use, or PNG slides for LinkedIn carousels. One Gemini conversation becomes assets for every channel in one step.",
+        ],
+      },
+      {
+        heading: "The Gemini answers worth converting",
+        paragraphs: [
+          "The best source material is any Gemini answer where the response is thorough and logically organized. Quick factual answers are thinner; deep explanations, multi-step processes, and comparative analyses generate the richest video content.",
+        ],
+        bullets: [
+          "Research questions with detailed multi-paragraph answers",
+          "How-to and step-by-step guides",
+          "Concept explanations with definitions and examples",
+          "Comparisons between tools, approaches, or products",
+          "Summaries of reports, topics, or current events",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "Share a Gemini conversation, copy the public link, and paste it into Blog2Video. Your video is ready in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert Gemini chat to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to make my Gemini chat public before using Blog2Video?",
+        answer:
+          "Yes. Gemini conversations are private until you generate a share link. Inside Gemini, click Share and Export, then 'Create a public link.' Paste that URL into Blog2Video. You can turn off the public link from your Gemini settings once the video is generated.",
+      },
+      {
+        question: "Can Blog2Video handle Gemini's longer, research-style answers?",
+        answer:
+          "Yes. Gemini often gives thorough multi-section answers, and Blog2Video is designed to handle that length. Each major section or point becomes its own scene, keeping the detail intact while giving the video a clear structure.",
+      },
+      {
+        question: "What if my Gemini conversation covers multiple unrelated topics?",
+        answer:
+          "You can still convert the full conversation, then trim or reorder scenes before exporting. For conversations that span many topics, it often works better to focus on a single thread — one Gemini answer — and run it as its own video project.",
+      },
+      {
+        question: "What can I export from a Gemini chat converted with Blog2Video?",
+        answer:
+          "MP4 video, PDF, PowerPoint, and PNG slides. The same conversation can produce a YouTube explainer, a LinkedIn PDF carousel, and a shareable deck without any duplicate work.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Google Gemini Chat Into a Video",
+        angle:
+          "Capture search intent from Gemini users who want to repurpose AI conversations as video without a separate production workflow.",
+      },
+      {
+        channel: "video",
+        title: "Gemini chat → Blog2Video: share link to video in three steps",
+        angle:
+          "Screen-record the workflow: open Gemini, click Share, paste the URL into Blog2Video, export — keep it under ninety seconds to show how fast the turnaround is.",
+      },
+      {
+        channel: "substack",
+        title: "Gemini gave me a great research answer — here's how I turned it into a video",
+        angle:
+          "First-person case study for newsletter writers who use Gemini for research and want an effortless path from AI answer to distributed video content.",
+      },
+      {
+        channel: "medium",
+        title: "The easiest way to repurpose a Gemini conversation as a video",
+        angle:
+          "Position the workflow as the missing distribution step for Gemini power users — the answer already exists, the video is three steps away.",
+      },
+    ],
+  },
+  {
+    slug: "how-we-make-custom-branded-video-templates",
+    title: "How We Make Custom Branded Video Templates at Blog2Video",
+    description:
+      "An inside look at how our designers research, document, and build custom branded video templates for clients, from gathering brand essentials to final delivery.",
+    category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Blog2Video designers building a custom branded video template using an AI-assisted motion graphics editor.",
+    publishedAt: "2026-05-29",
+    readTime: "7 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "How we make custom branded video templates at Blog2Video",
+    heroDescription:
+      "A custom template is not a skin swap or a color tweak. It is a designed product built around your specific brand. Here is exactly how our team makes them.",
+    primaryKeyword: "custom branded video templates",
+    keywordVariant: "how to make branded video templates",
+    relatedPaths: [
+      "/custom-branded-video-templates",
+      "/for-finance-publishers",
+      "/for-substack-writers",
+      "/pricing",
+    ],
+    sections: [
+      {
+        heading: "Why we build templates the way we do",
+        paragraphs: [
+          "Most video tools give you a library of templates and ask you to pick the closest one to your brand. That works well enough when brand consistency is not a priority. But for writers, analysts, authors, and publishers who have built a recognizable identity, a generic template is not a starting point. It is a compromise.",
+          "Custom branded templates exist for people who refuse that compromise. The goal is a video template that your existing audience recognizes immediately as yours, built around your actual fonts, colors, layout logic, and content style, not approximated from someone else's design.",
+          "Here is how our team builds them.",
+        ],
+      },
+      {
+        heading: "Step one: gathering the essentials",
+        paragraphs: [
+          "Every custom template starts with research. Before we open a design tool, we need to understand your brand from the ground up.",
+          "We collect the fundamentals: your website, social pages, fonts, colors, themes, and your brand design philosophy. We also look at the design patterns common in your industry, because good branded content does not just reflect the client, it fits naturally into the visual context their audience already lives in.",
+          "We ask you for this directly, and we also do our own research into whatever branded material we can find publicly. The combination of what you tell us and what we observe gives us a complete picture before we write a single line of the design document.",
+        ],
+        bullets: [
+          "Website and social presence",
+          "Fonts, colors, and visual themes",
+          "Brand design philosophy and tone",
+          "Industry-specific design patterns and conventions",
+        ],
+      },
+      {
+        heading: "Step two: writing the design document",
+        paragraphs: [
+          "Once we have the research, we write an extensive design document before anything is built. This is not a brief or a mood board. It is a detailed specification that covers every aspect of how the template should look, behave, and feel.",
+          "The design document draws on everything we gathered from you, and it also draws on the collective knowledge our team has built up working across all our clients, with particular depth in whatever industry you work in. We have made templates for finance publishers, newsletter writers, technical bloggers, book authors, and many others. That accumulated experience feeds every new document we write.",
+          "We give the document to our design experts to review and refine. We also feed it through our AI systems to stress-test the logic and surface anything that might be inconsistent or underdeveloped. Only once the document is solid do we move to production.",
+        ],
+      },
+      {
+        heading: "Step three: building in our custom AI editor",
+        paragraphs: [
+          "We have built a custom AI editor internally, designed specifically for motion graphics production. This is not an off-the-shelf tool. It is a system our team built around the specific workflow of creating video templates, with all the controls and feedback loops that process requires.",
+          "The design document feeds into the editor to produce an initial skin for the template. From there, a dedicated designer takes over. They review every scene individually, request regenerations where the output is not right, add detail manually, and fix every element precisely in place. Nothing ships because it looks close enough. It ships because the designer has confirmed it is right.",
+          "Our designers also have access to other AI tools that let them bring additional reference material into the template as needed: brand artifacts, image assets, typography samples, layout references. The editor is a harness, not an autopilot.",
+        ],
+      },
+      {
+        heading: "Step four: client review and refinement",
+        paragraphs: [
+          "Once we have a complete initial template, we share it with the client. We walk through every scene and ask for honest feedback. What looks right, what does not, and what is missing.",
+          "We incorporate that feedback and refine. This step is not a courtesy round. It is a genuine part of the process, because the client knows their brand better than anyone else, and there are always things that only become visible once the template is in front of them.",
+          "We keep refining until the client is confident. The template we deliver is one they can use immediately and indefinitely, knowing that every video produced from it will look like their brand on first impression.",
+        ],
+      },
+      {
+        heading: "What the finished template includes",
+        paragraphs: [
+          "A finished custom template is a complete video production system built around your brand. It is not a single scene or a single look. It covers the full range of content types you are likely to produce.",
+        ],
+        bullets: [
+          "Branded templates are infinitely reusable with no additional design cost per video.",
+          "Custom charts, infographics, animations, and typefaces built in from the start.",
+          "Support for every content type in your publishing workflow.",
+          "The option to add customizations at any point as your brand evolves.",
+        ],
+      },
+      {
+        heading: "What clients say",
+        paragraphs: [
+          "Cosmo DeStefano is a finance strategist and author of Wealth Your Way, a book and Substack newsletter focused on practical financial independence. He was skeptical going in.",
+          "\"As a book author and Substack writer, I was genuinely skeptical that any tool or team could translate my writing into video content that actually sounded like me. Blog2Video changed my mind completely. The production quality is sharp, turnaround has been consistently fast, and the team has been genuinely responsive at every step. What impressed me most was their commitment to building a custom template that matched my brand rather than simply dropping my posts into a generic layout. The result is video content that feels like a natural extension of my writing, not a diluted version of it. The experience has been professional, collaborative, and worth every dollar, at a fraction of what traditional video production would have cost.\"",
+          "Cosmo DeStefano, Finance Strategist and Author, Wealth Your Way",
+        ],
+      },
+      {
+        heading: "Request your own custom template",
+        paragraphs: [
+          "If you publish written content and want video that looks like your brand rather than a generic production, a custom template is the most direct path there.",
+          "Tell us about your brand, your content, and your audience. We will take it from there.",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "Request a custom template",
+      },
+    ],
+    faq: [
+      {
+        question: "How is a custom template different from your standard templates?",
+        answer:
+          "Standard templates are high quality and designed for broad use. A custom template is built entirely from scratch around your specific brand: your fonts, colors, layout preferences, and content style. Every video produced from it is unmistakably yours.",
+      },
+      {
+        question: "What do you need from me to get started?",
+        answer:
+          "We ask for the basics: your website, any social pages, your fonts and colors if you have them, and a sense of your brand philosophy. We supplement that with our own research. The more you can share, the faster and more accurate the first draft will be.",
+      },
+      {
+        question: "How many rounds of revision are included?",
+        answer:
+          "We refine until you are satisfied. The review step is a genuine part of our process, not a single pass. We continue until the template accurately represents your brand.",
+      },
+      {
+        question: "Can the template be updated later?",
+        answer:
+          "Yes. As your brand evolves you can request updates and additional customizations. The template grows with you rather than locking you into the design decisions made at launch.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How we make custom branded video templates at Blog2Video",
+        angle:
+          "Behind-the-scenes explainer that builds trust with potential custom template clients by showing the rigour and care behind every template we produce.",
+      },
+      {
+        channel: "substack",
+        title: "The four-step process behind every Blog2Video custom template",
+        angle:
+          "Newsletter-friendly breakdown for writers and publishers curious about what a custom template actually involves before they commit.",
+      },
+      {
+        channel: "medium",
+        title: "What goes into a custom branded video template",
+        angle:
+          "Process-focused post for content creators and brand managers who want to understand what separates a purpose-built template from a generic one.",
+      },
+      {
+        channel: "video",
+        title: "Inside our custom template process",
+        angle:
+          "Short walkthrough showing the four stages from brand research to final delivery, with examples of what the design document and editor workflow look like in practice.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-increase-your-audience-on-linkedin",
+    title: "How to Increase Your Audience on LinkedIn",
+    description:
+      "Five practical ways to grow your LinkedIn audience in 2026 — from posting consistently to turning your existing content into video and carousels that drive both engagement and external traffic.",
+    category: "Strategy",
+    heroImage: "/blog/blog-cover-repurpose-blog-content.png",
+    heroImageAlt:
+      "A creator publishing a mix of text posts, carousels, and short videos to grow their LinkedIn audience.",
+    publishedAt: "2026-05-31",
+    readTime: "6 min read",
+    heroEyebrow: "LinkedIn growth",
+    heroTitle: "Five ways to grow your LinkedIn audience — including one most people skip entirely.",
+    heroDescription:
+      "Consistency, comments, and hashtags will only take you so far. The creators who build audiences fastest combine those fundamentals with a content format that most of their competitors are not producing yet.",
+    primaryKeyword: "how to increase your audience on linkedin",
+    keywordVariant: "grow linkedin audience",
+    relatedPaths: [
+      "/blog-to-linkedin-video",
+      "/blog-to-video",
+      "/blogs/ai-linkedin-carousel-generator-from-existing-content",
+      "/pricing",
+    ],
+    sections: [
+      {
+        heading: "1. Post consistently — even when reach feels low",
+        paragraphs: [
+          "LinkedIn's algorithm rewards accounts that show up regularly. A profile that posts three to five times a week builds a pattern the algorithm recognises — and over time, that pattern gets rewarded with broader distribution.",
+          "The goal is not to go viral. The goal is to stay visible long enough that your name appears in someone's feed right when they need what you offer. Consistency is the simplest edge that most people abandon too early.",
+        ],
+        bullets: [
+          "Aim for three to five posts per week as a sustainable baseline.",
+          "Use a content calendar to batch and schedule ahead so weeks do not go dark.",
+          "Repurpose existing work — a blog post, a meeting recap, or a lesson learned — rather than inventing from scratch every time.",
+        ],
+      },
+      {
+        heading: "2. Write for comments, not just impressions",
+        paragraphs: [
+          "LinkedIn's feed is driven by engagement signals, and comments carry more weight than likes. A post that sparks a genuine reply from five people will outperform a post that gets fifty passive likes.",
+          "The easiest way to invite comments is to end a post with a direct question, a contrarian take, or a genuine ask for experience. Something that makes reading it feel incomplete without responding.",
+        ],
+        bullets: [
+          "Close posts with a specific, answerable question rather than a vague \"thoughts?\"",
+          "Share a position that readers might push back on — polite disagreement drives thread depth.",
+          "Reply to every comment in the first hour to extend the window the algorithm watches.",
+        ],
+      },
+      {
+        heading: "3. Optimise your profile before you grow it",
+        paragraphs: [
+          "Traffic you generate through content lands on your profile. If the profile does not immediately communicate who you help and why it matters, you lose the follow even when the post earns the click.",
+          "The headline is the most important field. It should not describe your job title — it should describe the outcome you create for the people you work with. A summary that opens with a specific result beats one that opens with a resume.",
+        ],
+        bullets: [
+          "Rewrite your headline around the outcome you deliver, not your current role.",
+          "Add a Featured section with your best post, a lead magnet, or a relevant link.",
+          "Pin a recent post that represents the clearest version of what you talk about.",
+        ],
+      },
+      {
+        heading: "4. Engage with your target audience before you expect them to find you",
+        paragraphs: [
+          "Outbound engagement is underrated. Spending fifteen minutes a day leaving substantive comments on posts from people in your target audience does two things: it puts your name in front of their followers, and it starts a relationship before you ever need anything from them.",
+          "The accounts that grow fastest on LinkedIn are rarely passive broadcasters. They are people who show up in the comments of relevant conversations and add something worth reading.",
+        ],
+        bullets: [
+          "Follow twenty to thirty creators in your niche and comment on their posts daily.",
+          "Add insight rather than agreement — \"great post\" does not surface your name.",
+          "DM people whose content you genuinely find useful before you need anything from them.",
+        ],
+      },
+      {
+        heading: "5. Turn your written content into video and carousels with Blog2Video",
+        paragraphs: [
+          "This is the tactic that separates fast-growing LinkedIn accounts from stalled ones: publishing content formats that the majority of your competitors are not producing.",
+          "Most people on LinkedIn post text. Some post images. Very few post polished short videos or multi-slide carousels — and those formats get meaningfully more reach per post because LinkedIn actively promotes them in the feed.",
+          "Blog2Video lets you take an article, blog post, or any written piece and convert it into a LinkedIn-ready video or carousel in minutes. You paste the URL or text, choose a visual template, and export the result as an MP4 video to post directly, a PDF carousel to upload as a LinkedIn document post, or individual PNG slides to use across other channels.",
+          "The compounding effect is significant. A single blog post becomes a video your LinkedIn audience watches in the feed, a carousel your followers swipe through and save, and an asset you can share externally — driving traffic back to your original article from people who would never have found the text version alone.",
+          "For creators who already write regularly, Blog2Video closes the gap between the content they produce and the formats that actually grow an audience on LinkedIn. You are not writing twice — you are distributing once.",
+        ],
+        bullets: [
+          "Paste a blog post URL and generate a full video in minutes — no editing software needed.",
+          "Export as MP4 for LinkedIn video posts, PDF for carousel document posts, or PNG slides for feed images.",
+          "Drive external traffic back to your original article from viewers who discover the video first.",
+          "Maintain a consistent visual identity across every piece of video content you publish.",
+        ],
+        ctaPath: "/blog-to-linkedin-video",
+        ctaLabel: "Turn your blog into a LinkedIn video",
+      },
+    ],
+    faq: [
+      {
+        question: "How often should I post on LinkedIn to grow my audience?",
+        answer:
+          "Three to five times per week is a reliable baseline for most creators. What matters more than frequency is showing up consistently — an account that posts four times a week every week outperforms one that posts daily for two weeks and then disappears.",
+      },
+      {
+        question: "What type of content gets the most reach on LinkedIn?",
+        answer:
+          "Video and carousel posts typically receive broader organic distribution than text-only posts because LinkedIn's algorithm actively promotes formats that keep users on the platform longer. Short video posts in particular are underused by most creators, which means less competition for that distribution.",
+      },
+      {
+        question: "How do I use Blog2Video to grow my LinkedIn audience?",
+        answer:
+          "You paste a blog post URL or text into Blog2Video, choose a visual template, and export the result as an MP4 video or PDF carousel. Post the video directly on LinkedIn for organic reach, or upload the PDF as a document post. Both formats outperform plain text posts and drive viewers back to your original written content.",
+      },
+      {
+        question: "Does posting video on LinkedIn actually increase followers?",
+        answer:
+          "Yes. LinkedIn video posts consistently reach non-followers through the feed and Discover sections, which text posts rarely do. Viewers who find value in the video tend to visit the poster's profile and follow, especially when the profile headline clearly communicates what the account is about.",
+      },
+      {
+        question: "Can I repurpose one piece of content for LinkedIn and other platforms at the same time?",
+        answer:
+          "Yes, and that is exactly the workflow Blog2Video is built for. A single blog post can become a LinkedIn MP4 video, a PDF carousel, individual PNG slides for Instagram or Twitter, and a shareable link — without writing or designing anything new.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Increase Your Audience on LinkedIn",
+        angle:
+          "SEO-driven guide targeting creators looking for LinkedIn growth strategies, with a natural product placement around Blog2Video for video and carousel creation.",
+      },
+      {
+        channel: "video",
+        title: "Five Ways to Grow Your LinkedIn Audience (Including One Most People Skip)",
+        angle:
+          "Short walkthrough of the five tips with a demo of Blog2Video converting a blog post into a LinkedIn carousel — shareable on LinkedIn itself as a meta-demonstration.",
+      },
+      {
+        channel: "substack",
+        title: "Why your LinkedIn reach stalled — and what to do about it",
+        angle:
+          "Newsletter-format take aimed at writers who already post but are not seeing follower growth, with video and carousel formats framed as the missing distribution layer.",
+      },
+      {
+        channel: "medium",
+        title: "How to grow on LinkedIn in 2026: five tactics that actually work",
+        angle:
+          "Practical breakdown for content creators and founders who want a LinkedIn strategy that compounds, with Blog2Video positioned as the workflow that unlocks video without extra production effort.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-n8n",
+    title: "How to Use the Blog2Video MCP Server with n8n",
+    description:
+      "A complete guide to connecting the Blog2Video MCP server to n8n. Two copy-paste workflows: a simple chat-to-preview-URL agent and a dynamic form that lets users pick template, voice, preview, and render.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "n8n workflow diagram showing Blog2Video MCP tools turning a blog URL into a previewable video.",
+    publishedAt: "2026-06-04",
+    readTime: "10 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle:
+      "Turn any blog URL into a finished video from inside n8n — using the Blog2Video MCP server.",
+    heroDescription:
+      "The Blog2Video MCP server exposes every core action — create, preview, render, list templates, list voices — as callable tools. Drop the endpoint into an n8n AI Agent, set the timeout to 600 seconds, and your automation handles the rest.",
+    primaryKeyword: "blog2video mcp server n8n",
+    keywordVariant: "blog to video n8n automation",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/what-is-a-blog-video"],
+    sections: [
+      {
+        heading: "What is the Blog2Video MCP server?",
+        paragraphs: [
+          "Model Context Protocol (MCP) is an open standard that lets AI agents call external tools over a standard HTTP transport. Blog2Video exposes its entire video-creation pipeline as an MCP server at https://api.blog2video.app/mcp/sse.",
+          "That means any MCP-compatible host — n8n, Claude, ChatGPT, or your own code — can call Blog2Video tools the same way. In n8n specifically, you connect the endpoint to an AI Agent node and the agent decides which tools to call and in what order.",
+          "Every call to the server requires an Authorization header: Bearer followed by the JWT you copy from the Connect to AI page in Blog2Video. Without it the server returns 401 and the tool list is empty.",
+        ],
+      },
+      {
+        heading: "Prerequisites",
+        paragraphs: [
+          "You need a Blog2Video account and a valid JWT. Get it from Settings → Connect to AI → Connect to n8n → Copy token.",
+          "You also need an OpenAI or Anthropic API key for the AI Agent's Chat Model node. The agent will not run without one.",
+          "For the dynamic-form example you need the community node n8n-nodes-mcp installed. Go to n8n Settings → Community Nodes → Install and search for n8n-nodes-mcp. The built-in MCP Client Tool node is agent-only; the community node's Execute Tool mode runs standalone so it can feed dropdowns.",
+        ],
+        bullets: [
+          "Blog2Video account + JWT from Connect to AI page.",
+          "OpenAI or Anthropic API key for the Chat Model.",
+          "n8n-nodes-mcp community node (Example 2 only).",
+          "n8n workflow timeout raised to at least 600 seconds (Settings → Timeout).",
+        ],
+      },
+      {
+        heading: "The Blog2Video MCP tools you should know",
+        paragraphs: [
+          "The MCP server exposes more than a dozen tools but most n8n workflows only need a handful. The three most important are create_video, get_preview_url, and render_video.",
+          "create_video takes a blog URL and does everything in one call: it scrapes the article, generates a script, builds scenes, and returns the project. It runs for one to five minutes and blocks internally until done. You do not need a polling loop — just set the node timeout to 600000 milliseconds and wait.",
+          "get_preview_url mints a shareable watch link from a project id. render_video converts a generated project to a downloadable MP4 in three to eight minutes, also blocking until complete.",
+          "Two data tools are especially useful for building dynamic forms: get_templates_json returns a plain JSON array of template objects, and get_voices_json returns all available voices with their ids. Use these instead of the list_templates and list_voices widget tools, which render interactive galleries for claude.ai and return no usable data in n8n.",
+        ],
+        bullets: [
+          "create_video — one call: scrape, script, scenes. Blocks 1–5 min. Returns project id.",
+          "get_preview_url — mint a shareable /preview/<token> link from a project id.",
+          "render_video — produce a downloadable MP4. Blocks 3–8 min.",
+          "get_templates_json — plain JSON template list for dropdowns.",
+          "get_voices_json — plain JSON voice list with voice_id values.",
+        ],
+      },
+      {
+        heading: "Example 1: chat to preview URL (the simplest setup)",
+        paragraphs: [
+          "The first example is a single Chat Trigger connected to a single AI Agent. The user pastes a blog URL in the chat; the agent calls create_video, then get_preview_url, and replies with the preview link.",
+          "Configure the Chat Trigger with default settings and connect it to an AI Agent. In the agent's System Message tell it to call create_video with the user's URL, take the project id from the result, call get_preview_url, and reply with only the preview URL. Set Max Iterations to 10.",
+          "Attach a Chat Model sub-node using your OpenAI or Anthropic key. Attach an MCP Client Tool sub-node with Transport set to HTTP Streamable, Endpoint URL https://api.blog2video.app/mcp/sse, Authentication Bearer Auth with your JWT, Tools to Include set to Selected with create_video and get_preview_url ticked, and Timeout set to 600000.",
+          "Keep Tools to Include on Selected, not All. On All the agent may call setup_video — a claude.ai widget tool — and stall forever waiting for a gallery click that never comes in n8n.",
+        ],
+      },
+      {
+        heading: "Example 2: dynamic form with template, voice, preview, and render",
+        paragraphs: [
+          "The second example is a multi-page form where the user picks a template and voice from live dropdowns, sees the preview URL inline, and chooses whether to render an MP4.",
+          "The flow is: Form page 1 captures the blog URL. Two standalone MCP Execute Tool nodes call get_templates_json and get_voices_json. A Code node parses both responses and builds the dropdown definitions plus a voice-name-to-id map. Form page 2 shows the dynamic dropdowns. A Set node resolves the chosen voice name to its voice_id. An AI Agent calls create_video and get_preview_url and writes the result through a Structured Output Parser. Form page 3 shows the preview URL and asks whether to render. An IF node branches to either a second AI Agent that calls render_video, or a final form ending that shows the preview link only.",
+          "The most important technical detail is that any field in n8n that uses the {{ }} expression syntax must be switched to Expression mode. In Fixed mode, curly braces are treated as literal text. This applies to the Form Fields JSON field on page 2, all Set node expressions, and every Prompt field on the agent nodes.",
+          "Node names matter because n8n's $('Name') selector matches by exact title. If you rename Get Templates to Fetch Templates your Build Form code node will throw a referenced node doesn't exist error. Use the names listed in the setup exactly.",
+        ],
+        bullets: [
+          "Both MCP Client Tool nodes need Timeout 600000 — create_video and render_video each run for minutes.",
+          "Use get_templates_json and get_voices_json, not list_templates or list_voices.",
+          "The Structured Output Parser forces a clean { project_id, preview_url } shape — without it the agent may return markdown tables.",
+          "Raise the workflow-level timeout in Settings → Timeout so render_video is not cut off.",
+          "Test the form via the Production or Test URL, not the editor — form pages do not render inside the n8n canvas.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I get the Blog2Video JWT for n8n?",
+        answer:
+          "Log in to Blog2Video, go to Settings → Connect to AI → Connect to n8n, and click Copy token. Paste that value as the Bearer token in your MCP Client Tool node credential.",
+      },
+      {
+        question: "Why does create_video time out in n8n?",
+        answer:
+          "The default MCP Client Tool timeout is around 60 seconds. create_video can take one to five minutes. Set the node's Timeout option to 600000 (ten minutes) to avoid MCP error -32001.",
+      },
+      {
+        question: "Why are the template and voice dropdowns empty in Example 2?",
+        answer:
+          "This usually means the community node returned data in an unexpected shape, or a node was renamed. The node names Get Templates and Get Voices must match exactly — case-sensitive — in the Build Form code node.",
+      },
+      {
+        question: "Can I skip get_preview_url and just use the project id?",
+        answer:
+          "No. The preview URL is not stored on the project object. You must call get_preview_url with the project_id to mint the shareable /preview/<token> link.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Use the Blog2Video MCP Server with n8n",
+        angle:
+          "Target n8n users and content automation teams searching for blog-to-video workflow automation.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video + n8n: Full MCP Workflow Walkthrough",
+        angle:
+          "Screen-record the two example flows from form to finished preview link.",
+      },
+      {
+        channel: "substack",
+        title: "Automate blog-to-video inside your n8n stack with one MCP endpoint",
+        angle:
+          "Frame it as the missing piece for teams already using n8n for content distribution.",
+      },
+      {
+        channel: "medium",
+        title: "A complete n8n + Blog2Video MCP guide: two real-world workflow examples",
+        angle:
+          "Comprehensive technical walkthrough for the n8n developer audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-chatgpt",
+    title: "How to Connect the Blog2Video MCP Server to ChatGPT",
+    description:
+      "Step-by-step guide to using the Blog2Video MCP server inside ChatGPT. Turn a blog URL into a finished, previewable video using ChatGPT's native MCP connector support.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "ChatGPT interface with Blog2Video MCP connector enabled, showing a blog URL being converted to video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Use ChatGPT as the brain behind your blog-to-video pipeline.",
+    heroDescription:
+      "ChatGPT's MCP connector support lets you point it at the Blog2Video server and let GPT-4o handle the rest — scrape the article, pick a template, generate scenes, and return a shareable preview link, all from a single chat message.",
+    primaryKeyword: "blog2video mcp chatgpt",
+    keywordVariant: "connect mcp server chatgpt blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "What is MCP and why ChatGPT supports it",
+        paragraphs: [
+          "Model Context Protocol is an open standard that lets AI models call external tools over a standard HTTP transport. Rather than building a custom plugin for every application, a service publishes one MCP server and any compatible AI host can use it.",
+          "OpenAI added remote MCP support to ChatGPT in 2025 and expanded it throughout 2026. ChatGPT can now talk to any HTTP Streamable or SSE MCP endpoint directly — no middleware, no custom plugin review, and no backend code on your side.",
+          "Blog2Video publishes its full video pipeline as an MCP server at https://api.blog2video.app/mcp/sse. Connect that endpoint to ChatGPT and you can turn any blog URL into a finished video just by chatting.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The server exposes the complete Blog2Video pipeline as callable tools. The two most useful ones in ChatGPT are create_video and get_preview_url.",
+          "create_video takes a blog URL and handles everything: it scrapes the article, writes a narrated script, generates scene layouts, and returns a project with a unique id. It runs for one to five minutes because it is doing real work.",
+          "get_preview_url takes the project id and returns a shareable /preview/<token> link you can open in any browser. If you want a downloadable MP4 you can also call render_video, which takes three to eight minutes.",
+        ],
+      },
+      {
+        heading: "Prerequisites",
+        paragraphs: [
+          "You need a ChatGPT Plus, Pro, Team, or Enterprise account. Free plan users do not have access to the MCP connector configuration.",
+          "You need a Blog2Video account and a valid JWT. Get it from Blog2Video → Settings → Connect to AI → Copy token.",
+        ],
+        bullets: [
+          "ChatGPT Plus, Pro, Team, or Enterprise subscription.",
+          "Blog2Video account with a copied JWT token.",
+          "A blog URL you want to convert.",
+        ],
+      },
+      {
+        heading: "Step-by-step: connect Blog2Video to ChatGPT",
+        paragraphs: [
+          "Open ChatGPT and go to Settings. Find Apps & Connectors → Advanced settings and toggle Developer Mode to ON. This unlocks the custom connector configuration screen.",
+          "Navigate to Settings → Connectors → Create. Enter the endpoint URL: https://api.blog2video.app/mcp/sse. Set authentication to Bearer Auth and paste your Blog2Video JWT as the token. Save the connector.",
+          "Start a new conversation. Click the connector toggle to enable it for this chat. You will see the Blog2Video tools listed as available.",
+          "Now type your request — for example: Turn this blog into a video and give me a preview link: https://example.com/my-post. ChatGPT will call create_video, wait for it to finish, then call get_preview_url and return the link.",
+        ],
+        bullets: [
+          "Settings → Apps & Connectors → Advanced settings → Developer Mode ON.",
+          "Settings → Connectors → Create → paste the Blog2Video endpoint URL.",
+          "Authentication: Bearer Auth → paste your JWT.",
+          "Enable the connector per conversation using the toggle in the chat interface.",
+        ],
+      },
+      {
+        heading: "What you can do with Blog2Video inside ChatGPT",
+        paragraphs: [
+          "Beyond the basic blog-to-preview flow, you can use ChatGPT's reasoning to make smarter decisions about template and voice. Ask it to pick the most appropriate template for a finance article from the available list, or choose a voice that matches a professional tone.",
+          "You can also chain calls: create the video, review the scene descriptions, ask ChatGPT to rewrite a specific scene using update_scene, then get a new preview — all in one conversation.",
+          "For high-volume use, you can ask ChatGPT to call render_video after previewing so you end up with a downloadable MP4 in a single session.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Does the Blog2Video MCP server work with the ChatGPT free plan?",
+        answer:
+          "No. MCP connectors require Developer Mode, which is available on Plus, Pro, Team, and Enterprise plans only.",
+      },
+      {
+        question: "Why does ChatGPT take several minutes to respond after I give it a blog URL?",
+        answer:
+          "create_video runs for one to five minutes because it is actually scraping your article, writing a script, and generating scenes. This is expected. ChatGPT holds the connection open until the tool returns.",
+      },
+      {
+        question: "Can I use the Blog2Video MCP server with the OpenAI API directly?",
+        answer:
+          "Yes. The Responses API supports remote MCP servers. Add the Blog2Video endpoint in the tools parameter with type mcp and your Bearer token. The API will list available tools and let your code call them.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to ChatGPT",
+        angle:
+          "Capture ChatGPT + MCP search traffic from developers and content teams wanting to automate blog-to-video.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video Inside ChatGPT: Live Demo",
+        angle:
+          "Screen-record the full flow from enabling the connector to getting the preview link.",
+      },
+      {
+        channel: "substack",
+        title: "ChatGPT can now run your blog-to-video pipeline for you",
+        angle:
+          "Frame as a workflow upgrade for writers already using ChatGPT for content work.",
+      },
+      {
+        channel: "medium",
+        title: "Connecting Blog2Video to ChatGPT via MCP: a complete guide",
+        angle:
+          "Technical walkthrough for the developer and creator audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-claude",
+    title: "How to Connect the Blog2Video MCP Server to Claude",
+    description:
+      "Use the Blog2Video MCP server with Claude Desktop or claude.ai. Two methods: one-click Desktop Extensions and manual JSON config. Turn any blog URL into a video from inside Claude.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Claude Desktop interface with Blog2Video MCP tools available, converting a blog post to video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Claude can turn your blog into a video. Here is how to connect it.",
+    heroDescription:
+      "Anthropic built MCP — so Claude has first-class support for it. Add the Blog2Video server to Claude Desktop or use it as a connector in claude.ai, and Claude can scrape articles, generate scripts, pick templates, and hand back preview links without leaving your conversation.",
+    primaryKeyword: "blog2video mcp server claude",
+    keywordVariant: "connect mcp server claude desktop blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Why Claude is the natural home for MCP tools",
+        paragraphs: [
+          "Anthropic invented Model Context Protocol. MCP was designed to give Claude a standardized way to call external tools without custom per-tool integrations, and Claude Desktop was the first client to support it.",
+          "That means MCP tooling in Claude is mature, well-documented, and keeps improving. Blog2Video's MCP server integrates cleanly because Claude knows how to handle long-running tools, multi-step reasoning, and structured outputs — all things the blog-to-video pipeline requires.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server exposes your full video-creation pipeline as callable tools. The most useful ones in Claude are create_video, get_preview_url, setup_video, list_templates, and list_voices.",
+          "Unlike n8n, Claude has a clickable UI so the widget tools work as intended. setup_video launches an interactive gallery that walks you through template and voice selection before creating the project. list_templates and list_voices render browsable galleries instead of raw JSON.",
+          "If you prefer a direct approach, you can skip the widgets and tell Claude to call create_video with a specific blog URL and template id. Claude will handle the full pipeline and return a preview link.",
+        ],
+      },
+      {
+        heading: "Method 1: Desktop Extensions (one click)",
+        paragraphs: [
+          "The easiest way to add Blog2Video to Claude Desktop is through the Extensions directory. Open Claude Desktop, go to Settings → Extensions → Browse extensions. Find Blog2Video in the directory and click Install. Claude will prompt you to enter your JWT if needed, then restart to load the server.",
+          "After the extension is installed, click the + button at the bottom of any chat, then Connectors, and toggle Blog2Video on for the conversation. Your tools are ready.",
+        ],
+      },
+      {
+        heading: "Method 2: manual JSON configuration",
+        paragraphs: [
+          "For full control over the connection, edit claude_desktop_config.json directly. On macOS and Windows, go to Claude Desktop → Settings → Developer → Edit Config to open the file.",
+          "Add an entry under mcpServers: give it a name like blog2video, set the transport to HTTP Streamable or SSE, and include your JWT in the Authorization header. Save the file and restart Claude Desktop completely — not just the window, but the application itself.",
+          "The server will appear in the Connectors panel once Claude has restarted and successfully connected to the endpoint.",
+        ],
+        bullets: [
+          "Config file: Settings → Developer → Edit Config in Claude Desktop.",
+          "Server key: blog2video.",
+          "Endpoint: https://api.blog2video.app/mcp/sse.",
+          "Auth: Authorization header with your JWT as a Bearer token.",
+          "Full application restart required after editing the config file.",
+        ],
+      },
+      {
+        heading: "Using Blog2Video tools in Claude",
+        paragraphs: [
+          "With the server connected, you can have a natural conversation: paste a blog URL and ask Claude to turn it into a video. Claude will use setup_video to let you browse templates and voices, then call create_video with your selections.",
+          "You can also edit the result. Ask Claude to change the narration on scene three, swap two scene images, or switch the whole project to a different template. Each of these maps to an MCP tool Claude can call directly.",
+          "When you are happy with the preview, ask Claude to render it to an MP4 download link. The render takes three to eight minutes; Claude will wait and surface the URL when it is ready.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need Claude Desktop or does claude.ai work too?",
+        answer:
+          "Both work. Claude Desktop supports MCP via local config or the Extensions directory. claude.ai supports remote MCP connectors — add the Blog2Video endpoint under Settings → Connectors.",
+      },
+      {
+        question: "Why does Claude show no tools available after I add the server?",
+        answer:
+          "The most common cause is a missing or incorrect JWT. Make sure the Authorization header is set to Bearer followed by your token with no extra spaces. Also confirm you fully restarted Claude Desktop, not just closed the window.",
+      },
+      {
+        question: "Can I use the widget tools such as setup_video and list_templates in Claude?",
+        answer:
+          "Yes — these tools were designed for Claude's chat interface. They render interactive galleries for template and voice selection that you can click through. They do not work in n8n but work exactly as intended in Claude.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Claude",
+        angle:
+          "Capture Claude + MCP search traffic and Anthropic-ecosystem users looking for blog automation tools.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video Inside Claude: MCP Setup and Live Demo",
+        angle:
+          "Show both the Extensions one-click install and the manual config path, then demo the full workflow.",
+      },
+      {
+        channel: "substack",
+        title: "Claude now has a direct line to Blog2Video's video pipeline",
+        angle:
+          "Frame as a workflow upgrade for writers and content teams already using Claude.",
+      },
+      {
+        channel: "medium",
+        title: "Connecting Blog2Video to Claude via MCP: Desktop Extensions and manual setup",
+        angle:
+          "Technical comparison of both methods for developers on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-gemini",
+    title: "How to Connect the Blog2Video MCP Server to Google Gemini",
+    description:
+      "Connect the Blog2Video MCP server to Google Gemini using the Gemini CLI, Firebase Studio, or Gemini Enterprise. Turn blog URLs into videos from inside Google's AI ecosystem.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Google Gemini CLI with Blog2Video MCP tools configured, converting a blog article to a video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Gemini plus Blog2Video MCP: add video creation to Google's AI in three steps.",
+    heroDescription:
+      "Google Gemini supports MCP through the Gemini CLI, Firebase Studio, and Gemini Enterprise. All three can talk to the Blog2Video MCP server. Pick the path that matches your stack and let Gemini handle article scraping, script generation, and video preview from a single prompt.",
+    primaryKeyword: "blog2video mcp server gemini",
+    keywordVariant: "connect mcp server google gemini blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Gemini and MCP: Google's open-standard support",
+        paragraphs: [
+          "Google adopted MCP across its AI tooling in 2025 and 2026, adding support to Gemini CLI, Firebase Studio, and Gemini Enterprise. All three surfaces use the same mcpServers configuration block, so connecting Blog2Video works the same way regardless of which one you use.",
+          "MCP acts as a bridge between Gemini's reasoning engine and external services. When you add the Blog2Video endpoint, Gemini can discover its tools, understand their parameters, and call them in response to natural-language requests — with no custom code needed on your side.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The server exposes the full Blog2Video pipeline as tools: create a project from a blog URL, get a shareable preview link, render a downloadable MP4, list templates and voices, and edit individual scenes. Every tool is callable over HTTP with a Bearer token.",
+          "The endpoint is https://api.blog2video.app/mcp/sse and it uses the SSE transport — the same transport the Gemini CLI and Firebase Studio expect. Your JWT from the Blog2Video Connect to AI page is the auth token.",
+        ],
+      },
+      {
+        heading: "Method 1: Gemini CLI",
+        paragraphs: [
+          "Gemini CLI stores its MCP configuration in a settings.json file. Add a mcpServers block with an entry for blog2video, specifying the server URL as https://api.blog2video.app/mcp/sse and the auth header as Authorization: Bearer followed by your JWT.",
+          "After saving the config, restart Gemini CLI. The Blog2Video tools will appear as available. You can enable or disable the server during a session with /mcp enable blog2video and /mcp disable blog2video.",
+          "If you are using environment variables for secrets, add the JWT to the env property of the server configuration and reference it in the header value.",
+        ],
+        bullets: [
+          "Add a blog2video entry to the mcpServers block in settings.json.",
+          "Server URL: https://api.blog2video.app/mcp/sse.",
+          "Auth header: Authorization: Bearer followed by your JWT.",
+          "Restart CLI, then confirm tools with /mcp enable blog2video.",
+        ],
+      },
+      {
+        heading: "Method 2: Firebase Studio",
+        paragraphs: [
+          "In Firebase Studio's Code view, open the Command Palette with Shift+Ctrl+P and run Firebase Studio: Add MCP Server. Enter the Blog2Video endpoint URL when prompted.",
+          "Alternatively, create or edit the .idx/mcp.json file in your project directory manually, adding a blog2video entry with the same URL and Authorization header.",
+          "The MCP server becomes available in the interactive chat panel. Click Customize Tools to see and enable Blog2Video tools.",
+        ],
+      },
+      {
+        heading: "Method 3: Gemini Enterprise",
+        paragraphs: [
+          "In the Google Cloud console, go to Gemini Enterprise → Connectors → Custom MCP Server. Enter the Blog2Video endpoint URL and your JWT. The connector integrates directly into the Gemini Enterprise data-source model.",
+          "Once connected, Gemini Enterprise can access Blog2Video tools alongside your internal data sources. This is useful for teams that want to include video creation in a larger AI-powered workflow that also reads from private databases or internal APIs.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Which Gemini surface should I use for Blog2Video?",
+        answer:
+          "For individual developer use, Gemini CLI is the fastest path. For web-app or IDE use, Firebase Studio is the right choice. For enterprise teams, Gemini Enterprise gives centralized connector management.",
+      },
+      {
+        question: "Do I need to store my JWT as a plain-text environment variable?",
+        answer:
+          "The Gemini CLI does not redact env values automatically. Store the JWT in an environment variable outside the config file and reference it there, or use a secret manager if security is a concern.",
+      },
+      {
+        question: "Does the SSE transport work with all Gemini surfaces?",
+        answer:
+          "Yes. The Blog2Video MCP endpoint uses SSE transport, which is supported by Gemini CLI, Firebase Studio, and Gemini Enterprise. You do not need to configure a different transport for each.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Google Gemini",
+        angle:
+          "Capture Google Gemini + MCP search traffic from developers and enterprise teams.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video + Gemini CLI: Add Video Creation to Google AI",
+        angle:
+          "Short demo showing the CLI config and a blog-to-preview workflow.",
+      },
+      {
+        channel: "substack",
+        title: "Gemini can now run your blog-to-video pipeline",
+        angle:
+          "Frame as practical AI workflow for content creators using Google tools.",
+      },
+      {
+        channel: "medium",
+        title: "Connecting Blog2Video to Gemini: CLI, Firebase Studio, and Enterprise",
+        angle:
+          "Technical comparison of three connection methods for the Google-ecosystem developer audience.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-deepseek",
+    title: "How to Connect the Blog2Video MCP Server to DeepSeek",
+    description:
+      "Three ways to connect the Blog2Video MCP server to DeepSeek V4. Use the OpenAI-compatible API, a local CLI config, or a hosted MCP endpoint to run blog-to-video pipelines with DeepSeek's open-weight models.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "DeepSeek AI model connected to Blog2Video MCP server, generating a video from a blog article.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "DeepSeek V4 plus Blog2Video MCP: open-weight models, real video output.",
+    heroDescription:
+      "DeepSeek V4 ships under the MIT license with a 1M-token context and strong agentic tool-calling performance. Add the Blog2Video MCP endpoint and you have a fully open-weight blog-to-video pipeline that runs wherever DeepSeek runs.",
+    primaryKeyword: "blog2video mcp server deepseek",
+    keywordVariant: "connect mcp server deepseek blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "DeepSeek and MCP: why open-weight models work here",
+        paragraphs: [
+          "DeepSeek V4 shipped in April 2026 in two variants: V4-Pro (1.6T MoE, 49B active parameters) and V4-Flash (284B MoE, 13B active). Both expose a 1M-token context and are released under the MIT license, meaning you can run them locally, on your own cloud, or via the DeepSeek API.",
+          "For MCP, DeepSeek uses an OpenAI-compatible function-calling format. Any MCP client that supports the OpenAI tools array can route DeepSeek against remote MCP servers — including Blog2Video — with no modification.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server sits at https://api.blog2video.app/mcp/sse and exposes the full video-creation pipeline: scrape a blog URL, generate a script and scenes, get a preview link, and render to MP4.",
+          "Authentication is a Bearer token you copy from Blog2Video's Connect to AI page. Every call from your DeepSeek-powered agent must include Authorization: Bearer followed by that token.",
+        ],
+      },
+      {
+        heading: "Method 1: OpenAI-compatible API (zero extra config)",
+        paragraphs: [
+          "DeepSeek's API is OpenAI-compatible, which means any MCP client or framework that speaks the OpenAI function-calling format can swap in deepseek-v4-pro or deepseek-v4-flash as the model name and it will just work.",
+          "Add the Blog2Video MCP server to your chosen MCP client (Claude Code, LiteLLM proxy, or any OpenAI-format agent framework), then point the model at the DeepSeek API endpoint with your DeepSeek API key. The MCP layer stays the same; only the model changes.",
+        ],
+      },
+      {
+        heading: "Method 2: local CLI config via Claude Code",
+        paragraphs: [
+          "If you use Claude Code, you can add the Blog2Video server as a remote MCP entry. Run: claude mcp add --transport http blog2video https://api.blog2video.app/mcp/sse --header 'Authorization: Bearer YOUR_BLOG2VIDEO_JWT'.",
+          "This stores the server in your Claude Code MCP settings. You can then route requests through DeepSeek by configuring LiteLLM or another proxy to forward model calls to the DeepSeek API endpoint.",
+        ],
+        bullets: [
+          "DeepSeek API is OpenAI-compatible — no custom MCP client needed.",
+          "Model names: deepseek-v4-pro or deepseek-v4-flash.",
+          "Blog2Video endpoint: https://api.blog2video.app/mcp/sse.",
+          "Auth header: Authorization: Bearer followed by your Blog2Video JWT.",
+        ],
+      },
+      {
+        heading: "Method 3: local npx server alongside Blog2Video",
+        paragraphs: [
+          "For a fully local setup, add the DeepSeek MCP server to your config file alongside the Blog2Video server. The DeepSeek server wraps the DeepSeek API; the Blog2Video server exposes the video pipeline. Your MCP host can use both in the same session.",
+          "Add to your mcpServers config: blog2video with the HTTP endpoint and your JWT header, and deepseek with the npx command pointing to @arikusi/deepseek-mcp-server with your DEEPSEEK_API_KEY in the env block.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Which DeepSeek model should I use for blog-to-video workflows?",
+        answer:
+          "V4-Pro is the better choice for multi-step agentic workflows where accurate tool selection matters. V4-Flash is faster and cheaper for simpler pipelines where the prompt is explicit about which tools to call.",
+      },
+      {
+        question: "Can I run DeepSeek locally and still use the Blog2Video MCP server?",
+        answer:
+          "Yes. The Blog2Video MCP server is a remote HTTP endpoint — it runs in Blog2Video's cloud regardless of where your model runs. You can use a locally hosted DeepSeek instance as the AI and still call the remote Blog2Video tools.",
+      },
+      {
+        question: "Do I need a DeepSeek API key and a Blog2Video JWT?",
+        answer:
+          "Yes, both. The DeepSeek API key authenticates your model access; the Blog2Video JWT authenticates your calls to the Blog2Video MCP server. They are separate credentials for separate services.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to DeepSeek",
+        angle:
+          "Capture DeepSeek + MCP traffic from open-weight AI enthusiasts and developers.",
+      },
+      {
+        channel: "video",
+        title: "DeepSeek V4 + Blog2Video MCP: Full Walkthrough",
+        angle:
+          "Demo the OpenAI-compatible path with a blog URL to preview link flow.",
+      },
+      {
+        channel: "substack",
+        title: "DeepSeek V4 can now run your blog-to-video pipeline",
+        angle:
+          "Frame for developers following open-weight model news who want practical applications.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video MCP + DeepSeek V4: three connection methods compared",
+        angle:
+          "Technical deep dive for the open-source AI developer audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-kimi",
+    title: "How to Connect the Blog2Video MCP Server to Kimi",
+    description:
+      "Connect the Blog2Video MCP server to Moonshot AI's Kimi K2 using Kimi Code CLI or MCP Agent Studio. Run a full blog-to-video pipeline with one of 2026's strongest agentic open-weight models.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Kimi AI CLI interface with Blog2Video MCP tools connected, processing a blog URL into a video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Kimi K2 plus Blog2Video MCP: the strongest open agentic model meets real video output.",
+    heroDescription:
+      "Moonshot AI's Kimi K2.6 tops 2026's public agentic tool-calling benchmarks. Combine it with Blog2Video's MCP server and you have a pipeline that turns a blog URL into a shareable video preview in one agentic session.",
+    primaryKeyword: "blog2video mcp server kimi",
+    keywordVariant: "connect mcp server kimi k2 blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Kimi K2 and MCP: built for agentic tool use",
+        paragraphs: [
+          "Moonshot AI's Kimi K2.6 shipped on April 20, 2026, and quickly became the leading open-weight model on agentic tool-calling benchmarks. Kimi Code CLI is Moonshot's official agent CLI, purpose-built for multi-step tool use — exactly the pattern Blog2Video's pipeline requires.",
+          "MCP is a first-class feature in Kimi Code CLI. You can add any MCP server in two lines of config and Kimi will discover its tools, reason about them, and call them in the right order to complete a task.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server exposes the full video-creation pipeline at https://api.blog2video.app/mcp/sse. Give Kimi a blog URL and it can call create_video to scrape the article and generate scenes, then get_preview_url to return a shareable link.",
+          "Every call requires Authorization: Bearer followed by your JWT from Blog2Video's Connect to AI page. The server supports the HTTP Streamable and SSE transports that Kimi Code CLI expects.",
+        ],
+      },
+      {
+        heading: "Method 1: Kimi Code CLI",
+        paragraphs: [
+          "Kimi Code CLI stores its MCP configuration in ~/.kimi/mcp.json, using the same format as Claude Desktop and other standard MCP clients. To add Blog2Video, run: kimi mcp add --transport http blog2video https://api.blog2video.app/mcp/sse.",
+          "Then open ~/.kimi/mcp.json and add your Authorization header to the blog2video entry's headers field: Authorization: Bearer followed by your JWT.",
+          "Restart Kimi CLI. The Blog2Video tools will appear in your session. Ask Kimi to turn a blog URL into a video and it will handle the multi-step flow automatically.",
+        ],
+        bullets: [
+          "Run: kimi mcp add --transport http blog2video https://api.blog2video.app/mcp/sse",
+          "Add Authorization header to ~/.kimi/mcp.json.",
+          "Restart CLI to load the new server.",
+          "Confirm tools are available by asking Kimi to list Blog2Video tools.",
+        ],
+      },
+      {
+        heading: "Method 2: MCP Agent Studio (no install required)",
+        paragraphs: [
+          "MCP Agent Studio is a browser-based tool that lets you connect any MCP server to Kimi K2.6 without installing anything locally. Click Add Server, paste the Blog2Video endpoint URL, add your Bearer token in the auth field, and select Kimi K2.6 from the model dropdown.",
+          "This is the fastest way to test the Blog2Video MCP server with Kimi without setting up a local development environment. New accounts include starter credits.",
+        ],
+      },
+      {
+        heading: "What you can build with Kimi and Blog2Video",
+        paragraphs: [
+          "Kimi K2's strong agentic reasoning means it can handle the full blog-to-video workflow with minimal prompting. Give it a URL and say make a video. It will pick the right tools in the right order without step-by-step instructions.",
+          "For more complex workflows, Kimi can also handle scene editing: update narration text, reorder scenes, swap images, or change the template. Each action maps to a specific MCP tool that Kimi can call based on your natural-language instruction.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I get Kimi Code CLI?",
+        answer:
+          "Install it from the Moonshot AI GitHub repository at github.com/MoonshotAI/kimi-cli, or follow the instructions at platform.kimi.ai. You will need a Moonshot AI API key.",
+      },
+      {
+        question: "Can I use Kimi's web interface instead of the CLI?",
+        answer:
+          "MCP connector support in Kimi's web interface is still limited. For reliable MCP tool use, the Kimi Code CLI or MCP Agent Studio are the recommended paths.",
+      },
+      {
+        question: "Does Kimi K2 handle the create_video wait time well?",
+        answer:
+          "Yes. create_video blocks for one to five minutes, but Kimi Code CLI holds the tool call open until it returns. You do not need to poll or retry.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Kimi",
+        angle:
+          "Capture Kimi K2 + MCP search traffic from developers following open-weight agentic models.",
+      },
+      {
+        channel: "video",
+        title: "Kimi K2 + Blog2Video MCP: Demo",
+        angle:
+          "Short CLI demo showing the config and a blog-to-preview flow.",
+      },
+      {
+        channel: "substack",
+        title: "Kimi K2 is 2026's best agentic model. Here is how to point it at Blog2Video.",
+        angle:
+          "Frame for developers following open-weight AI news who want a practical use case.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video MCP + Kimi K2: CLI setup and live demo",
+        angle:
+          "Technical walkthrough for the open-weight AI developer audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-qwen",
+    title: "How to Connect the Blog2Video MCP Server to Qwen",
+    description:
+      "Connect the Blog2Video MCP server to Alibaba's Qwen 3 using the Qwen-Agent framework, the OpenAI-compatible API, or Qwen Code CLI. Run blog-to-video pipelines with Qwen's open-weight models.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Qwen AI agent connected to Blog2Video MCP server, turning a blog post into a video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Qwen 3 plus Blog2Video MCP: Alibaba's open models, real video output.",
+    heroDescription:
+      "Qwen 3 from Alibaba supports MCP via an OpenAI-compatible function-calling format and the Qwen-Agent framework. Add the Blog2Video MCP endpoint and Qwen can scrape articles, generate scenes, and return preview links as part of any agentic task.",
+    primaryKeyword: "blog2video mcp server qwen",
+    keywordVariant: "connect mcp server qwen alibaba blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Qwen 3 and MCP: OpenAI-compatible tool calling",
+        paragraphs: [
+          "Alibaba's Qwen 3 family ships with strong tool-calling performance and an OpenAI-compatible function-calling interface. That means any MCP client designed for the OpenAI tools array — including standard MCP hosts — can route Qwen against remote MCP servers with no modification.",
+          "Qwen Code, Alibaba's coding agent CLI, also supports MCP natively, storing server configurations in a format compatible with other standard MCP clients.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server at https://api.blog2video.app/mcp/sse exposes the full video pipeline as callable tools. The most important are create_video (scrape a blog URL and generate a project), get_preview_url (get a shareable watch link), and render_video (produce a downloadable MP4).",
+          "Authentication is a Bearer token from Blog2Video's Connect to AI page. Every request from your Qwen-powered agent needs Authorization: Bearer followed by that token.",
+        ],
+      },
+      {
+        heading: "Method 1: Qwen-Agent framework",
+        paragraphs: [
+          "Qwen-Agent is Alibaba's official framework for building Qwen-powered agents. It supports MCP servers as tool sources. Configure an MCP tool with type mcp, server_protocol sse, the Blog2Video endpoint URL, and your Authorization header.",
+          "Once configured, create an agent with the MCP tool in its tools list and the Qwen model of your choice. The agent will automatically call the right Blog2Video tools in response to a blog URL.",
+        ],
+        bullets: [
+          "Tool type: mcp, protocol: sse.",
+          "Server URL: https://api.blog2video.app/mcp/sse.",
+          "Header: Authorization: Bearer followed by your JWT.",
+          "Model: qwen3.5-plus or any Qwen 3 model.",
+        ],
+      },
+      {
+        heading: "Method 2: OpenAI-compatible API",
+        paragraphs: [
+          "Since Qwen uses the OpenAI-compatible function-calling format, you can use the standard MCP client approach: add the Blog2Video server to your MCP host, set the model to a Qwen API endpoint, and use your Qwen API key for model access.",
+          "Use the Alibaba Cloud Model Studio API endpoint with your Qwen model name such as qwen3.5-plus and include the Blog2Video MCP server configuration as you would for any OpenAI-format MCP client.",
+        ],
+      },
+      {
+        heading: "Method 3: Qwen Code CLI",
+        paragraphs: [
+          "If you use Qwen Code, Alibaba's coding agent CLI, you can add Blog2Video as an MCP server in the same way as other standard clients. Add an entry to the mcpServers config block with the Blog2Video endpoint and your auth header. The configuration format is compatible with Claude Desktop, Kimi CLI, and other standard MCP clients.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Which Qwen model works best for blog-to-video workflows?",
+        answer:
+          "Qwen3.5-plus offers a good balance of reasoning capability and speed for multi-step agentic workflows. Larger models like qwen-max give better results when the blog content is long or complex.",
+      },
+      {
+        question: "Can I run Qwen locally and still use the Blog2Video MCP server?",
+        answer:
+          "Yes. The Blog2Video MCP server is a remote HTTP endpoint. You can run Qwen locally via Ollama or any local inference server and still call the remote Blog2Video tools from your local agent.",
+      },
+      {
+        question: "Is there an official Qwen MCP client?",
+        answer:
+          "Qwen Code CLI is Alibaba's official CLI agent with MCP support. For the Qwen-Agent framework, documentation is available at the Alibaba Cloud Model Studio docs.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Qwen",
+        angle:
+          "Capture Qwen + MCP search traffic from developers in the Alibaba AI ecosystem.",
+      },
+      {
+        channel: "video",
+        title: "Qwen 3 + Blog2Video MCP: Agent Setup Demo",
+        angle:
+          "Show the Qwen-Agent config and a full blog-to-preview workflow.",
+      },
+      {
+        channel: "substack",
+        title: "Qwen 3 can now run your blog-to-video pipeline",
+        angle:
+          "Frame for developers following Alibaba AI releases who want practical use cases.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video MCP + Qwen 3: three connection methods",
+        angle:
+          "Technical comparison for the open-source AI developer audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-mistral",
+    title: "How to Connect the Blog2Video MCP Server to Mistral",
+    description:
+      "Connect the Blog2Video MCP server to Mistral AI via Le Chat, Mistral Studio, or the Mistral API. Add blog-to-video capabilities to any Mistral model or agent workflow.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Mistral AI Le Chat interface with Blog2Video MCP connector enabled, converting a blog to video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Mistral plus Blog2Video MCP: European-grade AI, real video output.",
+    heroDescription:
+      "Mistral AI has one of the cleanest MCP connector experiences available. Add Blog2Video from Le Chat's connector directory, from Mistral Studio, or via the API — and immediately use it with any Mistral model or agent.",
+    primaryKeyword: "blog2video mcp server mistral",
+    keywordVariant: "connect mcp server mistral ai blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Mistral and MCP: a first-class connector experience",
+        paragraphs: [
+          "Mistral AI introduced MCP connector support in Le Chat and Mistral Studio in 2025 and extended it to the API in 2026. Connectors are registered MCP servers that you can use as tools in conversations, agents, and API calls — without managing MCP transport locally.",
+          "Mistral's implementation is notably clean: you add a URL and auth token, click Connect, and the platform detects authentication requirements automatically. All connected servers are also available via the SDK with no extra configuration.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server at https://api.blog2video.app/mcp/sse exposes the full video-creation pipeline as callable tools. Give Mistral a blog URL and it can call create_video to scrape the article and generate scenes, get_preview_url to mint a shareable watch link, and render_video to produce a downloadable MP4.",
+          "Authentication is a Bearer JWT from Blog2Video's Connect to AI page. Mistral's platform handles the token storage and injection automatically once you configure the connector.",
+        ],
+      },
+      {
+        heading: "Method 1: Le Chat connector directory",
+        paragraphs: [
+          "In Le Chat, click the + Add Connector button on the right side of the page. This opens the MCP Connectors directory. If Blog2Video is listed, click it and follow the token prompts.",
+          "If Blog2Video is not yet in the directory, click Add custom connector. Enter a connector name such as blog2video, the server URL https://api.blog2video.app/mcp/sse, and paste your JWT as the Bearer token. Click Connect — Mistral detects the auth method and completes the connection.",
+        ],
+        bullets: [
+          "+ Add Connector → MCP Connectors directory → search Blog2Video.",
+          "Or: + Add Connector → Add custom connector.",
+          "Server URL: https://api.blog2video.app/mcp/sse.",
+          "Auth: Bearer token → paste your JWT.",
+          "Click Connect.",
+        ],
+      },
+      {
+        heading: "Method 2: Mistral Studio",
+        paragraphs: [
+          "In Mistral Studio (Intelligence → Connectors), click Add connector and select the Add custom connector tab. Enter the same URL and token. The connector becomes available in all Studio conversations and in your Mistral agents.",
+          "Once connected, create an agent in Studio and add Blog2Video as a tool. The agent will call Blog2Video tools in response to user messages that include a blog URL.",
+        ],
+      },
+      {
+        heading: "Method 3: Mistral API and SDK",
+        paragraphs: [
+          "All Mistral connectors — built-in and custom — are available via the Mistral API and Python or JavaScript SDKs. Reference your Blog2Video connector by name in the tools parameter of any chat completion call.",
+          "This is the right path for production integrations where you want Mistral's reasoning combined with Blog2Video's video pipeline in a server-side workflow. No chat interface required.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Does Blog2Video appear in Mistral's built-in connector directory?",
+        answer:
+          "Check the current directory at mistral.ai. If it is not listed yet, use the custom connector path — the URL and Bearer token setup takes under two minutes.",
+      },
+      {
+        question: "Can I use Blog2Video connectors inside Mistral agents?",
+        answer:
+          "Yes. Any connector you add in Mistral Studio or Le Chat can be assigned to an agent as a tool. The agent will call Blog2Video tools automatically when a user provides a blog URL.",
+      },
+      {
+        question: "Which Mistral model should I use for blog-to-video workflows?",
+        answer:
+          "Mistral Large or Mistral Medium work well for multi-step agentic workflows. Mistral Small is faster and cheaper if your prompt is explicit about which tools to call.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Mistral",
+        angle:
+          "Capture Mistral AI + MCP search traffic from European and enterprise developers.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video + Mistral MCP: Le Chat Connector Demo",
+        angle:
+          "Show the Le Chat connector setup and a full blog-to-preview workflow.",
+      },
+      {
+        channel: "substack",
+        title: "Mistral now has a direct line to Blog2Video's video pipeline",
+        angle:
+          "Frame as a workflow upgrade for content teams using Mistral for EU-compliant AI.",
+      },
+      {
+        channel: "medium",
+        title: "Connecting Blog2Video to Mistral: Le Chat, Studio, and API",
+        angle:
+          "Technical comparison of all three connection methods for the Mistral developer audience.",
+      },
+    ],
+  },
 ];
