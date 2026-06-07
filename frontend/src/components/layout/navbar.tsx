@@ -35,7 +35,7 @@ const Navbar = () => {
 
           <Link
             to="/invite-others"
-            className="hidden sm:relative sm:inline-flex items-center gap-1.5 mr-2 mt-1 text-xs text-gray-400 hover:text-purple-600 transition-colors"
+            className="hidden sm:relative sm:inline-flex items-center gap-1.5 mr-6 text-xs text-gray-400 hover:text-purple-600 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 12 20 22 4 22 4 12" />
@@ -45,7 +45,7 @@ const Navbar = () => {
               <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
             </svg>
             Share B2V
-            <span className="absolute -top-4 -right-5 bg-purple-600 text-white text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
+            <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
               Get 3 free videos
             </span>
           </Link>
@@ -53,12 +53,12 @@ const Navbar = () => {
           {/* Connect to AI link */}
           <Link
             to="/mcp-connector"
-            className="hidden sm:inline-flex flex-col items-center gap-0.5 text-xs text-gray-400 hover:text-purple-600 transition-colors"
+            className="hidden sm:relative sm:inline-flex items-center mr-2 text-xs text-gray-400 hover:text-purple-600 transition-colors"
           >
-            <span className="bg-purple-600 text-white text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
+            Connect to AI
+            <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
               Claude · OpenAI · Gemini · n8n
             </span>
-            Connect to AI
           </Link>
 
           {/* Billing link */}

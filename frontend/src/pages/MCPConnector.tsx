@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useState } from "react";
+// Kept for the inline setup guide (now linked out to the blog — see below):
+// import { useEffect } from "react";
+// import ReactMarkdown from "react-markdown";
+// import remarkGfm from "remark-gfm";
 import Seo from "../components/seo/Seo";
 import { useAuth } from "../hooks/useAuth";
 
@@ -10,15 +12,16 @@ export default function MCPConnector() {
   const { token } = useAuth();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
-  const [guide, setGuide] = useState("");
+  // Inline setup-guide state — superseded by the blog link below, kept for reference:
+  // const [showGuide, setShowGuide] = useState(false);
+  // const [guide, setGuide] = useState("");
 
-  useEffect(() => {
-    fetch("/n8n.md")
-      .then((r) => r.text())
-      .then(setGuide)
-      .catch(() => {});
-  }, []);
+  // useEffect(() => {
+  //   fetch("/n8n.md")
+  //     .then((r) => r.text())
+  //     .then(setGuide)
+  //     .catch(() => {});
+  // }, []);
 
   const copy = async (text: string, key: string) => {
     try {
@@ -100,14 +103,19 @@ export default function MCPConnector() {
           </div>
         </section>
 
-        {/* ─── Connector flows: two cards side-by-side ──────── */}
-        <section className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* ─── Connector flows: three cards side-by-side ──────────
+            Break out wider than the page's max-w-5xl (≈1024px) so three
+            cards have comfortable width on large screens. The negative
+            margins widen the row symmetrically; below lg it stays inside
+            the page padding and the grid collapses to 1 column on mobile. */}
+        <section className="mb-12 lg:-mx-24 xl:-mx-40 grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Claude card */}
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
-                <svg className="w-5 h-5 text-orange-600" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 16.5L6 13.5l1.5-1.5L11 15.5l5.5-5.5L18 11.5l-7 7z" />
+                {/* Anthropic / Claude logo */}
+                <svg className="w-5 h-5 text-orange-600" viewBox="0 0 46 32" fill="currentColor">
+                  <path d="M32.73 0h-6.945L38.45 32h6.945L32.73 0ZM12.665 0 0 32h7.082l2.59-6.72h13.25l2.59 6.72h7.082L19.929 0h-7.264Zm-.702 19.337 4.334-11.246 4.334 11.246h-8.668Z" />
                 </svg>
               </div>
               <div>
@@ -171,8 +179,9 @@ export default function MCPConnector() {
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                {/* OpenAI logo */}
                 <svg className="w-5 h-5 text-emerald-600" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm4.93 7.5l-5.43 5.43a1 1 0 0 1-1.41 0L7.07 12a1 1 0 1 1 1.41-1.41l2.31 2.32 4.73-4.73a1 1 0 0 1 1.41 1.41z" />
+                  <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 22.005a4.5 4.5 0 0 1-6.14-1.636zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365 2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z" />
                 </svg>
               </div>
               <div>
@@ -256,6 +265,98 @@ export default function MCPConnector() {
               to enable Developer mode org-wide first.
             </p>
           </div>
+
+          {/* Gemini card */}
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2c.34 3.36 1.86 5.3 3.78 6.6C17.42 9.7 19.3 10.2 22 12c-2.7 1.8-4.58 2.3-6.22 3.4C13.86 16.7 12.34 18.64 12 22c-.34-3.36-1.86-5.3-3.78-6.6C6.58 14.3 4.7 13.8 2 12c2.7-1.8 4.58-2.3 6.22-3.4C10.14 7.3 11.66 5.36 12 2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Connect to Gemini</h2>
+                <p className="text-xs text-gray-500">Google Gemini CLI</p>
+              </div>
+            </div>
+            <ol className="space-y-3 text-sm text-gray-700">
+              <li className="flex gap-3">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-semibold flex items-center justify-center mt-0.5">1</span>
+                <span>
+                  Install the Gemini CLI:{" "}
+                  <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800 break-words">npm install -g @google/gemini-cli</code>.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-semibold flex items-center justify-center mt-0.5">2</span>
+                <span>
+                  Add a <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800">blog2video</code> entry to{" "}
+                  <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800">~/.gemini/settings.json</code> under{" "}
+                  <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800">mcpServers</code>, with{" "}
+                  <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800">httpUrl</code> set to the server URL above.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-semibold flex items-center justify-center mt-0.5">3</span>
+                <span>
+                  Add an <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800">Authorization: Bearer &lt;JWT&gt;</code> header
+                  (the same token from the n8n section below) and a{" "}
+                  <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800">timeout</code> of{" "}
+                  <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800">600000</code>.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-semibold flex items-center justify-center mt-0.5">4</span>
+                <span>
+                  Run <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800">gemini</code>, type{" "}
+                  <code className="bg-gray-100 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800">/mcp</code> to confirm the tools, then try:{" "}
+                  <em className="text-gray-900">"Make a Blog2Video video from &lt;blog URL&gt;."</em>
+                </span>
+              </li>
+            </ol>
+            <div className="mt-5">
+              <a
+                href="https://blog2video.app/blogs/blog2video-mcp-server-gemini"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 mb-2 text-xs font-medium text-blue-700 hover:underline"
+              >
+                <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                Read: connecting Gemini to Blog2Video
+              </a>
+              <a
+                href="https://blog2video.app/blogs/blog2video-mcp-server-gemini"
+                target="_blank"
+                rel="noreferrer"
+                className="relative block w-full overflow-hidden rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white group"
+                style={{ aspectRatio: "16 / 9" }}
+              >
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                  <span className="w-12 h-12 rounded-2xl bg-blue-500 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-blue-900">The full Gemini guide</span>
+                    <span className="block text-xs text-blue-600 mt-0.5">CLI, Firebase Studio &amp; Enterprise →</span>
+                  </span>
+                </div>
+              </a>
+            </div>
+            <p className="mt-4 text-[11px] text-gray-500 border-t border-gray-100 pt-3">
+              The consumer Gemini app has no custom-connector box — use the Gemini
+              CLI (or Firebase Studio / Enterprise) to connect.
+            </p>
+          </div>
         </section>
 
         {/* ─── Connect to n8n ────────────────────────────────── */}
@@ -329,7 +430,39 @@ export default function MCPConnector() {
               </p>
             </div>
 
-            {/* Setup guide: inline + download */}
+            {/* Setup guide: link to the full blog walkthrough */}
+            <div className="border-t border-gray-100 pt-4">
+              <a
+                href="https://blog2video.app/blogs/blog2video-mcp-server-n8n"
+                target="_blank"
+                rel="noreferrer"
+                className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-4 transition-colors hover:border-purple-300 hover:from-purple-100"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-600 text-white shadow-sm">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-gray-900 group-hover:text-purple-700">
+                    Read the full n8n setup guide
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Step-by-step walkthrough with ready-to-import workflows — from a blog URL to a finished video, fully automated.
+                  </p>
+                </div>
+                <svg className="h-5 w-5 shrink-0 text-purple-500 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </a>
+            </div>
+
+            {/* Previous inline setup guide (now linked out to the blog above) — kept for reference.
+                To restore: uncomment the showGuide/guide state + /n8n.md fetch at the top of this file,
+                re-add the useEffect/ReactMarkdown/remarkGfm imports, then re-enable this block.
+
             <div className="border-t border-gray-100 pt-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <button
@@ -387,6 +520,7 @@ export default function MCPConnector() {
                 </div>
               )}
             </div>
+            */}
           </div>
         </section>
 
