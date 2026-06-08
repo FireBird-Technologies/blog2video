@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import Optional
 
@@ -71,6 +71,13 @@ class ProjectUpdate(BaseModel):
         return value
 
 
+class ProjectVoiceChange(BaseModel):
+    """Body for changing a project's voice and regenerating all voiceovers."""
+    voice_gender: Optional[str] = None
+    voice_accent: Optional[str] = None
+    custom_voice_id: Optional[str] = None
+
+
 class ProjectTemplateChangeRequest(BaseModel):
     template: str
 
@@ -81,6 +88,23 @@ class ProjectTemplateChangeJobOut(BaseModel):
     user_id: int
     target_template: str
     status: str
+    total_scenes: int
+    processed_scenes: int
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectRegenerateScriptJobOut(BaseModel):
+    id: int
+    project_id: int
+    user_id: int
+    status: str
+    current_step: str = "analyzing_instruction"
     total_scenes: int
     processed_scenes: int
     error_message: Optional[str] = None

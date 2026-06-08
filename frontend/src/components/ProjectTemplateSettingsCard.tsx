@@ -53,7 +53,7 @@ export function TemplateAssignPreview({
           variant === "thumb" ? "min-h-[64px] max-h-[80px] p-2" : "aspect-video p-4"
         }`}
       >
-        Expert customized template preview unavailable
+        Designer template preview unavailable
       </div>
     );
   }
@@ -229,14 +229,14 @@ export default function ProjectTemplateSettingsCard({
                 )}
                 {selectedCrafted && (
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-amber-500 shrink-0">
-                    Expert Customized
+                    Designer
                   </span>
                 )}
               </div>
               {selectedCustom ? (
                 <div className="text-[11px] text-gray-400">Custom template</div>
               ) : selectedCrafted ? (
-                <div className="text-[11px] text-gray-400">Expert customized template</div>
+                <div className="text-[11px] text-gray-400">Designer template</div>
               ) : selectedDesc?.subtitle ? (
                 <div className="text-[11px] text-gray-400">{selectedDesc.subtitle}</div>
               ) : null}

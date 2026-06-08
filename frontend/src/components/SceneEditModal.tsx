@@ -27,7 +27,7 @@ import { compileDataModule } from "../utils/compileComponent";
 import { normalizeLayoutId } from "./remotion/imageBoxConfig";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
-const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MIN = 0.1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
 import { SpreadsheetTable } from "./SpreadsheetTable";
@@ -701,6 +701,47 @@ function getLaDucMarketAnnotationExampleTable(
       ["50 - 60", "2", "2"],
       ["60 - 70", "2", "0"],
       ["70 - 80", "1", "0"],
+    ],
+  };
+}
+
+function getFJResearchMarketAnnotationExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "line") {
+    return {
+      headers: ["Date", "Close", "Flow index", "Positioning"],
+      rows: [
+        ["2024-01-02", "298", "72", "41"],
+        ["2024-02-01", "308", "68", "44"],
+        ["2024-03-01", "315", "61", "39"],
+        ["2024-04-01", "324", "55", "36"],
+        ["2024-05-01", "318", "59", "33"],
+      ],
+    };
+  }
+  if (chartType === "bar") {
+    return {
+      headers: ["Sector", "Series A", "Series B"],
+      rows: [
+        ["Semis", "42", "28"],
+        ["Energy", "38", "35"],
+        ["Financials", "45", "32"],
+        ["Healthcare", "40", "38"],
+        ["Industrials", "36", "34"],
+        ["Tech", "50", "41"],
+      ],
+    };
+  }
+  return {
+    headers: ["Score bucket", "Count"],
+    rows: [
+      ["0–10", "2"],
+      ["10–20", "6"],
+      ["20–30", "14"],
+      ["30–40", "18"],
+      ["40–50", "10"],
+      ["50–60", "4"],
     ],
   };
 }
@@ -1576,6 +1617,35 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "websiteLink", label: "Website URL", type: "string", placeholder: "e.g. https://laductrading.com" },
     ],
   },
+  fj_research: {
+    market_annotation: [
+      { key: "category", label: "Chart label", type: "string", placeholder: "e.g. S&P 500 · Daily · May 2026" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "FJResearch · Chart Desk" },
+      {
+        key: "chartType",
+        label: "Chart type",
+        type: "select",
+        default: "auto",
+        options: [
+          { value: "auto", label: "Auto (infer from data)" },
+          { value: "line", label: "Line" },
+          { value: "bar", label: "Bar" },
+          { value: "histogram", label: "Histogram" },
+        ],
+      },
+      { key: "subtitle", label: "X-axis / category caption", type: "string", placeholder: "e.g. Trading date" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Index level" },
+      { key: "chartSummary", label: "Chart summary (short read beside the graphic)", type: "string", placeholder: "Market context and key takeaway..." },
+      { key: "chartTimeframeLabel", label: "Chart timeframe label (top-right)", type: "string", placeholder: "1D / 5m" },
+      { key: "footerNote", label: "Y-axis caption / footer note", type: "string", placeholder: "Source: Bloomberg Terminal" },
+      { key: "narration", label: "Thesis quote (bottom italic)", type: "string" },
+      { key: "barPrimaryColor", label: "Bar / line color 1", type: "color", placeholder: "#0A0A0A" },
+      { key: "barSecondaryColor", label: "Bar / line color 2", type: "color", placeholder: "#B5B5B5" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "fj_researchtrading.com" },
+      { key: "chartYAxisTicks", label: "Y-axis tick labels (top → bottom, 2–4 values)", type: "string_array", maxItems: 4 },
+      { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    ],
+  },
 };
 
 /** Structured content fields for AI-generated custom template scenes. */
@@ -2021,6 +2091,8 @@ export default function SceneEditModal({
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
   const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(demoMode?.regenerateVoiceover ?? false);
+  // When true, the narration is spoken word-for-word (no AI rephrasing on regeneration).
+  const [matchNarrationExactly, setMatchNarrationExactly] = useState(true);
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
   const ENDING_SOCIALS_KEYS = [
     "instagram",
@@ -2043,12 +2115,30 @@ export default function SceneEditModal({
     linkedin: { enabled: false, label: "LinkedIn" },
     tiktok: { enabled: false, label: "TikTok" },
   };
+  type EndingSocialKey = typeof ENDING_SOCIALS_KEYS[number];
+  type CtaDraft = {
+    ctaButtonText: string;
+    websiteLink: string;
+    showWebsiteButton: boolean;
+  };
+  const MAX_CTAS = 3;
+  const makeDefaultCta = (): CtaDraft => ({
+    ctaButtonText: "",
+    websiteLink: "",
+    showWebsiteButton: true,
+  });
+  // Multi-CTA: array of 1..3 CTAs. The socials list below is global to the scene
+  // (matches the original single-CTA UX). Each CTA is just a pill + URL.
+  const [ctas, setCtas] = useState<CtaDraft[]>([makeDefaultCta()]);
   const [endingSocials, setEndingSocials] = useState<
-    Record<typeof ENDING_SOCIALS_KEYS[number], { enabled: boolean; label: string }>
+    Record<EndingSocialKey, { enabled: boolean; label: string }>
   >(ENDING_SOCIALS_DEFAULT);
-  const [endingShowWebsiteButton, setEndingShowWebsiteButton] = useState(true);
-  const [endingWebsiteLink, setEndingWebsiteLink] = useState("");
-  const [endingCtaButtonText, setEndingCtaButtonText] = useState("");
+  // Derived single-CTA mirror, fed from ctas[0]. Renderers that still read the
+  // flat layoutProps fields (most crafted templates) see this; the new ctas array
+  // is also persisted so updated renderers can fan out into columns.
+  const endingShowWebsiteButton = ctas[0]?.showWebsiteButton ?? true;
+  const endingWebsiteLink = ctas[0]?.websiteLink ?? "";
+  const endingCtaButtonText = ctas[0]?.ctaButtonText ?? "";
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
@@ -2138,6 +2228,8 @@ export default function SceneEditModal({
   const isDefaultTemplate = normalizedTemplateId === "default";
   const isBloombergTemplate = normalizedTemplateId === "bloomberg";
   const isLaDucTemplate = normalizedTemplateId === "laduc";
+  // FJ Market Brief is a crafted template — project.template carries the public id.
+  const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
 
   const currentLayoutId = (() => {
     try {
@@ -2441,37 +2533,59 @@ export default function SceneEditModal({
     );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
-      const lpSocials = (lpCopy as Record<string, unknown>).socials;
-      if (
-        lpSocials &&
-        typeof lpSocials === "object" &&
-        !Array.isArray(lpSocials)
-      ) {
+      const projectUrl = (project.blog_url || "").trim();
+      const fallbackUrl =
+        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
+
+      const lpRecord = lpCopy as Record<string, unknown>;
+
+      // --- Socials (global to the scene, kept as in the original UX) ---
+      const lpSocials = lpRecord.socials;
+      if (lpSocials && typeof lpSocials === "object" && !Array.isArray(lpSocials)) {
         setEndingSocials(lpSocials as Record<
-          typeof ENDING_SOCIALS_KEYS[number],
+          EndingSocialKey,
           { enabled: boolean; label: string }
         >);
       } else {
         setEndingSocials(ENDING_SOCIALS_DEFAULT);
       }
-      const lpShowWebsiteButton = (lpCopy as Record<string, unknown>).showWebsiteButton;
-      setEndingShowWebsiteButton(lpShowWebsiteButton !== false);
-      const lpWebsiteLink = (lpCopy as Record<string, unknown>).websiteLink;
-      const projectUrl = (project.blog_url || "").trim();
-      const fallbackUrl =
-        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
-      const normalizedWebsiteLink =
-        typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
-          ? lpWebsiteLink.trim()
-          : fallbackUrl;
-      setEndingWebsiteLink(normalizedWebsiteLink);
-      const lpCta = (lpCopy as Record<string, unknown>).ctaButtonText;
-      setEndingCtaButtonText(typeof lpCta === "string" ? lpCta : "");
+
+      // --- CTA cards: prefer the new `ctas` array, else fall back to the flat fields ---
+      const lpCtasRaw = lpRecord.ctas;
+      const hydratedFromArray =
+        Array.isArray(lpCtasRaw) && lpCtasRaw.length > 0
+          ? lpCtasRaw
+              .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
+              .slice(0, MAX_CTAS)
+              .map((raw): CtaDraft => ({
+                ctaButtonText: typeof raw.ctaButtonText === "string" ? raw.ctaButtonText : "",
+                websiteLink: typeof raw.websiteLink === "string" ? raw.websiteLink : "",
+                showWebsiteButton: raw.showWebsiteButton !== false,
+              }))
+          : null;
+
+      if (hydratedFromArray && hydratedFromArray.length > 0) {
+        setCtas(hydratedFromArray);
+      } else {
+        // Legacy fallback: build a single CTA card from the flat fields.
+        const lpShowWebsiteButton = lpRecord.showWebsiteButton;
+        const lpWebsiteLink = lpRecord.websiteLink;
+        const lpCta = lpRecord.ctaButtonText;
+        const normalizedWebsiteLink =
+          typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
+            ? lpWebsiteLink.trim()
+            : fallbackUrl;
+        setCtas([
+          {
+            ctaButtonText: typeof lpCta === "string" ? lpCta : "",
+            websiteLink: normalizedWebsiteLink,
+            showWebsiteButton: lpShowWebsiteButton !== false,
+          },
+        ]);
+      }
     } else {
+      setCtas([makeDefaultCta()]);
       setEndingSocials(ENDING_SOCIALS_DEFAULT);
-      setEndingShowWebsiteButton(true);
-      setEndingWebsiteLink("");
-      setEndingCtaButtonText("");
     }
     // Initialize structured content for custom templates
     let scInit: Record<string, unknown> = {};
@@ -2698,16 +2812,25 @@ export default function SceneEditModal({
             }
             if (isEndingScene) {
               desc.ctaProps = {
+                // Socials are global to the scene (matches original UX).
                 socials: endingSocials,
+                // Legacy single-CTA mirror (from ctas[0]) so renderers that haven't
+                // opted in to `ctas` still work.
                 showWebsiteButton: endingShowWebsiteButton,
                 websiteLink: (endingWebsiteLink || "").trim(),
                 ctaButtonText: (endingCtaButtonText || "").trim(),
+                // New multi-CTA array (up to 3). Each CTA is just pill + URL.
+                ctas: ctas.map((c) => ({
+                  ctaButtonText: (c.ctaButtonText || "").trim(),
+                  websiteLink: (c.websiteLink || "").trim(),
+                  showWebsiteButton: c.showWebsiteButton,
+                })),
               };
             }
             remotionCode = JSON.stringify(desc);
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
-            const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(1, override.imageZoom) : undefined;
+            const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(IMAGE_ADJUST_ZOOM_MIN, override.imageZoom) : undefined;
             // Apply layout switch: update desc.layout when user picked a concrete layout
             if (selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__") {
               desc.layout = selectedLayout;
@@ -2871,10 +2994,18 @@ export default function SceneEditModal({
               delete lp.imageFocusX;
               delete lp.imageFocusY;
               delete lp.imageZoom;
+              // Socials are global to the scene.
               lp.socials = endingSocials;
+              // Legacy single-CTA mirror (from ctas[0]) — crafted layouts still read these flat fields.
               lp.showWebsiteButton = endingShowWebsiteButton;
               lp.websiteLink = (endingWebsiteLink || "").trim();
               lp.ctaButtonText = (endingCtaButtonText || "").trim();
+              // New multi-CTA array — crafted layouts can opt-in to render this later.
+              lp.ctas = ctas.map((c) => ({
+                ctaButtonText: (c.ctaButtonText || "").trim(),
+                websiteLink: (c.websiteLink || "").trim(),
+                showWebsiteButton: c.showWebsiteButton,
+              }));
             } else if (zoomToSave !== undefined) {
               lp.imageZoom = zoomToSave;
             }
@@ -2959,9 +3090,9 @@ export default function SceneEditModal({
         const focusYToSave = override?.imageFocusY ?? imageFocusY;
         const zoomToPatch =
           typeof override?.imageZoom === "number"
-            ? Math.max(1, override.imageZoom)
+            ? Math.max(IMAGE_ADJUST_ZOOM_MIN, override.imageZoom)
             : typeof editableLayoutProps.imageZoom === "number"
-              ? Math.max(1, Number(editableLayoutProps.imageZoom))
+              ? Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(editableLayoutProps.imageZoom))
               : undefined;
         if (supportsImage && (selectedImageFile || hasExistingSceneImage)) {
           await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
@@ -3000,7 +3131,8 @@ export default function SceneEditModal({
           "",
           regenerateVoiceover,
           keepLayout ? "__keep__" : (selectedLayout === "__auto__" ? undefined : selectedLayout || undefined),
-          selectedImageFile || undefined
+          selectedImageFile || undefined,
+          matchNarrationExactly
         );
         onSaved();
         onClose();
@@ -3027,14 +3159,14 @@ export default function SceneEditModal({
     if (next === "__keep__" || next === "__auto__") return;
     // Seed example chart data when switching into a chart layout with no existing data
     const isChartLayout =
-      (isLaDucTemplate && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
+      ((isLaDucTemplate || isFjBriefTemplate) && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
       ((isNewscastTemplate) && next === "data_visualization") ||
       (isBloombergTemplate && next === "terminal_dataviz");
     if (!isChartLayout) return;
     setEditableLayoutProps((prev) => {
       const existing = normalizeChartTableValue(prev.chartTable);
       if (chartTableHasData(existing)) return prev;
-      const exampleType = (isLaDucTemplate ? getLaDucMarketAnnotationChartTypeForLayout(next) : null) ?? "bar";
+      const exampleType = ((isLaDucTemplate || isFjBriefTemplate) ? getLaDucMarketAnnotationChartTypeForLayout(next) : null) ?? "bar";
       return { ...prev, chartTable: getLaDucMarketAnnotationExampleTable(exampleType) };
     });
   };
@@ -3214,7 +3346,7 @@ export default function SceneEditModal({
   const openImageAdjustModal = (src: string) => {
     setImageAdjustSrc(src);
     setIsAdjustDragging(false);
-    const currentZoom = Math.max(1, Number((editableLayoutProps.imageZoom as number) || 1));
+    const currentZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Number((editableLayoutProps.imageZoom as number) || 1));
     setImageAdjustFocusX(imageFocusX);
     setImageAdjustFocusY(imageFocusY);
     setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
@@ -3232,7 +3364,7 @@ export default function SceneEditModal({
   const saveImageAdjustModal = async () => {
     const nextFocusX = clampFocus(imageAdjustFocusX);
     const nextFocusY = clampFocus(imageAdjustFocusY);
-    const nextZoom = Math.max(1, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
+    const nextZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
     setImageFocusX(nextFocusX);
     setImageFocusY(nextFocusY);
     setEditableLayoutProps((prev) => ({ ...prev, imageZoom: nextZoom }));
@@ -3385,43 +3517,77 @@ export default function SceneEditModal({
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               {(() => {
                 if (isEndingScene) {
+                  const updateCta = (idx: number, patch: Partial<CtaDraft>) => {
+                    setCtas((prev) =>
+                      prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
+                    );
+                  };
+                  const removeCta = (idx: number) => {
+                    setCtas((prev) =>
+                      prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx),
+                    );
+                  };
+                  const addCta = () => {
+                    setCtas((prev) =>
+                      prev.length >= MAX_CTAS ? prev : [...prev, makeDefaultCta()],
+                    );
+                  };
                   return (
                     <div className="space-y-3">
                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                         Social media Links
                       </h4>
                       <div className="space-y-3">
-                        <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-medium text-gray-800">
-                              Call to Action Button
+                        {ctas.map((cta, idx) => (
+                          <div
+                            key={idx}
+                            className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-medium text-gray-800">
+                                {idx === 0 ? "Call to Action Button" : `Call to Action Button ${idx + 1}`}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateCta(idx, { showWebsiteButton: !cta.showWebsiteButton })
+                                  }
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                    cta.showWebsiteButton ? "bg-purple-600" : "bg-gray-200"
+                                  }`}
+                                  role="switch"
+                                  aria-checked={cta.showWebsiteButton}
+                                  aria-label="Toggle website call to action"
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                      cta.showWebsiteButton ? "translate-x-4" : "translate-x-0"
+                                    }`}
+                                  />
+                                </button>
+                                {idx > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeCta(idx)}
+                                    className="text-gray-400 hover:text-red-500 text-base leading-none w-5 h-5 flex items-center justify-center"
+                                    aria-label={`Remove CTA ${idx + 1}`}
+                                  >
+                                    ×
+                                  </button>
+                                ) : null}
+                              </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setEndingShowWebsiteButton((prev) => !prev)}
-                              className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
-                                endingShowWebsiteButton ? "bg-purple-600" : "bg-gray-200"
-                              }`}
-                              role="switch"
-                              aria-checked={endingShowWebsiteButton}
-                              aria-label="Toggle website call to action"
-                            >
-                              <span
-                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                                  endingShowWebsiteButton ? "translate-x-4" : "translate-x-0"
-                                }`}
-                              />
-                            </button>
-                          </div>
-                          <div className="space-y-2">
                             <div>
                               <label className="block text-[11px] font-medium text-gray-500 mb-1">
                                 CTA button label
                               </label>
                               <input
                                 type="text"
-                                value={endingCtaButtonText}
-                                onChange={(e) => setEndingCtaButtonText(e.target.value)}
+                                value={cta.ctaButtonText}
+                                onChange={(e) =>
+                                  updateCta(idx, { ctaButtonText: e.target.value })
+                                }
                                 className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 placeholder="e.g. Read the full article"
                               />
@@ -3429,31 +3595,41 @@ export default function SceneEditModal({
                                 Short text on the pill above the link (matches the project font in the video).
                               </p>
                             </div>
+                            {cta.showWebsiteButton ? (
+                              <div>
+                                <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                  Website URL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={cta.websiteLink}
+                                  onChange={(e) =>
+                                    updateCta(idx, { websiteLink: e.target.value })
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                  placeholder="https://example.com/article"
+                                />
+                                <p className="mt-1 text-[11px] text-gray-500">
+                                  Shown under the CTA pill when the toggle is on.
+                                </p>
+                              </div>
+                            ) : null}
                           </div>
-                          {endingShowWebsiteButton ? (
-                            <div>
-                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                                Website URL
-                              </label>
-                              <input
-                                type="text"
-                                value={endingWebsiteLink}
-                                onChange={(e) => setEndingWebsiteLink(e.target.value)}
-                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                placeholder="https://example.com/article"
-                              />
-                              <p className="mt-1 text-[11px] text-gray-500">
-                                Shown under the CTA pill when the toggle is on.
-                              </p>
-                            </div>
-                          ) : null}
-                        </div>
+                        ))}
+                        {ctas.length < MAX_CTAS ? (
+                          <button
+                            type="button"
+                            onClick={addCta}
+                            className="w-full px-3 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 border border-dashed border-gray-300 hover:border-purple-400 rounded-lg bg-white/50 transition-colors"
+                          >
+                            + Add another CTA
+                          </button>
+                        ) : null}
                         {ENDING_SOCIALS_KEYS.map((k) => {
                           const item = endingSocials[k];
                           const enabled = Boolean(item?.enabled ?? false);
                           const label = (item?.label ?? ENDING_SOCIALS_DEFAULT[k].label) as string;
                           const platformLabel = ENDING_SOCIALS_DEFAULT[k].label;
-                          const platformInitials = platformLabel.slice(0, 2).toUpperCase();
                           return (
                             <div key={k} className="space-y-2">
                               <div className="flex items-center gap-3">
@@ -3596,7 +3772,17 @@ export default function SceneEditModal({
                       const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                       const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
                       if (field.type === "color") {
-                        const fallbackColor = normalizeColorValue(field.placeholder ?? "#1E5FD4", "#1E5FD4");
+                        // Unsaved swatch falls back to the field's declared `default`
+                        // first (the documented "display value when unset"), then its
+                        // placeholder, then a generic blue. Without the `default` branch
+                        // a field that defines only a default (e.g. fj_research bar
+                        // colors) would wrongly show the #1E5FD4 blue fallback.
+                        const fieldDefaultColor =
+                          typeof field.default === "string" ? field.default : undefined;
+                        const fallbackColor = normalizeColorValue(
+                          fieldDefaultColor ?? field.placeholder ?? "#1E5FD4",
+                          "#1E5FD4",
+                        );
                         const currentColor = normalizeColorValue(editableLayoutProps[field.key], fallbackColor);
                         return (
                           <div key={field.key}>
@@ -3789,6 +3975,14 @@ export default function SceneEditModal({
                           isLaDucTemplate &&
                           currentLayoutId === "market_annotation" &&
                           field.key === "chartType";
+                        const isFjBriefChartTypeField =
+                          isFjBriefTemplate &&
+                          currentLayoutId === "market_annotation" &&
+                          field.key === "chartType";
+                        const isFJResearchChartTypeField =
+                          normalizedTemplateId === "fj_research" &&
+                          currentLayoutId === "market_annotation" &&
+                          field.key === "chartType";
                         const isBloombergChartTypeField =
                           isBloombergTemplate &&
                           currentLayoutId === "terminal_dataviz" &&
@@ -3804,13 +3998,15 @@ export default function SceneEditModal({
                               value={sel}
                               onChange={(e) => {
                                 const nextChartType = e.target.value;
-                                if (isLaDucChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
+                                if (isLaDucChartTypeField || isFjBriefChartTypeField || isFJResearchChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
                                   const concrete =
                                     nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
                                       ? (nextChartType as "line" | "bar" | "histogram")
                                       : null;
                                   if (concrete) {
-                                    const example = getLaDucMarketAnnotationExampleTable(concrete);
+                                    const example = (isLaDucChartTypeField || isFjBriefChartTypeField)
+                                      ? getLaDucMarketAnnotationExampleTable(concrete)
+                                      : getFJResearchMarketAnnotationExampleTable(concrete);
                                     setEditableLayoutProps((prev) => ({
                                       ...prev,
                                       [field.key]: nextChartType,
@@ -4507,7 +4703,14 @@ export default function SceneEditModal({
                 </h4>
                 <AutoGrowTextarea
                   value={aiNarration}
-                  onChange={(e) => setAiNarration(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setAiNarration(next);
+                    // Editing the narration implies the voiceover is now stale.
+                    if (next.trim() !== (scene.narration_text || "").trim()) {
+                      setRegenerateVoiceover(true);
+                    }
+                  }}
                   placeholder="Edit the narration that will be spoken in the voiceover..."
                   className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                   minRows={3}
@@ -4537,6 +4740,34 @@ export default function SceneEditModal({
                   />
                 </button>
               </div>
+
+              {regenerateVoiceover && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+                      Match narration exactly
+                    </h4>
+                    <p className="mt-0.5 text-[11px] text-gray-400">
+                      Speak the narration word-for-word, without AI rephrasing.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMatchNarrationExactly(!matchNarrationExactly)}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                      matchNarrationExactly ? "bg-purple-600" : "bg-gray-200"
+                    }`}
+                    role="switch"
+                    aria-checked={matchNarrationExactly}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        matchNarrationExactly ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
 
               <div ref={layoutRef} className="relative">
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
@@ -4875,11 +5106,12 @@ export default function SceneEditModal({
               <img
                 src={imageAdjustSrc}
                 alt="Adjust preview"
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full"
                 style={{
-                  objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                  objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
+                  objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                   transform: `scale(${imageAdjustZoom})`,
-                  transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                  transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                 }}
                 draggable={false}
               />

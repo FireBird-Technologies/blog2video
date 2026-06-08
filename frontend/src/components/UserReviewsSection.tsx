@@ -95,26 +95,67 @@ const REVIEWS: Review[] = [
     quote:
       "Love what you are doing with blog2video. Will recommend it to everyone.",
   },
+  {
+    id: "cosmodestefano",
+    name: "Cosme P DeStefano",
+    source: "Wealth Your Way",
+    href: "https://www.cosmodestefano.com/p/10-habits-for-a-richer-happier-life",
+    pubId: "cosmodestefano",
+    quote:
+      "As a book author and Substack writer, I was skeptical that any tool or team could translate my writing into video content that actually sounded like me. Blog2Video changed my mind. The production quality is sharp, the turnaround has been fast, and the team has been genuinely responsive throughout. What impressed me most was the willingness to build a custom template that matched my brand, not just drop my posts into a generic layout. The result is video content that feels like a natural extension of my writing, not a watered-down version of it. The experience has been professional, collaborative, and worth the investment, for a fraction of what traditional video production would have cost. For any writer or content creator who wants to extend their work into video without sacrificing what makes their brand distinctive, Blog2Video is worth a serious look",
+  },
 ];
 
 // ─── Review card ──────────────────────────────────────────────────────────────
 
-function ReviewCard({ review }: { review: Review }) {
+const LONG_QUOTE_CHARS = 140;
+
+function ReviewCard({
+  review,
+  isExpanded,
+  onToggle,
+}: {
+  review: Review;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
   const pub = pubById[review.pubId];
+  const isLong = review.quote.length > LONG_QUOTE_CHARS;
   return (
-    <div className="shrink-0 w-[260px] mx-3 flex flex-col gap-3 bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+    <div
+      className={`shrink-0 mx-3 min-h-[150px] flex flex-col gap-3 bg-white border rounded-2xl shadow-sm overflow-hidden transition-[width,box-shadow,border-color] duration-300 ${
+        isExpanded
+          ? "w-[360px] border-purple-200 shadow-md"
+          : "w-[260px] border-gray-100"
+      }`}
+    >
       {/* Accent bar */}
       <div className="h-0.5 w-full bg-gradient-to-r from-purple-400 via-violet-400 to-purple-300" />
 
-      <div className="px-4 pb-4 flex flex-col gap-3">
+      <div className="px-4 pb-4 flex flex-col gap-3 flex-1">
 
         {/* Quote */}
-        <p className="text-[11.5px] text-gray-600 leading-relaxed line-clamp-3">
+        <p
+          className={`text-[11.5px] text-gray-600 leading-relaxed ${
+            isExpanded ? "" : "line-clamp-3"
+          }`}
+        >
           &ldquo;{review.quote}&rdquo;
         </p>
 
+        {isLong && (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="self-start text-[10px] font-medium text-purple-500 hover:text-purple-700 transition-colors"
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? "Show less" : "Read more"}
+          </button>
+        )}
+
         {/* Author */}
-        <div className="flex items-center gap-2.5">
+        <div className="mt-auto flex items-center gap-2.5">
           {pub && (
             <div className="shrink-0 w-7 h-7 rounded-full overflow-hidden border border-gray-100 bg-gray-50">
               <PublicationLogo pub={pub} size={28} />
@@ -141,10 +182,13 @@ function ReviewCard({ review }: { review: Review }) {
   );
 }
 
-const TICKER_LOOP_SECONDS = 24;
+const TICKER_LOOP_SECONDS = 36;
 
 function ReviewTicker({ running }: { running: boolean }) {
   const track = [...REVIEWS, ...REVIEWS, ...REVIEWS];
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const paused = !running || expandedKey !== null;
+
   return (
     <div
       className="relative mx-auto w-full overflow-hidden px-3"
@@ -155,15 +199,23 @@ function ReviewTicker({ running }: { running: boolean }) {
       }}
     >
       <div
-        className="flex w-max"
+        className="flex w-max items-start"
         style={{
           animation: `ticker-scroll ${TICKER_LOOP_SECONDS}s linear infinite`,
-          animationPlayState: running ? "running" : "paused",
+          animationPlayState: paused ? "paused" : "running",
         }}
       >
-        {track.map((r, i) => (
-          <ReviewCard key={`${r.id}-${i}`} review={r} />
-        ))}
+        {track.map((r, i) => {
+          const key = `${r.id}-${i}`;
+          return (
+            <ReviewCard
+              key={key}
+              review={r}
+              isExpanded={expandedKey === key}
+              onToggle={() => setExpandedKey(expandedKey === key ? null : key)}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -185,17 +237,17 @@ export default function UserReviewsSection() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="py-16 border-t border-gray-100 overflow-hidden">
+    <section ref={sectionRef} className="pt-8  pb-16 overflow-hidden">
       <div className="max-w-5xl mx-auto px-6 mb-8 text-center">
         <p className="text-xs font-medium text-purple-600 tracking-widest uppercase mb-3">
           What users are saying
         </p>
-        <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-2">
+        {/* <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-2">
           Loved by writers everywhere
         </h2>
         <p className="text-sm text-gray-500 max-w-md mx-auto">
           Real feedback from real writers who use blog2video.
-        </p>
+        </p> */}
       </div>
       <ReviewTicker running={running} />
     </section>

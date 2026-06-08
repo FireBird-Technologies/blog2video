@@ -59,4 +59,6 @@ export interface SceneLayoutProps {
   showWebsiteButton?: boolean;
   /** Short label on the CTA pill above the link (from script / editor). */
   ctaButtonText?: string;
+  /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
+  ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
 }

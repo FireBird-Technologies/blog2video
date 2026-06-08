@@ -10,6 +10,7 @@ import {
   Scene,
   StudioResponse,
   ProjectTemplateChangeJob,
+  ProjectRegenerateScriptJob,
 } from "./types";
 
 // ─── Project API ──────────────────────────────────────────
@@ -93,6 +94,20 @@ export const changeProjectTemplateRegenerateLayouts = (
 export const getProjectTemplateChangeStatus = (projectId: number) =>
   api.get<ProjectTemplateChangeJob | null>(
     `/projects/${projectId}/template-change-status`
+  );
+
+export const regenerateScript = (
+  projectId: number,
+  body?: { user_instruction?: string },
+) =>
+  api.post<ProjectRegenerateScriptJob>(
+    `/projects/${projectId}/regenerate-script`,
+    body ?? {},
+  );
+
+export const getRegenerateScriptStatus = (projectId: number) =>
+  api.get<ProjectRegenerateScriptJob | null>(
+    `/projects/${projectId}/regenerate-script-status`
   );
 
 export const updateScene = (
