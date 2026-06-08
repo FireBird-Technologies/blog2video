@@ -75,21 +75,12 @@ class BlogVideoOAuthProvider(
 
             row = MCPClient(
                 client_id=client_id,
-                client_secret_hash=None,  # public clients use PKCE only
                 client_name=client_info.client_name or "MCP Client",
                 redirect_uris=[str(u) for u in (client_info.redirect_uris or [])],
                 grant_types=list(client_info.grant_types or []),
                 response_types=list(client_info.response_types or ["code"]),
                 scopes=(client_info.scope.split(" ") if client_info.scope else []),
                 token_endpoint_auth_method=client_info.token_endpoint_auth_method or "none",
-                client_uri=str(client_info.client_uri) if client_info.client_uri else None,
-                logo_uri=str(client_info.logo_uri) if client_info.logo_uri else None,
-                contacts=list(client_info.contacts) if client_info.contacts else None,
-                tos_uri=str(client_info.tos_uri) if client_info.tos_uri else None,
-                policy_uri=str(client_info.policy_uri) if client_info.policy_uri else None,
-                jwks_uri=str(client_info.jwks_uri) if client_info.jwks_uri else None,
-                software_id=client_info.software_id,
-                software_version=client_info.software_version,
             )
             db.add(row)
             db.commit()
@@ -113,7 +104,6 @@ class BlogVideoOAuthProvider(
                 user_id=None,  # filled in after Google login
                 redirect_uri=str(params.redirect_uri),
                 code_challenge=params.code_challenge,
-                code_challenge_method="S256",
                 scopes=list(params.scopes or []),
                 state=params.state,
                 expires_at=datetime.utcnow() + timedelta(seconds=AUTH_CODE_TTL_SECONDS),
@@ -277,12 +267,4 @@ def _client_row_to_info(row: MCPClient) -> OAuthClientInformationFull:
         response_types=row.response_types or ["code"],
         scope=" ".join(row.scopes) if row.scopes else None,
         client_name=row.client_name,
-        client_uri=row.client_uri,
-        logo_uri=row.logo_uri,
-        contacts=row.contacts,
-        tos_uri=row.tos_uri,
-        policy_uri=row.policy_uri,
-        jwks_uri=row.jwks_uri,
-        software_id=row.software_id,
-        software_version=row.software_version,
     )
