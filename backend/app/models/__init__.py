@@ -29,7 +29,6 @@ from app.models.support_conversation import (
     SupportMessage,
     SupportMessageRole,
 )
-from app.models.mcp_oauth import MCPClient, MCPAuthCode
 
 __all__ = [
 
@@ -40,5 +39,4 @@ __all__ = [
     "Referral", "ReferralSignup", "ReferralInvite", "CraftedTemplate", "CraftedTemplateEntitlement",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
-    "MCPClient", "MCPAuthCode",
 ]

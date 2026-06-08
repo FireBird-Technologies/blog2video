@@ -40,7 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -446,11 +446,7 @@ async def lifespan(app: FastAPI):
         import traceback
         traceback.print_exc()
 
-    # Start the MCP Streamable HTTP session manager — claude.ai POSTs JSON-RPC
-    # to /mcp/sse and the session manager handles connection lifecycle.
-    from app.routers.mcp_transport import streamable_session_manager
-    async with streamable_session_manager.run():
-        yield
+    yield
 
     try:
         if free_cleanup:
@@ -497,16 +493,7 @@ _always_allowed = [
     "https://blog2video.app",
     "https://www.blog2video.app",
     "https://muhammad-mehdi-backend-b2v.hf.space",
-    "https://blog2video.pages.dev",
-    # MCP — Claude clients
-    "https://claude.ai",
-    "https://app.anthropic.com",
-    # MCP — Inspector (local dev)
-    "http://localhost:6274",
-    "http://127.0.0.1:6274",
-    # MCP — ChatGPT
-    "https://chatgpt.com",
-    "https://chat.openai.com",
+    "https://blog2video.pages.dev"
 ]
 for origin in _always_allowed:
     if origin not in _origins:
@@ -515,8 +502,7 @@ for origin in _always_allowed:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
-    # Vercel previews + subdomains + HF Spaces + Anthropic subdomains (for MCP)
-    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai)",
+    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app|.*\.hf\.space)",  # Vercel previews + subdomains + HF Spaces
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -541,23 +527,6 @@ app.include_router(embed.router)
 app.include_router(unsubscribe.router)
 app.include_router(affiliate.router)
 app.include_router(support.router)
-# Hosted MCP server: OAuth 2.1 + SSE transport
-app.include_router(mcp_oauth.router)
-# Root-level OAuth discovery endpoints (RFC 8414 + RFC 9728 require these to
-# live at the host root, not under /mcp). Must be included BEFORE the /mcp
-# mount below so the routes aren't shadowed.
-app.include_router(mcp_oauth.root_router)
-# Mount a single Starlette sub-app at /mcp that bundles:
-#   - The SDK's OAuth routes (/authorize, /token, /register)
-#   - Raw ASGI handlers for /sse (GET, opens SSE stream) and /messages/ (POST)
-# Using raw ASGI handlers lets the MCP SDK write its own responses without
-# FastAPI trying to write a second one on top. The OAuth-router FastAPI
-# routes (/mcp/.well-known/oauth-authorization-server, /mcp/google-start,
-# /mcp/google-callback) are matched first because include_router runs before
-# the mount.
-app.mount("/mcp", mcp_oauth.build_sdk_starlette_app(
-    extra_routes=mcp_transport.starlette_routes(),
-))
 
 
 @app.get("/api/health")
