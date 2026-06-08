@@ -195,6 +195,16 @@ const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed" | "mo
   more_detailed: "More Detailed  ~  8+ mins",
 };
 
+/**
+ * Minimum source-content word count each tier needs to actually reach that length.
+ * Mirrors the backend thresholds in pipeline.py (_effective_video_length_for_content):
+ * below these counts the video is automatically shortened to a smaller tier.
+ */
+const VIDEO_LENGTH_MIN_WORDS: Partial<Record<"short" | "medium" | "detailed" | "more_detailed", number>> = {
+  detailed: 1500,
+  more_detailed: 2000,
+};
+
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"];
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -929,7 +939,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const renderVideoLengthDropdown = (
     value: "short" | "medium" | "detailed" | "more_detailed",
     onSelect: (next: "short" | "medium" | "detailed" | "more_detailed") => void
-  ) => (
+  ) => {
+    const minWords = VIDEO_LENGTH_MIN_WORDS[value];
+    return (
+    <>
     <details className="relative group">
       <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
         <span>{VIDEO_LENGTH_DURATION_LABELS[value]}</span>
@@ -963,7 +976,20 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </div>
     </details>
-  );
+    {minWords && (
+      <p className="mt-1.5 flex items-start gap-1 text-[11px] text-red-600 leading-relaxed">
+        <svg className="w-3.5 h-3.5 flex-shrink-0 mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <span>
+          Make sure your content is at least ~{minWords.toLocaleString()} words for this length,
+          otherwise the video will be automatically shortened.
+        </span>
+      </p>
+    )}
+    </>
+    );
+  };
 
   // Load templates, voice previews, and user's saved voices once
   useEffect(() => {

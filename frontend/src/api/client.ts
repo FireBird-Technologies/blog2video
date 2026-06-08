@@ -115,6 +115,7 @@ export interface Scene {
   voiceover_path: string | null;
   duration_seconds: number;
   extra_hold_seconds?: number | null;
+  preferred_layout?: string | null;
   created_at: string;
 }
 
