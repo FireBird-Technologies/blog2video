@@ -49,10 +49,10 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
-    STRIPE_PRO_PRICE_ID: str = ""  # Price ID for $50/mo Pro plan
-    STRIPE_PRO_ANNUAL_PRICE_ID: str = ""  # Price ID for $480/yr Pro plan (20% off)
-    STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $25/mo Standard plan (30 videos)
-    STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $20/mo effective Standard annual
+    STRIPE_PRO_PRICE_ID: str = ""  # Price ID for $60/mo Pro plan
+    STRIPE_PRO_ANNUAL_PRICE_ID: str = ""  # Price ID for $576/yr Pro plan (20% off)
+    STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $35/mo Standard plan (30 videos)
+    STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $28/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
     STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
     STRIPE_3VID_MONTHLY_COUPON_ID: str = ""  # 15% off Pro monthly, once-per-customer (out-of-videos offer)

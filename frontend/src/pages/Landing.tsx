@@ -1096,8 +1096,8 @@ export default function Landing() {
             Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first 3 videos are free. Then from $2.80/video pay-as-you-go, $25/month
-            (or $20/mo annual), $50/month with unlimited AI edit & image generation,
+            Your first 3 videos are free. Then from $2.80/video pay-as-you-go, $35/month
+            (or $28/mo annual), $60/month with unlimited AI edit & image generation,
             or custom plans for enterprise teams.
           </p>
 
@@ -1114,16 +1114,16 @@ export default function Landing() {
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
-              <p className="text-3xl font-bold text-gray-900">$25<span className="text-sm font-normal text-gray-400">/mo</span></p>
-              <p className="text-xs text-gray-400 mt-1">or $20/mo annual</p>
+              <p className="text-3xl font-bold text-gray-900">$35<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">or $28/mo annual</p>
             </div>
             <div className="relative px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/60" style={{ background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.10), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.95)" }}>
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                 <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Best value</span>
               </div>
               <p className="text-sm font-medium text-gray-900 mb-1">Pro</p>
-              <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
-              <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
+              <p className="text-3xl font-bold text-gray-900">$60<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">or $48/mo annual</p>
             </div>
             <div className="px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/50" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
               <p className="text-sm font-medium text-gray-900 mb-1">Customized</p>
