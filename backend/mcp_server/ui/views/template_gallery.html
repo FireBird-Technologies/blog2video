@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog2Video Templates</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #e8e8e8;
+      padding: 14px;
+      padding-bottom: 70px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 11px;
+      font-weight: 500;
+      color: #555;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .card {
+      background: #141414;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #222;
+      cursor: pointer;
+      transition: border-color .15s, transform .1s, box-shadow .15s;
+      user-select: none;
+    }
+
+    .card:hover { border-color: #444; transform: translateY(-1px); }
+
+    .card.selected {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59,130,246,.35);
+    }
+
+    .card img {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      display: block;
+      background: #1a1a1a;
+    }
+
+    .info { padding: 8px 10px 10px; }
+
+    .info h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: #ddd;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .genres {
+      font-size: 10px;
+      color: #555;
+      margin-bottom: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .use-hint {
+      font-size: 10px;
+      font-family: "SF Mono", ui-monospace, monospace;
+      color: #3b82f6;
+      background: #0f1929;
+      border: 1px solid #1e3a5f;
+      border-radius: 4px;
+      padding: 2px 6px;
+      display: inline-block;
+      transition: background .15s;
+    }
+
+    .card.selected .use-hint {
+      background: #1e3a5f;
+      border-color: #3b82f6;
+    }
+
+    /* Bottom selection bar */
+    #sel-bar {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #0d1f3c;
+      border-top: 1.5px solid #3b82f6;
+      padding: 10px 14px;
+      align-items: center;
+      gap: 10px;
+      z-index: 100;
+    }
+
+    #sel-bar.visible { display: flex; }
+
+    #sel-bar .check {
+      width: 20px; height: 20px;
+      background: #3b82f6;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    #sel-bar .label {
+      font-size: 12px;
+      color: #aaa;
+      flex: 1;
+    }
+
+    #sel-bar .label strong { color: #fff; }
+
+    #sel-bar .cmd {
+      font-family: "SF Mono", ui-monospace, monospace;
+      font-size: 11px;
+      color: #3b82f6;
+      background: #0f1929;
+      border: 1px solid #1e3a5f;
+      border-radius: 4px;
+      padding: 3px 8px;
+    }
+
+    #copied-toast {
+      display: none;
+      position: fixed;
+      top: 10px; left: 50%; transform: translateX(-50%);
+      background: #1e3a5f;
+      border: 1px solid #3b82f6;
+      color: #93c5fd;
+      font-size: 11px;
+      border-radius: 6px;
+      padding: 5px 12px;
+      z-index: 200;
+    }
+  </style>
+</head>
+<body>
+  <h1>Blog2Video Templates &mdash; click to select</h1>
+
+  <div class="grid">
+
+    <div class="card" data-id="default" data-name="Default">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/default.png" alt="Default" loading="lazy">
+      <div class="info">
+        <h3>Default</h3>
+        <div class="genres">General &middot; All genres</div>
+        <span class="use-hint">use default</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="nightfall" data-name="Nightfall">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/nightfall.png" alt="Nightfall" loading="lazy">
+      <div class="info">
+        <h3>Nightfall</h3>
+        <div class="genres">Tech &middot; Finance</div>
+        <span class="use-hint">use nightfall</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="gridcraft" data-name="Gridcraft">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/gridcraft.png" alt="Gridcraft" loading="lazy">
+      <div class="info">
+        <h3>Gridcraft</h3>
+        <div class="genres">Business &middot; Product</div>
+        <span class="use-hint">use gridcraft</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="spotlight" data-name="Spotlight">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/spotlight.png" alt="Spotlight" loading="lazy">
+      <div class="info">
+        <h3>Spotlight</h3>
+        <div class="genres">Marketing &middot; Brand</div>
+        <span class="use-hint">use spotlight</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="whiteboard" data-name="Whiteboard">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/whiteboard.png" alt="Whiteboard" loading="lazy">
+      <div class="info">
+        <h3>Whiteboard</h3>
+        <div class="genres">Education &middot; Explainer</div>
+        <span class="use-hint">use whiteboard</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="newspaper" data-name="Newspaper">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/newspaper.png" alt="Newspaper" loading="lazy">
+      <div class="info">
+        <h3>Newspaper</h3>
+        <div class="genres">News &middot; Editorial</div>
+        <span class="use-hint">use newspaper</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="matrix" data-name="Matrix">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/matrix.png" alt="Matrix" loading="lazy">
+      <div class="info">
+        <h3>Matrix</h3>
+        <div class="genres">Tech &middot; Data</div>
+        <span class="use-hint">use matrix</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="newscast" data-name="Newscast">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/newscast.png" alt="Newscast" loading="lazy">
+      <div class="info">
+        <h3>Newscast</h3>
+        <div class="genres">News &middot; Broadcast</div>
+        <span class="use-hint">use newscast</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="mosaic" data-name="Mosaic">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/mosaic.png" alt="Mosaic" loading="lazy">
+      <div class="info">
+        <h3>Mosaic</h3>
+        <div class="genres">Lifestyle &middot; Creative</div>
+        <span class="use-hint">use mosaic</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="blackswan" data-name="Black Swan">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/blackswan.png" alt="Black Swan" loading="lazy">
+      <div class="info">
+        <h3>Black Swan</h3>
+        <div class="genres">Finance &middot; Premium</div>
+        <span class="use-hint">use blackswan</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="bloomberg" data-name="Bloomberg">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/bloomberg.png" alt="Bloomberg" loading="lazy">
+      <div class="info">
+        <h3>Bloomberg</h3>
+        <div class="genres">Finance &middot; Markets</div>
+        <span class="use-hint">use bloomberg</span>
+      </div>
+    </div>
+
+    <div class="card" data-id="chronicle" data-name="Chronicle">
+      <img src="https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/chronicle.png" alt="Chronicle" loading="lazy">
+      <div class="info">
+        <h3>Chronicle</h3>
+        <div class="genres">Documentary &middot; Story</div>
+        <span class="use-hint">use chronicle</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Selection bar (appears at bottom on click) -->
+  <div id="sel-bar">
+    <div class="check">✓</div>
+    <div class="label">Selected: <strong id="sel-name"></strong></div>
+    <span class="cmd" id="sel-cmd"></span>
+  </div>
+
+  <div id="copied-toast">Copied to clipboard!</div>
+
+  <script>
+    var current = null;
+    var toast = document.getElementById('copied-toast');
+    var bar = document.getElementById('sel-bar');
+
+    document.querySelectorAll('.card').forEach(function(card) {
+      card.addEventListener('click', function() {
+        if (current) current.classList.remove('selected');
+        current = card;
+        card.classList.add('selected');
+
+        var id = card.dataset.id;
+        var name = card.dataset.name;
+        var cmd = 'use ' + id;
+
+        document.getElementById('sel-name').textContent = name;
+        document.getElementById('sel-cmd').textContent = cmd;
+        bar.classList.add('visible');
+
+        // Copy to clipboard
+        try {
+          navigator.clipboard.writeText(cmd).then(function() {
+            toast.style.display = 'block';
+            setTimeout(function() { toast.style.display = 'none'; }, 1800);
+          });
+        } catch(e) {}
+
+        // Notify parent (MCP Apps host)
+        try {
+          window.parent.postMessage({ type: 'template-selected', id: id, name: name, cmd: cmd }, '*');
+        } catch(e) {}
+      });
+    });
+  </script>
+</body>
+</html>
