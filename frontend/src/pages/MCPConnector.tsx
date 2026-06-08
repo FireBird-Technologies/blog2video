@@ -65,9 +65,10 @@ export default function MCPConnector() {
           </p>
         </header>
 
-        {/* ─── Server URL card ───────────────────────────────── */}
-        <section className="mb-12">
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
+        {/* ─── Server URL + n8n side by side ────────────────── */}
+        <section className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+          {/* MCP Server URL */}
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6 flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">MCP Server URL</h2>
@@ -100,6 +101,127 @@ export default function MCPConnector() {
             <code className="block bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm font-mono text-gray-800 select-all overflow-x-auto">
               {MCP_SERVER_URL}
             </code>
+
+            {/* Supported clients */}
+            <div className="mt-5 flex-1 flex flex-col justify-end">
+              <p className="text-xs font-medium text-gray-500 mb-3">Works with</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Claude.ai", sub: "Anthropic", color: "bg-orange-50 border-orange-100 text-orange-700" },
+                  { label: "ChatGPT", sub: "OpenAI", color: "bg-emerald-50 border-emerald-100 text-emerald-700" },
+                  { label: "Gemini CLI", sub: "Google", color: "bg-blue-50 border-blue-100 text-blue-700" },
+                  { label: "n8n", sub: "Automation", color: "bg-rose-50 border-rose-100 text-rose-700" },
+                ].map(({ label, sub, color }) => (
+                  <div key={label} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${color}`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold leading-none">{label}</p>
+                      <p className="text-[10px] opacity-60 mt-0.5">{sub}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Connect to n8n */}
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
+                <svg className="w-5 h-5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="6" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="18" r="3" />
+                  <line x1="8.6" y1="10.7" x2="15.4" y2="7.3" />
+                  <line x1="8.6" y1="13.3" x2="15.4" y2="16.7" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Connect to n8n</h2>
+                <p className="text-xs text-gray-500">Automate Blog2Video from an n8n workflow</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-700 mb-4">
+              In n8n's <strong>MCP Client Tool</strong> node, set the server URL above with{" "}
+              <strong>HTTP Streamable</strong> transport, choose <strong>Bearer Auth</strong>, and paste
+              the token below.
+            </p>
+
+            {/* JWT block */}
+            <div className="mb-5">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <span className="text-xs font-semibold text-gray-900">Your Blog2Video JWT</span>
+                <div className="flex items-center gap-3">
+                  {token && (
+                    <button
+                      onClick={() => setShowToken((s) => !s)}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+                    >
+                      {showToken ? "Hide" : "Show"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => copy(token ?? "", "jwt")}
+                    disabled={!token}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+                  >
+                    {copiedKey === "jwt" ? (
+                      <>
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        Copy token
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+              <code className="block bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm font-mono text-gray-800 break-all">
+                {token ? (showToken ? token : "•".repeat(48)) : "Sign in to view your token"}
+              </code>
+              <p className="text-[11px] text-gray-500 mt-2">
+                This token expires in ~72 hours — if n8n stops working, sign in again and copy a fresh one.
+                Treat it like a password: anyone with it can act on your account.
+              </p>
+            </div>
+
+            {/* Setup guide link */}
+            <div className="border-t border-gray-100 pt-4">
+              <a
+                href="https://blog2video.app/blogs/blog2video-mcp-server-n8n"
+                target="_blank"
+                rel="noreferrer"
+                className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-4 transition-colors hover:border-purple-300 hover:from-purple-100"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-600 text-white shadow-sm">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-gray-900 group-hover:text-purple-700">
+                    Read the full n8n setup guide
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Step-by-step walkthrough with ready-to-import workflows.
+                  </p>
+                </div>
+                <svg className="h-5 w-5 shrink-0 text-purple-500 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </a>
+            </div>
           </div>
         </section>
 
@@ -359,170 +481,6 @@ export default function MCPConnector() {
           </div>
         </section>
 
-        {/* ─── Connect to n8n ────────────────────────────────── */}
-        <section className="mb-12">
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
-                <svg className="w-5 h-5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="18" cy="6" r="3" />
-                  <circle cx="6" cy="12" r="3" />
-                  <circle cx="18" cy="18" r="3" />
-                  <line x1="8.6" y1="10.7" x2="15.4" y2="7.3" />
-                  <line x1="8.6" y1="13.3" x2="15.4" y2="16.7" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-gray-900">Connect to n8n</h2>
-                <p className="text-xs text-gray-500">Automate Blog2Video from an n8n workflow</p>
-              </div>
-            </div>
-
-            <p className="text-sm text-gray-700 mb-4">
-              In n8n's <strong>MCP Client Tool</strong> node, set the server URL above with{" "}
-              <strong>HTTP Streamable</strong> transport, choose <strong>Bearer Auth</strong>, and paste
-              the token below.
-            </p>
-
-            {/* JWT block */}
-            <div className="mb-5">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <span className="text-xs font-semibold text-gray-900">Your Blog2Video JWT</span>
-                <div className="flex items-center gap-3">
-                  {token && (
-                    <button
-                      onClick={() => setShowToken((s) => !s)}
-                      className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
-                    >
-                      {showToken ? "Hide" : "Show"}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => copy(token ?? "", "jwt")}
-                    disabled={!token}
-                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
-                  >
-                    {copiedKey === "jwt" ? (
-                      <>
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        Copy token
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-              <code className="block bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm font-mono text-gray-800 break-all">
-                {token ? (showToken ? token : "•".repeat(48)) : "Sign in to view your token"}
-              </code>
-              <p className="text-[11px] text-gray-500 mt-2">
-                This token expires in ~72 hours — if n8n stops working, sign in again and copy a fresh one.
-                Treat it like a password: anyone with it can act on your account.
-              </p>
-            </div>
-
-            {/* Setup guide: link to the full blog walkthrough */}
-            <div className="border-t border-gray-100 pt-4">
-              <a
-                href="https://blog2video.app/blogs/blog2video-mcp-server-n8n"
-                target="_blank"
-                rel="noreferrer"
-                className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-4 transition-colors hover:border-purple-300 hover:from-purple-100"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-600 text-white shadow-sm">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900 group-hover:text-purple-700">
-                    Read the full n8n setup guide
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Step-by-step walkthrough with ready-to-import workflows — from a blog URL to a finished video, fully automated.
-                  </p>
-                </div>
-                <svg className="h-5 w-5 shrink-0 text-purple-500 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </a>
-            </div>
-
-            {/* Previous inline setup guide (now linked out to the blog above) — kept for reference.
-                To restore: uncomment the showGuide/guide state + /n8n.md fetch at the top of this file,
-                re-add the useEffect/ReactMarkdown/remarkGfm imports, then re-enable this block.
-
-            <div className="border-t border-gray-100 pt-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <button
-                  onClick={() => setShowGuide((s) => !s)}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
-                >
-                  <svg className={`w-4 h-4 transition-transform ${showGuide ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                  {showGuide ? "Hide setup guide" : "Show setup guide"}
-                </button>
-                <a
-                  href="/n8n.md"
-                  download="blog2video-n8n-guide.md"
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  Download setup guide
-                </a>
-              </div>
-              {showGuide && (
-                <div className="mt-4 max-h-[28rem] overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-4">
-                  {guide ? (
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        h1: ({ children }) => <h1 className="text-lg font-bold text-gray-900 mt-4 mb-2 first:mt-0">{children}</h1>,
-                        h2: ({ children }) => <h2 className="text-base font-semibold text-gray-900 mt-4 mb-2">{children}</h2>,
-                        h3: ({ children }) => <h3 className="text-sm font-semibold text-gray-800 mt-3 mb-1">{children}</h3>,
-                        h4: ({ children }) => <h4 className="text-sm font-semibold text-gray-700 mt-2 mb-1">{children}</h4>,
-                        p: ({ children }) => <p className="text-sm text-gray-700 leading-relaxed my-2">{children}</p>,
-                        a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="text-purple-600 hover:underline break-words">{children}</a>,
-                        strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
-                        ul: ({ children }) => <ul className="list-disc list-outside pl-5 space-y-1 my-2 text-sm">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal list-outside pl-5 space-y-1 my-2 text-sm">{children}</ol>,
-                        li: ({ children }) => <li className="text-gray-700 text-sm">{children}</li>,
-                        blockquote: ({ children }) => <blockquote className="border-l-2 border-purple-200 pl-3 my-2 text-sm text-gray-600 italic">{children}</blockquote>,
-                        code: ({ children }) => <code className="bg-gray-200/70 rounded px-1 py-0.5 text-[12px] font-mono text-gray-800 break-words">{children}</code>,
-                        pre: ({ children }) => <pre className="bg-gray-100 border border-gray-200 rounded-lg p-3 text-[12px] leading-relaxed overflow-x-auto my-2">{children}</pre>,
-                        hr: () => <hr className="my-4 border-gray-200" />,
-                        table: ({ children }) => <div className="overflow-x-auto my-2"><table className="text-sm border-collapse">{children}</table></div>,
-                        th: ({ children }) => <th className="border border-gray-200 px-2 py-1 text-left font-semibold text-gray-800 bg-gray-100">{children}</th>,
-                        td: ({ children }) => <td className="border border-gray-200 px-2 py-1 text-gray-700">{children}</td>,
-                      }}
-                    >
-                      {guide}
-                    </ReactMarkdown>
-                  ) : (
-                    <p className="text-sm text-gray-500">Loading guide…</p>
-                  )}
-                </div>
-              )}
-            </div>
-            */}
-          </div>
-        </section>
 
         {/* ─── Try prompts ───────────────────────────────────── */}
         <section className="mb-4">
