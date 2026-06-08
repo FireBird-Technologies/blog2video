@@ -98,10 +98,10 @@ export const EmbossedImage: React.FC<EmbossedImageProps> = ({
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "cover",
-            objectPosition: objectPosition ?? "50% 50%",
-            transform: `scale(${Math.max(1, zoom ?? 1)})`,
-            transformOrigin: objectPosition ?? "50% 50%",
+            objectFit: (zoom ?? 1) < 1 ? "contain" : "cover",
+            objectPosition: (zoom ?? 1) < 1 ? "center" : (objectPosition ?? "50% 50%"),
+            transform: `scale(${zoom ?? 1})`,
+            transformOrigin: (zoom ?? 1) < 1 ? "center center" : (objectPosition ?? "50% 50%"),
             filter: `sepia(${sepiaAmount}) saturate(0.85) contrast(1.05) brightness(0.94) blur(${blurAmount}px)`,
             display: "block",
           }}

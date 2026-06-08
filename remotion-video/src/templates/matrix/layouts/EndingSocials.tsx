@@ -4,6 +4,7 @@ import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
+import { resolveCtas } from "../../shared/resolveCtas";
 
 const GLITCH_CHARS = "アイウエオカキクケコ0123456789!@#$%^&*<>{}[]";
 
@@ -65,6 +66,7 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+  ctas,
   accentColor,
   bgColor,
   textColor,
@@ -80,13 +82,18 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   const resolvedFontFamily = (fontFamily ?? "").trim() || MATRIX_DEFAULT_FONT_FAMILY;
 
   const subtext = (narration ?? "").trim();
-  const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
+
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const hasAnyCard = cards.length > 0;
+  const cardCount = Math.min(Math.max(cards.length, 1), 3);
 
   // --- Dynamic Sizing ---
   const resolvedTitleSize = titleFontSize ?? (p ? 76 : 57);
-  const resolvedCtaSize = resolvedTitleSize * 1.2;
+  const baseCtaSize = resolvedTitleSize * 1.2;
+  const ctaSize = cardCount === 1 ? baseCtaSize : Math.max(28, baseCtaSize * 0.5);
 
   // --- Timing logic ---
   const titleStart = 10;
@@ -188,55 +195,74 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
         </div>
       </div>
 
-      {/* 2. BOTTOM GROUP: Moved significantly higher toward center */}
-      {showWebsiteCta && (
+      {/* 2. BOTTOM GROUP — 1/2/3 CTA columns */}
+      {hasAnyCard && (
         <div style={{
           position: "absolute",
-          bottom: p ? "18%" : "15%", // Increased from 8%/7% to move toward center
+          bottom: p ? "18%" : "15%",
           left: 0,
           right: 0,
           display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          alignItems: "flex-start",
+          gap: 24,
+          padding: "0 6%",
           zIndex: 2,
         }}>
-          {/* Large CTA Button */}
-          <div style={{
-            padding: p ? "15px 35px" : "12px 28px",
-            border: `2px solid ${accent}66`,
-            borderRadius: 12,
-            boxShadow: `0 0 25px ${accent}44`,
-            background: "rgba(0,0,0,0.5)",
-          }}>
-             <DecodeText
-                text={resolvedCta}
-                startFrame={ctaStart}
-                decodeFramesPerChar={2}
-                accent={accent}
-                fontFamily={resolvedFontFamily}
-                style={{
-                  color: accent,
-                  fontSize: resolvedCtaSize,
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  lineHeight: 1,
-                  letterSpacing: "0.02em",
-                }}
-              />
-          </div>
-          
-          {/* Website Link */}
-          <div style={{ 
-            marginTop: 10,
-            fontSize: p ? 24 : 20, 
-            color: textColor || "#00FF41", 
-            opacity: otherElementsOpacity,
-            fontFamily: resolvedFontFamily,
-            letterSpacing: "0.05em",
-            fontWeight: 600,
-          }}>
-            {resolvedWebsiteLink}
-          </div>
+          {cards.map((card, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                flex: cardCount === 1 ? "0 1 auto" : "1 1 0",
+                minWidth: p ? 220 : 240,
+                maxWidth: cardCount === 1 ? "100%" : cardCount === 2 ? "46%" : "32%",
+              }}
+            >
+              <div style={{
+                padding: cardCount === 1 ? (p ? "15px 35px" : "12px 28px") : (p ? "10px 22px" : "10px 24px"),
+                border: `2px solid ${accent}66`,
+                borderRadius: 12,
+                boxShadow: `0 0 25px ${accent}44`,
+                background: "rgba(0,0,0,0.5)",
+              }}>
+                <DecodeText
+                  text={card.ctaButtonText.trim() || "Get started"}
+                  startFrame={ctaStart + idx * 4}
+                  decodeFramesPerChar={2}
+                  accent={accent}
+                  fontFamily={resolvedFontFamily}
+                  style={{
+                    color: accent,
+                    fontSize: ctaSize,
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    lineHeight: 1,
+                    letterSpacing: "0.02em",
+                  }}
+                />
+              </div>
+
+              <div style={{
+                marginTop: 10,
+                fontSize: cardCount === 1 ? (p ? 24 : 20) : (p ? 18 : 16),
+                color: textColor || "#00FF41",
+                opacity: otherElementsOpacity,
+                fontFamily: resolvedFontFamily,
+                letterSpacing: "0.05em",
+                fontWeight: 600,
+                maxWidth: "100%",
+                wordBreak: "break-word",
+                textAlign: "center",
+              }}>
+                {card.websiteLink}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </AbsoluteFill>

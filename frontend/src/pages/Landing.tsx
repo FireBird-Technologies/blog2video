@@ -759,6 +759,9 @@ export default function Landing() {
 
       <PlatformShowcaseSection />
 
+
+      <UserReviewsSection />
+
       <LandingDemoSection demos={demos} />
 
       {/* ─── Multiple templates ─── */}
@@ -1084,7 +1087,6 @@ export default function Landing() {
         </div>
       </section>
 
-      <UserReviewsSection />
 
       {/* ─── Pricing preview ─── */}
       <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>

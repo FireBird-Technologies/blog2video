@@ -88,7 +88,7 @@ def _migrate_sqlite(eng) -> None:
             "logo_r2_url": "VARCHAR(2048)",
             "logo_position": "VARCHAR(20) DEFAULT 'bottom_right'",
             "logo_opacity": "REAL DEFAULT 0.9",
-            "logo_size": "REAL DEFAULT 100",
+            "logo_size": "REAL DEFAULT 70",
             "custom_voice_id": "VARCHAR(100)",
             "template": "VARCHAR(50) DEFAULT 'default'",
             "crafted_template_id": "INTEGER",
