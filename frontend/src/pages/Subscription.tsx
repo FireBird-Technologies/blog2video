@@ -598,22 +598,22 @@ export default function Subscription() {
             <div className="mb-4">
               {billingCycle === "annual" ? (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$20</span>
+                  <span className="text-2xl font-bold text-gray-900">$28</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-xs text-gray-400 line-through">$25/mo</span>
+                    <span className="text-xs text-gray-400 line-through">$35/mo</span>
                     <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                       Save 20%
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">$240 billed annually</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">$336 billed annually</p>
                 </>
               ) : (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$25</span>
+                  <span className="text-2xl font-bold text-gray-900">$35</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <p className="text-[10px] text-gray-400 mt-1">
-                    or <span className="font-medium text-gray-500">$20/mo</span> billed annually
+                    or <span className="font-medium text-gray-500">$28/mo</span> billed annually
                   </p>
                 </>
               )}
@@ -661,22 +661,22 @@ export default function Subscription() {
             <div className="mb-4">
               {billingCycle === "annual" ? (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$40</span>
+                  <span className="text-2xl font-bold text-gray-900">$48</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-xs text-gray-400 line-through">$50/mo</span>
+                    <span className="text-xs text-gray-400 line-through">$60/mo</span>
                     <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                       Save 20%
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">$480 billed annually</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">$576 billed annually</p>
                 </>
               ) : (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$50</span>
+                  <span className="text-2xl font-bold text-gray-900">$60</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <p className="text-[10px] text-gray-400 mt-1">
-                    or <span className="font-medium text-gray-500">$40/mo</span> billed annually
+                    or <span className="font-medium text-gray-500">$48/mo</span> billed annually
                   </p>
                 </>
               )}
