@@ -34,6 +34,7 @@ RUN cd remotion-video && npx remotion browser ensure
 # ── Backend: app, templates (default, nightfall, gridcraft, spotlight) ──
 COPY backend/app/ ./backend/app/
 COPY backend/templates/ ./backend/templates/
+COPY backend/mcp_server/ ./backend/mcp_server/
 
 # ── Runtime config ───────────────────────────────────────────
 ENV REMOTION_PROJECT_PATH=/app/remotion-video
