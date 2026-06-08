@@ -14,6 +14,8 @@ from app.models.custom_voice import CustomVoice
 from app.models.prebuilt_voice import PrebuiltVoice
 from app.models.review import Review
 from app.models.project_template_change_job import ProjectTemplateChangeJob
+from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
+from app.models.project_voice_change_job import ProjectVoiceChangeJob
 from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.models.referral import Referral, ReferralSignup, ReferralInvite
@@ -36,7 +38,8 @@ __all__ = [
     "User", "Project", "Scene", "Asset", "ChatMessage",
     "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
     "ProjectEditHistory", "SceneEditHistory", "Review", "TemplateVersion",
-    "ProjectTemplateChangeJob", "UpdateEmail", "UpdateEmailSend",
+    "ProjectTemplateChangeJob", "ProjectRegenerateScriptJob", "ProjectVoiceChangeJob",
+    "UpdateEmail", "UpdateEmailSend",
     "Referral", "ReferralSignup", "ReferralInvite", "CraftedTemplate", "CraftedTemplateEntitlement",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
