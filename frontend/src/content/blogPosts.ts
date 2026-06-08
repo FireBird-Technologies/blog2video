@@ -497,6 +497,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets you generate an embed link for any video draft with scenes so teammates, clients, and readers can preview and share it before the final render.",
     category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-embed-preview-no-render-needed.png",
+    heroImageAlt:
+      "A website page with an embedded Blog2Video preview player and share link, showing a video draft before final render.",
     publishedAt: "2026-04-23",
     readTime: "4 min read",
     heroEyebrow: "Product Update - April 2026",
@@ -618,6 +621,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video's latest release adds two new templates, full mobile support, a smarter Newscast workflow, faster review controls, better voiceovers, and expert-built custom templates.",
     category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-just-shipped-april-2026.png",
+    heroImageAlt:
+      "Blog2Video April 2026 release showing new Mosaic and Black Swan templates on desktop and mobile alongside Newscast broadcast visuals.",
     publishedAt: "2026-04-16",
     readTime: "5 min read",
     heroEyebrow: "Product Update - April 2026",
@@ -757,6 +763,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "How to create faceless videos from blog posts, newsletters, and explainers without becoming a full-time on-camera creator.",
     category: "Strategy",
+    heroImage: "/blog/blog-cover-faceless-videos-for-writers-and-marketers.png",
+    heroImageAlt:
+      "Written blog content transforming into a narrated faceless video with microphone waveform and distribution icons for YouTube and LinkedIn.",
     publishedAt: "2026-04-16",
     readTime: "8 min read",
     heroEyebrow: "Creator strategy",
