@@ -419,6 +419,13 @@ async def lifespan(app: FastAPI):
         init_db()
         print("[STARTUP] Database initialized successfully")
         _ensure_prebuilt_voices_seeded()
+        # Recover regenerate-script jobs orphaned by a previous crash/restart: roll them
+        # back so projects aren't stuck "script_regenerating" forever. Best-effort.
+        try:
+            from app.routers.projects import recover_orphaned_regenerate_script_jobs
+            recover_orphaned_regenerate_script_jobs()
+        except Exception as e:
+            print(f"[STARTUP] Orphaned regenerate-script recovery failed: {e}")
     except Exception as e:
         print(f"[STARTUP] Database initialization failed: {e}")
         import traceback

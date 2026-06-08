@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, inspect, text
+from sqlalchemy import func, inspect, text, update
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -33,6 +33,7 @@ from app.schemas.schemas import (
     SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
     ProjectTemplateChangeJobOut, ProjectVoiceChange,
     ProjectRegenerateScriptJobOut,
+    RegenerateScriptPreviewOut, RegenerateScriptPreviewScene,
 )
 from app.services import r2_storage
 from app.services.remotion import (
@@ -884,7 +885,9 @@ def get_project_template_change_status(
 
 
 
-_ACTIVE_REGENERATE_SCRIPT_STATUSES = {"queued", "running"}
+# "awaiting_review" is the paused state between the script and scene stages — treat it as
+# active so the duplicate-job guard blocks starting a fresh regeneration while one is parked.
+_ACTIVE_REGENERATE_SCRIPT_STATUSES = {"queued", "running", "awaiting_review"}
 
 
 def _set_regenerate_script_step(job_id: int, step: str) -> None:
@@ -902,21 +905,236 @@ def _set_regenerate_script_step(job_id: int, step: str) -> None:
         db.close()
 
 
-def _run_regenerate_script_job(job_id: int) -> None:
-    from app.routers.pipeline import _generate_script, _generate_scenes
+def _regenerate_audio_dir(project_id: int) -> str:
+    return os.path.join(settings.MEDIA_DIR, f"projects/{project_id}", "audio")
+
+
+def _regenerate_audio_backup_dir(project_id: int, job_id: int) -> str:
+    return os.path.join(settings.MEDIA_DIR, f"projects/{project_id}", f"audio_bak_{job_id}")
+
+
+def _backup_project_audio(project_id: int, job_id: int) -> None:
+    """Snapshot the project's voiceover audio before scene generation overwrites it.
+
+    Stage B regenerates every scene's MP3 in place (scene_N.mp3); the DB snapshot only
+    captures voiceover_path strings, so without this copy a rollback would leave the
+    paths pointing at the new (failed-run) audio. Best-effort — failures are logged.
+    """
+    src = _regenerate_audio_dir(project_id)
+    dst = _regenerate_audio_backup_dir(project_id, job_id)
+    try:
+        if os.path.isdir(dst):
+            shutil.rmtree(dst, ignore_errors=True)
+        if os.path.isdir(src):
+            shutil.copytree(src, dst)
+    except Exception:
+        logger.exception(
+            "[REGENERATE_SCRIPT_JOB] failed to back up audio for project=%s job=%s",
+            project_id, job_id,
+        )
+
+
+def _restore_project_audio(project_id: int, job_id: int) -> None:
+    src = _regenerate_audio_backup_dir(project_id, job_id)
+    dst = _regenerate_audio_dir(project_id)
+    try:
+        if os.path.isdir(src):
+            if os.path.isdir(dst):
+                shutil.rmtree(dst, ignore_errors=True)
+            shutil.copytree(src, dst)
+    except Exception:
+        logger.exception(
+            "[REGENERATE_SCRIPT_JOB] failed to restore audio for project=%s job=%s",
+            project_id, job_id,
+        )
+
+
+def _cleanup_audio_backup(project_id: int, job_id: int) -> None:
+    dst = _regenerate_audio_backup_dir(project_id, job_id)
+    try:
+        if os.path.isdir(dst):
+            shutil.rmtree(dst, ignore_errors=True)
+    except Exception:
+        logger.exception(
+            "[REGENERATE_SCRIPT_JOB] failed to clean up audio backup for project=%s job=%s",
+            project_id, job_id,
+        )
+
+
+def _rollback_regenerate_script(
+    db,
+    job_project_id: int | None,
+    scene_snapshot_raw: str,
+    job_id: int | None = None,
+    restore_audio: bool = False,
+) -> None:
+    """Restore the project to its pre-regeneration state after a failure.
+
+    Restores all scene rows from the snapshot, optionally restores on-disk voiceover
+    audio from the stage-B backup, then rebuilds the Remotion workspace so data.json
+    matches the restored scenes/audio/layouts. Never deducts a credit.
+    """
     from app.services.remotion import rebuild_workspace
 
+    if job_project_id is None:
+        return
+    try:
+        snapshot = json.loads(scene_snapshot_raw)
+        db.query(Scene).filter(Scene.project_id == job_project_id).delete()
+        db.flush()
+        for s in snapshot:
+            db.add(Scene(
+                project_id=job_project_id,
+                order=s["order"],
+                title=s["title"],
+                narration_text=s["narration_text"],
+                display_text=s.get("display_text"),
+                visual_description=s["visual_description"],
+                remotion_code=s.get("remotion_code"),
+                voiceover_path=s.get("voiceover_path"),
+                duration_seconds=s.get("duration_seconds", 10.0),
+                extra_hold_seconds=s.get("extra_hold_seconds"),
+                preferred_layout=s.get("preferred_layout"),
+                scene_type=s.get("scene_type"),
+            ))
+        project = db.query(Project).filter(Project.id == job_project_id).first()
+        if project:
+            project.status = ProjectStatus.GENERATED
+        db.commit()
+
+        # Restore the original voiceover audio that stage B overwrote (req 4).
+        if restore_audio and job_id is not None:
+            _restore_project_audio(job_project_id, job_id)
+
+        # Rebuild the workspace from the restored scenes so a re-render/preview is
+        # consistent with the rolled-back state. Keep existing image assignments.
+        if project:
+            restored_scenes = (
+                db.query(Scene)
+                .filter(Scene.project_id == job_project_id)
+                .order_by(Scene.order)
+                .all()
+            )
+            try:
+                rebuild_workspace(project, restored_scenes, db, redistribute_images=False)
+            except Exception:
+                logger.exception(
+                    "[REGENERATE_SCRIPT_JOB] workspace rebuild failed during rollback for project=%s",
+                    job_project_id,
+                )
+    except Exception as restore_err:
+        logger.exception(
+            "[REGENERATE_SCRIPT_JOB] restore failed for project=%s: %s",
+            job_project_id, restore_err,
+        )
+        try:
+            db.rollback()
+            project = db.query(Project).filter(Project.id == job_project_id).first()
+            if project:
+                project.status = ProjectStatus.GENERATED
+                db.commit()
+        except Exception:
+            pass
+
+
+def _mark_regenerate_script_failed(db, job_id: int, error: Exception) -> None:
+    """Mark a regenerate-script job failed and refund its reserved credit (once).
+
+    The credit is reserved upfront when the job is created, so every failure path must
+    refund it. Guarded on the prior status so a repeated call (e.g. crash recovery running
+    after the job was already failed) can't refund twice.
+    """
+    try:
+        job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
+        if not job:
+            return
+        if job.status != "failed":
+            # Atomic decrement (mirrors project_cleanup) so concurrent refunds don't lose updates.
+            db.execute(
+                update(User)
+                .where(User.id == job.user_id, User.videos_used_this_period > 0)
+                .values(videos_used_this_period=User.videos_used_this_period - 1)
+            )
+        job.status = "failed"
+        job.error_message = str(error)
+        job.completed_at = datetime.utcnow()
+        db.commit()
+    except Exception:
+        pass
+
+
+def recover_orphaned_regenerate_script_jobs() -> None:
+    """Roll back regenerate-script jobs left mid-run by a server crash/restart.
+
+    The job executes in a background thread (``loop.run_in_executor``); if the process
+    dies the thread is gone but the DB row stays ``queued``/``running``, so the project is
+    stuck in ``script_regenerating`` forever and the UI keeps showing the loader. The
+    in-process try/except can't catch process death, so we recover at boot: treat any such
+    job as failed and restore the original scenes + audio + workspace (no credit charged).
+
+    The ``awaiting_review`` pause is intentional and fully recoverable across restarts
+    (scenes persist; the user can still Proceed/Regenerate), so it is left untouched.
+    """
     db = SessionLocal()
+    try:
+        orphaned = (
+            db.query(ProjectRegenerateScriptJob)
+            .filter(ProjectRegenerateScriptJob.status.in_(["queued", "running"]))
+            .all()
+        )
+        if not orphaned:
+            return
+        logger.warning(
+            "[REGENERATE_SCRIPT_JOB] recovering %d orphaned job(s) after restart",
+            len(orphaned),
+        )
+        # Snapshot the identifiers first — rollback commits will expire the ORM rows.
+        targets = [(j.id, j.project_id, j.scene_snapshot or "[]") for j in orphaned]
+        for job_id, job_project_id, scene_snapshot_raw in targets:
+            try:
+                _rollback_regenerate_script(
+                    db, job_project_id, scene_snapshot_raw, job_id=job_id, restore_audio=True
+                )
+                _mark_regenerate_script_failed(
+                    db,
+                    job_id,
+                    RuntimeError(
+                        "Server restarted during regeneration; previous version restored."
+                    ),
+                )
+                _cleanup_audio_backup(job_project_id, job_id)
+            except Exception:
+                logger.exception(
+                    "[REGENERATE_SCRIPT_JOB] failed to recover orphaned job=%s", job_id
+                )
+    except Exception:
+        logger.exception("[REGENERATE_SCRIPT_JOB] orphaned-job recovery sweep failed")
+    finally:
+        db.close()
+
+
+def _run_regenerate_script_stage_a(job_id: int) -> None:
+    """Stage A: regenerate the script + re-plan layouts, then PAUSE for user review.
+
+    Deletes the existing scenes and creates new ones (with planned ``preferred_layout``
+    but no ``remotion_code`` yet), then parks the job in ``awaiting_review`` so the user
+    can verify the new script before the expensive scene/voiceover stage runs. Re-run on
+    "Regenerate" (reject); advanced to stage B on "Proceed" (verify).
+    """
+    from app.routers.pipeline import _generate_script, _sanitize_script_layouts
+    from app.dspy_modules.template_layout_planner import TemplateLayoutPlanner
+
+    db = SessionLocal()
+    job_project_id = None
+    scene_snapshot_raw = "[]"
     try:
         job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
         if not job:
             return
         project = db.query(Project).filter(Project.id == job.project_id).first()
         if not project:
-            job.status = "failed"
-            job.error_message = "Project not found."
-            job.completed_at = datetime.utcnow()
-            db.commit()
+            # Refund the reserved credit — the project is gone, so the regeneration can't run.
+            _mark_regenerate_script_failed(db, job_id, RuntimeError("Project not found."))
             return
 
         # Read scalar fields into plain locals before db.commit() expires the object
@@ -928,10 +1146,12 @@ def _run_regenerate_script_job(job_id: int) -> None:
 
         job.status = "running"
         job.current_step = "analyzing_instruction"
+        # Reset the pause/scene counters in case this is a re-run after a rejection.
+        job.total_scenes = 0
+        job.processed_scenes = 0
         db.commit()
 
         # Phase 1: Regenerate script — deletes existing scenes and creates new ones.
-        # total_scenes stays 0 so the UI shows ~8% (indeterminate phase).
         # _generate_script returns the analyzer's distilled summary so we can
         # hand it to the layout planner below without re-running the analyzer.
         user_instruction_summary = asyncio.run(
@@ -955,9 +1175,7 @@ def _run_regenerate_script_job(job_id: int) -> None:
             db.commit()
 
         # Reload the freshly generated scenes (new titles / narration / visuals produced by
-        # _generate_script). This is a COMPLETE regeneration — narration and voiceover are
-        # regenerated too, so nothing is restored from the snapshot here (the snapshot is kept
-        # solely for rollback on failure).
+        # _generate_script).
         new_scenes = (
             db.query(Scene)
             .filter(Scene.project_id == job_project_id)
@@ -972,9 +1190,6 @@ def _run_regenerate_script_job(job_id: int) -> None:
         # Mirror the (crafted-proven) template-change job: re-plan preferred layouts with the
         # variety-aware planner + sanitizer for ALL template types, then _generate_scenes honors
         # the fresh assignments. No template-type check — every template is treated the same.
-        from app.dspy_modules.template_layout_planner import TemplateLayoutPlanner
-        from app.routers.pipeline import _sanitize_script_layouts
-
         replan_template_id = validate_template_id(
             project.template or "default", db=db, user_id=job_user_id
         )
@@ -1027,15 +1242,70 @@ def _run_regenerate_script_job(job_id: int) -> None:
             [s.preferred_layout for s in new_scenes],
         )
 
-        # Phase 3: Regenerate scene descriptors + layouts AND voiceovers for ALL templates
-        # uniformly via the canonical pipeline function (it handles custom/builtin/crafted
-        # internally and writes the Remotion workspace data). This is a complete regeneration —
-        # voiceover is regenerated from the freshly written narration.
+        # Pause for verification. The new script (with planned layouts) is now in the DB;
+        # the frontend reloads the project and shows it for review with Proceed / Regenerate.
+        job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
+        if job:
+            job.status = "awaiting_review"
+            job.current_step = "verify"
+            db.commit()
+
+    except Exception as e:
+        logger.exception("[REGENERATE_SCRIPT_JOB] stage A job=%s failed: %s", job_id, e)
+        # Script-gen only touched the DB (audio untouched); restore scenes + workspace.
+        _rollback_regenerate_script(db, job_project_id, scene_snapshot_raw, job_id=job_id, restore_audio=False)
+        _mark_regenerate_script_failed(db, job_id, e)
+    finally:
+        db.close()
+
+
+def _run_regenerate_script_stage_b(job_id: int) -> None:
+    """Stage B: generate scene descriptors + voiceovers, finalize, and charge one credit.
+
+    Runs only after the user verifies the regenerated script. On any failure the project
+    is fully rolled back — scene rows, on-disk voiceover audio, and the workspace — and no
+    credit is deducted.
+    """
+    from app.routers.pipeline import _generate_scenes
+    from app.services.remotion import rebuild_workspace
+
+    db = SessionLocal()
+    job_project_id = None
+    scene_snapshot_raw = "[]"
+    audio_backed_up = False
+    try:
+        job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
+        if not job:
+            return
+        project = db.query(Project).filter(Project.id == job.project_id).first()
+        if not project:
+            # Refund the reserved credit — the project is gone, so the regeneration can't run.
+            _mark_regenerate_script_failed(db, job_id, RuntimeError("Project not found."))
+            return
+
+        job_project_id = job.project_id
+        scene_snapshot_raw = job.scene_snapshot or "[]"
+
+        new_scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == job_project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        job.status = "running"
         job.current_step = "generating_scenes"
         job.total_scenes = len(new_scenes)
         job.processed_scenes = 0
         db.commit()
 
+        # Back up the original voiceover audio BEFORE _generate_scenes overwrites it (req 4).
+        _backup_project_audio(job_project_id, job_id)
+        audio_backed_up = True
+
+        # Phase 3: Regenerate scene descriptors + layouts AND voiceovers for ALL templates
+        # uniformly via the canonical pipeline function (it handles custom/builtin/crafted
+        # internally and writes the Remotion workspace data). This is a complete regeneration —
+        # voiceover is regenerated from the freshly written narration.
         asyncio.run(
             _generate_scenes(
                 project,
@@ -1078,68 +1348,56 @@ def _run_regenerate_script_job(job_id: int) -> None:
         project.r2_video_url = None
         db.commit()
 
-        # Rebuild the remotion workspace BEFORE charging — if this throws, the except
-        # block rolls back and no credit is deducted.
+        # Rebuild the remotion workspace before completing — if this throws, the except
+        # block rolls back and refunds the credit reserved at initiation.
         rebuild_workspace(project, new_scenes, db, redistribute_images=True)
 
-        # Deduct one video credit only now that every fallible step has succeeded.
-        # Committed together with job completion so a failure anywhere above never charges.
-        user_row = db.query(User).filter(User.id == job_user_id).first()
-        if user_row:
-            user_row.videos_used_this_period += 1
-
+        # The video credit was already reserved when the job was created; nothing to charge
+        # here. Just mark the job complete (the reserved credit is now kept).
         job.status = "completed"
         job.completed_at = datetime.utcnow()
         db.commit()
 
-    except Exception as e:
-        logger.exception("[REGENERATE_SCRIPT_JOB] job=%s failed: %s", job_id, e)
-        # Rollback: restore original scenes from snapshot; do NOT deduct credit.
-        try:
-            snapshot = json.loads(scene_snapshot_raw)
-            db.query(Scene).filter(Scene.project_id == job_project_id).delete()
-            db.flush()
-            for s in snapshot:
-                db.add(Scene(
-                    project_id=job_project_id,
-                    order=s["order"],
-                    title=s["title"],
-                    narration_text=s["narration_text"],
-                    display_text=s.get("display_text"),
-                    visual_description=s["visual_description"],
-                    remotion_code=s.get("remotion_code"),
-                    voiceover_path=s.get("voiceover_path"),
-                    duration_seconds=s.get("duration_seconds", 10.0),
-                    extra_hold_seconds=s.get("extra_hold_seconds"),
-                    preferred_layout=s.get("preferred_layout"),
-                    scene_type=s.get("scene_type"),
-                ))
-            project = db.query(Project).filter(Project.id == job_project_id).first()
-            if project:
-                project.status = ProjectStatus.GENERATED
-            db.commit()
-        except Exception as restore_err:
-            logger.exception("[REGENERATE_SCRIPT_JOB] restore failed for job=%s: %s", job_id, restore_err)
-            try:
-                db.rollback()
-                project = db.query(Project).filter(Project.id == job_project_id).first()
-                if project:
-                    project.status = ProjectStatus.GENERATED
-                    db.commit()
-            except Exception:
-                pass
+        # Success — the new audio is committed, drop the backup.
+        _cleanup_audio_backup(job_project_id, job_id)
 
-        try:
-            job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
-            if job:
-                job.status = "failed"
-                job.error_message = str(e)
-                job.completed_at = datetime.utcnow()
-                db.commit()
-        except Exception:
-            pass
+    except Exception as e:
+        logger.exception("[REGENERATE_SCRIPT_JOB] stage B job=%s failed: %s", job_id, e)
+        # Full rollback: scenes + on-disk audio + workspace; do NOT deduct credit.
+        _rollback_regenerate_script(
+            db, job_project_id, scene_snapshot_raw, job_id=job_id, restore_audio=audio_backed_up
+        )
+        _mark_regenerate_script_failed(db, job_id, e)
+        if job_project_id is not None:
+            _cleanup_audio_backup(job_project_id, job_id)
     finally:
         db.close()
+
+
+async def _assert_instruction_in_context(instruction: str, project: Project) -> None:
+    """Raise 422 if the regeneration instruction is completely out of context.
+
+    Lenient: only clearly-unrelated instructions are rejected; valid tone/structure/
+    wording feedback always passes. Fails open if there's no blog text to judge against
+    or if the classifier errors.
+    """
+    from app.dspy_modules.instruction_relevance_checker import InstructionRelevanceChecker
+
+    blog_summary = (project.blog_content or "")[:2000]
+    if not blog_summary.strip():
+        return  # nothing to judge against — accept
+    result = await InstructionRelevanceChecker().check(
+        user_instruction=instruction, blog_summary=blog_summary
+    )
+    if not result.get("in_context", True):
+        raise HTTPException(
+            status_code=422,
+            detail=result.get("reason")
+            or (
+                "This instruction doesn't seem related to your blog or video. Please give "
+                "feedback about the script — tone, focus, structure, wording, or what to add or remove."
+            ),
+        )
 
 
 class RegenerateScriptRequest(BaseModel):
@@ -1200,6 +1458,10 @@ async def regenerate_script(
     if not scenes:
         raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
 
+    # Reject instructions that are completely unrelated to the blog/script before doing any
+    # destructive work or reserving a credit. Fails open on classifier error.
+    await _assert_instruction_in_context(instruction, project)
+
     scene_snapshot = [
         {
             "order": s.order,
@@ -1229,11 +1491,15 @@ async def regenerate_script(
     )
     db.add(job)
     project.status = ProjectStatus.SCRIPT_REGENERATING
+    # Reserve the video credit upfront (same as new-project creation) so a concurrent
+    # generation can't double-spend the user's last credit. Refunded on any failure
+    # (in-job exception or crash recovery); kept once the regeneration succeeds.
+    user.videos_used_this_period += 1
     db.commit()
     db.refresh(job)
 
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _run_regenerate_script_job, job.id)
+    loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
     return job
 
 
@@ -1254,6 +1520,125 @@ def get_regenerate_script_status(
         .order_by(ProjectRegenerateScriptJob.id.desc())
         .first()
     )
+    return job
+
+
+def _get_awaiting_review_job(project_id: int, user_id: int, db: Session) -> ProjectRegenerateScriptJob:
+    """Fetch the latest regenerate-script job for the project, asserting it is paused for review."""
+    _ = _get_user_project(project_id, user_id, db)
+    job = (
+        db.query(ProjectRegenerateScriptJob)
+        .filter(ProjectRegenerateScriptJob.project_id == project_id)
+        .order_by(ProjectRegenerateScriptJob.id.desc())
+        .first()
+    )
+    if not job or job.status != "awaiting_review":
+        raise HTTPException(
+            status_code=409,
+            detail="No script regeneration is awaiting review for this project.",
+        )
+    return job
+
+
+@router.get(
+    "/{project_id}/regenerate-script/preview",
+    response_model=RegenerateScriptPreviewOut,
+)
+def get_regenerate_script_preview(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return the previous (pre-regeneration) scenes for the verify-step before/after comparison.
+
+    The original scenes live only in the paused job's snapshot — the live Scene rows now hold the
+    newly regenerated script. Only valid while the job is awaiting review.
+    """
+    job = _get_awaiting_review_job(project_id, user.id, db)
+    try:
+        snapshot = json.loads(job.scene_snapshot or "[]")
+    except Exception:
+        snapshot = []
+    previous = [
+        RegenerateScriptPreviewScene(
+            order=s.get("order", i),
+            title=s.get("title", "") or "",
+            display_text=s.get("display_text"),
+            narration_text=s.get("narration_text", "") or "",
+            visual_description=s.get("visual_description", "") or "",
+            remotion_code=s.get("remotion_code"),
+            preferred_layout=s.get("preferred_layout"),
+        )
+        for i, s in enumerate(snapshot)
+        if isinstance(s, dict)
+    ]
+    previous.sort(key=lambda p: p.order)
+    return RegenerateScriptPreviewOut(previous_scenes=previous)
+
+
+@router.post(
+    "/{project_id}/regenerate-script/verify",
+    response_model=ProjectRegenerateScriptJobOut,
+)
+async def verify_regenerate_script(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Approve the regenerated script and resume into scene/voiceover generation (stage B)."""
+    job = _get_awaiting_review_job(project_id, user.id, db)
+    job.status = "running"
+    job.current_step = "generating_scenes"
+    db.commit()
+    db.refresh(job)
+
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_regenerate_script_stage_b, job.id)
+    return job
+
+
+class RegenerateScriptRetryRequest(BaseModel):
+    user_instruction: str | None = None
+
+
+@router.post(
+    "/{project_id}/regenerate-script/regenerate",
+    response_model=ProjectRegenerateScriptJobOut,
+)
+async def reject_regenerate_script(
+    project_id: int,
+    body: RegenerateScriptRetryRequest = RegenerateScriptRetryRequest(),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Discard the regenerated script and re-run stage A (optionally with a new instruction).
+
+    No credit is charged — only the final verify -> stage B finalize charges one credit.
+    """
+    job = _get_awaiting_review_job(project_id, user.id, db)
+    project = db.query(Project).filter(Project.id == project_id).first()
+
+    new_instruction = (body.user_instruction or "").strip()
+    if new_instruction:
+        if len(new_instruction) > 25_000:
+            raise HTTPException(
+                status_code=400, detail="user_instruction is too long (max 25,000 characters)"
+            )
+        # Only the newly-provided instruction needs validating — the existing one was already
+        # accepted when the job was created. Reject up front before re-running stage A.
+        if project:
+            await _assert_instruction_in_context(new_instruction, project)
+        job.user_instruction = new_instruction
+
+    job.status = "queued"
+    job.current_step = "analyzing_instruction"
+    if project:
+        project.status = ProjectStatus.SCRIPT_REGENERATING
+    db.commit()
+    db.refresh(job)
+
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
     return job
 
 

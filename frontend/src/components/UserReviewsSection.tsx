@@ -201,7 +201,9 @@ function ReviewTicker({ running }: { running: boolean }) {
       <div
         className="flex w-max items-start"
         style={{
-          animation: `ticker-scroll ${TICKER_LOOP_SECONDS}s linear infinite`,
+          // Reversed direction (left → right) so this ticker flows opposite to the
+          // publication logo ticker above it in the platform showcase section.
+          animation: `ticker-scroll-rtl ${TICKER_LOOP_SECONDS}s linear infinite`,
           animationPlayState: paused ? "paused" : "running",
         }}
       >
