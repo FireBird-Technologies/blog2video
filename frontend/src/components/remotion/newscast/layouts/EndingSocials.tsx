@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { NewscastLayoutProps } from "./types";
 import { SocialIcons } from "../../SocialIcons";
+import { resolveCtas } from "../../../../utils/resolveCtas";
 import {
   DEFAULT_NEWSCAST_ACCENT,
   DEFAULT_NEWSCAST_TEXT,
@@ -20,6 +21,7 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+  ctas,
   accentColor,
   textColor,
   aspectRatio,
@@ -37,9 +39,12 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
   const bodyOp = interpolate(frame, [14, 30], [0, 1], { extrapolateRight: "clamp" });
 
   const subtext = (narration ?? "").trim();
-  const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Visit site";
+
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const hasAnyCard = cards.length > 0;
 
   const RED = accentColor || DEFAULT_NEWSCAST_ACCENT;
   const STEEL = textColor || DEFAULT_NEWSCAST_TEXT;
@@ -125,36 +130,63 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
             </div>
           ) : null}
 
-          {showWebsiteCta ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 28, opacity: bodyOp }}>
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                  borderRadius: 8,
-                  padding: "12px 28px",
-                  backgroundColor: RED,
-                  color: "#fff",
-                  fontFamily: newscastFont(fontFamily, "title"),
-                  fontSize: scaleNewscastPx(15, portraitScale),
-                  fontWeight: 700,
-                  boxShadow: `0 8px 28px ${RED}55`,
-                }}
-              >
-                {resolvedCta}
-              </div>
-              <div
-                style={{
-                  fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: scaleNewscastPx(13, portraitScale),
-                  color: STEEL,
-                  wordBreak: "break-all",
-                  maxWidth: "100%",
-                }}
-              >
-                {resolvedWebsiteLink}
-              </div>
+          {hasAnyCard ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                alignItems: "flex-start",
+                gap: p ? 14 : 20,
+                marginBottom: 28,
+                opacity: bodyOp,
+              }}
+            >
+              {cards.map((card, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 10,
+                    flex: cards.length === 1 ? "0 1 auto" : "1 1 0",
+                    minWidth: 180,
+                    maxWidth: cards.length === 1 ? "100%" : cards.length === 2 ? "48%" : "32%",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 10,
+                      borderRadius: 8,
+                      padding: "12px 24px",
+                      backgroundColor: RED,
+                      color: "#fff",
+                      fontFamily: newscastFont(fontFamily, "title"),
+                      fontSize: scaleNewscastPx(15, portraitScale),
+                      fontWeight: 700,
+                      boxShadow: `0 8px 28px ${RED}55`,
+                    }}
+                  >
+                    {card.ctaButtonText.trim() || "Visit site"}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: newscastFont(fontFamily, "body"),
+                      fontSize: scaleNewscastPx(13, portraitScale),
+                      color: STEEL,
+                      wordBreak: "break-all",
+                      maxWidth: "100%",
+                      textAlign: "center",
+                    }}
+                  >
+                    {card.websiteLink}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : null}
 

@@ -69,8 +69,8 @@ class PlanProp(BaseModel):
 class PlanLayout(BaseModel):
     id: str = Field(min_length=2, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
     label: str = Field(min_length=1, max_length=80)
-    visual: str = Field(min_length=4, max_length=600)
-    best_for: str = Field(default="", max_length=400)
+    visual: str = Field(min_length=4, max_length=1500)
+    best_for: str = Field(default="", max_length=800)
     # Layout-specific SVG markup, animation specifics, and DOM/structure
     # instructions carried verbatim from the design doc. `visual` is too small
     # to hold this — codegen reads both.
@@ -243,7 +243,7 @@ def extract_template_plan(*, design_doc: str, template_id: str) -> TemplatePlan:
     raw = template_studio_chat(
         system=_PLAN_SYSTEM_PROMPT,
         user=user_text,
-        max_tokens=8000,
+        max_tokens=16000,
         temperature=0.2,
         log_label="extract_plan",
     ).strip()
@@ -361,7 +361,7 @@ def normalize_design_doc(*, design_doc: str, template_id: str) -> str:
     raw = template_studio_chat(
         system=_NORMALIZE_SYSTEM_PROMPT,
         user=user_text,
-        max_tokens=12000,
+        max_tokens=20000,
         temperature=0.2,
         log_label="normalize_design_doc",
     ).strip()
@@ -817,7 +817,7 @@ export const {pascal}VideoComposition: React.FC<{pascal}VideoCompositionProps> =
           narration: scene.narration,
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${{focusX}}% ${{focusY}}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor: accentColor || "{accent}",
           bgColor: bgColor || "{bg}",
           textColor: textColor || "{text}",
@@ -1004,7 +1004,7 @@ export const {pascal}Video: React.FC<VideoProps> = ({{ dataUrl }}) => {{
           sceneDurationInFrames: durationFrames,
           imageUrl,
           imageObjectPosition: `${{focusX}}% ${{focusY}}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily: resolvedFontFamily || undefined,
         }};
 

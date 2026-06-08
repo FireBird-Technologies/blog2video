@@ -227,4 +227,107 @@ export const resourcePages: MarketingPage[] = [
       "/pricing",
     ],
   }),
+  createPage({
+    path: "/for-finance-publishers",
+    title: "Custom Branded Video Templates for Finance Publishers | Blog2Video",
+    description:
+      "Blog2Video builds custom branded video templates for finance writers, analysts, and newsletter publishers. Your brand identity, your content structure, your template built by expert designers.",
+    eyebrow: "Use Case",
+    heroTitle: "Custom branded video templates for finance publishers and writers",
+    heroDescription:
+      "Finance content has its own visual language: authority, precision, and data clarity. Our designers study your brand, your industry, and your audience to build a video template that looks like yours and no one else's.",
+    category: "use-case",
+    primaryKeyword: "video templates for finance publishers",
+    keywordVariant: "custom branded video for finance writers",
+    badges: ["Finance Content", "Custom Templates", "Newsletter Video", "Brand Identity"],
+    proofPoints: [
+      "Every template is built from scratch around your brand: your fonts, colors, content structure, and visual identity.",
+      "Our designers study your website, social presence, and published material before a single scene is drawn.",
+      "Finance publishers get a template that signals authority to their audience, not a generic AI-generated look.",
+    ],
+    workflowSteps: [
+      "We gather the essentials from your brand: website, social pages, fonts, colors, themes, design philosophy, and the visual patterns common in your corner of the finance industry.",
+      "Our designers write an extensive design document drawing on your material, our accumulated expertise across finance clients, and AI refinement before anything is executed.",
+      "We build the template inside our custom AI editor designed for motion graphics, with your designer reviewing every scene, controlling every placement, and iterating until it is right.",
+      "We share the initial template with you, incorporate your feedback, and refine until the result fully reflects your brand. Then it is yours to reuse across every piece of content you publish.",
+    ],
+    sections: [
+      {
+        title: "Why finance content demands a purpose-built template",
+        body: [
+          "Finance publishers operate in a space where credibility is everything. Your readers are evaluating your content against Bloomberg terminals, Wall Street research decks, and decades of authoritative financial media. A generic video template signals immediately that you are not in that league.",
+          "The visual language of serious finance content is specific: clean data presentation, considered typography, structured layouts that make numbers and analysis easy to follow. These things cannot be approximated by picking a stock template from a library. They have to be designed with your brand and your audience in mind.",
+          "Blog2Video builds custom templates for finance writers, analysts, newsletter publishers, and book authors who want video that earns the same trust their written work already commands.",
+        ],
+      },
+      {
+        title: "How we research and build your template",
+        body: [
+          "We start from the very basics. For every client we gather information on the essentials: your website, social pages, fonts, colors, themes, and brand design philosophy. We also study the visual patterns common in your specific area of finance, whether that is personal finance, market analysis, macroeconomics, or investment strategy.",
+          "We ask you for this information directly, and we supplement it with our own research into whatever branded material we can find. We ensure the finished template does not conflict with your existing visual identity. It extends it.",
+          "We then produce an extensive design document. This document draws on everything we learned from you and on the collective wisdom we have built up working across all our clients, especially those in finance and adjacent industries. We give it to our design experts to refine, and we feed it through our AI systems before a single frame is produced.",
+        ],
+      },
+      {
+        title: "Building with our custom AI editor",
+        body: [
+          "We have built a custom AI editor internally, specifically designed for motion graphics production. The design document feeds into this editor to give the template its initial skin. From there, a dedicated designer reviews every scene individually, requests regenerations where the output is not right, adds detail manually, and fixes every element in its correct position.",
+          "The editor gives our designers all the tools they need to work quickly and with precision. They also have access to other AI tools to bring additional artifacts and information into the template as needed. The result is not an automated output. It is a designed product that happens to be built with AI assistance.",
+          "Once the template is built, we share it with you for review. If anything does not feel right, we refine it. We continue until you are confident the template represents your brand accurately.",
+        ],
+        bullets: [
+          "Branded templates are infinitely reusable across every article, newsletter issue, or post you publish.",
+          "Custom charts, infographics, animations, and typefaces can all be built into your template.",
+          "Customizations based on updated brand direction can always be added.",
+        ],
+      },
+      {
+        title: "What finance publishers say about the result",
+        body: [
+          "Cosmo DeStefano is a finance strategist and author of Wealth Your Way, a book and Substack newsletter helping readers build lasting financial independence through clear, actionable frameworks. He came to Blog2Video skeptical that any tool or team could translate his writing voice into video without losing what made it his.",
+          "\"As a book author and Substack writer, I was genuinely skeptical that any tool or team could translate my writing into video content that actually sounded like me. Blog2Video changed my mind completely. The production quality is sharp, turnaround has been consistently fast, and the team has been genuinely responsive at every step. What impressed me most was their commitment to building a custom template that matched my brand rather than simply dropping my posts into a generic layout. The result is video content that feels like a natural extension of my writing, not a diluted version of it. The experience has been professional, collaborative, and worth every dollar, at a fraction of what traditional video production would have cost. For any writer or content creator who wants to extend their work into video without sacrificing what makes their brand distinctive, Blog2Video is absolutely worth a serious look.\"",
+          "Cosmo DeStefano, Finance Strategist and Author, Wealth Your Way",
+        ],
+      },
+    ],
+    recommendedTemplate: "bloomberg",
+    recommendedTemplateReason:
+      "The Bloomberg template gives finance content the visual authority of a professional trading terminal, with ticker chrome, dashboard panels, and data layouts that signal credibility to finance audiences immediately.",
+    faq: [
+      {
+        question: "What makes a custom template different from Blog2Video's standard templates?",
+        answer:
+          "Standard templates are high quality but designed for broad use. A custom template is built entirely around your brand: your specific fonts, colors, layout logic, and content style. Every video you produce from it looks unmistakably like yours.",
+      },
+      {
+        question: "How do you learn enough about my brand to design the template?",
+        answer:
+          "We ask you for the essentials directly and supplement that with independent research into your website, social presence, and published material. We also draw on what we know about visual conventions in your specific area of finance. The design document we produce before building anything reflects all of this.",
+      },
+      {
+        question: "Can I reuse the template across all my future content?",
+        answer:
+          "Yes. Once your template is built it is yours to use for every article, newsletter issue, or analysis you publish. There is no per-video design cost. The template renders your brand consistently every time.",
+      },
+      {
+        question: "What types of finance content work well with a custom template?",
+        answer:
+          "Market analysis, investment strategy, personal finance, macroeconomic commentary, earnings breakdowns, newsletter issues, and book-based content all convert well. If you are already publishing written finance content, a custom template gives it a video channel with no additional design overhead.",
+      },
+    ],
+    cta: {
+      title: "Get a branded video template built for your finance content",
+      body: "Tell us about your brand and our design team will build a template that makes every video you publish look like it belongs in the same league as your writing.",
+      primaryLabel: "Sign up for free",
+      primaryHref: "/",
+      secondaryLabel: "Request a custom template",
+      secondaryHref: "/custom-branded-video-templates",
+    },
+    relatedPaths: [
+      "/custom-branded-video-templates",
+      "/for-substack-writers",
+      "/newsletter-to-video",
+      "/pricing",
+    ],
+  }),
 ];

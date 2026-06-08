@@ -115,6 +115,7 @@ export interface Scene {
   voiceover_path: string | null;
   duration_seconds: number;
   extra_hold_seconds?: number | null;
+  preferred_layout?: string | null;
   created_at: string;
 }
 
@@ -1135,6 +1136,39 @@ export const updateProject = (
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 
+export interface VoiceChangeStartResponse {
+  started: boolean;
+  total: number;
+}
+
+export interface VoiceChangeStatus {
+  active: boolean;
+  done: boolean;
+  error: string | null;
+  total: number;
+  completed: number;
+  progress: number;
+  status: string;
+  r2_video_url: string | null;
+}
+
+/**
+ * Change the project voice and regenerate every scene's voiceover (verbatim, in
+ * the new voice). Counts as a new video (deducts one credit). Regeneration runs
+ * in the background — poll getVoiceChangeStatus for scene-by-scene progress.
+ */
+export const changeProjectVoice = (
+  projectId: number,
+  data: {
+    voice_gender?: string;
+    voice_accent?: string;
+    custom_voice_id?: string;
+  }
+) => api.post<VoiceChangeStartResponse>(`/projects/${projectId}/change-voice`, data);
+
+export const getVoiceChangeStatus = (projectId: number) =>
+  api.get<VoiceChangeStatus>(`/projects/${projectId}/voice-change-status`);
+
 export const updateScene = (
   projectId: number,
   sceneId: number,
@@ -1265,7 +1299,8 @@ export const regenerateScene = (
   narrationText: string,
   regenerateVoiceover: boolean,
   layout?: string,
-  imageFile?: File
+  imageFile?: File,
+  voiceoverVerbatim: boolean = true
 ) => {
   const formData = new FormData();
   // Only append description if it has a value
@@ -1274,6 +1309,7 @@ export const regenerateScene = (
   }
   formData.append("narration_text", narrationText);
   formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
+  formData.append("voiceover_verbatim", voiceoverVerbatim ? "true" : "false");
   if (layout) formData.append("layout", layout);
   if (imageFile) formData.append("image", imageFile);
   

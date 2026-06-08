@@ -261,6 +261,10 @@ function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | CraftedT
     return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/laduc/laduc-brand-logo.png");
   }
 
+  if (template.id === "crafted_fj_market_brief_bundle" && typeof template.preview_image_url === "string") {
+    return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/fj_market_brief/fj-brand-logo.png");
+  }
+
   return null;
 }
 
@@ -1117,6 +1121,16 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     return Math.max(sum, FPS * 5);
   }, [project.scenes, templateId, scenes]);
 
+  // `initialFrame` (used by PPT/scene export) is computed from a raw frame sum,
+  // but templates with TransitionSeries overlap (FJ Market Brief, Chronicle)
+  // have a shorter true composition length. Clamp to totalDurationFrames - 1 so
+  // the Player never gets an out-of-range initialFrame (Remotion throws otherwise).
+  const safeInitialFrame = useMemo(() => {
+    if (initialFrame === undefined) return undefined;
+    const max = Math.max(0, totalDurationFrames - 1);
+    return Math.max(0, Math.min(max, Math.floor(initialFrame)));
+  }, [initialFrame, totalDurationFrames]);
+
   // Preload images and voiceover so they're in browser cache when Remotion renders
   const [mediaReady, setMediaReady] = useState(false);
   const [isPreloadingMedia, setIsPreloadingMedia] = useState(false);
@@ -1318,7 +1332,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         }}
       >
         <Player
-          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${initialFrame !== undefined ? `-f${initialFrame}` : ""}`}
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${safeInitialFrame !== undefined ? `-f${safeInitialFrame}` : ""}`}
           component={Composition}
           inputProps={{
             ...inputProps,
@@ -1335,7 +1349,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           fps={30}
           ref={setPlayerRef}
           playbackRate={currentPlaybackSpeed}
-          {...(initialFrame !== undefined ? { initialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
+          {...(safeInitialFrame !== undefined ? { initialFrame: safeInitialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
           controls={!hideControls}
           style={{
             width: "100%",

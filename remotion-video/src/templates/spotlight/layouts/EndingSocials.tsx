@@ -4,6 +4,7 @@ import { SpotlightBackground } from "../SpotlightBackground";
 import type { SpotlightLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
+import { resolveCtas } from "../../shared/resolveCtas";
 
 export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   title,
@@ -12,6 +13,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+  ctas,
   accentColor,
   bgColor,
   textColor,
@@ -24,10 +26,14 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const p = aspectRatio === "portrait";
 
   const subtext = (narration ?? "").trim();
-  const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   const bodyFont = fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
+
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const hasAnyCard = cards.length > 0;
+  const cardCount = Math.min(Math.max(cards.length, 1), 3);
 
   const resolvedTitleSize = titleFontSize ?? (p ? 74 : 64);
   const resolvedCtaSize = resolvedTitleSize + 30;
@@ -65,11 +71,11 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const separatorAnim = getPopUpStyles(currentDelay);
   currentDelay += itemSpacing;
 
-  let ctaTextAnim;
-  let ctaLinkAnim;
-  if (showWebsiteCta) {
+  let ctaTextAnim: ReturnType<typeof getPopUpStyles> | undefined;
+  let ctaLinkAnim: ReturnType<typeof getPopUpStyles> | undefined;
+  if (hasAnyCard) {
     ctaTextAnim = getPopUpStyles(currentDelay);
-    currentDelay += itemSpacing; 
+    currentDelay += itemSpacing;
     ctaLinkAnim = getPopUpStyles(currentDelay);
     currentDelay += itemSpacing;
   }
@@ -120,48 +126,65 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
         }} />
       </div>
 
-      {/* 2. CENTER GROUP */}
-      {showWebsiteCta && (
+      {/* 2. CENTER GROUP — 1/2/3 CTA columns */}
+      {hasAnyCard && (
         <div style={{
           position: "absolute",
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
           display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          width: "100%",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          alignItems: "flex-start",
+          gap: p ? 18 : 32,
+          width: "92%",
           zIndex: 2,
         }}>
-          <div style={{
-            color: accentColor || "#7C3AED",
-            fontSize: resolvedCtaSize,
-            fontWeight: 900,
-            lineHeight: 1,
-            fontFamily: bodyFont,
-            textAlign: "center",
-            textTransform: "uppercase",
-            marginInline: 15, /* Added left and right margin */
-            ...ctaTextAnim,
-          }}>
-            {resolvedCta}
-          </div>
-          <div style={{ 
-            marginTop: 10, /* Reduced vertical spacing from CTA text */
-            padding: "10px 20px", /* Added internal padding */
-            marginInline: 15, /* Added left and right margin */
-            fontSize: p ? 28 : 26, 
-            fontWeight: 600, 
-            color: textColor || "#FFFFFF", 
-            fontFamily: bodyFont, 
-            textAlign: "center", // Ensure text is centered
-            maxWidth: "90%", // Limit width to prevent overflow
-            whiteSpace: "normal", // Allow text to wrap
-            overflowWrap: "break-word", // Break long words if necessary
-            ...ctaLinkAnim, 
-          }}>
-            {resolvedWebsiteLink}
-          </div>
+          {cards.map((card, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                flex: cardCount === 1 ? "0 1 auto" : "1 1 0",
+                minWidth: 220,
+                maxWidth: cardCount === 1 ? "100%" : cardCount === 2 ? "46%" : "32%",
+              }}
+            >
+              <div style={{
+                color: accentColor || "#7C3AED",
+                fontSize: cardCount === 1 ? resolvedCtaSize : Math.max(36, resolvedCtaSize - 28),
+                fontWeight: 900,
+                lineHeight: 1,
+                fontFamily: bodyFont,
+                textAlign: "center",
+                textTransform: "uppercase",
+                marginInline: 15,
+                ...ctaTextAnim,
+              }}>
+                {card.ctaButtonText.trim() || "Get started"}
+              </div>
+              <div style={{
+                marginTop: 10,
+                padding: "10px 20px",
+                marginInline: 15,
+                fontSize: cardCount === 1 ? (p ? 28 : 26) : (p ? 22 : 20),
+                fontWeight: 600,
+                color: textColor || "#FFFFFF",
+                fontFamily: bodyFont,
+                textAlign: "center",
+                maxWidth: "100%",
+                whiteSpace: "normal",
+                overflowWrap: "break-word",
+                ...ctaLinkAnim,
+              }}>
+                {card.websiteLink}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

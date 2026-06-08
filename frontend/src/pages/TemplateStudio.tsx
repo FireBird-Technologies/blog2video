@@ -43,7 +43,7 @@ import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layo
 const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
 
-const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MIN = 0.1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 
 type AspectRatio = "landscape" | "portrait";
@@ -1796,6 +1796,10 @@ export default function TemplateStudio() {
     try {
       setLayoutRendering(true);
       setLayoutRenderError("");
+      // When "All Scenes" is active, render every layout back-to-back by passing
+      // the same per-layout scene array the preview Player uses. Otherwise render
+      // just the selected layout as a single scene.
+      const renderAllScenes = sequentialPreview && inputProps.scenes.length > 1;
       const res = await renderTemplateLayout({
         template_id: selectedTemplateId,
         layout_id: selectedLayout,
@@ -1803,12 +1807,28 @@ export default function TemplateStudio() {
         duration_seconds: durationSeconds,
         layout_props: resolvedLayoutProps,
         resolution: studioResolution,
+        ...(renderAllScenes
+          ? {
+              scenes: inputProps.scenes.map((s) => ({
+                id: s.id,
+                order: s.order,
+                title: s.title,
+                narration: s.narration,
+                layout: s.layout,
+                layoutProps: s.layoutProps,
+                durationSeconds: s.durationSeconds,
+                imageUrl: s.imageUrl,
+              })),
+            }
+          : {}),
       });
       const blob = res.data as unknown as Blob;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${selectedTemplateId}_${selectedLayout}.mp4`;
+      a.download = renderAllScenes
+        ? `${selectedTemplateId}_all-scenes.mp4`
+        : `${selectedTemplateId}_${selectedLayout}.mp4`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -3077,11 +3097,12 @@ export default function TemplateStudio() {
                     <img
                       src={imageAdjustSrc}
                       alt="Adjust preview"
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full"
                       style={{
-                        objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                        objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
+                        objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                         transform: `scale(${imageAdjustZoom})`,
-                        transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                        transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
                       }}
                       draggable={false}
                     />

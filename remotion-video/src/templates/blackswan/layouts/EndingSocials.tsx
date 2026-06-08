@@ -6,6 +6,7 @@ import { BlackswanArcBirdPass, neonTitleTubeStyle, StarField } from "./scenePrim
 import { NeonWater } from "./neonWater";
 import { blackswanNeonPalette } from "./blackswanAccent";
 import { SocialIcons } from "../../SocialIcons";
+import { resolveCtas } from "../../shared/resolveCtas";
 
 const display = "'Righteous', cursive";
 
@@ -141,6 +142,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
     websiteLink,
     showWebsiteButton,
     ctaButtonText,
+    ctas,
   } = props;
 
   const frame = useCurrentFrame();
@@ -155,9 +157,13 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
   const swanOpacity = interpolate(t, [HIT - 0.5, HIT + 0.8], [0, 1], { extrapolateRight: "clamp" });
   const waterReveal = interpolate(t, [HIT, HIT + 0.35], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const ctaLabel = (ctaButtonText ?? title ?? "").trim();
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const hasAnyCard = cards.length > 0;
+  const ctaLabel = (cards[0]?.ctaButtonText.trim()) || (ctaButtonText ?? title ?? "").trim();
   const showCta = ctaLabel.length > 0;
-  const showWebsite = (showWebsiteButton !== false) && (websiteLink ?? "").trim().length > 0;
   const ctaFontSize = titleFontSize ?? (p ? 82 : 76);
   const narrSize = descriptionFontSize ?? (p ? 36 : 33);
   const hasSocials =
@@ -271,20 +277,49 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
           pointerEvents: "none",
         }}
       >
-        {/* Website link */}
-        {showWebsite && (
+        {/* Website links — 1/2/3 stacked under the neon CTA title */}
+        {hasAnyCard && (
           <div
             style={{
-              fontSize: Math.round(narrSize * 0.82),
-              color: `${accentColor}CC`,
-              fontFamily: fontFamily ?? display,
-              letterSpacing: "0.05em",
-              textAlign: "center",
-              wordBreak: "break-all",
-              maxWidth: p ? "88%" : "70%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 6,
+              width: "100%",
             }}
           >
-            {(websiteLink ?? "").trim()}
+            {cards.map((card, idx) => (
+              <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                {cards.length > 1 && card.ctaButtonText.trim() && idx > 0 && (
+                  <div
+                    style={{
+                      fontSize: Math.round(narrSize * 0.9),
+                      color: accentColor,
+                      fontFamily: fontFamily ?? display,
+                      letterSpacing: "0.06em",
+                      textAlign: "center",
+                      textTransform: "capitalize",
+                      marginTop: 8,
+                    }}
+                  >
+                    {card.ctaButtonText.trim()}
+                  </div>
+                )}
+                <div
+                  style={{
+                    fontSize: Math.round(narrSize * 0.82),
+                    color: `${accentColor}CC`,
+                    fontFamily: fontFamily ?? display,
+                    letterSpacing: "0.05em",
+                    textAlign: "center",
+                    wordBreak: "break-all",
+                    maxWidth: p ? "88%" : "70%",
+                  }}
+                >
+                  {card.websiteLink}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

@@ -280,7 +280,7 @@ export const RemotionDefaultVideoComposition: React.FC<
           narration: scene.narration,
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor,
           bgColor,
           textColor,
@@ -423,7 +423,7 @@ export const RemotionNightfallVideoComposition: React.FC<
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily,
         };
 
@@ -522,7 +522,7 @@ export const RemotionGridcraftVideoComposition: React.FC<
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily,
         };
 
@@ -629,7 +629,7 @@ export const RemotionSpotlightVideoComposition: React.FC<
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily,
         };
 
@@ -734,7 +734,7 @@ export const RemotionBlackswanVideoComposition: React.FC<
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           layoutType: scene.layout,
           fontFamily,
         };
@@ -816,7 +816,7 @@ export const RemotionMatrixVideoComposition: React.FC<
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily,
         };
 
@@ -909,7 +909,7 @@ export const RemotionMosaicVideoComposition: React.FC<
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily,
         };
 
@@ -998,7 +998,7 @@ export const RemotionWhiteboardVideoComposition: React.FC<
           narration: scene.narration,
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor: accentColor || "#1F2937",
           bgColor: bgColor || "#F7F3E8",
           textColor: textColor || "#111827",
@@ -1101,7 +1101,7 @@ export const RemotionNewspaperVideoComposition: React.FC<
           narration: scene.narration,
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor: accentColor || "#FFE34D",
           bgColor: bgColor || "#FAFAF8",
           textColor: textColor || "#111111",
@@ -1279,7 +1279,7 @@ export const RemotionNewscastVideoComposition: React.FC<
           // Prefer top-level scene image; fall back to layoutProps.imageUrl (editor / JSON often set it only on layoutProps).
           imageUrl: scene.imageUrl ?? lp.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor: accentColor || "#FF3B30",
           bgColor: bgColor || "#FAFAF8",
           textColor: textColor || "#111111",
@@ -1391,7 +1391,7 @@ export const RemotionBloombergVideoComposition: React.FC<
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
-          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           layoutType: scene.layout,
           fontFamily,
         };
