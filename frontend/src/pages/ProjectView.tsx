@@ -36,6 +36,13 @@ import {
   listCustomTemplates,
   changeProjectTemplateRegenerateLayouts,
   getProjectTemplateChangeStatus,
+  regenerateScript,
+  getRegenerateScriptStatus,
+  getRegenerateScriptPreview,
+  verifyRegenerateScript,
+  rejectRegenerateScript,
+  type ProjectRegenerateScriptJob,
+  type RegenerateScriptPreviewScene,
   generateEmbedToken,
   type TemplateMeta,
   type CraftedTemplateItem,
@@ -62,6 +69,8 @@ import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
 import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import RegenerateScriptModal from "../components/RegenerateScriptModal";
+import VerifyScriptModal from "../components/VerifyScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
@@ -471,6 +480,22 @@ export default function ProjectView() {
   } | null>(null);
   const [submittingTemplateRelayout, setSubmittingTemplateRelayout] = useState(false);
   const templateRelayoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [regenerateScriptJob, setRegenerateScriptJob] = useState<ProjectRegenerateScriptJob | null>(null);
+  const [showRegenerateScriptConfirm, setShowRegenerateScriptConfirm] = useState(false);
+  // The "Regenerate" action at the verify step reuses the same modal, pre-filled with the
+  // job's prior instruction; on confirm it re-runs stage A instead of creating a new job.
+  const [showRegenerateScriptRetry, setShowRegenerateScriptRetry] = useState(false);
+  const [regenerateScriptVerifying, setRegenerateScriptVerifying] = useState(false);
+  // Previous (pre-regeneration) scenes for the verify popup's before/after comparison.
+  // null = loading; [] = loaded with no previous scenes (treat all as new).
+  const [regenScriptPreviousScenes, setRegenScriptPreviousScenes] =
+    useState<RegenerateScriptPreviewScene[] | null>(null);
+  const regenerateScriptPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // True once the user has clicked "Proceed". The DB write that flips the job from
+  // "awaiting_review" to "running" may not be visible to the very next poll, so we ignore
+  // any stale "awaiting_review" reads while this is set — otherwise the UI bounces back to
+  // the verify step. Reset whenever a fresh stage-A run starts (initiate / regenerate).
+  const regenerateScriptProceededRef = useRef(false);
   const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
   useEffect(() => {
@@ -1121,6 +1146,77 @@ export default function ProjectView() {
     }, 2000);
   }, [loadProject, projectId, stopTemplateRelayoutPolling]);
 
+  const stopRegenerateScriptPolling = useCallback(() => {
+    if (regenerateScriptPollRef.current) {
+      clearInterval(regenerateScriptPollRef.current);
+      regenerateScriptPollRef.current = null;
+    }
+  }, []);
+
+  // Load the previous scenes for the verify popup. On error, fall back to [] so the popup
+  // isn't stuck on a loading spinner (it then treats every scene as new, no comparison).
+  const loadRegenerateScriptPreview = useCallback(async () => {
+    try {
+      const res = await getRegenerateScriptPreview(projectId);
+      setRegenScriptPreviousScenes(res.data?.previous_scenes ?? []);
+    } catch {
+      setRegenScriptPreviousScenes([]);
+    }
+  }, [projectId]);
+
+  const startRegenerateScriptPolling = useCallback(() => {
+    stopRegenerateScriptPolling();
+    regenerateScriptPollRef.current = setInterval(async () => {
+      try {
+        const res = await getRegenerateScriptStatus(projectId);
+        const job = res.data;
+        if (!job) return;
+        // After the user proceeds, the persisted status may briefly still read
+        // "awaiting_review" (DB write not yet visible to this read). Ignore those stale
+        // reads so the UI doesn't bounce back to the verify step — keep polling until the
+        // status catches up to running/completed/failed.
+        if (job.status === "awaiting_review" && regenerateScriptProceededRef.current) {
+          return;
+        }
+        setRegenerateScriptJob(job);
+        if (job.status === "awaiting_review") {
+          // Paused for verification — stop polling, load the new scenes, and fetch the previous
+          // scenes so the verify popup can show the before/after comparison.
+          stopRegenerateScriptPolling();
+          await loadProject();
+          setRegenerateScriptJob(job);
+          loadRegenerateScriptPreview();
+        } else if (job.status === "completed") {
+          regenerateScriptProceededRef.current = false;
+          setRegenScriptPreviousScenes(null);
+          stopRegenerateScriptPolling();
+          // Clear any pipeline state that may have been set by a spurious auto-start
+          // (e.g. if the project was stuck in "scripted" on mount and kickOffGeneration fired).
+          stopPolling();
+          setPipelineRunning(false);
+          await loadProject();
+          setRegenerateScriptJob(null);
+        } else if (job.status === "failed") {
+          regenerateScriptProceededRef.current = false;
+          setRegenScriptPreviousScenes(null);
+          stopRegenerateScriptPolling();
+          stopPolling();
+          setPipelineRunning(false);
+          setRegenerateScriptJob(null);
+          await loadProject();
+          showError(
+            job.error_message
+              ? `We're sorry — we couldn't regenerate your script. Your previous version has been restored and no video credit was deducted. (${job.error_message})`
+              : "We're sorry — something went wrong while regenerating your script. Your previous version has been restored and no video credit was deducted. Please try again.",
+            { variant: "pipeline" }
+          );
+        }
+      } catch {
+        stopRegenerateScriptPolling();
+      }
+    }, 2000);
+  }, [loadProject, projectId, stopRegenerateScriptPolling, showError, loadRegenerateScriptPreview]);
+
   useEffect(() => {
     let cancelled = false;
     setCustomTemplatesLoading(true);
@@ -1158,6 +1254,25 @@ export default function ProjectView() {
     };
     refreshTemplateJob();
   }, [projectId, startTemplateRelayoutPolling]);
+
+  useEffect(() => {
+    const refreshRegenerateScriptJob = async () => {
+      try {
+        const res = await getRegenerateScriptStatus(projectId);
+        if (!res.data) return;
+        setRegenerateScriptJob(res.data);
+        if (res.data.status === "queued" || res.data.status === "running") {
+          startRegenerateScriptPolling();
+        } else if (res.data.status === "awaiting_review") {
+          // Resume the verify popup on reload / navigating back into the project.
+          loadRegenerateScriptPreview();
+        }
+      } catch {
+        // ignore
+      }
+    };
+    refreshRegenerateScriptJob();
+  }, [projectId, startRegenerateScriptPolling, loadRegenerateScriptPreview]);
 
   // Handle ?purchased=true redirect from Stripe per-video checkout
   useEffect(() => {
@@ -2023,6 +2138,65 @@ export default function ProjectView() {
     }
   };
 
+  const applyRegenerateScript = async (instruction: string) => {
+    if (!project) return;
+    try {
+      const res = await regenerateScript(project.id, { user_instruction: instruction });
+      regenerateScriptProceededRef.current = false; // fresh run — the verify pause is expected
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+      // 422 = out-of-context instruction; the modal already shows it inline, so don't also toast it.
+      if (status !== 422) {
+        showError(
+          getErrorMessage(err, "Failed to start script regeneration."),
+          status === 403 ? { showUpgrade: true } : undefined
+        );
+      }
+      throw err; // let the modal surface the error inline
+    }
+  };
+
+  // Verify step — "Proceed": approve the regenerated script and resume scene generation.
+  const handleVerifyRegenerateScript = async () => {
+    if (!project) return;
+    setRegenerateScriptVerifying(true);
+    regenerateScriptProceededRef.current = true; // ignore stale "awaiting_review" reads from now on
+    try {
+      const res = await verifyRegenerateScript(project.id);
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to continue script generation."));
+    } finally {
+      setRegenerateScriptVerifying(false);
+    }
+  };
+
+  // Verify step — "Regenerate" (modal confirm): discard and re-run stage A with the
+  // (optionally edited) instruction. No credit is charged for re-runs.
+  const applyRejectRegenerateScript = async (instruction: string) => {
+    if (!project) return;
+    try {
+      const res = await rejectRegenerateScript(project.id, { user_instruction: instruction });
+      regenerateScriptProceededRef.current = false; // re-run reaches the verify pause again
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+      // 422 = out-of-context instruction; the modal already shows it inline, so don't also toast it.
+      if (status !== 422) {
+        showError(getErrorMessage(err, "Failed to regenerate the script."));
+      }
+      throw err; // let the modal surface the error inline
+    }
+  };
+
   const assignedTemplateId = project?.template || "default";
   const readyCustomForPicker = customTemplatesList.filter((ct) => !!ct.intro_code);
   const readyCraftedForPicker = (craftedTemplates || []).filter((ct: CraftedTemplateItem) => !!ct.theme);
@@ -2564,8 +2738,18 @@ export default function ProjectView() {
   // ─── Generation loader ────────────────────────────────────
   const templateRelayoutRunning =
     templateRelayoutJob?.status === "running" || templateRelayoutJob?.status === "queued";
-  const statusForBadge = templateRelayoutRunning ? "regenerating" : project.status;
-  const renderGenerationLoader = (mode: "pipeline" | "template-relayout" = "pipeline") => {
+  // Also treat the project's own "script_regenerating" status as running so the loader stays
+  // visible during the brief window before the job poll loads (and on resume after reload).
+  // "awaiting_review" must keep the loader up too: at the running→awaiting_review transition the
+  // job poll sets the status before loadProject refreshes project.status, so without this the
+  // loader would briefly drop out and flash the completed video.
+  const regenerateScriptRunning =
+    regenerateScriptJob?.status === "running" ||
+    regenerateScriptJob?.status === "queued" ||
+    regenerateScriptJob?.status === "awaiting_review" ||
+    project.status === "script_regenerating";
+  const statusForBadge = templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
+  const renderGenerationLoader = (mode: "pipeline" | "template-relayout" | "regenerate-script" = "pipeline") => {
     const relayoutProgressRaw =
       templateRelayoutJob && templateRelayoutJob.total_scenes > 0
         ? (templateRelayoutJob.processed_scenes / templateRelayoutJob.total_scenes) * 100
@@ -2573,12 +2757,41 @@ export default function ProjectView() {
         ? 8
         : 0;
     const relayoutProgress = Math.max(8, Math.min(98, Math.round(relayoutProgressRaw)));
+    // Regenerate-script is shown as discrete backend phases instead of a percentage.
+    // The "verify" step is a user-gated pause between the script and scene stages.
+    const REGEN_SCRIPT_STEPS = [
+      { id: "analyzing_instruction", label: "Analyzing instruction" },
+      { id: "generating_script", label: "Generating script" },
+      { id: "verify", label: "Verify script" },
+      { id: "generating_scenes", label: "Generating scenes" },
+    ] as const;
+    const regenScriptAwaitingReview = regenerateScriptJob?.status === "awaiting_review";
+    const regenScriptStepId =
+      regenScriptAwaitingReview
+        ? "verify"
+        : regenerateScriptJob?.current_step ??
+          (regenerateScriptJob && regenerateScriptJob.total_scenes > 0
+            ? "generating_scenes"
+            : regenerateScriptJob?.status === "queued"
+            ? "analyzing_instruction"
+            : "generating_script");
+    const regenScriptCompleted = regenerateScriptJob?.status === "completed";
+    const regenScriptStepIdx =
+      regenScriptCompleted
+        ? REGEN_SCRIPT_STEPS.length
+        : Math.max(0, REGEN_SCRIPT_STEPS.findIndex((step) => step.id === regenScriptStepId));
+    // Fill for the progress bar above the step circles. Each step maps to a fixed percentage
+    // (the last step stays below 100% — it only completes when the run actually finishes).
+    const REGEN_SCRIPT_PROGRESS = [15, 40, 60, 80];
+    const regenScriptProgress = regenScriptCompleted
+      ? 100
+      : REGEN_SCRIPT_PROGRESS[Math.min(regenScriptStepIdx, REGEN_SCRIPT_PROGRESS.length - 1)];
     const stepLabels =
-      mode === "template-relayout"
+      mode === "template-relayout" || mode === "regenerate-script"
         ? []
         : PIPELINE_STEPS.map((s) => s.label);
     const currentStepIdx =
-      mode === "template-relayout"
+      mode === "template-relayout" || mode === "regenerate-script"
         ? 0
         : Math.max(0, pipelineStep - 1);
     const progress = mode === "template-relayout" ? relayoutProgress : smoothProgress;
@@ -2594,18 +2807,71 @@ export default function ProjectView() {
           </div>
 
           <h2 className="text-base font-semibold text-gray-900 mb-1">
-            {mode === "template-relayout" ? "Regenerating scene layouts" : "Generating your video"}
+            {mode === "regenerate-script"
+              ? "Regenerating script"
+              : mode === "template-relayout"
+              ? "Regenerating scene layouts"
+              : "Generating your video"}
           </h2>
           <p className="text-xs text-gray-400 mb-8">{project.name}</p>
 
-          <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
-            <div
-              className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+          {mode !== "regenerate-script" && (
+            <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
+              <div
+                className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
 
-          {mode !== "template-relayout" && (
+          {/* Regenerate-script: a standalone progress bar (fills purple as the run proceeds)
+              above a row of independent step circles — the circles are NOT connected. */}
+          {mode === "regenerate-script" && (
+            <div className="mb-8 mt-2">
+              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
+                <div
+                  className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${regenScriptProgress}%` }}
+                />
+              </div>
+              <div className="flex items-start justify-between">
+                {REGEN_SCRIPT_STEPS.map(({ id, label }, i) => {
+                  const isDone = i < regenScriptStepIdx;
+                  const isActive = i === regenScriptStepIdx;
+                  return (
+                    <div key={id} className="flex flex-col items-center gap-2 w-16 sm:w-20">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                          isDone
+                            ? "bg-green-100 text-green-600"
+                            : isActive
+                            ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {isDone ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <span
+                        className={`text-[11px] sm:text-xs font-medium text-center leading-tight ${
+                          isDone ? "text-green-600" : isActive ? "text-purple-600" : "text-gray-400"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {mode !== "template-relayout" && mode !== "regenerate-script" && (
             <div className="flex items-center justify-between mb-8">
               {stepLabels.map((label, i) => {
                 const isActive = i === currentStepIdx;
@@ -2661,14 +2927,28 @@ export default function ProjectView() {
             </div>
           )}
 
-          <div className="flex items-center justify-center gap-2">
-            <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-            <span className="text-xs text-gray-400">
-              {mode === "template-relayout"
-                ? `${progress}% complete`
-                : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
-            </span>
-          </div>
+          {mode === "regenerate-script" && regenScriptAwaitingReview ? (
+            /* Verify step — paused for review. Actions live in the (non-closeable) verify popup. */
+            <div className="flex flex-col items-center gap-1.5">
+              <span className="text-sm text-gray-700 font-medium">Verify the script</span>
+              <span className="text-xs text-gray-400 max-w-xs">
+                Review the changes in the popup, then proceed or regenerate.
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+              <span className="text-xs text-gray-400">
+                {mode === "regenerate-script"
+                  ? regenScriptCompleted
+                    ? "Regeneration complete..."
+                    : `${REGEN_SCRIPT_STEPS[regenScriptStepIdx]?.label ?? "Finishing up"}...`
+                  : mode === "template-relayout"
+                  ? `${progress}% complete`
+                  : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
+              </span>
+            </div>
+          )}
 
           {hasError && (
             <div className="mt-6">
@@ -3604,6 +3884,40 @@ export default function ProjectView() {
         onConfirm={applyTemplateRelayout}
       />
 
+      <RegenerateScriptModal
+        open={showRegenerateScriptConfirm}
+        projectName={project?.name}
+        onClose={() => setShowRegenerateScriptConfirm(false)}
+        onConfirm={async (instruction) => {
+          await applyRegenerateScript(instruction);
+        }}
+      />
+
+      {/* Verify-step "Regenerate": re-run the script (optionally with an edited instruction),
+          pre-filled with the instruction the paused job used. */}
+      <RegenerateScriptModal
+        open={showRegenerateScriptRetry}
+        projectName={project?.name}
+        initialInstruction={regenerateScriptJob?.user_instruction ?? ""}
+        confirmLabel="Regenerate"
+        onClose={() => setShowRegenerateScriptRetry(false)}
+        onConfirm={async (instruction) => {
+          await applyRejectRegenerateScript(instruction);
+        }}
+      />
+
+      {/* Non-closeable verify popup — walks the user through new-vs-old scene comparisons.
+          Shown whenever the regeneration is paused awaiting review (persists across reloads). */}
+      <VerifyScriptModal
+        open={regenerateScriptJob?.status === "awaiting_review" && !showRegenerateScriptRetry}
+        projectName={project?.name}
+        newScenes={project?.scenes ?? []}
+        previousScenes={regenScriptPreviousScenes}
+        verifying={regenerateScriptVerifying}
+        onProceed={handleVerifyRegenerateScript}
+        onRegenerate={() => setShowRegenerateScriptRetry(true)}
+      />
+
       <ConfirmDeleteModal
         open={imageAssetDeletePending != null}
         onClose={() => setImageAssetDeletePending(null)}
@@ -4275,8 +4589,12 @@ export default function ProjectView() {
         )}
 
       {/* Upper area: loader when running, editor when complete */}
-      {pipelineRunning || templateRelayoutRunning ? (
-        renderGenerationLoader(templateRelayoutRunning ? "template-relayout" : "pipeline")
+      {pipelineRunning || templateRelayoutRunning || regenerateScriptRunning ? (
+        renderGenerationLoader(
+          regenerateScriptRunning ? "regenerate-script"
+          : templateRelayoutRunning ? "template-relayout"
+          : "pipeline"
+        )
       ) : pipelineComplete && project.scenes.length > 0 ? (
         renderCompleted()
       ) : (
@@ -4345,6 +4663,22 @@ export default function ProjectView() {
           <ScriptPanel
             scenes={project.scenes}
             projectName={project.name}
+            projectId={project.id}
+            onSceneUpdate={(updatedScene) => {
+              setProject((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      scenes: prev.scenes.map((s) =>
+                        s.id === updatedScene.id ? updatedScene : s
+                      ),
+                    }
+                  : prev
+              );
+            }}
+            onRegenerateScript={() => setShowRegenerateScriptConfirm(true)}
+            isRegenerating={regenerateScriptRunning}
+            disabled={!["generated", "done"].includes(project.status)}
           />
         )}
 
@@ -5227,21 +5561,21 @@ export default function ProjectView() {
           />
           </div>
 
-          {/* 2. Voiceover */}
-          {project.voice_gender !== "none" && (
-            <ProjectVoiceSettingsCard
-              projectId={project.id}
-              voiceGender={project.voice_gender}
-              voiceAccent={project.voice_accent}
-              customVoiceId={project.custom_voice_id}
-              isPro={isPro}
-              onChanged={loadProject}
-              onError={(msg) => showError(msg)}
-              onUpgrade={() => setShowUpgrade(true)}
-            />
-          )}
+          {/* 2. Voiceover (only when project has a voice) */}
+          {project.voice_gender !== "none" ? (
+            <>
+              <ProjectVoiceSettingsCard
+                projectId={project.id}
+                voiceGender={project.voice_gender}
+                voiceAccent={project.voice_accent}
+                customVoiceId={project.custom_voice_id}
+                isPro={isPro}
+                onChanged={loadProject}
+                onError={(msg) => showError(msg)}
+                onUpgrade={() => setShowUpgrade(true)}
+              />
 
-          {/* 3. Colors + Font family (one card, managed separately) */}
+              {/* 3. Colors + Font family (with voiceover present) */}
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
             <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
@@ -5432,73 +5766,337 @@ export default function ProjectView() {
             </div>
           </div>
 
-          {/* 4. Font sizes */}
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
-            <p className="text-xs text-gray-400 mb-5">Applied to all scenes at once.</p>
-            <div className="glass-card p-6 flex flex-col gap-6">
+              {/* 4. Font sizes (with voiceover present) */}
               <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
-                  <span>Title font size</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
-                </label>
-                <input
-                  type="range"
-                  min={20}
-                  max={200}
-                  step={1}
-                  value={globalTitleSize}
-                  onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
-                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                />
+                <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
+                <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
+                <div className="glass-card p-4 flex flex-col gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Title font size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={globalTitleSize}
+                      onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Display text size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={12}
+                      max={80}
+                      step={1}
+                      value={globalDescSize}
+                      onChange={(e) => setGlobalDescSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={savingGlobalTypography}
+                      onClick={async () => {
+                        setSavingGlobalTypography(true);
+                        try {
+                          await bulkUpdateSceneTypography(project.id, {
+                            title_font_size: globalTitleSize,
+                            description_font_size: globalDescSize,
+                          });
+                          await loadProject();
+                        } catch (err) {
+                          showError(getErrorMessage(err, "Failed to update typography."));
+                        } finally {
+                          setSavingGlobalTypography(false);
+                        }
+                      }}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      {savingGlobalTypography ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Applying…
+                        </>
+                      ) : (
+                        "Apply to all Scenes"
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
+            </>
+          ) : (
+            /* No voiceover: Font sizes is 2nd, Colors+Font is 3rd */
+            <>
+              {/* 2. Font sizes (no voiceover) */}
               <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
-                  <span>Display text size</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
-                </label>
-                <input
-                  type="range"
-                  min={12}
-                  max={80}
-                  step={1}
-                  value={globalDescSize}
-                  onChange={(e) => setGlobalDescSize(Number(e.target.value))}
-                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                />
+                <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
+                <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
+                <div className="glass-card p-4 flex flex-col gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Title font size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={globalTitleSize}
+                      onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Display text size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={12}
+                      max={80}
+                      step={1}
+                      value={globalDescSize}
+                      onChange={(e) => setGlobalDescSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={savingGlobalTypography}
+                      onClick={async () => {
+                        setSavingGlobalTypography(true);
+                        try {
+                          await bulkUpdateSceneTypography(project.id, {
+                            title_font_size: globalTitleSize,
+                            description_font_size: globalDescSize,
+                          });
+                          await loadProject();
+                        } catch (err) {
+                          showError(getErrorMessage(err, "Failed to update typography."));
+                        } finally {
+                          setSavingGlobalTypography(false);
+                        }
+                      }}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      {savingGlobalTypography ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Applying…
+                        </>
+                      ) : (
+                        "Apply to all Scenes"
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={savingGlobalTypography}
-                  onClick={async () => {
-                    setSavingGlobalTypography(true);
-                    try {
-                      await bulkUpdateSceneTypography(project.id, {
-                        title_font_size: globalTitleSize,
-                        description_font_size: globalDescSize,
-                      });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to update typography."));
-                    } finally {
-                      setSavingGlobalTypography(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingGlobalTypography ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Applying…
-                    </>
-                  ) : (
-                    "Apply to all Scenes"
-                  )}
-                </button>
+
+              {/* 3. Colors + Font family (no voiceover) */}
+              <div>
+                <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
+                <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
+                <div className="glass-card p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 overflow-visible relative z-30">
+                  {/* Colors */}
+                  <div className="flex flex-col gap-5">
+                    <p className="text-xs font-semibold text-gray-900">Colors</p>
+                    {(
+                      [
+                        { label: "Accent color", value: settingsAccentColor, setter: setSettingsAccentColor, hint: "Buttons, highlights, and brand color" },
+                        { label: "Text color", value: settingsTextColor, setter: setSettingsTextColor, hint: "Primary on-screen text" },
+                        { label: "Background color", value: settingsBgColor, setter: setSettingsBgColor, hint: "Scene background" },
+                      ] as const
+                    ).map(({ label, value, setter, hint }) => (
+                      <div key={label} className="flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-700">{label}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div
+                            className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm cursor-pointer overflow-hidden"
+                            style={{ backgroundColor: value }}
+                            onClick={() => (document.getElementById(`color-input-${label}-nv`) as HTMLInputElement)?.click()}
+                          >
+                            <input
+                              id={`color-input-${label}-nv`}
+                              type="color"
+                              value={value}
+                              onChange={(e) => setter(e.target.value)}
+                              className="opacity-0 w-full h-full cursor-pointer"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            value={value}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setter(v);
+                            }}
+                            className="w-24 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300 bg-white"
+                            placeholder="#000000"
+                            maxLength={7}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={savingColors}
+                        onClick={async () => {
+                          setSavingColors(true);
+                          try {
+                            await updateProject(project.id, {
+                              accent_color: settingsAccentColor,
+                              bg_color: settingsBgColor,
+                              text_color: settingsTextColor,
+                            });
+                            await loadProject();
+                          } catch (err) {
+                            showError(getErrorMessage(err, "Failed to save colors."));
+                          } finally {
+                            setSavingColors(false);
+                          }
+                        }}
+                        className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                      >
+                        {savingColors ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Saving…
+                          </>
+                        ) : (
+                          "Save colors"
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Font family */}
+                  <div className="flex flex-col gap-4 sm:border-l sm:border-gray-100 sm:pl-6">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-900">Font family</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">Leave as Default to use the template's built-in fonts.</p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <div ref={fontDropdownRef} className="relative w-full max-w-sm">
+                        <button
+                          type="button"
+                          onClick={() => setShowFontDropdown((v) => !v)}
+                          className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between"
+                          data-action="font-selector"
+                        >
+                          <span>
+                            {settingsFontId
+                              ? FONT_REGISTRY[settingsFontId as keyof typeof FONT_REGISTRY]?.label || settingsFontId
+                              : "Default (template)"}
+                          </span>
+                          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showFontDropdown && (
+                          <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 max-h-72 overflow-y-auto">
+                            <div className="grid grid-cols-1 gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSettingsFontId(null);
+                                  setShowFontDropdown(false);
+                                }}
+                                className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                  !settingsFontId ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-700"
+                                }`}
+                              >
+                                Default
+                              </button>
+                              {Object.values(FONT_REGISTRY)
+                                .filter((opt) => opt.id !== "fira_code")
+                                .map((opt) => (
+                                  <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSettingsFontId(opt.id);
+                                      setShowFontDropdown(false);
+                                    }}
+                                    className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                      settingsFontId === opt.id
+                                        ? "bg-purple-50 text-purple-700"
+                                        : "hover:bg-gray-50 text-gray-700"
+                                    }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {settingsFontId && (
+                      <div className="mt-2">
+                        <p className="text-[11px] text-gray-500 mb-1">Preview</p>
+                        <div
+                          className="px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
+                          style={{
+                            fontFamily:
+                              resolveFontFamily(settingsFontId) ??
+                              "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                          }}
+                        >
+                          The quick brown fox jumps over the lazy dog.
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={savingFontFamily}
+                        onClick={async () => {
+                          setSavingFontFamily(true);
+                          try {
+                            await updateProject(project.id, {
+                              font_family: settingsFontId || null,
+                            });
+                            await loadProject();
+                          } catch (err) {
+                            showError(getErrorMessage(err, "Failed to save font family."));
+                          } finally {
+                            setSavingFontFamily(false);
+                          }
+                        }}
+                        className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                      >
+                        {savingFontFamily ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Saving…
+                          </>
+                        ) : (
+                          "Save font"
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
         </div>
       )}
