@@ -113,6 +113,21 @@ class Settings(BaseSettings):
         os.environ.get("RENDER_PROGRESS_STALE_SECONDS", "360")
     )
 
+    # Stall recovery: if a background job's updated_at heartbeat goes stale for
+    # longer than its threshold while still active, the status endpoint (and the
+    # boot sweep) reverts the project and refunds the credit. Script is larger
+    # because stage B regenerates all scenes in one monolithic call (no per-scene
+    # heartbeat).
+    STALL_THRESHOLD_TEMPLATE_SECONDS: int = int(
+        os.environ.get("STALL_THRESHOLD_TEMPLATE_SECONDS", "600")
+    )
+    STALL_THRESHOLD_VOICE_SECONDS: int = int(
+        os.environ.get("STALL_THRESHOLD_VOICE_SECONDS", "600")
+    )
+    STALL_THRESHOLD_SCRIPT_SECONDS: int = int(
+        os.environ.get("STALL_THRESHOLD_SCRIPT_SECONDS", "1200")
+    )
+
 
     # Email
     EMAIL_PROVIDER: str = "resend"              # currently only "resend" is supported
