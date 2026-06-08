@@ -16,7 +16,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
-import BlogUrlForm from "../components/BlogUrlForm";
+import BlogUrlForm, { GENRE_CRAFTED } from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import OutOfVideosOfferModal from "../components/OutOfVideosOfferModal";
@@ -32,13 +32,14 @@ const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error", "failed"]);
 
 export default function Dashboard() {
-  const { user, refreshUser } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
   const { showError } = useErrorModal();
   const offer = useOutOfVideosOffer();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   /** Increment when opening + New so BlogUrlForm remounts and picks a new random template each time. */
   const [blogFormMountKey, setBlogFormMountKey] = useState(0);
+  const [blogFormInitialGenre, setBlogFormInitialGenre] = useState<string | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -182,6 +183,18 @@ export default function Dashboard() {
     else if (tab === "voices") setActiveTab("voices");
   }, [searchParams]);
 
+  // Open BlogUrlForm modal at step 2 with Designer Templates pre-selected
+  useEffect(() => {
+    if (searchParams.get("openDesignerTemplates") !== "1") return;
+    setBlogFormInitialGenre(GENRE_CRAFTED);
+    setBlogFormMountKey((k) => k + 1);
+    setShowModal(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("openDesignerTemplates");
+    const qs = next.toString();
+    navigate(qs ? `/dashboard?${qs}` : "/dashboard", { replace: true });
+  }, [searchParams]);
+
   // Leaving Projects (tab or URL) should close the new-project modal so returning does not reopen it.
   useEffect(() => {
     if (activeTab === "templates" || activeTab === "voices") {
@@ -194,12 +207,13 @@ export default function Dashboard() {
   // the user-initiated 403 path never fires. The hook's open() enforces the
   // 5-min window internally and silently no-ops past it.
   useEffect(() => {
+    if (loading) return; // wait until getMe() confirms fresh user data
     if (!user) return;
     if (offer.isOpen) return;
     if (user.plan === "free" && user.can_create_video === false) {
       offer.open();
     }
-  }, [user?.plan, user?.can_create_video, offer.isOpen, offer.open]);
+  }, [loading, user?.plan, user?.can_create_video, offer.isOpen, offer.open]);
 
   const loadProjects = async () => {
     try {
@@ -379,8 +393,13 @@ export default function Dashboard() {
 
   // ─── Onboarding (0 projects): show form on first load; hide when show_form=0 (e.g. logo click) ───
   // Deep-linking to My Templates / Voices (?tab=) must use the normal tabbed layout even with 0 projects.
+  // A walled free user (out of videos) must NOT be shown the create form — they can't
+  // make a project. They fall through to the normal dashboard where the "+ New" button
+  // is disabled and the out-of-videos upgrade modal opens instead.
+  const isWalled = user?.plan === "free" && user?.can_create_video === false;
   const emptyOnboarding =
     loaded &&
+    !isWalled &&
     projects.length === 0 &&
     searchParams.get("show_form") !== "0" &&
     searchParams.get("tab") !== "templates" &&
@@ -507,8 +526,9 @@ export default function Dashboard() {
           onSubmitBulk={handleCreateBulk}
           loading={creating}
           asModal
-          onClose={() => setShowModal(false)}
-          onDismissFlow={() => setShowModal(false)}
+          onClose={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
+          onDismissFlow={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
+          initialGenre={blogFormInitialGenre}
         />
       )}
 

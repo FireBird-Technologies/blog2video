@@ -38,7 +38,7 @@ interface VideoData {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
-  logoSize?: string;
+  logoSize?: number | string;
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
@@ -257,7 +257,7 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
             imageUrl,
             imageObjectPosition: `${focusX}% ${focusY}%`,
-            imageZoom: Math.max(1, Number(rawProps.imageZoom ?? 1)),
+            imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
             fontFamily: resolvedFontFamily || undefined,
           };
 

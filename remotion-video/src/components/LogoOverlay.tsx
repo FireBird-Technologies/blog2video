@@ -13,8 +13,12 @@ interface LogoOverlayProps {
   src: string;
   position?: string; // "top_left" | "top_right" | "bottom_left" | "bottom_right"
   maxOpacity?: number; // 0.0 - 1.0 (default 0.9)
-  size?: string; // "default" | "small" | "medium" | "large" | "extra_large"
+  // Either a numeric percentage (e.g. 70 = 70%, the value stored in the DB /
+  // sent by the backend) OR a legacy named preset
+  // ("default" | "small" | "medium" | "large" | "extra_large").
+  size?: number | string;
   aspectRatio?: string; // "landscape" | "portrait"
+  shadow?: boolean; // drop-shadow under the logo (default true)
 }
 
 /**
@@ -32,6 +36,7 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
   maxOpacity = 0.9,
   size: sizePreset = "default",
   aspectRatio = "landscape",
+  shadow = true,
 }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -42,7 +47,15 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
     extrapolateRight: "clamp",
   });
 
-  const mult = LOGO_SIZE_MULT[sizePreset] ?? 1;
+  // `size` may arrive as a numeric percentage (the DB/backend value, e.g. 70)
+  // or as a legacy named preset. Numeric percent → mult = pct/100 (mirrors the
+  // frontend preview's LogoOverlay so render matches preview); preset → table.
+  const mult =
+    typeof sizePreset === "number"
+      ? sizePreset > 0
+        ? sizePreset / 100
+        : 1
+      : LOGO_SIZE_MULT[sizePreset] ?? 1;
   // Responsive sizing — sized to be clearly visible in the final video
   const baseSize = isPortrait
     ? Math.round(width * 0.12)
@@ -61,8 +74,8 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
     opacity,
     width: size,
     height: size,
-    // Subtle drop shadow so the logo is visible on any background
-    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.25))",
+    // Subtle drop shadow so the logo is visible on any background (opt-out via `shadow`)
+    filter: shadow ? "drop-shadow(0 1px 4px rgba(0,0,0,0.25))" : undefined,
   };
 
   switch (position) {

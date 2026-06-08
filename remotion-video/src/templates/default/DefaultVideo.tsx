@@ -75,7 +75,7 @@ interface VideoData {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
-  logoSize?: string;
+  logoSize?: number | string;
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
@@ -270,7 +270,7 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             : scene.layoutProps;
         const imageFocusX = Number((rawLayoutProps as Record<string, unknown>)?.imageFocusX ?? 50);
         const imageFocusY = Number((rawLayoutProps as Record<string, unknown>)?.imageFocusY ?? 50);
-        const imageZoom = Math.max(1, Number((rawLayoutProps as Record<string, unknown>)?.imageZoom ?? 1));
+        const imageZoom = Math.max(0.1, Number((rawLayoutProps as Record<string, unknown>)?.imageZoom ?? 1));
         const imageObjectPosition = `${Math.max(0, Math.min(100, imageFocusX))}% ${Math.max(0, Math.min(100, imageFocusY))}%`;
 
         // Build props for the layout component

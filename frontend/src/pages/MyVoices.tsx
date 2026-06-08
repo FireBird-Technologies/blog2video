@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import ReactDOM from "react-dom";
 import {
   getPrebuiltVoices,
@@ -94,6 +95,8 @@ export default function MyVoices({ demoMode }: { demoMode?: MyVoicesDemoMode } =
   const { showError } = useErrorModal();
   const isDemo = !!demoMode;
   const isPro = isDemo ? true : user?.plan === "pro" || user?.plan === "standard";
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -211,6 +214,18 @@ export default function MyVoices({ demoMode }: { demoMode?: MyVoicesDemoMode } =
     if (demoMode?.showCreateModal) setShowDesignModal(true);
     if (demoMode?.createMode) setCreateVoiceMode(demoMode.createMode);
   }, [isDemo, demoMode?.showCreateModal, demoMode?.createMode]);
+
+  // BlogUrlForm Step 3 navigates with ?tab=voices&openCustomVoiceCreator=1
+  useEffect(() => {
+    if (isDemo) return;
+    if (searchParams.get("openCustomVoiceCreator") !== "1") return;
+    setCreateVoiceMode("form");
+    setShowDesignModal(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("openCustomVoiceCreator");
+    const qs = next.toString();
+    navigate(qs ? `/dashboard?${qs}` : "/dashboard", { replace: true });
+  }, [isDemo, searchParams, navigate]);
 
   useEffect(() => {
     if (prebuiltTab === "Custom voice") {

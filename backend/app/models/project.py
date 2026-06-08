@@ -14,6 +14,10 @@ class ProjectStatus(str, enum.Enum):
     DONE = "done"
     ERROR = "error"
     GENERATING = "regenerating"
+    # Dedicated state for the "regenerate script" job (keep narration/voiceover, refresh
+    # titles/layouts). Distinct from SCRIPTED so a reload mid-job doesn't auto-start the
+    # full generation pipeline.
+    SCRIPT_REGENERATING = "script_regenerating"
 
 
 class Project(Base):
@@ -48,7 +52,7 @@ class Project(Base):
     logo_r2_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     logo_position: Mapped[str] = mapped_column(String(20), default="bottom_right")
     logo_opacity: Mapped[float] = mapped_column(default=0.9)
-    logo_size: Mapped[float] = mapped_column(Float, default=100.0)  # percentage, e.g. 100 = 100%, REAL for smooth slider
+    logo_size: Mapped[float] = mapped_column(Float, default=70.0)  # percentage, e.g. 70 = 70%, REAL for smooth slider
 
     # Voiceover
     custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -96,3 +100,4 @@ class Project(Base):
     scene_edit_history = relationship("SceneEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     reviews = relationship("Review", back_populates="project", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
