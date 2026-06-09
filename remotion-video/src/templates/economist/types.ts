@@ -41,6 +41,10 @@ export interface EconomistIndicator {
   label: string;
   /** Optional trend delta, e.g. "+2.3%" or "-0.4pp". Leading +/− tints up/down. */
   delta?: string;
+  /** Optional comparison baseline value (e.g. prior period / benchmark figure). */
+  compareValue?: string;
+  /** Optional comparison label (e.g. "vs 2024", "vs forecast"). Defaults to "vs". */
+  compareLabel?: string;
 }
 
 export interface EconomistLayoutProps {
@@ -76,7 +80,8 @@ export interface EconomistLayoutProps {
   note?: string;
 
   // ── cover_reveal ───────────────────────────────────────────────────────────
-  /** Masthead wordmark text — homage to the logo, editable. Default "The Economist". */
+  /** Masthead wordmark — the brand/publication name from the brief. Hidden when
+   * empty; never falls back to "The Economist" (that is the style homage). */
   wordmark?: string;
   /** Contents teaser headlines on hairline-ruled rows (top-right of the cover). */
   teasers?: string[];

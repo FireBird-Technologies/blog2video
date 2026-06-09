@@ -1,8 +1,9 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps, EconomistProsConsItem } from "../types";
-import { ECONOMIST_COLORS } from "../constants";
+import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
+import { textRise } from "./chartHelpers";
 
 /**
  * ProsCons — the signature debate page (← prosandcons.jpeg).
@@ -34,12 +35,12 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const leadSize = isPortrait ? 24 : 24;
-  const bodySize = isPortrait ? 27 : 26;
+  const leadSize = isPortrait ? 25 : 25;
+  const bodySize = isPortrait ? 28 : 28;
   const numSize = isPortrait ? 34 : 34;
 
   return (
-    <div style={{ flex: 1, minWidth: 0 }}>
+    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
       {/* ▶ LABEL */}
       <div
         style={{
@@ -150,16 +151,18 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
   const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
 
-  const pad = isPortrait ? { x: 70, t: 64, b: 80 } : { x: 110, t: 70, b: 76 };
+  const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
+  const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
+  const pad = isPortrait ? { x: 70, t: topInset, b: botInset } : { x: 88, t: topInset, b: botInset };
   const titleSize = (titleFontSize ?? (isPortrait ? 56 : 62)) as number;
 
   const headOp = interpolate(frame, [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const introOp = interpolate(frame, [8, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill style={{ padding: `${pad.t}px ${pad.x}px ${pad.b}px` }}>
-      {/* Title + rule. */}
-      <div style={{ opacity: headOp, maxWidth: isPortrait ? "100%" : "70%" }}>
+    <AbsoluteFill style={{ padding: `${pad.t}px ${pad.x}px ${pad.b}px`, display: "flex", flexDirection: "column" }}>
+      {/* Title + rule — title rises in. */}
+      <div style={{ maxWidth: isPortrait ? "100%" : "82%" }}>
         <div
           style={{
             fontFamily: ECONOMIST_SERIF_FONT,
@@ -168,6 +171,7 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
             lineHeight: 1.04,
             letterSpacing: -titleSize * 0.012,
             color: textColor,
+            ...textRise(frame, 2),
           }}
         >
           {title}
@@ -192,12 +196,13 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
         </div>
       )}
 
-      {/* Two columns. */}
+      {/* Two columns — fill the body so short lists spread down the page. */}
       <div
         style={{
+          flex: 1,
           display: "flex",
           flexDirection: isPortrait ? "column" : "row",
-          gap: isPortrait ? 30 : 64,
+          gap: isPortrait ? 30 : 72,
         }}
       >
         <ProsConsColumn label={prosLabel} color={PROS_BLUE} items={pros} startFrame={12} textColor={textColor} isPortrait={isPortrait} />

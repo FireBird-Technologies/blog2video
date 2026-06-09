@@ -1,8 +1,9 @@
 import React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
-import { ECONOMIST_COLORS } from "../constants";
+import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
+import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
 
 /**
  * LeaderQuote — an oversized red opening quotation mark + a large centred serif
@@ -14,6 +15,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
   narration,
   attribution,
   highlightPhrase,
+  sectionLabel,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
@@ -24,13 +26,18 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
   const isPortrait = aspectRatio === "portrait";
 
   const text = quote || narration || "";
-  const quoteSize = (titleFontSize ?? (isPortrait ? 56 : 72)) as number;
-  const pad = isPortrait ? 80 : width * 0.14;
+  const quoteSize = (titleFontSize ?? (isPortrait ? 64 : 84)) as number;
+  const pad = isPortrait ? 64 : width * 0.085;
+  const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 16;
+  const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 16;
 
   const markScale = spring({ frame: frame - 4, fps, config: { damping: 14, mass: 0.6 } });
   const ruleW = interpolate(frame, [10, 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // Spring rise for the quote body — a touch of weight on entrance.
+  const quoteSpring = spring({ frame: frame - 16, fps, config: { damping: 18, mass: 0.7 } });
   const quoteOp = interpolate(frame, [16, 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const quoteY = interpolate(frame, [16, 36], [18, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const quoteY = interpolate(quoteSpring, [0, 1], [22, 0]);
+  const kickerOp = interpolate(frame, [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const attrOp = interpolate(frame, [38, 54], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // Split out the highlighted phrase so it can be coloured red.
@@ -45,25 +52,55 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
   }
 
   return (
-    <AbsoluteFill style={{ padding: `0 ${pad}px`, alignItems: "center", justifyContent: "center" }}>
+    <AbsoluteFill style={{ padding: `${topInset}px ${pad}px ${botInset}px`, alignItems: "center", justifyContent: "center" }}>
+      {/* Faint engraved field behind the quote to fill the wide empty paper. */}
+      <EngravingTexture opacity={0.03} gap={11} />
+
+      {/* Section kicker above the mark — fills the top space and frames the quote. */}
+      {sectionLabel && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: isPortrait ? 18 : 24,
+            opacity: kickerOp,
+          }}
+        >
+          <span style={{ width: 28, height: 6, background: accentColor }} />
+          <span
+            style={{
+              fontFamily: ECONOMIST_SANS_FONT,
+              fontWeight: 700,
+              fontSize: isPortrait ? 19 : 18,
+              letterSpacing: 2.4,
+              textTransform: "uppercase",
+              color: ECONOMIST_COLORS.muted,
+            }}
+          >
+            {sectionLabel}
+          </span>
+        </div>
+      )}
+
       {/* Oversized opening quote mark. */}
       <div
         style={{
           fontFamily: ECONOMIST_SERIF_FONT,
           fontWeight: 900,
-          fontSize: isPortrait ? 220 : 260,
+          fontSize: isPortrait ? 170 : 200,
           lineHeight: 0.7,
           color: accentColor,
           transform: `scale(${markScale})`,
           transformOrigin: "center bottom",
           marginBottom: isPortrait ? 4 : 8,
-          height: isPortrait ? 120 : 150,
+          height: isPortrait ? 96 : 120,
         }}
       >
         &ldquo;
       </div>
 
-      <div style={{ width: 120, height: 3, background: accentColor, transform: `scaleX(${ruleW})`, marginBottom: isPortrait ? 28 : 34 }} />
+      <EditorialDivider width={160} progress={ruleW} accentColor={accentColor} height={16} style={{ marginBottom: isPortrait ? 22 : 28 }} />
 
       <div
         style={{
@@ -73,7 +110,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
           lineHeight: 1.22,
           color: textColor,
           textAlign: "center",
-          maxWidth: isPortrait ? "100%" : "82%",
+          maxWidth: isPortrait ? "100%" : "90%",
           opacity: quoteOp,
           transform: `translateY(${quoteY}px)`,
         }}
@@ -85,7 +122,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
 
       {attribution && (
         <>
-          <div style={{ width: 120, height: 3, background: accentColor, transform: `scaleX(${ruleW})`, margin: `${isPortrait ? 30 : 36}px 0 22px` }} />
+          <EditorialDivider width={160} progress={ruleW} accentColor={accentColor} height={16} style={{ margin: `${isPortrait ? 26 : 32}px 0 18px` }} />
           <div
             style={{
               fontFamily: ECONOMIST_SANS_FONT,

@@ -68,6 +68,19 @@ export const LAYOUT_MIN_FRAMES: Record<EconomistLayoutType, number> = {
   section_divider: 150,
 };
 
+/**
+ * Persistent chrome furniture insets (px). The shared top masthead strip and
+ * bottom dateline/progress strip occupy these bands; furniture-bearing layouts
+ * set their top/bottom padding to clear them with a consistent gutter
+ * (pad.t ≈ top + 24, pad.b ≈ bottom + 22). Portrait variants are taller.
+ */
+export const CHROME_INSET = {
+  top: 56,
+  bottom: 52,
+  topPortrait: 64,
+  bottomPortrait: 60,
+} as const;
+
 /** Layouts that do not show a cover/inset photo. */
 export const LAYOUTS_WITHOUT_IMAGE: EconomistLayoutType[] = [
   "section_divider",

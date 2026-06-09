@@ -58,6 +58,51 @@ export function fmtValue(v: number, unit = ""): string {
   return `${base}${u}`;
 }
 
+/** Ordinal suffix for a day-of-month (1ST, 2ND, 3RD, 23RD…). */
+function ordinal(n: number): string {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return `${n}TH`;
+  switch (n % 10) {
+    case 1:
+      return `${n}ST`;
+    case 2:
+      return `${n}ND`;
+    case 3:
+      return `${n}RD`;
+    default:
+      return `${n}TH`;
+  }
+}
+
+/**
+ * Build a live Economist-style dateline for the week containing `date`
+ * (Monday→Sunday), e.g. "MAY 23RD–29TH 2026". When the week straddles two
+ * months the month is repeated ("MAY 30TH–JUN 5TH 2026"). Used as the default
+ * dateline so section dividers / covers always show the current week.
+ */
+export function formatEconomistWeek(date: Date = new Date()): string {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  // Monday as the start of the week (getDay: 0=Sun..6=Sat).
+  const dow = (d.getDay() + 6) % 7;
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - dow);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+
+  const MONTHS = [
+    "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+  ];
+  const m1 = MONTHS[mon.getMonth()];
+  const m2 = MONTHS[sun.getMonth()];
+  const start = `${m1} ${ordinal(mon.getDate())}`;
+  const end =
+    mon.getMonth() === sun.getMonth()
+      ? ordinal(sun.getDate())
+      : `${m2} ${ordinal(sun.getDate())}`;
+  return `${start}–${end} ${sun.getFullYear()}`;
+}
+
 export function easeInOutCubic(t: number): number {
   const p = Math.max(0, Math.min(1, t));
   return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
@@ -65,6 +110,28 @@ export function easeInOutCubic(t: number): number {
 
 export function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
+}
+
+/**
+ * A reusable editorial text-entrance: fade in + rise with a gentle ease-out-back
+ * overshoot, so headings/labels "settle" into place rather than just fading.
+ * Pure function of `frame` (no Remotion import) so it stays identical across the
+ * render + preview trees. `delay` staggers it; `rise` is the start offset in px.
+ */
+export function textRise(
+  frame: number,
+  delay = 0,
+  rise = 22,
+  dur = 20,
+): { opacity: number; transform: string } {
+  const t = clamp((frame - delay) / dur, 0, 1);
+  const opacity = t;
+  // easeOutBack — slight overshoot past the target then settle.
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  const eased = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  const y = (1 - eased) * rise;
+  return { opacity, transform: `translateY(${y.toFixed(2)}px)` };
 }
 
 export interface ParsedSeries {

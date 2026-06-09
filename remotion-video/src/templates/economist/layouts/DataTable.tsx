@@ -1,9 +1,9 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
-import { ECONOMIST_COLORS } from "../constants";
+import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
-import { parseChartTable, toNum, fmtValue, clamp } from "./chartHelpers";
+import { parseChartTable, toNum, fmtValue, clamp, textRise } from "./chartHelpers";
 
 /**
  * DataTable — a ranked Economist table: rank · name · inline red magnitude bar ·
@@ -24,7 +24,9 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
   const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
 
-  const pad = isPortrait ? { x: 70, t: 64, b: 80 } : { x: 120, t: 70, b: 80 };
+  const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
+  const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
+  const pad = isPortrait ? { x: 70, t: topInset, b: botInset } : { x: 96, t: topInset, b: botInset };
   const titleSize = (titleFontSize ?? (isPortrait ? 48 : 52)) as number;
   const subSize = Math.round(titleSize * 0.56);
 
@@ -43,13 +45,18 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
   const valueW = isPortrait ? 128 : 150;
   const barW = innerW - rankW - nameW - valueW - 24;
   const rowFont = isPortrait ? 32 : 32;
-  const rowH = isPortrait ? 70 : 66;
+  // Scale row height to fill the body so a short table spreads instead of
+  // stacking tight at the top with dead paper below.
+  const headerBlock = 22 + titleSize * 1.05 + (narration ? subSize + 8 : 0) + 16 + 6 + 6;
+  const availH = height - pad.t - pad.b - headerBlock;
+  const rowCount = Math.max(1, rows.length);
+  const rowH = clamp(availH / rowCount, 66, 104);
 
   return (
     <AbsoluteFill style={{ padding: `${pad.t}px ${pad.x}px ${pad.b}px` }}>
-      {/* Header. */}
-      <div style={{ opacity: headOp, marginBottom: 22 }}>
-        <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16 }} />
+      {/* Header — tab, title and subtitle rise in with a stagger. */}
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
         <div
           style={{
             fontFamily: ECONOMIST_SERIF_FONT,
@@ -58,6 +65,7 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
             lineHeight: 1.05,
             color: textColor,
             letterSpacing: -titleSize * 0.012,
+            ...textRise(frame, 4),
           }}
         >
           {title}
@@ -69,6 +77,7 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
               fontSize: subSize,
               color: ECONOMIST_COLORS.muted,
               marginTop: 8,
+              ...textRise(frame, 12),
             }}
           >
             {narration}
