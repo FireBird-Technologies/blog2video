@@ -183,6 +183,16 @@ export default function PlanSwitchConfirmModal({
                 credit for the remaining days on your current {currentName} plan.
               </p>
             )}
+            {preview.credit_to_balance_cents > 0 && (
+              <p className="text-sm text-gray-500 mb-3">
+                Since that credit is larger than today's charge,{" "}
+                <span className="font-medium text-gray-700">
+                  {fmt(preview.credit_to_balance_cents, preview.currency)}
+                </span>{" "}
+                will be added to your account balance and applied automatically to
+                your future invoices.
+              </p>
+            )}
             <p className="text-xs text-gray-400 mb-5">
               Your new {targetName} billing period starts today.
             </p>

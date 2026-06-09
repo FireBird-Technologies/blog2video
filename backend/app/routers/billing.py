@@ -399,6 +399,7 @@ class ChangePlanPreviewOut(BaseModel):
     target_plan_slug: str
     amount_due_today_cents: int          # 0 for downgrade
     proration_credit_cents: int          # for upgrade only; 0 for downgrade
+    credit_to_balance_cents: int = 0     # surplus proration credit parked on the customer balance
     target_plan_price_cents: int         # full price of the target plan
     new_period_start_iso: str            # today for upgrade; current_period_end for downgrade
     new_period_end_iso: str | None
@@ -522,9 +523,14 @@ def preview_change_plan(
         logger.exception("[BILLING] Failed to preview upgrade for user=%s", user.id)
         raise HTTPException(status_code=400, detail=str(e))
 
+    # `total` is the net of the invoice and can be negative when the proration
+    # credit for unused time exceeds the new plan's prorated charge. Stripe never
+    # bills a negative amount — it parks the surplus on the customer's credit
+    # balance and applies it to future invoices. We surface both numbers.
+    total_cents = int(getattr(upcoming, "total", 0) or 0)
     amount_due = int(getattr(upcoming, "amount_due", 0) or 0)
     if not amount_due:
-        amount_due = int(getattr(upcoming, "total", 0) or 0)
+        amount_due = total_cents
 
     # Sum negative line items to surface the credit applied for unused time.
     credit_cents = 0
@@ -543,6 +549,7 @@ def preview_change_plan(
         target_plan_slug=target_slug,
         amount_due_today_cents=max(0, amount_due),
         proration_credit_cents=credit_cents,
+        credit_to_balance_cents=max(0, -total_cents),
         target_plan_price_cents=target_plan.price_cents,
         new_period_start_iso=now.isoformat(),
         new_period_end_iso=None,
@@ -610,10 +617,36 @@ def change_plan(
             logger.exception("[BILLING] Stripe error on upgrade for user=%s", user.id)
             raise HTTPException(status_code=400, detail=str(e))
 
+        # The proration invoice (always_invoice) is what the user actually paid
+        # today — not the full recurring price. Read it back so amount_paid_cents
+        # reflects reality. Fall back to the plan price if the invoice is missing.
+        charged_cents = target_plan.price_cents
+        latest_invoice_id = (
+            updated.get("latest_invoice") if isinstance(updated, dict)
+            else getattr(updated, "latest_invoice", None)
+        )
+        if isinstance(latest_invoice_id, dict):
+            latest_invoice_id = latest_invoice_id.get("id")
+        elif hasattr(latest_invoice_id, "id"):
+            latest_invoice_id = latest_invoice_id.id
+        if latest_invoice_id:
+            try:
+                inv = stripe.Invoice.retrieve(latest_invoice_id)
+                charged_cents = (
+                    int(getattr(inv, "amount_paid", 0) or 0)
+                    or int(getattr(inv, "amount_due", 0) or 0)
+                )
+            except stripe.error.StripeError:
+                logger.warning(
+                    "[BILLING] Could not read proration invoice %s for user=%s; "
+                    "falling back to plan price",
+                    latest_invoice_id, user.id,
+                )
+
         # Sync DB synchronously — webhook is a safety net.
         sub.plan_id = target_plan.id
         sub.status = SubscriptionStatus.ACTIVE
-        sub.amount_paid_cents = target_plan.price_cents
+        sub.amount_paid_cents = charged_cents
         sub.canceled_at = None
         period_start = (
             updated.get("current_period_start") if isinstance(updated, dict)
@@ -642,7 +675,7 @@ def change_plan(
             direction="upgrade",
             target_plan_slug=target_slug,
             effective_date_iso=now.isoformat(),
-            amount_due_today_cents=target_plan.price_cents,
+            amount_due_today_cents=charged_cents,
         )
 
     # ── downgrade: schedule at period end ────────────────────────────────────
