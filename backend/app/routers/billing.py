@@ -1,6 +1,6 @@
 """
 Stripe billing router: checkout sessions, customer portal, webhooks.
-Supports both Pro subscription ($50/mo) and per-video purchase ($3).
+Supports both Pro subscription ($60/mo) and per-video purchase ($3).
 """
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
