@@ -61,9 +61,12 @@ class SubscriptionPlan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
+    # Relationships (plan_id only — scheduled_plan_id is a separate FK path)
     subscriptions: Mapped[list["Subscription"]] = relationship(
-        "Subscription", back_populates="plan", cascade="all, delete-orphan"
+        "Subscription",
+        back_populates="plan",
+        foreign_keys="Subscription.plan_id",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
@@ -119,12 +122,26 @@ class Subscription(Base):
     amount_paid_cents: Mapped[int] = mapped_column(Integer, default=0)
 
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Pending plan change scheduled at period end (downgrade flow).
+    # Set when user initiates downgrade; cleared on schedule fire or cancel.
+    scheduled_plan_id: Mapped[int | None] = mapped_column(
+        ForeignKey("subscription_plans.id"), nullable=True
+    )
+    scheduled_change_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    stripe_schedule_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="subscriptions")
-    plan: Mapped["SubscriptionPlan"] = relationship("SubscriptionPlan", back_populates="subscriptions")
+    plan: Mapped["SubscriptionPlan"] = relationship(
+        "SubscriptionPlan", back_populates="subscriptions", foreign_keys=[plan_id]
+    )
+    scheduled_plan: Mapped["SubscriptionPlan | None"] = relationship(
+        "SubscriptionPlan", foreign_keys=[scheduled_plan_id]
+    )
 
     def __repr__(self) -> str:
         return f"<Subscription #{self.id} user={self.user_id} plan={self.plan_id} status={self.status.value}>"
