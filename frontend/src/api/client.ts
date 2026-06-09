@@ -1153,6 +1153,8 @@ export interface VoiceChangeStatus {
   progress: number;
   status: string;
   r2_video_url: string | null;
+  /** Which operation is running: "voice_change" (add/change) or "delete". */
+  kind?: string;
 }
 
 /**
@@ -1171,6 +1173,15 @@ export const changeProjectVoice = (
 
 export const getVoiceChangeStatus = (projectId: number) =>
   api.get<VoiceChangeStatus>(`/projects/${projectId}/voice-change-status`);
+
+/**
+ * Remove the project's voiceover and make the video mute. Does NOT deduct a video
+ * credit. Runs in the background as a job — poll getVoiceChangeStatus for progress
+ * (it reports kind="delete"). The existing render is kept; re-rendering to apply the
+ * mute is a normal (paid) re-render.
+ */
+export const deleteProjectVoiceover = (projectId: number) =>
+  api.post<VoiceChangeStartResponse>(`/projects/${projectId}/delete-voiceover`);
 
 export const updateScene = (
   projectId: number,
