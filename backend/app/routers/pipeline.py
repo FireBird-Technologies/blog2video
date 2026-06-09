@@ -1102,6 +1102,7 @@ async def _generate_scenes(
     skip_voiceover: bool = False,
     preserve_image_assignments: bool = True,
     redistribute_images: bool = False,
+    strict_voiceover: bool = False,
 ):
     """Generate voiceovers and scene layout descriptors concurrently, then write Remotion data.
 
@@ -1217,11 +1218,27 @@ async def _generate_scenes(
             db.commit()
         else:
             content_lang = get_content_language_for_project(project)
-            await generate_all_voiceovers(
+            vo_paths = await generate_all_voiceovers(
                 scenes, db,
                 video_style=getattr(project, "video_style", None) or "explainer",
                 content_language=content_lang,
             )
+            # generate_all_voiceovers swallows per-scene TTS failures (returns "" for a
+            # failed scene). In strict mode (regenerate-script, which has a restorable
+            # audio backup) treat any narrated scene that produced no audio as a hard
+            # failure so the caller can roll back to the original voiceovers instead of
+            # silently shipping missing audio.
+            if strict_voiceover:
+                failed = [
+                    scenes[i].order
+                    for i in range(len(scenes))
+                    if (scenes[i].narration_text or "").strip()
+                    and not (vo_paths[i] if i < len(vo_paths) else "")
+                ]
+                if failed:
+                    raise RuntimeError(
+                        f"Voiceover regeneration failed for {len(failed)} scene(s): {failed}"
+                    )
 
     # ── Task 2: Scene descriptors (pure LLM, no DB writes) ──────
     async def _descriptor_task():

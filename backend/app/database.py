@@ -373,6 +373,24 @@ def _migrate_sqlite(eng) -> None:
                         text(f"ALTER TABLE saved_voices ADD COLUMN {col_name} {col_def}")
                     )
 
+    # ─── Project template change jobs ────────────────────────────────
+    if "project_template_change_jobs" in insp.get_table_names():
+        tcj_cols = {c["name"] for c in insp.get_columns("project_template_change_jobs")}
+        with eng.begin() as conn:
+            if "scene_snapshot" not in tcj_cols:
+                conn.execute(
+                    text("ALTER TABLE project_template_change_jobs ADD COLUMN scene_snapshot TEXT")
+                )
+
+    # ─── Project voice change jobs ───────────────────────────────────
+    if "project_voice_change_jobs" in insp.get_table_names():
+        vcj_cols = {c["name"] for c in insp.get_columns("project_voice_change_jobs")}
+        with eng.begin() as conn:
+            if "voice_snapshot" not in vcj_cols:
+                conn.execute(
+                    text("ALTER TABLE project_voice_change_jobs ADD COLUMN voice_snapshot TEXT")
+                )
+
 
 def init_db():
     """
@@ -401,6 +419,8 @@ def init_db():
         PrebuiltVoice,
         Review,
         ProjectTemplateChangeJob,
+        ProjectRegenerateScriptJob,
+        ProjectVoiceChangeJob,
         Referral,
         ReferralSignup,
         SupportConversation,

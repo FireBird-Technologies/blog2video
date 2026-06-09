@@ -1139,12 +1139,19 @@ export default function ProjectView() {
           await loadProject();
         } else if (job.status === "failed") {
           stopTemplateRelayoutPolling();
+          setTemplateRelayoutJob(null);
+          await loadProject();
+          showError(
+            job.error_message ||
+              "We faced an unforeseen error while processing your request. Please retry — your video count has not been deducted.",
+            { variant: "pipeline" }
+          );
         }
       } catch {
         stopTemplateRelayoutPolling();
       }
     }, 2000);
-  }, [loadProject, projectId, stopTemplateRelayoutPolling]);
+  }, [loadProject, projectId, stopTemplateRelayoutPolling, showError]);
 
   const stopRegenerateScriptPolling = useCallback(() => {
     if (regenerateScriptPollRef.current) {
