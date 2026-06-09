@@ -200,7 +200,32 @@ export interface SubscriptionDetail {
   amount_paid_cents: number;
   canceled_at: string | null;
   retention_offer_eligible: boolean;
+  scheduled_plan_slug: string | null;
+  scheduled_plan_name: string | null;
+  scheduled_change_at: string | null;
   created_at: string;
+}
+
+export interface ChangePlanPreview {
+  direction: "upgrade" | "downgrade";
+  current_plan_slug: string;
+  target_plan_slug: string;
+  amount_due_today_cents: number;
+  proration_credit_cents: number;
+  credit_to_balance_cents: number;
+  target_plan_price_cents: number;
+  new_period_start_iso: string;
+  new_period_end_iso: string | null;
+  effective_date_iso: string;
+  currency: string;
+}
+
+export interface ChangePlanResult {
+  status: string;
+  direction: "upgrade" | "downgrade";
+  target_plan_slug: string;
+  effective_date_iso: string;
+  amount_due_today_cents: number;
 }
 
 export interface Invoice {

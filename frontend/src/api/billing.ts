@@ -1,11 +1,16 @@
 import api from "./http";
 import {
   BillingStatus,
+  ChangePlanPreview,
+  ChangePlanResult,
   DataSummary,
   Invoice,
   PlanInfo,
   SubscriptionDetail,
 } from "./types";
+
+export type PlanKey = "standard" | "pro";
+export type BillingCycle = "monthly" | "annual";
 
 // ─── Billing API ──────────────────────────────────────────
 
@@ -75,4 +80,16 @@ export const acceptRetentionOffer = () =>
   api.post<{ status: string; message: string }>("/billing/retention-offer/accept");
 
 export const resumeSubscription = () => api.post("/billing/resume");
+
+export const previewPlanChange = (plan: PlanKey, billing_cycle: BillingCycle) =>
+  api.post<ChangePlanPreview>("/billing/change-plan-preview", {
+    plan,
+    billing_cycle,
+  });
+
+export const changePlan = (plan: PlanKey, billing_cycle: BillingCycle) =>
+  api.post<ChangePlanResult>("/billing/change-plan", { plan, billing_cycle });
+
+export const cancelScheduledPlanChange = () =>
+  api.post<{ status: string; message: string }>("/billing/cancel-scheduled-change");
 
