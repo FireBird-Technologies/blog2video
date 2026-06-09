@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -47,6 +47,9 @@ export default function Subscription() {
   const [retentionErrorMessage, setRetentionErrorMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  // Default the monthly/annual toggle to the user's current plan cycle, but only
+  // once — after that the user's manual toggling wins.
+  const cycleInitRef = useRef(false);
   const [pendingSwitch, setPendingSwitch] = useState<{
     plan: PlanKey;
     billing_cycle: BillingCycle;
@@ -70,6 +73,12 @@ export default function Subscription() {
       setSubscription(subRes.data);
       setInvoices(invoicesRes.data);
       setDataSummary(dataRes.data);
+      if (!cycleInitRef.current && subRes.data?.plan_slug) {
+        cycleInitRef.current = true;
+        setBillingCycle(
+          subRes.data.plan_slug.endsWith("annual") ? "annual" : "monthly"
+        );
+      }
     } catch (err) {
       console.error("Failed to load billing data:", err);
     } finally {

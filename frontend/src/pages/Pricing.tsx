@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
@@ -53,6 +53,9 @@ export default function Pricing() {
     plan: PlanKey;
     billing_cycle: BillingCycle;
   } | null>(null);
+  // Default the monthly/annual toggle to the user's current plan cycle, but only
+  // once — after that the user's manual toggling wins.
+  const cycleInitRef = useRef(false);
 
   useEffect(() => {
     const ref = searchParams.get("ref");
@@ -71,7 +74,15 @@ export default function Pricing() {
       return;
     }
     getSubscriptionDetail()
-      .then((res) => setSubscription(res.data))
+      .then((res) => {
+        setSubscription(res.data);
+        if (!cycleInitRef.current && res.data?.plan_slug) {
+          cycleInitRef.current = true;
+          setBillingCycle(
+            res.data.plan_slug.endsWith("annual") ? "annual" : "monthly"
+          );
+        }
+      })
       .catch(() => setSubscription(null));
   }, [user]);
 
