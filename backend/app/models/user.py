@@ -59,6 +59,7 @@ class User(Base):
     crafted_template_entitlements = relationship("CraftedTemplateEntitlement", back_populates="user", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     referrals = relationship("Referral", foreign_keys="Referral.referrer_id", cascade="all, delete-orphan", passive_deletes=True)
 
     @property
