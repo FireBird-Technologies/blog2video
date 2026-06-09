@@ -6,6 +6,16 @@
   body {
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   }
+
+  /* Guard against horizontal overflow inflating the layout viewport on small
+     screens. Without this, any element wider than the viewport widens the page,
+     which pushes position:fixed overlays (modals) off-center to the right.
+     `clip` (not `hidden`) avoids creating a scroll container, so it doesn't
+     break position:sticky descendants. */
+  html,
+  body {
+    overflow-x: clip;
+  }
 }
 
 @layer components {

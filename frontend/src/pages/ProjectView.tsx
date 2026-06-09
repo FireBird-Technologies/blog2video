@@ -38,7 +38,11 @@ import {
   getProjectTemplateChangeStatus,
   regenerateScript,
   getRegenerateScriptStatus,
+  getRegenerateScriptPreview,
+  verifyRegenerateScript,
+  rejectRegenerateScript,
   type ProjectRegenerateScriptJob,
+  type RegenerateScriptPreviewScene,
   generateEmbedToken,
   type TemplateMeta,
   type CraftedTemplateItem,
@@ -66,6 +70,7 @@ import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import RegenerateScriptModal from "../components/RegenerateScriptModal";
+import VerifyScriptModal from "../components/VerifyScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
@@ -477,7 +482,20 @@ export default function ProjectView() {
   const templateRelayoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [regenerateScriptJob, setRegenerateScriptJob] = useState<ProjectRegenerateScriptJob | null>(null);
   const [showRegenerateScriptConfirm, setShowRegenerateScriptConfirm] = useState(false);
+  // The "Regenerate" action at the verify step reuses the same modal, pre-filled with the
+  // job's prior instruction; on confirm it re-runs stage A instead of creating a new job.
+  const [showRegenerateScriptRetry, setShowRegenerateScriptRetry] = useState(false);
+  const [regenerateScriptVerifying, setRegenerateScriptVerifying] = useState(false);
+  // Previous (pre-regeneration) scenes for the verify popup's before/after comparison.
+  // null = loading; [] = loaded with no previous scenes (treat all as new).
+  const [regenScriptPreviousScenes, setRegenScriptPreviousScenes] =
+    useState<RegenerateScriptPreviewScene[] | null>(null);
   const regenerateScriptPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // True once the user has clicked "Proceed". The DB write that flips the job from
+  // "awaiting_review" to "running" may not be visible to the very next poll, so we ignore
+  // any stale "awaiting_review" reads while this is set — otherwise the UI bounces back to
+  // the verify step. Reset whenever a fresh stage-A run starts (initiate / regenerate).
+  const regenerateScriptProceededRef = useRef(false);
   const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
   useEffect(() => {
@@ -1121,12 +1139,19 @@ export default function ProjectView() {
           await loadProject();
         } else if (job.status === "failed") {
           stopTemplateRelayoutPolling();
+          setTemplateRelayoutJob(null);
+          await loadProject();
+          showError(
+            job.error_message ||
+              "We faced an unforeseen error while processing your request. Please retry — your video count has not been deducted.",
+            { variant: "pipeline" }
+          );
         }
       } catch {
         stopTemplateRelayoutPolling();
       }
     }, 2000);
-  }, [loadProject, projectId, stopTemplateRelayoutPolling]);
+  }, [loadProject, projectId, stopTemplateRelayoutPolling, showError]);
 
   const stopRegenerateScriptPolling = useCallback(() => {
     if (regenerateScriptPollRef.current) {
@@ -1135,6 +1160,17 @@ export default function ProjectView() {
     }
   }, []);
 
+  // Load the previous scenes for the verify popup. On error, fall back to [] so the popup
+  // isn't stuck on a loading spinner (it then treats every scene as new, no comparison).
+  const loadRegenerateScriptPreview = useCallback(async () => {
+    try {
+      const res = await getRegenerateScriptPreview(projectId);
+      setRegenScriptPreviousScenes(res.data?.previous_scenes ?? []);
+    } catch {
+      setRegenScriptPreviousScenes([]);
+    }
+  }, [projectId]);
+
   const startRegenerateScriptPolling = useCallback(() => {
     stopRegenerateScriptPolling();
     regenerateScriptPollRef.current = setInterval(async () => {
@@ -1142,8 +1178,24 @@ export default function ProjectView() {
         const res = await getRegenerateScriptStatus(projectId);
         const job = res.data;
         if (!job) return;
+        // After the user proceeds, the persisted status may briefly still read
+        // "awaiting_review" (DB write not yet visible to this read). Ignore those stale
+        // reads so the UI doesn't bounce back to the verify step — keep polling until the
+        // status catches up to running/completed/failed.
+        if (job.status === "awaiting_review" && regenerateScriptProceededRef.current) {
+          return;
+        }
         setRegenerateScriptJob(job);
-        if (job.status === "completed") {
+        if (job.status === "awaiting_review") {
+          // Paused for verification — stop polling, load the new scenes, and fetch the previous
+          // scenes so the verify popup can show the before/after comparison.
+          stopRegenerateScriptPolling();
+          await loadProject();
+          setRegenerateScriptJob(job);
+          loadRegenerateScriptPreview();
+        } else if (job.status === "completed") {
+          regenerateScriptProceededRef.current = false;
+          setRegenScriptPreviousScenes(null);
           stopRegenerateScriptPolling();
           // Clear any pipeline state that may have been set by a spurious auto-start
           // (e.g. if the project was stuck in "scripted" on mount and kickOffGeneration fired).
@@ -1152,6 +1204,8 @@ export default function ProjectView() {
           await loadProject();
           setRegenerateScriptJob(null);
         } else if (job.status === "failed") {
+          regenerateScriptProceededRef.current = false;
+          setRegenScriptPreviousScenes(null);
           stopRegenerateScriptPolling();
           stopPolling();
           setPipelineRunning(false);
@@ -1168,7 +1222,7 @@ export default function ProjectView() {
         stopRegenerateScriptPolling();
       }
     }, 2000);
-  }, [loadProject, projectId, stopRegenerateScriptPolling, showError]);
+  }, [loadProject, projectId, stopRegenerateScriptPolling, showError, loadRegenerateScriptPreview]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1216,13 +1270,16 @@ export default function ProjectView() {
         setRegenerateScriptJob(res.data);
         if (res.data.status === "queued" || res.data.status === "running") {
           startRegenerateScriptPolling();
+        } else if (res.data.status === "awaiting_review") {
+          // Resume the verify popup on reload / navigating back into the project.
+          loadRegenerateScriptPreview();
         }
       } catch {
         // ignore
       }
     };
     refreshRegenerateScriptJob();
-  }, [projectId, startRegenerateScriptPolling]);
+  }, [projectId, startRegenerateScriptPolling, loadRegenerateScriptPreview]);
 
   // Handle ?purchased=true redirect from Stripe per-video checkout
   useEffect(() => {
@@ -2092,16 +2149,57 @@ export default function ProjectView() {
     if (!project) return;
     try {
       const res = await regenerateScript(project.id, { user_instruction: instruction });
+      regenerateScriptProceededRef.current = false; // fresh run — the verify pause is expected
       setRegenerateScriptJob(res.data);
       startRegenerateScriptPolling();
     } catch (err) {
       const status = err && typeof err === "object" && "response" in err
         ? (err as { response?: { status?: number } }).response?.status
         : undefined;
-      showError(
-        getErrorMessage(err, "Failed to start script regeneration."),
-        status === 403 ? { showUpgrade: true } : undefined
-      );
+      // 422 = out-of-context instruction; the modal already shows it inline, so don't also toast it.
+      if (status !== 422) {
+        showError(
+          getErrorMessage(err, "Failed to start script regeneration."),
+          status === 403 ? { showUpgrade: true } : undefined
+        );
+      }
+      throw err; // let the modal surface the error inline
+    }
+  };
+
+  // Verify step — "Proceed": approve the regenerated script and resume scene generation.
+  const handleVerifyRegenerateScript = async () => {
+    if (!project) return;
+    setRegenerateScriptVerifying(true);
+    regenerateScriptProceededRef.current = true; // ignore stale "awaiting_review" reads from now on
+    try {
+      const res = await verifyRegenerateScript(project.id);
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to continue script generation."));
+    } finally {
+      setRegenerateScriptVerifying(false);
+    }
+  };
+
+  // Verify step — "Regenerate" (modal confirm): discard and re-run stage A with the
+  // (optionally edited) instruction. No credit is charged for re-runs.
+  const applyRejectRegenerateScript = async (instruction: string) => {
+    if (!project) return;
+    try {
+      const res = await rejectRegenerateScript(project.id, { user_instruction: instruction });
+      regenerateScriptProceededRef.current = false; // re-run reaches the verify pause again
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+      // 422 = out-of-context instruction; the modal already shows it inline, so don't also toast it.
+      if (status !== 422) {
+        showError(getErrorMessage(err, "Failed to regenerate the script."));
+      }
       throw err; // let the modal surface the error inline
     }
   };
@@ -2649,9 +2747,13 @@ export default function ProjectView() {
     templateRelayoutJob?.status === "running" || templateRelayoutJob?.status === "queued";
   // Also treat the project's own "script_regenerating" status as running so the loader stays
   // visible during the brief window before the job poll loads (and on resume after reload).
+  // "awaiting_review" must keep the loader up too: at the running→awaiting_review transition the
+  // job poll sets the status before loadProject refreshes project.status, so without this the
+  // loader would briefly drop out and flash the completed video.
   const regenerateScriptRunning =
     regenerateScriptJob?.status === "running" ||
     regenerateScriptJob?.status === "queued" ||
+    regenerateScriptJob?.status === "awaiting_review" ||
     project.status === "script_regenerating";
   const statusForBadge = templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
   const renderGenerationLoader = (mode: "pipeline" | "template-relayout" | "regenerate-script" = "pipeline") => {
@@ -2663,23 +2765,34 @@ export default function ProjectView() {
         : 0;
     const relayoutProgress = Math.max(8, Math.min(98, Math.round(relayoutProgressRaw)));
     // Regenerate-script is shown as discrete backend phases instead of a percentage.
+    // The "verify" step is a user-gated pause between the script and scene stages.
     const REGEN_SCRIPT_STEPS = [
       { id: "analyzing_instruction", label: "Analyzing instruction" },
       { id: "generating_script", label: "Generating script" },
+      { id: "verify", label: "Verify script" },
       { id: "generating_scenes", label: "Generating scenes" },
     ] as const;
+    const regenScriptAwaitingReview = regenerateScriptJob?.status === "awaiting_review";
     const regenScriptStepId =
-      regenerateScriptJob?.current_step ??
-      (regenerateScriptJob && regenerateScriptJob.total_scenes > 0
-        ? "generating_scenes"
-        : regenerateScriptJob?.status === "queued"
-        ? "analyzing_instruction"
-        : "generating_script");
+      regenScriptAwaitingReview
+        ? "verify"
+        : regenerateScriptJob?.current_step ??
+          (regenerateScriptJob && regenerateScriptJob.total_scenes > 0
+            ? "generating_scenes"
+            : regenerateScriptJob?.status === "queued"
+            ? "analyzing_instruction"
+            : "generating_script");
     const regenScriptCompleted = regenerateScriptJob?.status === "completed";
     const regenScriptStepIdx =
       regenScriptCompleted
         ? REGEN_SCRIPT_STEPS.length
         : Math.max(0, REGEN_SCRIPT_STEPS.findIndex((step) => step.id === regenScriptStepId));
+    // Fill for the progress bar above the step circles. Each step maps to a fixed percentage
+    // (the last step stays below 100% — it only completes when the run actually finishes).
+    const REGEN_SCRIPT_PROGRESS = [15, 40, 60, 80];
+    const regenScriptProgress = regenScriptCompleted
+      ? 100
+      : REGEN_SCRIPT_PROGRESS[Math.min(regenScriptStepIdx, REGEN_SCRIPT_PROGRESS.length - 1)];
     const stepLabels =
       mode === "template-relayout" || mode === "regenerate-script"
         ? []
@@ -2718,41 +2831,50 @@ export default function ProjectView() {
             </div>
           )}
 
-          {/* Regenerate-script: active step is highlighted, completed steps show a tick. */}
+          {/* Regenerate-script: a standalone progress bar (fills purple as the run proceeds)
+              above a row of independent step circles — the circles are NOT connected. */}
           {mode === "regenerate-script" && (
-            <div className="flex items-center justify-center gap-4 sm:gap-10 mb-8 mt-2">
-              {REGEN_SCRIPT_STEPS.map(({ id, label }, i) => {
-                const isDone = i < regenScriptStepIdx;
-                const isActive = i === regenScriptStepIdx;
-                return (
-                  <div key={id} className="flex flex-col items-center gap-2">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-                        isDone
-                          ? "bg-green-100 text-green-600"
-                          : isActive
-                          ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
-                          : "bg-gray-100 text-gray-400"
-                      }`}
-                    >
-                      {isDone ? (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        i + 1
-                      )}
+            <div className="mb-8 mt-2">
+              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
+                <div
+                  className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${regenScriptProgress}%` }}
+                />
+              </div>
+              <div className="flex items-start justify-between">
+                {REGEN_SCRIPT_STEPS.map(({ id, label }, i) => {
+                  const isDone = i < regenScriptStepIdx;
+                  const isActive = i === regenScriptStepIdx;
+                  return (
+                    <div key={id} className="flex flex-col items-center gap-2 w-16 sm:w-20">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                          isDone
+                            ? "bg-green-100 text-green-600"
+                            : isActive
+                            ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {isDone ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <span
+                        className={`text-[11px] sm:text-xs font-medium text-center leading-tight ${
+                          isDone ? "text-green-600" : isActive ? "text-purple-600" : "text-gray-400"
+                        }`}
+                      >
+                        {label}
+                      </span>
                     </div>
-                    <span
-                      className={`text-xs font-medium ${
-                        isDone ? "text-green-600" : isActive ? "text-purple-600" : "text-gray-400"
-                      }`}
-                    >
-                      {label}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -2812,18 +2934,28 @@ export default function ProjectView() {
             </div>
           )}
 
-          <div className="flex items-center justify-center gap-2">
-            <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-            <span className="text-xs text-gray-400">
-              {mode === "regenerate-script"
-                ? regenScriptCompleted
-                  ? "Regeneration complete..."
-                  : `${REGEN_SCRIPT_STEPS[regenScriptStepIdx]?.label ?? "Finishing up"}...`
-                : mode === "template-relayout"
-                ? `${progress}% complete`
-                : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
-            </span>
-          </div>
+          {mode === "regenerate-script" && regenScriptAwaitingReview ? (
+            /* Verify step — paused for review. Actions live in the (non-closeable) verify popup. */
+            <div className="flex flex-col items-center gap-1.5">
+              <span className="text-sm text-gray-700 font-medium">Verify the script</span>
+              <span className="text-xs text-gray-400 max-w-xs">
+                Review the changes in the popup, then proceed or regenerate.
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+              <span className="text-xs text-gray-400">
+                {mode === "regenerate-script"
+                  ? regenScriptCompleted
+                    ? "Regeneration complete..."
+                    : `${REGEN_SCRIPT_STEPS[regenScriptStepIdx]?.label ?? "Finishing up"}...`
+                  : mode === "template-relayout"
+                  ? `${progress}% complete`
+                  : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
+              </span>
+            </div>
+          )}
 
           {hasError && (
             <div className="mt-6">
@@ -3766,6 +3898,31 @@ export default function ProjectView() {
         onConfirm={async (instruction) => {
           await applyRegenerateScript(instruction);
         }}
+      />
+
+      {/* Verify-step "Regenerate": re-run the script (optionally with an edited instruction),
+          pre-filled with the instruction the paused job used. */}
+      <RegenerateScriptModal
+        open={showRegenerateScriptRetry}
+        projectName={project?.name}
+        initialInstruction={regenerateScriptJob?.user_instruction ?? ""}
+        confirmLabel="Regenerate"
+        onClose={() => setShowRegenerateScriptRetry(false)}
+        onConfirm={async (instruction) => {
+          await applyRejectRegenerateScript(instruction);
+        }}
+      />
+
+      {/* Non-closeable verify popup — walks the user through new-vs-old scene comparisons.
+          Shown whenever the regeneration is paused awaiting review (persists across reloads). */}
+      <VerifyScriptModal
+        open={regenerateScriptJob?.status === "awaiting_review" && !showRegenerateScriptRetry}
+        projectName={project?.name}
+        newScenes={project?.scenes ?? []}
+        previousScenes={regenScriptPreviousScenes}
+        verifying={regenerateScriptVerifying}
+        onProceed={handleVerifyRegenerateScript}
+        onRegenerate={() => setShowRegenerateScriptRetry(true)}
       />
 
       <ConfirmDeleteModal

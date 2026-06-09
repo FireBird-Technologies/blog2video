@@ -108,6 +108,7 @@ class ProjectRegenerateScriptJobOut(BaseModel):
     total_scenes: int
     processed_scenes: int
     error_message: Optional[str] = None
+    user_instruction: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None
@@ -124,6 +125,7 @@ class SceneOut(BaseModel):
     display_text: Optional[str] = None
     visual_description: str
     remotion_code: Optional[str] = None
+    preferred_layout: Optional[str] = None
     voiceover_path: Optional[str] = None
     duration_seconds: float
     extra_hold_seconds: Optional[float] = None
@@ -131,6 +133,21 @@ class SceneOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RegenerateScriptPreviewScene(BaseModel):
+    """A previous (pre-regeneration) scene, for the verify-step before/after comparison."""
+    order: int
+    title: str
+    display_text: Optional[str] = None
+    narration_text: str
+    visual_description: str
+    remotion_code: Optional[str] = None
+    preferred_layout: Optional[str] = None
+
+
+class RegenerateScriptPreviewOut(BaseModel):
+    previous_scenes: list[RegenerateScriptPreviewScene] = []
 
 
 class AssetOut(BaseModel):
