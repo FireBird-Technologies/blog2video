@@ -1,7 +1,7 @@
 """add scheduled plan change columns to subscriptions
 
 Revision ID: add_scheduled_plan_change
-Revises: phase12_free_templates_download
+Revises: add_vcj_voice_snapshot
 Create Date: 2026-05-25
 
 Adds three nullable columns to the subscriptions table to support
@@ -18,7 +18,7 @@ from alembic import op
 
 
 revision: str = "add_scheduled_plan_change"
-down_revision: Union[str, None] = "phase12_free_templates_download"
+down_revision: Union[str, None] = "add_vcj_voice_snapshot"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

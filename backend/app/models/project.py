@@ -101,3 +101,4 @@ class Project(Base):
     reviews = relationship("Review", back_populates="project", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
