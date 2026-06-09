@@ -2421,7 +2421,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "blog-to-video-before-after",
-    title: "Blog to Video: Before vs After",
+    title: "Blog to Video: Before vs After (Manual vs AI Workflow)",
     description:
       "See exactly what changes when you stop manually turning blog posts into videos and use Blog2Video instead. 45 minutes down to 3.",
     category: "Workflow",
@@ -2433,8 +2433,8 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "What it actually looks like to turn a blog into a video in 3 minutes",
     heroDescription:
       "The manual workflow — read, script, record, edit — takes 45 minutes every time. Blog2Video replaces that with three steps: paste a URL, pick a template and voice, hit generate.",
-    primaryKeyword: "blog to video",
-    keywordVariant: "turn blog post into video",
+    primaryKeyword: "manual blog to video workflow",
+    keywordVariant: "blog to video time comparison",
     relatedPaths: [
       "/how-to-turn-a-blog-post-into-a-video",
       "/blog-to-video",
