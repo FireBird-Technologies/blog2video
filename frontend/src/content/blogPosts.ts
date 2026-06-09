@@ -22,7 +22,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Bloomberg Terminal and Chronicle templates, per-orientation image framing, PPT/PDF/MP4/PNG export, share URLs and iframes, plus referrals and bulk pricing — all live now.",
     category: "Product updates",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-whats-new-in-blog2video-six-features.png",
     heroImageAlt:
       "Overview of Blog2Video product updates including new templates, exports, embeddings, and pricing.",
     publishedAt: "2026-05-01",
@@ -4679,7 +4679,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Google surfaces video results in 26% of searches. Pages with video are 53x more likely to hit page 1. Here's how SEO agencies can add video to every client post without extra production overhead.",
     category: "SEO Strategy",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-video-seo-ranking-traffic-blog2video.png",
     heroImageAlt: "A blog post ranking on Google with a video result appearing alongside it, driving additional traffic.",
     publishedAt: "2026-03-26",
     readTime: "5 min read",
@@ -4820,7 +4820,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets brands save fully custom video templates with their own colors, fonts, logos, and layout preferences. Every video you generate after setup carries your brand identity automatically — no manual styling on each project.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+    heroImage: "/blog/blog-cover-custom-templates-for-brands.png",
     heroImageAlt: "A brand kit with custom colors, fonts, and logo applied to a video template inside Blog2Video.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -4941,7 +4941,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video's new Newscast template brings broadcast news aesthetics to your content. Deep navy, crimson accents, ticker bars, lower thirds, and glass-panel anchor layouts — built for briefings, roundups, and editorial updates that should feel authoritative.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+    heroImage: "/blog/blog-cover-new-template-newscast.png",
     heroImageAlt: "A Blog2Video Newscast template scene showing a deep navy background, crimson accent, ticker bar, and anchor-style lower third.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -5068,7 +5068,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now appends a branded call-to-action scene to the end of every generated video automatically. No manual scene editing required — your CTA, link, and branding are there from the first generation.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+    heroImage: "/blog/blog-cover-automatic-call-to-action-end-of-video.png",
     heroImageAlt: "A Blog2Video generated video ending with a branded call-to-action scene showing a website link and subscribe prompt.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
@@ -5182,7 +5182,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets users set their target video duration before generating. Whether you need a 60-second short, a 3-minute explainer, or a 10-minute deep dive, the platform adapts scene count and pacing to hit your target length.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+    heroImage: "/blog/blog-cover-video-duration-control.png",
     heroImageAlt: "A video duration slider in Blog2Video set to 3 minutes, with a generated video timeline showing scene count adjusted to match.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
@@ -5549,7 +5549,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Turn Zoom meeting recordings into polished summary videos your team can watch, share, and reference — without sitting through the full replay.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-zoom-recording-to-summary-video.png",
     heroImageAlt:
       "Illustration of a Zoom meeting recording being structured into a summary video with scenes, narration, and branded visuals.",
     publishedAt: "2026-05-07",
@@ -5663,7 +5663,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Export your Google Meet transcript or Gemini summary and convert it into a shareable summary video — no editing software required.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImage: "/blog/blog-cover-google-meet-recording-to-video.png",
     heroImageAlt:
       "Illustration of a Google Meet recording transcript being converted into a structured summary video asset.",
     publishedAt: "2026-05-07",
@@ -5770,7 +5770,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Export your Fireflies.ai transcript or AI summary and convert it into a polished summary video — shareable, watchable, and built from content you already captured.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-fireflies-recording-to-summary-video.png",
     heroImageAlt:
       "Illustration of a Fireflies.ai meeting transcript being converted into a structured summary video with scenes and narration.",
     publishedAt: "2026-05-07",
@@ -5877,7 +5877,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Export your Teams meeting transcript or Copilot summary and convert it into a polished summary video your team can actually watch — no editing timeline required.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImage: "/blog/blog-cover-microsoft-teams-recording-to-video.png",
     heroImageAlt:
       "Illustration of a Microsoft Teams meeting recording being converted into a structured summary video for async sharing.",
     publishedAt: "2026-05-07",
@@ -5984,7 +5984,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Use Loom's transcript or AI summary to create a structured summary video — easier to share, watch, and distribute than a raw screen recording.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImage: "/blog/blog-cover-loom-recording-to-summary-video.png",
     heroImageAlt:
       "Illustration of a Loom screen recording transcript being converted into a structured, shareable summary video.",
     publishedAt: "2026-05-07",
@@ -6092,7 +6092,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "A complete 2026 comparison of Blog2Video against Lumen5, Pictory, InVideo AI, Fliki, Synthesia, HeyGen, VEED, Descript, Revid.ai, VideoGen, Flixier, and Predis.ai — pricing, features, and which tool wins for each use case.",
     category: "Comparison",
-    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImage: "/blog/blog-cover-blog2video-ultimate-competitor-comparison-2026.png",
     heroImageAlt:
       "Side-by-side comparison grid showing Blog2Video and twelve competitor tools across pricing, features, and content fidelity.",
     publishedAt: "2026-05-16",
@@ -6957,7 +6957,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "An inside look at how our designers research, document, and build custom branded video templates for clients, from gathering brand essentials to final delivery.",
     category: "Behind the scenes",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-how-we-make-custom-branded-video-templates.png",
     heroImageAlt:
       "Blog2Video designers building a custom branded video template using an AI-assisted motion graphics editor.",
     publishedAt: "2026-05-29",
@@ -7106,7 +7106,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Five practical ways to grow your LinkedIn audience in 2026 — from posting consistently to turning your existing content into video and carousels that drive both engagement and external traffic.",
     category: "Strategy",
-    heroImage: "/blog/blog-cover-repurpose-blog-content.png",
+    heroImage: "/blog/blog-cover-how-to-increase-your-audience-on-linkedin.png",
     heroImageAlt:
       "A creator publishing a mix of text posts, carousels, and short videos to grow their LinkedIn audience.",
     publishedAt: "2026-05-31",
@@ -7251,7 +7251,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "A complete guide to connecting the Blog2Video MCP server to n8n. Two copy-paste workflows: a simple chat-to-preview-URL agent and a dynamic form that lets users pick template, voice, preview, and render.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-n8n.png",
     heroImageAlt:
       "n8n workflow diagram showing Blog2Video MCP tools turning a blog URL into a previewable video.",
     publishedAt: "2026-06-04",
@@ -7384,7 +7384,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Step-by-step guide to using the Blog2Video MCP server inside ChatGPT. Turn a blog URL into a finished, previewable video using ChatGPT's native MCP connector support.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-chatgpt.png",
     heroImageAlt:
       "ChatGPT interface with Blog2Video MCP connector enabled, showing a blog URL being converted to video.",
     publishedAt: "2026-06-04",
@@ -7499,7 +7499,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Use the Blog2Video MCP server with Claude Desktop or claude.ai. Two methods: one-click Desktop Extensions and manual JSON config. Turn any blog URL into a video from inside Claude.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-claude.png",
     heroImageAlt:
       "Claude Desktop interface with Blog2Video MCP tools available, converting a blog post to video.",
     publishedAt: "2026-06-04",
@@ -7608,7 +7608,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Connect the Blog2Video MCP server to Google Gemini using the Gemini CLI, Firebase Studio, or Gemini Enterprise. Turn blog URLs into videos from inside Google's AI ecosystem.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-gemini.png",
     heroImageAlt:
       "Google Gemini CLI with Blog2Video MCP tools configured, converting a blog article to a video.",
     publishedAt: "2026-06-04",
@@ -7715,7 +7715,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Three ways to connect the Blog2Video MCP server to DeepSeek V4. Use the OpenAI-compatible API, a local CLI config, or a hosted MCP endpoint to run blog-to-video pipelines with DeepSeek's open-weight models.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-deepseek.png",
     heroImageAlt:
       "DeepSeek AI model connected to Blog2Video MCP server, generating a video from a blog article.",
     publishedAt: "2026-06-04",
@@ -7820,7 +7820,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Connect the Blog2Video MCP server to Moonshot AI's Kimi K2 using Kimi Code CLI or MCP Agent Studio. Run a full blog-to-video pipeline with one of 2026's strongest agentic open-weight models.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-kimi.png",
     heroImageAlt:
       "Kimi AI CLI interface with Blog2Video MCP tools connected, processing a blog URL into a video.",
     publishedAt: "2026-06-04",
@@ -7926,7 +7926,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Connect the Blog2Video MCP server to Alibaba's Qwen 3 using the Qwen-Agent framework, the OpenAI-compatible API, or Qwen Code CLI. Run blog-to-video pipelines with Qwen's open-weight models.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-qwen.png",
     heroImageAlt:
       "Qwen AI agent connected to Blog2Video MCP server, turning a blog post into a video.",
     publishedAt: "2026-06-04",
@@ -8030,7 +8030,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Connect the Blog2Video MCP server to Mistral AI via Le Chat, Mistral Studio, or the Mistral API. Add blog-to-video capabilities to any Mistral model or agent workflow.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-mistral.png",
     heroImageAlt:
       "Mistral AI Le Chat interface with Blog2Video MCP connector enabled, converting a blog to video.",
     publishedAt: "2026-06-04",
@@ -8136,7 +8136,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "A niche-by-niche playbook for growing your Substack in finance, politics, and public policy — plus how launching a YouTube channel and using Blog2Video's designer templates can 10x your reach.",
     category: "Educational",
-    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImage: "/blog/blog-cover-how-to-grow-your-substack-newsletter.png",
     heroImageAlt:
       "Editorial illustration of a Substack newsletter being repurposed into YouTube video content using designer templates.",
     publishedAt: "2026-06-09",
