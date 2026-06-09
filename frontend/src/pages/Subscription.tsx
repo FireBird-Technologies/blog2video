@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -12,16 +12,21 @@ import {
   cancelSubscription,
   acceptRetentionOffer,
   resumeSubscription,
+  cancelScheduledPlanChange,
   deleteAccount,
   BillingStatus,
   SubscriptionDetail,
   Invoice,
   DataSummary,
 } from "../api/client";
+import type { BillingCycle, PlanKey } from "../api/billing";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
+import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
+import PlanCardCTA from "../components/PlanCardCTA";
+import { isPaidSlug, type CurrentSlug } from "../lib/planSwitch";
 
 export default function Subscription() {
   const { user, refreshUser, logout } = useAuth();
@@ -42,6 +47,13 @@ export default function Subscription() {
   const [retentionErrorMessage, setRetentionErrorMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  // Default the monthly/annual toggle to the user's current plan cycle, but only
+  // once — after that the user's manual toggling wins.
+  const cycleInitRef = useRef(false);
+  const [pendingSwitch, setPendingSwitch] = useState<{
+    plan: PlanKey;
+    billing_cycle: BillingCycle;
+  } | null>(null);
   const { showError } = useErrorModal();
 
   useEffect(() => {
@@ -61,6 +73,12 @@ export default function Subscription() {
       setSubscription(subRes.data);
       setInvoices(invoicesRes.data);
       setDataSummary(dataRes.data);
+      if (!cycleInitRef.current && subRes.data?.plan_slug) {
+        cycleInitRef.current = true;
+        setBillingCycle(
+          subRes.data.plan_slug.endsWith("annual") ? "annual" : "monthly"
+        );
+      }
     } catch (err) {
       console.error("Failed to load billing data:", err);
     } finally {
@@ -175,6 +193,31 @@ export default function Subscription() {
     }
   };
 
+  const handleCancelScheduledChange = async () => {
+    setActionLoading("cancel-scheduled");
+    try {
+      await cancelScheduledPlanChange();
+      await refreshUser();
+      await loadAll();
+    } catch (err) {
+      console.error("Failed to cancel scheduled change:", err);
+      showError(
+        getErrorMessage(err, "We couldn't cancel the scheduled change. Please try again.")
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handlePlanSwitchSuccess = async () => {
+    await refreshUser();
+    await loadAll();
+  };
+
+  const openSwitchModal = (plan: PlanKey, cycle: BillingCycle) => {
+    setPendingSwitch({ plan, billing_cycle: cycle });
+  };
+
   const handleDeleteAccount = async () => {
     try {
       await deleteAccount();
@@ -202,6 +245,23 @@ export default function Subscription() {
   const isPro = user?.plan === "pro" || user?.plan === "standard";
   const isStandard = user?.plan === "standard";
   const isPaid = isPro;
+
+  // Slug of the user's currently active paid plan. Falls back to user.plan tier
+  // (assuming monthly) if there is no Subscription record yet — covers the
+  // transient state between webhook arrival and DB sync, or hand-edited dev data.
+  const currentSlug: CurrentSlug = (() => {
+    if (subscription?.plan_slug && isPaidSlug(subscription.plan_slug)) {
+      return subscription.plan_slug;
+    }
+    if (user?.plan === "pro") return "pro_monthly";
+    if (user?.plan === "standard") return "standard_monthly";
+    return "free";
+  })();
+
+  const scheduledPending = Boolean(subscription?.scheduled_plan_slug);
+  const paymentBlocked =
+    subscription?.status === "past_due" ||
+    subscription?.status === "requires_action";
 
   if (loading) {
     return (
@@ -515,6 +575,31 @@ export default function Subscription() {
         </section>
       </div>
 
+      {/* Scheduled plan change banner */}
+      {scheduledPending && subscription?.scheduled_plan_name && subscription?.scheduled_change_at && (
+        <section className="glass-card p-4 border-l-4 border-amber-400 bg-amber-50/40">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-sm text-gray-800">
+                Your plan will change to{" "}
+                <span className="font-medium">{subscription.scheduled_plan_name}</span> on{" "}
+                <span className="font-medium">{formatDate(subscription.scheduled_change_at)}</span>.
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                You'll keep your current plan's features until then.
+              </p>
+            </div>
+            <button
+              onClick={handleCancelScheduledChange}
+              disabled={actionLoading === "cancel-scheduled"}
+              className="px-3 py-1.5 text-xs font-medium text-amber-700 bg-white border border-amber-200 hover:bg-amber-100 rounded-lg transition-colors disabled:opacity-60"
+            >
+              {actionLoading === "cancel-scheduled" ? "Cancelling..." : "Cancel scheduled change"}
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Available Plans */}
       <section>
         <div className="flex items-center justify-between mb-4">
@@ -628,21 +713,17 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
-            {isStandard ? (
-              <div className="py-2 text-center text-xs font-medium text-purple-500 bg-purple-50 rounded-lg">
-                Current plan
-              </div>
-            ) : isPro ? (
-              <div className="py-2 text-center text-xs text-gray-400">You're on Pro</div>
-            ) : (
-              <button
-                onClick={handleStandardUpgrade}
-                disabled={actionLoading === "standard"}
-                className="w-full py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
-              >
-                {actionLoading === "standard" ? "Redirecting..." : "Upgrade to Standard"}
-              </button>
-            )}
+            <PlanCardCTA
+              tier="standard"
+              currentSlug={currentSlug}
+              billingCycle={billingCycle}
+              scheduledTargetSlug={subscription?.scheduled_plan_slug}
+              scheduledPending={scheduledPending}
+              paymentBlocked={paymentBlocked}
+              onSubscribe={handleStandardUpgrade}
+              onSwitch={openSwitchModal}
+              subscribeLoading={actionLoading === "standard"}
+            />
           </div>
 
           {/* Pro */}
@@ -691,19 +772,17 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
-            {user?.plan === "pro" ? (
-              <div className="py-2 text-center text-xs font-medium text-purple-500 bg-purple-50 rounded-lg">
-                Current plan
-              </div>
-            ) : (
-              <button
-                onClick={() => handleUpgrade()}
-                disabled={actionLoading === "upgrade"}
-                className="w-full py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
-              >
-                {actionLoading === "upgrade" ? "Redirecting..." : "Upgrade to Pro"}
-              </button>
-            )}
+            <PlanCardCTA
+              tier="pro"
+              currentSlug={currentSlug}
+              billingCycle={billingCycle}
+              scheduledTargetSlug={subscription?.scheduled_plan_slug}
+              scheduledPending={scheduledPending}
+              paymentBlocked={paymentBlocked}
+              onSubscribe={() => handleUpgrade()}
+              onSwitch={openSwitchModal}
+              subscribeLoading={actionLoading === "upgrade"}
+            />
           </div>
 
           {/* Customized Subscription */}
@@ -739,7 +818,7 @@ export default function Subscription() {
 
         {/* Cost comparison */}
         <p className="text-center text-[11px] text-gray-400 mt-3">
-          Pro works out to just <span className="font-medium text-gray-500">{billingCycle === "annual" ? "$0.40" : "$0.50"}</span> per video — 10x cheaper than pay-per-video.
+          Pro works out to just <span className="font-medium text-gray-500">{billingCycle === "annual" ? "$0.48" : "$0.60"}</span> per video — 10x cheaper than pay-per-video.
         </p>
       </section>
 
@@ -854,6 +933,14 @@ export default function Subscription() {
         warningMessage="Deleting your account will permanently remove all your data and cancel any active subscription. This action cannot be undone."
         confirmLabel="Delete"
         onConfirm={handleDeleteAccount}
+      />
+
+      <PlanSwitchConfirmModal
+        open={Boolean(pendingSwitch)}
+        plan={pendingSwitch?.plan ?? "standard"}
+        billingCycle={pendingSwitch?.billing_cycle ?? "monthly"}
+        onClose={() => setPendingSwitch(null)}
+        onSuccess={handlePlanSwitchSuccess}
       />
     </div>
   );

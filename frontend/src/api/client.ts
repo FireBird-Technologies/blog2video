@@ -257,6 +257,9 @@ export interface SubscriptionDetail {
   amount_paid_cents: number;
   canceled_at: string | null;
   retention_offer_eligible: boolean;
+  scheduled_plan_slug: string | null;
+  scheduled_plan_name: string | null;
+  scheduled_change_at: string | null;
   created_at: string;
 }
 
