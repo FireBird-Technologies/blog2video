@@ -4744,6 +4744,7 @@ export default function ProjectView() {
             onRegenerateScript={() => setShowRegenerateScriptConfirm(true)}
             isRegenerating={regenerateScriptRunning}
             disabled={!["generated", "done"].includes(project.status)}
+            onEditScene={(scene) => setSceneEditModal(scene)}
           />
         )}
 
@@ -5241,22 +5242,6 @@ export default function ProjectView() {
                 </div>
                 </div>
 
-                {/* Scene edit modal */}
-                {sceneEditModal && (
-                  <SceneEditModal
-                    open={!!sceneEditModal}
-                    onClose={() => setSceneEditModal(null)}
-                    scene={sceneEditModal}
-                    project={project}
-                    imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
-                    availableImageItems={activeImageAssets.map((asset) => ({
-                      asset,
-                      url: resolveAssetUrl(asset, project.id),
-                    }))}
-                    onSaved={loadProject}
-                  />
-                )}
-
                 <input
                   ref={localSceneImageInputRef}
                   type="file"
@@ -5597,6 +5582,23 @@ export default function ProjectView() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Scene edit modal — rendered outside the tab blocks so it opens from both
+            the Edit Scenes tab and the Script tab. */}
+        {sceneEditModal && (
+          <SceneEditModal
+            open={!!sceneEditModal}
+            onClose={() => setSceneEditModal(null)}
+            scene={sceneEditModal}
+            project={project}
+            imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
+            availableImageItems={activeImageAssets.map((asset) => ({
+              asset,
+              url: resolveAssetUrl(asset, project.id),
+            }))}
+            onSaved={loadProject}
+          />
         )}
 
        {activeTab === "settings" && (
