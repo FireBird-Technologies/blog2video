@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
-import { ECONOMIST_COLORS, ECONOMIST_CHART_SERIES } from "../constants";
+import { ECONOMIST_COLORS, ECONOMIST_CHART_SERIES, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
 import {
   parseChartTable,
@@ -11,6 +11,7 @@ import {
   buildLinePath,
   fmtTick,
   easeInOutCubic,
+  textRise,
   type ParsedSeries,
   type Pt,
 } from "./chartHelpers";
@@ -57,9 +58,14 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   const { labels, series } = parseChartTable(chartTable);
 
   // ── geometry ───────────────────────────────────────────────────────────────
+  // Slightly smaller plot, nudged left: trim the left gutter and add a touch more
+  // right breathing room so the chart sits left of centre and doesn't crowd the
+  // explainer box.
+  const chartT = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
+  const chartB = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
   const pad = isPortrait
-    ? { l: 70, r: 64, t: 60, b: 96 }
-    : { l: 120, r: 110, t: 64, b: 84 };
+    ? { l: 60, r: 72, t: chartT, b: chartB }
+    : { l: 96, r: 120, t: chartT, b: chartB };
   const innerL = pad.l;
   const innerR = width - pad.r;
   const innerT = pad.t;
@@ -67,7 +73,15 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
 
   const titleSize = (titleFontSize ?? (isPortrait ? 46 : 50)) as number;
   const subSize = Math.round(titleSize * 0.62);
-  const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + 20;
+
+  // Explainer box reserve — the box sits in the header (below the subtitle), so
+  // grow the header so the plot starts beneath it and never overlaps the lines.
+  const nHi = (highlightSeries && highlightSeries.length
+    ? series.filter((s) => highlightSeries.includes(s.label))
+    : series
+  ).length;
+  const boxH = nHi > 0 ? 14 + Math.round(subSize * 0.64) + 9 + Math.round(subSize * 0.74) + 12 + Math.round(subSize * 0.8) * 2 : 0;
+  const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + boxH + 20;
 
   const yLabelW = 62;
   const endReserve = labelMode === "end" ? (isPortrait ? 150 : 185) : 14;
@@ -101,6 +115,26 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   });
   const contextSeries = resolved.filter((s) => !s.isH);
   const highlighted = resolved.filter((s) => s.isH);
+
+  // ── dynamic insight: the highlighted series with the biggest first→last move ─
+  const insight = (() => {
+    const firstLabel = labels[0] ?? "";
+    let best: { label: string; delta: number } | null = null;
+    for (const s of highlighted) {
+      const finite = s.values.filter((v) => Number.isFinite(v));
+      if (finite.length < 2) continue;
+      const delta = finite[finite.length - 1] - finite[0];
+      if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { label: s.label, delta };
+    }
+    if (!best) return "";
+    const mag = Math.abs(best.delta);
+    const magStr = Number.isInteger(mag) ? String(mag) : mag.toFixed(1);
+    const u = (unit || "").trim();
+    const since = firstLabel ? ` since ${firstLabel}` : "";
+    if (best.delta > 0) return `${best.label} climbed the most, +${magStr}${u}${since}.`;
+    if (best.delta < 0) return `${best.label} fell the most, −${magStr}${u}${since}.`;
+    return `${best.label} held broadly flat${since}.`;
+  })();
 
   const toPts = (s: ParsedSeries): Pt[] =>
     s.values.map((v, i) => ({ x: sx(i), y: sy(v), gap: !Number.isFinite(v) }));
@@ -136,9 +170,9 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
 
   return (
     <AbsoluteFill>
-      {/* Header: red tab + title + subtitle. */}
-      <div style={{ position: "absolute", left: innerL, top: innerT, width: gridR - innerL, opacity: headOp }}>
-        <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16 }} />
+      {/* Header: red tab + title + subtitle, each rising in with a stagger. */}
+      <div style={{ position: "absolute", left: innerL, top: innerT, width: gridR - innerL }}>
+        <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
         <div
           style={{
             fontFamily: ECONOMIST_SERIF_FONT,
@@ -147,6 +181,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
             lineHeight: 1.06,
             color: textColor,
             letterSpacing: -titleSize * 0.012,
+            ...textRise(frame, 4),
           }}
         >
           {title}
@@ -160,9 +195,79 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
               lineHeight: 1.3,
               color: ECONOMIST_COLORS.muted,
               marginTop: 8,
+              ...textRise(frame, 12),
             }}
           >
             {narration}
+          </div>
+        )}
+
+        {/* Explainer box — bordered editorial panel directly below the subtitle
+            (the empty top-left header zone): a colour key for each highlighted
+            line + one dynamic insight. Header height reserves room so the plot
+            starts beneath it and the lines never overlap it. */}
+        {highlighted.length > 0 && (
+          <div
+            style={{
+              display: "inline-block",
+              marginTop: 14,
+              maxWidth: isPortrait ? "100%" : 360,
+              background: "rgba(246,244,238,0.92)",
+              border: `1px solid ${ECONOMIST_COLORS.rule}`,
+              padding: isPortrait ? "12px 14px" : "13px 16px",
+              ...textRise(frame, 18, 14),
+            }}
+          >
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
+            <span style={{ width: 18, height: 4, background: accentColor }} />
+            <span
+              style={{
+                fontFamily: ECONOMIST_SANS_FONT,
+                fontWeight: 700,
+                fontSize: Math.round(subSize * 0.64),
+                letterSpacing: 1.2,
+                textTransform: "uppercase",
+                color: ECONOMIST_COLORS.muted,
+              }}
+            >
+              What this shows
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", columnGap: 16, rowGap: 5 }}>
+            {highlighted.map((s, i) => (
+              <div key={`xk-${i}`} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 15, height: 3.5, background: s.color, borderRadius: 1, flex: "0 0 auto" }} />
+                <span
+                  style={{
+                    fontFamily: ECONOMIST_SANS_FONT,
+                    fontWeight: 700,
+                    fontSize: Math.round(subSize * 0.74),
+                    color: ECONOMIST_COLORS.ink,
+                  }}
+                >
+                  {s.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {insight && (
+            <div
+              style={{
+                fontFamily: ECONOMIST_SERIF_FONT,
+                fontStyle: "italic",
+                fontSize: Math.round(subSize * 0.8),
+                lineHeight: 1.38,
+                color: ECONOMIST_COLORS.ink,
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: `1px solid ${ECONOMIST_COLORS.rule}`,
+              }}
+            >
+              {insight}
+            </div>
+          )}
           </div>
         )}
       </div>

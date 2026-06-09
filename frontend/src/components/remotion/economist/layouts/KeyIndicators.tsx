@@ -1,14 +1,39 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
-import { ECONOMIST_COLORS } from "../constants";
+import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
+import { TrendGlyph } from "../components/EconomistOrnaments";
+import { textRise } from "./chartHelpers";
 
 /**
  * KeyIndicators — a "by the numbers" KPI panel. 2–4 large serif figures, each
  * with a thin red underline, an uppercase sans label, and an optional trend
- * (▲ blue / ▼ red). Cells reveal with a staggered rise.
+ * (▲ blue / ▼ red). Cells reveal with a staggered rise and the figure counts up.
  */
+
+/**
+ * Animate a figure counting up from 0 → its value, preserving any prefix ("$"),
+ * suffix ("%", "trn", "pp") and decimal places. Non-numeric values pass through.
+ */
+function animatedValue(raw: string | number | undefined, frame: number, start: number): string {
+  const s = String(raw ?? "");
+  const m = s.match(/^(\D*?)(-?[\d,]*\.?\d+)(.*)$/s);
+  if (!m) return s;
+  const [, prefix, numStr, suffix] = m;
+  const target = parseFloat(numStr.replace(/,/g, ""));
+  if (!Number.isFinite(target)) return s;
+  const decimals = numStr.includes(".") ? numStr.split(".")[1].length : 0;
+  const cur = interpolate(frame, [start, start + 22], [0, target], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const formatted = cur.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  return `${prefix}${formatted}${suffix}`;
+}
 export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
   title,
   narration,
@@ -22,41 +47,47 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
   const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
 
-  const pad = isPortrait ? { x: 70, t: 70, b: 84 } : { x: 120, t: 80, b: 80 };
+  const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
+  const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
+  const pad = isPortrait ? { x: 70, t: topInset, b: botInset } : { x: 120, t: topInset, b: botInset };
   const titleSize = (titleFontSize ?? (isPortrait ? 52 : 56)) as number;
-  const headOp = interpolate(frame, [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const n = Math.max(1, indicators.length);
   const cols = isPortrait ? Math.min(2, n) : Math.min(4, n);
   // Length-aware value size so long figures ("$1.9trn", "+5.4%") don't overflow
   // their column. Size to the longest value across the row, not just the count.
+  // Fewer columns get bigger figures so a 2-KPI row still fills the wide band.
   const longestVal = indicators.reduce((m, it) => Math.max(m, String(it.value ?? "").length), 1);
-  const baseValueSize = isPortrait ? 92 : Math.min(120, 132 - cols * 8);
+  const baseValueSize = isPortrait ? 96 : Math.min(150, 158 - cols * 8);
   const valueSize = Math.round(baseValueSize * Math.min(1, 6 / longestVal));
+  // Wider gaps when there are few columns so the row breathes across the frame.
+  const columnGap = isPortrait ? (cols <= 1 ? 0 : 48) : cols <= 2 ? 96 : 56;
 
   return (
-    <AbsoluteFill style={{ padding: `${pad.t}px ${pad.x}px ${pad.b}px`, justifyContent: "center" }}>
-      {/* Header. */}
-      <div style={{ position: "absolute", top: pad.t, left: pad.x, right: pad.x, opacity: headOp }}>
-        <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16 }} />
-        <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: titleSize, lineHeight: 1.04, color: textColor, letterSpacing: -titleSize * 0.012 }}>
+    <AbsoluteFill style={{ padding: `${pad.t}px ${pad.x}px ${pad.b}px`, display: "flex", flexDirection: "column" }}>
+      {/* Header — tab, title and subtitle rise in with a stagger. */}
+      <div>
+        <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
+        <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: titleSize, lineHeight: 1.04, color: textColor, letterSpacing: -titleSize * 0.012, ...textRise(frame, 4) }}>
           {title}
         </div>
         {narration && (
-          <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: Math.round(titleSize * 0.42), color: ECONOMIST_COLORS.muted, marginTop: 8 }}>
+          <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: Math.round(titleSize * 0.42), color: ECONOMIST_COLORS.muted, marginTop: 8, ...textRise(frame, 12) }}>
             {narration}
           </div>
         )}
       </div>
 
-      {/* KPI grid. */}
+      {/* KPI grid — fills the band below the header and centres a short row. */}
       <div
         style={{
+          flex: 1,
           display: "grid",
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
-          columnGap: isPortrait ? 40 : 56,
+          columnGap,
           rowGap: isPortrait ? 48 : 56,
-          marginTop: isPortrait ? 40 : 20,
+          alignContent: "center",
+          marginTop: 24,
         }}
       >
         {indicators.map((it, i) => {
@@ -67,18 +98,31 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
           const up = d.startsWith("+");
           const down = d.startsWith("-") || d.startsWith("−");
           const deltaColor = up ? ECONOMIST_COLORS.blue : down ? accentColor : ECONOMIST_COLORS.muted;
+          const cmpVal = (it.compareValue ?? "").trim();
+          const cmpLab = (it.compareLabel ?? "vs").trim() || "vs";
+          const trendDir: "up" | "down" | "flat" = up ? "up" : down ? "down" : "flat";
           return (
             <div key={i} style={{ opacity: op, transform: `translateY(${ty}px)` }}>
               <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: valueSize, lineHeight: 1, color: textColor, letterSpacing: -valueSize * 0.02 }}>
-                {it.value}
+                {animatedValue(it.value, frame, s)}
               </div>
               <div style={{ width: 56, height: 4, background: accentColor, margin: "16px 0 12px" }} />
               <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 25 : 23, letterSpacing: 0.6, textTransform: "uppercase", color: textColor }}>
                 {it.label}
               </div>
-              {d && (
-                <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 23 : 21, color: deltaColor, marginTop: 6 }}>
-                  {up ? "▲" : down ? "▼" : ""} {d.replace(/^[+\-−]/, "")}
+              {(d || cmpVal) && (
+                <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginTop: 6 }}>
+                  {d && (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 23 : 21, color: deltaColor }}>
+                      {(up || down) && <TrendGlyph direction={trendDir} size={isPortrait ? 16 : 14} color={deltaColor} />}
+                      {d.replace(/^[+\-−]/, "")}
+                    </span>
+                  )}
+                  {cmpVal && (
+                    <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 400, fontSize: isPortrait ? 20 : 18, color: ECONOMIST_COLORS.muted }}>
+                      {cmpLab} <span style={{ fontWeight: 700 }}>{cmpVal}</span>
+                    </span>
+                  )}
                 </div>
               )}
             </div>

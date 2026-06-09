@@ -41,10 +41,14 @@ export interface EconomistVideoCompositionProps {
 const LAYOUTS_WITHOUT_CHROME_FADE = new Set<EconomistLayoutType>(["cover_reveal"]);
 
 // Full-bleed scenes own the whole canvas — no page frame / footer furniture.
+// Full-bleed scenes that own the whole canvas and draw their own masthead — they
+// suppress the shared top/bottom chrome furniture. section_divider now joins the
+// furniture-bearing scenes; ending_socials draws its own centred red masthead so
+// it stays minimal to avoid a double-masthead clash.
 const MINIMAL_CHROME_LAYOUTS = new Set<EconomistLayoutType>([
   "cover_reveal",
   "image_feature",
-  "section_divider",
+  "ending_socials",
 ]);
 
 const enforceLayoutMinimum = (frames: number, layout: EconomistLayoutType) =>
@@ -183,6 +187,8 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
                 wordmark={layoutProps.wordmark}
                 minimal={minimal}
                 disableFade={skipFade}
+                sceneIndex={index}
+                sceneCount={resolvedScenes.length}
               >
                 <LayoutComponent {...layoutProps} />
               </EconomistChrome>

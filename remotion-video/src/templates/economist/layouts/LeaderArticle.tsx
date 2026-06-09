@@ -1,8 +1,9 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img } from "remotion";
+import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig, Img } from "remotion";
 import type { EconomistLayoutProps } from "../types";
-import { ECONOMIST_COLORS } from "../constants";
+import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { SectionKicker } from "../components/HairlineRule";
+import { EditorialDivider } from "../components/EconomistOrnaments";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
 
 /**
@@ -27,32 +28,35 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
-  const { width, height } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
   const hasImage = Boolean(imageUrl);
 
-  const pad = isPortrait ? { x: 72, t: 72, b: 88 } : { x: 128, t: 84, b: 84 };
+  const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
+  const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
+  const pad = isPortrait ? { x: 72, t: topInset, b: botInset } : { x: 100, t: topInset, b: botInset };
   const titleSize = (titleFontSize ?? (isPortrait ? 68 : 82)) as number;
   const bodySize = (descriptionFontSize ?? (isPortrait ? 32 : 30)) as number;
 
   const body = (narration || "").trim();
   const dropCap = (illuminatedLetter || body.charAt(0) || "").toUpperCase();
   const rest = body.slice(1);
-  // Flow longer bodies into two columns (landscape, no inset image) so elongated
-  // article text fills the page instead of running off the bottom.
-  const twoCol = !isPortrait && !hasImage && body.length > 440;
 
   const kickerOp = interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const titleOp = interpolate(frame, [6, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const titleY = interpolate(frame, [6, 24], [16, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // Spring-based headline rise for a more editorial, weighty entrance.
+  const titleSpring = spring({ frame: frame - 6, fps, config: { damping: 16, mass: 0.7 } });
+  const titleY = interpolate(titleSpring, [0, 1], [26, 0]);
   const bodyOp = interpolate(frame, [20, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const imgClip = interpolate(frame, [14, 38], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const kbScale = interpolate(frame, [0, 240], [1.04, 1.12], { extrapolateRight: "clamp" }) * imageZoom;
 
-  // Split into a headline zone + body zone in landscape (no image); stack when
-  // portrait or when an inset image takes the right half. The split fills the
-  // frame so short copy never leaves a dead band at the top.
+  // Landscape, no image → a classic full-width leader opener: headline band on
+  // top, body flowing in two columns beneath. Stack when portrait or when an
+  // inset image takes the right half.
   const splitOpener = !isPortrait && !hasImage;
+  // Two columns once there's enough copy to balance them; one otherwise.
+  const bodyCols = splitOpener && body.length > 240 ? 2 : 1;
 
   const header = (
     <>
@@ -89,8 +93,8 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
         color: textColor,
         textAlign: "justify",
         opacity: bodyOp,
-        columnCount: !splitOpener && twoCol ? 2 : 1,
-        columnGap: 48,
+        columnCount: bodyCols,
+        columnGap: 56,
       }}
     >
       {dropCap && (
@@ -115,14 +119,15 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   return (
     <AbsoluteFill style={{ padding: `${pad.t}px ${pad.x}px ${pad.b}px` }}>
       {splitOpener ? (
-        // Magazine opener: headline left, body right, divided by a rule.
-        <div style={{ display: "flex", height: "100%", alignItems: "stretch" }}>
-          <div style={{ flex: 1.08, display: "flex", flexDirection: "column", justifyContent: "center", paddingRight: 60 }}>
-            {header}
-          </div>
-          <div style={{ width: 1, background: ECONOMIST_COLORS.rule, margin: "8px 0" }} />
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingLeft: 60 }}>
-            {bodyEl}
+        // Full-width leader opener: headline band on top, two-column body beneath.
+        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          {header}
+          {/* Full-width rule under the headline band. */}
+          <div style={{ height: 2, background: textColor, opacity: titleOp, margin: "30px 0 32px" }} />
+          <div style={{ flex: 1 }}>{bodyEl}</div>
+          {/* Closing engraved end-mark (SVG). */}
+          <div style={{ marginTop: 24, opacity: bodyOp }}>
+            <EditorialDivider width={220} progress={bodyOp} accentColor={accentColor} height={16} />
           </div>
         </div>
       ) : (

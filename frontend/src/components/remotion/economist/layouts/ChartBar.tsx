@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
-import { ECONOMIST_COLORS } from "../constants";
+import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
 import {
   parseChartTable,
@@ -12,6 +12,7 @@ import {
   easeInOutCubic,
   extentY,
   clamp,
+  textRise,
 } from "./chartHelpers";
 
 /**
@@ -28,54 +29,120 @@ const STAGGER = 7;
 interface BarHeaderProps {
   title: string;
   subtitle?: string;
+  /** Dynamic key/legend line: the measured series name + unit. */
+  keyLabel?: string;
+  keyColor?: string;
+  /** Dynamic one-line insight derived from the data (e.g. the leader). */
+  insight?: string;
   accentColor: string;
   textColor: string;
   titleSize: number;
   left: number;
   top: number;
   width: number;
-  opacity: number;
+  /** Current frame — drives staggered text-rise entrances. */
+  frame: number;
 }
 const BarHeader: React.FC<BarHeaderProps> = ({
   title,
   subtitle,
+  keyLabel,
+  keyColor,
+  insight,
   accentColor,
   textColor,
   titleSize,
   left,
   top,
   width,
-  opacity,
-}) => (
-  <div style={{ position: "absolute", left, top, width, opacity }}>
-    <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16 }} />
-    <div
-      style={{
-        fontFamily: ECONOMIST_SERIF_FONT,
-        fontWeight: 700,
-        fontSize: titleSize,
-        lineHeight: 1.06,
-        color: textColor,
-        letterSpacing: -titleSize * 0.012,
-      }}
-    >
-      {title}
-    </div>
-    {subtitle && (
+  frame,
+}) => {
+  const subSize = Math.round(titleSize * 0.56);
+  return (
+    <div style={{ position: "absolute", left, top, width }}>
+      <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
       <div
         style={{
-          fontFamily: ECONOMIST_SANS_FONT,
-          fontSize: Math.round(titleSize * 0.56),
-          lineHeight: 1.3,
-          color: ECONOMIST_COLORS.muted,
-          marginTop: 8,
+          fontFamily: ECONOMIST_SERIF_FONT,
+          fontWeight: 700,
+          fontSize: titleSize,
+          lineHeight: 1.06,
+          color: textColor,
+          letterSpacing: -titleSize * 0.012,
+          ...textRise(frame, 4),
         }}
       >
-        {subtitle}
+        {title}
       </div>
-    )}
-  </div>
-);
+      {subtitle && (
+        <div
+          style={{
+            fontFamily: ECONOMIST_SANS_FONT,
+            fontSize: subSize,
+            lineHeight: 1.3,
+            color: ECONOMIST_COLORS.muted,
+            marginTop: 8,
+            ...textRise(frame, 12),
+          }}
+        >
+          {subtitle}
+        </div>
+      )}
+      {/* Dynamic explainer — measured-series key + one-line insight. Lives in the
+          header (above the bars) so it never overlaps the plot. */}
+      {(keyLabel || insight) && (
+        <div
+          style={{
+            display: "inline-block",
+            marginTop: 14,
+            padding: "10px 14px",
+            background: "rgba(246,244,238,0.92)",
+            border: `1px solid ${ECONOMIST_COLORS.rule}`,
+            ...textRise(frame, 16, 14),
+          }}
+        >
+          {keyLabel && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  width: Math.round(subSize * 0.85),
+                  height: Math.max(3, Math.round(subSize * 0.2)),
+                  background: keyColor,
+                  borderRadius: 1,
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: ECONOMIST_SANS_FONT,
+                  fontWeight: 700,
+                  fontSize: Math.round(subSize * 0.86),
+                  color: ECONOMIST_COLORS.ink,
+                }}
+              >
+                {keyLabel}
+              </span>
+            </div>
+          )}
+          {insight && (
+            <div
+              style={{
+                fontFamily: ECONOMIST_SERIF_FONT,
+                fontStyle: "italic",
+                fontSize: Math.round(subSize * 0.8),
+                lineHeight: 1.36,
+                color: ECONOMIST_COLORS.ink,
+                marginTop: keyLabel ? 8 : 0,
+                maxWidth: 420,
+              }}
+            >
+              {insight}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const ChartBar: React.FC<EconomistLayoutProps> = ({
   title,
@@ -94,16 +161,37 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
   const isPortrait = aspectRatio === "portrait";
   const variant: "bar" | "hbar" = chartType === "hbar" ? "hbar" : "bar";
 
-  const headOp = interpolate(frame, [0, 16], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const axisOp = interpolate(frame, [8, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const { labels, series } = parseChartTable(chartTable);
   const primary = series[0]?.values ?? [];
   const barColor = seriesColors?.[0] || accentColor;
+  // Dynamic key: name of the measured series (+ unit), shown under the header.
+  const keyLabel = series[0]
+    ? `${series[0].label}${unit ? ` (${unit.trim()})` : ""}`
+    : "";
+  // Dynamic insight: the highest-ranked datum (and its lead over the next).
+  const barInsight = (() => {
+    const rows = labels
+      .map((label, i) => ({ label, value: Number.isFinite(primary[i]) ? primary[i] : 0 }))
+      .sort((a, b) => b.value - a.value);
+    if (rows.length === 0) return "";
+    const top = rows[0];
+    const u = (unit || "").trim();
+    const topVal = Number.isInteger(top.value) ? String(top.value) : top.value.toFixed(1);
+    if (rows.length > 1) {
+      const gap = top.value - rows[1].value;
+      const gapStr = Number.isInteger(gap) ? String(gap) : gap.toFixed(1);
+      return `${top.label} leads at ${topVal}${u}, ${gapStr}${u} ahead of ${rows[1].label}.`;
+    }
+    return `${top.label} leads at ${topVal}${u}.`;
+  })();
 
+  const chartT = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
+  const chartB = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
   const pad = isPortrait
-    ? { l: 70, r: 64, t: 60, b: 96 }
-    : { l: 120, r: 110, t: 64, b: 84 };
+    ? { l: 70, r: 64, t: chartT, b: chartB }
+    : { l: 96, r: 96, t: chartT, b: chartB };
   const innerL = pad.l;
   const innerR = width - pad.r;
   const innerT = pad.t;
@@ -111,7 +199,12 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
 
   const titleSize = (titleFontSize ?? (isPortrait ? 46 : 50)) as number;
   const subSize = Math.round(titleSize * 0.62);
-  const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + 22;
+  // Explainer box reserve: key row + insight (≈2 lines) + box padding.
+  const keyH =
+    keyLabel || barInsight
+      ? 20 + (keyLabel ? Math.round(subSize * 0.95) : 0) + (barInsight ? Math.round(subSize * 0.8) * 2 + 8 : 0)
+      : 0;
+  const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + keyH + 22;
   const footerH = 0;
 
   const growProgress = (i: number) =>
@@ -125,13 +218,16 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
       <BarHeader
         title={title}
         subtitle={narration}
+        keyLabel={keyLabel}
+        keyColor={barColor}
+        insight={barInsight}
         accentColor={accentColor}
         textColor={textColor}
         titleSize={titleSize}
         left={innerL}
         top={innerT}
         width={innerR - innerL}
-        opacity={headOp}
+        frame={frame}
       />
 
       {variant === "bar"

@@ -32,6 +32,10 @@
   "layout_prop_schema": {
     "cover_reveal": {
       "label": "Cover Reveal (Intro)",
+      "scene_defaults": {
+        "title": "The world economy's quiet turning point",
+        "narration": "Our cover this week"
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 104,
@@ -42,6 +46,7 @@
           "landscape": 26
         },
         "dateline": "MAY 23RD–29TH 2026",
+        "wordmark": "The Brief",
         "teasers": [
           "We calculate the MAGA tax",
           "Lessons from the Premier League",
@@ -60,6 +65,12 @@
           "step": 1
         },
         {
+          "key": "wordmark",
+          "label": "Masthead Wordmark",
+          "type": "string",
+          "placeholder": "Your publication"
+        },
+        {
           "key": "dateline",
           "label": "Dateline",
           "type": "string",
@@ -75,6 +86,10 @@
     },
     "leader_article": {
       "label": "Leader Article",
+      "scene_defaults": {
+        "title": "Why central banks are quietly changing course",
+        "narration": "After two years of holding the line, the world's big central banks are inching toward looser policy. The data have finally bent their way: hiring has cooled, manufacturing has stalled and core inflation has drifted within touching distance of target. Yet the mood among policymakers is wary rather than triumphant. Cut too soon, and a second wave of price rises could undo three years of painful tightening; wait too long, and the real economy may buckle under rates that are, in inflation-adjusted terms, the most restrictive since 2007. The decision is finely balanced, and the consequences will be felt far beyond the trading floor."
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 68,
@@ -128,18 +143,22 @@
     },
     "section_divider": {
       "label": "Section Divider",
+      "scene_defaults": {
+        "title": "Markets",
+        "narration": ""
+      },
       "defaults": {
         "titleFontSize": {
-          "portrait": 120,
-          "landscape": 156
+          "portrait": 140,
+          "landscape": 184
         },
         "descriptionFontSize": {
           "portrait": 28,
           "landscape": 26
         },
         "sectionLabel": "SECTION",
-        "standfirst": "Why the world's central banks are quietly changing course",
-        "dateline": "MAY 23RD–29TH 2026"
+        "standfirst": "Why the world's central banks are quietly changing course — and what a turn toward looser money means for growth, markets and the millions of households still squeezed by the cost of borrowing.",
+        "dateline": ""
       },
       "fields": [
         {
@@ -161,12 +180,16 @@
           "key": "dateline",
           "label": "Dateline",
           "type": "string",
-          "placeholder": "MAY 23RD–29TH 2026"
+          "placeholder": "Auto (current week) — or override"
         }
       ]
     },
     "chart_line": {
       "label": "Line Chart",
+      "scene_defaults": {
+        "title": "How sentiment shifted over two decades",
+        "narration": "Self-reported emotions, index (2006 = 0)"
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 46,
@@ -375,6 +398,10 @@
     },
     "chart_bar": {
       "label": "Bar Chart",
+      "scene_defaults": {
+        "title": "Where growth is fastest in 2026",
+        "narration": "Projected real GDP growth"
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 46,
@@ -464,6 +491,10 @@
     },
     "data_table": {
       "label": "Ranked Table",
+      "scene_defaults": {
+        "title": "The world's biggest banks by market value",
+        "narration": "Market capitalisation, latest"
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 48,
@@ -537,10 +568,14 @@
     },
     "pros_cons": {
       "label": "Pros & Cons",
+      "scene_defaults": {
+        "title": "Should the Fed cut rates now?",
+        "narration": ""
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 56,
-          "landscape": 60
+          "landscape": 64
         },
         "descriptionFontSize": {
           "portrait": 24,
@@ -643,6 +678,10 @@
     },
     "key_indicators": {
       "label": "Key Indicators",
+      "scene_defaults": {
+        "title": "The economy by the numbers",
+        "narration": "Latest readings vs a year ago"
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 52,
@@ -657,22 +696,30 @@
           {
             "value": "2.4%",
             "label": "Core inflation",
-            "delta": "-0.3pp"
+            "delta": "-0.3pp",
+            "compareValue": "2.7%",
+            "compareLabel": "vs 2025"
           },
           {
             "value": "4.1%",
             "label": "Unemployment",
-            "delta": "+0.2pp"
+            "delta": "+0.2pp",
+            "compareValue": "3.9%",
+            "compareLabel": "vs 2025"
           },
           {
             "value": "$1.9trn",
             "label": "Budget deficit",
-            "delta": "+5.4%"
+            "delta": "+5.4%",
+            "compareValue": "$1.8trn",
+            "compareLabel": "vs 2025"
           },
           {
             "value": "2.1%",
             "label": "GDP growth",
-            "delta": "+0.1pp"
+            "delta": "+0.1pp",
+            "compareValue": "2.0%",
+            "compareLabel": "vs 2025"
           }
         ]
       },
@@ -703,6 +750,14 @@
             {
               "key": "delta",
               "label": "Trend (e.g. +2.3%)"
+            },
+            {
+              "key": "compareValue",
+              "label": "Compare value (e.g. 2.7%)"
+            },
+            {
+              "key": "compareLabel",
+              "label": "Compare label (e.g. vs 2025)"
             }
           ]
         }
@@ -710,19 +765,23 @@
     },
     "leader_quote": {
       "label": "Pull Quote",
+      "scene_defaults": {
+        "title": "Pull quote",
+        "narration": ""
+      },
       "defaults": {
         "titleFontSize": {
-          "portrait": 56,
-          "landscape": 72
+          "portrait": 64,
+          "landscape": 84
         },
         "descriptionFontSize": {
           "portrait": 24,
           "landscape": 22
         },
         "sectionLabel": "BARTLEBY",
-        "quote": "The first rule of compounding is to never interrupt it unnecessarily.",
+        "quote": "The big money is not in the buying and the selling, but in the waiting — the first rule of compounding is to never interrupt it unnecessarily.",
         "highlightPhrase": "never interrupt it",
-        "attribution": "Charlie Munger"
+        "attribution": "Charlie Munger, vice-chairman of Berkshire Hathaway"
       },
       "fields": [
         {
@@ -756,6 +815,10 @@
     },
     "image_feature": {
       "label": "Image Feature",
+      "scene_defaults": {
+        "title": "The new geography of capital",
+        "narration": ""
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 64,
@@ -766,7 +829,8 @@
           "landscape": 22
         },
         "sectionLabel": "FEATURE",
-        "caption": "Trading floors are emptying as capital migrates to private markets",
+        "wordmark": "The Brief",
+        "caption": "Trading floors are emptying as capital migrates to private markets — a quiet but profound rewiring of how the world's biggest companies raise money, and who gets to share in their growth.",
         "credit": "Photograph: Getty Images"
       },
       "fields": [
@@ -795,6 +859,10 @@
     },
     "ending_socials": {
       "label": "Ending / Socials",
+      "scene_defaults": {
+        "title": "Read more at",
+        "narration": ""
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 56,
@@ -804,14 +872,14 @@
           "portrait": 26,
           "landscape": 24
         },
-        "wordmark": "The Economist",
+        "wordmark": "The Brief",
         "ctaButtonText": "Subscribe",
-        "websiteLink": "economist.com",
+        "websiteLink": "thebrief.news",
         "showWebsiteButton": true,
         "socials": {
-          "linkedin": "the-economist",
-          "instagram": "@theeconomist",
-          "youtube": "The Economist"
+          "linkedin": "the-brief",
+          "instagram": "@thebrief",
+          "youtube": "The Brief"
         }
       },
       "fields": [
@@ -819,7 +887,7 @@
           "key": "wordmark",
           "label": "Masthead Wordmark",
           "type": "string",
-          "placeholder": "The Economist"
+          "placeholder": "Your publication"
         },
         {
           "key": "ctaButtonText",

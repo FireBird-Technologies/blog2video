@@ -10,6 +10,8 @@ import {
 import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
+import { EconomistMasthead } from "../components/EconomistMasthead";
+import { EngravingTexture } from "../components/EconomistOrnaments";
 
 /**
  * CoverReveal — the premium cinematic magazine-cover hero (← intro.jpg).
@@ -24,7 +26,7 @@ import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/eco
  */
 export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   title,
-  wordmark = "The Economist",
+  wordmark,
   dateline,
   teasers,
   imageUrl,
@@ -61,6 +63,13 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   // Foreground parallax: text drifts opposite the photo, a touch faster on lift.
   const fgDriftX = interpolate(frame, [0, 300], [0, -7], { extrapolateRight: "clamp" });
 
+  // ── Masthead flag entrance (top-left) ──────────────────────────────────────
+  const mastheadIn = spring({ frame: frame - 4, fps, config: { damping: 14, mass: 0.6 } });
+  const mastheadScale = interpolate(mastheadIn, [0, 1], [0.9, 1]);
+  const mastheadOp = interpolate(frame, [4, 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const mastheadSweep = interpolate(frame, [12, 44], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const mastheadW = isPortrait ? width * 0.4 : width * 0.2;
+
   // ── Red headline block entrance ────────────────────────────────────────────
   const blockIn = spring({ frame: frame - 8, fps, config: { damping: 15, mass: 0.7 } });
   const blockScale = interpolate(blockIn, [0, 1], [0.92, 1]);
@@ -91,11 +100,16 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   const headlineStart = 30;
 
   const teaserList = (teasers ?? []).slice(0, 5);
+  // The masthead shows the brand/publication name from the brief. When none is
+  // given we hide the flag entirely rather than print a brand the user never
+  // chose (e.g. "The Economist" — that is the style homage, not their brand).
+  const brandWordmark = (wordmark ?? "").trim();
 
-  // Teaser column geometry.
+  // Teaser column geometry. In portrait the masthead sits at the very top, so the
+  // contents list drops below it; in landscape it lives in the top-right column.
   const teaserColLeft = isPortrait ? margin : width * 0.52;
   const teaserColWidth = isPortrait ? width - margin * 2 : width * 0.5 - margin;
-  const teaserTop = margin + 6;
+  const teaserTop = isPortrait ? margin + mastheadW * 0.46 + 80 : margin + 6;
   const teaserFont = isPortrait ? 32 : 32;
 
   return (
@@ -140,21 +154,23 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
               background: `radial-gradient(ellipse at 30% 22%, ${ECONOMIST_COLORS.panel} 0%, ${ECONOMIST_COLORS.paper} 55%)`,
             }}
           >
-            {/* Faint concentric cover-motif arcs. */}
+            {/* Faint engraved hairline field so the paper never reads as empty. */}
+            <EngravingTexture opacity={0.05} gap={11} />
+            {/* Larger concentric cover-motif arcs. */}
             <svg
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.5 }}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.6 }}
               viewBox="0 0 100 100"
               preserveAspectRatio="xMidYMid slice"
             >
-              {[18, 30, 42, 54].map((r, i) => (
+              {[22, 36, 50, 64, 78].map((r, i) => (
                 <circle
                   key={i}
-                  cx={78}
-                  cy={28}
+                  cx={82}
+                  cy={26}
                   r={r}
                   fill="none"
                   stroke={ECONOMIST_COLORS.rule}
-                  strokeWidth={0.18}
+                  strokeWidth={0.16}
                 />
               ))}
             </svg>
@@ -169,7 +185,46 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
           opacity: stageDim,
         }}
       >
-        {/* Contents teasers + dateline, top-right (landscape) / top (portrait). */}
+        {/* Masthead flag + dateline, top-left. */}
+        <div
+          style={{
+            position: "absolute",
+            left: margin,
+            top: margin,
+            opacity: mastheadOp,
+            transform: `scale(${mastheadScale})`,
+            transformOrigin: "left top",
+          }}
+        >
+          {brandWordmark && (
+            <EconomistMasthead
+              wordmark={brandWordmark}
+              width={mastheadW}
+              accentColor={accentColor}
+              sweep={mastheadSweep > 0 && mastheadSweep < 1 ? mastheadSweep : undefined}
+            />
+          )}
+          {dateline && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: brandWordmark ? 14 : 0 }}>
+              <span style={{ width: 26, height: 3, background: accentColor }} />
+              <span
+                style={{
+                  fontFamily: ECONOMIST_SANS_FONT,
+                  fontWeight: 700,
+                  fontSize: isPortrait ? 16 : 15,
+                  letterSpacing: 2,
+                  textTransform: "uppercase",
+                  color: datelineInk,
+                  textShadow,
+                }}
+              >
+                {dateline}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Numbered contents teasers, top-right (landscape) / below masthead (portrait). */}
         <div
           style={{
             position: "absolute",
@@ -204,46 +259,41 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
                 />
                 <div
                   style={{
-                    fontFamily: ECONOMIST_SERIF_FONT,
-                    fontWeight: 600,
-                    fontSize: teaserFont,
-                    lineHeight: 1.18,
-                    color: teaserInk,
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 14,
                     padding: `${teaserFont * 0.28}px 0`,
-                    textShadow,
                   }}
                 >
-                  {t}
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      fontFamily: ECONOMIST_SANS_FONT,
+                      fontWeight: 800,
+                      fontSize: teaserFont * 0.62,
+                      letterSpacing: 0.5,
+                      color: accentColor,
+                      textShadow,
+                    }}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: ECONOMIST_SERIF_FONT,
+                      fontWeight: 600,
+                      fontSize: teaserFont,
+                      lineHeight: 1.18,
+                      color: teaserInk,
+                      textShadow,
+                    }}
+                  >
+                    {t}
+                  </span>
                 </div>
               </div>
             );
           })}
-          {dateline && (
-            <div
-              style={{
-                opacity: interpolate(frame, [30 + teaserList.length * 8, 30 + teaserList.length * 8 + 12], [0, 1], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                }),
-              }}
-            >
-              <div style={{ height: 1, background: ruleColor, width: "100%" }} />
-              <div
-                style={{
-                  fontFamily: ECONOMIST_SANS_FONT,
-                  fontWeight: 700,
-                  fontSize: isPortrait ? 15 : 14,
-                  letterSpacing: 1.6,
-                  textTransform: "uppercase",
-                  color: datelineInk,
-                  padding: `${teaserFont * 0.26}px 0`,
-                  textShadow,
-                }}
-              >
-                {dateline}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* The red hero block IS the main headline — centred on the page. */}

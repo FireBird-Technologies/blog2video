@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img } from 
 import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS } from "../constants";
 import { EconomistMasthead } from "../components/EconomistMasthead";
+import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
 
 /**
@@ -16,7 +17,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   caption,
   credit,
   sectionLabel = "FEATURE",
-  wordmark = "The Economist",
+  wordmark,
   imageUrl,
   imageObjectPosition = "50% 50%",
   imageZoom = 1,
@@ -29,6 +30,8 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
   const hasImage = Boolean(imageUrl);
+  // Brand masthead from the brief; hidden when none (never print "The Economist").
+  const brandWordmark = (wordmark ?? "").trim();
 
   const margin = isPortrait ? 56 : 70;
   const headlineSize = (titleFontSize ?? (isPortrait ? 64 : 80)) as number;
@@ -58,6 +61,9 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
           justifyContent: "center",
         }}
       >
+        {/* Faint engraved field fills the empty paper when there's no photo. */}
+        <EngravingTexture opacity={0.04} gap={10} />
+
         <div style={{ maxWidth: isPortrait ? "100%" : "78%", opacity: headOp, transform: `translateY(${headY}px)` }}>
           <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 20 : 19, letterSpacing: 2.4, textTransform: "uppercase", color: ECONOMIST_COLORS.muted }}>
             {sectionLabel}
@@ -71,6 +77,16 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
               {caption}
             </div>
           )}
+          {/* Closing engraved end-mark (SVG) + credit — anchors the card so it
+              doesn't float in empty paper when there is no photo. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: isPortrait ? 30 : 34, opacity: capOp }}>
+            <EditorialDivider width={isPortrait ? 220 : 300} progress={capOp} accentColor={accentColor} height={16} />
+            {credit && (
+              <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: isPortrait ? 18 : 17, letterSpacing: 0.5, color: ECONOMIST_COLORS.muted, whiteSpace: "nowrap" }}>
+                {credit}
+              </span>
+            )}
+          </div>
         </div>
       </AbsoluteFill>
     );
@@ -89,7 +105,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
 
       {/* Masthead + kicker, top-left. */}
       <div style={{ position: "absolute", top: margin, left: margin, opacity: headOp, display: "flex", alignItems: "center", gap: 16 }}>
-        <EconomistMasthead wordmark={wordmark} width={isPortrait ? 170 : 190} accentColor={accentColor} />
+        {brandWordmark && <EconomistMasthead wordmark={brandWordmark} width={isPortrait ? 170 : 190} accentColor={accentColor} />}
         <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: 18, letterSpacing: 2, textTransform: "uppercase", color: hasImage ? "rgba(255,255,255,0.85)" : ECONOMIST_COLORS.muted, textShadow }}>
           {sectionLabel}
         </span>
