@@ -103,8 +103,8 @@ export interface ProjectRegenerateScriptJob {
   id: number;
   project_id: number;
   user_id: number;
-  status: "queued" | "running" | "completed" | "failed";
-  current_step?: "analyzing_instruction" | "generating_script" | "generating_scenes";
+  status: "queued" | "running" | "awaiting_review" | "completed" | "failed";
+  current_step?: "analyzing_instruction" | "generating_script" | "verify" | "generating_scenes";
   total_scenes: number;
   processed_scenes: number;
   error_message: string | null;
@@ -112,6 +112,21 @@ export interface ProjectRegenerateScriptJob {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+}
+
+// Previous (pre-regeneration) scene for the verify-step before/after comparison.
+export interface RegenerateScriptPreviewScene {
+  order: number;
+  title: string;
+  display_text?: string | null;
+  narration_text: string;
+  visual_description: string;
+  remotion_code?: string | null;
+  preferred_layout?: string | null;
+}
+
+export interface RegenerateScriptPreviewOut {
+  previous_scenes: RegenerateScriptPreviewScene[];
 }
 
 export interface ChatMessage {
