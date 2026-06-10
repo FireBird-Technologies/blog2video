@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { PulseRing, BigGlyphBackdrop } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -71,7 +72,15 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — ghost glyph + faint pulse behind the giant stat. */}
+      {!hasImage && (
+        <>
+          <PulseRing accentColor={accentColor} />
+          <BigGlyphBackdrop glyph="#" accentColor={accentColor} tint="accent" startFrame={2} />
+        </>
+      )}
 
       <div
         style={{

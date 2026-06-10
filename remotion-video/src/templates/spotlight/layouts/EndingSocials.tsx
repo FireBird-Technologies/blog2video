@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { CornerFrame } from "../components/SpotlightArtifacts";
 import type { SpotlightLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
@@ -90,7 +91,10 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifact — a viewfinder framing the closing stack. */}
+      <CornerFrame accentColor={accentColor} startFrame={6} />
 
       {/* 1. TOP GROUP: Moved further down from the top edge */}
       <div style={{

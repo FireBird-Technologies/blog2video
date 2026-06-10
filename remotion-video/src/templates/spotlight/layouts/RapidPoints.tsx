@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { KineticTicker, StreakField } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -51,7 +52,11 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — fast-paced ticker + light streak field. */}
+      {!hasImage && <StreakField accentColor={accentColor} count={10} seed={5} />}
+      <KineticTicker accentColor={accentColor} edge="bottom" />
 
       {displayPhrases.map((phrase, i) => {
         const isActive = currentIdx === i;

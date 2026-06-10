@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { AccentBars, CornerFrame } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -117,7 +118,11 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — keep the outro calm: a viewfinder + small anchor. */}
+      <CornerFrame accentColor={accentColor} startFrame={4} />
+      {!hasImage && <AccentBars accentColor={accentColor} position="bottom-left" count={2} startFrame={8} />}
 
       <div
         style={{

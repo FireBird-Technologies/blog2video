@@ -152,6 +152,7 @@ def _is_laduc_or_fj(template_id: str) -> bool:
 # branch (_is_laduc_or_fj) and code path above. Do not fold them into this map.
 CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "matrix": ("matrix_data", "matrix_ticker"),
+    "spotlight": ("spotlight_data", "spotlight_table"),
 }
 
 

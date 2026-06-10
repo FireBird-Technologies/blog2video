@@ -1,6 +1,11 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import {
+  AccentBars,
+  CornerFrame,
+  BigGlyphBackdrop,
+} from "../components/SpotlightArtifacts";
+import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
@@ -98,7 +103,14 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — frame the title without crowding it. */}
+      {!hasImage && (
+        <BigGlyphBackdrop glyph="”" accentColor={accentColor} tint="accent" startFrame={2} />
+      )}
+      <CornerFrame accentColor={accentColor} startFrame={6} />
+      <AccentBars accentColor={accentColor} position="bottom-left" startFrame={4} />
 
       <div
         style={{
