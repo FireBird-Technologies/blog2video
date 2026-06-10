@@ -1,6 +1,6 @@
 import ReactDOM from "react-dom";
 
-export type ErrorModalHeadingVariant = "default" | "pipeline";
+export type ErrorModalHeadingVariant = "default" | "pipeline" | "maintenance";
 
 interface Props {
   open: boolean;
@@ -11,6 +11,7 @@ interface Props {
 }
 
 const PIPELINE_HEADING = "Oops 😢";
+const MAINTENANCE_HEADING = "We're updating right now";
 
 export default function ErrorModal({
   open,
@@ -20,6 +21,24 @@ export default function ErrorModal({
   onClose,
 }: Props) {
   if (!open) return null;
+
+  const isMaintenance = variant === "maintenance";
+  const isSoft = variant === "pipeline" || showUpgrade;
+  const iconBgClass = isMaintenance
+    ? "bg-blue-100"
+    : isSoft
+      ? "bg-amber-100"
+      : "bg-red-100";
+  const iconColorClass = isMaintenance
+    ? "text-blue-600"
+    : isSoft
+      ? "text-amber-700"
+      : "text-red-600";
+  const heading = isMaintenance
+    ? MAINTENANCE_HEADING
+    : isSoft
+      ? PIPELINE_HEADING
+      : "Error";
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -36,28 +55,35 @@ export default function ErrorModal({
       >
         <div className="flex items-start gap-4">
           <div
-            className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-              variant === "pipeline" || showUpgrade ? "bg-amber-100" : "bg-red-100"
-            }`}
+            className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${iconBgClass}`}
           >
             <svg
-              className={`w-5 h-5 ${variant === "pipeline" || showUpgrade ? "text-amber-700" : "text-red-600"}`}
+              className={`w-5 h-5 ${iconColorClass}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
               aria-hidden
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+              {isMaintenance ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              )}
             </svg>
           </div>
           <div className="flex-1 min-w-0">
             <h3 id="error-modal-title" className="text-base font-semibold text-gray-900 mb-1">
-              {variant === "pipeline" || showUpgrade ? PIPELINE_HEADING : "Error"}
+              {heading}
             </h3>
             <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">
               {message}
