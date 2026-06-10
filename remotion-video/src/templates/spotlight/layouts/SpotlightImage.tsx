@@ -54,7 +54,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
 
       {/* Image layer */}
       {imageUrl ? (
