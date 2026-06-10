@@ -144,39 +144,78 @@ export const coreCommercialPages: MarketingPage[] = [
   }),
   createPage({
     path: "/blog-to-video",
-    title: "Blog to Video Converter | Turn Posts Into Videos | Blog2Video",
+    title: "AI Blog to Video Converter | Turn Blog Posts Into Videos | Blog2Video",
     description:
-      "Turn blog posts into videos in minutes. Blog2Video converts articles to narrated videos with code, diagrams, and templates. No prompts needed.",
+      "Convert any blog post into a narrated AI video in minutes. Paste a URL, pick a designer template, and export to YouTube, Shorts, or LinkedIn. No editing or prompts needed.",
     eyebrow: "Commercial workflow",
-    heroTitle: "Blog to Video: Turn Posts Into Videos Without Rebuilding",
+    heroTitle: "AI Blog to Video Converter — Turn Any Post Into a Publishable Video",
     heroDescription:
-      "Blog2Video is built for creators who already have long-form content and want a clean path to YouTube, Shorts, and social video without outsourcing every publish.",
+      "Paste your blog URL. Blog2Video reads the live article, structures it into scenes, writes narration, and applies a designer template. Export as MP4 for YouTube, cut Shorts, or embed straight back into your newsletter. No script. No editor. No rebuild.",
     category: "commercial",
     primaryKeyword: "blog to video",
-    keywordVariant: "convert blog post to video",
-    badges: ["For bloggers", "Narrated explainers", "Preserves structure"],
+    keywordVariant: "AI blog to video converter",
+    badges: ["URL-first workflow", "Designer templates", "YouTube & Shorts ready"],
     proofPoints: [
-      "Starts from the URL of an existing article instead of a blank video timeline.",
-      "Keeps code snippets, diagrams, bullets, and key arguments visible in the final edit.",
-      "Supports templates, voice options, and AI scene editing for faster iteration.",
+      "Reads your live blog URL and structures the article into scenes automatically — no copy-paste or scripting.",
+      "Designer templates match your content tone: Bloomberg Terminal for finance, Chronicle for narrative, Gridcraft for comparisons.",
+      "Export as MP4 for YouTube, PNG scenes for carousels, PDF for decks, or embed via iframe back into your post.",
     ],
     sections: [
       {
-        title: "Why this workflow converts",
+        title: "Why a purpose-built blog to video converter beats generic AI video tools",
         body: [
-          "Most creators already know what they want to say. The problem is rebuilding the same thinking in a completely different medium. Blog2Video closes that gap by treating the article as the source of truth.",
-          "Instead of generic stock footage and one-size-fits-all narration, the platform maps your original content into scenes, visuals, and voiceover that match the actual ideas in the post.",
+          "Generic text-to-video tools treat your article as a loose prompt. They summarise the headline, reach for stock footage, and produce something that no longer sounds like the post you wrote. The argument, the nuance, and the credibility disappear.",
+          "Blog2Video is different because it uses the actual structure of your article as the scene blueprint. Each subheading becomes a scene. Bullets become on-screen callouts. Narration follows your original argument rather than a flattened summary. The output still feels like your content — it is just in a format people can watch.",
+          "That distinction matters most for content where the writing is already doing real work: technical tutorials, finance analysis, policy breakdowns, product explainers, and research-heavy posts where the logic is the value.",
         ],
         bullets: [
-          "Paste a URL and generate the first draft from your real article.",
-          "Review scene structure instead of editing from a blank canvas.",
-          "Ship the output to YouTube, LinkedIn, Shorts, or newsletter embeds.",
+          "Preserves code blocks, diagrams, data tables, and argument structure — not just the headline.",
+          "Narration is generated from the full article text, not a paragraph summary.",
+          "Designer templates apply a visual identity that matches the content type and audience.",
         ],
       },
       {
-        title: "Built for written-first creators",
+        title: "How to convert a blog post to video in three steps",
         body: [
-          "This is especially strong for technical blogs, product explainers, tutorials, and research commentary where the writing already contains the logic of the video.",
+          "Step 1: Paste your blog URL. Blog2Video fetches the live article, extracts headings, body text, bullets, and structure, and generates a scene-by-scene outline. No copy-paste or reformatting needed — public URLs work immediately.",
+          "Step 2: Choose a designer template and voice. Pick from templates like Gridcraft for structured comparisons, Bloomberg Terminal for finance authority, Chronicle for long-form narratives, Spotlight for punchy promotional content, or Nightfall for premium dark-mode explainers. Select an AI voice from the ElevenLabs library — you can preview before committing.",
+          "Step 3: Generate, review, and export. The editor opens when generation finishes. Adjust any scene, swap text, reorder, or regenerate individual sections. Then export as MP4 for YouTube, PNG slides for LinkedIn carousels, PDF for decks, or copy the iframe embed to drop the video directly into your original post.",
+        ],
+        bullets: [
+          "Paste a public blog URL — no account required to start.",
+          "Pick a template and voice that match the tone and audience of the article.",
+          "Export as MP4, PNG, PDF, or iframe embed — one video, four distribution formats.",
+        ],
+      },
+      {
+        title: "Use cases: who gets the most from a blog to video workflow",
+        body: [
+          "Finance and investing writers: The Bloomberg Terminal template gives market analysis, earnings breakdowns, and macro commentary the visual authority finance readers associate with credibility. Export to YouTube to build a channel alongside your Substack or newsletter — the two platforms compound each other's growth.",
+          "Technical bloggers and developer advocates: Code-aware layouts keep snippets, architecture diagrams, and CLI examples readable on screen. Tutorials, API walkthroughs, and product explainers translate directly from article structure to video scenes without losing the precision that makes the original post valuable.",
+          "Agencies and content teams: Bulk workflows let teams process multiple articles into videos without multiplying the production overhead. One article per week becomes a YouTube upload, a LinkedIn carousel, a Substack embed, and a PDF deck — from a single generation pass.",
+          "Policy researchers and political writers: The Chronicle template handles long-form narratives with the weight they deserve: serif type, ornamental pacing, and a chapter-like feel that matches the register of policy analysis and political commentary.",
+        ],
+      },
+      {
+        title: "Designer templates matched to every content type",
+        body: [
+          "Most blog-to-video tools give you one generic look. Blog2Video ships designer templates built for specific content registers, so your video feels intentional rather than auto-generated.",
+        ],
+        bullets: [
+          "Bloomberg Terminal — finance writers: amber-on-dark terminal aesthetic, ticker rail, monospaced authority.",
+          "Chronicle — long-form narrative: cream backgrounds, drop caps, ornamental borders, chapter pacing.",
+          "Gridcraft — structured comparison and data: warm editorial bento grids for listicles, benchmarks, and tool comparisons.",
+          "Nightfall — premium dark explainer: glass-morphism cards, indigo accent, high-contrast typography for tech and product launches.",
+          "Spotlight — short-form and promotional: kinetic typography, rapid transitions, designed for YouTube hooks and Shorts.",
+          "Newspaper — newsletters and commentary: serif headlines, fact-check layouts, and data snapshots for recurring publishing formats.",
+        ],
+      },
+      {
+        title: "Turn your blog into a YouTube channel without doubling your workload",
+        body: [
+          "A YouTube channel built from your existing blog is not a separate content operation — it is the same writing, redistributed into a second discovery surface.",
+          "YouTube's algorithm rewards consistent publishing. Blog2Video makes that consistency achievable because every article you already publish is a video waiting to happen. Finance analysis becomes a market breakdown video. A policy explainer becomes a desk commentary. A product tutorial becomes a YouTube walkthrough. Cut Shorts from the generated scenes, embed the full video back into the article, and ship the PNG frames as a LinkedIn carousel — all from one generation.",
+          "The writers and creators who grow fastest on YouTube in 2026 are not making new content for the platform. They are translating the content they already make.",
         ],
       },
     ],
@@ -187,29 +226,52 @@ export const coreCommercialPages: MarketingPage[] = [
       {
         question: "How do I convert a blog to video?",
         answer:
-          "Paste your blog URL into Blog2Video. The tool reads the live page, extracts headings and content structure, and generates a scene-by-scene video outline. Pick a template and voice, then render. No prompts or manual scripting needed.",
+          "Paste your blog URL into Blog2Video. The tool reads the live page, extracts headings and content structure, and generates a scene-by-scene video outline automatically. Pick a designer template and AI voice, then render. No scripting, recording, or editing required.",
+      },
+      {
+        question: "Is Blog2Video free to use?",
+        answer:
+          "Yes. Blog2Video offers three free videos when you sign up — no credit card required. Paid plans start from $2.80 per video at volume, or you can use individual credits at $4 per video. See the pricing page for current tiers.",
+      },
+      {
+        question: "How long does it take to turn a blog post into a video?",
+        answer:
+          "Most blog posts generate a complete video draft in under three minutes. Paste the URL, pick a template and voice, and hit generate. The editor opens when the draft is ready — review, make any adjustments, and export.",
+      },
+      {
+        question: "Can I create YouTube videos from my blog posts?",
+        answer:
+          "Yes. Blog2Video exports MP4 files ready for YouTube upload. You can also cut individual scenes into Shorts, export PNG frames for LinkedIn carousels, or embed the video back into the original blog post via iframe — all from one generation.",
+      },
+      {
+        question: "How is Blog2Video different from InVideo, Fliki, or Descript?",
+        answer:
+          "InVideo, Fliki, and Descript are general-purpose video tools. Blog2Video is purpose-built for blog-to-video conversion: it reads your live article URL, preserves your original content structure (including code, bullets, and diagrams), and applies designer templates matched to content types like finance, long-form narrative, or technical explainers. The output still sounds and feels like the original post.",
       },
       {
         question: "What is the best blog to video converter?",
         answer:
-          "Blog2Video is built for bloggers because it treats your article as the source of truth, not a loose prompt. It preserves code blocks, diagrams, and argument structure, and supports templates, AI voiceover, and scene editing.",
+          "Blog2Video is purpose-built for this workflow. It treats your article as the source of truth — not a loose prompt — and produces scene structure, narration, and visuals that stay faithful to the original content. It also offers more export formats (MP4, PNG, PDF, iframe) and designer templates than most alternatives.",
       },
       {
         question: "How do I use my blog for videos?",
         answer:
-          "Use Blog2Video to turn every published post into a narrated video. Paste the URL, generate the video, and export to YouTube, Shorts, LinkedIn, or embed back into the original article. One blog post becomes multiple video assets.",
+          "Use Blog2Video to turn every published post into a narrated video. Paste the URL, generate the video, and export to YouTube, Shorts, LinkedIn, or embed back into the original article. One blog post becomes multiple video assets across every channel.",
       },
       ...createFaq(
         "blog to video conversion",
-        "Writers and founder-creators",
-        "Blog2Video uses your real content structure and turns it into React-rendered scenes, diagrams, and code-aware layouts instead of vague stock footage."
+        "Writers, bloggers, and content teams who already have published articles",
+        "Blog2Video uses your real content structure and turns it into scenes, narration, and designer-quality visuals instead of relying on vague prompts and generic stock footage."
       ),
     ],
     relatedPaths: [
+      "/blog-to-video-ai",
+      "/ai-blog-to-video",
       "/article-to-video",
       "/blog-to-youtube-video",
       "/for-technical-bloggers",
       "/blogs/how-to-turn-a-blog-post-into-a-video",
+      "/blogs/blog-to-video-tools-compared",
     ],
   }),
   createPage({
