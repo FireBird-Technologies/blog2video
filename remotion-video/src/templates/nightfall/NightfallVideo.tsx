@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
-  interpolate,
   Sequence,
   staticFile,
-  useCurrentFrame,
   CalculateMetadataFunction,
 } from "remotion";
 import "../../fonts/nightfall-defaults";
@@ -13,6 +11,7 @@ import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { NightfallSceneTransition } from "./NightfallSceneTransition";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 /** Convert schema format (barChartRows, etc.) to component format (barChart, etc.) for data_visualization */
@@ -82,40 +81,6 @@ interface VideoData {
 interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
-
-// Cinematic dark transition with blur + scale for nightfall
-const NightfallTransition: React.FC = () => {
-  const frame = useCurrentFrame();
-
-  // Smooth ease-in opacity
-  const opacity = interpolate(frame, [0, 12], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Subtle scale up for a cinematic "push" feel
-  const scale = interpolate(frame, [0, 15], [1, 1.06], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Blur ramps up to soften the scene before cutting
-  const blur = interpolate(frame, [0, 10], [0, 8], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: "#0A0A1A",
-        opacity,
-        transform: `scale(${scale})`,
-        backdropFilter: `blur(${blur}px)`,
-      }}
-    />
-  );
-};
 
 // ─── Metadata ─────────────────────────────────────────────────
 
@@ -254,16 +219,17 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <LayoutComponent {...layoutProps} />
+            <NightfallSceneTransition
+              durationInFrames={durationFrames}
+              sceneIndex={index}
+              sceneCount={data.scenes.length}
+              layoutType={scene.layout}
+            >
+              <LayoutComponent {...layoutProps} />
+            </NightfallSceneTransition>
 
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
-            )}
-
-            {index < data.scenes.length - 1 && (
-              <Sequence from={Math.max(0, durationFrames - 15)} durationInFrames={15}>
-                <NightfallTransition />
-              </Sequence>
             )}
           </Sequence>
         );

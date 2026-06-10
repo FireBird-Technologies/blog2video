@@ -3,6 +3,7 @@ import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { NightfallSceneTransition } from "./NightfallSceneTransition";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 /** Convert schema format (barChartRows, etc.) to component format (barChart, etc.) for data_visualization */
@@ -86,7 +87,7 @@ export const NightfallVideoComposition: React.FC<
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#0A0A1A", fontFamily }}>
-      {scenes.map((scene) => {
+      {scenes.map((scene, index) => {
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
@@ -124,7 +125,14 @@ export const NightfallVideoComposition: React.FC<
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <LayoutComponent {...layoutProps} />
+            <NightfallSceneTransition
+              durationInFrames={durationFrames}
+              sceneIndex={index}
+              sceneCount={scenes.length}
+              layoutType={scene.layout}
+            >
+              <LayoutComponent {...layoutProps} />
+            </NightfallSceneTransition>
             {scene.voiceoverUrl && (
               <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
             )}

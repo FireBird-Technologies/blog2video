@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { GeometricBackground } from "../components/GeometricBackground";
 
 export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
   const {
@@ -37,6 +38,7 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", overflow: "hidden" }}>
+      <GeometricBackground accentColor={accentColor} frame={frame} />
       <div
         style={{
           display: "flex",
