@@ -103,8 +103,13 @@ export const footerGroups = [
   {
     title: "Comparisons",
     links: [
+      "/heygen-alternative",
       "/lumen5-alternative",
       "/pictory-alternative",
+      "/veed-alternative",
+      "/heygen-alternative-for-newsletter-writers",
+      "/pictory-alternative-for-substack-writers",
+      "/lumen5-alternative-for-technical-bloggers",
       "/blog2video-vs-lumen5",
       "/blog2video-vs-pictory",
       "/blog2video-vs-invideo",
