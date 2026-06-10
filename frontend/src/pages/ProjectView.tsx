@@ -186,6 +186,50 @@ const PIPELINE_STEPS_UPLOAD = [
   { id: 3, label: "Scenes" },
 ] as const;
 
+// Tips shown while generation runs — teach the editing capabilities available
+// once the video is ready (rotated one at a time in <GenerationTips />).
+const GENERATION_TIPS = [
+  { tab: "Edit Scenes", text: "Refine any scene from the Edit Scenes tab — use AI-assisted changes or edit the text and layout manually." },
+  { tab: "Script", text: "Not happy with the narration? Regenerate the whole script from the Script tab with your own instructions." },
+  { tab: "Images", text: "Add or remove images per scene from the Images tab — you can also drop in your own logo." },
+  { tab: "Settings", text: "Switch the template, colors, and fonts anytime from the Settings tab." },
+  { tab: "Edit Scenes", text: "Edit a scene's narration and regenerate just that voiceover." },
+  { tab: "Edit Scenes", text: "Reorder, duplicate, or delete scenes from the Edit Scenes tab to shape the final flow." },
+] as const;
+
+// Rotating product tips for the generation loading screen. Self-contained so its
+// hooks stay stable (not re-created inside renderGenerationLoader on every render).
+function GenerationTips() {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx((i) => (i + 1) % GENERATION_TIPS.length);
+        setVisible(true);
+      }, 250);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
+  const tip = GENERATION_TIPS[idx];
+  return (
+    <div className="mt-6 pt-5 border-t border-gray-100">
+      <div
+        className="min-h-[3.5rem] flex flex-col items-center justify-center gap-1.5 px-2"
+        style={{ opacity: visible ? 1 : 0, transition: "opacity 0.25s ease" }}
+      >
+        <span className="text-[10px] font-semibold tracking-wide text-purple-500 uppercase">
+          💡 {tip.tab}
+        </span>
+        <p className="text-sm font-medium text-gray-600 leading-relaxed max-w-xs text-center">
+          {tip.text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── URL Helpers ─────────────────────────────────────────────
 
 /**
@@ -2313,7 +2357,15 @@ export default function ProjectView() {
   };
 
   const tabs: ProjectTabItem[] = [
-    { id: "scenes", label: "Scenes" },
+    {
+      id: "scenes",
+      label: "Edit Scenes",
+      icon: (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      ),
+    },
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
     ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
@@ -2964,6 +3016,10 @@ export default function ProjectView() {
             </div>
           )}
 
+          {!(mode === "regenerate-script" && regenScriptAwaitingReview) && (
+            <GenerationTips />
+          )}
+
           {hasError && (
             <div className="mt-6">
               <button
@@ -3041,6 +3097,8 @@ export default function ProjectView() {
               <p className="mt-6 text-sm text-gray-400">
                 Feel free to browse other tabs — just don't close this one.
               </p>
+
+              <GenerationTips />
 
               {hasError && (
                 <div className="mt-4">
@@ -4708,6 +4766,7 @@ export default function ProjectView() {
             onRegenerateScript={() => setShowRegenerateScriptConfirm(true)}
             isRegenerating={regenerateScriptRunning}
             disabled={!["generated", "done"].includes(project.status)}
+            onEditScene={(scene) => setSceneEditModal(scene)}
           />
         )}
 
@@ -4734,7 +4793,7 @@ export default function ProjectView() {
                       {project.name}
                     </h2>
                     <span className="text-xs text-gray-400">
-                      {project.scenes.length} scenes — {imageAssets.length} images. Drag to reorder.
+                      {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its text, narration, or layout. Drag to reorder.
                     </span>
                   </div>
                 </div>
@@ -5205,22 +5264,6 @@ export default function ProjectView() {
                 </div>
                 </div>
 
-                {/* Scene edit modal */}
-                {sceneEditModal && (
-                  <SceneEditModal
-                    open={!!sceneEditModal}
-                    onClose={() => setSceneEditModal(null)}
-                    scene={sceneEditModal}
-                    project={project}
-                    imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
-                    availableImageItems={activeImageAssets.map((asset) => ({
-                      asset,
-                      url: resolveAssetUrl(asset, project.id),
-                    }))}
-                    onSaved={loadProject}
-                  />
-                )}
-
                 <input
                   ref={localSceneImageInputRef}
                   type="file"
@@ -5561,6 +5604,23 @@ export default function ProjectView() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Scene edit modal — rendered outside the tab blocks so it opens from both
+            the Edit Scenes tab and the Script tab. */}
+        {sceneEditModal && (
+          <SceneEditModal
+            open={!!sceneEditModal}
+            onClose={() => setSceneEditModal(null)}
+            scene={sceneEditModal}
+            project={project}
+            imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
+            availableImageItems={activeImageAssets.map((asset) => ({
+              asset,
+              url: resolveAssetUrl(asset, project.id),
+            }))}
+            onSaved={loadProject}
+          />
         )}
 
        {activeTab === "settings" && (
