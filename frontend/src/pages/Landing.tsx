@@ -441,7 +441,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 }
 
 export default function Landing() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
@@ -543,6 +543,17 @@ export default function Landing() {
     btn?.click();
   };
 
+  // "Explore the MCP connector" CTA: go straight there if signed in, otherwise
+  // start Google sign-in and route to /mcp-connector once authenticated.
+  const handleExploreMcp = () => {
+    if (user) {
+      navigate("/mcp-connector");
+      return;
+    }
+    localStorage.setItem("b2v_pending_mcp", "1");
+    handleGenerateClick();
+  };
+
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
     setSigningIn(true);
@@ -565,6 +576,12 @@ export default function Landing() {
         }
       }
 
+      if (localStorage.getItem("b2v_pending_mcp")) {
+        localStorage.removeItem("b2v_pending_mcp");
+        navigate("/mcp-connector");
+        return;
+      }
+
       navigate("/dashboard");
     } catch (err: any) {
       if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
@@ -585,6 +602,11 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       setAccountDeletedOpen(false);
       setPendingCredential(null);
+      if (localStorage.getItem("b2v_pending_mcp")) {
+        localStorage.removeItem("b2v_pending_mcp");
+        navigate("/mcp-connector");
+        return;
+      }
       navigate("/dashboard");
     } catch (err: any) {
       showError(getErrorMessage(err, "Failed to reactivate account."));
@@ -765,9 +787,9 @@ export default function Landing() {
       <LandingDemoSection demos={demos} />
 
       {/* ─── Connect to AI (MCP) ─── */}
-      <section className="py-20 border-t border-gray-100">
+      <section className="py-14 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
-          <MCPConnectorShowcase />
+          <MCPConnectorShowcase onExplore={handleExploreMcp} />
         </div>
       </section>
 
