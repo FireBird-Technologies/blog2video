@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
 import Seo from "../components/seo/Seo";
+import { ComparisonUrlDemoWidget } from "../components/ComparisonUrlDemoWidget";
 import {
   getMarketingPage,
   getStructuredInternalLinks,
@@ -88,6 +89,12 @@ export default function MarketingPageView() {
             </div>
           </div>
         </section>
+
+        {page.demoWidget && (
+          <section className="mx-auto max-w-6xl px-6 py-12">
+            <ComparisonUrlDemoWidget />
+          </section>
+        )}
 
         <section className="mx-auto max-w-6xl px-6 py-16">
           <div className="grid gap-6 md:grid-cols-3">
