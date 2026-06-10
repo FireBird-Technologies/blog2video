@@ -4,16 +4,16 @@ export default function MCPConnectorShowcase({ onExplore }: { onExplore?: () => 
   return (
     <div className="reveal">
       {/* Header — matches the other landing showcases */}
-      <div className="inline-flex items-center gap-2 mb-3 w-full justify-center">
+      <div className="inline-flex items-center gap-2 mb-4 w-full justify-center">
         <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />
-        <p className="text-[11px] font-medium text-purple-600 tracking-widest uppercase">
+        <p className="text-xs font-medium text-purple-600 tracking-widest uppercase">
           Model Context Protocol
         </p>
       </div>
-      <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 text-center mb-3">
+      <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
         Make videos right from your AI assistant
       </h2>
-      <p className="text-[13px] text-gray-500 text-center max-w-md mx-auto mb-6 leading-relaxed">
+      <p className="text-sm text-gray-500 text-center max-w-lg mx-auto mb-8 leading-relaxed">
         Connect Blog2Video to Claude, ChatGPT, Gemini or n8n — then just ask, in plain language,
         to pick templates, create projects and render videos.
       </p>
@@ -21,14 +21,14 @@ export default function MCPConnectorShowcase({ onExplore }: { onExplore?: () => 
       <MCPHubDiagram />
 
       {/* CTA */}
-      <div className="mt-5 flex justify-center">
+      <div className="mt-6 flex justify-center">
         <button
           type="button"
           onClick={onExplore}
-          className="group inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-purple-700"
+          className="group inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-purple-700"
         >
           Explore the MCP connector
-          <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <line x1="5" y1="12" x2="19" y2="12" />
             <polyline points="12 5 19 12 12 19" />
           </svg>
