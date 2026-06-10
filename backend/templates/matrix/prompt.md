@@ -284,6 +284,45 @@ Narration: "Our dashboard provides real-time analytics."
 
 ---
 
+## matrix_data
+**Visual:** A real animated chart (line / bar / histogram) on a neon-green-on-black panel over digital rain, with scanlines and glow. Line charts draw in with a trim-path reveal; bars grow in staggered. A short analytical summary sits beside the chart. Title is prefixed with terminal chrome (`> ...`).
+
+**Best for:** Showing a chart built from an actual data table in the source article (trends over time, comparisons, distributions).
+
+**Props (shared with the chart pipeline — usually filled automatically from the bound table):**
+- `chartTable`: `{ headers: [...], rows: [[...]] }` — col 1 = X labels; cols 2-4 = up to 3 numeric series
+- `chartType`: `"line" | "bar" | "histogram" | "auto"`
+- `chartSummary`: one-to-two sentence read of the chart (emphasize key phrases with `__double underscores__`)
+- `subtitle`, `yAxisLabel`, `chartYAxisTicks` (optional axis captions/ticks)
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a chartable table (`preferred_layout='matrix_data'` + `data_table_index`).
+
+**When NOT to Use:**
+- For a single headline number (use `cipher_metric`).
+- When there is no real table — never fabricate chart figures.
+
+---
+
+## matrix_ticker
+**Visual:** An intercepted terminal data table — green monospace grid on a black panel over digital rain. Header row glows; an optional change column is color-coded green (up) / red (down). Title prefixed with `> ...`.
+
+**Best for:** Market-snapshot / multi-column comparison tables (symbol · price · % change, ranking tables, summary grids).
+
+**Props (usually filled automatically from the bound table):**
+- `tickerTable`: `{ headers: [...], rows: [[...]] }` (max 20 rows, 6 cols)
+- `tickerTitle`: optional sub-headline
+- `tickerFootnote`: optional source attribution
+- `tickerHighlightCol`: 0-based column index to color-code +/- (e.g. a "% Chg" column); -1 disables
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a ticker-like table (`preferred_layout='matrix_ticker'` + `data_table_index`).
+
+**When NOT to Use:**
+- For 3-6 plain bullet phrases (use `data_stream`).
+
+---
+
 ## transmission
 **Visual:** Digital rain background. 3-5 short phrases displayed sequentially like intercepted transmissions. Each phrase: centered, monospace, 40-64px, green. Hard cuts between phrases. `[SIGNAL]` prefix in dimmer green.
 
@@ -366,7 +405,7 @@ Narration: "The best time to start was yesterday. The second best time is now."
 - **Opening (scenes 1–2):** `terminal_text` for setup
 - **Middle (scenes 3–N-1):** Alternate between:
   - Text layouts: `terminal_text`, `data_stream`, `transmission`
-  - Data moments: `cipher_metric`
+  - Data moments: `cipher_metric`; chart from a bound table: `matrix_data`; data table from a bound table: `matrix_ticker`
   - Contrast: `fork_choice`
   - Image: `matrix_image` (when images available)
   - Impact: `glitch_punch` (max 1 total)

@@ -552,7 +552,10 @@ class TemplateSceneGenerator:
         (populated upfront from data_table_index set by ScriptGenerator) so the
         correct table is always selected without re-scoring all tables per call.
         """
-        if not (layout.startswith("market_annotation") or layout == "ticker"):
+        # Matrix shares LaDuc's chart/ticker contract via matrix_data / matrix_ticker.
+        is_chart_layout = layout.startswith("market_annotation") or layout == "matrix_data"
+        is_ticker_layout = layout == "ticker" or layout == "matrix_ticker"
+        if not (is_chart_layout or is_ticker_layout):
             return props
         out = dict(props or {})
         preferred_table_index = (
@@ -564,7 +567,7 @@ class TemplateSceneGenerator:
         # Ticker layout: bypass chart planner entirely — write raw { headers, rows }
         # directly to tickerTable. _build_chart_props_from_table fails on ticker-style
         # tables that have empty "" separator columns (e.g. Name|""|Price|""|%).
-        if layout == "ticker":
+        if is_ticker_layout:
             tables = _extract_tables_from_visual_hint(visual_description)
             if not tables:
                 return out
@@ -1341,11 +1344,16 @@ class TemplateSceneGenerator:
             "laduc" in self.template_id
             or "fj_research" in self.template_id
             or self.template_id in {"fj_market_brief", "crafted_fj_market_brief_bundle"}
+            or self.template_id == "matrix"
         ):
             for i, scene in enumerate(scenes_data):
                 pl = str(scene.get("preferred_layout") or "").strip().lower()
                 if (
-                    (pl.startswith("market_annotation") or pl == "ticker")
+                    (
+                        pl.startswith("market_annotation")
+                        or pl == "ticker"
+                        or pl in ("matrix_data", "matrix_ticker")
+                    )
                     and isinstance(scene.get("data_table_index"), int)
                 ):
                     self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
@@ -1553,19 +1561,22 @@ class TemplateSceneGenerator:
                         layout,
                     )
 
-                # market_annotation guard: AI picked chart layout but no real table data
-                # was extractable — fall back rather than render an empty chart area.
-                if layout == "market_annotation" and not has_chart_table:
+                # market_annotation / matrix_data guard: AI picked a chart layout but no
+                # real table data was extractable — fall back rather than render an empty
+                # chart area. (Ticker layouts render a graceful "no data" message instead.)
+                if layout in ("market_annotation", "matrix_data") and not has_chart_table:
+                    chart_layout = layout
                     llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
                     layout = (
                         llm_layout
-                        if llm_layout in self._valid_layouts and llm_layout != "market_annotation"
+                        if llm_layout in self._valid_layouts and llm_layout != chart_layout
                         else self._fallback_layout
                     )
                     validated_props = {}
                     logger.info(
-                        "[SCENE_GEN] Scene %s: market_annotation had no chart data, falling back to '%s'",
+                        "[SCENE_GEN] Scene %s: %s had no chart data, falling back to '%s'",
                         scene_index,
+                        chart_layout,
                         layout,
                     )
 
