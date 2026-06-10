@@ -54,6 +54,7 @@ export interface MarketingPage {
   faq: FaqItem[];
   relatedPaths: string[];
   cta: PageCta;
+  demoWidget?: boolean;
 }
 
 export interface TemplateProfile {
