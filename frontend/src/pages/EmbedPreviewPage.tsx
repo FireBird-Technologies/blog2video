@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import { BACKEND_URL, type Project } from "../api/client";
+import { BACKEND_URL, type EmbedProjectResponse, type Project } from "../api/client";
 import VideoPreview from "../components/VideoPreview";
 
 export default function EmbedPreviewPage() {
   const { token } = useParams<{ token: string }>();
   const [project, setProject] = useState<Project | null>(null);
+  const [embedExtras, setEmbedExtras] = useState<Pick<
+    EmbedProjectResponse,
+    "crafted_template" | "custom_template_code" | "layout_prop_schema"
+  > | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -38,6 +42,11 @@ export default function EmbedPreviewPage() {
           ...data,
         };
         setProject(project);
+        setEmbedExtras({
+          crafted_template: data.crafted_template ?? null,
+          custom_template_code: data.custom_template_code ?? null,
+          layout_prop_schema: data.layout_prop_schema ?? null,
+        });
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
@@ -62,7 +71,12 @@ export default function EmbedPreviewPage() {
 
   return (
     <div style={{ height: "100vh", width: "100vw", background: "#000", overflow: "hidden" }}>
-      <VideoPreview project={project} />
+      <VideoPreview
+        project={project}
+        layoutPropSchema={embedExtras?.layout_prop_schema ?? {}}
+        precompiledTemplateData={embedExtras?.custom_template_code ?? undefined}
+        precompiledCraftedDetail={embedExtras?.crafted_template ?? undefined}
+      />
     </div>
   );
 }
