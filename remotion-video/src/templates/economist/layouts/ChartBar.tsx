@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
@@ -9,17 +9,24 @@ import {
   scaleLinear,
   fmtTick,
   fmtValue,
-  easeInOutCubic,
   extentY,
   clamp,
   textRise,
 } from "./chartHelpers";
+import {
+  clamp01,
+  easeOutQuint,
+  easeOutBack,
+  baselineSettle,
+  ruleDraw,
+  letterpressStamp,
+} from "./motion";
 
 /**
  * ChartBar — custom-SVG Economist bar chart.
  *   chartType "bar"  → vertical bars (gridlines + right y-axis, value on top)
  *   chartType "hbar" → ranked horizontal bars (sorted desc, value at the end)
- * Both grow in with a staggered easeInOutCubic. Bars use the accent red;
+ * Both grow in staggered with an easeOutBack overshoot. Bars use the accent red;
  * negative bars switch to the Economist blue.
  */
 const GROW_START = 18;
@@ -60,7 +67,16 @@ const BarHeader: React.FC<BarHeaderProps> = ({
   const subSize = Math.round(titleSize * 0.56);
   return (
     <div style={{ position: "absolute", left, top, width }}>
-      <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
+      <div
+        style={{
+          width: 34,
+          height: 6,
+          background: accentColor,
+          marginBottom: 16,
+          opacity: clamp01(frame / 6),
+          ...ruleDraw(frame, 0, 12),
+        }}
+      />
       <div
         style={{
           fontFamily: ECONOMIST_SERIF_FONT,
@@ -69,7 +85,7 @@ const BarHeader: React.FC<BarHeaderProps> = ({
           lineHeight: 1.06,
           color: textColor,
           letterSpacing: -titleSize * 0.012,
-          ...textRise(frame, 4),
+          ...baselineSettle(frame, 4),
         }}
       >
         {title}
@@ -161,8 +177,6 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
   const isPortrait = aspectRatio === "portrait";
   const variant: "bar" | "hbar" = chartType === "hbar" ? "hbar" : "bar";
 
-  const axisOp = interpolate(frame, [8, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-
   const { labels, series } = parseChartTable(chartTable);
   const primary = series[0]?.values ?? [];
   const barColor = seriesColors?.[0] || accentColor;
@@ -207,8 +221,9 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
   const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + keyH + 22;
   const footerH = 0;
 
-  const growProgress = (i: number) =>
-    easeInOutCubic((frame - GROW_START - i * STAGGER) / GROW_DUR);
+  // Raw 0..1 grow clock per bar; the bars themselves apply an easeOutBack
+  // overshoot so each one springs slightly past its mark and settles.
+  const growT = (i: number) => clamp((frame - GROW_START - i * STAGGER) / GROW_DUR, 0, 1);
 
   // Each datum.
   const data = labels.map((label, i) => ({ label, value: Number.isFinite(primary[i]) ? primary[i] : 0 }));
@@ -248,46 +263,63 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
 
             return (
               <svg style={{ position: "absolute", inset: 0 }} width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-                {/* gridlines + right y labels */}
+                {/* gridlines draw on left→right with a stagger; y labels rise in */}
                 {scale.ticks.map((t, i) => {
                   const y = sy(t);
                   const isZero = Math.abs(t) < scale.step * 1e-6;
+                  const tickT = clamp01((frame - 8 - i * 2) / 14);
+                  const lineX2 = plotL + (gridR - plotL) * easeOutQuint(tickT);
                   return (
-                    <g key={i} opacity={axisOp}>
-                      <line x1={plotL} x2={gridR} y1={y} y2={y} stroke={isZero ? ECONOMIST_COLORS.zero : ECONOMIST_COLORS.grid} strokeWidth={isZero ? 1.5 : 1} />
-                      <text x={innerR} y={y + 6} textAnchor="end" fontFamily={ECONOMIST_SANS_FONT} fontSize={subSize} fill={ECONOMIST_COLORS.muted}>
+                    <g key={i}>
+                      <line x1={plotL} x2={lineX2} y1={y} y2={y} stroke={isZero ? ECONOMIST_COLORS.zero : ECONOMIST_COLORS.grid} strokeWidth={isZero ? 1.5 : 1} />
+                      <text x={innerR} y={y + 6 + (1 - easeOutQuint(tickT)) * 6} textAnchor="end" fontFamily={ECONOMIST_SANS_FONT} fontSize={subSize} fill={ECONOMIST_COLORS.muted} opacity={tickT}>
                         {fmtTick(t)}{unit}
                       </text>
                     </g>
                   );
                 })}
-                {/* bars */}
+                {/* bars spring up past their mark and settle (capped overshoot) */}
                 {data.map((d, i) => {
-                  const p = clamp(growProgress(i), 0, 1);
-                  const full = sy(d.value);
-                  const top = baseY + (full - baseY) * p;
+                  const p = easeOutBack(growT(i), 1.2);
+                  const fullH = Math.abs(sy(d.value) - baseY);
+                  let h = Math.max(0, Math.min(fullH * p, fullH + 10));
+                  const isNeg = d.value < 0;
+                  let y = isNeg ? baseY : baseY - h;
+                  if (!isNeg && y < plotT) {
+                    y = plotT;
+                    h = baseY - plotT;
+                  }
+                  if (isNeg && baseY + h > plotB) {
+                    h = plotB - baseY;
+                  }
                   const x = plotL + slot * i + (slot - barW) / 2;
-                  const h = Math.abs(top - baseY);
-                  const y = Math.min(top, baseY);
-                  const col = d.value < 0 ? ECONOMIST_COLORS.blue : barColor;
+                  const col = isNeg ? ECONOMIST_COLORS.blue : barColor;
+                  const stamp = letterpressStamp(frame, GROW_START + i * STAGGER + GROW_DUR - 6, 12);
+                  const xLabT = clamp01((frame - 10 - i * 3) / 12);
                   return (
                     <g key={i}>
                       <rect x={x} y={y} width={barW} height={h} fill={col} />
-                      {p > 0.6 && (
+                      {stamp.opacity > 0 && (
                         <text
                           x={x + barW / 2}
-                          y={(d.value < 0 ? top + subSize + 4 : top - 8)}
+                          y={isNeg ? baseY + h + subSize + 4 : y - 8}
                           textAnchor="middle"
                           fontFamily={ECONOMIST_SANS_FONT}
                           fontWeight={700}
                           fontSize={subSize}
                           fill={textColor}
-                          opacity={interpolate(p, [0.6, 1], [0, 1])}
+                          opacity={stamp.opacity}
+                          style={{
+                            transformBox: "fill-box",
+                            transformOrigin: "center",
+                            transform: stamp.transform,
+                            filter: stamp.filter,
+                          }}
                         >
                           {fmtValue(d.value, unit)}
                         </text>
                       )}
-                      <text x={x + barW / 2} y={plotB + 26} textAnchor="middle" fontFamily={ECONOMIST_SANS_FONT} fontSize={Math.round(subSize * 0.92)} fill={ECONOMIST_COLORS.muted} opacity={axisOp}>
+                      <text x={x + barW / 2} y={plotB + 26 + (1 - easeOutQuint(xLabT)) * 8} textAnchor="middle" fontFamily={ECONOMIST_SANS_FONT} fontSize={Math.round(subSize * 0.92)} fill={ECONOMIST_COLORS.muted} opacity={xLabT}>
                         {d.label}
                       </text>
                     </g>
@@ -313,17 +345,48 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
             return (
               <svg style={{ position: "absolute", inset: 0 }} width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
                 {sorted.map((d, i) => {
-                  const p = clamp(growProgress(i), 0, 1);
+                  const p = easeOutBack(growT(i), 1.1);
                   const cy = plotT + rowH * i + rowH / 2;
-                  const end = barL + (sx(d.value) - barL) * p;
+                  const fullW = Math.max(0, sx(d.value) - barL);
+                  const w = Math.max(0, Math.min(fullW * p, fullW + 10));
+                  const end = barL + w;
+                  // Row label slides in from the left gutter just ahead of its bar.
+                  const rowT = clamp01((frame - Math.max(0, GROW_START + i * STAGGER - 6)) / 16);
+                  const rowX = (1 - easeOutQuint(rowT)) * -22;
+                  const stamp = letterpressStamp(frame, GROW_START + i * STAGGER + GROW_DUR - 6, 12);
                   return (
-                    <g key={i} opacity={axisOp}>
-                      <text x={barL - 16} y={cy + subSize * 0.34} textAnchor="end" fontFamily={ECONOMIST_SANS_FONT} fontWeight={600} fontSize={subSize} fill={textColor}>
+                    <g key={i}>
+                      <text
+                        x={barL - 16}
+                        y={cy + subSize * 0.34}
+                        textAnchor="end"
+                        fontFamily={ECONOMIST_SANS_FONT}
+                        fontWeight={600}
+                        fontSize={subSize}
+                        fill={textColor}
+                        opacity={clamp01(rowT / 0.5)}
+                        transform={`translate(${rowX.toFixed(2)} 0)`}
+                      >
                         {d.label}
                       </text>
-                      <rect x={barL} y={cy - barH / 2} width={Math.max(0, end - barL)} height={barH} fill={barColor} />
-                      {p > 0.5 && (
-                        <text x={end + 12} y={cy + subSize * 0.34} textAnchor="start" fontFamily={ECONOMIST_SANS_FONT} fontWeight={700} fontSize={subSize} fill={textColor} opacity={interpolate(p, [0.5, 1], [0, 1])}>
+                      <rect x={barL} y={cy - barH / 2} width={w} height={barH} fill={barColor} />
+                      {stamp.opacity > 0 && (
+                        <text
+                          x={end + 12}
+                          y={cy + subSize * 0.34}
+                          textAnchor="start"
+                          fontFamily={ECONOMIST_SANS_FONT}
+                          fontWeight={700}
+                          fontSize={subSize}
+                          fill={textColor}
+                          opacity={stamp.opacity}
+                          style={{
+                            transformBox: "fill-box",
+                            transformOrigin: "center",
+                            transform: stamp.transform,
+                            filter: stamp.filter,
+                          }}
+                        >
                           {fmtValue(d.value, unit)}
                         </text>
                       )}

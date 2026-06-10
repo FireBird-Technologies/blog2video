@@ -4,7 +4,7 @@ import type {
   TransitionPresentation,
   TransitionPresentationComponentProps,
 } from "@remotion/transitions";
-import { ECONOMIST_COLORS } from "../constants";
+import { ECONOMIST_COLORS, lighten, darken } from "../constants";
 
 /**
  * Custom Economist transition presentations.
@@ -257,5 +257,257 @@ export const coverLift = (
   props: CoverLiftProps,
 ): TransitionPresentation<CoverLiftProps> => ({
   component: CoverLift,
+  props,
+});
+
+// ── Page fold ────────────────────────────────────────────────────────────────
+// A crisp broadsheet half-page fold. A blank paper panel hinged at the vertical
+// centre rotates 0→180° across the cut — the reader folding the page over to
+// the next spread. The outgoing scene fades under the lifting panel; the
+// incoming one is fully visible when the panel lands. Adapted from Chronicle's
+// bookPageFlip but re-skinned for newsprint: flat paper gradient, hairline
+// inset border, and a red seam on the free edge instead of parchment grain.
+
+type PageFoldProps = { direction: "forward" | "backward" };
+
+const PageFold: React.FC<TransitionPresentationComponentProps<PageFoldProps>> = ({
+  children,
+  presentationDirection,
+  presentationProgress,
+  passedProps,
+}) => {
+  const isForward = passedProps.direction === "forward";
+  const raw = presentationProgress;
+  const eased = ease(raw);
+
+  // Outgoing spread fades over the first half as the panel lifts off it.
+  if (presentationDirection === "exiting") {
+    const exitFade = Math.max(0, 1 - raw * 2);
+    return <AbsoluteFill style={{ opacity: exitFade }}>{children}</AbsoluteFill>;
+  }
+
+  // Incoming spread is fully visible from p = 0.45 so the panel lands on it.
+  const incomingFade = interpolate(raw, [0, 0.45], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+
+  const angle = eased * 180 * (isForward ? -1 : 1);
+  // Shadow peaks at mid-fold when the panel stands perpendicular to camera.
+  const lift = Math.sin(raw * Math.PI);
+  const paperHi = lighten(ECONOMIST_COLORS.paper, 0.04);
+  const paperLo = darken(ECONOMIST_COLORS.paper, 0.06);
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: ECONOMIST_COLORS.paper, overflow: "hidden" }}>
+      <AbsoluteFill style={{ opacity: incomingFade }}>{children}</AbsoluteFill>
+      {raw < 1 && (
+        <AbsoluteFill
+          style={{
+            perspective: "2400px",
+            perspectiveOrigin: "50% 50%",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              [isForward ? "left" : "right"]: "50%",
+              width: "50%",
+              transformOrigin: isForward ? "left center" : "right center",
+              transform: `rotateY(${angle.toFixed(2)}deg)`,
+              background: `linear-gradient(to ${isForward ? "right" : "left"}, ${paperHi} 0%, ${ECONOMIST_COLORS.paper} 45%, ${paperLo} 100%)`,
+              boxShadow: `0 ${(8 + lift * 26).toFixed(1)}px ${(18 + lift * 44).toFixed(1)}px rgba(20,18,12,${(lift * 0.3).toFixed(3)}), inset 0 0 0 1px ${ECONOMIST_COLORS.rule}`,
+              backfaceVisibility: "hidden",
+              willChange: "transform",
+            }}
+          >
+            {/* Spine-side shading — the fold crease darkens as the panel lifts. */}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                [isForward ? "left" : "right"]: 0,
+                width: "20%",
+                background: `linear-gradient(to ${isForward ? "right" : "left"}, rgba(40,36,26,${(0.1 + lift * 0.14).toFixed(3)}) 0%, transparent 100%)`,
+                pointerEvents: "none",
+              }}
+            />
+            {/* Red seam on the free edge — reads as the printed page edge. */}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                [isForward ? "right" : "left"]: 0,
+                width: 3,
+                background: ECONOMIST_COLORS.accent,
+              }}
+            />
+          </div>
+        </AbsoluteFill>
+      )}
+    </AbsoluteFill>
+  );
+};
+
+export const pageFold = (
+  props: PageFoldProps,
+): TransitionPresentation<PageFoldProps> => ({
+  component: PageFold,
+  props,
+});
+
+// ── Press roll ───────────────────────────────────────────────────────────────
+// "Hot off the press" — the next page rolls up from beneath a dark ink-roller
+// cylinder that rides the seam, the outgoing page feeding away above it. The
+// moving layers carry a soft bell-curve blur so the roll has motion energy.
+
+type PressRollProps = Record<string, never>;
+
+const PressRoll: React.FC<TransitionPresentationComponentProps<PressRollProps>> = ({
+  children,
+  presentationDirection,
+  presentationProgress,
+}) => {
+  const p = ease(presentationProgress);
+  const entering = presentationDirection === "entering";
+  const bell = Math.sin(Math.PI * presentationProgress);
+  const blurPx = bell * (entering ? 9 : 6);
+
+  if (!entering) {
+    return (
+      <AbsoluteFill style={{ backgroundColor: ECONOMIST_COLORS.paper }}>
+        <AbsoluteFill
+          style={{
+            transform: `translateY(${(-32 * p).toFixed(2)}%)`,
+            filter: `brightness(${(1 - 0.16 * p).toFixed(3)}) blur(${blurPx.toFixed(2)}px)`,
+          }}
+        >
+          {children}
+        </AbsoluteFill>
+      </AbsoluteFill>
+    );
+  }
+
+  // The seam (top edge of the incoming page) as a % from the top.
+  const seamTop = (1 - p) * 100;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: "transparent" }}>
+      <AbsoluteFill
+        style={{
+          transform: `translateY(${seamTop.toFixed(2)}%)`,
+          filter: `blur(${blurPx.toFixed(2)}px)`,
+        }}
+      >
+        {children}
+      </AbsoluteFill>
+      {/* The ink-roller cylinder riding the seam. */}
+      {presentationProgress < 1 && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: `${seamTop.toFixed(2)}%`,
+            height: "4%",
+            transform: "translateY(-50%)",
+            background: "linear-gradient(to bottom, #101010 0%, #3A3A3A 48%, #101010 100%)",
+            boxShadow: `0 10px 24px rgba(0,0,0,${(0.32 * bell + 0.08).toFixed(3)})`,
+            opacity: bell > 0.04 ? 1 : bell / 0.04,
+          }}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+export const pressRoll = (): TransitionPresentation<PressRollProps> => ({
+  component: PressRoll,
+  props: {},
+});
+
+// ── Halftone wipe ────────────────────────────────────────────────────────────
+// The ink-bar geometry with a printer's halftone leading edge: the sweeping
+// band dissolves into three columns of shrinking process dots, like ink density
+// falling off a screened plate. Dots are CSS radial-gradient patterns — pure
+// styling, no ids, fully deterministic.
+
+type HalftoneProps = { direction: "left" | "right"; color: string };
+
+const HALFTONE_COLUMNS = [
+  { radius: 7, cell: 26 },
+  { radius: 4.5, cell: 26 },
+  { radius: 2.5, cell: 26 },
+] as const;
+
+const HalftoneWipe: React.FC<TransitionPresentationComponentProps<HalftoneProps>> = ({
+  children,
+  presentationDirection,
+  presentationProgress,
+  passedProps,
+}) => {
+  const p = ease(presentationProgress);
+  const entering = presentationDirection === "entering";
+  const fromRight = passedProps.direction === "right";
+  const lead = p * 100;
+
+  let clip: string | undefined;
+  if (entering) {
+    clip = fromRight
+      ? `inset(0 0 0 ${100 - lead}%)`
+      : `inset(0 ${100 - lead}% 0 0)`;
+  }
+
+  const bandWidth = 10; // % of screen width
+  const bandLeft = fromRight ? 100 - lead : lead - bandWidth;
+  // Solid trailing half + three halftone columns toward the leading edge.
+  const columns = fromRight ? [...HALFTONE_COLUMNS].reverse() : HALFTONE_COLUMNS;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: ECONOMIST_COLORS.paper }}>
+      <AbsoluteFill style={{ clipPath: clip }}>{children}</AbsoluteFill>
+      {entering && presentationProgress < 1 && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: `${bandLeft.toFixed(2)}%`,
+            width: `${bandWidth}%`,
+            display: "flex",
+            flexDirection: "row",
+          }}
+        >
+          {(fromRight ? null : (
+            <div style={{ flex: 1.2, background: passedProps.color }} />
+          ))}
+          {columns.map((c, i) => (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                backgroundImage: `radial-gradient(circle, ${passedProps.color} ${c.radius}px, transparent ${c.radius + 0.5}px)`,
+                backgroundSize: `${c.cell}px ${c.cell}px`,
+                backgroundPosition: "center",
+              }}
+            />
+          ))}
+          {(fromRight ? (
+            <div style={{ flex: 1.2, background: passedProps.color }} />
+          ) : null)}
+        </div>
+      )}
+    </AbsoluteFill>
+  );
+};
+
+export const halftoneWipe = (
+  props: HalftoneProps,
+): TransitionPresentation<HalftoneProps> => ({
+  component: HalftoneWipe,
   props,
 });

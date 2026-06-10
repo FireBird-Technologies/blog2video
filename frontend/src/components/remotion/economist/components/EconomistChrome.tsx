@@ -8,6 +8,7 @@ import {
 import { ECONOMIST_COLORS, CHROME_INSET, lighten, darken } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
 import { formatEconomistWeek } from "../layouts/chartHelpers";
+import { clamp01, microDrift, pulse } from "../layouts/motion";
 
 /**
  * EconomistChrome — the persistent ambient "paper" behind every scene, plus the
@@ -62,15 +63,21 @@ export const EconomistChrome: React.FC<EconomistChromeProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
-      {/* Warm paper base — soft top-left light, gently darker corners. */}
+      {/* Warm paper base — soft top-left light, gently darker corners. The
+          light drifts on a very slow orbit (oversized so edges never show) so
+          the paper breathes instead of freezing once entrances finish. */}
       <div
         style={{
           position: "absolute",
-          inset: 0,
+          inset: -12,
           background: `radial-gradient(ellipse at 28% 18%, ${lighten(
             bgColor,
             0.04,
           )} 0%, ${bgColor} 54%, ${darken(bgColor, 0.045)} 100%)`,
+          transform: (() => {
+            const d = microDrift(frame, 420, 6);
+            return `translate(${d.x.toFixed(2)}px, ${d.y.toFixed(2)}px)`;
+          })(),
         }}
       />
 
@@ -229,7 +236,7 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
           )}
         </div>
 
-        {/* Hairline rule + accent flag-tick. */}
+        {/* Hairline rule + accent flag-tick (with a periodic light gleam). */}
         <div style={{ position: "relative", marginTop: 10, height: 2 }}>
           <div style={{ position: "absolute", left: 0, right: 0, top: 0.5, height: 1, background: ECONOMIST_COLORS.rule }} />
           <div
@@ -242,8 +249,28 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
               background: accentColor,
               transform: `scaleX(${tickW})`,
               transformOrigin: "left center",
+              overflow: "hidden",
             }}
-          />
+          >
+            {frame > 60 && (() => {
+              // A light sweep crosses the tick once per ~150-frame cycle.
+              const cycleT = clamp01(((frame - 60) % 150) / 22);
+              return (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: `${(-30 + cycleT * 130).toFixed(2)}%`,
+                    width: "30%",
+                    background:
+                      "linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 100%)",
+                    opacity: 0.25,
+                  }}
+                />
+              );
+            })()}
+          </div>
         </div>
       </div>
 
@@ -300,6 +327,7 @@ interface SceneFolioProps {
 
 /** An editorial page-number folio: "02 / 11" — current in accent, total in muted. */
 const SceneFolio: React.FC<SceneFolioProps> = ({ sceneIndex, sceneCount, accentColor }) => {
+  const frame = useCurrentFrame();
   if (!sceneCount || sceneCount <= 0) return null;
   const cur = String((sceneIndex ?? 0) + 1).padStart(2, "0");
   const total = String(sceneCount).padStart(2, "0");
@@ -313,7 +341,8 @@ const SceneFolio: React.FC<SceneFolioProps> = ({ sceneIndex, sceneCount, accentC
         color: ECONOMIST_COLORS.muted,
       }}
     >
-      <span style={{ color: accentColor }}>{cur}</span>
+      {/* The live page number breathes gently so the folio reads as "now". */}
+      <span style={{ color: accentColor, opacity: 0.7 + pulse(frame, 90) * 0.3 }}>{cur}</span>
       {" / "}
       {total}
     </span>

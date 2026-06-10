@@ -4,36 +4,16 @@ import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
 import { TrendGlyph } from "../components/EconomistOrnaments";
+import { OdometerNumber } from "../components/OdometerNumber";
 import { textRise } from "./chartHelpers";
+import { letterpressStamp, ruleDraw, slideFrom } from "./motion";
 
 /**
  * KeyIndicators — a "by the numbers" KPI panel. 2–4 large serif figures, each
  * with a thin red underline, an uppercase sans label, and an optional trend
- * (▲ blue / ▼ red). Cells reveal with a staggered rise and the figure counts up.
+ * (▲ blue / ▼ red). Cells reveal with a staggered rise; each figure's digits
+ * roll into place like a mechanical odometer.
  */
-
-/**
- * Animate a figure counting up from 0 → its value, preserving any prefix ("$"),
- * suffix ("%", "trn", "pp") and decimal places. Non-numeric values pass through.
- */
-function animatedValue(raw: string | number | undefined, frame: number, start: number): string {
-  const s = String(raw ?? "");
-  const m = s.match(/^(\D*?)(-?[\d,]*\.?\d+)(.*)$/s);
-  if (!m) return s;
-  const [, prefix, numStr, suffix] = m;
-  const target = parseFloat(numStr.replace(/,/g, ""));
-  if (!Number.isFinite(target)) return s;
-  const decimals = numStr.includes(".") ? numStr.split(".")[1].length : 0;
-  const cur = interpolate(frame, [start, start + 22], [0, target], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const formatted = cur.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  return `${prefix}${formatted}${suffix}`;
-}
 export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
   title,
   narration,
@@ -101,17 +81,39 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
           const cmpVal = (it.compareValue ?? "").trim();
           const cmpLab = (it.compareLabel ?? "vs").trim() || "vs";
           const trendDir: "up" | "down" | "flat" = up ? "up" : down ? "down" : "flat";
+          const labelStamp = letterpressStamp(frame, s + 12, 12);
+          const deltaSlide = slideFrom(frame, s + 18, 14);
           return (
             <div key={i} style={{ opacity: op, transform: `translateY(${ty}px)` }}>
-              <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: valueSize, lineHeight: 1, color: textColor, letterSpacing: -valueSize * 0.02 }}>
-                {animatedValue(it.value, frame, s)}
-              </div>
-              <div style={{ width: 56, height: 4, background: accentColor, margin: "16px 0 12px" }} />
-              <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 25 : 23, letterSpacing: 0.6, textTransform: "uppercase", color: textColor }}>
+              <OdometerNumber
+                value={String(it.value ?? "")}
+                frame={frame}
+                start={s}
+                fontSize={valueSize}
+                color={textColor}
+                fontFamily={ECONOMIST_SERIF_FONT}
+                fontWeight={900}
+                letterSpacing={-valueSize * 0.02}
+              />
+              <div style={{ width: 56, height: 4, background: accentColor, margin: "16px 0 12px", ...ruleDraw(frame, s + 8, 12) }} />
+              <div
+                style={{
+                  fontFamily: ECONOMIST_SANS_FONT,
+                  fontWeight: 700,
+                  fontSize: isPortrait ? 25 : 23,
+                  letterSpacing: 0.6,
+                  textTransform: "uppercase",
+                  color: textColor,
+                  opacity: labelStamp.opacity,
+                  transform: labelStamp.transform,
+                  transformOrigin: "left center",
+                  filter: labelStamp.filter,
+                }}
+              >
                 {it.label}
               </div>
               {(d || cmpVal) && (
-                <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginTop: 6 }}>
+                <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginTop: 6, opacity: deltaSlide.opacity, transform: deltaSlide.transform }}>
                   {d && (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 23 : 21, color: deltaColor }}>
                       {(up || down) && <TrendGlyph direction={trendDir} size={isPortrait ? 16 : 14} color={deltaColor} />}

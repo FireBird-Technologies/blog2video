@@ -1,32 +1,38 @@
 import type { TransitionPresentation } from "@remotion/transitions";
-import { fade } from "@remotion/transitions/fade";
-import { clockWipe } from "@remotion/transitions/clock-wipe";
-import { iris } from "@remotion/transitions/iris";
 import type { EconomistLayoutType } from "../types";
 import { ECONOMIST_COLORS } from "../constants";
-import { pagePush, whipBlur, inkBar, coverLift } from "./presentations";
+import {
+  pagePush,
+  whipBlur,
+  inkBar,
+  coverLift,
+  pageFold,
+  pressRoll,
+  halftoneWipe,
+} from "./presentations";
 
 /**
  * Economist transition selection.
  *
- * Editorial but kinetic — the moves a motion designer would cut a financial /
- * news explainer with, not a plain cross-dissolve every time. The hero gets a
- * special move: leaving the cover plays a cinematic page-LIFT (the front cover
- * tilts back and turns up, revealing the first spread settling beneath it).
- * Arriving at the closing ending_socials gets a branded ink-bar "stamp". Every
- * other scene-pair cycles deterministically through a pool that alternates a
- * calm move (fade / push) with a punchy one (whip-blur / clock-wipe / ink-bar)
- * so the rhythm has lift without ever feeling busy.
+ * Every move in the pool is print-craft: pages pushed, folded and rolled off
+ * the press, ink bars and halftone plates sweeping the cut — no stock
+ * cross-dissolves. The hero gets a special move: leaving the cover plays a
+ * cinematic page-LIFT (the front cover tilts back and turns up, revealing the
+ * first spread settling beneath it). Arriving at the closing ending_socials
+ * gets a branded ink-bar "stamp". Every other scene-pair cycles
+ * deterministically through a pool that alternates calm moves (push / fold)
+ * with punchy ones (press-roll / ink-bar / halftone / whip) so the rhythm has
+ * lift without ever feeling busy.
  *
  * Pool (cycle order, keyed by OUTGOING scene index):
- *   0  pagePush(right)  — parallax page-push, the workhorse "next spread"
- *   1  whipBlur(left)   — fast directional motion-blur whip (punch)
- *   2  fade             — clean editorial cross-dissolve (breather)
- *   3  clockWipe        — radial sweep, reads "data / dashboard"
- *   4  pagePush(left)   — page-push the other way (keeps direction varied)
- *   5  inkBar(right)    — branded red bar wipe (accent)
- *   6  iris             — circular spotlight reveal (breather)
- *   7  whipBlur(right)  — whip the other way
+ *   0  pagePush(right)    — parallax page-push, the workhorse "next spread"
+ *   1  pressRoll          — next page rolls up under the ink-roller cylinder
+ *   2  pageFold(forward)  — crisp broadsheet half-page fold (calm, tactile)
+ *   3  inkBar(right)      — branded red bar wipe (accent)
+ *   4  pagePush(left)     — page-push the other way (keeps direction varied)
+ *   5  halftoneWipe(left) — red wipe dissolving into printer's process dots
+ *   6  pageFold(backward) — the fold turned back the other way
+ *   7  whipBlur(right)    — fast motion-blur whip (punch)
  *
  * Picking is keyed by the OUTGOING scene index so identical input always
  * renders identical transitions — reproducible output, and the metadata
@@ -61,22 +67,22 @@ const endingEntryChoice = (): EconomistTransitionChoice => ({
 });
 
 /**
- * The pool is parameterised by canvas size so clockWipe/iris centre + radius
- * are correct in both 16:9 and 9:16. The metadata pass only reads `.frames`
+ * The pool is parameterised by canvas size so pagePush travel distance is
+ * correct in both 16:9 and 9:16. The metadata pass only reads `.frames`
  * (which never depend on size), so the landscape defaults are harmless there;
  * the render site passes the real dimensions.
  */
 const buildPool = (
   w: number,
-  h: number,
+  _h: number,
 ): Array<() => EconomistTransitionChoice> => [
   () => ({ presentation: cast(pagePush({ direction: "right", distance: w })), frames: 32 }),
-  () => ({ presentation: cast(whipBlur({ direction: "left" })), frames: 20 }),
-  () => ({ presentation: cast(fade()), frames: 26 }),
-  () => ({ presentation: cast(clockWipe({ width: w, height: h })), frames: 34 }),
-  () => ({ presentation: cast(pagePush({ direction: "left", distance: w })), frames: 32 }),
+  () => ({ presentation: cast(pressRoll()), frames: 28 }),
+  () => ({ presentation: cast(pageFold({ direction: "forward" })), frames: 36 }),
   () => ({ presentation: cast(inkBar({ direction: "right", color: ECONOMIST_COLORS.accent })), frames: 30 }),
-  () => ({ presentation: cast(iris({ width: w, height: h })), frames: 32 }),
+  () => ({ presentation: cast(pagePush({ direction: "left", distance: w })), frames: 32 }),
+  () => ({ presentation: cast(halftoneWipe({ direction: "left", color: ECONOMIST_COLORS.accent })), frames: 30 }),
+  () => ({ presentation: cast(pageFold({ direction: "backward" })), frames: 36 }),
   () => ({ presentation: cast(whipBlur({ direction: "right" })), frames: 20 }),
 ];
 

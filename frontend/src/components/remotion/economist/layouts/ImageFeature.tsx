@@ -5,11 +5,13 @@ import { ECONOMIST_COLORS } from "../constants";
 import { EconomistMasthead } from "../components/EconomistMasthead";
 import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
+import { clamp01, baselineSettle, letterpressStamp, redactionReveal, ruleDraw } from "./motion";
 
 /**
- * ImageFeature — a full-bleed photo feature. Ken-Burns photo + a lower dark
- * gradient, a mini masthead + section kicker top-left, a short red accent rule
- * and big white serif headline lower-left, and caption/credit bottom-right.
+ * ImageFeature — a full-bleed photo feature. The Ken-Burns photo develops from
+ * newsprint monochrome to full colour + a lower dark gradient, a mini masthead
+ * + section kicker top-left, a short red accent rule drawing on and a big white
+ * serif headline settling lower-left, and caption/credit stamped bottom-right.
  * Wrapped by minimal chrome (owns the whole canvas).
  */
 export const ImageFeature: React.FC<EconomistLayoutProps> = ({
@@ -38,9 +40,12 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
 
   const photoOp = interpolate(frame, [0, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const kbScale = interpolate(frame, [0, 260], [1.05, 1.14], { extrapolateRight: "clamp" }) * imageZoom;
+  // The photo develops from newsprint monochrome into full colour.
+  const developT = clamp01(frame / 55);
+  const photoFilter = `grayscale(${(1 - developT).toFixed(3)})`;
   const headOp = interpolate(frame, [16, 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const headY = interpolate(frame, [16, 36], [22, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const ruleW = interpolate(frame, [14, 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const headline = baselineSettle(frame, 16);
+  const capStamp = letterpressStamp(frame, 36, 14, 1.08);
   const capOp = interpolate(frame, [34, 50], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const ink = hasImage ? "#FFFFFF" : textColor;
@@ -64,12 +69,20 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
         {/* Faint engraved field fills the empty paper when there's no photo. */}
         <EngravingTexture opacity={0.04} gap={10} />
 
-        <div style={{ maxWidth: isPortrait ? "100%" : "78%", opacity: headOp, transform: `translateY(${headY}px)` }}>
-          <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 20 : 19, letterSpacing: 2.4, textTransform: "uppercase", color: ECONOMIST_COLORS.muted }}>
-            {sectionLabel}
-          </div>
-          <div style={{ width: 64, height: 6, background: accentColor, margin: `${isPortrait ? 20 : 22}px 0`, transform: `scaleX(${ruleW})`, transformOrigin: "left" }} />
-          <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: noImgHeadline, lineHeight: 1.02, letterSpacing: -noImgHeadline * 0.014, color: textColor }}>
+        <div style={{ maxWidth: isPortrait ? "100%" : "78%" }}>
+          {(() => {
+            const reveal = redactionReveal(frame, 0, 14);
+            return (
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 20 : 19, letterSpacing: 2.4, textTransform: "uppercase", color: ECONOMIST_COLORS.muted, clipPath: reveal.clipPath }}>
+                  {sectionLabel}
+                </div>
+                <span style={{ position: "absolute", top: 0, bottom: 0, left: `${reveal.barLeftPct.toFixed(2)}%`, width: `${reveal.barWidthPct}%`, background: accentColor, opacity: reveal.barOpacity }} />
+              </div>
+            );
+          })()}
+          <div style={{ width: 64, height: 6, background: accentColor, margin: `${isPortrait ? 20 : 22}px 0`, ...ruleDraw(frame, 12, 16) }} />
+          <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: noImgHeadline, lineHeight: 1.02, letterSpacing: -noImgHeadline * 0.014, color: textColor, ...headline }}>
             {title}
           </div>
           {caption && (
@@ -97,7 +110,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
       <AbsoluteFill style={{ opacity: photoOp }}>
         <Img
           src={imageUrl as string}
-          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition, transform: `scale(${kbScale})` }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition, transform: `scale(${kbScale})`, filter: photoFilter }}
         />
         <AbsoluteFill style={{ background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.18) 40%, rgba(0,0,0,0) 62%)" }} />
         <AbsoluteFill style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 22%)" }} />
@@ -111,17 +124,17 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
         </span>
       </div>
 
-      {/* Headline lower-left. */}
-      <div style={{ position: "absolute", left: margin, bottom: isPortrait ? height * 0.16 : margin + 56, width: isPortrait ? width - margin * 2 : width * 0.62, opacity: headOp, transform: `translateY(${headY}px)` }}>
-        <div style={{ width: 60, height: 6, background: accentColor, marginBottom: 20, transform: `scaleX(${ruleW})`, transformOrigin: "left" }} />
-        <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: headlineSize, lineHeight: 1.03, letterSpacing: -headlineSize * 0.012, color: ink, textShadow }}>
+      {/* Headline lower-left — settles onto its baseline as the ink dries. */}
+      <div style={{ position: "absolute", left: margin, bottom: isPortrait ? height * 0.16 : margin + 56, width: isPortrait ? width - margin * 2 : width * 0.62 }}>
+        <div style={{ width: 60, height: 6, background: accentColor, marginBottom: 20, ...ruleDraw(frame, 12, 16) }} />
+        <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: headlineSize, lineHeight: 1.03, letterSpacing: -headlineSize * 0.012, color: ink, textShadow, ...headline }}>
           {title}
         </div>
       </div>
 
-      {/* Caption / credit, bottom-right. */}
+      {/* Caption / credit pressed in bottom-right. */}
       {(caption || credit) && (
-        <div style={{ position: "absolute", right: margin, bottom: margin, maxWidth: isPortrait ? "70%" : "40%", textAlign: "right", opacity: capOp }}>
+        <div style={{ position: "absolute", right: margin, bottom: margin, maxWidth: isPortrait ? "70%" : "40%", textAlign: "right", opacity: capStamp.opacity, transform: capStamp.transform, transformOrigin: "right bottom", filter: capStamp.filter }}>
           {caption && (
             <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 26 : 25, lineHeight: 1.35, color: hasImage ? "rgba(255,255,255,0.92)" : ECONOMIST_COLORS.muted, textShadow }}>
               {caption}

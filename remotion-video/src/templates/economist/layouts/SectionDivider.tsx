@@ -4,13 +4,16 @@ import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT } from "../../../fonts/economist-defaults";
 import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
+import { clamp01, easeOutQuint, pressSlam } from "./motion";
 
 /**
- * SectionDivider — a full-bleed chapter break. A small red square springs in
- * above double hairline rules, then a very large serif section name and an
- * italic standfirst. The block is anchored in the upper third (not floated dead
- * centre) and boxed by two faint vertical rules so it fills the spread. The
- * running dateline is supplied by the shared chrome footer strip.
+ * SectionDivider — a full-bleed chapter break. A small red diamond spins to
+ * rest above double hairline rules, then a very large serif section name rises
+ * from behind the lower rule and its letter-spacing compresses to rest (a
+ * press slam), then an italic standfirst. The block is anchored in the upper
+ * third (not floated dead centre) and boxed by two faint vertical rules so it
+ * fills the spread. The running dateline is supplied by the shared chrome
+ * footer strip.
  */
 export const SectionDivider: React.FC<EconomistLayoutProps> = ({
   title,
@@ -27,10 +30,15 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
 
   const nameSize = (titleFontSize ?? (isPortrait ? 140 : 184)) as number;
   const squareScale = spring({ frame: frame - 4, fps, config: { damping: 13, mass: 0.5 } });
+  // The diamond spins half a turn to rest as it scales in.
+  const squareRot = 225 - 180 * easeOutQuint(clamp01((frame - 4) / 20));
   const ruleW = interpolate(frame, [8, 26], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const nameOp = interpolate(frame, [16, 32], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const nameY = interpolate(frame, [16, 34], [18, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const sfOp = interpolate(frame, [30, 46], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // The giant name rises from behind the lower divider rule (masked) while its
+  // letter-spacing compresses to rest — type slammed by the press.
+  const nameRise = easeOutQuint(clamp01((frame - 14) / 20));
+  const slam = pressSlam(frame, 14, 20);
+  const nameSpacing = -nameSize * (0.015 + 0.03 * slam.spacingT);
+  const sfOp = interpolate(frame, [36, 52], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const sideY = interpolate(frame, [12, 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const sub = standfirst || narration;
@@ -66,26 +74,29 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
         />
       ))}
 
-      <div style={{ width: 22, height: 22, background: accentColor, transform: `scale(${squareScale}) rotate(45deg)`, marginBottom: isPortrait ? 36 : 44 }} />
+      <div style={{ width: 22, height: 22, background: accentColor, transform: `scale(${squareScale}) rotate(${squareRot.toFixed(2)}deg)`, marginBottom: isPortrait ? 36 : 44 }} />
 
       {/* Engraved centre-diamond divider (SVG) above the section name. */}
       <EditorialDivider width={ruleWidth} progress={ruleW} accentColor={accentColor} height={16} />
 
-      <div
-        style={{
-          fontFamily: ECONOMIST_SERIF_FONT,
-          fontWeight: 900,
-          fontSize: nameSize,
-          lineHeight: 1.0,
-          letterSpacing: -nameSize * 0.015,
-          color: textColor,
-          textAlign: "center",
-          margin: `${isPortrait ? 30 : 36}px 0`,
-          opacity: nameOp,
-          transform: `translateY(${nameY}px)`,
-        }}
-      >
-        {title}
+      {/* Mask: the name rises from behind the lower rule into view. */}
+      <div style={{ overflow: "hidden", margin: `${isPortrait ? 30 : 36}px 0` }}>
+        <div
+          style={{
+            fontFamily: ECONOMIST_SERIF_FONT,
+            fontWeight: 900,
+            fontSize: nameSize,
+            lineHeight: 1.0,
+            letterSpacing: nameSpacing,
+            color: textColor,
+            textAlign: "center",
+            opacity: slam.opacity,
+            transform: `translateY(${((1 - nameRise) * 105).toFixed(2)}%)`,
+            filter: slam.filter,
+          }}
+        >
+          {title}
+        </div>
       </div>
 
       {/* Engraved centre-diamond divider (SVG) below the section name. */}
