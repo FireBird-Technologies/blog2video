@@ -8,33 +8,12 @@ import {
 } from "remotion";
 import React from "react";
 import { SceneLayoutProps } from "../types";
-
-// Decorative corner shape
-const CornerShape: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
-  const purple = "#6366F1";
-  const cyan = "#22D3EE";
-
-  return (
-    <div style={{ position: "absolute", ...style }}>
-      <svg width="500" height="500" viewBox="0 0 150 150" fill="none">
-        <path
-          d="M137.5 73L101 131.5L28.5 110.5L2.5 40.5L50.5 3.5L137.5 73Z"
-          stroke={purple}
-          strokeWidth="3"
-        />
-        <path
-          d="M147.5 42L112.5 2L42.5 21L8 85.5L46 148L147.5 42Z"
-          stroke={cyan}
-          strokeWidth="3"
-        />
-      </svg>
-    </div>
-  );
-};
+import { GeometricBackground } from "../components/GeometricBackground";
 
 export const TextNarration: React.FC<SceneLayoutProps> = ({
   title,
   narration,
+  accentColor,
   bgColor,
   textColor,
   aspectRatio,
@@ -43,7 +22,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height, durationInFrames } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   /* ---------------- Title Animation ---------------- */
@@ -67,35 +46,10 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
 
   const textOp = interpolate(textSpring, [0, 1], [0, 1]);
 
-  /* ---------------- Corner Shapes ---------------- */
-
-  const shapeEntranceSpring = spring({
-    frame,
-    fps,
-    config: { damping: 200, stiffness: 150 },
-  });
-
-  const entranceShapeScale = interpolate(shapeEntranceSpring, [0, 1], [0.6, 1]);
-  const entranceShapeOpacity = interpolate(shapeEntranceSpring, [0, 1], [0, 1]);
+  /* ---------------- Character Blow Away Animation ---------------- */
 
   const vanishAnimationDuration = 45;
   const vanishStartFrame = durationInFrames - vanishAnimationDuration;
-
-  const shapeExitSpring = spring({
-    frame: frame - vanishStartFrame,
-    fps,
-    config: { damping: 200, stiffness: 150, mass: 0.8 },
-    durationInFrames: vanishAnimationDuration,
-  });
-
-  const exitShapeScale = interpolate(shapeExitSpring, [0, 1], [1, 0]);
-  const exitShapeOpacity = interpolate(shapeExitSpring, [0, 1], [1, 0]);
-
-  const combinedShapeScale = entranceShapeScale * exitShapeScale;
-  const combinedShapeOpacity = entranceShapeOpacity * exitShapeOpacity;
-
-  /* ---------------- Character Blow Away Animation ---------------- */
-
   const maxCharFadeOutDelay = 15;
   const charBlowAwayDuration = vanishAnimationDuration + maxCharFadeOutDelay;
 
@@ -117,7 +71,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
     delay: number;
   }
 
-  const animatedChars = React.useMemo(() => {
+  const animatedChars = React.useMemo<AnimatedChar[]>(() => {
     return narration.split("").map((char, i) => ({
       id: `char-${i}`,
       char,
@@ -136,23 +90,6 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
   const adjustedBgColor = isDarkText ? "#FFFFFF" : bgColor;
   const narrationSteadyOpacity = isDarkText ? textOp : textOp * 0.7;
 
-  /* ---------------- Corner Positions ---------------- */
-
-  const cornerOffset = p ? -100 : -150;
-  const shapeSize = 500;
-
-  const centerScreenX = width / 2;
-  const centerScreenY = height / 2;
-
-  const initialCenterX = cornerOffset + shapeSize / 2;
-  const initialCenterY = cornerOffset + shapeSize / 2;
-
-  const deltaX = centerScreenX - initialCenterX;
-  const deltaY = centerScreenY - initialCenterY;
-
-  const tx = interpolate(shapeExitSpring, [0, 1], [0, deltaX]);
-  const ty = interpolate(shapeExitSpring, [0, 1], [0, deltaY]);
-
   /* ---------------- Render ---------------- */
 
   return (
@@ -165,52 +102,19 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
         overflow: "hidden",
       }}
     >
-      {/* Top Left */}
-      <CornerShape
-        style={{
-          opacity: combinedShapeOpacity,
-          top: cornerOffset,
-          left: cornerOffset,
-          transform: `scale(${combinedShapeScale}) translate(${tx}px, ${ty}px)`,
-        }}
-      />
-
-      {/* Top Right */}
-      <CornerShape
-        style={{
-          opacity: combinedShapeOpacity,
-          top: cornerOffset,
-          right: cornerOffset,
-          transform: `scale(${combinedShapeScale}) scaleX(-1) translate(${tx}px, ${ty}px)`,
-        }}
-      />
-
-      {/* Bottom Left */}
-      <CornerShape
-        style={{
-          opacity: combinedShapeOpacity,
-          bottom: cornerOffset,
-          left: cornerOffset,
-          transform: `scale(${combinedShapeScale}) scaleY(-1) translate(${tx}px, ${ty}px)`,
-        }}
-      />
-
-      {/* Bottom Right */}
-      <CornerShape
-        style={{
-          opacity: combinedShapeOpacity,
-          bottom: cornerOffset,
-          right: cornerOffset,
-          transform: `scale(${combinedShapeScale}) scaleX(-1) scaleY(-1) translate(${tx}px, ${ty}px)`,
-        }}
+      {/* Geometric SVG background (replaces old static CornerShape polygons) */}
+      <GeometricBackground
+        accentColor={accentColor || "#6366F1"}
+        frame={frame}
       />
 
       {/* Text */}
-
       <div
         style={{
           textAlign: "center",
           maxWidth: p ? "90%" : "75%",
+          position: "relative",
+          zIndex: 1,
         }}
       >
         <h1

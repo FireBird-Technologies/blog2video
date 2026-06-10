@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { GeometricBackground } from "../components/GeometricBackground";
 
 export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   title,
@@ -62,6 +63,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
         overflow: "hidden",
       }}
     >
+      <GeometricBackground accentColor={accentColor} frame={frame} />
       {/* Glow effect */}
       <div
         style={{

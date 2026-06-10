@@ -8,6 +8,7 @@ import {
 } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { AnimatedImage } from "./AnimatedImage";
+import { GeometricBackground } from "../components/GeometricBackground";
 
 export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
   const {
@@ -105,6 +106,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
         overflow: "hidden",
       }}
     >
+      <GeometricBackground accentColor={accentColor || "#6366F1"} frame={frame} />
       {/* IMAGE SECTION */}
       {hasImage && (
         <div

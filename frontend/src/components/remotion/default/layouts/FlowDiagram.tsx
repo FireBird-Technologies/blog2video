@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { GeometricBackground } from "../components/GeometricBackground";
 
 export const FlowDiagram: React.FC<SceneLayoutProps> = ({
   title,
@@ -50,6 +51,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
         overflow: "hidden",
       }}
     >
+      <GeometricBackground accentColor={accentColor} frame={frame} />
       <div
         style={{
           display: "flex",

@@ -48,6 +48,67 @@ function useFadeIn(delay = 0, active = true) {
   return vis;
 }
 
+// ─── Starfield + shooting star (CSS-only, restarts each time a slide mounts)
+const STARFIELD_KEYFRAMES = `
+@keyframes nightfall-twinkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.9; }
+}
+@keyframes nightfall-shoot {
+  0%, 18% { transform: translate(0, 0); opacity: 0; }
+  22% { opacity: 1; }
+  38% { transform: translate(150px, 80px); opacity: 0; }
+  100% { transform: translate(150px, 80px); opacity: 0; }
+}
+`;
+
+const STAR_POSITIONS = [
+  { x: 6, y: 10, size: 2, delay: 0, duration: 2.4 },
+  { x: 18, y: 22, size: 1.5, delay: 0.6, duration: 3 },
+  { x: 32, y: 8, size: 2.5, delay: 1.2, duration: 2.8 },
+  { x: 47, y: 16, size: 1.5, delay: 0.3, duration: 2.2 },
+  { x: 60, y: 6, size: 2, delay: 1.6, duration: 3.2 },
+  { x: 74, y: 14, size: 1.5, delay: 0.9, duration: 2.6 },
+  { x: 88, y: 9, size: 2, delay: 0.2, duration: 2.9 },
+  { x: 12, y: 35, size: 1.5, delay: 1.4, duration: 2.5 },
+  { x: 40, y: 30, size: 2, delay: 0.8, duration: 3.1 },
+  { x: 68, y: 32, size: 1.5, delay: 0.4, duration: 2.7 },
+  { x: 92, y: 28, size: 2.5, delay: 1.1, duration: 2.3 },
+  { x: 25, y: 55, size: 1.5, delay: 0.7, duration: 3 },
+  { x: 55, y: 60, size: 2, delay: 1.3, duration: 2.6 },
+  { x: 82, y: 58, size: 1.5, delay: 0.1, duration: 2.9 },
+  { x: 5, y: 75, size: 2, delay: 0.5, duration: 2.4 },
+  { x: 95, y: 80, size: 1.5, delay: 1.5, duration: 3.2 },
+];
+
+function StarfieldBg() {
+  return (
+    <>
+      <style>{STARFIELD_KEYFRAMES}</style>
+      {STAR_POSITIONS.map((s, i) => (
+        <div key={i} style={{
+          position: "absolute", left: `${s.x}%`, top: `${s.y}%`,
+          width: s.size, height: s.size, borderRadius: "50%",
+          background: "#FFFFFF",
+          boxShadow: "0 0 4px rgba(255,255,255,0.8)",
+          animation: `nightfall-twinkle ${s.duration}s ease-in-out ${s.delay}s infinite`,
+          pointerEvents: "none",
+        }} />
+      ))}
+      {/* Shooting star — streaks once on mount/slide-change, cycles every ~6.5s */}
+      <div style={{
+        position: "absolute", top: "8%", left: "8%",
+        width: 70, height: 2, borderRadius: 2,
+        background: "linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255,255,255,0))",
+        boxShadow: "0 0 6px rgba(255,255,255,0.7)",
+        transform: "rotate(28deg)", transformOrigin: "left center",
+        animation: "nightfall-shoot 6.5s ease-out 0.4s infinite",
+        pointerEvents: "none",
+      }} />
+    </>
+  );
+}
+
 // ─── Background blobs (shared)
 function GradientBg() {
   return (
@@ -55,6 +116,7 @@ function GradientBg() {
       <div style={{ position: "absolute", width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,74,255,0.22) 0%, transparent 70%)", filter: "blur(60px)", top: "-20%", left: "5%", pointerEvents: "none" }} />
       <div style={{ position: "absolute", width: 260, height: 260, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,100,220,0.18) 0%, transparent 70%)", filter: "blur(80px)", top: "30%", right: "-10%", pointerEvents: "none" }} />
       <div style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(20,184,166,0.12) 0%, transparent 70%)", filter: "blur(60px)", bottom: "-10%", left: "20%", pointerEvents: "none" }} />
+      <StarfieldBg />
     </>
   );
 }

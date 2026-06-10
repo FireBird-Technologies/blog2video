@@ -1,6 +1,7 @@
 import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { NightfallStarfield } from "./NightfallStarfield";
 
-export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string }> = ({ drift = true, bgColor }) => {
+export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string; seed?: number }> = ({ drift = true, bgColor, seed = 0 }) => {
   const bg = bgColor || "#0A0A1A";
   const frame = useCurrentFrame();
   const t = drift ? (frame / 300) % 1 : 0;
@@ -19,6 +20,8 @@ export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string }> = (
           radial-gradient(ellipse 80% 60% at 50% 50%, rgba(129, 140, 248, 0.06) 0%, transparent 60%)
         `,
       }}
-    />
+    >
+      <NightfallStarfield intensity={0.35} seed={seed} showShootingStars={false} />
+    </AbsoluteFill>
   );
 };

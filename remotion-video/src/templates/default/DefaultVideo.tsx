@@ -253,8 +253,8 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
-        const transitionFrom = Math.max(0, durationFrames - 15);
-        const transitionDuration = Math.min(15, durationFrames);
+        const transitionFrom = Math.max(0, durationFrames - 20);
+        const transitionDuration = Math.min(20, durationFrames);
 
         // Pick layout component from registry
         const LayoutComponent =
