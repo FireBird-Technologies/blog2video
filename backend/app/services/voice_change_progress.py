@@ -12,14 +12,20 @@ _lock = threading.Lock()
 _progress: dict[int, dict] = {}
 
 
-def start(project_id: int, total: int) -> None:
-    """Seed a fresh progress record before regeneration begins."""
+def start(project_id: int, total: int, kind: str = "voice_change") -> None:
+    """Seed a fresh progress record before regeneration begins.
+
+    ``kind`` distinguishes the operation ("voice_change" for add/change voice,
+    "delete" for removing the voiceover) so a client resuming after a refresh can
+    re-open the correct modal.
+    """
     with _lock:
         _progress[project_id] = {
             "total": max(int(total), 0),
             "completed": 0,
             "done": False,
             "error": None,
+            "kind": kind,
         }
 
 

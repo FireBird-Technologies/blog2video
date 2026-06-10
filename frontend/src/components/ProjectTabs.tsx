@@ -1,8 +1,12 @@
+import type { ReactNode } from "react";
+
 export type ProjectTabId = "script" | "scenes" | "images" | "audio" | "settings";
 
 export interface ProjectTabItem {
   id: ProjectTabId;
   label: string;
+  /** Optional leading icon rendered before the label (e.g. a pencil on "Edit Scenes"). */
+  icon?: ReactNode;
 }
 
 type TabSize = "sm" | "lg";
@@ -42,7 +46,14 @@ export default function ProjectTabs({ tabs, active, onChange, containerDataTour,
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
-          {tab.label}
+          {tab.icon ? (
+            <span className="inline-flex items-center gap-1.5">
+              {tab.icon}
+              {tab.label}
+            </span>
+          ) : (
+            tab.label
+          )}
         </button>
       ))}
     </div>
