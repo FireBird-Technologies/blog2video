@@ -9,12 +9,15 @@ import {
   niceTicks,
   scaleLinear,
   buildLinePath,
+  buildAreaPath,
+  pointAtReveal,
   fmtTick,
   easeInOutCubic,
   textRise,
   type ParsedSeries,
   type Pt,
 } from "./chartHelpers";
+import { clamp01, easeOutQuint, baselineSettle, ruleDraw, pulse } from "./motion";
 
 /**
  * ChartLine — custom-SVG Economist line chart.
@@ -48,12 +51,12 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   const isPortrait = aspectRatio === "portrait";
 
   const reveal = easeInOutCubic((frame - DRAW_START) / DRAW_DUR);
+  const drawEnd = DRAW_START + DRAW_DUR;
   const headOp = interpolate(frame, [0, 16], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const labelOp = interpolate(frame, [DRAW_START + DRAW_DUR - 4, DRAW_START + DRAW_DUR + 16], [0, 1], {
+  const labelOp = interpolate(frame, [drawEnd - 4, drawEnd + 16], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const axisOp = interpolate(frame, [8, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const { labels, series } = parseChartTable(chartTable);
 
@@ -172,7 +175,16 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
     <AbsoluteFill>
       {/* Header: red tab + title + subtitle, each rising in with a stagger. */}
       <div style={{ position: "absolute", left: innerL, top: innerT, width: gridR - innerL }}>
-        <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
+        <div
+          style={{
+            width: 34,
+            height: 6,
+            background: accentColor,
+            marginBottom: 16,
+            opacity: clamp01(frame / 6),
+            ...ruleDraw(frame, 0, 12),
+          }}
+        />
         <div
           style={{
             fontFamily: ECONOMIST_SERIF_FONT,
@@ -181,7 +193,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
             lineHeight: 1.06,
             color: textColor,
             letterSpacing: -titleSize * 0.012,
-            ...textRise(frame, 4),
+            ...baselineSettle(frame, 4),
           }}
         >
           {title}
@@ -303,15 +315,19 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
         height={height}
         viewBox={`0 0 ${width} ${height}`}
       >
-        {/* Horizontal gridlines + right-side y tick labels. */}
+        {/* Horizontal gridlines draw on left→right, each a beat after the last;
+            the y tick labels rise into place alongside their line. */}
         {scale.ticks.map((t, i) => {
           const y = sy(t);
           const isZero = Math.abs(t) < scale.step * 1e-6;
+          const tickT = clamp01((frame - 8 - i * 2) / 14);
+          const lineX2 = plotL + (gridR - plotL) * easeOutQuint(tickT);
+          const labelDy = (1 - easeOutQuint(tickT)) * 6;
           return (
-            <g key={i} opacity={axisOp}>
+            <g key={i}>
               <line
                 x1={plotL}
-                x2={gridR}
+                x2={lineX2}
                 y1={y}
                 y2={y}
                 stroke={isZero && showZero ? ECONOMIST_COLORS.zero : ECONOMIST_COLORS.grid}
@@ -319,11 +335,12 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
               />
               <text
                 x={innerR}
-                y={y + 6}
+                y={y + 6 + labelDy}
                 textAnchor="end"
                 fontFamily={ECONOMIST_SANS_FONT}
                 fontSize={subSize}
                 fill={ECONOMIST_COLORS.muted}
+                opacity={tickT}
               >
                 {fmtTick(t)}
                 {unit}
@@ -331,6 +348,16 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
             </g>
           );
         })}
+
+        {/* Fill sweep under the lead highlighted series — advances with the
+            line draw, a faint editorial area tint. */}
+        {highlighted.length > 0 && (
+          <path
+            d={buildAreaPath(toPts(highlighted[0]), reveal, plotB)}
+            fill={highlighted[0].color}
+            opacity={0.07}
+          />
+        )}
 
         {/* Context (grey) series behind. */}
         {contextSeries.map((s, i) => (
@@ -359,42 +386,89 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
           />
         ))}
 
-        {/* x-axis tick labels. */}
+        {/* Head dots — ride each highlighted line's frontier during the draw,
+            then settle on the end point with a soft continuous pulse and two
+            one-shot expanding rings to land the terminal value. */}
+        {highlighted.map((s, i) => {
+          const head = pointAtReveal(toPts(s), reveal);
+          if (!head || frame < DRAW_START + 2) return null;
+          const settled = frame >= drawEnd;
+          const r = (isPortrait ? 6 : 7) * (settled ? 1 + pulse(frame) * 0.12 : 1);
+          const ring = (ringStart: number) => {
+            const t = clamp01((frame - ringStart) / 18);
+            if (t <= 0 || t >= 1) return null;
+            return (
+              <circle
+                key={`ring-${ringStart}`}
+                cx={head.x}
+                cy={head.y}
+                r={8 + 16 * easeOutQuint(t)}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={2}
+                opacity={0.5 * (1 - t)}
+              />
+            );
+          };
+          return (
+            <g key={`hd-${i}`}>
+              <circle cx={head.x} cy={head.y} r={r} fill={s.color} />
+              {settled && ring(drawEnd)}
+              {settled && ring(drawEnd + 36)}
+            </g>
+          );
+        })}
+
+        {/* x-axis tick labels tick up into place behind the advancing line. */}
         {labels.map((lab, i) => {
           if (i % xStep !== 0 && i !== labels.length - 1) return null;
+          const tickT = clamp01((frame - DRAW_START - (i / Math.max(1, labels.length - 1)) * 24) / 12);
           return (
             <text
               key={`x-${i}`}
               x={sx(i)}
-              y={plotB + 26}
+              y={plotB + 26 + (1 - easeOutQuint(tickT)) * 8}
               textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"}
               fontFamily={ECONOMIST_SANS_FONT}
               fontSize={subSize}
               fill={ECONOMIST_COLORS.muted}
-              opacity={axisOp}
+              opacity={tickT}
             >
               {lab}
             </text>
           );
         })}
 
-        {/* Direct end-labels (mode "end"), tails when nudged. */}
+        {/* Direct end-labels (mode "end") slide in off the line ends, each with
+            a short leader tick drawing toward it. */}
         {labelMode === "end" &&
-          endLabels.map((l, i) => (
-            <g key={`el-${i}`} opacity={labelOp}>
-              <text
-                x={plotR + 12}
-                y={l.y + subSize * 0.34}
-                textAnchor="start"
-                fontFamily={ECONOMIST_SANS_FONT}
-                fontWeight={700}
-                fontSize={subSize}
-                fill={l.color}
-              >
-                {l.label}
-              </text>
-            </g>
-          ))}
+          endLabels.map((l, i) => {
+            const t = clamp01((frame - (drawEnd - 4) - i * 4) / 14);
+            const tx = (1 - easeOutQuint(t)) * -10;
+            return (
+              <g key={`el-${i}`} opacity={t} transform={`translate(${tx.toFixed(2)} 0)`}>
+                <line
+                  x1={plotR + 2}
+                  x2={plotR + 2 + 8 * easeOutQuint(t)}
+                  y1={l.y}
+                  y2={l.y}
+                  stroke={l.color}
+                  strokeWidth={3}
+                />
+                <text
+                  x={plotR + 14}
+                  y={l.y + subSize * 0.34}
+                  textAnchor="start"
+                  fontFamily={ECONOMIST_SANS_FONT}
+                  fontWeight={700}
+                  fontSize={subSize}
+                  fill={l.color}
+                >
+                  {l.label}
+                </text>
+              </g>
+            );
+          })}
       </svg>
 
       {/* Inline labels (mode "inline") — placed near each line, in HTML for crisp text. */}

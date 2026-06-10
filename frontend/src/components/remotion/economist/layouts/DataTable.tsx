@@ -4,6 +4,14 @@ import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
 import { parseChartTable, toNum, fmtValue, clamp, textRise } from "./chartHelpers";
+import {
+  clamp01,
+  easeOutBack,
+  letterpressStamp,
+  ruleDraw,
+  slideFrom,
+  countUpValue,
+} from "./motion";
 
 /**
  * DataTable — a ranked Economist table: rank · name · inline red magnitude bar ·
@@ -85,17 +93,20 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
         )}
       </div>
 
-      {/* Header rule. */}
-      <div style={{ height: 1.5, background: textColor, opacity: headOp, marginBottom: 4 }} />
+      {/* Header rule draws across. */}
+      <div style={{ height: 1.5, background: textColor, opacity: headOp, marginBottom: 4, ...ruleDraw(frame, 6, 14) }} />
 
       {/* Rows. */}
       <div>
         {rows.map((r, i) => {
           const s = 8 + i * 5;
-          const op = interpolate(frame, [s, s + 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-          const ty = interpolate(frame, [s, s + 14], [8, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-          const grow = clamp(interpolate(frame, [s + 4, s + 26], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }), 0, 1);
-          const valOp = interpolate(grow, [0.6, 1], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+          const row = slideFrom(frame, s, -26);
+          const rankStamp = letterpressStamp(frame, s, 12, 1.3);
+          // Bar grows with a slight spring past its mark, capped at the column.
+          const growRaw = clamp(interpolate(frame, [s + 4, s + 26], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }), 0, 1);
+          const grow = easeOutBack(growRaw, 1.1);
+          const barPct = Math.min((r.value / maxV) * 100 * Math.max(0, grow), 100);
+          const valOp = clamp01((growRaw - 0.6) / 0.4);
           return (
             <div
               key={i}
@@ -104,21 +115,38 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
                 alignItems: "center",
                 height: rowH,
                 borderBottom: `1px solid ${ECONOMIST_COLORS.rule}`,
-                opacity: op,
-                transform: `translateY(${ty}px)`,
+                opacity: row.opacity,
+                transform: row.transform,
               }}
             >
-              <div style={{ width: rankW, fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: rowFont * 0.8, color: ECONOMIST_COLORS.muted }}>
-                {String(i + 1).padStart(2, "0")}
+              <div
+                style={{
+                  width: rankW,
+                  fontFamily: ECONOMIST_SANS_FONT,
+                  fontWeight: 700,
+                  fontSize: rowFont * 0.8,
+                  color: ECONOMIST_COLORS.muted,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    opacity: rankStamp.opacity,
+                    transform: rankStamp.transform,
+                    filter: rankStamp.filter,
+                  }}
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
               </div>
               <div style={{ width: nameW, fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 600, fontSize: rowFont, color: textColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {r.label}
               </div>
               <div style={{ width: barW, paddingRight: 16 }}>
-                <div style={{ width: `${(r.value / maxV) * 100 * grow}%`, height: rowFont * 0.66, background: accentColor }} />
+                <div style={{ width: `${barPct.toFixed(2)}%`, height: rowFont * 0.66, background: accentColor }} />
               </div>
               <div style={{ width: valueW, textAlign: "right", fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: rowFont, color: textColor, opacity: valOp }}>
-                {fmtValue(r.value, unit)}
+                {countUpValue(fmtValue(r.value, unit), frame, s + 8)}
               </div>
             </div>
           );

@@ -12,6 +12,14 @@ import { ECONOMIST_COLORS } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
 import { EconomistMasthead } from "../components/EconomistMasthead";
 import { EngravingTexture } from "../components/EconomistOrnaments";
+import {
+  clamp01,
+  easeOutQuint,
+  letterpressStamp,
+  redactionReveal,
+  ruleDraw,
+  slideFrom,
+} from "./motion";
 
 /**
  * CoverReveal — the premium cinematic magazine-cover hero (← intro.jpg).
@@ -70,10 +78,14 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   const mastheadSweep = interpolate(frame, [12, 44], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const mastheadW = isPortrait ? width * 0.4 : width * 0.2;
 
-  // ── Red headline block entrance ────────────────────────────────────────────
-  const blockIn = spring({ frame: frame - 8, fps, config: { damping: 15, mass: 0.7 } });
-  const blockScale = interpolate(blockIn, [0, 1], [0.92, 1]);
-  const blockOp = interpolate(frame, [8, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // ── Red headline block entrance: a print-wipe ──────────────────────────────
+  // The block is wiped onto the page left→right (clip-path) like a press laying
+  // down a band of ink, then settles from a slight oversize to rest.
+  const blockWipe = easeOutQuint(clamp01((frame - 8) / 18)); // frames 8–26
+  const blockClip = `inset(0 ${(100 - blockWipe * 100).toFixed(2)}% 0 0)`;
+  const blockSettle = easeOutQuint(clamp01((frame - 26) / 10)); // frames 26–36
+  const blockScale = 1.03 - 0.03 * blockSettle;
+  const blockOp = blockWipe > 0 ? 1 : 0;
 
   const teaserInk = hasImage ? "rgba(255,255,255,0.94)" : textColor;
   const ruleColor = hasImage ? "rgba(255,255,255,0.5)" : ECONOMIST_COLORS.rule;
@@ -206,20 +218,40 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
           )}
           {dateline && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: brandWordmark ? 14 : 0 }}>
-              <span style={{ width: 26, height: 3, background: accentColor }} />
-              <span
-                style={{
-                  fontFamily: ECONOMIST_SANS_FONT,
-                  fontWeight: 700,
-                  fontSize: isPortrait ? 16 : 15,
-                  letterSpacing: 2,
-                  textTransform: "uppercase",
-                  color: datelineInk,
-                  textShadow,
-                }}
-              >
-                {dateline}
-              </span>
+              <span style={{ width: 26, height: 3, background: accentColor, ...ruleDraw(frame, 18, 12) }} />
+              {(() => {
+                const reveal = redactionReveal(frame, 20, 16);
+                return (
+                  <span style={{ position: "relative", display: "inline-block" }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        fontFamily: ECONOMIST_SANS_FONT,
+                        fontWeight: 700,
+                        fontSize: isPortrait ? 16 : 15,
+                        letterSpacing: 2,
+                        textTransform: "uppercase",
+                        color: datelineInk,
+                        textShadow,
+                        clipPath: reveal.clipPath,
+                      }}
+                    >
+                      {dateline}
+                    </span>
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: `${reveal.barLeftPct.toFixed(2)}%`,
+                        width: `${reveal.barWidthPct}%`,
+                        background: accentColor,
+                        opacity: reveal.barOpacity,
+                      }}
+                    />
+                  </span>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -235,20 +267,15 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
         >
           {teaserList.map((t, i) => {
             const start = 30 + i * 8;
-            const rowOp = interpolate(frame, [start, start + 12], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            });
-            const rowY = interpolate(frame, [start, start + 14], [14, 0], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            });
+            const row = slideFrom(frame, start, -18);
+            const numStamp = letterpressStamp(frame, start, 12);
+            const reveal = redactionReveal(frame, start + 2, 16);
             const ruleW = interpolate(frame, [start, start + 10], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             });
             return (
-              <div key={i} style={{ opacity: rowOp, transform: `translateY(${rowY}px)` }}>
+              <div key={i} style={{ opacity: row.opacity, transform: row.transform }}>
                 <div
                   style={{
                     height: 1,
@@ -268,27 +295,48 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
                   <span
                     style={{
                       flexShrink: 0,
+                      display: "inline-block",
                       fontFamily: ECONOMIST_SANS_FONT,
                       fontWeight: 800,
                       fontSize: teaserFont * 0.62,
                       letterSpacing: 0.5,
                       color: accentColor,
                       textShadow,
+                      opacity: numStamp.opacity,
+                      transform: numStamp.transform,
+                      filter: numStamp.filter,
                     }}
                   >
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <span
-                    style={{
-                      fontFamily: ECONOMIST_SERIF_FONT,
-                      fontWeight: 600,
-                      fontSize: teaserFont,
-                      lineHeight: 1.18,
-                      color: teaserInk,
-                      textShadow,
-                    }}
-                  >
-                    {t}
+                  {/* Teaser text uncovered by a sweeping accent bar (redaction
+                      in reverse) — the bar rides ahead of the revealed copy. */}
+                  <span style={{ position: "relative", display: "inline-block" }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        fontFamily: ECONOMIST_SERIF_FONT,
+                        fontWeight: 600,
+                        fontSize: teaserFont,
+                        lineHeight: 1.18,
+                        color: teaserInk,
+                        textShadow,
+                        clipPath: reveal.clipPath,
+                      }}
+                    >
+                      {t}
+                    </span>
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: "8%",
+                        bottom: "8%",
+                        left: `${reveal.barLeftPct.toFixed(2)}%`,
+                        width: `${reveal.barWidthPct}%`,
+                        background: accentColor,
+                        opacity: reveal.barOpacity,
+                      }}
+                    />
                   </span>
                 </div>
               </div>
@@ -315,8 +363,9 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
               background: accentColor,
               padding: `${headlineSize * 0.16}px ${headlineSize * 0.34}px`,
               maxWidth: isPortrait ? "100%" : "82%",
-              transform: `scale(${blockScale})`,
+              transform: `scale(${blockScale.toFixed(4)})`,
               opacity: blockOp,
+              clipPath: blockClip,
               boxShadow: hasImage
                 ? "0 20px 64px rgba(0,0,0,0.42)"
                 : "0 14px 44px rgba(227,18,11,0.22)",
@@ -334,22 +383,16 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
               }}
             >
               {words.map((w, i) => {
-                const s = headlineStart + i * 5;
-                const wOp = interpolate(frame, [s, s + 14], [0, 1], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                });
-                const wY = interpolate(frame, [s, s + 16], [20, 0], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                });
+                // Each word pressed onto the red plate, letterpress-style.
+                const stamp = letterpressStamp(frame, headlineStart + i * 5, 16);
                 return (
                   <span
                     key={i}
                     style={{
                       display: "inline-block",
-                      opacity: wOp,
-                      transform: `translateY(${wY}px)`,
+                      opacity: stamp.opacity,
+                      transform: stamp.transform,
+                      filter: stamp.filter,
                       marginRight: headlineSize * 0.2,
                     }}
                   >
@@ -367,7 +410,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
               width: isPortrait ? 180 : 220,
               height: 4,
               background: accentColor,
-              transform: `scaleX(${blockOp})`,
+              ...ruleDraw(frame, 24, 14, "center"),
               opacity: blockOp,
               boxShadow: hasImage ? "0 6px 20px rgba(0,0,0,0.4)" : "none",
             }}

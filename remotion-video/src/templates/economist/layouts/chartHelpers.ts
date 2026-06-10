@@ -318,6 +318,57 @@ export function buildLinePath(points: Pt[], reveal: number): string {
   return d.trim();
 }
 
+/**
+ * Closed area path under a polyline at the same reveal frontier as
+ * `buildLinePath` — a fill sweep that advances with the line draw. Gaps break
+ * the area into separate closed regions, each dropped to `baselineY`.
+ */
+export function buildAreaPath(points: Pt[], reveal: number, baselineY: number): string {
+  const pts = points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  if (pts.length === 0) return "";
+  const n = pts.length;
+  const frontier = clamp(reveal, 0, 1) * (n - 1);
+  let d = "";
+  let runStartX: number | null = null;
+  let lastX = 0;
+
+  const closeRun = () => {
+    if (runStartX !== null) {
+      d += `L${lastX.toFixed(2)},${baselineY.toFixed(2)} L${runStartX.toFixed(2)},${baselineY.toFixed(2)} Z `;
+      runStartX = null;
+    }
+  };
+
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    if (i <= frontier) {
+      if (p.gap) {
+        closeRun();
+        continue;
+      }
+      if (runStartX === null) {
+        runStartX = p.x;
+        d += `M${p.x.toFixed(2)},${p.y.toFixed(2)} `;
+      } else {
+        d += `L${p.x.toFixed(2)},${p.y.toFixed(2)} `;
+      }
+      lastX = p.x;
+    } else {
+      const prev = pts[i - 1];
+      if (prev && !prev.gap && !p.gap && runStartX !== null) {
+        const frac = frontier - (i - 1);
+        const hx = prev.x + (p.x - prev.x) * frac;
+        const hy = prev.y + (p.y - prev.y) * frac;
+        d += `L${hx.toFixed(2)},${hy.toFixed(2)} `;
+        lastX = hx;
+      }
+      break;
+    }
+  }
+  closeRun();
+  return d.trim();
+}
+
 /** The point on a polyline at reveal fraction (for a moving head dot). */
 export function pointAtReveal(points: Pt[], reveal: number): Pt | null {
   const pts = points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));

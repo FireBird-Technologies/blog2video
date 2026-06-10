@@ -3,7 +3,14 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { EconomistLayoutProps, EconomistProsConsItem } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
-import { textRise } from "./chartHelpers";
+import {
+  baselineSettle,
+  clamp01,
+  letterpressStamp,
+  redactionReveal,
+  ruleDraw,
+  slideFrom,
+} from "./motion";
 
 /**
  * ProsCons — the signature debate page (← prosandcons.jpeg).
@@ -21,6 +28,8 @@ interface ColumnProps {
   startFrame: number;
   textColor: string;
   isPortrait: boolean;
+  /** Which edge the column's items slide in from: -1 = left, 1 = right. */
+  slideSign: 1 | -1;
 }
 const ProsConsColumn: React.FC<ColumnProps> = ({
   label,
@@ -29,53 +38,58 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
   startFrame,
   textColor,
   isPortrait,
+  slideSign,
 }) => {
   const frame = useCurrentFrame();
-  const headOp = interpolate(frame, [startFrame - 8, startFrame], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  const headReveal = redactionReveal(frame, Math.max(0, startFrame - 8), 14);
   const leadSize = isPortrait ? 25 : 25;
   const bodySize = isPortrait ? 28 : 28;
   const numSize = isPortrait ? 34 : 34;
 
   return (
     <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-      {/* ▶ LABEL */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          opacity: headOp,
-          marginBottom: isPortrait ? 18 : 22,
-        }}
-      >
-        <span style={{ color, fontSize: numSize, lineHeight: 1 }}>▶</span>
-        <span
+      {/* ▶ LABEL — uncovered by a sweeping bar in the column colour. */}
+      <div style={{ position: "relative", display: "inline-block", alignSelf: "flex-start", marginBottom: isPortrait ? 18 : 22 }}>
+        <div
           style={{
-            fontFamily: ECONOMIST_SANS_FONT,
-            fontWeight: 800,
-            fontSize: numSize,
-            letterSpacing: 1,
-            color,
-            textTransform: "uppercase",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            clipPath: headReveal.clipPath,
           }}
         >
-          {label}
-        </span>
+          <span style={{ color, fontSize: numSize, lineHeight: 1 }}>▶</span>
+          <span
+            style={{
+              fontFamily: ECONOMIST_SANS_FONT,
+              fontWeight: 800,
+              fontSize: numSize,
+              letterSpacing: 1,
+              color,
+              textTransform: "uppercase",
+            }}
+          >
+            {label}
+          </span>
+        </div>
+        <span
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: `${headReveal.barLeftPct.toFixed(2)}%`,
+            width: `${headReveal.barWidthPct}%`,
+            background: color,
+            opacity: headReveal.barOpacity,
+          }}
+        />
       </div>
 
       {items.map((it, i) => {
         const s = startFrame + 6 + i * 6;
-        const op = interpolate(frame, [s, s + 12], [0, 1], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        const ty = interpolate(frame, [s, s + 14], [10, 0], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
+        const row = slideFrom(frame, s, slideSign * 30);
+        const stamp = letterpressStamp(frame, s, 12, 1.45);
+        const rot = -6 * (1 - clamp01((frame - s) / 12));
         return (
           <div
             key={i}
@@ -83,8 +97,8 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
               display: "flex",
               gap: 14,
               marginBottom: isPortrait ? 16 : 18,
-              opacity: op,
-              transform: `translateY(${ty}px)`,
+              opacity: row.opacity,
+              transform: row.transform,
             }}
           >
             <div
@@ -101,6 +115,9 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
                 alignItems: "center",
                 justifyContent: "center",
                 marginTop: 3,
+                opacity: stamp.opacity,
+                transform: `${stamp.transform} rotate(${rot.toFixed(2)}deg)`,
+                filter: stamp.filter,
               }}
             >
               {i + 1}
@@ -171,13 +188,13 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
             lineHeight: 1.04,
             letterSpacing: -titleSize * 0.012,
             color: textColor,
-            ...textRise(frame, 2),
+            ...baselineSettle(frame, 2),
           }}
         >
           {title}
         </div>
       </div>
-      <div style={{ height: 2, background: textColor, marginTop: 18, marginBottom: 18, opacity: headOp }} />
+      <div style={{ height: 2, background: textColor, marginTop: 18, marginBottom: 18, opacity: headOp, ...ruleDraw(frame, 10, 16) }} />
 
       {/* Intro paragraph. */}
       {intro && (
@@ -205,8 +222,8 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
           gap: isPortrait ? 30 : 72,
         }}
       >
-        <ProsConsColumn label={prosLabel} color={PROS_BLUE} items={pros} startFrame={12} textColor={textColor} isPortrait={isPortrait} />
-        <ProsConsColumn label={consLabel} color={accentColor} items={cons} startFrame={isPortrait ? 12 + pros.length * 6 + 14 : 24} textColor={textColor} isPortrait={isPortrait} />
+        <ProsConsColumn label={prosLabel} color={PROS_BLUE} items={pros} startFrame={12} textColor={textColor} isPortrait={isPortrait} slideSign={-1} />
+        <ProsConsColumn label={consLabel} color={accentColor} items={cons} startFrame={isPortrait ? 12 + pros.length * 6 + 14 : 24} textColor={textColor} isPortrait={isPortrait} slideSign={isPortrait ? -1 : 1} />
       </div>
 
     </AbsoluteFill>

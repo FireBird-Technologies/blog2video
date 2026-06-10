@@ -5,6 +5,7 @@ import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { SectionKicker } from "../components/HairlineRule";
 import { EditorialDivider } from "../components/EconomistOrnaments";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
+import { clamp01, letterpressStamp, redactionReveal, ruleDraw } from "./motion";
 
 /**
  * LeaderArticle — the workhorse article page. Section kicker on a rule, a bold
@@ -42,14 +43,22 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   const dropCap = (illuminatedLetter || body.charAt(0) || "").toUpperCase();
   const rest = body.slice(1);
 
-  const kickerOp = interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const kickerReveal = redactionReveal(frame, 0, 14);
   const titleOp = interpolate(frame, [6, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  // Spring-based headline rise for a more editorial, weighty entrance.
+  // Spring-based headline rise for a more editorial, weighty entrance — the ink
+  // "dries" (blur decays) as it settles.
   const titleSpring = spring({ frame: frame - 6, fps, config: { damping: 16, mass: 0.7 } });
   const titleY = interpolate(titleSpring, [0, 1], [26, 0]);
+  const titleBlur = 4 * (1 - clamp01((frame - 6) / 18));
   const bodyOp = interpolate(frame, [20, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const imgClip = interpolate(frame, [14, 38], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const kbScale = interpolate(frame, [0, 240], [1.04, 1.12], { extrapolateRight: "clamp" }) * imageZoom;
+  // Inset image develops from newsprint duotone to full colour.
+  const duoT = clamp01((frame - 14) / 50);
+  const imgFilter = `grayscale(${(1 - duoT).toFixed(3)}) contrast(${(1.08 - 0.08 * duoT).toFixed(3)})`;
+  // Drop cap pressed into the page, its press-shadow lifting as the ink dries.
+  const capStamp = letterpressStamp(frame, 18, 16, 1.6);
+  const capShadowA = 0.25 * (1 - clamp01((frame - 18) / 16));
 
   // Landscape, no image → a classic full-width leader opener: headline band on
   // top, body flowing in two columns beneath. Stack when portrait or when an
@@ -60,7 +69,20 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
 
   const header = (
     <>
-      <SectionKicker label={sectionLabel} accentColor={accentColor} fontSize={isPortrait ? 20 : 19} withRule style={{ opacity: kickerOp, marginBottom: 26 }} />
+      <div style={{ position: "relative", marginBottom: 26 }}>
+        <SectionKicker label={sectionLabel} accentColor={accentColor} fontSize={isPortrait ? 20 : 19} withRule style={{ clipPath: kickerReveal.clipPath }} />
+        <span
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: `${kickerReveal.barLeftPct.toFixed(2)}%`,
+            width: `${kickerReveal.barWidthPct}%`,
+            background: accentColor,
+            opacity: kickerReveal.barOpacity,
+          }}
+        />
+      </div>
       <div
         style={{
           fontFamily: ECONOMIST_SERIF_FONT,
@@ -71,6 +93,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
           color: textColor,
           opacity: titleOp,
           transform: `translateY(${titleY}px)`,
+          filter: titleBlur > 0.01 ? `blur(${titleBlur.toFixed(2)}px)` : "none",
           marginBottom: byline ? 16 : 0,
         }}
       >
@@ -107,6 +130,16 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
             lineHeight: 0.82,
             padding: "6px 14px 0 0",
             color: accentColor,
+            display: "inline-block",
+            opacity: capStamp.opacity,
+            transform: capStamp.transform,
+            transformOrigin: "left top",
+            filter: [
+              capStamp.filter !== "none" ? capStamp.filter : "",
+              capShadowA > 0.005 ? `drop-shadow(0 4px 8px rgba(0,0,0,${capShadowA.toFixed(3)}))` : "",
+            ]
+              .filter(Boolean)
+              .join(" ") || "none",
           }}
         >
           {dropCap}
@@ -122,8 +155,8 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
         // Full-width leader opener: headline band on top, two-column body beneath.
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           {header}
-          {/* Full-width rule under the headline band. */}
-          <div style={{ height: 2, background: textColor, opacity: titleOp, margin: "30px 0 32px" }} />
+          {/* Full-width rule draws across under the headline band. */}
+          <div style={{ height: 2, background: textColor, opacity: titleOp, margin: "30px 0 32px", ...ruleDraw(frame, 18, 18) }} />
           <div style={{ flex: 1 }}>{bodyEl}</div>
           {/* Closing engraved end-mark (SVG). */}
           <div style={{ marginTop: 24, opacity: bodyOp }}>
@@ -140,7 +173,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
             <div style={{ width: "42%", alignSelf: "stretch", overflow: "hidden", clipPath: `inset(0 ${100 - imgClip}% 0 0)` }}>
               <Img
                 src={imageUrl as string}
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition, transform: `scale(${kbScale})` }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition, transform: `scale(${kbScale})`, filter: imgFilter }}
               />
             </div>
           )}
