@@ -31,6 +31,20 @@ function resolveFamily(layoutType?: string): NightfallTransitionFamily {
   return LAYOUT_FAMILY[layoutType ?? ""] ?? "text_focus";
 }
 
+/** Deterministically pick 2-3 scene indices (out of sceneCount) to get a bonus shooting-star shower. */
+function pickShowerScenes(sceneCount: number): Set<number> {
+  if (sceneCount <= 0) return new Set();
+  const rand = mulberry32(42017);
+  const target = Math.min(sceneCount, sceneCount <= 3 ? 2 : 2 + (rand() < 0.5 ? 0 : 1));
+  const indices = new Set<number>();
+  let guard = 0;
+  while (indices.size < target && guard < 100) {
+    indices.add(Math.floor(rand() * sceneCount));
+    guard++;
+  }
+  return indices;
+}
+
 /** Mulberry32 PRNG for deterministic falling-star particle layouts. */
 function mulberry32(seed: number) {
   let t = seed >>> 0;
@@ -245,7 +259,7 @@ export const NightfallSceneTransition: React.FC<{
   sceneCount?: number;
   layoutType?: string;
   children: React.ReactNode;
-}> = ({ durationInFrames, sceneIndex, layoutType, children }) => {
+}> = ({ durationInFrames, sceneIndex, sceneCount, layoutType, children }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const family = resolveFamily(layoutType);
@@ -262,10 +276,11 @@ export const NightfallSceneTransition: React.FC<{
     ? interpolate(frame, [0, transFrames], [1, 0], clamp)
     : 0;
 
-  // A few random scenes (in addition to glass_image, which always gets it)
+  // Exactly 2-3 scenes (in addition to glass_image, which always gets it)
   // get a multi-star shooting shower during their transition.
+  const showerScenes = useMemo(() => pickShowerScenes(sceneCount ?? 0), [sceneCount]);
   const showShootingShower =
-    family === "shooting_star_wipe" || mulberry32(20000 + sceneIndex * 211)() < 0.35;
+    family === "shooting_star_wipe" || showerScenes.has(sceneIndex);
 
   // Occasionally add a "splurge" of bursting sparkle stars for extra variety.
   const showSplurge = mulberry32(30000 + sceneIndex * 311)() < 0.3;
