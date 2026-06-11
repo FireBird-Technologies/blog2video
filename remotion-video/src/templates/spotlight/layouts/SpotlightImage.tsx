@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { AccentBars, SpotlightBeam } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -136,6 +137,10 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
           background: `radial-gradient(ellipse ${radius} ${radius} at center, transparent 0%, rgba(0,0,0,0.92) 100%)`,
         }}
       />
+
+      {/* Decorative artifacts — a stage light sweeps the reveal, accent bars anchor it. */}
+      <SpotlightBeam mode="land" targetX={50} startFrame={2} intensity={0.55} />
+      <AccentBars accentColor={accentColor} position="top-right" count={2} startFrame={12} />
 
       {/* Caption bar — larger text area */}
       <div

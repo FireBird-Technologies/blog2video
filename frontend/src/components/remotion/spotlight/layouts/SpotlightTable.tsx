@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { AccentBars, KineticTicker } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -130,6 +131,10 @@ export const SpotlightTable: React.FC<SpotlightLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <SpotlightBackground bgColor={bgColor} accentColor={accent} />
+
+      {/* Decorative artifacts — accent bars + a marquee echoing the table's title. */}
+      <AccentBars accentColor={accent} position="top-right" count={2} startFrame={8} />
+      <KineticTicker accentColor={accent} edge="bottom" label={(tickerTitle || title || "DATA").slice(0, 48)} speed={0.8} />
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${p ? "5%" : "4.5%"} ${padH}`, minHeight: 0, gap: 0 }}>
         <div

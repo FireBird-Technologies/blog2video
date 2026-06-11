@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { DecodeSweep, GlitchSlice, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
@@ -131,6 +132,11 @@ export const MatrixTicker: React.FC<MatrixLayoutProps> = ({
           mixBlendMode: "screen",
         }}
       />
+
+      {/* Decorative artifacts — quiet HUD, decode pass, rare glitch; the table stays the hero. */}
+      <TerminalHUD accentColor={accentColor} statusText="> FEED INTERCEPTED // LIVE" startFrame={4} seed={45} />
+      <DecodeSweep accentColor={accentColor} startFrame={3} seed={71} />
+      <GlitchSlice accentColor={accentColor} every={90} seed={73} />
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${p ? "5%" : "4%"} ${padH}`, minHeight: 0, gap: 0 }}>
         <div

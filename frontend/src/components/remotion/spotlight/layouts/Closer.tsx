@@ -1,6 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
-import { AccentBars, CornerFrame } from "../components/SpotlightArtifacts";
+import { AccentBars, PulseRing, SpotlightBeam } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -120,8 +120,9 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
 
-      {/* Decorative artifacts — keep the outro calm: a viewfinder + small anchor. */}
-      <CornerFrame accentColor={accentColor} startFrame={4} />
+      {/* Decorative artifacts — converging stage lights + a soft pulse behind the takeaway. */}
+      <SpotlightBeam mode="converge" startFrame={2} intensity={0.85} />
+      <PulseRing accentColor={accentColor} periodFrames={100} />
       {!hasImage && <AccentBars accentColor={accentColor} position="bottom-left" count={2} startFrame={8} />}
 
       <div

@@ -50,7 +50,13 @@ declare module "@remotion-video/templates/matrix/transitions" {
     timing: TransitionTiming;
     frames: number;
   }
-  export function pickMatrixTransition(fromIdx: number): MatrixTransitionChoice;
+  export function pickMatrixTransition(
+    fromIdx: number,
+    fromLayout?: string,
+    toLayout?: string,
+    w?: number,
+    h?: number,
+  ): MatrixTransitionChoice;
   export const MATRIX_TRANSITION_POOL_SIZE: number;
 }
 

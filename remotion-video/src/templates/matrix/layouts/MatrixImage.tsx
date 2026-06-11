@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { DecodeSweep, GlitchSlice, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -52,6 +53,12 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.3} fontFamily={resolvedFontFamily} />
+
+      {/* Decorative artifacts — decode pass on the reveal, HUD brackets, glitch ticks, CRT. */}
+      <DecodeSweep accentColor={accent} startFrame={3} seed={35} />
+      <TerminalHUD accentColor={accent} statusText="> DECRYPTING IMAGE // OK" hexColumn={false} startFrame={6} seed={37} />
+      <GlitchSlice accentColor={accent} every={74} seed={67} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.7} />
 
       {/* Image layer */}
       {imageUrl ? (

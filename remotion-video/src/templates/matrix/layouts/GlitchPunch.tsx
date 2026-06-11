@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { CipherRing, CodeFragments, GlitchSlice, ScanlinesOverlay } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -65,6 +66,12 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.15} fontFamily={resolvedFontFamily} />
+
+      {/* Decorative artifacts — cipher dial, glitch ticks, floating readouts, CRT texture. */}
+      {!hasImage && <CipherRing accentColor={accent} startFrame={settleFrame} seed={9} />}
+      <GlitchSlice accentColor={accent} every={58} seed={21} />
+      <CodeFragments accentColor={accent} count={8} seed={53} startFrame={settleFrame} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.85} />
 
       <div
         style={{

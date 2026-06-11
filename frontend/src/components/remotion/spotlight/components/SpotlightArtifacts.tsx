@@ -150,10 +150,13 @@ export const KineticTicker: React.FC<{
   const frame = useCurrentFrame();
   const { width } = useVideoConfig();
   const unit = `${label}  ›››  `;
-  const repeated = unit.repeat(24);
-  // Loop the slide over the width of one tile-ish span; deterministic.
-  const span = 520;
-  const offset = -((frame * speed * 2.2) % span);
+  // Repeat enough copies to cover the canvas plus the full travel of a long
+  // scene (~20s) — labels are dynamic (scene titles), so size by unit length
+  // (~13px/char at fontSize 22) instead of a fixed count. No modulo: a wrap
+  // would visibly jump unless the pattern period divided the span exactly.
+  const repeats = Math.max(8, Math.ceil((width + 2600) / (unit.length * 13)));
+  const repeated = unit.repeat(repeats);
+  const offset = -(frame * speed * 2.2);
   return (
     <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
       <div
@@ -161,7 +164,6 @@ export const KineticTicker: React.FC<{
           position: "absolute",
           [edge]: "4.5%",
           left: 0,
-          width: width + span,
           transform: `translateX(${offset}px)`,
           whiteSpace: "nowrap",
           fontFamily: SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -267,6 +269,332 @@ export const BigGlyphBackdrop: React.FC<{
         }}
       >
         {glyph}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ─── SpotlightBeam ───────────────────────────────────────────────────────────
+// THE signature piece: a soft-edged cone of stage light pivoting from the top
+// edge. "land" sweeps in and settles on the focal text with a brightness lift,
+// "drift" oscillates slowly forever, "converge" crosses two beams over center
+// (closer moments). Screen-blended so it reads as light, not a white shape.
+
+const BeamCone: React.FC<{
+  /** Pivot point along the top edge, percent of width. */
+  pivotX: number;
+  rotateDeg: number;
+  coneWidth: number;
+  coneHeight: number;
+  intensity: number;
+}> = ({ pivotX, rotateDeg, coneWidth, coneHeight, intensity }) => (
+  <div
+    style={{
+      position: "absolute",
+      left: `${pivotX}%`,
+      top: "-4%",
+      width: coneWidth,
+      height: coneHeight,
+      marginLeft: -coneWidth / 2,
+      transformOrigin: "50% 0%",
+      transform: `rotate(${rotateDeg}deg)`,
+      clipPath: "polygon(44% 0%, 56% 0%, 100% 100%, 0% 100%)",
+      background: `linear-gradient(to bottom, rgba(255,255,255,${0.34 * intensity}), rgba(255,255,255,${0.1 * intensity}) 55%, rgba(255,255,255,0) 88%)`,
+      mixBlendMode: "screen",
+    }}
+  />
+);
+
+export const SpotlightBeam: React.FC<{
+  mode?: "land" | "drift" | "converge";
+  /** Horizontal point (percent of width) the beam aims at / lands on. */
+  targetX?: number;
+  startFrame?: number;
+  intensity?: number;
+}> = ({ mode = "land", targetX = 50, startFrame = 0, intensity = 1 }) => {
+  const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  const local = Math.max(0, frame - startFrame);
+  const coneH = height * 1.25;
+  const coneW = Math.min(width, height) * 0.82;
+
+  if (mode === "converge") {
+    // Two beams pivot in from the outer top corners and cross over center.
+    const t = easeOutCubic(
+      interpolate(local, [0, 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+    );
+    const sway = Math.sin(local * 0.03) * 2.5;
+    const rotL = interpolate(t, [0, 1], [-44, -10]) + sway;
+    const rotR = interpolate(t, [0, 1], [44, 10]) - sway;
+    return (
+      <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+        <BeamCone pivotX={16} rotateDeg={rotL} coneWidth={coneW} coneHeight={coneH} intensity={intensity * t} />
+        <BeamCone pivotX={84} rotateDeg={rotR} coneWidth={coneW} coneHeight={coneH} intensity={intensity * t} />
+      </AbsoluteFill>
+    );
+  }
+
+  // land: sweep in from the side and settle on targetX. drift: slow oscillation.
+  const settle = easeOutCubic(
+    interpolate(local, [0, 26], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+  );
+  const sweep = mode === "land" ? interpolate(settle, [0, 1], [-34, 0]) : 0;
+  const drift = mode === "drift" ? Math.sin(local * 0.025) * 7 : Math.sin(local * 0.03) * 1.8;
+  const rot = sweep + drift;
+  // Brightness lift the moment the landing settles.
+  const landGlow =
+    mode === "land"
+      ? interpolate(local, [22, 30, 52], [0, 0.5, 0.22], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+      : 0.18;
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      <BeamCone
+        pivotX={targetX}
+        rotateDeg={rot}
+        coneWidth={coneW}
+        coneHeight={coneH}
+        intensity={intensity * (mode === "land" ? settle : 1)}
+      />
+      {/* Soft pool of light where the beam lands. */}
+      <div
+        style={{
+          position: "absolute",
+          left: `${targetX}%`,
+          top: "58%",
+          width: coneW * 1.15,
+          height: height * 0.4,
+          marginLeft: -(coneW * 1.15) / 2,
+          background: `radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255,255,255,${0.5 * landGlow * intensity}), transparent 70%)`,
+          mixBlendMode: "screen",
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
+
+// ─── FlashPop ────────────────────────────────────────────────────────────────
+// Paparazzi camera flashes: short seeded white bursts with a 4-point glint that
+// pop near the frame edges on a loop. Pure frame math — every render identical.
+
+export const FlashPop: React.FC<{
+  count?: number;
+  /** Frames between pops per slot. */
+  every?: number;
+  seed?: number;
+  startFrame?: number;
+}> = ({ count = 3, every = 72, seed = 5, startFrame = 0 }) => {
+  const frame = useCurrentFrame();
+  const local = frame - startFrame;
+  const LIFE = 9;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      {Array.from({ length: count }).map((_, i) => {
+        const offset = Math.floor(seededRandom(seed + i * 11.3) * every);
+        const t = local - offset;
+        if (t < 0) return null;
+        const phase = t % every;
+        if (phase >= LIFE) return null;
+        const burst = Math.floor(t / every); // which pop this slot is on
+        const rx = seededRandom(seed + i * 31.7 + burst * 97.1);
+        const ry = seededRandom(seed + i * 53.9 + burst * 41.3);
+        // Hug the edges: map into the outer bands of the frame.
+        const x = rx < 0.5 ? 6 + rx * 36 : 76 + (rx - 0.5) * 36;
+        const y = 12 + ry * 70;
+        const size = 150 + seededRandom(seed + i * 7.7 + burst) * 130;
+        const op = interpolate(phase, [0, 1, LIFE], [0, 0.95, 0], { extrapolateRight: "clamp" });
+        const scale = 0.55 + (phase / LIFE) * 0.6;
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${x}%`,
+              top: `${y}%`,
+              width: size,
+              height: size,
+              marginLeft: -size / 2,
+              marginTop: -size / 2,
+              opacity: op,
+              transform: `scale(${scale})`,
+              mixBlendMode: "screen",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.25) 30%, transparent 65%)",
+              }}
+            />
+            {/* 4-point glint */}
+            <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, marginLeft: -1, background: "linear-gradient(to bottom, transparent, rgba(255,255,255,0.9), transparent)" }} />
+            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 2, marginTop: -1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.9), transparent)" }} />
+          </div>
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
+// ─── DiagonalShards ──────────────────────────────────────────────────────────
+// Bold red shard bands that slice in across a corner with a spring slam and sit
+// as a composition anchor. Much louder than AccentBars — a real set-piece.
+
+export const DiagonalShards: React.FC<{
+  accentColor?: string;
+  corner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  startFrame?: number;
+}> = ({ accentColor = "#EF4444", corner = "top-right", startFrame = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const flipX = corner.endsWith("left") ? -1 : 1;
+  const flipY = corner.startsWith("bottom") ? -1 : 1;
+  // Three slanted bands of decreasing presence.
+  const bands = [
+    { off: 0, w: 70, op: 0.95 },
+    { off: 110, w: 38, op: 0.6 },
+    { off: 185, w: 18, op: 0.34 },
+  ];
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      <svg
+        width={640}
+        height={640}
+        viewBox="0 0 640 640"
+        style={{
+          position: "absolute",
+          [flipX === 1 ? "right" : "left"]: 0,
+          [flipY === 1 ? "top" : "bottom"]: 0,
+          transform: `scale(${flipX}, ${flipY})`,
+        }}
+      >
+        {bands.map((b, i) => {
+          const s = spring({ frame: frame - startFrame - i * 4, fps, config: { damping: 200 } });
+          const slide = (1 - s) * 420;
+          return (
+            <g key={i} transform={`translate(${slide}, ${-slide})`} opacity={b.op * s}>
+              {/* A 45° band slicing across the corner. */}
+              <polygon
+                points={`${340 - b.off},0 ${340 - b.off + b.w},0 640,${300 + b.off + b.w} 640,${300 + b.off}`}
+                fill={accentColor}
+              />
+            </g>
+          );
+        })}
+      </svg>
+    </AbsoluteFill>
+  );
+};
+
+// ─── TitleEcho ───────────────────────────────────────────────────────────────
+// An oversized outline-only echo of the focal word that lags the main word's
+// slam by a few frames — kinetic-typography depth behind the hero text.
+
+export const TitleEcho: React.FC<{
+  text: string;
+  accentColor?: string;
+  startFrame?: number;
+  /** Echo font size; defaults to a big slab relative to canvas height. */
+  fontSize?: number;
+}> = ({ text, accentColor = "#EF4444", startFrame = 0, fontSize }) => {
+  const frame = useCurrentFrame();
+  const { fps, height } = useVideoConfig();
+  // Lag the focal word's spring by ~5 frames so it visibly chases.
+  const s = spring({ frame: frame - startFrame - 5, fps, config: { damping: 16, stiffness: 160, mass: 1.1 } });
+  const scale = 1.45 - s * 0.32;
+  return (
+    <AbsoluteFill
+      style={{
+        pointerEvents: "none",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          fontFamily: SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
+          fontWeight: 900,
+          fontSize: fontSize ?? height * 0.3,
+          lineHeight: 1,
+          textTransform: "uppercase",
+          letterSpacing: "-0.04em",
+          whiteSpace: "nowrap",
+          color: "transparent",
+          WebkitTextStroke: `2px ${accentColor}`,
+          opacity: 0.22 * s,
+          transform: `scale(${scale})`,
+          userSelect: "none",
+        }}
+      >
+        {text}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ─── StarburstBadge ──────────────────────────────────────────────────────────
+// A rotating starburst seal stamped into a corner — pops in with a spring, then
+// spins slowly forever. Reads like a price-sticker / "NEW!" badge: pure social.
+
+export const StarburstBadge: React.FC<{
+  accentColor?: string;
+  label?: string;
+  corner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  size?: number;
+  startFrame?: number;
+}> = ({ accentColor = "#EF4444", label = "★", corner = "bottom-right", size = 168, startFrame = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const s = spring({ frame: frame - startFrame, fps, config: { damping: 12, stiffness: 180 } });
+  const rot = (frame - startFrame) * 0.5;
+  const right = corner.endsWith("right");
+  const bottom = corner.startsWith("bottom");
+  // 14-spike starburst polygon, computed deterministically.
+  const spikes = 14;
+  const pts: string[] = [];
+  for (let i = 0; i < spikes * 2; i++) {
+    const r = i % 2 === 0 ? 50 : 40;
+    const a = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+    pts.push(`${50 + Math.cos(a) * r},${50 + Math.sin(a) * r}`);
+  }
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "absolute",
+          [right ? "right" : "left"]: "5%",
+          [bottom ? "bottom" : "top"]: "7%",
+          width: size,
+          height: size,
+          transform: `scale(${s})`,
+        }}
+      >
+        <svg width={size} height={size} viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, transform: `rotate(${rot}deg)` }}>
+          <polygon points={pts.join(" ")} fill={accentColor} opacity={0.95} />
+        </svg>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
+            fontWeight: 900,
+            fontSize: size * 0.2,
+            color: "#FFFFFF",
+            textTransform: "uppercase",
+            letterSpacing: "0.02em",
+            textAlign: "center",
+            lineHeight: 1.05,
+            padding: size * 0.16,
+          }}
+        >
+          {label}
+        </div>
       </div>
     </AbsoluteFill>
   );

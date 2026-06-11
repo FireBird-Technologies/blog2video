@@ -1,6 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
-import { PulseRing, BigGlyphBackdrop } from "../components/SpotlightArtifacts";
+import { PulseRing, BigGlyphBackdrop, KineticTicker, StarburstBadge } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -81,6 +81,18 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
           <BigGlyphBackdrop glyph="#" accentColor={accentColor} tint="accent" startFrame={2} />
         </>
       )}
+      {/* Spinning starburst seal stamps the stat moment + marquee energy below. */}
+      <StarburstBadge accentColor={accentColor} corner={p ? "top-right" : "bottom-right"} size={p ? 140 : 168} startFrame={26} />
+      {/* Marquee echoes the actual stat being staged. */}
+      <KineticTicker
+        accentColor={accentColor}
+        edge="bottom"
+        label={(primary
+          ? `${primary.value}${primary.suffix || ""} ${primary.label || ""}`.trim()
+          : title || "BIG NUMBER"
+        ).slice(0, 48)}
+        speed={0.9}
+      />
 
       <div
         style={{
