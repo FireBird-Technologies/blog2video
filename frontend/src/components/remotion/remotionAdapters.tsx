@@ -845,6 +845,9 @@ export const RemotionMatrixVideoComposition: React.FC<
   fontFamily,
 }) => {
   const FPS = 30;
+  const isPortrait = aspectRatio === "portrait";
+  const w = isPortrait ? 1080 : 1920;
+  const h = isPortrait ? 1920 : 1080;
 
   const sceneFrames = scenes.map((s) => Math.round(s.durationSeconds * FPS));
 
@@ -854,7 +857,15 @@ export const RemotionMatrixVideoComposition: React.FC<
   scenes.forEach((_, i) => {
     sceneStartFrames[i] = runningFrame;
     runningFrame += sceneFrames[i];
-    if (i < scenes.length - 1) runningFrame -= pickMatrixTransition(i).frames;
+    if (i < scenes.length - 1) {
+      runningFrame -= pickMatrixTransition(
+        i,
+        scenes[i].layout,
+        scenes[i + 1].layout,
+        w,
+        h,
+      ).frames;
+    }
   });
 
   const buildLayoutProps = (
@@ -892,7 +903,13 @@ export const RemotionMatrixVideoComposition: React.FC<
 
           if (index === scenes.length - 1) return sequence;
 
-          const choice = pickMatrixTransition(index);
+          const choice = pickMatrixTransition(
+            index,
+            scene.layout,
+            scenes[index + 1].layout,
+            w,
+            h,
+          );
           return (
             <React.Fragment key={`scene-${scene.id}-${index}`}>
               {sequence}

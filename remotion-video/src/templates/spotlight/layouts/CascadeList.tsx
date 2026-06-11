@@ -1,4 +1,5 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { DiagonalShards, KineticTicker, StreakField } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -68,6 +69,17 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
         )}
         <AbsoluteFill style={{ backgroundColor: "rgba(0, 0, 0, 0.45)" }} />
       </AbsoluteFill>
+
+      {/* Decorative artifacts — red shards, drifting streaks, marquee strip below the list. */}
+      <DiagonalShards accentColor={accentColor} corner="top-right" startFrame={3} />
+      {!imageUrl && <StreakField accentColor={accentColor} count={10} seed={13} startFrame={4} />}
+      {/* Marquee echoes the scene's own headline. */}
+      <KineticTicker
+        accentColor={accentColor}
+        edge="bottom"
+        label={(title || "THE LIST").slice(0, 48)}
+        speed={0.9}
+      />
 
       <div
         style={{

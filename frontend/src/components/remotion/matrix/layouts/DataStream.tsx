@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { DecodeSweep, GridTunnel, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -80,6 +81,12 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
+
+      {/* Decorative artifacts — wireframe floor, HUD edges, decode pass, CRT texture. */}
+      <GridTunnel accentColor={accent} intensity={0.9} />
+      <TerminalHUD accentColor={accent} statusText="> INBOUND PACKETS // QUEUE OK" hexColumn={!p} startFrame={4} seed={7} />
+      <DecodeSweep accentColor={accent} startFrame={2} seed={57} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.8} />
 
       <div
         style={{

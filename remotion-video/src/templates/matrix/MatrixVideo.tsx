@@ -4,6 +4,7 @@ import {
   Audio,
   Sequence,
   staticFile,
+  useVideoConfig,
   CalculateMetadataFunction,
 } from "remotion";
 import { TransitionSeries } from "@remotion/transitions";
@@ -70,7 +71,11 @@ export const calculateMatrixMetadata: CalculateMetadataFunction<VideoProps> =
       );
       let totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
       for (let i = 0; i < data.scenes.length - 1; i++) {
-        totalFrames -= pickMatrixTransition(i).frames;
+        totalFrames -= pickMatrixTransition(
+          i,
+          data.scenes[i].layout,
+          data.scenes[i + 1].layout,
+        ).frames;
       }
 
       const isPortrait = data.aspectRatio === "portrait";
@@ -96,6 +101,7 @@ export const calculateMatrixMetadata: CalculateMetadataFunction<VideoProps> =
 
 export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
+  const { width, height } = useVideoConfig();
 
   useEffect(() => {
     fetch(staticFile(dataUrl.replace(/^\//, "")))
@@ -163,7 +169,13 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     sceneStartFrames[i] = runningFrame;
     runningFrame += sceneFrames[i];
     if (i < data.scenes.length - 1) {
-      runningFrame -= pickMatrixTransition(i).frames;
+      runningFrame -= pickMatrixTransition(
+        i,
+        data.scenes[i].layout,
+        data.scenes[i + 1].layout,
+        width,
+        height,
+      ).frames;
     }
   });
 
@@ -213,7 +225,13 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
           if (index === data.scenes.length - 1) return sequence;
 
-          const choice = pickMatrixTransition(index);
+          const choice = pickMatrixTransition(
+            index,
+            scene.layout,
+            data.scenes[index + 1].layout,
+            width,
+            height,
+          );
           return (
             <React.Fragment key={`scene-${scene.id}-${index}`}>
               {sequence}

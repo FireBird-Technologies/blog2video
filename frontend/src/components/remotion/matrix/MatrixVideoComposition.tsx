@@ -50,6 +50,9 @@ export const MatrixVideoComposition: React.FC<
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
+  const isPortrait = aspectRatio === "portrait";
+  const w = isPortrait ? 1080 : 1920;
+  const h = isPortrait ? 1920 : 1080;
 
   const sceneFrames = scenes.map((s) =>
     getSceneDurationFrames(s.durationSeconds, FPS, resolvedPlaybackSpeed),
@@ -61,7 +64,15 @@ export const MatrixVideoComposition: React.FC<
   scenes.forEach((_, i) => {
     sceneStartFrames[i] = runningFrame;
     runningFrame += sceneFrames[i];
-    if (i < scenes.length - 1) runningFrame -= pickMatrixTransition(i).frames;
+    if (i < scenes.length - 1) {
+      runningFrame -= pickMatrixTransition(
+        i,
+        scenes[i].layout,
+        scenes[i + 1].layout,
+        w,
+        h,
+      ).frames;
+    }
   });
 
   const buildLayoutProps = (scene: MatrixSceneInput): MatrixLayoutProps => ({
@@ -101,7 +112,13 @@ export const MatrixVideoComposition: React.FC<
 
           if (index === scenes.length - 1) return sequence;
 
-          const choice = pickMatrixTransition(index);
+          const choice = pickMatrixTransition(
+            index,
+            scene.layout,
+            scenes[index + 1].layout,
+            w,
+            h,
+          );
           return (
             <React.Fragment key={`scene-${scene.id}-${index}`}>
               {sequence}

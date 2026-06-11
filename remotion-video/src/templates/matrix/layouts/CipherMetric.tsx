@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { CipherRing, DecodeSweep, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -97,6 +98,12 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
+
+      {/* Decorative artifacts — cipher dial, decode pass, verification HUD, CRT texture. */}
+      {!hasImage && <CipherRing accentColor={accent} startFrame={4} seed={15} />}
+      <DecodeSweep accentColor={accent} startFrame={2} seed={19} />
+      <TerminalHUD accentColor={accent} statusText="> METRIC VERIFIED // ±0.00" startFrame={10} seed={59} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.8} />
 
       <div
         style={{

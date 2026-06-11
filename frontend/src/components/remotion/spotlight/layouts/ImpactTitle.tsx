@@ -2,8 +2,9 @@ import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotio
 import { SpotlightBackground } from "../SpotlightBackground";
 import {
   AccentBars,
-  CornerFrame,
   BigGlyphBackdrop,
+  FlashPop,
+  SpotlightBeam,
 } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
@@ -109,7 +110,10 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
       {!hasImage && (
         <BigGlyphBackdrop glyph="”" accentColor={accentColor} tint="accent" startFrame={2} />
       )}
-      <CornerFrame accentColor={accentColor} startFrame={6} />
+      {/* Signature stage light sweeps in and lands on the title slam. */}
+      <SpotlightBeam mode="land" targetX={50} startFrame={0} />
+      {/* Camera flashes pop once the title has landed. */}
+      <FlashPop count={2} every={80} seed={19} startFrame={30} />
       <AccentBars accentColor={accentColor} position="bottom-left" startFrame={4} />
 
       <div

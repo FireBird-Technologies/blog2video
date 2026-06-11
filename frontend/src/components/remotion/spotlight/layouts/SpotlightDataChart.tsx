@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { AccentBars } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -563,6 +564,9 @@ export const SpotlightDataChart: React.FC<SpotlightLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <SpotlightBackground bgColor={bgColor} accentColor={accent} />
+
+      {/* Decorative artifacts — subtle accent bars only; don't fight the chart. */}
+      <AccentBars accentColor={accent} position="bottom-right" count={2} startFrame={10} />
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${padV} ${padH}` }}>
         {/* Title — spring-slam entrance */}

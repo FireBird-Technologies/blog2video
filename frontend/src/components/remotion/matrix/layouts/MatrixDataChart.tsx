@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 import { MatrixBackground } from "../MatrixBackground";
+import { DecodeSweep, GlitchSlice, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import {
@@ -558,6 +559,12 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <MatrixBackground bgColor={bgColor} fontFamily={font} />
+
+      {/* Decorative artifacts — quiet HUD, decode pass, rare glitch; the chart stays the hero. */}
+      <TerminalHUD accentColor={accentColor} statusText="> DATASET DECODED // PLOTTING" hexColumn={false} startFrame={4} seed={41} />
+      <DecodeSweep accentColor={accentColor} startFrame={2} seed={43} />
+      <GlitchSlice accentColor={accentColor} every={86} seed={69} />
+
       {/* Scanline overlay */}
       <AbsoluteFill
         style={{
