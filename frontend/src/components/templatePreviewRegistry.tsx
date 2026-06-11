@@ -64,7 +64,7 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
     title: "The Economist",
     subtitle: "Editorial newspaper × economics — paper, red masthead, and reference-grade charts",
   },
-  stickman_2: { title: "Stick Man 2", subtitle: "Glowing chalk stories under the night sky" },
+  stickman_2: { title: "Stick Man 2: Night Edition", subtitle: "Glowing chalk stories under the night sky" },
 };
 
 /** Purple primary "New" chip when template meta.json has new_template: true */
