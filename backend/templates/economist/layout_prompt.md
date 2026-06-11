@@ -53,3 +53,11 @@ Variety guardrails
 - Vary the rhythm: alternate prose, data and argument scenes; do not stack similar layouts.
 - At most one `pros_cons`, at most two `section_divider`, charts never consecutive.
 - CTA passthrough: `ending_socials` uses whatever CTA/social context is provided — never hardcode the CTA copy.
+
+Scraped-data binding (authoritative)
+------------------------------------
+
+- When `chartable_tables_json` bindings are supplied, they are AUTHORITATIVE: the upstream pipeline has already confirmed each bound table is chartable and chosen its layout (`chart_line`, `chart_bar`, or `data_table`).
+- Emit exactly ONE dedicated scene per bound entry, using that entry's `preferred_layout`, and set the scene's `data_table_index` to the entry's `index`. Never collapse two bound tables into one scene, and never reference a bound table from a non-bound scene.
+- NEVER downgrade a bound `chart_line` / `chart_bar` / `data_table` entry to `leader_article` or any other prose layout.
+- Never invent, round, or extrapolate figures — the actual numbers are bound deterministically from the scraped table downstream. Only fall back to prose when NO real table exists for a beat.
