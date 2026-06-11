@@ -1,0 +1,619 @@
+{
+  "id": "stickman_2",
+  "name": "Stick Man 2: Night Edition",
+  "new_template": true,
+  "description": "Cinematic night-sky sibling of the daytime Stick Man template — moon-cyan chalk strokes, twinkling starfields, and hand-drawn stick figures tell your story with calm, atmospheric energy.",
+  "genres": [
+    "Technology",
+    "Business",
+    "Education"
+  ],
+  "preview_colors": {
+    "accent": "#FFFFFF",
+    "bg": "#000000",
+    "text": "#FFFFFF"
+  },
+  "composition_id": "Stickman2Video",
+  "hero_layout": "chalk_title",
+  "fallback_layout": "night_walk",
+  "valid_layouts": [
+    "chalk_title",
+    "night_walk",
+    "shooting_star",
+    "constellation_stats",
+    "moonphase_chart",
+    "shadow_comparison",
+    "signal_fire_scene",
+    "neon_countdown",
+    "lantern_dialogue",
+    "ending_socials"
+  ],
+  "layout_prop_schema": {
+    "chalk_title": {
+      "label": "Chalk Title",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 93,
+          "landscape": 84
+        },
+        "descriptionFontSize": {
+          "portrait": 50,
+          "landscape": 45
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        }
+      ]
+    },
+    "night_walk": {
+      "label": "Night Walk",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 101,
+          "landscape": 96
+        },
+        "descriptionFontSize": {
+          "portrait": 50,
+          "landscape": 42
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        }
+      ]
+    },
+    "shooting_star": {
+      "label": "Shooting Star",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 103,
+          "landscape": 79
+        },
+        "descriptionFontSize": {
+          "portrait": 48,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        }
+      ]
+    },
+    "constellation_stats": {
+      "label": "Constellation Stats",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 106,
+          "landscape": 79
+        },
+        "descriptionFontSize": {
+          "portrait": 50,
+          "landscape": 41
+        },
+        "signFontSize": {
+          "portrait": 35,
+          "landscape": 27
+        },
+        "stats": [
+          {
+            "label": "Stat One",
+            "value": "100"
+          },
+          {
+            "label": "Stat Two",
+            "value": "200"
+          },
+          {
+            "label": "Stat Three",
+            "value": "300"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "signFontSize",
+          "label": "Sign Text Size",
+          "type": "number",
+          "responsive": true,
+          "description": "Font size of the stat value and label text on the floating cardboard signs.",
+          "min": 10,
+          "max": 80,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Stats",
+          "type": "object_array",
+          "description": "Array of 3–6 stat items, each with `label` (string) and `value` (string). Minimum 3 items required.",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 6
+        }
+      ]
+    },
+    "moonphase_chart": {
+      "label": "Moon Phase Chart",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 104,
+          "landscape": 77
+        },
+        "descriptionFontSize": {
+          "portrait": 65,
+          "landscape": 40
+        },
+        "bars": [
+          {
+            "label": "New Moon",
+            "value": 15
+          },
+          {
+            "label": "Half Moon",
+            "value": 50
+          },
+          {
+            "label": "Full Moon",
+            "value": 100
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "bars",
+          "label": "Moon Phases",
+          "type": "object_array",
+          "description": "Array of 3–5 moon phase labels. The `value` field is ignored; moon shapes are determined automatically by position.",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value (ignored)"
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 5
+        }
+      ]
+    },
+    "shadow_comparison": {
+      "label": "Shadow Comparison",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 115,
+          "landscape": 85
+        },
+        "descriptionFontSize": {
+          "portrait": 57,
+          "landscape": 35
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftThought",
+          "label": "Left Thought",
+          "type": "text",
+          "description": "Text displayed in the left figure's thought cloud."
+        },
+        {
+          "key": "rightThought",
+          "label": "Right Thought",
+          "type": "text",
+          "description": "Text displayed in the right figure's thought cloud."
+        }
+      ]
+    },
+    "signal_fire_scene": {
+      "label": "Signal Fire",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 106,
+          "landscape": 103
+        },
+        "descriptionFontSize": {
+          "portrait": 57,
+          "landscape": 54
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        }
+      ]
+    },
+    "neon_countdown": {
+      "label": "Neon Countdown",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 88
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "startFrom": 5
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "startFrom",
+          "label": "Countdown From",
+          "type": "number",
+          "description": "The number to count down from; integer between 2 and 9.",
+          "min": 2,
+          "max": 9,
+          "step": 1
+        },
+        {
+          "key": "label",
+          "label": "Label",
+          "type": "string",
+          "description": "Optional small label displayed beneath the countdown ring."
+        }
+      ]
+    },
+    "lantern_dialogue": {
+      "label": "Lantern Dialogue",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 82,
+          "landscape": 73
+        },
+        "descriptionFontSize": {
+          "portrait": 42,
+          "landscape": 36
+        },
+        "speakers": []
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftBubble",
+          "label": "Left Dialogue",
+          "type": "text",
+          "description": "The line of dialogue spoken by the left figure."
+        },
+        {
+          "key": "rightBubble",
+          "label": "Right Dialogue",
+          "type": "text",
+          "description": "The line of dialogue spoken by the right figure."
+        },
+        {
+          "key": "speakers",
+          "label": "Speaker Names",
+          "type": "object_array",
+          "description": "Up to 2 items, each with a `label` (string) for the speaker's name displayed beneath each figure.",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Name"
+            }
+          ],
+          "maxItems": 2
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Night Sign-Off",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 75,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 41,
+          "landscape": 28
+        },
+        "handles": [],
+        "socials": [
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "true",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "true",
+            "label": "TikTok"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "facebook",
+            "enabled": "false",
+            "label": "Facebook"
+          }
+        ],
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com",
+        "ctaButtonText": "Explore more on"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "handles",
+          "label": "Handles",
+          "type": "string_array",
+          "description": "Social media handles to display (e.g. \"@handle\")."
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website CTA Button",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com",
+          "description": "Optional website URL shown beneath the CTA label."
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "placeholder": "Explore more on",
+          "description": "Call-to-action label shown above the website link."
+        },
+        {
+          "key": "ctas",
+          "label": "Call-to-Action Buttons",
+          "type": "object_array",
+          "maxItems": 3,
+          "description": "Up to 3 CTAs, each with a label, website link, and visibility. Overrides the single CTA fields above when provided.",
+          "subFields": [
+            {
+              "key": "ctaButtonText",
+              "label": "CTA Button Text"
+            },
+            {
+              "key": "websiteLink",
+              "label": "Website Link"
+            },
+            {
+              "key": "showWebsiteButton",
+              "label": "Show (true/false)"
+            }
+          ]
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "constellation_stats",
+    "moonphase_chart",
+    "shadow_comparison",
+    "signal_fire_scene",
+    "ending_socials"
+  ]
+}
