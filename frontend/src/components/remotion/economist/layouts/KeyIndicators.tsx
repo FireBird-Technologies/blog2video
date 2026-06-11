@@ -3,7 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
-import { TrendGlyph } from "../components/EconomistOrnaments";
+import { TrendGlyph, ConcentricRings } from "../components/EconomistOrnaments";
 import { OdometerNumber } from "../components/OdometerNumber";
 import { textRise } from "./chartHelpers";
 import { letterpressStamp, ruleDraw, slideFrom } from "./motion";
@@ -30,7 +30,7 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
   const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
   const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
   const pad = isPortrait ? { x: 70, t: topInset, b: botInset } : { x: 120, t: topInset, b: botInset };
-  const titleSize = (titleFontSize ?? (isPortrait ? 60 : 56)) as number;
+  const titleSize = (titleFontSize ?? (isPortrait ? 72 : 56)) as number;
 
   const n = Math.max(1, indicators.length);
   const cols = isPortrait ? Math.min(2, n) : Math.min(4, n);
@@ -38,13 +38,16 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
   // their column. Size to the longest value across the row, not just the count.
   // Fewer columns get bigger figures so a 2-KPI row still fills the wide band.
   const longestVal = indicators.reduce((m, it) => Math.max(m, String(it.value ?? "").length), 1);
-  const baseValueSize = isPortrait ? 116 : Math.min(150, 158 - cols * 8);
+  const baseValueSize = isPortrait ? 132 : Math.min(150, 158 - cols * 8);
   const valueSize = Math.round(baseValueSize * Math.min(1, 6 / longestVal));
   // Wider gaps when there are few columns so the row breathes across the frame.
   const columnGap = isPortrait ? (cols <= 1 ? 0 : 48) : cols <= 2 ? 96 : 56;
 
   return (
     <AbsoluteFill style={{ padding: `${pad.t}px ${pad.x}px ${pad.b}px`, display: "flex", flexDirection: "column" }}>
+      {/* Signature concentric-ring motif fills the paper behind the KPI grid. */}
+      <ConcentricRings cx={isPortrait ? 78 : 86} cy={78} opacity={0.45} />
+
       {/* Header — tab, title and subtitle rise in with a stagger. */}
       <div style={{ marginTop: isPortrait ? 60 : 0 }}>
         <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
@@ -52,7 +55,7 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
           {title}
         </div>
         {narration && (
-          <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: Math.round(titleSize * 0.42), color: ECONOMIST_COLORS.muted, marginTop: 8, ...textRise(frame, 12) }}>
+          <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: Math.round(titleSize * (isPortrait ? 0.5 : 0.42)), color: ECONOMIST_COLORS.muted, marginTop: 8, ...textRise(frame, 12) }}>
             {narration}
           </div>
         )}
@@ -95,12 +98,12 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
                 fontWeight={900}
                 letterSpacing={-valueSize * 0.02}
               />
-              <div style={{ width: isPortrait ? 72 : 56, height: isPortrait ? 5 : 4, background: accentColor, margin: "16px 0 12px", ...ruleDraw(frame, s + 8, 12) }} />
+              <div style={{ width: isPortrait ? 84 : 56, height: isPortrait ? 6 : 4, background: accentColor, margin: "16px 0 12px", ...ruleDraw(frame, s + 8, 12) }} />
               <div
                 style={{
                   fontFamily: ECONOMIST_SANS_FONT,
                   fontWeight: 700,
-                  fontSize: isPortrait ? 31 : 23,
+                  fontSize: isPortrait ? 38 : 23,
                   letterSpacing: 0.6,
                   textTransform: "uppercase",
                   color: textColor,
@@ -115,13 +118,13 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
               {(d || cmpVal) && (
                 <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginTop: 6, opacity: deltaSlide.opacity, transform: deltaSlide.transform }}>
                   {d && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 28 : 21, color: deltaColor }}>
-                      {(up || down) && <TrendGlyph direction={trendDir} size={isPortrait ? 20 : 14} color={deltaColor} />}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 34 : 21, color: deltaColor }}>
+                      {(up || down) && <TrendGlyph direction={trendDir} size={isPortrait ? 24 : 14} color={deltaColor} />}
                       {d.replace(/^[+\-−]/, "")}
                     </span>
                   )}
                   {cmpVal && (
-                    <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 400, fontSize: isPortrait ? 25 : 18, color: ECONOMIST_COLORS.muted }}>
+                    <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 400, fontSize: isPortrait ? 30 : 18, color: ECONOMIST_COLORS.muted }}>
                       {cmpLab} <span style={{ fontWeight: 700 }}>{cmpVal}</span>
                     </span>
                   )}

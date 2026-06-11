@@ -112,6 +112,19 @@ def _tokenize(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(t) > 2}
 
 
+def _clean_text_cell(value: Any) -> str:
+    """Strip inline HTML tags + collapse whitespace from a display cell.
+
+    The chartTable bound to a scene is rendered verbatim (especially by the
+    data_table layout), so leftover tags like "Rs.<br> 434,000" must be removed.
+    Tables read straight from EXTRACTED_TABLES_JSON bypass table_extraction's own
+    cleaner, so we re-clean here at the point the chartTable is built.
+    """
+    text = str(value or "")
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 
 def _extract_tables_from_visual_hint(visual_description: str) -> list[dict[str, Any]]:
     if not visual_description:
@@ -788,8 +801,8 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
     bucket_like = _is_bucket_like(labels)
 
     chart_table = {
-        "headers": headers[:8],
-        "rows": [[str(cell or "") for cell in row[:8]] for row in rows[:20]],
+        "headers": [_clean_text_cell(h) for h in headers[:8]],
+        "rows": [[_clean_text_cell(cell) for cell in row[:8]] for row in rows[:20]],
     }
 
     # Prefer line charts for ordered/time-like rows; otherwise histogram for bucket labels; else bar.

@@ -136,13 +136,19 @@ const InkBar: React.FC<TransitionPresentationComponentProps<InkBarProps>> = ({
   // The bar's leading edge position as a 0..100% of width.
   const lead = p * 100;
 
-  // Incoming scene is clipped to the swept region (behind the bar's wake).
-  // Outgoing stays full until the bar covers it.
+  // Incoming scene is clipped to the swept region (behind the bar's wake);
+  // outgoing is clipped to the *complement* so it's cleared in lockstep with the
+  // bar's leading edge — otherwise the previous scene's text lingers behind the
+  // bar and then pops when the sequence ends.
   let clip: string | undefined;
   if (entering) {
     clip = fromRight
       ? `inset(0 0 0 ${100 - lead}%)`
       : `inset(0 ${100 - lead}% 0 0)`;
+  } else {
+    clip = fromRight
+      ? `inset(0 ${lead}% 0 0)`
+      : `inset(0 0 0 ${lead}%)`;
   }
 
   // The moving bar (rendered only on the entering layer so it draws on top).
@@ -455,11 +461,17 @@ const HalftoneWipe: React.FC<TransitionPresentationComponentProps<HalftoneProps>
   const fromRight = passedProps.direction === "right";
   const lead = p * 100;
 
+  // Incoming revealed behind the wake; outgoing cleared by the leading edge in
+  // lockstep (mirrors the InkBar fix so the previous scene never lingers).
   let clip: string | undefined;
   if (entering) {
     clip = fromRight
       ? `inset(0 0 0 ${100 - lead}%)`
       : `inset(0 ${100 - lead}% 0 0)`;
+  } else {
+    clip = fromRight
+      ? `inset(0 ${lead}% 0 0)`
+      : `inset(0 0 0 ${lead}%)`;
   }
 
   const bandWidth = 10; // % of screen width
