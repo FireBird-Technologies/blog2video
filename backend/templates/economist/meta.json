@@ -947,13 +947,11 @@
     }
   },
   "layouts_without_image": [
-    "section_divider",
     "chart_line",
     "chart_bar",
     "data_table",
     "pros_cons",
     "key_indicators",
-    "leader_quote",
     "ending_socials"
   ],
   "features": [

@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT } from "../../../fonts/economist-defaults";
@@ -19,6 +19,9 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
   title,
   standfirst,
   narration,
+  imageUrl,
+  imageObjectPosition = "50% 50%",
+  imageZoom = 1,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
@@ -54,8 +57,34 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "flex-start", padding: `${paddingTop}px ${sidePad}px ${botInset}px` }}>
-      {/* Faint engraved hairline field fills the wide empty paper behind the name. */}
-      <EngravingTexture opacity={0.035} gap={10} />
+      {/* Optional photo as a ghosted engraved plate: grayscale, slow drift, and
+          a warm paper wash over it so the chapter type still reads as ink on
+          paper rather than text on a photo. */}
+      {imageUrl ? (
+        <AbsoluteFill style={{ overflow: "hidden" }}>
+          <Img
+            src={imageUrl}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: imageObjectPosition,
+              transform: `scale(${(interpolate(frame, [0, 280], [1.04, 1.12], { extrapolateRight: "clamp" }) * imageZoom).toFixed(4)})`,
+              filter: "grayscale(1) contrast(0.92) brightness(1.05)",
+              opacity: 0.26 * clamp01(frame / 18),
+            }}
+          />
+          <AbsoluteFill
+            style={{
+              background:
+                "linear-gradient(to bottom, rgba(246,244,238,0.86) 0%, rgba(246,244,238,0.72) 45%, rgba(246,244,238,0.9) 100%)",
+            }}
+          />
+        </AbsoluteFill>
+      ) : (
+        /* Faint engraved hairline field fills the wide empty paper behind the name. */
+        <EngravingTexture opacity={0.035} gap={10} />
+      )}
 
       {/* Two faint vertical rules box the chapter break like a real spread. */}
       {[sidePad, width - sidePad].map((x, i) => (
@@ -109,7 +138,8 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
             fontStyle: "italic",
             fontSize: isPortrait ? 44 : 34,
             lineHeight: 1.45,
-            color: ECONOMIST_COLORS.muted,
+            // Over the ghosted photo the muted grey loses contrast — use ink.
+            color: imageUrl ? ECONOMIST_COLORS.ink : ECONOMIST_COLORS.muted,
             textAlign: "center",
             maxWidth: isPortrait ? "100%" : "78%",
             marginTop: isPortrait ? height * 0.16 : 28,
