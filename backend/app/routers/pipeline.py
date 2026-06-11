@@ -32,7 +32,7 @@ from app.schemas.schemas import (
 )
 from app.config import settings
 from app.services.scraper import scrape_blog
-from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content
+from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content, classify_chart_tables_for_template
 from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
     get_line_chartable_tables_from_visual_hint,
@@ -139,6 +139,22 @@ def _is_laduc_or_fj(template_id: str) -> bool:
     templates that share the market_annotation/ticker chart-binding pipeline."""
     tid = template_id or ""
     return ("laduc" in tid) or ("fj_research" in tid) or (tid in FJ_TEMPLATE_IDS)
+
+
+# Built-in templates that opt into the chartTable/tickerTable data-viz pipeline,
+# mapped to their (chart_layout, ticker_layout) names. This is the extension point
+# for FUTURE templates: to give a new template charts + data tables, just add a
+# line here AND add those two layouts to its meta.json valid_layouts (plus a
+# frontend renderer for each) — the pipeline gate then routes it through the shared
+# classify_chart_tables_for_template() helper with no new branch.
+#
+# NOTE: LaDuc / FJ are intentionally NOT here — they keep their own dedicated
+# branch (_is_laduc_or_fj) and code path above. Do not fold them into this map.
+CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
+    "matrix": ("matrix_data", "matrix_ticker"),
+    "spotlight": ("spotlight_data", "spotlight_table"),
+    "chronicle": ("chronicle_data", "chronicle_table"),
+}
 
 
 def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
@@ -1005,6 +1021,28 @@ async def _generate_script(
         _econ_loop = asyncio.get_event_loop()
         _all_extracted_tables, chartable_tables_json = await _econ_loop.run_in_executor(
             None, _econ_classify_tables
+        )
+
+    elif template_id in CHART_TICKER_TEMPLATE_LAYOUTS:
+        # Built-in templates that opt into the chartTable/tickerTable data-viz
+        # pipeline use the shared classifier — chartable tables bind to the
+        # template's "chart" layout, ticker-like tables to its "ticker" layout.
+        # Add a new template by registering its two layout names in
+        # CHART_TICKER_TEMPLATE_LAYOUTS — no new branch needed here. Run in the
+        # thread pool so CPU-bound HTML parsing doesn't block the event loop.
+        _chart_layout, _ticker_layout = CHART_TICKER_TEMPLATE_LAYOUTS[template_id]
+        _dv_blog_text = getattr(project, "blog_content", None) or ""
+
+        def _classify_tables() -> tuple[list, str]:
+            return classify_chart_tables_for_template(
+                _dv_blog_text,
+                chart_layout=_chart_layout,
+                ticker_layout=_ticker_layout,
+            )
+
+        _dv_loop = asyncio.get_event_loop()
+        _all_extracted_tables, chartable_tables_json = await _dv_loop.run_in_executor(
+            None, _classify_tables
         )
 
     # Release the DB connection during the long-running DSPy/LLM calls below.

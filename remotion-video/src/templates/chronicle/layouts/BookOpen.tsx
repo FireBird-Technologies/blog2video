@@ -17,6 +17,7 @@ import {
   InkDivider,
 } from "../components/OrnamentalBorder";
 import { WaxSeal } from "../components/WaxSeal";
+import { EmberSparks } from "../components/ChronicleArtifacts";
 import { QuillText } from "../components/QuillInk";
 import { stripChapterPrefix } from "./ChapterPlate";
 
@@ -149,6 +150,9 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
         opacity: outroFade,
       }}
     >
+      {/* Embers rise through the grand opening for candlelit drama. */}
+      <EmberSparks count={18} seed={13} intensity={1} />
+
       {/* ───── Act 1-3: the closed/opening book ───── */}
       <AbsoluteFill
         style={{

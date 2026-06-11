@@ -7,6 +7,8 @@ import { ForkChoice } from "./ForkChoice";
 import { MatrixImage } from "./MatrixImage";
 import { Transmission } from "./Transmission";
 import { Awakening } from "./Awakening";
+import { MatrixDataChart } from "./MatrixDataChart";
+import { MatrixTicker } from "./MatrixTicker";
 import { EndingSocials } from "./EndingSocials";
 import type { MatrixLayoutType, MatrixLayoutProps } from "../types";
 
@@ -25,5 +27,7 @@ export const MATRIX_LAYOUT_REGISTRY: Record<
   matrix_image: MatrixImage,
   transmission: Transmission,
   awakening: Awakening,
+  matrix_data: MatrixDataChart,
+  matrix_ticker: MatrixTicker,
   ending_socials: EndingSocials,
 };
