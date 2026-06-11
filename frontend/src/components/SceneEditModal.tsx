@@ -418,6 +418,7 @@ interface FieldDef {
   subFields?: { key: string; label: string; placeholder?: string }[];
   placeholder?: string;
   maxItems?: number;
+  minItems?: number;
   /** Options when type === "select" */
   options?: { value: string; label: string }[];
   min?: number;
@@ -1551,6 +1552,100 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "phrases", label: "Path steps", type: "string_array", maxItems: 8 },
     ],
   },
+  /** Stick Man 2 (Night Edition) — layout content keys per prompt.md. ending_socials uses the dedicated CTA / socials block. */
+  stickman_2: {
+    chalk_title: [],
+    night_walk: [],
+    shooting_star: [],
+    constellation_stats: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 100, $1.2M, 98%" },
+        ],
+        minItems: 3,
+        maxItems: 6,
+      },
+      {
+        key: "signFontSize",
+        label: "Sign text size",
+        type: "number",
+        min: 10,
+        max: 80,
+        step: 1,
+      },
+    ],
+    moonphase_chart: [
+      {
+        key: "bars",
+        label: "Moon phases",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value (ignored)", placeholder: "Optional" },
+        ],
+        minItems: 3,
+        maxItems: 5,
+      },
+    ],
+    shadow_comparison: [
+      {
+        key: "leftThought",
+        label: "Left thought",
+        type: "text",
+        placeholder: "Short phrase for the left figure's thought cloud",
+      },
+      {
+        key: "rightThought",
+        label: "Right thought",
+        type: "text",
+        placeholder: "Short phrase for the right figure's thought cloud",
+      },
+    ],
+    signal_fire_scene: [],
+    neon_countdown: [
+      {
+        key: "startFrom",
+        label: "Countdown from",
+        type: "number",
+        min: 2,
+        max: 9,
+        step: 1,
+        default: 5,
+      },
+      {
+        key: "label",
+        label: "Label beneath ring",
+        type: "string",
+        placeholder: "Optional short label",
+      },
+    ],
+    lantern_dialogue: [
+      {
+        key: "leftBubble",
+        label: "Left dialogue",
+        type: "text",
+        placeholder: "Line spoken by the left figure (first half of scene)",
+      },
+      {
+        key: "rightBubble",
+        label: "Right dialogue",
+        type: "text",
+        placeholder: "Line spoken by the right figure (second half of scene)",
+      },
+      {
+        key: "speakers",
+        label: "Speaker names",
+        type: "object_array",
+        subFields: [{ key: "label", label: "Name" }],
+        maxItems: 2,
+      },
+    ],
+    ending_socials: [],
+  },
   /** LaDuc — overrides for layout IDs shared with other templates */
   laduc: {
     masthead: [
@@ -1760,6 +1855,7 @@ function layoutPropSchemaToFieldDefs(schema: LayoutPropSchema | undefined): Fiel
       type: ft,
       placeholder: f.placeholder,
       maxItems: f.maxItems,
+      minItems: f.minItems,
       min: f.min,
       max: f.max,
       step: f.step,
@@ -4119,6 +4215,7 @@ export default function SceneEditModal({
                       }
                       if (field.type === "string_array") {
                         const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
+                        const minItems = field.minItems ?? 0;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4136,18 +4233,20 @@ export default function SceneEditModal({
                                     }}
                                     className={`flex-1 ${inputClass}`}
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = items.filter((_, j) => j !== i);
-                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
+                                  {items.length > minItems ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  ) : null}
                                 </div>
                               ))}
                               {(!field.maxItems || items.length < field.maxItems) && (
@@ -4173,6 +4272,7 @@ export default function SceneEditModal({
                             ? field.subFields
                             : inferObjectArraySubFields(items);
                         if (!subFields.length) return null;
+                        const minItems = field.minItems ?? 0;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4198,18 +4298,20 @@ export default function SceneEditModal({
                                       </div>
                                     ))}
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = items.filter((_, j) => j !== i);
-                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
+                                  {items.length > minItems ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  ) : null}
                                 </div>
                               ))}
                               {(!field.maxItems || items.length < field.maxItems) && (

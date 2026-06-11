@@ -20,6 +20,7 @@ import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition
 import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
 import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition";
 import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
+import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -235,6 +236,20 @@ const CHRONICLE_LAYOUTS = new Set([
   "decree_seal",
   "ending_socials",
 ]);
+const STICKMAN_2_LAYOUTS = new Set([
+  "chalk_title",
+  "night_walk",
+  "shooting_star",
+  "constellation_stats",
+  "moonphase_chart",
+  "shadow_comparison",
+  "signal_fire_scene",
+  "neon_countdown",
+  "lantern_dialogue",
+  "text_narration",
+  "ending_socials",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -388,6 +403,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#B8860B",
       bg: "#F1E4C9",
       text: "#2A1810",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  stickman_2: {
+    component: Stickman2VideoComposition as React.ComponentType<any>,
+    heroLayout: "chalk_title",
+    fallbackLayout: "night_walk",
+    validLayouts: STICKMAN_2_LAYOUTS,
+    defaultColors: {
+      accent: "#7DD3FC",
+      bg: "#0A0E1A",
+      text: "#EAEAE0",
     },
     baseWidth: 1920,
     baseHeight: 1080,

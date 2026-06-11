@@ -461,6 +461,7 @@ export interface LayoutPropField {
   max?: number;
   step?: number;
   maxItems?: number;
+  minItems?: number;
   options?: Array<{ label: string; value: string }>;
   subFields?: LayoutPropSubField[];
 }
