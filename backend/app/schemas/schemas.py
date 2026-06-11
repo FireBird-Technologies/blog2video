@@ -23,6 +23,7 @@ class ProjectCreate(BaseModel):
     logo_opacity: Optional[float] = 0.9  # 0.0 - 1.0
     logo_size: Optional[float] = 100.0  # percentage, e.g. 100 = 100%
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
+    voice_emotion: Optional[str] = None      # narration emotion/tone key (paid); neutral/None = default v2 path
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
     video_style: Optional[str] = "auto"   # auto | explainer | promotional | storytelling (auto = LLM picks after scraping)
     video_length: Optional[str] = "auto"  # auto | short (4-5) | medium (12-15) | detailed (23-30) | more_detailed (35-40)
@@ -76,6 +77,7 @@ class ProjectVoiceChange(BaseModel):
     voice_gender: Optional[str] = None
     voice_accent: Optional[str] = None
     custom_voice_id: Optional[str] = None
+    voice_emotion: Optional[str] = None
 
 
 class ProjectTemplateChangeRequest(BaseModel):
@@ -260,6 +262,7 @@ class ProjectOut(BaseModel):
     logo_opacity: float = 0.9
     logo_size: float = 100.0  # percentage
     custom_voice_id: Optional[str] = None
+    voice_emotion: Optional[str] = None
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
     video_length: str = "auto"

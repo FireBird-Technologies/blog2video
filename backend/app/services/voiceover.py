@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import re
 import time
@@ -36,6 +37,91 @@ VOICE_MAP = {
 DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
 ELEVENLABS_VOICE_META_URL = "https://api.elevenlabs.io/v1/voices/{voice_id}"
 
+# TTS models. Default narration stays on v2. The paid "Advanced Options" path (any project with
+# voice_emotion tuning set) routes through v3 — the only model with real emotion control — and
+# injects the user-selected emotion audio tag (e.g. [excited], [calm]) per sentence.
+TTS_MODEL_DEFAULT = "eleven_multilingual_v2"
+TTS_MODEL_EXPRESSIVE = "eleven_v3"
+
+# Emotion audio tags the user can pick in Advanced Options. The chosen one is injected as
+# "[<emotion>]" before each sentence. Unknown/missing values fall back to DEFAULT_EMOTION so
+# legacy 2-element voice_emotion values keep their original [excited] behaviour.
+SUPPORTED_EMOTIONS = {"excited", "happy", "calm", "serious", "curious", "sad", "angry", "whispers"}
+DEFAULT_EMOTION = "excited"
+
+# User-tunable voice settings, stored on the project as a JSON string array ["<strength>","<speed>"]
+# in the voice_emotion column. Strength (0..1) is creativity-forward (higher = more creative) and is
+# inverted to a v3 stability preset at synthesis (stability = 1 - strength). Speed = synthesis pace.
+VOICE_STABILITY_RANGE = (0.0, 1.0)
+VOICE_SPEED_RANGE = (0.7, 1.2)
+# Style exaggeration is capped well below 1.0 — values above ~0.5 introduce artifacts on v3.
+VOICE_STYLE_RANGE = (0.0, 0.5)
+DEFAULT_STYLE = 0.0
+
+# v3 accepts only discrete stability presets: Creative (0.0, most expressive/tag-responsive),
+# Natural (0.5), Robust (1.0, steadiest). The inverted Strength value snaps to the nearest preset.
+_V3_STABILITY_PRESETS = (0.0, 0.5, 1.0)
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _parse_voice_tuning(raw: str | None) -> tuple[float, float, str | None, float] | None:
+    """Parse the stored ["<stability>","<speed>","<emotion>","<style>"] array into clamped
+    (stability, speed, emotion, style).
+
+    The emotion (3rd) and style (4th) elements are optional: legacy 2-element values fall back to
+    DEFAULT_EMOTION + DEFAULT_STYLE; a present-but-empty/invalid emotion means "no emotion tag"
+    (None) and a missing/invalid style means DEFAULT_STYLE. Returns None on any missing/parse/shape
+    error so a bad value silently falls back to the per-video-style defaults instead of crashing TTS.
+    """
+    if not raw:
+        return None
+    try:
+        values = json.loads(raw)
+        stability = float(values[0])
+        speed = float(values[1])
+    except (ValueError, TypeError, IndexError, json.JSONDecodeError):
+        return None
+    # Emotion (3rd element) is optional. Legacy 2-element values keep the original [excited]
+    # behaviour; a present-but-empty/invalid value means "no emotion tag" (None).
+    if isinstance(values, list) and len(values) >= 3:
+        candidate = str(values[2]).strip().lower()
+        emotion = candidate if candidate in SUPPORTED_EMOTIONS else None
+    else:
+        emotion = DEFAULT_EMOTION
+    # Style (4th element) is optional; missing/invalid → DEFAULT_STYLE.
+    style = DEFAULT_STYLE
+    if isinstance(values, list) and len(values) >= 4:
+        try:
+            style = float(values[3])
+        except (TypeError, ValueError):
+            style = DEFAULT_STYLE
+    stability = max(VOICE_STABILITY_RANGE[0], min(VOICE_STABILITY_RANGE[1], stability))
+    speed = max(VOICE_SPEED_RANGE[0], min(VOICE_SPEED_RANGE[1], speed))
+    style = max(VOICE_STYLE_RANGE[0], min(VOICE_STYLE_RANGE[1], style))
+    return stability, speed, emotion, style
+
+
+def _snap_v3_stability(value: float) -> float:
+    """Snap a continuous Strength value to the nearest v3 stability preset (0.0/0.5/1.0)."""
+    return min(_V3_STABILITY_PRESETS, key=lambda preset: abs(preset - value))
+
+
+def _inject_emotion_tag(text: str, emotion: str | None = None) -> str:
+    """Prefix the chosen "[<emotion>]" audio tag before every sentence so the v3 model keeps a
+    consistent delivery across the whole scene (tags affect the text that follows them).
+
+    Emotion is optional: when None/empty/unsupported, the text is returned unchanged (no tag)."""
+    if not text or not text.strip():
+        return text
+    if not emotion or emotion not in SUPPORTED_EMOTIONS:
+        return text
+    tag = f"[{emotion}]"
+    sentences = [s for s in _SENTENCE_SPLIT_RE.split(text.strip()) if s]
+    if not sentences:
+        return text
+    return " ".join(f"{tag} {s}" for s in sentences)
+
 
 def _voice_settings_for_video_style(video_style: str | None) -> dict | None:
     """Return ElevenLabs voice_settings tuned by video style.
@@ -70,18 +156,72 @@ def _voice_settings_for_video_style(video_style: str | None) -> dict | None:
     }
 
 
-def _get_voice_id(project: Project) -> str | None:
-    gender = getattr(project, "voice_gender", "female")
-    if gender == "none":
-        return None
+def resolve_voice_id(gender: str | None, accent: str | None, custom_voice_id: str | None) -> str | None:
+    """Resolve an ElevenLabs voice id from gender/accent/custom selection (no Project needed).
 
-    custom = getattr(project, "custom_voice_id", None)
-    custom_str = custom.strip() if isinstance(custom, str) else None
+    Returns None for the "no voice" (mute) selection; a custom voice id wins when provided;
+    otherwise maps (gender, accent) → premade voice, falling back to DEFAULT_VOICE_ID.
+    """
+    if (gender or "female") == "none":
+        return None
+    custom_str = custom_voice_id.strip() if isinstance(custom_voice_id, str) else None
     if custom_str:
         return custom_str
+    return VOICE_MAP.get((gender or "female", accent or "american"), DEFAULT_VOICE_ID)
 
-    accent = getattr(project, "voice_accent", "american")
-    return VOICE_MAP.get((gender, accent), DEFAULT_VOICE_ID)
+
+def _get_voice_id(project: Project) -> str | None:
+    return resolve_voice_id(
+        getattr(project, "voice_gender", "female"),
+        getattr(project, "voice_accent", "american"),
+        getattr(project, "custom_voice_id", None),
+    )
+
+
+PREVIEW_SAMPLE_TEXT = "Here's a quick preview of how your narration will sound with these settings."
+
+
+def synthesize_voice_preview(
+    *,
+    gender: str | None,
+    accent: str | None,
+    custom_voice_id: str | None,
+    voice_emotion: str | None,
+    video_style: str | None = None,
+) -> bytes:
+    """Synthesize a short fixed sample with the given voice + tuning and return mp3 bytes.
+
+    Mirrors generate_voiceover's expressive path: when tuning is present, runs v3 with the
+    stability/style/speed settings + injected emotion tag; otherwise the default v2 path with
+    video-style settings. Raises ValueError if no voice is selected (mute).
+    """
+    voice_id = resolve_voice_id(gender, accent, custom_voice_id)
+    if voice_id is None:
+        raise ValueError("No voice selected for preview.")
+    text = PREVIEW_SAMPLE_TEXT
+    tuning = _parse_voice_tuning(voice_emotion)
+    if tuning is not None:
+        strength, speed, emotion, style = tuning
+        model_id = TTS_MODEL_EXPRESSIVE
+        text = _inject_emotion_tag(text, emotion)
+        voice_settings: dict = {
+            "stability": _snap_v3_stability(1.0 - strength),
+            "style": style,
+            "speed": speed,
+            "use_speaker_boost": True,
+        }
+    else:
+        model_id = TTS_MODEL_DEFAULT
+        voice_settings = _voice_settings_for_video_style(video_style) or {}
+    client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+    audio = client.text_to_speech.convert(
+        text=text,
+        voice_id=voice_id,
+        model_id=model_id,
+        output_format="mp3_44100_128",
+        voice_settings=voice_settings,
+    )
+    return b"".join(audio)
 
 
 def _get_audio_duration(filepath: str) -> float:
@@ -771,6 +911,34 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     voiceover_text = _spell_digits_for_tts(voiceover_text, content_language)
     voiceover_text = _spell_abbreviations_for_tts(voiceover_text)
 
+    # Advanced Options (paid): when voice tuning is set, route this project through the expressive
+    # v3 model, inject the [excited] tag per sentence, and apply the user's Strength + Speed.
+    # Strength is creativity-forward: higher Strength → MORE creative, so it maps to a LOWER v3
+    # stability preset (v3 stability 0.0 = Creative … 1.0 = Robust). Hence stability = 1 - strength.
+    tuning = _parse_voice_tuning(getattr(project, "voice_emotion", None) if project else None)
+    model_id = TTS_MODEL_DEFAULT
+    if tuning is not None:
+        strength, speed, emotion, style = tuning
+        model_id = TTS_MODEL_EXPRESSIVE
+        voiceover_text = _inject_emotion_tag(voiceover_text, emotion)
+        voice_settings = {
+            "stability": _snap_v3_stability(1.0 - strength),
+            "style": style,
+            "speed": speed,
+            "use_speaker_boost": True,
+        }
+        logger.info(
+            "[VOICEOVER] Scene %s expressive mode: model=%s emotion=%s strength=%s stability=%s style=%s speed=%s",
+            scene.order,
+            model_id,
+            emotion or "none",
+            strength,
+            voice_settings["stability"],
+            style,
+            speed,
+            extra={"project_id": scene.project_id},
+        )
+
     # No-audio mode: estimate duration from word count, skip TTS
     if voice_id is None:
         word_count = len(voiceover_text.split())
@@ -804,7 +972,7 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
         audio_generator = client.text_to_speech.convert(
             text=voiceover_text,
             voice_id=vid,
-            model_id="eleven_multilingual_v2",
+            model_id=model_id,
             output_format="mp3_44100_128",
             voice_settings=voice_settings,
         )
@@ -916,6 +1084,7 @@ async def generate_all_voiceovers(
     content_language: str = "English",
     verbatim: bool = False,
     progress_cb: "Callable[[], None] | None" = None,
+    expressive: bool = False,
 ) -> list[str]:
     """Generate voiceover audio for all scenes concurrently.
 
@@ -951,7 +1120,8 @@ async def generate_all_voiceovers(
                 return scene.narration_text or ""
             async with expand_sem:
                 return await expand_narration_to_voiceover(
-                    scene.narration_text, scene.title, video_style=style, content_language=content_language
+                    scene.narration_text, scene.title, video_style=style,
+                    content_language=content_language, expressive=expressive,
                 )
 
         expanded_texts = await asyncio.gather(

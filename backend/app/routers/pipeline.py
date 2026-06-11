@@ -1218,10 +1218,14 @@ async def _generate_scenes(
             db.commit()
         else:
             content_lang = get_content_language_for_project(project)
+            # Advanced Options (paid) projects carry voice tuning in voice_emotion; those run on v3
+            # with the [excited] tag, so write the narration emotively too (emphasis / "!" / CAPS).
+            expressive = bool(getattr(project, "voice_emotion", None))
             vo_paths = await generate_all_voiceovers(
                 scenes, db,
                 video_style=getattr(project, "video_style", None) or "explainer",
                 content_language=content_lang,
+                expressive=expressive,
             )
             # generate_all_voiceovers swallows per-scene TTS failures (returns "" for a
             # failed scene). In strict mode (regenerate-script, which has a restorable
