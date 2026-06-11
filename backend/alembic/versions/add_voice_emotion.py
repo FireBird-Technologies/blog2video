@@ -19,11 +19,11 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column(
         "projects",
-        sa.Column("voice_emotion", sa.String(length=20), nullable=True),
+        sa.Column("voice_emotion", sa.String(length=64), nullable=True),
     )
     op.add_column(
         "users",
-        sa.Column("preferred_voice_emotion", sa.String(length=20), nullable=True),
+        sa.Column("preferred_voice_emotion", sa.String(length=64), nullable=True),
     )
 
 

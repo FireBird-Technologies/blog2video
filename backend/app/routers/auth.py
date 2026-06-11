@@ -45,6 +45,7 @@ class UserOut(BaseModel):
     videos_used_this_period: int
     video_limit: int
     can_create_video: bool
+    preferred_voice_emotion: str | None = None
 
     class Config:
         from_attributes = True
@@ -209,6 +210,7 @@ def google_login(
             videos_used_this_period=user.videos_used_this_period,
             video_limit=user.video_limit,
             can_create_video=user.can_create_video,
+            preferred_voice_emotion=user.preferred_voice_emotion,
         ),
     )
 
@@ -225,6 +227,7 @@ def get_me(user: User = Depends(get_current_user)):
         videos_used_this_period=user.videos_used_this_period,
         video_limit=user.video_limit,
         can_create_video=user.can_create_video,
+        preferred_voice_emotion=user.preferred_voice_emotion,
     )
 
 
