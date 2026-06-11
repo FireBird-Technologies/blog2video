@@ -683,9 +683,43 @@ def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
         except Exception:
             return
 
-        # Use --noResolve so we only validate syntax/TSX shape and local types,
-        # and do not fail just because imports can't be resolved from this temp path.
-        cmd = ["npx", "tsc", "--noEmit", "--jsx", "react-jsx", "--noResolve", str(tmp_path)]
+        # Resolve a REAL tsc binary. `npx tsc` from a directory without a local
+        # TypeScript install resolves to npx's placeholder package — it prints
+        # "This is not the tsc command you are looking for" and exits 1, which
+        # the returncode check below would misread as a type error. TypeScript
+        # is installed under frontend/ (and remotion-video/), not at the repo
+        # root, so look there. If none is found, skip validation entirely.
+        tsc_bin = None
+        for cand in (
+            _ROOT / "frontend" / "node_modules" / ".bin" / "tsc",
+            _ROOT / "remotion-video" / "node_modules" / ".bin" / "tsc",
+            _ROOT / "node_modules" / ".bin" / "tsc",
+        ):
+            if cand.exists():
+                tsc_bin = str(cand)
+                break
+        if tsc_bin is None:
+            # No TypeScript toolchain available — don't block the flow.
+            return
+
+        # --noResolve keeps this to a syntax/shape check; it does NOT suppress
+        # module-resolution diagnostics, so those are filtered out below.
+        # --target/--lib mirror the real project tsconfig (frontend +
+        # remotion-video both target ES2020 with the DOM libs) so modern JS the
+        # code legitimately uses — Array.from, Object.entries, optional
+        # chaining — isn't flagged as an error against tsc's default ES5 lib.
+        cmd = [
+            tsc_bin,
+            "--noEmit",
+            "--jsx",
+            "react-jsx",
+            "--noResolve",
+            "--target",
+            "ES2020",
+            "--lib",
+            "ES2020,DOM,DOM.Iterable",
+            str(tmp_path),
+        ]
         try:
             result = subprocess.run(
                 cmd,
@@ -699,8 +733,24 @@ def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
             return
 
         if result.returncode != 0:
+            out = f"{result.stderr or ''}\n{result.stdout or ''}"
+            # npx placeholder / no real compiler present — treat as unavailable.
+            if "This is not the tsc command" in out or "npm install typescript" in out:
+                return
+            # The temp file lives outside the template tree, so react / remotion
+            # / ../types / react/jsx-runtime can't resolve. Those are environment
+            # diagnostics, not problems with the generated code — drop them and
+            # only fail on genuine syntax/type errors in the component itself.
+            ignore_codes = ("TS2307", "TS2875", "TS7016", "TS2792", "TS6053", "TS2688")
+            real_errors = [
+                ln
+                for ln in out.splitlines()
+                if "error TS" in ln and not any(c in ln for c in ignore_codes)
+            ]
+            if not real_errors:
+                return
             # Don't persist or activate this version if TypeScript reports errors.
-            msg = (result.stderr or result.stdout or "").strip()
+            msg = "\n".join(real_errors).strip()
             # Truncate very long outputs.
             if len(msg) > 4000:
                 msg = msg[:4000] + "\n... (truncated)"
@@ -2859,20 +2909,61 @@ def create_template_from_doc(
                 design_notes=plan.design_notes,
             )
 
+        # Per-layout codegen attempts before giving up and stubbing. Each retry
+        # feeds the previous failure (model error / TypeScript diagnostics) back
+        # into the prompt so the model can self-correct — so a transient or
+        # easily-fixable error doesn't drop a scene to the generic stub.
+        LAYOUT_CODEGEN_ATTEMPTS = 4
+
         for layout in plan.layouts:
             pascal_layout = pascal_names[layout.id]
             instruction = _layout_codegen_prompt(layout)
 
-            try:
-                tsx = _call_code_edit(
-                    instruction=instruction,
-                    current_code="",
-                    template_id=template_id,
-                    layout_id=layout.id,
-                    backend="anthropic",
+            tsx = None
+            last_detail = ""
+            for attempt in range(1, LAYOUT_CODEGEN_ATTEMPTS + 1):
+                attempt_instruction = instruction
+                if attempt > 1 and last_detail:
+                    attempt_instruction = (
+                        instruction
+                        + "\n\nThe previous attempt FAILED verification with these "
+                        "errors:\n"
+                        + last_detail
+                        + "\n\nReturn the corrected full TSX file with every error "
+                        "fixed. Keep the layout's intended visual and animation — "
+                        "only fix what is broken."
+                    )
+                try:
+                    tsx = _call_code_edit(
+                        instruction=attempt_instruction,
+                        current_code="",
+                        template_id=template_id,
+                        layout_id=layout.id,
+                        backend="anthropic",
+                    )
+                    break
+                except HTTPException as e:
+                    last_detail = str(e.detail)
+                    print(
+                        f"[template-studio] codegen attempt "
+                        f"{attempt}/{LAYOUT_CODEGEN_ATTEMPTS} failed for "
+                        f"template={template_id} layout={layout.id}:\n"
+                        f"  reason: {e.detail}",
+                        flush=True,
+                    )
+
+            if tsx is None:
+                print(
+                    f"[template-studio] STUB FALLBACK template={template_id} "
+                    f"layout={layout.id}: AI codegen failed after "
+                    f"{LAYOUT_CODEGEN_ATTEMPTS} attempts — wrote stub.\n"
+                    f"  last reason: {last_detail}",
+                    flush=True,
                 )
-            except HTTPException as e:
-                warnings.append(f"layout {layout.id}: AI codegen failed ({e.detail}); wrote stub")
+                warnings.append(
+                    f"layout {layout.id}: AI codegen failed after "
+                    f"{LAYOUT_CODEGEN_ATTEMPTS} attempts ({last_detail}); wrote stub"
+                )
                 tsx = _build_stub_layout_tsx(pascal_layout)
 
             content = tsx.rstrip() + "\n"
@@ -2997,6 +3088,13 @@ def create_template_from_doc(
             for relpath, errs in tc["errors_by_file"].items():
                 lid = codegen.tsx_file_to_layout_id(relpath, pascal_names)
                 if lid in layouts_by_id:
+                    print(
+                        f"[template-studio] STUB FALLBACK template={template_id} "
+                        f"layout={lid}: still invalid TSX after repair — wrote stub.\n"
+                        f"  errors in {relpath}:\n"
+                        + "\n".join(f"    {ln}" for ln in errs[:30]),
+                        flush=True,
+                    )
                     _write_layout_tsx(lid, _build_stub_layout_tsx(pascal_names[lid]))
                     if lid in verification["repaired"]:
                         verification["repaired"].remove(lid)

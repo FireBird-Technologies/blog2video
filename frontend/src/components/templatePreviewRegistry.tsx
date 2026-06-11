@@ -12,6 +12,7 @@ import MosaicPreview from "./templatePreviews/MosaicPreview";
 import BloombergPreview from "./templatePreviews/BloombergPreview";
 import ChroniclePreview from "./templatePreviews/ChroniclePreview";
 
+import Stickman2Preview from "./templatePreviews/Stickman2Preview";
 /** Preview components keyed by built-in template id from the API. */
 export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   default: DefaultPreview,
@@ -26,6 +27,7 @@ export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> 
   mosaic: MosaicPreview,
   bloomberg: BloombergPreview,
   chronicle: ChroniclePreview,
+  stickman_2: Stickman2Preview,
 };
 
 export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -56,6 +58,7 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
     title: "Chronicle",
     subtitle: "Medieval tome — parchment pages, illuminated drop caps, and wax seals",
   },
+  stickman_2: { title: "Stick Man After Dark", subtitle: "Glowing chalk stories under the night sky" },
 };
 
 /** Purple primary "New" chip when template meta.json has new_template: true */
