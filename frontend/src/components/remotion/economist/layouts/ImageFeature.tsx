@@ -114,7 +114,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
           src={imageUrl as string}
           style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition, transform: `scale(${kbScale})`, filter: photoFilter }}
         />
-        <AbsoluteFill style={{ background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.18) 40%, rgba(0,0,0,0) 62%)" }} />
+        <AbsoluteFill style={{ background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.32) 38%, rgba(0,0,0,0) 62%)" }} />
         <AbsoluteFill style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 22%)" }} />
       </AbsoluteFill>
 
@@ -126,27 +126,27 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
         </span>
       </div>
 
-      {/* Headline lower-left — settles onto its baseline as the ink dries. */}
-      <div style={{ position: "absolute", left: margin, bottom: isPortrait ? height * 0.16 : margin + 56, width: isPortrait ? width - margin * 2 : width * 0.62 }}>
+      {/* Headline + dek lower-left, one column — the caption stacks under the
+          headline instead of floating bottom-right where the two used to
+          collide on long deks. */}
+      <div style={{ position: "absolute", left: margin, bottom: isPortrait ? height * 0.1 : margin, width: isPortrait ? width - margin * 2 : width * 0.62 }}>
         <div style={{ width: 60, height: 6, background: accentColor, marginBottom: 20, ...ruleDraw(frame, 12, 16) }} />
         <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: headlineSize, lineHeight: 1.03, letterSpacing: -headlineSize * 0.012, color: ink, textShadow, ...headline }}>
           {title}
         </div>
+        {caption && (
+          <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 28 : 26, lineHeight: 1.4, color: "rgba(255,255,255,0.92)", textShadow, marginTop: 18, maxWidth: isPortrait ? "100%" : "92%", opacity: capOp }}>
+            {caption}
+          </div>
+        )}
       </div>
 
-      {/* Caption / credit pressed in bottom-right. */}
-      {(caption || credit) && (
-        <div style={{ position: "absolute", right: margin, bottom: margin, maxWidth: isPortrait ? "70%" : "40%", textAlign: "right", opacity: capStamp.opacity, transform: capStamp.transform, transformOrigin: "right bottom", filter: capStamp.filter }}>
-          {caption && (
-            <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 26 : 25, lineHeight: 1.35, color: hasImage ? "rgba(255,255,255,0.92)" : ECONOMIST_COLORS.muted, textShadow }}>
-              {caption}
-            </div>
-          )}
-          {credit && (
-            <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: 17, letterSpacing: 0.5, color: hasImage ? "rgba(255,255,255,0.7)" : ECONOMIST_COLORS.muted, marginTop: 6, textShadow }}>
-              {credit}
-            </div>
-          )}
+      {/* Credit alone, pressed in bottom-right. */}
+      {credit && (
+        <div style={{ position: "absolute", right: margin, bottom: margin, maxWidth: "34%", textAlign: "right", opacity: capStamp.opacity, transform: capStamp.transform, transformOrigin: "right bottom", filter: capStamp.filter }}>
+          <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: 17, letterSpacing: 0.5, color: "rgba(255,255,255,0.7)", textShadow }}>
+            {credit}
+          </div>
         </div>
       )}
     </AbsoluteFill>
