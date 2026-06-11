@@ -14,6 +14,7 @@ type AlternativeSeed = {
   proofPoints: string[];
   sections: { title: string; body: string[]; bullets?: string[] }[];
   relatedPaths: string[];
+  demoWidget?: boolean;
 };
 
 const seeds: AlternativeSeed[] = [
@@ -354,6 +355,288 @@ const seeds: AlternativeSeed[] = [
       "/blog-to-video",
       "/blog-to-youtube-video",
       "/for-technical-bloggers",
+    ],
+  },
+  {
+    path: "/heygen-alternative-for-newsletter-writers",
+    title: "HeyGen Alternative for Newsletter Writers",
+    description:
+      "Looking for a HeyGen alternative for turning newsletter content into video? Blog2Video is built for written-first workflows — paste your newsletter URL and get a structured narrated video without scripting an avatar.",
+    eyebrow: "Alternative",
+    heroTitle: "The HeyGen alternative newsletter writers actually use",
+    heroDescription:
+      "HeyGen is built around presenters and avatars. Newsletter writers don't need that — they need a tool that understands their writing structure and turns each issue into video without rewriting everything for a script.",
+    primaryKeyword: "heygen alternative for newsletter writers",
+    keywordVariant: "heygen for newsletters",
+    recommendedTemplate: "newspaper",
+    demoWidget: true,
+    proofPoints: [
+      "Paste your newsletter URL — Blog2Video extracts the structure automatically.",
+      "No avatar, no script rewrite — the issue becomes the video source directly.",
+      "Supports recurring newsletter formats with reusable templates per publication.",
+    ],
+    sections: [
+      {
+        title: "Why HeyGen doesn't fit newsletter workflows",
+        body: [
+          "HeyGen is a strong product, but it assumes you want a presenter-led video. That means writing a separate script, choosing or training an avatar, and adapting your newsletter's natural voice into a spoken format. For writers who already publish two or four issues per week, that overhead per issue doesn't scale.",
+          "Newsletter writers need a different tool: one that treats the published issue as the source of truth, not a rough draft that needs to be rewritten for a camera.",
+        ],
+        bullets: [
+          "HeyGen: avatar scripting required before generation can begin",
+          "Blog2Video: newsletter URL → scenes → video in under 3 minutes",
+          "Blog2Video preserves the essay structure, sections, and voice of the original issue",
+          "Better fit when production volume matters as much as output quality",
+        ],
+      },
+      {
+        title: "Who Blog2Video fits better as a HeyGen replacement for newsletters",
+        body: [
+          "Blog2Video is the stronger HeyGen alternative for Substack writers, Ghost publishers, newsletter operators on Beehiiv and ConvertKit, and anyone who publishes recurring written content and wants video as a distribution channel — not a separate creative workflow.",
+          "Paste the public URL of an issue, pick a template and voice, and the video is ready. The structure comes from the newsletter itself — headings, key points, and closing call-to-actions all map to scenes without manual adaptation.",
+        ],
+      },
+    ],
+    relatedPaths: [
+      "/heygen-alternative",
+      "/for-newsletters",
+      "/for-substack-writers",
+      "/pictory-alternative-for-newsletter-writers",
+    ],
+  },
+  {
+    path: "/heygen-alternative-for-substack-writers",
+    title: "HeyGen Alternative for Substack Writers",
+    description:
+      "Looking for a HeyGen alternative for turning Substack essays into video? Blog2Video turns each public Substack issue into a structured narrated video without requiring you to script an avatar or rebuild the post from scratch.",
+    eyebrow: "Alternative",
+    heroTitle: "The HeyGen alternative built for Substack writers who publish weekly",
+    heroDescription:
+      "HeyGen works well for one-off spokesperson videos. Substack writers need a tool that fits a recurring schedule — URL in, structured video out — without adding an avatar scripting step to every issue.",
+    primaryKeyword: "heygen alternative for substack writers",
+    keywordVariant: "heygen for substack",
+    recommendedTemplate: "newspaper",
+    demoWidget: true,
+    proofPoints: [
+      "Works with public Substack issue URLs — no copy-paste or reformatting required.",
+      "Preserves the essay structure and editorial voice of each issue in the video output.",
+      "Designed for recurring publishing, not one-off production.",
+    ],
+    sections: [
+      {
+        title: "What Substack writers actually need from a video tool",
+        body: [
+          "A Substack writer publishing twice per week needs video to be a distribution step, not a separate production project. HeyGen's avatar-first workflow forces a rewrite of every issue into a presenter-friendly script before generation can begin. That adds meaningful time per issue.",
+          "Blog2Video skips the rewrite entirely. The Substack issue URL is the input. The tool maps the essay structure to scenes, writes narration from the original text, and generates a finished video that stays true to the original editorial voice.",
+        ],
+        bullets: [
+          "HeyGen: best for spokesperson-led brand and sales videos",
+          "Blog2Video: best for essay-driven, recurring newsletter publishing",
+          "Blog2Video works with public Substack URLs directly — no manual copy-paste",
+          "Reuse the same template across every issue for a consistent show format",
+        ],
+      },
+      {
+        title: "Building a video show from your Substack archive",
+        body: [
+          "One of the most effective uses of Blog2Video for Substack writers is turning the existing archive into a back-catalog of videos. Each public issue becomes an episode. A recurring template turns those episodes into a recognizable show format that builds subscriber loyalty across YouTube and social.",
+          "HeyGen can produce individual polished videos, but it does not lend itself to this kind of archive-driven batch workflow. Blog2Video's URL-first generation is designed for exactly this use case.",
+        ],
+      },
+    ],
+    relatedPaths: [
+      "/heygen-alternative",
+      "/for-substack-writers",
+      "/heygen-alternative-for-newsletter-writers",
+      "/blog-to-video",
+    ],
+  },
+  {
+    path: "/pictory-alternative-for-substack-writers",
+    title: "Pictory Alternative for Substack Writers",
+    description:
+      "Looking for a Pictory alternative for turning Substack essays into video? Blog2Video preserves your editorial structure and voice instead of extracting highlights for stock footage overlays.",
+    eyebrow: "Alternative",
+    heroTitle: "The Pictory alternative that keeps your Substack essay intact",
+    heroDescription:
+      "Pictory extracts highlights and pairs them with stock footage. Substack essays don't work that way — the argument runs across the whole piece. Blog2Video maps the full essay structure to scenes and keeps the voice of the original writing.",
+    primaryKeyword: "pictory alternative for substack writers",
+    keywordVariant: "pictory for substack",
+    recommendedTemplate: "newspaper",
+    demoWidget: true,
+    proofPoints: [
+      "No stock footage — templates give each Substack essay its own consistent visual identity.",
+      "Full essay structure → scenes: every section maps, not just extracted highlights.",
+      "Works with public Substack issue URLs directly.",
+    ],
+    sections: [
+      {
+        title: "Why stock-footage tools misfire on essay content",
+        body: [
+          "Pictory is designed around the idea that stock footage adds context to your sentences. That works for brand marketing. It breaks down immediately for Substack essays, where the value is an argument built across multiple paragraphs, not a set of independently illustratable sentences.",
+          "Blog2Video treats the essay as a narrative arc — each section becomes a scene, each heading becomes a visual anchor, and the narration follows the original argument rather than a compressed highlight reel. For opinion, analysis, and in-depth commentary, that difference in output quality is significant.",
+        ],
+        bullets: [
+          "Pictory: highlights + stock footage (loses essay continuity)",
+          "Blog2Video: full structure + narration (preserves the argument across scenes)",
+          "No stock library needed — templates work for any Substack niche",
+          "Better fit for recurring issues than one-off promotional clips",
+        ],
+      },
+      {
+        title: "Which Substack writers benefit most",
+        body: [
+          "Blog2Video as a Pictory alternative works best for Substack writers who publish analysis, commentary, research summaries, and long-form editorial content — any niche where the argument across the full piece is the product, not a set of illustratable moments.",
+          "The Newspaper and Newscast templates in Blog2Video are purpose-built for this content type and give recurring Substack issues the serialized editorial feel of a real publication.",
+        ],
+      },
+    ],
+    relatedPaths: [
+      "/pictory-alternative",
+      "/for-substack-writers",
+      "/heygen-alternative-for-substack-writers",
+      "/blog-to-video",
+    ],
+  },
+  {
+    path: "/pictory-alternative-for-newsletter-writers",
+    title: "Pictory Alternative for Newsletter Writers",
+    description:
+      "Looking for a Pictory alternative for turning newsletter content into video? Blog2Video preserves your editorial structure and voice — no stock footage library, no highlight extraction.",
+    eyebrow: "Alternative",
+    heroTitle: "The Pictory alternative for newsletter writers who want structure, not stock",
+    heroDescription:
+      "Pictory selects stock footage for extracted highlights. Newsletters are built around a structured argument, not standalone sentences. Blog2Video turns the whole newsletter into a coherent video instead of a highlight reel.",
+    primaryKeyword: "pictory alternative for newsletter writers",
+    keywordVariant: "pictory for newsletters",
+    recommendedTemplate: "newspaper",
+    demoWidget: true,
+    proofPoints: [
+      "No stock footage selection required — templates drive the visual language.",
+      "Narration follows your newsletter's full argument, not extracted fragments.",
+      "Reusable template per publication means every issue has a consistent on-brand look.",
+    ],
+    sections: [
+      {
+        title: "The structural mismatch between Pictory and newsletter content",
+        body: [
+          "Newsletter writers spend considerable time building an argument across sections, transitions, and conclusions. Pictory's highlight-extraction approach dismantles that structure — it pulls individual sentences and matches them to stock footage, effectively turning an essay into a slideshow of disconnected clips.",
+          "Blog2Video respects the source structure. The newsletter's headings, key claims, examples, and closing points all map to scenes in sequence. The video tells the same story the newsletter told, in the same order, at the same depth.",
+        ],
+      },
+      {
+        title: "Better fit for recurring newsletter-to-video workflows",
+        body: [
+          "Newsletter operators who want to publish video consistently — one episode per issue — need a tool that fits a recurring workflow. Pictory's per-session stock curation doesn't scale well for weekly or bi-weekly publishing.",
+          "Blog2Video's URL-first generation and reusable templates are designed for this recurring workflow. Once you have a template that matches your publication's identity, turning each new issue into a video is a three-minute step, not a production project.",
+        ],
+        bullets: [
+          "Paste the issue URL — no copy-paste or reformatting required",
+          "Template reuse across issues creates a consistent editorial video format",
+          "Narration quality from ElevenLabs sounds like a real narrator, not a highlight reel voice-over",
+          "Three minutes per issue at scale vs. manual stock curation per video",
+        ],
+      },
+    ],
+    relatedPaths: [
+      "/pictory-alternative",
+      "/for-newsletters",
+      "/pictory-alternative-for-substack-writers",
+      "/blog-to-video",
+    ],
+  },
+  {
+    path: "/lumen5-alternative-for-technical-bloggers",
+    title: "Lumen5 Alternative for Technical Bloggers",
+    description:
+      "Looking for a Lumen5 alternative for technical blog posts? Blog2Video preserves your code blocks, diagrams, and technical structure instead of matching irrelevant stock footage to your sentences.",
+    eyebrow: "Alternative",
+    heroTitle: "The Lumen5 alternative for technical bloggers where stock footage misses the point",
+    heroDescription:
+      "Lumen5 suggests stock footage for each sentence. Technical posts have code, diagrams, and implementation detail — there is no stock footage for any of that. Blog2Video builds videos from the technical structure of your post, not from a media library.",
+    primaryKeyword: "lumen5 alternative for technical bloggers",
+    keywordVariant: "lumen5 for technical blogs",
+    recommendedTemplate: "geometric-explainer",
+    demoWidget: true,
+    proofPoints: [
+      "Handles code blocks, bullet lists, and structured technical arguments natively.",
+      "No stock footage — templates give technical content a clean, readable visual system.",
+      "Article headings drive scene structure automatically.",
+    ],
+    sections: [
+      {
+        title: "Why stock footage tools fail for technical content",
+        body: [
+          "Lumen5 pairs stock footage with lines of text. That approach works for lifestyle and marketing content where a generic image adds atmosphere. It fails immediately for technical posts — there is no stock footage for a database schema, a Kubernetes deployment YAML, or a performance benchmark chart.",
+          "Technical bloggers who try Lumen5 end up spending more time removing irrelevant stock footage than they saved by using the tool in the first place. Blog2Video sidesteps this entirely. No stock library, no media browsing, no irrelevant b-roll. The video is built from the article's own structure using animated templates that work for any technical topic.",
+        ],
+        bullets: [
+          "Lumen5: stock footage per sentence (irrelevant for technical content)",
+          "Blog2Video: animated templates + article structure (no stock library needed)",
+          "Blog2Video preserves code blocks, lists, and heading hierarchy in scenes",
+          "URL-to-video in under 3 minutes — no manual media selection step",
+        ],
+      },
+      {
+        title: "Who technical bloggers use Blog2Video for",
+        body: [
+          "The strongest use cases are technical tutorials, architecture explainers, benchmark and performance writeups, library and API walkthroughs, and engineering postmortems. Any post where the value is in the precise technical argument — not a generically illustrated summary — benefits from Blog2Video's structure-first approach.",
+          "The Geometric Explainer and Matrix templates are particularly well-suited for technical content. They present code blocks, bullet lists, and structured arguments in a way that stays readable on screen while keeping the video format tight.",
+        ],
+      },
+    ],
+    relatedPaths: [
+      "/lumen5-alternative",
+      "/for-technical-bloggers",
+      "/blog2video-vs-lumen5",
+      "/blog-to-video",
+    ],
+  },
+  {
+    path: "/lumen5-alternative-for-substack-writers",
+    title: "Lumen5 Alternative for Substack Writers",
+    description:
+      "Looking for a Lumen5 alternative for turning Substack issues into video? Blog2Video fits recurring newsletter publishing without requiring per-issue stock curation or manual scene adjustment.",
+    eyebrow: "Alternative",
+    heroTitle: "The Lumen5 alternative for Substack writers who need video at newsletter cadence",
+    heroDescription:
+      "Lumen5 requires manual stock selection and scene adjustment per video. Substack writers publishing weekly or bi-weekly can't sustain that overhead. Blog2Video turns each public issue URL into a finished video in under three minutes.",
+    primaryKeyword: "lumen5 alternative for substack writers",
+    keywordVariant: "lumen5 for substack",
+    recommendedTemplate: "newspaper",
+    demoWidget: true,
+    proofPoints: [
+      "Works with public Substack issue URLs — no copy-paste required.",
+      "No per-issue stock curation — templates handle the visual system automatically.",
+      "Reusable template means every episode looks like a consistent show.",
+    ],
+    sections: [
+      {
+        title: "Why Lumen5's per-video overhead doesn't work at newsletter cadence",
+        body: [
+          "Lumen5 automates the initial scene suggestion, but you still spend significant time per video replacing irrelevant stock footage, adjusting text blocks, and curating pacing. For a team publishing weekly issues and wanting a corresponding video, that per-issue overhead adds up to a part-time job.",
+          "Blog2Video compresses that overhead to near-zero for recurring publishing. Once a template is selected that matches the publication's identity, each new issue URL generates a full video automatically. Review, adjust one or two scenes if needed, render.",
+        ],
+        bullets: [
+          "Lumen5: significant per-issue manual work (stock, text, pacing)",
+          "Blog2Video: three-minute per-issue workflow at steady-state",
+          "Newspaper template gives Substack issues a serialized editorial look",
+          "Same template reused across issues = recognizable video show format",
+        ],
+      },
+      {
+        title: "Building a video back-catalog from your Substack archive",
+        body: [
+          "One of the highest-leverage uses of Blog2Video for Substack writers is turning the existing post archive into a YouTube back-catalog. Each public issue URL generates a video. A consistent template turns those videos into a series. The back-catalog works for YouTube search discovery while new issues feed the active show.",
+          "Lumen5 can produce individual polished videos, but its workflow is not designed for this kind of archive-scale batch generation. Blog2Video's URL-first approach makes archive conversion a realistic project, not a wishlist item.",
+        ],
+      },
+    ],
+    relatedPaths: [
+      "/lumen5-alternative",
+      "/for-substack-writers",
+      "/lumen5-alternative-for-technical-bloggers",
+      "/blog-to-video",
     ],
   },
   {

@@ -1,12 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import DiscountBanner from "../DiscountBanner";
+
+const AI_NAMES = ["Claude", "Gemini", "OpenAI", "n8n"];
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [aiIdx, setAiIdx] = useState(0);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setAiIdx(i => (i + 1) % AI_NAMES.length);
+        setFade(true);
+      }, 300);
+    }, 1800);
+    return () => clearInterval(id);
+  }, []);
 
   if (!user) return null;
 
@@ -57,7 +72,9 @@ const Navbar = () => {
           >
             Connect to AI
             <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
-              Claude · OpenAI · Gemini · n8n
+              <span style={{ display: 'inline-block', transition: 'opacity 0.3s, transform 0.3s', opacity: fade ? 1 : 0, transform: fade ? 'translateY(0)' : 'translateY(-4px)' }}>
+                {AI_NAMES[aiIdx]}
+              </span>
             </span>
           </Link>
 
@@ -108,7 +125,11 @@ const Navbar = () => {
                   </Link>
                   <Link to="/mcp-connector" onClick={() => setMenuOpen(false)} className="flex items-center px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
                     Connect to AI
-                    <span className="ml-auto text-[9px] font-semibold bg-purple-600 text-white px-1.5 rounded-full whitespace-nowrap">Claude · OpenAI · Gemini · n8n</span>
+                    <span className="ml-auto text-[9px] font-semibold bg-purple-600 text-white px-1.5 rounded-full whitespace-nowrap">
+                      <span style={{ display: 'inline-block', transition: 'opacity 0.3s, transform 0.3s', opacity: fade ? 1 : 0, transform: fade ? 'translateY(0)' : 'translateY(-4px)' }}>
+                        {AI_NAMES[aiIdx]}
+                      </span>
+                    </span>
                   </Link>
                   <Link to="/subscription" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Billing</Link>
                   <div className="px-4 py-2.5 text-xs text-gray-400 border-t border-gray-100 mt-1">

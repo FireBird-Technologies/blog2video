@@ -176,6 +176,16 @@ export interface Project {
   assets: Asset[];
 }
 
+export interface EmbedProjectResponse extends Project {
+  crafted_template?: CraftedTemplateDetail | null;
+  custom_template_code?: {
+    intro_code: string | null;
+    outro_code: string | null;
+    content_codes: string[] | null;
+  } | null;
+  layout_prop_schema?: Record<string, LayoutPropSchemaEntry> | null;
+}
+
 export interface ProjectListItem {
   id: number;
   name: string;
@@ -257,6 +267,9 @@ export interface SubscriptionDetail {
   amount_paid_cents: number;
   canceled_at: string | null;
   retention_offer_eligible: boolean;
+  scheduled_plan_slug: string | null;
+  scheduled_plan_name: string | null;
+  scheduled_change_at: string | null;
   created_at: string;
 }
 
@@ -1153,6 +1166,8 @@ export interface VoiceChangeStatus {
   progress: number;
   status: string;
   r2_video_url: string | null;
+  /** Which operation is running: "voice_change" (add/change) or "delete". */
+  kind?: string;
 }
 
 /**
@@ -1171,6 +1186,15 @@ export const changeProjectVoice = (
 
 export const getVoiceChangeStatus = (projectId: number) =>
   api.get<VoiceChangeStatus>(`/projects/${projectId}/voice-change-status`);
+
+/**
+ * Remove the project's voiceover and make the video mute. Does NOT deduct a video
+ * credit. Runs in the background as a job — poll getVoiceChangeStatus for progress
+ * (it reports kind="delete"). The existing render is kept; re-rendering to apply the
+ * mute is a normal (paid) re-render.
+ */
+export const deleteProjectVoiceover = (projectId: number) =>
+  api.post<VoiceChangeStartResponse>(`/projects/${projectId}/delete-voiceover`);
 
 export const updateScene = (
   projectId: number,

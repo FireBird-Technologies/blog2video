@@ -11,6 +11,9 @@ interface Props {
   isRegenerating?: boolean;
   /** Disable all interactive buttons (editing, regeneration) when pipeline/render is in progress. */
   disabled?: boolean;
+  /** When provided, the Edit button opens the shared SceneEditModal (same as the Edit Scenes tab)
+   *  instead of the inline title/display-text form. */
+  onEditScene?: (scene: Scene) => void;
 }
 
 // Resolve the layout to display, distinguishing the planned hint (preferred_layout, set
@@ -36,6 +39,7 @@ export default function ScriptPanel({
   onRegenerateScript,
   isRegenerating,
   disabled,
+  onEditScene,
 }: Props) {
   const [editingSceneId, setEditingSceneId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ title: string; display_text: string }>({
@@ -48,6 +52,11 @@ export default function ScriptPanel({
 
   function openEdit(scene: Scene) {
     if (isDisabled) return;
+    // Prefer the shared full edit modal when the parent wires it up.
+    if (onEditScene) {
+      onEditScene(scene);
+      return;
+    }
     setEditingSceneId(scene.id);
     setEditDraft({ title: scene.title, display_text: scene.display_text ?? "" });
   }
@@ -197,7 +206,7 @@ export default function ScriptPanel({
                       onClick={() => openEdit(scene)}
                       disabled={isDisabled}
                       className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors flex-shrink-0 text-xs font-medium disabled:opacity-40 disabled:pointer-events-none"
-                      title="Edit title and display text"
+                      title={onEditScene ? "Edit scene" : "Edit title and display text"}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
