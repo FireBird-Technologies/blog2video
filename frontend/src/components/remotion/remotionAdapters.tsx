@@ -63,6 +63,12 @@ import {
   type ChronicleLayoutProps as RemotionChronicleLayoutProps,
 } from "@remotion-video/templates/chronicle/layouts";
 import { ChronicleChrome as RemotionChronicleChrome } from "@remotion-video/templates/chronicle/components/ChronicleChrome";
+import { ECONOMIST_LAYOUT_REGISTRY as REMOTION_ECONOMIST_LAYOUT_REGISTRY } from "@remotion-video/templates/economist/layouts";
+import type {
+  EconomistLayoutType as RemotionEconomistLayoutType,
+  EconomistLayoutProps as RemotionEconomistLayoutProps,
+} from "@remotion-video/templates/economist/types";
+import { EconomistChrome as RemotionEconomistChrome } from "@remotion-video/templates/economist/components/EconomistChrome";
 import { NewsCastBackground } from "./newscast/NewsCastBackground";
 import { NewsCastChrome } from "./newscast/NewsCastChrome";
 import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
@@ -1540,6 +1546,138 @@ export const RemotionChronicleVideoComposition: React.FC<
               >
                 <LayoutComponent {...layoutProps} />
               </RemotionChronicleChrome>
+              {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            </AbsoluteFill>
+          </Sequence>
+        );
+      })}
+
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+// ─── Economist ──────────────────────────────────────────────────────────────
+
+export interface RemotionEconomistSceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: RemotionEconomistLayoutType | string;
+  layoutProps: Record<string, unknown>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+}
+
+export interface RemotionEconomistVideoCompositionProps {
+  scenes: RemotionEconomistSceneInput[];
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  logoSize?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+}
+
+// cover_reveal owns its own dramatic opening; it skips the chrome fade.
+const ECONOMIST_LAYOUTS_WITHOUT_CHROME_FADE = new Set<string>(["cover_reveal"]);
+// Full-bleed scenes own the whole canvas — no page frame / footer furniture.
+const ECONOMIST_MINIMAL_CHROME_LAYOUTS = new Set<string>([
+  "cover_reveal",
+  "image_feature",
+  "section_divider",
+]);
+
+export const RemotionEconomistVideoComposition: React.FC<
+  RemotionEconomistVideoCompositionProps
+> = ({
+  scenes,
+  accentColor,
+  bgColor,
+  textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  logoSize,
+  aspectRatio,
+  fontFamily,
+}) => {
+  const FPS = 30;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#F6F4EE", fontFamily }}>
+      {scenes.map((scene, index) => {
+        const startFrame = scenes
+          .slice(0, index)
+          .reduce(
+            (acc, s) => acc + Math.max(1, Math.round((s.durationSeconds || 5) * FPS)),
+            0,
+          );
+
+        const durationFrames = Math.max(
+          1,
+          Math.round((scene.durationSeconds || 5) * FPS),
+        );
+
+        const LayoutComponent =
+          REMOTION_ECONOMIST_LAYOUT_REGISTRY[
+            scene.layout as RemotionEconomistLayoutType
+          ] ?? REMOTION_ECONOMIST_LAYOUT_REGISTRY.leader_article;
+
+        const rawProps = (scene.layoutProps as Record<string, unknown>) ?? {};
+        const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
+        const focusY = Math.max(0, Math.min(100, Number(rawProps.imageFocusY ?? 50)));
+
+        const layoutProps: RemotionEconomistLayoutProps = {
+          ...(rawProps as Partial<RemotionEconomistLayoutProps>),
+          title: scene.title,
+          narration: scene.narration,
+          imageUrl: scene.imageUrl,
+          imageObjectPosition: `${focusX}% ${focusY}%`,
+          imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
+          accentColor: accentColor || "#E3120B",
+          bgColor: bgColor || "#F6F4EE",
+          textColor: textColor || "#1A1A1A",
+          aspectRatio: (aspectRatio as "landscape" | "portrait") || "landscape",
+          fontFamily,
+        };
+
+        const skipFade = ECONOMIST_LAYOUTS_WITHOUT_CHROME_FADE.has(String(scene.layout));
+        const minimal = ECONOMIST_MINIMAL_CHROME_LAYOUTS.has(String(scene.layout));
+
+        return (
+          <Sequence
+            key={`${scene.id}-${index}`}
+            from={startFrame}
+            durationInFrames={durationFrames}
+            name={scene.title}
+          >
+            <AbsoluteFill>
+              <RemotionEconomistChrome
+                bgColor={bgColor || "#F6F4EE"}
+                accentColor={accentColor || "#E3120B"}
+                textColor={textColor || "#1A1A1A"}
+                sectionLabel={layoutProps.sectionLabel}
+                dateline={layoutProps.dateline}
+                wordmark={layoutProps.wordmark}
+                minimal={minimal}
+                disableFade={skipFade}
+              >
+                <LayoutComponent {...layoutProps} />
+              </RemotionEconomistChrome>
               {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
             </AbsoluteFill>
           </Sequence>

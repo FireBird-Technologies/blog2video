@@ -485,6 +485,9 @@ export interface LayoutPropSchema {
   label?: string;
   description?: string;
   defaults?: Record<string, unknown>;
+  /** Studio-preview-only prop samples — merged over defaults in Template Studio,
+      NEVER merged into real renders (remotion.py reads only `defaults`). */
+  sample_props?: Record<string, unknown>;
   scene_defaults?: LayoutSceneDefaults;
   fields: LayoutPropField[];
 }
