@@ -3,7 +3,10 @@ import { SpotlightBackground } from "../SpotlightBackground";
 import {
   AccentBars,
   BigGlyphBackdrop,
+  FilmGrain,
   FlashPop,
+  HalftoneField,
+  LightDust,
   SpotlightBeam,
 } from "../components/SpotlightArtifacts";
 import {
@@ -112,8 +115,12 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
       )}
       {/* Signature stage light sweeps in and lands on the title slam. */}
       <SpotlightBeam mode="land" targetX={50} startFrame={0} />
+      {/* Dust catches the beam; halftone corner + grain give it a printed-poster feel. */}
+      <LightDust count={22} seed={3} />
+      <HalftoneField accentColor={accentColor} corner="bottom-left" />
       {/* Camera flashes pop once the title has landed. */}
       <FlashPop count={2} every={80} seed={19} startFrame={30} />
+      <FilmGrain />
       <AccentBars accentColor={accentColor} position="bottom-left" startFrame={4} />
 
       <div

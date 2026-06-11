@@ -1,6 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
-import { StreakField, BigGlyphBackdrop, FlashPop, TitleEcho } from "../components/SpotlightArtifacts";
+import { StreakField, BigGlyphBackdrop, FilmGrain, FlashPop, HalftoneField, TitleEcho } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
@@ -64,8 +64,11 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
         <TitleEcho text={displayWord} accentColor={accentColor} startFrame={3} />
       )}
       <StreakField accentColor={accentColor} count={12} seed={11} startFrame={3} />
+      {/* Poster halftone corner + grain. */}
+      <HalftoneField accentColor={accentColor} corner="top-right" />
       {/* Flashes fire as the word slams home. */}
       <FlashPop count={2} every={70} seed={23} startFrame={10} />
+      <FilmGrain />
 
       <div
         style={{

@@ -1,0 +1,70 @@
+{
+  "projectName": "The Chronicle of Artificial Minds",
+  "accentColor": "#B8860B",
+  "bgColor": "#F1E4C9",
+  "textColor": "#2A1810",
+  "scenes": [
+    {
+      "id": 1,
+      "order": 1,
+      "title": "The Chronicle of Artificial Minds",
+      "narration": "An illuminated history of the thinking machine.",
+      "layout": "book_open",
+      "layoutProps": {},
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2,
+      "order": 2,
+      "title": "On the Nature of Reason",
+      "narration": "In the age of computation, the scribes wrote of minds wrought from logic and lightning, machines that might one day reason as men do.",
+      "layout": "parchment_scroll",
+      "layoutProps": {},
+      "durationSeconds": 7,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3,
+      "order": 3,
+      "title": "The Great Ledger",
+      "narration": "The tally of progress.",
+      "layout": "ledger_stats",
+      "layoutProps": {
+        "metrics": [
+          { "value": "1956", "suffix": "", "label": "The First Summer" },
+          { "value": "175", "suffix": "B", "label": "Parameters" },
+          { "value": "400", "suffix": "M", "label": "Repositories" }
+        ]
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4,
+      "order": 4,
+      "title": "Wisdom of the Ancients",
+      "narration": "The machine is but a mirror held to the mind of its maker.",
+      "highlightPhrase": "a mirror",
+      "layout": "illuminated_quote",
+      "layoutProps": {},
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5,
+      "order": 5,
+      "title": "So It Is Decreed",
+      "narration": "Hear ye",
+      "layout": "decree_seal",
+      "layoutProps": {},
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

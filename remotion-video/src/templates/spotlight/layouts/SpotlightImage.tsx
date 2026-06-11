@@ -1,6 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
-import { AccentBars, SpotlightBeam } from "../components/SpotlightArtifacts";
+import { AccentBars, FilmGrain, LightDust, SpotlightBeam } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -138,9 +138,11 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
         }}
       />
 
-      {/* Decorative artifacts — a stage light sweeps the reveal, accent bars anchor it. */}
+      {/* Decorative artifacts — a stage light sweeps the reveal, dust + bars anchor it. */}
       <SpotlightBeam mode="land" targetX={50} startFrame={2} intensity={0.55} />
+      <LightDust count={18} seed={15} />
       <AccentBars accentColor={accentColor} position="top-right" count={2} startFrame={12} />
+      <FilmGrain intensity={0.7} />
 
       {/* Caption bar — larger text area */}
       <div

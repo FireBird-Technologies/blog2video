@@ -26,6 +26,19 @@ const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 const charAt = (seed: number, pool: string): string =>
   pool[Math.floor(seededRandom(seed) * pool.length)];
 
+/**
+ * Build a terminal status line from a layout's brand "verb" + the scene's own
+ * content, so the HUD reads as live and unique per scene (e.g.
+ * `> DECODING // THE TRUTH ABOUT AI`). Uppercased, stripped of newlines, and
+ * clamped so it never wraps past the bottom edge.
+ */
+export const buildHudStatus = (verb: string, content?: string, max = 42): string => {
+  const body = (content ?? "").replace(/\s+/g, " ").trim().toUpperCase();
+  if (!body) return `> ${verb}`;
+  const clamped = body.length > max ? `${body.slice(0, max - 1).trimEnd()}…` : body;
+  return `> ${verb} // ${clamped}`;
+};
+
 // ─── RainBurst ───────────────────────────────────────────────────────────────
 // A localized surge of bright glyph columns that cascades down a band of the
 // frame at scene start, then thins out — denser and brighter than the ambient
@@ -456,6 +469,137 @@ export const ScanlinesOverlay: React.FC<{
           opacity: 0.8 * intensity,
         }}
       />
+    </AbsoluteFill>
+  );
+};
+
+// ─── SignalWaveform ──────────────────────────────────────────────────────────
+// A thin equalizer/oscilloscope bar pinned to an edge — bars pulse on a seeded,
+// frame-driven rhythm so it reads as a live audio/data signal. Deterministic
+// (no real audio), edge-hugging, never near the focal text.
+
+export const SignalWaveform: React.FC<{
+  accentColor?: string;
+  edge?: "bottom" | "top";
+  bars?: number;
+  seed?: number;
+  startFrame?: number;
+}> = ({ accentColor = "#00FF41", edge = "bottom", bars = 48, seed = 20, startFrame = 0 }) => {
+  const frame = useCurrentFrame();
+  const local = frame - startFrame;
+  if (local < 0) return null;
+  const appear = interpolate(local, [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      <div
+        style={{
+          position: "absolute",
+          left: "4%",
+          right: "4%",
+          [edge]: "6%",
+          height: 46,
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          opacity: 0.34 * appear,
+        }}
+      >
+        {Array.from({ length: bars }).map((_, i) => {
+          // Each bar oscillates on its own seeded frequency + phase.
+          const f = 0.06 + seededRandom(seed + i * 2.3) * 0.16;
+          const ph = seededRandom(seed + i * 5.9) * Math.PI * 2;
+          const env = 0.2 + 0.8 * Math.abs(Math.sin(local * f + ph));
+          const h = 4 + env * 42;
+          return (
+            <div
+              key={i}
+              style={{
+                width: `calc(${100 / bars}% - 2px)`,
+                height: h,
+                background: accentColor,
+                borderRadius: 1,
+                boxShadow: env > 0.8 ? `0 0 8px ${accentColor}` : "none",
+                opacity: 0.5 + env * 0.5,
+              }}
+            />
+          );
+        })}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ─── TelemetryGauge ──────────────────────────────────────────────────────────
+// A small corner arc-gauge that sweeps up to a seeded "reading" then holds with
+// a faint needle wobble — HUD telemetry. SVG arc via stroke-dashoffset. Sits in
+// a corner, far from the text.
+
+export const TelemetryGauge: React.FC<{
+  accentColor?: string;
+  label?: string;
+  corner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  startFrame?: number;
+  seed?: number;
+}> = ({ accentColor = "#00FF41", label = "SYNC", corner = "top-right", startFrame = 0, seed = 30 }) => {
+  const frame = useCurrentFrame();
+  const local = Math.max(0, frame - startFrame);
+  const target = 0.62 + seededRandom(seed) * 0.34; // 62–96%
+  const swept = easeOutCubic(interpolate(local, [0, 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
+  const wobble = local > 34 ? Math.sin(local * 0.12) * 0.012 : 0;
+  const value = Math.min(1, target * swept + wobble);
+  const pct = Math.round(value * 100);
+  const right = corner.endsWith("right");
+  const bottom = corner.startsWith("bottom");
+  // 270° arc from 135° to 405°.
+  const R = 34;
+  const circ = 2 * Math.PI * R;
+  const arcFrac = 0.75; // 270°
+  const dash = circ * arcFrac;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "absolute",
+          [right ? "right" : "left"]: "3.5%",
+          [bottom ? "bottom" : "top"]: "6%",
+          width: 92,
+          height: 92,
+          opacity: 0.5,
+        }}
+      >
+        <svg width={92} height={92} viewBox="0 0 92 92" style={{ transform: "rotate(135deg)" }}>
+          {/* track */}
+          <circle cx={46} cy={46} r={R} fill="none" stroke={`${accentColor}33`} strokeWidth={4} strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
+          {/* value */}
+          <circle
+            cx={46}
+            cy={46}
+            r={R}
+            fill="none"
+            stroke={accentColor}
+            strokeWidth={4}
+            strokeDasharray={`${dash * value} ${circ}`}
+            strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 4px ${accentColor})` }}
+          />
+        </svg>
+        {/* center readout */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: MATRIX_DEFAULT_FONT_FAMILY,
+            color: accentColor,
+          }}
+        >
+          <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{pct}%</span>
+          <span style={{ fontSize: 9, letterSpacing: "0.12em", opacity: 0.8 }}>{label}</span>
+        </div>
+      </div>
     </AbsoluteFill>
   );
 };

@@ -600,6 +600,129 @@ export const StarburstBadge: React.FC<{
   );
 };
 
+// ─── HalftoneField ───────────────────────────────────────────────────────────
+// A poster-style halftone dot gradient hugging one corner/edge — the dots fade
+// from solid to nothing across a diagonal, the classic editorial pop-art texture.
+// CSS radial-gradient tiles (no per-dot DOM), masked so it only reads in a corner
+// and never crosses the focal text. Slowly breathes for life.
+
+export const HalftoneField: React.FC<{
+  accentColor?: string;
+  corner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  /** Dot grid pitch in px. */
+  pitch?: number;
+  tint?: "accent" | "white";
+  intensity?: number;
+}> = ({ accentColor = "#EF4444", corner = "bottom-right", pitch = 22, tint = "accent", intensity = 1 }) => {
+  const frame = useCurrentFrame();
+  const right = corner.endsWith("right");
+  const bottom = corner.startsWith("bottom");
+  const dot = tint === "accent" ? accentColor : "#FFFFFF";
+  // Gentle breathing on the dot radius via background-size wobble.
+  const breathe = 1 + Math.sin(frame * 0.03) * 0.05;
+  const size = pitch * breathe;
+  // Fade mask: dots solid at the chosen corner, gone by ~55% across.
+  const maskDir = `${bottom ? "to top" : "to bottom"} ${right ? "left" : "right"}`;
+  const mask = `linear-gradient(${bottom ? "to top" : "to bottom"}, black 0%, transparent 55%)`;
+  const maskX = `linear-gradient(${right ? "to left" : "to right"}, black 0%, transparent 60%)`;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      <AbsoluteFill
+        style={{
+          backgroundImage: `radial-gradient(${dot} ${1.6 * breathe}px, transparent ${1.8 * breathe}px)`,
+          backgroundSize: `${size}px ${size}px`,
+          backgroundPosition: `${right ? "right" : "left"} ${bottom ? "bottom" : "top"}`,
+          opacity: 0.4 * intensity,
+          WebkitMaskImage: `${mask}, ${maskX}`,
+          WebkitMaskComposite: "source-in",
+          maskImage: `${mask}, ${maskX}`,
+          maskComposite: "intersect",
+        }}
+      />
+      {/* maskDir kept referenced for clarity; intersect masks give the corner wedge. */}
+      <span style={{ display: "none" }}>{maskDir}</span>
+    </AbsoluteFill>
+  );
+};
+
+// ─── FilmGrain ───────────────────────────────────────────────────────────────
+// A subtle moving grain/noise layer for cinematic texture over the whole stage.
+// Built from a few seeded, frame-stepped speckle layers (deterministic) rather
+// than an SVG turbulence filter (which can render inconsistently headless).
+
+export const FilmGrain: React.FC<{ intensity?: number }> = ({ intensity = 1 }) => {
+  const frame = useCurrentFrame();
+  // Step the noise every 2 frames so it shimmers without strobing.
+  const step = Math.floor(frame / 2);
+  // Three offset speckle tiles built from layered radial-gradients; shifting the
+  // background-position each step makes the grain "boil".
+  const ox = (step * 7) % 13;
+  const oy = (step * 11) % 17;
+  return (
+    <AbsoluteFill
+      style={{
+        pointerEvents: "none",
+        mixBlendMode: "overlay",
+        opacity: 0.06 * intensity,
+        backgroundImage: `
+          radial-gradient(rgba(255,255,255,0.9) 0.5px, transparent 0.6px),
+          radial-gradient(rgba(255,255,255,0.7) 0.5px, transparent 0.6px)
+        `,
+        backgroundSize: "3px 3px, 4px 4px",
+        backgroundPosition: `${ox}px ${oy}px, ${-oy}px ${ox}px`,
+      }}
+    />
+  );
+};
+
+// ─── LightDust ───────────────────────────────────────────────────────────────
+// Slow floating motes drifting upward through the stage light — fine specks that
+// catch the beam. Seeded, frame-driven, very low opacity. Adds the "dust in a
+// spotlight" cinematic touch without touching the type.
+
+export const LightDust: React.FC<{
+  count?: number;
+  seed?: number;
+  tint?: "accent" | "white";
+  accentColor?: string;
+}> = ({ count = 26, seed = 3, tint = "white", accentColor = "#EF4444" }) => {
+  const frame = useCurrentFrame();
+  const color = tint === "accent" ? accentColor : "#FFFFFF";
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      {Array.from({ length: count }).map((_, i) => {
+        const r1 = seededRandom(seed + i * 3.7);
+        const r2 = seededRandom(seed + i * 8.1);
+        const r3 = seededRandom(seed + i * 12.9);
+        const x = r1 * 100;
+        const speed = 0.05 + r2 * 0.12;
+        const size = 1.5 + r3 * 2.5;
+        // Drift upward + slight horizontal sway; wrap over 100% height.
+        const yBase = (100 - ((frame * speed + r2 * 100) % 110)) ;
+        const sway = Math.sin(frame * 0.02 + r1 * Math.PI * 2) * 1.5;
+        // Twinkle so each mote fades on its own phase.
+        const tw = 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(frame * 0.05 + r3 * Math.PI * 2));
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${x + sway}%`,
+              top: `${yBase}%`,
+              width: size,
+              height: size,
+              borderRadius: "50%",
+              background: color,
+              opacity: tw,
+              boxShadow: `0 0 ${size * 2}px ${color}`,
+            }}
+          />
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
 // ─── PulseRing ───────────────────────────────────────────────────────────────
 // A faint accent ring that expands + fades on a deterministic loop, centred. A
 // soft "pulse" behind a stat. Subtle — adds life without a focal element.

@@ -1,6 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
-import { DecodeSweep, GridTunnel, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
+import { buildHudStatus, DecodeSweep, GridTunnel, ScanlinesOverlay, TelemetryGauge, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -84,7 +84,9 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
 
       {/* Decorative artifacts — wireframe floor, HUD edges, decode pass, CRT texture. */}
       <GridTunnel accentColor={accent} intensity={0.9} />
-      <TerminalHUD accentColor={accent} statusText="> INBOUND PACKETS // QUEUE OK" hexColumn={!p} startFrame={4} seed={7} />
+      <TerminalHUD accentColor={accent} statusText={buildHudStatus("STREAM", title)} hexColumn={!p} startFrame={4} seed={7} />
+      {/* Throughput gauge for the packet feed. */}
+      {!p && <TelemetryGauge accentColor={accent} label="LOAD" corner="top-right" startFrame={8} seed={65} />}
       <DecodeSweep accentColor={accent} startFrame={2} seed={57} />
       <ScanlinesOverlay accentColor={accent} intensity={0.8} />
 
