@@ -3,7 +3,7 @@ import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from 
 import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
-import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
+import { EditorialDivider, EngravingTexture, ConcentricRings } from "../components/EconomistOrnaments";
 import { baselineSettle, clamp01, easeOutQuint, inkBleed, redactionReveal } from "./motion";
 
 /**
@@ -130,8 +130,14 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
         gap: splitView ? 72 : 0,
       }}
     >
-      {/* Faint engraved field behind the quote to fill the wide empty paper. */}
-      {!hasImage && <EngravingTexture opacity={0.03} gap={11} />}
+      {/* Faint engraved field + concentric-ring motif behind the quote to fill
+          the wide empty paper. */}
+      {!hasImage && (
+        <>
+          <EngravingTexture opacity={0.03} gap={11} />
+          <ConcentricRings cx={16} cy={22} opacity={0.5} />
+        </>
+      )}
 
       {photoPane}
 

@@ -777,6 +777,58 @@ class TemplateSceneGenerator:
             f"{end.strftime('%B').upper()} {_ord(end.day)} {end.year}"
         )
 
+    @staticmethod
+    def _economist_backfill_leader_article(props: dict, narration: str) -> dict:
+        """Ensure a leader_article never renders as near-empty paper.
+
+        The prompt asks the LLM to always emit a ``standfirst`` deck and 2–3
+        ``keyPoints``, but a thin source (or a terse model) can still omit them.
+        Backfill ONLY what is missing, distilled from the narration the model
+        already produced — we never fabricate figures or claims, honouring the
+        template's data-grounding rule. If there is no narration to draw from we
+        leave the field unset rather than invent one.
+        """
+        import re
+
+        out = dict(props or {})
+        body = (narration or "").strip()
+        if not body:
+            return out
+
+        # Sentence split (keep it simple/deterministic — no NLP dependency).
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", body) if s.strip()]
+
+        # Standfirst: the first sentence, trimmed to ≤16 words, if absent.
+        if not str(out.get("standfirst") or "").strip() and sentences:
+            words = sentences[0].split()
+            deck = " ".join(words[:16]).rstrip(",;:")
+            if len(words) > 16:
+                deck = deck.rstrip(".") + "…"
+            out["standfirst"] = deck
+
+        # keyPoints: distil up to 3 short points from later sentences if absent.
+        existing = out.get("keyPoints")
+        has_points = isinstance(existing, list) and any(
+            str(p or "").strip() for p in existing
+        )
+        if not has_points and len(sentences) >= 2:
+            points: list[str] = []
+            # Prefer sentences after the first (which became the deck), falling
+            # back to clauses of the body if the article is a single long line.
+            pool = sentences[1:] if len(sentences) > 1 else sentences
+            for s in pool:
+                w = s.split()
+                if not w:
+                    continue
+                pt = " ".join(w[:8]).rstrip(".,;:")
+                if pt and pt.lower() not in {p.lower() for p in points}:
+                    points.append(pt)
+                if len(points) >= 3:
+                    break
+            if len(points) >= 2:
+                out["keyPoints"] = points
+        return out
+
     def _merge_economist_chart_props(
         self,
         layout: str,
@@ -809,6 +861,12 @@ class TemplateSceneGenerator:
             out = dict(props or {})
             out["dateline"] = self._economist_current_dateline()
             props = out
+
+        # leader_article: guarantee a standfirst deck + key points so a thin beat
+        # never renders as empty paper. Backfills only what the LLM omitted,
+        # distilled from the narration (no fabricated figures).
+        if layout == "leader_article":
+            return layout, self._economist_backfill_leader_article(props, narration)
 
         # key_indicators with no real figures (all placeholders stripped by
         # _strip_example_stats) would render an empty KPI grid — fall back to prose.

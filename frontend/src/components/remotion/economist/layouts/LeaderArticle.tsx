@@ -3,9 +3,9 @@ import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig, Img
 import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { SectionKicker } from "../components/HairlineRule";
-import { EditorialDivider } from "../components/EconomistOrnaments";
+import { EditorialDivider, ConcentricRings } from "../components/EconomistOrnaments";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
-import { clamp01, letterpressStamp, redactionReveal, ruleDraw } from "./motion";
+import { clamp01, letterpressStamp, redactionReveal, ruleDraw, slideFrom } from "./motion";
 
 /**
  * LeaderArticle — the workhorse article page. Section kicker on a rule, a bold
@@ -18,6 +18,8 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   narration,
   sectionLabel = "BRIEFING",
   byline,
+  standfirst,
+  keyPoints,
   illuminatedLetter,
   imageUrl,
   imageObjectPosition = "50% 50%",
@@ -51,6 +53,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   const titleY = interpolate(titleSpring, [0, 1], [26, 0]);
   const titleBlur = 4 * (1 - clamp01((frame - 6) / 18));
   const bodyOp = interpolate(frame, [20, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const deckOp = interpolate(frame, [16, 32], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const imgClip = interpolate(frame, [14, 38], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const kbScale = interpolate(frame, [0, 240], [1.04, 1.12], { extrapolateRight: "clamp" }) * imageZoom;
   // Inset image develops from newsprint duotone to full colour.
@@ -64,8 +67,11 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   // top, body flowing in two columns beneath. Stack when portrait or when an
   // inset image takes the right half.
   const splitOpener = !isPortrait && !hasImage;
-  // Two columns once there's enough copy to balance them; one otherwise.
-  const bodyCols = splitOpener && body.length > 240 ? 2 : 1;
+  // Two columns once there's enough copy to balance them; one otherwise. When a
+  // key-points sidebar takes the right column, keep the body single-column so it
+  // doesn't get squeezed into slivers.
+  const hasKeyPoints = (keyPoints ?? []).some((p) => (p || "").trim());
+  const bodyCols = splitOpener && !hasKeyPoints && body.length > 240 ? 2 : 1;
 
   const header = (
     <>
@@ -104,8 +110,59 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
           {byline}
         </div>
       )}
+      {/* Standfirst deck — an italic serif sub-thesis under the headline. Fills
+          the head and gives a thin article beat an extra editorial line. */}
+      {standfirst && (
+        <div
+          style={{
+            fontFamily: ECONOMIST_SERIF_FONT,
+            fontStyle: "italic",
+            fontSize: bodySize * 1.08,
+            lineHeight: 1.4,
+            color: ECONOMIST_COLORS.muted,
+            opacity: deckOp,
+            marginTop: byline ? 14 : 18,
+            maxWidth: isPortrait ? "100%" : "92%",
+          }}
+        >
+          {standfirst}
+        </div>
+      )}
     </>
   );
+
+  // Key points — a compact ruled list (accent-red bullet squares) that fills the
+  // page when the body is thin. Each row reveals with a small stagger.
+  const points = (keyPoints ?? []).filter((p) => (p || "").trim()).slice(0, 4);
+  const keyPointsEl =
+    points.length > 0 ? (
+      <div>
+        <div style={{ height: 2, background: accentColor, width: 64, marginBottom: 18, ...ruleDraw(frame, 30, 14) }} />
+        {points.map((pt, i) => {
+          const start = 32 + i * 7;
+          const row = slideFrom(frame, start, -16);
+          return (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 16,
+                padding: "9px 0",
+                borderTop: i === 0 ? "none" : `1px solid ${ECONOMIST_COLORS.rule}`,
+                opacity: row.opacity,
+                transform: row.transform,
+              }}
+            >
+              <span style={{ flexShrink: 0, width: 12, height: 12, marginTop: 6, background: accentColor, transform: "rotate(45deg)" }} />
+              <span style={{ fontFamily: ECONOMIST_SERIF_FONT, fontSize: bodySize * 0.92, lineHeight: 1.34, color: textColor }}>
+                {pt}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    ) : null;
 
   const bodyEl = (
     <div
@@ -151,13 +208,19 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ padding: `${pad.t}px ${pad.x}px ${pad.b}px` }}>
+      {/* Signature concentric-ring motif fills the paper behind the article so a
+          thin beat never reads as empty (skipped when an inset photo is shown). */}
+      {!hasImage && <ConcentricRings cx={isPortrait ? 84 : 88} cy={isPortrait ? 18 : 22} opacity={0.45} />}
       {splitOpener ? (
         // Full-width leader opener: headline band on top, two-column body beneath.
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           {header}
           {/* Full-width rule draws across under the headline band. */}
           <div style={{ height: 2, background: textColor, opacity: titleOp, margin: "30px 0 32px", ...ruleDraw(frame, 18, 18) }} />
-          <div style={{ flex: 1 }}>{bodyEl}</div>
+          <div style={{ flex: 1, display: "flex", gap: 56 }}>
+            <div style={{ flex: keyPointsEl ? 2 : 1 }}>{bodyEl}</div>
+            {keyPointsEl && <div style={{ flex: 1, alignSelf: "flex-start", paddingTop: 4 }}>{keyPointsEl}</div>}
+          </div>
           {/* Closing engraved end-mark (SVG). */}
           <div style={{ marginTop: 24, opacity: bodyOp }}>
             <EditorialDivider width={220} progress={bodyOp} accentColor={accentColor} height={16} />
@@ -168,6 +231,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
           <div style={{ width: isPortrait ? "100%" : "58%", display: "flex", flexDirection: "column", justifyContent: isPortrait ? "flex-start" : "center", paddingTop: isPortrait ? height * 0.1 : 0 }}>
             {header}
             <div style={{ marginTop: 28 }}>{bodyEl}</div>
+            {keyPointsEl && <div style={{ marginTop: 30 }}>{keyPointsEl}</div>}
           </div>
           {hasImage && !isPortrait && (
             <div style={{ width: "42%", alignSelf: "stretch", overflow: "hidden", clipPath: `inset(0 ${100 - imgClip}% 0 0)` }}>

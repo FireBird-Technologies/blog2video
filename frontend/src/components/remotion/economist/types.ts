@@ -89,6 +89,9 @@ export interface EconomistLayoutProps {
   // ── leader_article ─────────────────────────────────────────────────────────
   /** Drop-cap override; defaults to the first letter of the body. */
   illuminatedLetter?: string;
+  /** Short takeaway points (2–3) shown as a ruled list so a thin article beat
+   * still fills the page. `standfirst` (below) doubles as the deck line here. */
+  keyPoints?: string[];
 
   // ── section_divider ──────────────────────────────────────────────────────────
   /** Short standfirst under the section name. */

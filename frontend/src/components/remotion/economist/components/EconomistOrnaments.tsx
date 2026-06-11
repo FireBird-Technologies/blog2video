@@ -139,6 +139,74 @@ export const EngravingTexture: React.FC<{
   );
 };
 
+// ── 3b. Concentric rings (cover-motif backdrop) ──────────────────────────────
+// The signature Economist cover motif — a set of concentric hairline arcs — as a
+// reusable ambient backdrop. Each ring draws on with a small stagger and the
+// whole field drifts on a slow deterministic orbit so it breathes without ever
+// distracting from the type in front of it. Pure function of the current frame
+// (no randomness / Date) so headless renders match the preview frame-for-frame.
+export const ConcentricRings: React.FC<{
+  /** Centre in viewBox (0–100) units. */
+  cx?: number;
+  cy?: number;
+  /** Ring radii in viewBox units (outermost last is fine — order is cosmetic). */
+  radii?: number[];
+  color?: string;
+  /** Opacity of the whole field. */
+  opacity?: number;
+  strokeWidth?: number;
+  /** When false, the rings are static (no draw-on / drift). */
+  animate?: boolean;
+  style?: React.CSSProperties;
+}> = ({
+  cx = 82,
+  cy = 26,
+  radii = [22, 36, 50, 64, 78],
+  color = ECONOMIST_COLORS.rule,
+  opacity = 0.6,
+  strokeWidth = 0.16,
+  animate = true,
+  style,
+}) => {
+  const frame = useCurrentFrame();
+  // Slow breathing drift of the whole field (tiny amplitude in viewBox units).
+  const a = (frame / 540) * Math.PI * 2;
+  const driftX = animate ? Math.sin(a) * 0.9 : 0;
+  const driftY = animate ? Math.cos(a * 0.7) * 0.6 : 0;
+  return (
+    <svg
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity, ...style }}
+      viewBox="0 0 100 100"
+      preserveAspectRatio="xMidYMid slice"
+    >
+      {radii.map((r, i) => {
+        // Each ring draws on with a small stagger; the circumference is the
+        // dash length so strokeDashoffset → 0 sweeps the stroke into place.
+        const circ = 2 * Math.PI * r;
+        const draw = animate
+          ? interpolate(frame, [6 + i * 6, 6 + i * 6 + 26], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            })
+          : 1;
+        return (
+          <circle
+            key={i}
+            cx={cx + driftX}
+            cy={cy + driftY}
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeDasharray={animate ? circ : undefined}
+            strokeDashoffset={animate ? circ * (1 - draw) : undefined}
+          />
+        );
+      })}
+    </svg>
+  );
+};
+
 // ── 4. Trend glyph (inline up/down/flat arrow) ───────────────────────────────
 export const TrendGlyph: React.FC<{
   direction: "up" | "down" | "flat";
