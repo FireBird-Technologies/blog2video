@@ -3,7 +3,7 @@ import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig
 import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT } from "../../../../fonts/economist-defaults";
-import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
+import { EditorialDivider, EngravingTexture, ConcentricRings } from "../components/EconomistOrnaments";
 import { clamp01, easeOutQuint, pressSlam } from "./motion";
 
 /**
@@ -82,8 +82,12 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
           />
         </AbsoluteFill>
       ) : (
-        /* Faint engraved hairline field fills the wide empty paper behind the name. */
-        <EngravingTexture opacity={0.035} gap={10} />
+        /* Faint engraved hairline field + the signature concentric-ring motif
+           fill the wide empty paper behind the name. */
+        <>
+          <EngravingTexture opacity={0.035} gap={10} />
+          <ConcentricRings cx={18} cy={84} opacity={0.5} />
+        </>
       )}
 
       {/* Two faint vertical rules box the chapter break like a real spread. */}

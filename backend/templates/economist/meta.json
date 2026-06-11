@@ -100,7 +100,13 @@
           "landscape": 30
         },
         "sectionLabel": "BRIEFING",
-        "byline": "By our finance correspondent"
+        "byline": "By our finance correspondent",
+        "standfirst": "Cut too soon and inflation returns; wait too long and growth buckles.",
+        "keyPoints": [
+          "Hiring has cooled sharply",
+          "Core inflation near target",
+          "Policy most restrictive since 2007"
+        ]
       },
       "fields": [
         {
@@ -126,6 +132,18 @@
           "label": "Section Kicker",
           "type": "string",
           "placeholder": "BRIEFING"
+        },
+        {
+          "key": "standfirst",
+          "label": "Standfirst (deck line)",
+          "type": "string",
+          "placeholder": "A one-line sub-thesis under the headline"
+        },
+        {
+          "key": "keyPoints",
+          "label": "Key Points (2-3)",
+          "type": "string_array",
+          "maxItems": 3
         },
         {
           "key": "byline",
@@ -711,7 +729,7 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 52,
+          "portrait": 72,
           "landscape": 56
         },
         "descriptionFontSize": {
