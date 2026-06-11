@@ -153,6 +153,7 @@ def _is_laduc_or_fj(template_id: str) -> bool:
 CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "matrix": ("matrix_data", "matrix_ticker"),
     "spotlight": ("spotlight_data", "spotlight_table"),
+    "chronicle": ("chronicle_data", "chronicle_table"),
 }
 
 

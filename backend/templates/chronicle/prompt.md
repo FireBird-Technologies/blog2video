@@ -117,6 +117,45 @@ Core rules:
 
 ---
 
+## chronicle_data
+**Visual:** A real animated chart (line / bar / histogram) drawn in dark ink on an aged-parchment chart folio. Line charts draw in like a quill stroke; bars rise in staggered. A short analytical summary sits beside the chart under an inked rule. Ornamental corners frame the page.
+
+**Best for:** Showing a chart built from an actual data table in the source article (trends over time, comparisons, distributions).
+
+**Props (shared with the chart pipeline — usually filled automatically from the bound table):**
+- `chartTable`: `{ headers: [...], rows: [[...]] }` — col 1 = X labels; cols 2-4 = up to 3 numeric series
+- `chartType`: `"line" | "bar" | "histogram" | "auto"`
+- `chartSummary`: one-to-two sentence read of the chart (emphasize key phrases with `__double underscores__`)
+- `subtitle`, `yAxisLabel`, `chartYAxisTicks` (optional axis captions/ticks)
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a chartable table (`preferred_layout='chronicle_data'` + `data_table_index`).
+
+**When NOT to Use:**
+- For 1–3 headline numbers (use `ledger_stats`).
+- When there is no real table — never fabricate chart figures.
+
+---
+
+## chronicle_table
+**Visual:** A ruled ledger page — parchment table with inked column rules, small-caps header row, and an optional change column color-coded in green (gain) / deep red (loss) ink. A footnote line cites the source beneath.
+
+**Best for:** Market-snapshot / multi-column comparison tables (name · price · % change, ranking tables, summary grids).
+
+**Props (usually filled automatically from the bound table):**
+- `tickerTable`: `{ headers: [...], rows: [[...]] }` (max 20 rows, 6 cols)
+- `tickerTitle`: optional sub-headline
+- `tickerFootnote`: optional source attribution
+- `tickerHighlightCol`: 0-based column index to color-code +/- (e.g. a "% Chg" column); -1 disables
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a ticker-like table (`preferred_layout='chronicle_table'` + `data_table_index`).
+
+**When NOT to Use:**
+- For 1–3 key numbers (use `ledger_stats`).
+
+---
+
 ## ending_socials
 **Visual:** Closing colophon page. Ornamental fleur-de-lys borders draw in, a large "FINIS" or custom title appears, an inked divider, italic narration sign-off, a red wax seal with the first letter of the title stamps down, social icons row fades in, a golden ribbon CTA with the website link unfurls below.
 
@@ -136,6 +175,7 @@ Core rules:
 - Use `chapter_plate` at most twice per video and only when the story truly breaks.
 - Use `illuminated_quote` and `decree_seal` sparingly (max one of each per video — they are the emotional peaks).
 - Use `ledger_stats` when numbers dominate a scene, `chronicle_timeline` when chronology dominates, `versus_folio` when binary comparison dominates, `map_reveal` when geography dominates.
+- `chronicle_data` and `chronicle_table` are reserved for scenes the pipeline binds to a real table (`data_table_index` set) — never assign them otherwise, and never invent table figures.
 - Keep the rhythm alternating: dense narrative pages (`parchment_scroll`) should be punctuated by ornamental beats (`illuminated_quote`, `decree_seal`, `ledger_stats`, `chapter_plate`) — never three `parchment_scroll` scenes in a row.
 - Arc: opening (`book_open`) → context (`parchment_scroll`) → development beats alternating ornamental + body → climax (`decree_seal` or `illuminated_quote`) → closing (`ending_socials`).
 

@@ -691,7 +691,9 @@
     }
   },
   "layouts_without_image": [
-    "ending_socials"
+    "ending_socials",
+    "matrix_data",
+    "matrix_ticker"
   ],
   "features": [
     "Digital rain background animation on every scene",
