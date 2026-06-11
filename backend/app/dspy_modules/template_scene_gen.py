@@ -827,6 +827,11 @@ class TemplateSceneGenerator:
             return layout, props
 
         out = dict(props or {})
+
+        # The takeaway panel clamps to two lines — keep the LLM's explainer short.
+        _explainer = out.get("explainer")
+        if isinstance(_explainer, str) and len(_explainer) > 220:
+            out["explainer"] = _explainer[:217].rstrip() + "…"
         preferred_table_index = None
         if isinstance(scene_index, int):
             preferred_table_index = self._newscast_data_viz_table_by_scene.get(scene_index)

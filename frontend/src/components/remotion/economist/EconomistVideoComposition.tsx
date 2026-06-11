@@ -43,12 +43,12 @@ const LAYOUTS_WITHOUT_CHROME_FADE = new Set<EconomistLayoutType>(["cover_reveal"
 // Full-bleed scenes own the whole canvas — no page frame / footer furniture.
 // Full-bleed scenes that own the whole canvas and draw their own masthead — they
 // suppress the shared top/bottom chrome furniture. section_divider now joins the
-// furniture-bearing scenes; ending_socials draws its own centred red masthead so
-// it stays minimal to avoid a double-masthead clash.
+// furniture-bearing scenes; ending_socials draws its own *centred* red masthead
+// (which doesn't clash with the top-left chrome wordmark) so it now shows the
+// shared chrome frame too.
 const MINIMAL_CHROME_LAYOUTS = new Set<EconomistLayoutType>([
   "cover_reveal",
   "image_feature",
-  "ending_socials",
 ]);
 
 const enforceLayoutMinimum = (frames: number, layout: EconomistLayoutType) =>

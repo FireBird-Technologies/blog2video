@@ -944,6 +944,69 @@ async def _generate_script(
             None, _laduc_classify_tables
         )
 
+    elif template_id == "economist":
+        # economist: bind scraped tables to the data layouts upfront so
+        # _merge_economist_chart_props finds a real TABLE_DATA_HINT_JSON per
+        # scene (without this, every chart scene falls back to prose).
+        #   chart_line  → time-series tables (incl. OHLCV — line-chartable)
+        #   chart_bar   → remaining categorical bar/histogram tables
+        #   data_table  → remaining ranked tables (headers + ≥3 multi-col rows)
+        _econ_blog_text = getattr(project, "blog_content", None) or ""
+
+        def _econ_classify_tables() -> tuple[list, str]:
+            tables = extract_tables_from_content(_econ_blog_text)
+            if not tables:
+                return tables, ""
+            tmp_hint = build_table_context_hint(tables, max_tables=len(tables))
+            line_tables = get_line_chartable_tables_from_visual_hint(tmp_hint)
+            line_indices = {idx for idx, _ in line_tables}
+            bar_tables = [
+                (idx, t)
+                for idx, t in get_chartable_tables_from_visual_hint(tmp_hint)
+                if idx not in line_indices
+            ]
+            bar_indices = {idx for idx, _ in bar_tables}
+            used = line_indices | bar_indices
+
+            def _multi_col(t: dict) -> bool:
+                return any(isinstance(r, list) and len(r) >= 2 for r in (t.get("rows") or []))
+
+            table_tables = [
+                (idx, t)
+                for idx, t in enumerate(tables)
+                if idx not in used
+                and (t.get("headers") or [])
+                and len(t.get("rows") or []) >= 3
+                and _multi_col(t)
+            ]
+            bindings = (line_tables + bar_tables + table_tables)[:3]
+            if not bindings:
+                return tables, ""
+            chart_type_by_idx = {
+                orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                for orig_idx, t in bindings
+            }
+            layout_by_idx = {
+                orig_idx: (
+                    "chart_line" if orig_idx in line_indices
+                    else "chart_bar" if orig_idx in bar_indices
+                    else "data_table"
+                )
+                for orig_idx, _ in bindings
+            }
+            payload = build_chartable_tables_payload(
+                bindings,
+                chart_type_by_index=chart_type_by_idx,
+                preferred_layout_by_index=layout_by_idx,
+                max_rows=20,
+            )
+            return tables, payload
+
+        _econ_loop = asyncio.get_event_loop()
+        _all_extracted_tables, chartable_tables_json = await _econ_loop.run_in_executor(
+            None, _econ_classify_tables
+        )
+
     # Release the DB connection during the long-running DSPy/LLM calls below.
     # Neon (serverless PostgreSQL) closes idle connections, and pool_pre_ping
     # only verifies liveness on checkout — a session already holding a
@@ -1012,6 +1075,7 @@ async def _generate_script(
             scene_data.get("preferred_layout") in {
                 "data_visualization", "terminal_chart", "terminal_table",
                 "terminal_dataviz", "market_annotation", "ticker",
+                "chart_line", "chart_bar", "data_table",
             }
             and _all_extracted_tables
         ):
@@ -1043,7 +1107,7 @@ async def _generate_script(
             # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
             # the table binding was supposed to force a data layout.
             # Embed the table hint so scene_gen has the data and can produce the right chart.
-            (template_id == "bloomberg" or _is_laduc_or_fj(template_id))
+            (template_id == "bloomberg" or _is_laduc_or_fj(template_id) or template_id == "economist")
             and scene_data.get("data_table_index") is not None
             and _all_extracted_tables
         ):
@@ -1062,6 +1126,11 @@ async def _generate_script(
                 elif _is_laduc_or_fj(template_id):
                     scene_data["preferred_layout"] = (
                         "ticker" if is_laduc_ticker_table(_fb_table) else "market_annotation"
+                    )
+                elif template_id == "economist":
+                    _fb_type = (_build_chart_props_from_table(_fb_table) or {}).get("chartType", "")
+                    scene_data["preferred_layout"] = (
+                        "chart_line" if _fb_type == "line" else "chart_bar"
                     )
         elif scene_data.get("preferred_layout") == "terminal_ticker":
             # Inject real scraped ticker data so scene_gen overrides LLM-hallucinated values.

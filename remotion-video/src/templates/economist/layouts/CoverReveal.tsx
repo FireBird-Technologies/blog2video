@@ -122,7 +122,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   const teaserColLeft = isPortrait ? margin : width * 0.52;
   const teaserColWidth = isPortrait ? width - margin * 2 : width * 0.5 - margin;
   const teaserTop = isPortrait ? margin + mastheadW * 0.46 + 80 : margin + 6;
-  const teaserFont = isPortrait ? 32 : 32;
+  const teaserFont = isPortrait ? 44 : 32;
 
   return (
     <AbsoluteFill style={{ backgroundColor: hasImage ? "#111" : ECONOMIST_COLORS.paper }}>
@@ -228,7 +228,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
                         display: "inline-block",
                         fontFamily: ECONOMIST_SANS_FONT,
                         fontWeight: 700,
-                        fontSize: isPortrait ? 16 : 15,
+                        fontSize: isPortrait ? 24 : 15,
                         letterSpacing: 2,
                         textTransform: "uppercase",
                         color: datelineInk,

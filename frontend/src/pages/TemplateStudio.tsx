@@ -1124,7 +1124,9 @@ export default function TemplateStudio() {
   useEffect(() => {
     if (!schema) return;
     const defaults = (schema.defaults ?? {}) as Record<string, unknown>;
-    setLayoutProps(defaults);
+    // sample_props are Studio-only stress-test values (e.g. a long explainer);
+    // the render path ignores them, so they can never leak into real videos.
+    setLayoutProps({ ...defaults, ...(schema.sample_props ?? {}) });
     const sd = schema.scene_defaults ?? {};
     if (sd.title)                   setTitle(sd.title);
     if (sd.narration !== undefined) setNarration(sd.narration);

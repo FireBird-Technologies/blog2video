@@ -110,6 +110,8 @@ export interface EconomistLayoutProps {
   unit?: string;
   /** Label placement for line series: "end" (right of each line) or "inline" (on the chart). */
   labelMode?: "end" | "inline";
+  /** Editorial takeaway (1–2 sentences) shown in the post-animation explanation box. */
+  explainer?: string;
 
   // ── pros_cons ─────────────────────────────────────────────────────────────
   pros?: EconomistProsConsItem[];

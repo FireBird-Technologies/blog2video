@@ -17,7 +17,8 @@ import {
   type ParsedSeries,
   type Pt,
 } from "./chartHelpers";
-import { clamp01, easeOutQuint, baselineSettle, ruleDraw, pulse } from "./motion";
+import { clamp01, easeOutQuint, baselineSettle, ruleDraw, pulse, panelSqueeze } from "./motion";
+import { ExplainerBox } from "./ExplainerBox";
 
 /**
  * ChartLine — custom-SVG Economist line chart.
@@ -30,6 +31,12 @@ import { clamp01, easeOutQuint, baselineSettle, ruleDraw, pulse } from "./motion
  */
 const DRAW_START = 20;
 const DRAW_DUR = 70;
+// Post-animation: end-labels and head-dot rings settle by ~114, then the chart
+// squeezes up and the takeaway panel rises into the freed band. Min scene
+// duration is 210f, so everything lands by ~146 with a comfortable hold.
+const SQUEEZE_START = 118;
+const SQUEEZE_DUR = 18;
+const BOX_DELAY = SQUEEZE_START + 10;
 
 export const ChartLine: React.FC<EconomistLayoutProps> = ({
   title,
@@ -41,6 +48,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   panelNumber,
   unit = "",
   labelMode = "end",
+  explainer,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
@@ -62,8 +70,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
 
   // ── geometry ───────────────────────────────────────────────────────────────
   // Slightly smaller plot, nudged left: trim the left gutter and add a touch more
-  // right breathing room so the chart sits left of centre and doesn't crowd the
-  // explainer box.
+  // right breathing room so the chart sits left of centre.
   const chartT = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
   const chartB = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
   const pad = isPortrait
@@ -74,17 +81,10 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   const innerT = pad.t;
   const innerB = height - pad.b;
 
-  const titleSize = (titleFontSize ?? (isPortrait ? 46 : 50)) as number;
+  const titleSize = (titleFontSize ?? (isPortrait ? 58 : 50)) as number;
   const subSize = Math.round(titleSize * 0.62);
 
-  // Explainer box reserve — the box sits in the header (below the subtitle), so
-  // grow the header so the plot starts beneath it and never overlaps the lines.
-  const nHi = (highlightSeries && highlightSeries.length
-    ? series.filter((s) => highlightSeries.includes(s.label))
-    : series
-  ).length;
-  const boxH = nHi > 0 ? 14 + Math.round(subSize * 0.64) + 9 + Math.round(subSize * 0.74) + 12 + Math.round(subSize * 0.8) * 2 : 0;
-  const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + boxH + 20;
+  const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + 20;
 
   const yLabelW = 62;
   const endReserve = labelMode === "end" ? (isPortrait ? 150 : 185) : 14;
@@ -94,8 +94,18 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   const plotL = innerL;
   const gridR = innerR - yLabelW;
   const plotR = gridR - endReserve;
-  const plotT = innerT + headerH;
-  const plotB = innerB - footerH - xLabelH;
+  const naturalPlotB = innerB - footerH - xLabelH;
+  // In portrait the available vertical band is very tall, which stretches the
+  // line chart into an ungainly near-square. Cap the plot height so it keeps a
+  // flatter, editorial aspect, then centre that shorter band in the leftover
+  // space below the header (rather than leaving all the gap at the bottom).
+  const headBottom = innerT + headerH;
+  const plotH = isPortrait
+    ? Math.min(naturalPlotB - headBottom, (innerB - headBottom) * 0.6)
+    : naturalPlotB - headBottom;
+  const plotVOffset = isPortrait ? (naturalPlotB - headBottom - plotH) * 0.5 : 0;
+  const plotT = headBottom + plotVOffset;
+  const plotB = plotT + plotH;
 
   // ── scales ─────────────────────────────────────────────────────────────────
   const { min, max } = extentY(series);
@@ -171,6 +181,13 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   const zeroY = sy(0);
   const showZero = emphasizeZero && scale.niceMin < 0 && scale.niceMax > 0;
 
+  // Post-animation squeeze + takeaway panel. The squeeze is a wrapper transform
+  // (never a plot-rect re-layout): sx/sy, end-label collision nudging and tick
+  // thinning all derive from the plot rect, so recomputing it per frame would
+  // jitter the labels. Scaling toward the top frees a band at the bottom.
+  const sq = panelSqueeze(frame, SQUEEZE_START, isPortrait ? 0.92 : 0.86, SQUEEZE_DUR);
+  const takeaway = (explainer ?? "").trim() || insight;
+
   return (
     <AbsoluteFill>
       {/* Header: red tab + title + subtitle, each rising in with a stagger. */}
@@ -213,75 +230,6 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
             {narration}
           </div>
         )}
-
-        {/* Explainer box — bordered editorial panel directly below the subtitle
-            (the empty top-left header zone): a colour key for each highlighted
-            line + one dynamic insight. Header height reserves room so the plot
-            starts beneath it and the lines never overlap it. */}
-        {highlighted.length > 0 && (
-          <div
-            style={{
-              display: "inline-block",
-              marginTop: 14,
-              maxWidth: isPortrait ? "100%" : 360,
-              background: "rgba(246,244,238,0.92)",
-              border: `1px solid ${ECONOMIST_COLORS.rule}`,
-              padding: isPortrait ? "12px 14px" : "13px 16px",
-              ...textRise(frame, 18, 14),
-            }}
-          >
-          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
-            <span style={{ width: 18, height: 4, background: accentColor }} />
-            <span
-              style={{
-                fontFamily: ECONOMIST_SANS_FONT,
-                fontWeight: 700,
-                fontSize: Math.round(subSize * 0.64),
-                letterSpacing: 1.2,
-                textTransform: "uppercase",
-                color: ECONOMIST_COLORS.muted,
-              }}
-            >
-              What this shows
-            </span>
-          </div>
-
-          <div style={{ display: "flex", flexWrap: "wrap", columnGap: 16, rowGap: 5 }}>
-            {highlighted.map((s, i) => (
-              <div key={`xk-${i}`} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <span style={{ width: 15, height: 3.5, background: s.color, borderRadius: 1, flex: "0 0 auto" }} />
-                <span
-                  style={{
-                    fontFamily: ECONOMIST_SANS_FONT,
-                    fontWeight: 700,
-                    fontSize: Math.round(subSize * 0.74),
-                    color: ECONOMIST_COLORS.ink,
-                  }}
-                >
-                  {s.label}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {insight && (
-            <div
-              style={{
-                fontFamily: ECONOMIST_SERIF_FONT,
-                fontStyle: "italic",
-                fontSize: Math.round(subSize * 0.8),
-                lineHeight: 1.38,
-                color: ECONOMIST_COLORS.ink,
-                marginTop: 10,
-                paddingTop: 10,
-                borderTop: `1px solid ${ECONOMIST_COLORS.rule}`,
-              }}
-            >
-              {insight}
-            </div>
-          )}
-          </div>
-        )}
       </div>
 
       {/* Panel number box, top-right. */}
@@ -291,15 +239,15 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
             position: "absolute",
             right: pad.r,
             top: innerT,
-            width: 44,
-            height: 44,
+            width: isPortrait ? 54 : 44,
+            height: isPortrait ? 54 : 44,
             border: `1.5px solid ${textColor}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontFamily: ECONOMIST_SANS_FONT,
             fontWeight: 700,
-            fontSize: 24,
+            fontSize: isPortrait ? 30 : 24,
             color: textColor,
             opacity: headOp,
           }}
@@ -308,6 +256,15 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
         </div>
       )}
 
+      {/* Chart canvas (SVG + inline HTML labels) in one squeezing wrapper. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          transform: `scale(${sq.toFixed(4)})`,
+          transformOrigin: `${(plotL + gridR) / 2}px ${innerT}px`,
+        }}
+      >
       {/* Chart SVG. */}
       <svg
         style={{ position: "absolute", inset: 0 }}
@@ -502,7 +459,21 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
             </div>
           );
         })}
+      </div>
 
+      {/* Takeaway panel rising into the band freed by the squeeze. */}
+      <ExplainerBox
+        frame={frame}
+        delay={BOX_DELAY}
+        left={innerL}
+        bottom={(isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + (isPortrait ? 16 : 14)}
+        width={(isPortrait ? innerR : gridR) - innerL}
+        text={takeaway}
+        keys={highlighted.map((s) => ({ label: s.label, color: s.color }))}
+        accentColor={accentColor}
+        fontSize={Math.round(subSize * (isPortrait ? 0.8 : 0.85))}
+        isPortrait={isPortrait}
+      />
     </AbsoluteFill>
   );
 };

@@ -42,12 +42,12 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const headReveal = redactionReveal(frame, Math.max(0, startFrame - 8), 14);
-  const leadSize = isPortrait ? 25 : 25;
-  const bodySize = isPortrait ? 28 : 28;
-  const numSize = isPortrait ? 34 : 34;
+  const leadSize = isPortrait ? 32 : 25;
+  const bodySize = isPortrait ? 36 : 28;
+  const numSize = isPortrait ? 42 : 34;
 
   return (
-    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+    <div style={{ flex: isPortrait ? "0 0 auto" : 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
       {/* ▶ LABEL — uncovered by a sweeping bar in the column colour. */}
       <div style={{ position: "relative", display: "inline-block", alignSelf: "flex-start", marginBottom: isPortrait ? 18 : 22 }}>
         <div
@@ -171,7 +171,7 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
   const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
   const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
   const pad = isPortrait ? { x: 70, t: topInset, b: botInset } : { x: 88, t: topInset, b: botInset };
-  const titleSize = (titleFontSize ?? (isPortrait ? 56 : 62)) as number;
+  const titleSize = (titleFontSize ?? (isPortrait ? 66 : 62)) as number;
 
   const headOp = interpolate(frame, [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const introOp = interpolate(frame, [8, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -201,7 +201,7 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
         <div
           style={{
             fontFamily: ECONOMIST_SERIF_FONT,
-            fontSize: isPortrait ? 26 : 25,
+            fontSize: isPortrait ? 32 : 25,
             lineHeight: 1.5,
             color: ECONOMIST_COLORS.muted,
             textAlign: "justify",
@@ -219,7 +219,8 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
           flex: 1,
           display: "flex",
           flexDirection: isPortrait ? "column" : "row",
-          gap: isPortrait ? 30 : 72,
+          justifyContent: isPortrait ? "center" : "flex-start",
+          gap: isPortrait ? 48 : 72,
         }}
       >
         <ProsConsColumn label={prosLabel} color={PROS_BLUE} items={pros} startFrame={12} textColor={textColor} isPortrait={isPortrait} slideSign={-1} />

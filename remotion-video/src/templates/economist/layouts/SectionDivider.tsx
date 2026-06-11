@@ -107,12 +107,12 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
           style={{
             fontFamily: ECONOMIST_SERIF_FONT,
             fontStyle: "italic",
-            fontSize: 34,
+            fontSize: isPortrait ? 44 : 34,
             lineHeight: 1.45,
             color: ECONOMIST_COLORS.muted,
             textAlign: "center",
             maxWidth: isPortrait ? "100%" : "78%",
-            marginTop: isPortrait ? 26 : 28,
+            marginTop: isPortrait ? height * 0.16 : 28,
             opacity: sfOp,
           }}
         >

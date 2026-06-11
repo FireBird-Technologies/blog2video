@@ -201,7 +201,21 @@ export function countUpValue(
   return `${prefix}${formatted}${suffix}`;
 }
 
-// ── 9. Living-chrome helpers ─────────────────────────────────────────────────
+// ── 9. Panel squeeze ─────────────────────────────────────────────────────────
+// Gentle end-of-scene squeeze: 1 → toScale with easeInOutCubic. Used to make
+// room for the post-animation takeaway panel without re-laying-out the chart.
+export function panelSqueeze(
+  frame: number,
+  delay: number,
+  toScale: number,
+  dur = 18,
+): number {
+  const t = clamp01((frame - delay) / dur);
+  const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  return 1 + (toScale - 1) * e;
+}
+
+// ── 10. Living-chrome helpers ────────────────────────────────────────────────
 /** A slow deterministic orbit for ambient drift (light gradients etc.). */
 export function microDrift(
   frame: number,
