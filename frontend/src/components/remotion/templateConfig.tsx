@@ -131,6 +131,8 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "versus",
   "spotlight_image",
   "rapid_points",
+  "spotlight_data",
+  "spotlight_table",
   "closer",
   "ending_socials",
 ]);
@@ -145,6 +147,8 @@ const MATRIX_LAYOUTS = new Set([
   "matrix_image",
   "transmission",
   "awakening",
+  "matrix_data",
+  "matrix_ticker",
   "ending_socials",
 ]);
 
@@ -233,6 +237,8 @@ const CHRONICLE_LAYOUTS = new Set([
   "chronicle_timeline",
   "map_reveal",
   "decree_seal",
+  "chronicle_data",
+  "chronicle_table",
   "ending_socials",
 ]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
