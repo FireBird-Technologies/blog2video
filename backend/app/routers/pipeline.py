@@ -1060,6 +1060,36 @@ async def _generate_script(
     db.flush()
 
     is_custom = is_custom_template(template_id)
+
+    # Economist: precompute chartable tables by type + track which indices have
+    # already been bound, so a chart_line/chart_bar/data_table scene that the LLM
+    # left WITHOUT a data_table_index still gets a real (and distinct) table —
+    # mirroring laduc's market_annotation auto-find. Without this a chart scene
+    # reaches scene-gen with no TABLE_DATA_HINT_JSON and falls back to prose.
+    _econ_chartable: list[tuple[int, str]] = []
+    _econ_used_table_indices: set[int] = set()
+    if template_id == "economist" and _all_extracted_tables:
+        for _ci, _ct in enumerate(_all_extracted_tables):
+            _cp = _build_chart_props_from_table(_ct) or {}
+            if _cp.get("chartType"):
+                _econ_chartable.append((_ci, str(_cp.get("chartType"))))
+
+    def _econ_autofind_index(layout_id: str) -> int | None:
+        """Pick the first unused chartable table whose shape matches `layout_id`."""
+        want_line = layout_id == "chart_line"
+        # First pass: prefer a type match (line→line; bar/data_table→bar/histogram).
+        for _idx, _ctype in _econ_chartable:
+            if _idx in _econ_used_table_indices:
+                continue
+            is_line = _ctype == "line"
+            if want_line == is_line:
+                return _idx
+        # Second pass: any unused chartable table.
+        for _idx, _ctype in _econ_chartable:
+            if _idx not in _econ_used_table_indices:
+                return _idx
+        return None
+
     for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
         vd = scene_data["visual_description"]
         preferred = scene_data.get("preferred_layout")
@@ -1097,7 +1127,20 @@ async def _generate_script(
                     if not is_candlestick_table(_ct):
                         bound_idx = _ci
                         break
+            # Economist chart_line/chart_bar/data_table with no bound index:
+            # auto-find a distinct chartable table so the chart never renders empty.
+            if (
+                template_id == "economist"
+                and scene_data.get("preferred_layout") in {"chart_line", "chart_bar", "data_table"}
+                and not isinstance(bound_idx, int)
+            ):
+                _auto = _econ_autofind_index(scene_data["preferred_layout"])
+                if _auto is not None:
+                    bound_idx = _auto
+                    scene_data["data_table_index"] = _auto
             if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
+                if template_id == "economist":
+                    _econ_used_table_indices.add(bound_idx)
                 _bound_table = _all_extracted_tables[bound_idx]
                 _mr = 60 if is_candlestick_table(_bound_table) else 20
                 hint = build_table_context_hint([_bound_table], max_tables=1, max_rows=_mr)

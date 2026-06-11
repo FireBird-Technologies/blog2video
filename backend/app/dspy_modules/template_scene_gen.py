@@ -1561,6 +1561,19 @@ class TemplateSceneGenerator:
                 ):
                     self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
 
+        # Economist: same deterministic pre-binding as laduc. Populate
+        # _newscast_data_viz_table_by_scene from the data_table_index set upstream
+        # by ScriptGenerator (via chartable_tables_json) so _merge_economist_chart_props
+        # selects the exact pre-bound table per scene instead of re-scoring tables.
+        if self.template_id == "economist":
+            for i, scene in enumerate(scenes_data):
+                pl = str(scene.get("preferred_layout") or "").strip().lower()
+                if (
+                    pl in {"chart_line", "chart_bar", "data_table"}
+                    and isinstance(scene.get("data_table_index"), int)
+                ):
+                    self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
+
         results: list[dict] = [{}] * total
 
         for batch_start in range(0, total, BATCH_SIZE):
