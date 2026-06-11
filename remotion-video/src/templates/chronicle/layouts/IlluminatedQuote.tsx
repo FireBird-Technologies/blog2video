@@ -7,6 +7,7 @@ import {
   CHRONICLE_SMALLCAPS_FONT,
 } from "../../../fonts/chronicle-defaults";
 import { OrnamentalBorder } from "../components/OrnamentalBorder";
+import { EmberSparks, InkFlourish } from "../components/ChronicleArtifacts";
 import { RibbonBanner, QuillText } from "../components/QuillInk";
 import { EmbossedImage } from "../components/EmbossedImage";
 
@@ -116,6 +117,10 @@ export const IlluminatedQuote: React.FC<ChronicleLayoutProps> = ({
         position: "relative",
       }}
     >
+      {/* Candlelit embers rise behind the quote + a quill divider inks in below. */}
+      <EmberSparks count={14} seed={5} intensity={0.9} />
+      <InkFlourish variant="divider" position="bottom-center" color={accentColor} startFrame={36} />
+
       {/* Ornamental vine corners drawing in */}
       <OrnamentalBorder
         color={accentColor}

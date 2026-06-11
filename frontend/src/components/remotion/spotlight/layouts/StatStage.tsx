@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { PulseRing, BigGlyphBackdrop, FilmGrain, HalftoneField, KineticTicker, StarburstBadge } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -71,7 +72,29 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — ghost glyph + faint pulse behind the giant stat. */}
+      {!hasImage && (
+        <>
+          <PulseRing accentColor={accentColor} />
+          <BigGlyphBackdrop glyph="#" accentColor={accentColor} tint="accent" startFrame={2} />
+          <HalftoneField accentColor={accentColor} corner="top-left" />
+        </>
+      )}
+      <FilmGrain />
+      {/* Spinning starburst seal stamps the stat moment + marquee energy below. */}
+      <StarburstBadge accentColor={accentColor} corner={p ? "top-right" : "bottom-right"} size={p ? 140 : 168} startFrame={26} />
+      {/* Marquee echoes the actual stat being staged. */}
+      <KineticTicker
+        accentColor={accentColor}
+        edge="bottom"
+        label={(primary
+          ? `${primary.value}${primary.suffix || ""} ${primary.label || ""}`.trim()
+          : title || "BIG NUMBER"
+        ).slice(0, 48)}
+        speed={0.9}
+      />
 
       <div
         style={{

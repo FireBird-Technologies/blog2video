@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { CodeFragments, GridTunnel, RainBurst, ScanlinesOverlay } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -192,6 +193,12 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.15} fontFamily={resolvedFontFamily} />
+
+      {/* Decorative artifacts — construct floor, rain surge, readouts, CRT texture. */}
+      <GridTunnel accentColor={accent} intensity={0.7} />
+      <RainBurst accentColor={accent} centerX={50} widthPct={90} columns={12} startFrame={18} seed={29} />
+      <CodeFragments accentColor={accent} count={7} seed={65} startFrame={10} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.75} />
 
       <div
         style={{

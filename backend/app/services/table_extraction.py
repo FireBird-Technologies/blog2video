@@ -3,7 +3,13 @@ import re
 from typing import Any
 
 from bs4 import BeautifulSoup
-from app.services.chart_planner import compute_ohlcv_chart_analysis, is_candlestick_table
+from app.services.chart_planner import (
+    compute_ohlcv_chart_analysis,
+    is_candlestick_table,
+    is_laduc_ticker_table,
+    get_chartable_tables_from_visual_hint,
+    _build_chart_props_from_table,
+)
 
 
 TABLE_SECTION_MARKER = "EXTRACTED_TABLES_JSON"
@@ -292,3 +298,65 @@ def build_chartable_tables_payload(
     if not entries:
         return ""
     return json.dumps(entries, ensure_ascii=False, separators=(",", ":"))
+
+
+def classify_chart_tables_for_template(
+    blog_text: str,
+    *,
+    chart_layout: str,
+    ticker_layout: str,
+    max_tables_each: int = 2,
+    max_rows: int = 20,
+) -> tuple[list[dict[str, Any]], str]:
+    """Extract + classify a blog's tables into chart / ticker scene bindings.
+
+    Template-agnostic version of the per-template gate in pipeline.py: any
+    template that wants the chartTable/tickerTable data-viz pipeline calls this
+    with its own two layout names. Chartable (line/bar/histogram) tables bind to
+    ``chart_layout``; ticker-like tables bind to ``ticker_layout`` (and are
+    excluded from the chartable set so the same table is never double-bound).
+
+    CPU-bound (HTML parsing) — call it in a thread pool from async code, e.g.
+    ``await loop.run_in_executor(None, partial(classify_chart_tables_for_template, ...))``.
+
+    Returns ``(all_extracted_tables, chartable_tables_json)``. The JSON is the
+    ``chartable_tables_json`` payload fed to ScriptGenerator; empty string when
+    nothing qualifies.
+    """
+    tables = extract_tables_from_content(blog_text)
+    if not tables:
+        return tables, ""
+
+    tmp_hint = build_table_context_hint(tables, max_tables=len(tables))
+    # Chartable candidates (line/bar/histogram) → chart_layout.
+    chartable_all = get_chartable_tables_from_visual_hint(tmp_hint)
+    # Ticker-like tables → ticker_layout (excluded from chartable so we don't
+    # double-bind the same table to two scenes).
+    ticker_tables_all: list[tuple[int, dict]] = [
+        (idx, t) for idx, t in enumerate(tables)
+        if isinstance(t, dict) and is_laduc_ticker_table(t)
+    ]
+    ticker_indices = {idx for idx, _ in ticker_tables_all}
+    # If a table matches both, prefer ticker (strict ticker classification).
+    chartable = [(idx, t) for idx, t in chartable_all if idx not in ticker_indices][:max_tables_each]
+    ticker_tables = ticker_tables_all[:max_tables_each]
+    if not chartable and not ticker_tables:
+        return tables, ""
+
+    chart_type_by_idx = {
+        orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+        for orig_idx, t in chartable
+    }
+    preferred_layout_by_idx: dict[int, str] = {}
+    for orig_idx, _ in chartable:
+        preferred_layout_by_idx[orig_idx] = chart_layout
+    for orig_idx, _ in ticker_tables:
+        preferred_layout_by_idx[orig_idx] = ticker_layout
+
+    payload = build_chartable_tables_payload(
+        chartable + ticker_tables,
+        chart_type_by_index=chart_type_by_idx,
+        preferred_layout_by_index=preferred_layout_by_idx,
+        max_rows=max_rows,
+    )
+    return tables, payload
