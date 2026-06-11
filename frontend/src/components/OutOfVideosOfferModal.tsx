@@ -195,15 +195,15 @@ export default function OutOfVideosOfferModal({
                 <p className="text-xs text-gray-400 mt-0.5">100 videos / month</p>
               </div>
               <div className="mb-4">
-                <span className="text-2xl font-bold text-gray-900">$42.50</span>
+                <span className="text-2xl font-bold text-gray-900">$51</span>
                 <span className="text-xs text-gray-400 ml-1">/month</span>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-xs text-gray-400 line-through">$50/mo</span>
+                  <span className="text-xs text-gray-400 line-through">$60/mo</span>
                   <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                     Save 15%
                   </span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">First month only — then $50/mo</p>
+                <p className="text-[10px] text-gray-400 mt-1">First month only — then $60/mo</p>
               </div>
               <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
                 <li className="flex items-start gap-2"><CheckMark />100 videos / month</li>
@@ -233,15 +233,15 @@ export default function OutOfVideosOfferModal({
                 <p className="text-xs text-gray-400 mt-0.5">100 videos / month</p>
               </div>
               <div className="mb-4">
-                <span className="text-2xl font-bold text-gray-900">$30</span>
+                <span className="text-2xl font-bold text-gray-900">$36</span>
                 <span className="text-xs text-gray-400 ml-1">/month</span>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-xs text-gray-400 line-through">$40/mo</span>
+                  <span className="text-xs text-gray-400 line-through">$48/mo</span>
                   <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                     Save 25%
                   </span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">$360 billed annually — then $480/yr</p>
+                <p className="text-[10px] text-gray-400 mt-1">$432 billed annually — then $576/yr</p>
               </div>
               <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
                 <li className="flex items-start gap-2"><CheckMark />100 videos / month</li>

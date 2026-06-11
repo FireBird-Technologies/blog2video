@@ -22,7 +22,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Bloomberg Terminal and Chronicle templates, per-orientation image framing, PPT/PDF/MP4/PNG export, share URLs and iframes, plus referrals and bulk pricing — all live now.",
     category: "Product updates",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-whats-new-in-blog2video-six-features.png",
     heroImageAlt:
       "Overview of Blog2Video product updates including new templates, exports, embeddings, and pricing.",
     publishedAt: "2026-05-01",
@@ -2421,7 +2421,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "blog-to-video-before-after",
-    title: "Blog to Video: Before vs After",
+    title: "Blog to Video: Before vs After (Manual vs AI Workflow)",
     description:
       "See exactly what changes when you stop manually turning blog posts into videos and use Blog2Video instead. 45 minutes down to 3.",
     category: "Workflow",
@@ -2433,8 +2433,8 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "What it actually looks like to turn a blog into a video in 3 minutes",
     heroDescription:
       "The manual workflow — read, script, record, edit — takes 45 minutes every time. Blog2Video replaces that with three steps: paste a URL, pick a template and voice, hit generate.",
-    primaryKeyword: "blog to video",
-    keywordVariant: "turn blog post into video",
+    primaryKeyword: "manual blog to video workflow",
+    keywordVariant: "blog to video time comparison",
     relatedPaths: [
       "/how-to-turn-a-blog-post-into-a-video",
       "/blog-to-video",
@@ -4679,7 +4679,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Google surfaces video results in 26% of searches. Pages with video are 53x more likely to hit page 1. Here's how SEO agencies can add video to every client post without extra production overhead.",
     category: "SEO Strategy",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-video-seo-ranking-traffic-blog2video.png",
     heroImageAlt: "A blog post ranking on Google with a video result appearing alongside it, driving additional traffic.",
     publishedAt: "2026-03-26",
     readTime: "5 min read",
@@ -4820,7 +4820,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets brands save fully custom video templates with their own colors, fonts, logos, and layout preferences. Every video you generate after setup carries your brand identity automatically — no manual styling on each project.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+    heroImage: "/blog/blog-cover-custom-templates-for-brands.png",
     heroImageAlt: "A brand kit with custom colors, fonts, and logo applied to a video template inside Blog2Video.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -4941,7 +4941,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video's new Newscast template brings broadcast news aesthetics to your content. Deep navy, crimson accents, ticker bars, lower thirds, and glass-panel anchor layouts — built for briefings, roundups, and editorial updates that should feel authoritative.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+    heroImage: "/blog/blog-cover-new-template-newscast.png",
     heroImageAlt: "A Blog2Video Newscast template scene showing a deep navy background, crimson accent, ticker bar, and anchor-style lower third.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -5068,7 +5068,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now appends a branded call-to-action scene to the end of every generated video automatically. No manual scene editing required — your CTA, link, and branding are there from the first generation.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+    heroImage: "/blog/blog-cover-automatic-call-to-action-end-of-video.png",
     heroImageAlt: "A Blog2Video generated video ending with a branded call-to-action scene showing a website link and subscribe prompt.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
@@ -5182,7 +5182,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets users set their target video duration before generating. Whether you need a 60-second short, a 3-minute explainer, or a 10-minute deep dive, the platform adapts scene count and pacing to hit your target length.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+    heroImage: "/blog/blog-cover-video-duration-control.png",
     heroImageAlt: "A video duration slider in Blog2Video set to 3 minutes, with a generated video timeline showing scene count adjusted to match.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
@@ -5549,7 +5549,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Turn Zoom meeting recordings into polished summary videos your team can watch, share, and reference — without sitting through the full replay.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-zoom-recording-to-summary-video.png",
     heroImageAlt:
       "Illustration of a Zoom meeting recording being structured into a summary video with scenes, narration, and branded visuals.",
     publishedAt: "2026-05-07",
@@ -5663,7 +5663,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Export your Google Meet transcript or Gemini summary and convert it into a shareable summary video — no editing software required.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImage: "/blog/blog-cover-google-meet-recording-to-video.png",
     heroImageAlt:
       "Illustration of a Google Meet recording transcript being converted into a structured summary video asset.",
     publishedAt: "2026-05-07",
@@ -5770,7 +5770,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Export your Fireflies.ai transcript or AI summary and convert it into a polished summary video — shareable, watchable, and built from content you already captured.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-fireflies-recording-to-summary-video.png",
     heroImageAlt:
       "Illustration of a Fireflies.ai meeting transcript being converted into a structured summary video with scenes and narration.",
     publishedAt: "2026-05-07",
@@ -5877,7 +5877,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Export your Teams meeting transcript or Copilot summary and convert it into a polished summary video your team can actually watch — no editing timeline required.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImage: "/blog/blog-cover-microsoft-teams-recording-to-video.png",
     heroImageAlt:
       "Illustration of a Microsoft Teams meeting recording being converted into a structured summary video for async sharing.",
     publishedAt: "2026-05-07",
@@ -5984,7 +5984,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Use Loom's transcript or AI summary to create a structured summary video — easier to share, watch, and distribute than a raw screen recording.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImage: "/blog/blog-cover-loom-recording-to-summary-video.png",
     heroImageAlt:
       "Illustration of a Loom screen recording transcript being converted into a structured, shareable summary video.",
     publishedAt: "2026-05-07",
@@ -6092,7 +6092,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "A complete 2026 comparison of Blog2Video against Lumen5, Pictory, InVideo AI, Fliki, Synthesia, HeyGen, VEED, Descript, Revid.ai, VideoGen, Flixier, and Predis.ai — pricing, features, and which tool wins for each use case.",
     category: "Comparison",
-    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImage: "/blog/blog-cover-blog2video-ultimate-competitor-comparison-2026.png",
     heroImageAlt:
       "Side-by-side comparison grid showing Blog2Video and twelve competitor tools across pricing, features, and content fidelity.",
     publishedAt: "2026-05-16",
@@ -6135,8 +6135,8 @@ export const blogPosts: BlogPost[] = [
         bullets: [
           "Free: 3 videos, no watermark, no credit card required.",
           "Pay-as-you-go: $4/video (1–9), $3/video (10–30), $2.80/video (31–200).",
-          "Standard: $25/month ($20/month billed annually) — 30 videos/month.",
-          "Pro: $50/month ($40/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
+          "Standard: $35/month ($28/month billed annually) — 30 videos/month.",
+          "Pro: $60/month ($48/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
           "No minute caps, no per-voice upsells, no credit system on subscription plans.",
         ],
       },
@@ -6322,7 +6322,7 @@ export const blogPosts: BlogPost[] = [
           "Entry-point pricing for each tool (cheapest paid plan, billed monthly unless noted), and what the mid-tier looks like for comparison.",
         ],
         bullets: [
-          "Blog2Video: Free (3 videos, no watermark) → $4/video pay-as-you-go → Standard $25/mo (30 videos) → Pro $50/mo (100 videos + unlimited AI)",
+          "Blog2Video: Free (3 videos, no watermark) → $4/video pay-as-you-go → Standard $35/mo (30 videos) → Pro $60/mo (100 videos + unlimited AI)",
           "Lumen5: Free (watermarked, 5 videos, 720p) → paid from ~$19/mo",
           "Pictory: 14-day trial → Starter $29/mo ($25 annual, 200 min, 100 AI credits) → Professional $59/mo ($35 annual) → Team $199/mo ($119 annual)",
           "InVideo AI: Free (watermarked, 10 exports/week) → Plus $25/mo ($20 annual, 50 videos, 1080p) → Max $60/mo ($48 annual, 120 videos, 4K)",
@@ -6402,7 +6402,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "Which blog-to-video tool is cheapest in 2026?",
         answer:
-          "VideoGen at $12/month (annual billing) is the cheapest subscription. Blog2Video's pay-as-you-go tier starts at $4/video with no monthly commitment, which is the most affordable entry point for low-volume users. For teams producing 10+ videos per month, Blog2Video Standard at $25/month and Predis.ai Core at $19/month are the most affordable mid-tier options.",
+          "VideoGen at $12/month (annual billing) is the cheapest subscription. Blog2Video's pay-as-you-go tier starts at $4/video with no monthly commitment, which is the most affordable entry point for low-volume users. For teams producing 10+ videos per month, Blog2Video Standard at $35/month and Predis.ai Core at $19/month are the most affordable mid-tier options.",
       },
       {
         question: "Does any blog-to-video tool offer a free plan without a watermark?",
@@ -6422,7 +6422,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "How does Blog2Video pricing compare to Pictory?",
         answer:
-          "Pictory Starter is $29/month (or $25 annual) and gives 200 video minutes plus 100 AI credits — a dual-cap system that trips users up. Blog2Video Standard is $25/month (or $20 annual) and gives 30 complete videos per month with no minute or credit caps. For teams that consistently hit Pictory's limits, Blog2Video's flat pricing is more predictable at scale.",
+          "Pictory Starter is $29/month (or $25 annual) and gives 200 video minutes plus 100 AI credits — a dual-cap system that trips users up. Blog2Video Standard is $35/month (or $28 annual) and gives 30 complete videos per month with no minute or credit caps. For teams that consistently hit Pictory's limits, Blog2Video's flat pricing is more predictable at scale.",
       },
     ],
     distributionPlan: [
@@ -6957,7 +6957,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "An inside look at how our designers research, document, and build custom branded video templates for clients, from gathering brand essentials to final delivery.",
     category: "Behind the scenes",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-how-we-make-custom-branded-video-templates.png",
     heroImageAlt:
       "Blog2Video designers building a custom branded video template using an AI-assisted motion graphics editor.",
     publishedAt: "2026-05-29",
@@ -7106,7 +7106,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Five practical ways to grow your LinkedIn audience in 2026 — from posting consistently to turning your existing content into video and carousels that drive both engagement and external traffic.",
     category: "Strategy",
-    heroImage: "/blog/blog-cover-repurpose-blog-content.png",
+    heroImage: "/blog/blog-cover-how-to-increase-your-audience-on-linkedin.png",
     heroImageAlt:
       "A creator publishing a mix of text posts, carousels, and short videos to grow their LinkedIn audience.",
     publishedAt: "2026-05-31",
@@ -7251,7 +7251,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "A complete guide to connecting the Blog2Video MCP server to n8n. Two copy-paste workflows: a simple chat-to-preview-URL agent and a dynamic form that lets users pick template, voice, preview, and render.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-n8n.png",
     heroImageAlt:
       "n8n workflow diagram showing Blog2Video MCP tools turning a blog URL into a previewable video.",
     publishedAt: "2026-06-04",
@@ -7384,7 +7384,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Step-by-step guide to using the Blog2Video MCP server inside ChatGPT. Turn a blog URL into a finished, previewable video using ChatGPT's native MCP connector support.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-chatgpt.png",
     heroImageAlt:
       "ChatGPT interface with Blog2Video MCP connector enabled, showing a blog URL being converted to video.",
     publishedAt: "2026-06-04",
@@ -7499,7 +7499,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Use the Blog2Video MCP server with Claude Desktop or claude.ai. Two methods: one-click Desktop Extensions and manual JSON config. Turn any blog URL into a video from inside Claude.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-claude.png",
     heroImageAlt:
       "Claude Desktop interface with Blog2Video MCP tools available, converting a blog post to video.",
     publishedAt: "2026-06-04",
@@ -7608,7 +7608,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Connect the Blog2Video MCP server to Google Gemini using the Gemini CLI, Firebase Studio, or Gemini Enterprise. Turn blog URLs into videos from inside Google's AI ecosystem.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-gemini.png",
     heroImageAlt:
       "Google Gemini CLI with Blog2Video MCP tools configured, converting a blog article to a video.",
     publishedAt: "2026-06-04",
@@ -7715,7 +7715,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Three ways to connect the Blog2Video MCP server to DeepSeek V4. Use the OpenAI-compatible API, a local CLI config, or a hosted MCP endpoint to run blog-to-video pipelines with DeepSeek's open-weight models.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-deepseek.png",
     heroImageAlt:
       "DeepSeek AI model connected to Blog2Video MCP server, generating a video from a blog article.",
     publishedAt: "2026-06-04",
@@ -7820,7 +7820,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Connect the Blog2Video MCP server to Moonshot AI's Kimi K2 using Kimi Code CLI or MCP Agent Studio. Run a full blog-to-video pipeline with one of 2026's strongest agentic open-weight models.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-kimi.png",
     heroImageAlt:
       "Kimi AI CLI interface with Blog2Video MCP tools connected, processing a blog URL into a video.",
     publishedAt: "2026-06-04",
@@ -7926,7 +7926,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Connect the Blog2Video MCP server to Alibaba's Qwen 3 using the Qwen-Agent framework, the OpenAI-compatible API, or Qwen Code CLI. Run blog-to-video pipelines with Qwen's open-weight models.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-qwen.png",
     heroImageAlt:
       "Qwen AI agent connected to Blog2Video MCP server, turning a blog post into a video.",
     publishedAt: "2026-06-04",
@@ -8030,7 +8030,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Connect the Blog2Video MCP server to Mistral AI via Le Chat, Mistral Studio, or the Mistral API. Add blog-to-video capabilities to any Mistral model or agent workflow.",
     category: "Integrations",
-    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-mistral.png",
     heroImageAlt:
       "Mistral AI Le Chat interface with Blog2Video MCP connector enabled, converting a blog to video.",
     publishedAt: "2026-06-04",
@@ -8127,6 +8127,169 @@ export const blogPosts: BlogPost[] = [
         title: "Connecting Blog2Video to Mistral: Le Chat, Studio, and API",
         angle:
           "Technical comparison of all three connection methods for the Mistral developer audience.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-grow-your-substack-newsletter",
+    title: "How to Grow Your Substack Newsletter in 2026 (Niche Guide + YouTube Channel Option)",
+    description:
+      "A niche-by-niche playbook for growing your Substack in finance, politics, and public policy — plus how launching a YouTube channel and using Blog2Video's designer templates can 10x your reach.",
+    category: "Educational",
+    heroImage: "/blog/blog-cover-how-to-grow-your-substack-newsletter.png",
+    heroImageAlt:
+      "Editorial illustration of a Substack newsletter being repurposed into YouTube video content using designer templates.",
+    publishedAt: "2026-06-09",
+    readTime: "11 min read",
+    heroEyebrow: "Growth playbook",
+    heroTitle: "Your Substack can be a media empire. Most writers treat it like a hobby.",
+    heroDescription:
+      "Finance writers, policy analysts, political commentators — Substack is yours to own. Here's the 2026 playbook for growing your list, picking the right niche, launching a YouTube channel to amplify it, and using Blog2Video's designer templates to make every post look and feel like a broadcast.",
+    primaryKeyword: "how to grow your substack",
+    keywordVariant: "grow substack newsletter",
+    relatedPaths: [
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+      "/templates/bloomberg-terminal",
+      "/blogs/whats-new-in-blog2video-six-features",
+    ],
+    sections: [
+      {
+        heading: "Why most Substack newsletters stall — and what actually moves the needle in 2026",
+        paragraphs: [
+          "Substack crossed 50,000 paid creators in late 2025. At least 50 of them now earn over $1 million per year. The platform is real, the money is real, and the audience is there.",
+          "But the writers who stall share a pattern: they publish inconsistently, treat every platform as a separate job, and never find a sharp enough niche for readers to feel they need the newsletter specifically — not just newsletters in general.",
+          "In 2026, 40% of all new Substack subscriptions come from inside the Substack network itself, through the Recommendations feature and Substack Notes. That number has quietly made Substack the most self-contained discovery engine in independent media. If you're not using Notes and Recommendations as your primary growth engine, you are leaving most of your potential audience on the table.",
+          "The writers who grow — fast — do three things differently: they pick a niche with urgency and buying intent, they show up in Notes every single day, and they build a content loop that pulls readers from everywhere else into one place.",
+        ],
+      },
+      {
+        heading: "Pick your niche: the categories that grow fastest on Substack",
+        paragraphs: [
+          "Niche selection is not about being narrow for its own sake. It's about being specific enough that a reader immediately recognizes you as the person who covers this — and broad enough that your addressable audience is large enough to grow. Here's how the highest-velocity niches break down.",
+        ],
+        bullets: [
+          "Finance & Markets: Readers here have high buying intent and will pay for an edge. The strongest newsletters combine original research, trade ideas, and macro analysis with a point of view the reader can't get from financial media. Topics that perform: FX and equities, earnings breakdowns, dividend investing (Buffett-style frameworks are consistently popular), and US fiscal policy. The Bloomberg Terminal aesthetic — amber text on dark canvas, data-dense but calm — matches what finance readers associate with authority.",
+          "Politics & Political Analysis: The political Substack space is large and growing. The top newsletters — The Bulwark, The Free Press — succeed because they take a clear stance and defend it rigorously. Cross-platform partnerships tied to election cycles and premium subscriber-only series have driven 18% paid conversion rate lifts for top political writers. Video town halls (subscriber-exclusive, weekly) have also proven powerful: Jim Acosta's weekly video format led to 20% growth in his paid tier within six months.",
+          "Public Policy & Research: Data-driven policy writing is underserved and high-trust. Readers include researchers, think-tank staff, journalists, and staffers who actually pay for sharp analysis. Content syndication works especially well here — Cathy Young's free speech series was syndicated across two major digital outlets and drove a 15% subscriber spike in a single month. Pair detailed policy breakdowns with a clear narrative voice and your newsletter becomes a citation source.",
+          "Personal Finance: Personal finance never goes out of style. The format that works best is step-by-step, example-driven, and jargon-light. Readers share these newsletters because the advice is immediately actionable. Positioning matters: 'money for people who hate spreadsheets' lands differently than 'personal finance tips.'",
+          "Investing & Wealth Research: Long-form, research-heavy issues on specific sectors — AI, defense, biotech, energy transition — attract readers who treat the newsletter like a research service. These readers convert to paid at higher rates than any other category.",
+        ],
+      },
+      {
+        heading: "The four pillars of Substack growth in 2026",
+        paragraphs: [
+          "Strategy one is Substack Notes. Twenty minutes a day. Write one or two Notes — short, punchy observations tied to your niche — and engage with three to five other writers in your space. Notes is the platform's internal discovery surface, and consistent use compounds over weeks, not days. This is your highest-leverage free action.",
+          "Strategy two is cross-promotions and Recommendations. Individual newsletter swaps — where you recommend a peer and they recommend you — consistently generate 50 to 100 new subscribers per activation for newsletters in the 1,000–10,000 subscriber range. The key is finding writers at a similar growth stage in adjacent niches. A finance writer and a personal finance writer cross-promoting each other serves both audiences without cannibalizing either.",
+          "Strategy three is consistency over frequency. One issue per week is the standard most fast-growing newsletters use in their first year. Publishing every Tuesday beats publishing three times one week and nothing the next. Readers set expectations, and broken expectations cost subscribers. Pick a day, hold it.",
+          "Strategy four is sequencing your paid tier correctly. Add paid subscriptions only after you reach 3,000 to 5,000 free subscribers. Before that point, your energy is better spent growing the free list. After it, your conversion math starts working: even a 5% conversion at 5,000 free subscribers is 250 paying readers — at $10/month, that's $2,500 monthly recurring revenue before you've done a single paid campaign.",
+        ],
+      },
+      {
+        heading: "The option most Substack writers overlook: launch a YouTube channel",
+        paragraphs: [
+          "In 2026, the most successful writer-creators run YouTube and Substack as a single integrated system — not as two separate jobs.",
+          "Here's how the flywheel works: YouTube brings in new readers through search and the recommendation algorithm (YouTube's discovery is enormously powerful for niche topics). Your best YouTube viewers — the ones who watch more than 70% of a video — are exactly the readers who will subscribe to your Substack for more depth. Substack then converts that warm traffic into paid subscribers at $5–$10/month. YouTube earns ad revenue. Substack earns subscription revenue. Both grow the other.",
+          "The content doesn't need to be rebuilt from scratch. Your newsletter is already the script. A 1,200-word Substack issue translates into a six-to-eight minute YouTube video almost word for word. Finance writers can break down a trade thesis on camera. Policy writers can do a desk breakdown of a new bill. Political commentators can react to breaking news with the depth that YouTube's algorithm rewards.",
+          "From one newsletter issue, you can produce: a full YouTube video, three to five YouTube Shorts, clip-length versions for LinkedIn and X, and PNG slides for a LinkedIn carousel — all without writing anything new. That is not content repurposing. That is a distribution system.",
+        ],
+      },
+      {
+        heading: "The new insight: Blog2Video turns your Substack posts into YouTube-ready videos",
+        paragraphs: [
+          "Here is where the workflow changes entirely.",
+          "Blog2Video was built for exactly this use case: you have a blog, a newsletter issue, or a policy brief — and you need it on video without rebuilding the narrative from scratch. Paste the URL or text, and Blog2Video structures it into scenes, generates voiceover, picks visuals, and produces a video you can upload to YouTube within minutes.",
+          "But the part most writers miss is the designer templates. Blog2Video's templates are not generic slideshow presets. They are niche-matched visual identities built to make your content feel authoritative on screen, not like a Canva export.",
+          "The Bloomberg Terminal template was designed specifically for finance writers. Amber text on a dark canvas, a live ticker rail, monospaced precision — it mirrors the aesthetic finance readers associate with serious market analysis. If you're writing about earnings, rates, fiscal policy, or macro, this template tells viewers in the first two seconds that you know what you're talking about.",
+          "The Chronicle template was built for long-form narratives: cream backgrounds, tall serif type, illuminated drop caps, ornamental borders, and chapter-like pacing. Policy writers, political historians, and research-heavy journalists will recognize the register immediately. It's the difference between looking like a blog post and looking like a piece of long-form journalism.",
+          "Beyond these two, Blog2Video's template library spans explainer-style, news-anchor, minimalist, bold editorial, and data-heavy formats — so whether you write about personal finance, geopolitics, or market structure, there is a visual identity that matches the tone of your writing.",
+          "And the exports close the loop. Download as MP4 for YouTube. Export individual PNG scenes for a LinkedIn carousel. Save as PDF for newsletter embeds or media kits. Use the iframe embed to drop the video directly into a Substack post — no third-party upload required. Your YouTube launch does not add hours to your workflow. It adds a single step at the end of writing.",
+        ],
+      },
+      {
+        heading: "The distribution loop: one issue, every channel",
+        paragraphs: [
+          "Here is what the full system looks like for a finance writer publishing once a week:",
+          "Write your newsletter issue on Tuesday. It goes out to your Substack list as normal. Paste the URL into Blog2Video — select the Bloomberg Terminal template for the authority aesthetic — and generate the video. Upload the MP4 to YouTube with your newsletter issue title as the video title. Cut three Shorts from the generated scenes. Export PNG slides for a LinkedIn carousel post. Embed the video back into the Substack issue via iframe so your email subscribers can watch it inline.",
+          "You published once. You distributed six times across four channels. Every piece traces back to the original writing. Nothing was rebuilt from scratch.",
+          "For politics writers, the Chronicle or editorial template gives the same gravitas on screen that your prose already has on the page. For public policy researchers, the clean data-heavy templates let charts and citations carry the visual weight — matching the credibility your readers already associate with your work.",
+          "This is how Substack writers scale without hiring a team. The writing is already done. The distribution just needs a system.",
+        ],
+        bullets: [
+          "Finance writers: Bloomberg Terminal template for terminal-grade market authority",
+          "Politics writers: Chronicle or bold editorial templates for narrative weight",
+          "Public policy: data-heavy and clean templates that let the research speak",
+          "Personal finance: explainer and friendly templates for step-by-step walkthroughs",
+          "Investing research: news-anchor and structured templates for deep-dive credibility",
+        ],
+      },
+      {
+        heading: "Start with the writing you already have",
+        paragraphs: [
+          "You don't need a video team. You don't need a studio. You need a sharp niche, a publishing rhythm, and a system that turns every newsletter issue into a cross-platform asset.",
+          "Blog2Video handles the video side of that system. Your Bloomberg Terminal walkthrough of this week's earnings, your Chronicle-style policy breakdown, your explainer on why rates matter for dividend stocks — all of it is a YouTube video waiting to happen.",
+          "Try it with your last newsletter issue. Paste the URL, pick the template that matches your niche, and see what your writing looks like on screen.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your newsletter into video",
+      },
+    ],
+    faq: [
+      {
+        question: "How many subscribers do I need before I launch a YouTube channel alongside my Substack?",
+        answer:
+          "There is no required threshold. Many writers launch both simultaneously because YouTube search traffic builds the Substack list faster than Substack alone. If you already have 500 or more free subscribers, you have enough proof-of-niche to start a YouTube channel with confidence. The content is the same either way — YouTube just gives it a second distribution path.",
+      },
+      {
+        question: "Which niches grow fastest on Substack in 2026?",
+        answer:
+          "Finance, investing research, politics, and public policy consistently show strong subscriber growth and paid conversion on Substack. Personal finance performs well for virality and sharing. The common factor across all of them is a sharp point of view: readers subscribe to you specifically, not to the topic in general.",
+      },
+      {
+        question: "How does Blog2Video help Substack writers specifically?",
+        answer:
+          "Blog2Video converts your newsletter issues into structured video scenes with voiceover, visuals, and designer templates matched to your niche — Bloomberg Terminal for finance, Chronicle for long-form narratives, editorial and explainer formats for everything else. You export the video for YouTube, cut Shorts from the scenes, and embed the result back into Substack via iframe — all from the same source content.",
+      },
+      {
+        question: "What is the Bloomberg Terminal template and who is it for?",
+        answer:
+          "The Bloomberg Terminal template is a Blog2Video designer template that mimics the iconic trading-terminal aesthetic: amber text on a dark canvas, monospaced precision, and a ticker rail. It was built specifically for finance writers covering earnings, rates, macro, and market structure — audiences that associate this visual register with credibility and authority.",
+      },
+      {
+        question: "How do I turn a Substack issue into a YouTube video without a production team?",
+        answer:
+          "Paste the Substack post URL into Blog2Video. The tool structures the content into video scenes, generates narration, and adds visuals. Pick a designer template that matches your niche, download the MP4, and upload it to YouTube. The full process from post to uploaded video takes under 15 minutes for most newsletter-length content.",
+      },
+      {
+        question: "When should I add paid subscriptions to my Substack?",
+        answer:
+          "Most growth research points to 3,000–5,000 free subscribers as the right time to introduce paid tiers. Before that, focus on building the free list through Notes, cross-promotions, and your YouTube channel. After that threshold, even a 5% conversion rate generates meaningful recurring revenue.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Grow Your Substack Newsletter in 2026 (Niche Guide + YouTube Channel Option)",
+        angle:
+          "Capture search intent from Substack writers in finance, politics, and policy who want a concrete growth playbook — with Blog2Video as the video distribution layer.",
+      },
+      {
+        channel: "video",
+        title: "How to Grow a Substack Newsletter in 2026 — Niche Strategy + YouTube Channel Setup",
+        angle:
+          "Walk through the Bloomberg Terminal and Chronicle templates live. Show a newsletter turning into a YouTube video in real time. Demo the embed-back-into-Substack workflow.",
+      },
+      {
+        channel: "substack",
+        title: "The distribution system that turns one newsletter issue into six pieces of content",
+        angle:
+          "Frame as a workflow upgrade for Substack writers who are already writing well but not distributing effectively. Blog2Video is the new step at the end of the writing process.",
+      },
+      {
+        channel: "medium",
+        title: "Substack + YouTube: The Two-Platform System for Independent Media Writers in 2026",
+        angle:
+          "Medium developer and creator audience — frame the YouTube flywheel analytically, with Blog2Video as the production tool that makes the system practical without a team.",
       },
     ],
   },

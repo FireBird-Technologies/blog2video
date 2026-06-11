@@ -40,7 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -419,13 +419,21 @@ async def lifespan(app: FastAPI):
         init_db()
         print("[STARTUP] Database initialized successfully")
         _ensure_prebuilt_voices_seeded()
-        # Recover regenerate-script jobs orphaned by a previous crash/restart: roll them
-        # back so projects aren't stuck "script_regenerating" forever. Best-effort.
+        # Recover background jobs orphaned by a previous crash/restart: roll them back
+        # so projects aren't stuck "busy" forever and the reserved credit is refunded.
+        # With --workers 1, any active job at boot is orphaned (its process is gone).
+        # Best-effort.
         try:
-            from app.routers.projects import recover_orphaned_regenerate_script_jobs
+            from app.routers.projects import (
+                recover_orphaned_regenerate_script_jobs,
+                reap_orphaned_template_change_jobs,
+                reap_orphaned_voice_change_jobs,
+            )
             recover_orphaned_regenerate_script_jobs()
+            reap_orphaned_template_change_jobs()
+            reap_orphaned_voice_change_jobs()
         except Exception as e:
-            print(f"[STARTUP] Orphaned regenerate-script recovery failed: {e}")
+            print(f"[STARTUP] Orphaned-job recovery failed: {e}")
     except Exception as e:
         print(f"[STARTUP] Database initialization failed: {e}")
         import traceback
@@ -542,6 +550,7 @@ app.include_router(chat.router)
 app.include_router(contact.router)
 app.include_router(custom_templates.router)
 app.include_router(crafted_templates.router)
+app.include_router(free_templates.router)
 app.include_router(saved_voices.router)
 app.include_router(template_studio.router)
 app.include_router(embed.router)

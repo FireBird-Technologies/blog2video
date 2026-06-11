@@ -103,8 +103,8 @@ export default function SceneListRow({
                       e.stopPropagation();
                       onEdit();
                     }}
-                    className={`inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors flex-shrink-0 ${
-                      highlightEdit ? "ring-2 ring-purple-400 bg-purple-50" : ""
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors flex-shrink-0 ${
+                      highlightEdit ? "ring-2 ring-purple-400" : ""
                     }`}
                     title="Edit scene"
                     data-tour={index === 0 ? "scene-edit-first" : undefined}
@@ -112,7 +112,7 @@ export default function SceneListRow({
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
-                    <span className="hidden sm:inline-block text-xs font-medium">Edit</span>
+                    <span className="inline-block text-xs font-medium">Edit</span>
                   </button>
 
                   <div className="flex items-center gap-1.5">
