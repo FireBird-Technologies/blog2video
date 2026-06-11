@@ -11,7 +11,7 @@ import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
 import { EconomistMasthead } from "../components/EconomistMasthead";
-import { EngravingTexture } from "../components/EconomistOrnaments";
+import { EngravingTexture, ConcentricRings } from "../components/EconomistOrnaments";
 import {
   clamp01,
   easeOutQuint,
@@ -121,7 +121,10 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   // contents list drops below it; in landscape it lives in the top-right column.
   const teaserColLeft = isPortrait ? margin : width * 0.52;
   const teaserColWidth = isPortrait ? width - margin * 2 : width * 0.5 - margin;
-  const teaserTop = isPortrait ? margin + mastheadW * 0.46 + 80 : margin + 6;
+  // In portrait the headline rides up to ~34% of height; the teasers now sit
+  // below it (under its rule) rather than high under the masthead. In landscape
+  // they stay in the top-right column.
+  const teaserTop = isPortrait ? height * 0.5 : margin + 6;
   const teaserFont = isPortrait ? 44 : 32;
 
   return (
@@ -168,24 +171,8 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
           >
             {/* Faint engraved hairline field so the paper never reads as empty. */}
             <EngravingTexture opacity={0.05} gap={11} />
-            {/* Larger concentric cover-motif arcs. */}
-            <svg
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.6 }}
-              viewBox="0 0 100 100"
-              preserveAspectRatio="xMidYMid slice"
-            >
-              {[22, 36, 50, 64, 78].map((r, i) => (
-                <circle
-                  key={i}
-                  cx={82}
-                  cy={26}
-                  r={r}
-                  fill="none"
-                  stroke={ECONOMIST_COLORS.rule}
-                  strokeWidth={0.16}
-                />
-              ))}
-            </svg>
+            {/* Larger concentric cover-motif arcs (the signature ambient motif). */}
+            <ConcentricRings cx={82} cy={26} opacity={0.6} />
           </AbsoluteFill>
         )}
       </AbsoluteFill>
@@ -344,13 +331,15 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
           })}
         </div>
 
-        {/* The red hero block IS the main headline — centred on the page. */}
+        {/* The red hero block IS the main headline. Centred in landscape; in
+            portrait it rides up into the upper third so the contents teasers can
+            stack beneath it (rather than floating high under the masthead). */}
         <div
           style={{
             position: "absolute",
             left: 0,
             right: 0,
-            top: "50%",
+            top: isPortrait ? "34%" : "50%",
             transform: "translateY(-50%)",
             display: "flex",
             flexDirection: "column",
