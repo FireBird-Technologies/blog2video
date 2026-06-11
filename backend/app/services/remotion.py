@@ -108,6 +108,8 @@ _SHARED_SRC_FILES = [
     "src/fonts/nightfall-defaults.ts",
     # Chronicle template default fonts (bundled, not in registry)
     "src/fonts/chronicle-defaults.ts",
+    # Economist template default fonts (bundled, not in registry)
+    "src/fonts/economist-defaults.ts",
     # LaDuc template default fonts (bundled, not in registry)
     "src/fonts/laduc-defaults.ts",
     # Shared socials renderer used by multiple template layouts

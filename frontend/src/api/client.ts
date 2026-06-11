@@ -176,6 +176,16 @@ export interface Project {
   assets: Asset[];
 }
 
+export interface EmbedProjectResponse extends Project {
+  crafted_template?: CraftedTemplateDetail | null;
+  custom_template_code?: {
+    intro_code: string | null;
+    outro_code: string | null;
+    content_codes: string[] | null;
+  } | null;
+  layout_prop_schema?: Record<string, LayoutPropSchemaEntry> | null;
+}
+
 export interface ProjectListItem {
   id: number;
   name: string;
@@ -476,6 +486,9 @@ export interface LayoutPropSchema {
   label?: string;
   description?: string;
   defaults?: Record<string, unknown>;
+  /** Studio-preview-only prop samples — merged over defaults in Template Studio,
+      NEVER merged into real renders (remotion.py reads only `defaults`). */
+  sample_props?: Record<string, unknown>;
   scene_defaults?: LayoutSceneDefaults;
   fields: LayoutPropField[];
 }

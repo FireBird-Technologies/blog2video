@@ -20,6 +20,7 @@ import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition
 import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
 import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition";
 import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
+import { EconomistVideoComposition } from "./economist/EconomistVideoComposition";
 import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
 import {
   RemotionDefaultVideoComposition,
@@ -34,6 +35,7 @@ import {
   RemotionBlackswanVideoComposition,
   RemotionBloombergVideoComposition,
   RemotionChronicleVideoComposition,
+  RemotionEconomistVideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -236,6 +238,20 @@ const CHRONICLE_LAYOUTS = new Set([
   "decree_seal",
   "ending_socials",
 ]);
+
+const ECONOMIST_LAYOUTS = new Set([
+  "cover_reveal",
+  "leader_article",
+  "section_divider",
+  "chart_line",
+  "chart_bar",
+  "data_table",
+  "pros_cons",
+  "key_indicators",
+  "leader_quote",
+  "image_feature",
+  "ending_socials",
+]);
 const STICKMAN_2_LAYOUTS = new Set([
   "chalk_title",
   "night_walk",
@@ -407,6 +423,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  economist: {
+    component: EconomistVideoComposition as React.ComponentType<any>,
+    heroLayout: "cover_reveal",
+    fallbackLayout: "leader_article",
+    validLayouts: ECONOMIST_LAYOUTS,
+    defaultColors: {
+      accent: "#E3120B",
+      bg: "#F6F4EE",
+      text: "#1A1A1A",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
   stickman_2: {
     component: Stickman2VideoComposition as React.ComponentType<any>,
     heroLayout: "chalk_title",
@@ -470,6 +499,8 @@ export function getTemplateConfig(
                           ? RemotionBloombergVideoComposition
                           : id === "chronicle"
                             ? RemotionChronicleVideoComposition
+                            : id === "economist"
+                              ? RemotionEconomistVideoComposition
                     : null;
 
     if (overrideComponent) {
