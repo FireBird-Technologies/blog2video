@@ -55,8 +55,8 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
   const figScale = p ? 2.4 : 2.2;
   const groundY = p ? 1320 : 780;
   const figY = groundY - 50 * figScale; // hip, so feet (local y155) land on the ground
-  const leftFigX = p ? 320 : 470;
-  const rightFigX = p ? 760 : 1450;
+  const leftFigX = p ? 220 : 470;
+  const rightFigX = p ? 860 : 1450;
 
   // Ground line draw-on: starts at t=0.2s
   const groundStart = Math.round(0.2 * fps);
@@ -559,7 +559,7 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
             w={lW}
             h={lH}
             strokeColor={accentColor ?? "#FFFFFF"}
-            fillColor="rgba(0,0,0,0.75)"
+            fillColor="rgba(0,0,0,0)"
             dashOffset={lPerimeter * (1 - cloudProgress)}
             perimeter={lPerimeter}
             filterId={filterId}
@@ -578,7 +578,7 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
             w={rW}
             h={rH}
             strokeColor={accentColor ?? "#FFFFFF"}
-            fillColor="rgba(0,0,0,0.75)"
+            fillColor="rgba(0,0,0,0)"
             dashOffset={rPerimeter * (1 - cloudProgress)}
             perimeter={rPerimeter}
             filterId={filterId}

@@ -74,9 +74,9 @@ export const ChalkTitle: React.FC<SceneLayoutProps> = (props) => {
   const groundWorldY = figY + figScale * (155 - 105); // feet world Y
   const targetCenterY = figY + figScale * (bowPivotY - 105) + 8; // roughly at release height
 
-  // ── Bow angles — aiming horizontally LEFT at target ────────────────────────
-  const bowDownSvgDeg = p ? 22 : -52;  // resting: bow low
-  const bowUpSvgDeg = -3;              // aimed: nearly vertical = horizontal shot
+  // ── Bow angles — archer stays straight from the start, no rotation ───────────
+  const bowDownSvgDeg = -3;  // same as aimed: no resting droop in either format
+  const bowUpSvgDeg = -3;    // aimed: nearly vertical = horizontal shot
 
   // ── Archery animation cycle ────────────────────────────────────────────────
   const cycleLen = Math.round(5.2 * fps);

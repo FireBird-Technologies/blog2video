@@ -127,7 +127,7 @@ export const SignalFireScene: React.FC<SceneLayoutProps> = (props) => {
   // ── Layout positions ────────────────────────────────────────────────────
   const groundY = p ? H * 0.88 : 860;
   const figScale = p ? 2.3 : 2.1;
-  const figX = p ? W * 0.74 : 1560;
+  const figX = p ? W * 0.74 : 1700;
   const figGroundY = groundY;
 
   // ── Stick figure geometry (origin = feet) ─────────────────────────────────
