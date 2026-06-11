@@ -1,6 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
-import { PulseRing, BigGlyphBackdrop, KineticTicker, StarburstBadge } from "../components/SpotlightArtifacts";
+import { PulseRing, BigGlyphBackdrop, FilmGrain, HalftoneField, KineticTicker, StarburstBadge } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -79,8 +79,10 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
         <>
           <PulseRing accentColor={accentColor} />
           <BigGlyphBackdrop glyph="#" accentColor={accentColor} tint="accent" startFrame={2} />
+          <HalftoneField accentColor={accentColor} corner="top-left" />
         </>
       )}
+      <FilmGrain />
       {/* Spinning starburst seal stamps the stat moment + marquee energy below. */}
       <StarburstBadge accentColor={accentColor} corner={p ? "top-right" : "bottom-right"} size={p ? 140 : 168} startFrame={26} />
       {/* Marquee echoes the actual stat being staged. */}

@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
-import { BigGlyphBackdrop, DiagonalShards, FlashPop } from "../components/SpotlightArtifacts";
+import { BigGlyphBackdrop, DiagonalShards, FilmGrain, FlashPop, HalftoneField } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -236,6 +236,10 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
       <DiagonalShards accentColor={accentColor} corner="top-right" startFrame={4} />
       <DiagonalShards accentColor={accentColor} corner="bottom-left" startFrame={8} />
       <FlashPop count={2} every={78} seed={27} startFrame={16} />
+      {/* Halftone wedges on opposite corners read like a comic face-off poster. */}
+      <HalftoneField accentColor={accentColor} corner="top-left" />
+      <HalftoneField accentColor={accentColor} corner="bottom-right" />
+      <FilmGrain />
     </AbsoluteFill>
   );
 };

@@ -1,6 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
-import { CipherRing, DecodeSweep, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
+import { buildHudStatus, CipherRing, DecodeSweep, ScanlinesOverlay, TelemetryGauge, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -102,7 +102,9 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
       {/* Decorative artifacts — cipher dial, decode pass, verification HUD, CRT texture. */}
       {!hasImage && <CipherRing accentColor={accent} startFrame={4} seed={15} />}
       <DecodeSweep accentColor={accent} startFrame={2} seed={19} />
-      <TerminalHUD accentColor={accent} statusText="> METRIC VERIFIED // ±0.00" startFrame={10} seed={59} />
+      <TerminalHUD accentColor={accent} statusText={buildHudStatus("VERIFIED", primary?.label || title)} startFrame={10} seed={59} />
+      {/* Telemetry gauge sweeps up like a confidence reading on the metric. */}
+      <TelemetryGauge accentColor={accent} label="CONF" corner="top-right" startFrame={14} seed={63} />
       <ScanlinesOverlay accentColor={accent} intensity={0.8} />
 
       <div

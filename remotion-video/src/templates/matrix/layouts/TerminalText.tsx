@@ -1,6 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
-import { CodeFragments, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
+import { buildHudStatus, CodeFragments, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -104,7 +104,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
 
       {/* Decorative artifacts — full terminal HUD, floating readouts, CRT texture. */}
-      <TerminalHUD accentColor={accent} statusText="> SESSION OPEN // TTY-7" startFrame={2} seed={11} />
+      <TerminalHUD accentColor={accent} statusText={buildHudStatus("EXEC", title)} startFrame={2} seed={11} />
       <CodeFragments accentColor={accent} count={9} seed={55} startFrame={8} />
       <ScanlinesOverlay accentColor={accent} intensity={0.9} />
 
