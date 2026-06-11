@@ -21,7 +21,21 @@ _TIME_LIKE_RE = re.compile(
     r"|(^("
     r"jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|"
     r"jul(y)?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?"
-    r")(\b|[./-]\d{2,4}|\s+\d{2,4})$)",
+    r")(\b|[./-]\d{2,4}|\s+\d{2,4})$)"
+    # "1 Jun", "5 June 2026", "11 Jun, 26" — day SPACE month (optional year)
+    r"|(^\d{1,2}\s+("
+    r"jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|"
+    r"jul(y)?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?"
+    r")(,?\s*\d{2,4})?$)"
+    # weekday names ("Mon", "Tuesday") — daily series
+    r"|(^(mon(day)?|tue(s|sday)?|wed(nesday)?|thu(r|rs|rsday)?|fri(day)?|sat(urday)?|sun(day)?)$)"
+    # "Week 1" / "Day 3" / "Wk 12" ordinal periods
+    r"|(^(week|wk|day)\s*\d+$)"
+    # fiscal years ("FY24", "FY 2025") and half-years ("H1", "H2 2025")
+    r"|(^fy\s*'?\d{2,4}$)"
+    r"|(^h[1-2](\s*\d{2,4})?$)"
+    # year ranges ("2023-24", "2023/2024")
+    r"|(^\d{4}\s*[-–/]\s*\d{2,4}$)",
     re.IGNORECASE,
 )
 _BUCKET_LIKE_RE = re.compile(r"(^\d+\s*[-–]\s*\d+$)|(^<\s*\d+$)|(^>\s*\d+$)|(^\d+\+$)")

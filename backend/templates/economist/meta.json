@@ -331,6 +331,9 @@
           ]
         }
       },
+      "sample_props": {
+        "explainer": "Satisfaction has recovered to within a point of its 1995 level, and preference for democracy is at its highest in a decade — a recovery few pollsters predicted when the series bottomed out in 2018."
+      },
       "fields": [
         {
           "key": "chartTable",
@@ -393,6 +396,12 @@
               "value": "false"
             }
           ]
+        },
+        {
+          "key": "explainer",
+          "label": "Takeaway",
+          "type": "text",
+          "placeholder": "Auto (computed from the data) — or write 1–2 sentences"
         }
       ]
     },
@@ -451,6 +460,9 @@
           ]
         }
       },
+      "sample_props": {
+        "explainer": "India's 6.4% projection puts it more than a full point clear of Indonesia and almost three ahead of China — a lead that, if sustained, would double Indian output roughly a decade sooner than any of its peers."
+      },
       "fields": [
         {
           "key": "chartTable",
@@ -486,6 +498,12 @@
           "label": "Value Unit",
           "type": "string",
           "placeholder": "%"
+        },
+        {
+          "key": "explainer",
+          "label": "Takeaway",
+          "type": "text",
+          "placeholder": "Auto (computed from the data) — or write 1–2 sentences"
         }
       ]
     },
@@ -543,6 +561,9 @@
           ]
         }
       },
+      "sample_props": {
+        "explainer": "JPMorgan Chase's $560bn valuation is nearly double Bank of America's, and exceeds the combined worth of HSBC, Morgan Stanley and Goldman Sachs — a concentration at the top unseen since before the financial crisis."
+      },
       "fields": [
         {
           "key": "chartTable",
@@ -563,6 +584,12 @@
           "label": "Value Unit",
           "type": "string",
           "placeholder": "$bn"
+        },
+        {
+          "key": "explainer",
+          "label": "Takeaway",
+          "type": "text",
+          "placeholder": "Auto (computed from the data) — or write 1–2 sentences"
         }
       ]
     },

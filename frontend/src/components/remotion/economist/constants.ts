@@ -75,10 +75,10 @@ export const LAYOUT_MIN_FRAMES: Record<EconomistLayoutType, number> = {
  * (pad.t ≈ top + 24, pad.b ≈ bottom + 22). Portrait variants are taller.
  */
 export const CHROME_INSET = {
-  top: 56,
-  bottom: 52,
-  topPortrait: 64,
-  bottomPortrait: 60,
+  top: 66,
+  bottom: 62,
+  topPortrait: 74,
+  bottomPortrait: 70,
 } as const;
 
 /** Layouts that do not show a cover/inset photo. */

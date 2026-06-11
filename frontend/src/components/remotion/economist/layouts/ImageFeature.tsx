@@ -36,7 +36,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   const brandWordmark = (wordmark ?? "").trim();
 
   const margin = isPortrait ? 56 : 70;
-  const headlineSize = (titleFontSize ?? (isPortrait ? 64 : 80)) as number;
+  const headlineSize = (titleFontSize ?? (isPortrait ? 76 : 80)) as number;
 
   const photoOp = interpolate(frame, [0, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const kbScale = interpolate(frame, [0, 260], [1.05, 1.14], { extrapolateRight: "clamp" }) * imageZoom;
@@ -57,13 +57,15 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   // should avoid picking image_feature without an image, but this keeps the
   // scene clean if it slips through.
   if (!hasImage) {
-    const noImgHeadline = (titleFontSize ?? (isPortrait ? 72 : 92)) as number;
+    const noImgHeadline = (titleFontSize ?? (isPortrait ? 84 : 92)) as number;
     return (
       <AbsoluteFill
         style={{
           background: `radial-gradient(ellipse at 28% 26%, ${ECONOMIST_COLORS.panel} 0%, ${ECONOMIST_COLORS.paper} 62%)`,
           padding: `0 ${isPortrait ? margin + 8 : 150}px`,
           justifyContent: "center",
+          // Bottom padding biases the vertically-centred card upward in portrait.
+          paddingBottom: isPortrait ? height * 0.16 : 0,
         }}
       >
         {/* Faint engraved field fills the empty paper when there's no photo. */}
@@ -74,7 +76,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
             const reveal = redactionReveal(frame, 0, 14);
             return (
               <div style={{ position: "relative", display: "inline-block" }}>
-                <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 20 : 19, letterSpacing: 2.4, textTransform: "uppercase", color: ECONOMIST_COLORS.muted, clipPath: reveal.clipPath }}>
+                <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 26 : 19, letterSpacing: 2.4, textTransform: "uppercase", color: ECONOMIST_COLORS.muted, clipPath: reveal.clipPath }}>
                   {sectionLabel}
                 </div>
                 <span style={{ position: "absolute", top: 0, bottom: 0, left: `${reveal.barLeftPct.toFixed(2)}%`, width: `${reveal.barWidthPct}%`, background: accentColor, opacity: reveal.barOpacity }} />
@@ -86,7 +88,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
             {title}
           </div>
           {caption && (
-            <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 30 : 30, lineHeight: 1.4, color: ECONOMIST_COLORS.muted, marginTop: isPortrait ? 24 : 26, maxWidth: isPortrait ? "100%" : "82%", opacity: capOp }}>
+            <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 38 : 30, lineHeight: 1.4, color: ECONOMIST_COLORS.muted, marginTop: isPortrait ? 24 : 26, maxWidth: isPortrait ? "100%" : "82%", opacity: capOp }}>
               {caption}
             </div>
           )}
@@ -95,7 +97,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: isPortrait ? 30 : 34, opacity: capOp }}>
             <EditorialDivider width={isPortrait ? 220 : 300} progress={capOp} accentColor={accentColor} height={16} />
             {credit && (
-              <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: isPortrait ? 18 : 17, letterSpacing: 0.5, color: ECONOMIST_COLORS.muted, whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: isPortrait ? 22 : 17, letterSpacing: 0.5, color: ECONOMIST_COLORS.muted, whiteSpace: "nowrap" }}>
                 {credit}
               </span>
             )}

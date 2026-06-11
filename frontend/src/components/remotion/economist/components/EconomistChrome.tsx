@@ -205,7 +205,7 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
               style={{
                 fontFamily: ECONOMIST_SERIF_FONT,
                 fontWeight: 700,
-                fontSize: isPortrait ? 19 : 20,
+                fontSize: isPortrait ? 26 : 26,
                 letterSpacing: 0.4,
                 color: textColor,
               }}
@@ -219,12 +219,12 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
           {/* Right — section tab + label. */}
           {sectionText && (
             <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 22, height: 4, background: accentColor }} />
+              <span style={{ width: 28, height: 5, background: accentColor }} />
               <span
                 style={{
                   fontFamily: ECONOMIST_SANS_FONT,
                   fontWeight: 700,
-                  fontSize: isPortrait ? 15 : 16,
+                  fontSize: isPortrait ? 21 : 22,
                   letterSpacing: 2,
                   textTransform: "uppercase",
                   color: ECONOMIST_COLORS.muted,
@@ -296,12 +296,12 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {/* Left — running dateline. */}
           <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ width: 22, height: 1.5, background: ECONOMIST_COLORS.rule }} />
+            <span style={{ width: 28, height: 2, background: ECONOMIST_COLORS.rule }} />
             <span
               style={{
                 fontFamily: ECONOMIST_SANS_FONT,
                 fontWeight: 700,
-                fontSize: isPortrait ? 14 : 14,
+                fontSize: isPortrait ? 20 : 20,
                 letterSpacing: 2,
                 textTransform: "uppercase",
                 color: ECONOMIST_COLORS.muted,
@@ -336,7 +336,7 @@ const SceneFolio: React.FC<SceneFolioProps> = ({ sceneIndex, sceneCount, accentC
       style={{
         fontFamily: ECONOMIST_SANS_FONT,
         fontWeight: 700,
-        fontSize: 14,
+        fontSize: 20,
         letterSpacing: 2,
         color: ECONOMIST_COLORS.muted,
       }}

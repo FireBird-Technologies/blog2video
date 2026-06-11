@@ -20,7 +20,9 @@ import {
   baselineSettle,
   ruleDraw,
   letterpressStamp,
+  panelSqueeze,
 } from "./motion";
+import { ExplainerBox } from "./ExplainerBox";
 
 /**
  * ChartBar — custom-SVG Economist bar chart.
@@ -32,15 +34,11 @@ import {
 const GROW_START = 18;
 const GROW_DUR = 24;
 const STAGGER = 7;
+const SQUEEZE_DUR = 18;
 
 interface BarHeaderProps {
   title: string;
   subtitle?: string;
-  /** Dynamic key/legend line: the measured series name + unit. */
-  keyLabel?: string;
-  keyColor?: string;
-  /** Dynamic one-line insight derived from the data (e.g. the leader). */
-  insight?: string;
   accentColor: string;
   textColor: string;
   titleSize: number;
@@ -53,9 +51,6 @@ interface BarHeaderProps {
 const BarHeader: React.FC<BarHeaderProps> = ({
   title,
   subtitle,
-  keyLabel,
-  keyColor,
-  insight,
   accentColor,
   textColor,
   titleSize,
@@ -104,58 +99,6 @@ const BarHeader: React.FC<BarHeaderProps> = ({
           {subtitle}
         </div>
       )}
-      {/* Dynamic explainer — measured-series key + one-line insight. Lives in the
-          header (above the bars) so it never overlaps the plot. */}
-      {(keyLabel || insight) && (
-        <div
-          style={{
-            display: "inline-block",
-            marginTop: 14,
-            padding: "10px 14px",
-            background: "rgba(246,244,238,0.92)",
-            border: `1px solid ${ECONOMIST_COLORS.rule}`,
-            ...textRise(frame, 16, 14),
-          }}
-        >
-          {keyLabel && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span
-                style={{
-                  width: Math.round(subSize * 0.85),
-                  height: Math.max(3, Math.round(subSize * 0.2)),
-                  background: keyColor,
-                  borderRadius: 1,
-                }}
-              />
-              <span
-                style={{
-                  fontFamily: ECONOMIST_SANS_FONT,
-                  fontWeight: 700,
-                  fontSize: Math.round(subSize * 0.86),
-                  color: ECONOMIST_COLORS.ink,
-                }}
-              >
-                {keyLabel}
-              </span>
-            </div>
-          )}
-          {insight && (
-            <div
-              style={{
-                fontFamily: ECONOMIST_SERIF_FONT,
-                fontStyle: "italic",
-                fontSize: Math.round(subSize * 0.8),
-                lineHeight: 1.36,
-                color: ECONOMIST_COLORS.ink,
-                marginTop: keyLabel ? 8 : 0,
-                maxWidth: 420,
-              }}
-            >
-              {insight}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };
@@ -167,6 +110,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
   chartType,
   seriesColors,
   unit = "",
+  explainer,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
@@ -211,14 +155,9 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
   const innerT = pad.t;
   const innerB = height - pad.b;
 
-  const titleSize = (titleFontSize ?? (isPortrait ? 46 : 50)) as number;
+  const titleSize = (titleFontSize ?? (isPortrait ? 68 : 50)) as number;
   const subSize = Math.round(titleSize * 0.62);
-  // Explainer box reserve: key row + insight (≈2 lines) + box padding.
-  const keyH =
-    keyLabel || barInsight
-      ? 20 + (keyLabel ? Math.round(subSize * 0.95) : 0) + (barInsight ? Math.round(subSize * 0.8) * 2 + 8 : 0)
-      : 0;
-  const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + keyH + 22;
+  const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + 22;
   const footerH = 0;
 
   // Raw 0..1 grow clock per bar; the bars themselves apply an easeOutBack
@@ -228,14 +167,20 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
   // Each datum.
   const data = labels.map((label, i) => ({ label, value: Number.isFinite(primary[i]) ? primary[i] : 0 }));
 
+  // Post-animation squeeze + takeaway panel. The last bar finishes growing at a
+  // data-dependent frame; the clamp keeps the squeeze + panel inside the 200f
+  // minimum scene duration. Wrapper transform only — never re-lay-out the plot.
+  const lastAnimEnd = GROW_START + (Math.max(1, data.length) - 1) * STAGGER + GROW_DUR;
+  const squeezeStart = Math.min(lastAnimEnd + 14, 150);
+  const boxDelay = squeezeStart + 10;
+  const sq = panelSqueeze(frame, squeezeStart, isPortrait ? 0.92 : 0.86, SQUEEZE_DUR);
+  const takeaway = (explainer ?? "").trim() || barInsight;
+
   return (
     <AbsoluteFill>
       <BarHeader
         title={title}
         subtitle={narration}
-        keyLabel={keyLabel}
-        keyColor={barColor}
-        insight={barInsight}
         accentColor={accentColor}
         textColor={textColor}
         titleSize={titleSize}
@@ -245,6 +190,15 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
         frame={frame}
       />
 
+      {/* Chart canvas in one squeezing wrapper (covers both variants). */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          transform: `scale(${sq.toFixed(4)})`,
+          transformOrigin: `${(innerL + innerR) / 2}px ${innerT}px`,
+        }}
+      >
       {variant === "bar"
         ? (() => {
             const yLabelW = 62;
@@ -252,8 +206,17 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
             const gridR = innerR - yLabelW;
             const plotL = innerL;
             const plotR = gridR;
-            const plotT = innerT + headerH;
-            const plotB = innerB - footerH - xLabelH;
+            // Portrait: the column below the header is very tall, which stretches
+            // the bars into thin towers. Cap the plot height and centre that
+            // shorter band in the leftover space (matches ChartLine).
+            const headBottom = innerT + headerH;
+            const naturalPlotB = innerB - footerH - xLabelH;
+            const plotH = isPortrait
+              ? Math.min(naturalPlotB - headBottom, (innerB - headBottom) * 0.6)
+              : naturalPlotB - headBottom;
+            const plotVOffset = isPortrait ? (naturalPlotB - headBottom - plotH) * 0.5 : 0;
+            const plotT = headBottom + plotVOffset;
+            const plotB = plotT + plotH;
             const { min, max } = extentY(series.length ? [series[0]] : []);
             const scale = niceTicks(Math.min(0, min), Math.max(0, max), 5, true);
             const sy = scaleLinear(scale.niceMin, scale.niceMax, plotB, plotT);
@@ -333,8 +296,16 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
             const sorted = [...data].sort((a, b) => b.value - a.value);
             const labelGutter = isPortrait ? 250 : 360;
             const valueW = isPortrait ? 96 : 120;
-            const plotT = innerT + headerH;
-            const plotB = innerB - footerH;
+            // Portrait: cap the rows' vertical band and centre it so the ranked
+            // bars stay compact instead of spreading down the whole column.
+            const headBottom = innerT + headerH;
+            const naturalPlotB = innerB - footerH;
+            const plotH = isPortrait
+              ? Math.min(naturalPlotB - headBottom, (innerB - headBottom) * 0.6)
+              : naturalPlotB - headBottom;
+            const plotVOffset = isPortrait ? (naturalPlotB - headBottom - plotH) * 0.5 : 0;
+            const plotT = headBottom + plotVOffset;
+            const plotB = plotT + plotH;
             const barL = innerL + labelGutter;
             const barRight = innerR - valueW;
             const maxV = Math.max(...sorted.map((d) => d.value), 1);
@@ -396,7 +367,21 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
               </svg>
             );
           })()}
+      </div>
 
+      {/* Takeaway panel rising into the band freed by the squeeze. */}
+      <ExplainerBox
+        frame={frame}
+        delay={boxDelay}
+        left={innerL}
+        bottom={(isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + (isPortrait ? 16 : 14)}
+        width={innerR - innerL}
+        text={takeaway}
+        keys={keyLabel ? [{ label: keyLabel, color: barColor }] : undefined}
+        accentColor={accentColor}
+        fontSize={Math.round(subSize * (isPortrait ? 0.8 : 0.85))}
+        isPortrait={isPortrait}
+      />
     </AbsoluteFill>
   );
 };

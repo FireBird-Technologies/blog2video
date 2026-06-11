@@ -87,6 +87,7 @@ Core rules:
 - `panelNumber` — optional small boxed number (e.g. `"2"`).
 - `labelMode` — `"end"` (labels at line ends, default) or `"inline"` (labels on the chart, good for 2 series).
 - `unit` — optional value suffix (e.g. `"%"`).
+- `explainer` — 1–2 measured sentences (≤30 words total) stating the takeaway, shown in a panel after the chart animates. Grounded ONLY in the chartTable numbers; the Economist voice; no hype.
 - `title` (global) — the chart title. `narration` (global) — the subtitle (the units/definition line).
 
 **Worked example:**
@@ -94,6 +95,7 @@ Core rules:
 { "layout": "chart_line", "title": "End of a losing streak", "narration": "Latin America, % agreeing",
   "layout_props_json": { "panelNumber": "2", "emphasizeZero": false, "labelMode": "inline",
     "highlightSeries": ["Preferred", "Satisfied"], "seriesColors": ["#F0746E", "#E3120B"],
+    "explainer": "Satisfaction has recovered to within a point of its 1995 level, after a deep slump in 2018.",
     "chartTable": { "headers": ["Year", "Preferred", "Satisfied"],
       "rows": [["1995",52,30],["2000",48,25],["10",55,38],["18",44,15],["24",47,29]] } } }
 ```
@@ -109,6 +111,7 @@ Core rules:
 **Props:**
 - `chartTable` — first column = category labels, second column = the value. **4–9 rows.**
 - `chartType` — `"bar"` or `"hbar"`. `unit` — optional (e.g. `"%"`, `"$bn"`).
+- `explainer` — 1–2 measured sentences (≤30 words total) stating the takeaway, shown in a panel after the bars animate. Grounded ONLY in the chartTable numbers; no hype.
 
 **Worked example:**
 ```json
@@ -128,6 +131,7 @@ Core rules:
 **Props:**
 - `chartTable` — first column = name, second column = value. **5–10 rows.**
 - `unit` — optional (currency symbols render as a prefix, e.g. `"$bn"` → `$560bn`).
+- `explainer` — 1–2 measured sentences (≤30 words total) stating the takeaway, shown in a panel after the rows animate. Grounded ONLY in the chartTable numbers; no hype.
 
 ---
 
@@ -211,6 +215,7 @@ Core rules:
 - `chart_bar` / `data_table`: a single value column; 4–10 rows.
 - Every number must come from the source. Round sensibly.
 - Never emit a chart/table whose numbers you cannot ground in the source.
+- Every chart/table scene should include an `explainer` takeaway; never restate the title — interpret the movement or the gap.
 
 # Output contract
 

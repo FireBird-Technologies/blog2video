@@ -31,7 +31,9 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
   const quoteSize = (titleFontSize ?? (isPortrait ? 64 : 84)) as number;
   const pad = isPortrait ? 64 : width * 0.085;
   const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 16;
-  const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 16;
+  // Extra bottom padding in portrait biases the vertically-centred quote upward
+  // so it sits a touch above dead-centre.
+  const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 16 + (isPortrait ? 180 : 0);
 
   const mark = inkBleed(frame, 4);
   const ruleW = interpolate(frame, [10, 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });

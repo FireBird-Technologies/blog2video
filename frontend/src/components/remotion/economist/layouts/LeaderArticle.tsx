@@ -36,8 +36,8 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
   const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
   const pad = isPortrait ? { x: 72, t: topInset, b: botInset } : { x: 100, t: topInset, b: botInset };
-  const titleSize = (titleFontSize ?? (isPortrait ? 68 : 82)) as number;
-  const bodySize = (descriptionFontSize ?? (isPortrait ? 32 : 30)) as number;
+  const titleSize = (titleFontSize ?? (isPortrait ? 84 : 82)) as number;
+  const bodySize = (descriptionFontSize ?? (isPortrait ? 40 : 30)) as number;
 
   const body = (narration || "").trim();
   const dropCap = (illuminatedLetter || body.charAt(0) || "").toUpperCase();
@@ -70,7 +70,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   const header = (
     <>
       <div style={{ position: "relative", marginBottom: 26 }}>
-        <SectionKicker label={sectionLabel} accentColor={accentColor} fontSize={isPortrait ? 20 : 19} withRule style={{ clipPath: kickerReveal.clipPath }} />
+        <SectionKicker label={sectionLabel} accentColor={accentColor} fontSize={isPortrait ? 26 : 19} withRule style={{ clipPath: kickerReveal.clipPath }} />
         <span
           style={{
             position: "absolute",
@@ -100,7 +100,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
         {title}
       </div>
       {byline && (
-        <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 19 : 18, letterSpacing: 1.2, textTransform: "uppercase", color: ECONOMIST_COLORS.muted, opacity: titleOp }}>
+        <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 24 : 18, letterSpacing: 1.2, textTransform: "uppercase", color: ECONOMIST_COLORS.muted, opacity: titleOp }}>
           {byline}
         </div>
       )}
@@ -165,7 +165,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
         </div>
       ) : (
         <div style={{ display: "flex", gap: isPortrait ? 0 : 56, height: "100%", alignItems: "stretch" }}>
-          <div style={{ width: isPortrait ? "100%" : "58%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ width: isPortrait ? "100%" : "58%", display: "flex", flexDirection: "column", justifyContent: isPortrait ? "flex-start" : "center", paddingTop: isPortrait ? height * 0.1 : 0 }}>
             {header}
             <div style={{ marginTop: 28 }}>{bodyEl}</div>
           </div>

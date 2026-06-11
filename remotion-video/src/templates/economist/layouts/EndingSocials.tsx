@@ -51,7 +51,7 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: `0 ${isPortrait ? 70 : 120}px` }}>
       {brandWordmark && (
-        <div style={{ transform: `scale(${mastheadScale})`, transformOrigin: "center", marginBottom: isPortrait ? 30 : 34 }}>
+        <div style={{ transform: `scale(${mastheadScale})`, transformOrigin: "center", marginBottom: isPortrait ? 48 : 34 }}>
           <EconomistMasthead
             wordmark={brandWordmark}
             width={isPortrait ? 360 : 420}
@@ -73,7 +73,7 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
             textAlign: "center",
             color: textColor,
             maxWidth: isPortrait ? "100%" : "64%",
-            margin: `${isPortrait ? 28 : 30}px 0`,
+            margin: `${isPortrait ? 44 : 30}px 0`,
           }}
         >
           {closingWords.map((w, i) => {
@@ -104,7 +104,7 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
             display: "flex",
             flexDirection: isPortrait ? "column" : "row",
             gap: 18,
-            marginBottom: isPortrait ? 30 : 34,
+            marginBottom: isPortrait ? 48 : 34,
           }}
         >
           {cards.map((c, i) => {
@@ -140,7 +140,7 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
         </div>
       )}
 
-      <div style={{ width: isPortrait ? width * 0.5 : 360, height: 2, background: accentColor, marginBottom: isPortrait ? 26 : 28, ...ruleDraw(frame, 14, 18, "center") }} />
+      <div style={{ width: isPortrait ? width * 0.5 : 360, height: 2, background: accentColor, marginBottom: isPortrait ? 40 : 28, ...ruleDraw(frame, 14, 18, "center") }} />
 
       <SocialIcons
         socials={socials as never}
