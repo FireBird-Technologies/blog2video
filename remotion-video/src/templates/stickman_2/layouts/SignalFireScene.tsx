@@ -310,16 +310,61 @@ export const SignalFireScene: React.FC<SceneLayoutProps> = (props) => {
             <line x1={elbowX} y1={elbowY} x2={handX} y2={handY} stroke={stroke} strokeWidth={4.5 * S * 0.7} />
           </g>
 
-          {/* Gun — filled pistol silhouette held at the hand */}
+          {/* Gun — detailed semi-auto pistol held at the hand */}
           <g transform={`translate(${handX}, ${handY}) rotate(${aimDeg}) scale(${gunUnit}, ${gunUnit * gunFlip})`}>
-            {/* Slide + barrel */}
-            <rect x={-6} y={-7} width={50} height={9} rx={2} fill={stroke} />
+            {/* ── Barrel ── */}
+            <rect x={10} y={-5} width={38} height={6} rx={1.5} fill={stroke} />
+            {/* Barrel underside / dust cover rail */}
+            <rect x={12} y={1} width={30} height={3} rx={1} fill={stroke} opacity={0.7} />
+            {/* Muzzle crown (ring at barrel end) */}
+            <rect x={46} y={-6} width={3} height={8} rx={1} fill={stroke} />
+
+            {/* ── Slide ── */}
+            <rect x={-2} y={-9} width={48} height={11} rx={2.5} fill={stroke} />
+            {/* Slide serrations (rear) — parallel notches cut into the slide */}
+            {[0,3,6,9,12].map((ox) => (
+              <line key={ox} x1={6+ox} y1={-9} x2={6+ox} y2={-4}
+                stroke={bgColor ?? "#000000"} strokeWidth={1.3} strokeLinecap="round" opacity={0.85} />
+            ))}
+            {/* Ejection port cut-out */}
+            <rect x={20} y={-9} width={14} height={5} rx={1} fill={bgColor ?? "#000000"} opacity={0.9} />
+
+            {/* ── Frame / receiver ── */}
+            <rect x={-2} y={2} width={30} height={7} rx={1.5} fill={stroke} />
+            {/* Trigger guard — smooth curved outline */}
+            <path d="M 8 9 Q 7 22 0 23 Q -3 23 -3 20 Q -3 16 2 15 Q 6 15 8 9 Z"
+              fill={stroke} />
+            {/* Trigger */}
+            <line x1={4} y1={11} x2={3} y2={19} stroke={bgColor ?? "#000000"} strokeWidth={2} strokeLinecap="round" />
+
+            {/* ── Grip ── */}
+            {/* Main grip body — angled pistol grip */}
+            <path d="M -2 9 L 14 9 L 18 32 L -1 32 Z" fill={stroke} />
+            {/* Grip texture — horizontal stippling lines */}
+            {[13,17,21,25,29].map((gy) => (
+              <line key={gy} x1={0} y1={gy} x2={13} y2={gy + 1}
+                stroke={bgColor ?? "#000000"} strokeWidth={1.1} strokeLinecap="round" opacity={0.7} />
+            ))}
+            {/* Magazine base plate */}
+            <rect x={-1} y={30} width={16} height={3} rx={1} fill={stroke} opacity={0.9} />
+            {/* Magazine release button */}
+            <circle cx={14} cy={11} r={2} fill={bgColor ?? "#000000"} opacity={0.8} />
+
+            {/* ── Sights ── */}
+            {/* Rear sight (two posts) */}
+            <rect x={1}  y={-13} width={3} height={5} rx={0.8} fill={stroke} />
+            <rect x={7}  y={-13} width={3} height={5} rx={0.8} fill={stroke} />
+            {/* Rear sight notch gap */}
+            <rect x={4}  y={-13} width={3} height={4} rx={0.5} fill={bgColor ?? "#000000"} opacity={0.9} />
             {/* Front sight */}
-            <rect x={40} y={-10} width={3} height={4} fill={stroke} />
-            {/* Grip (angled down/back) */}
-            <path d="M -4 2 L 10 2 L 15 24 L 2 24 Z" fill={stroke} />
-            {/* Trigger guard */}
-            <path d="M 10 2 q -1 11 -8 13" fill="none" stroke={stroke} strokeWidth={2.5} />
+            <rect x={43} y={-13} width={3} height={5} rx={0.8} fill={stroke} />
+
+            {/* ── Rail / accessory rail on frame ── */}
+            <line x1={12} y1={4} x2={26} y2={4} stroke={bgColor ?? "#000000"} strokeWidth={1.2} opacity={0.6} />
+            <line x1={12} y1={6} x2={26} y2={6} stroke={bgColor ?? "#000000"} strokeWidth={1.2} opacity={0.6} />
+
+            {/* ── Hammer (exposed, cocked back) ── */}
+            <path d="M -2 -5 Q -7 -9 -5 -13 Q -3 -15 -1 -12 Q 0 -10 -2 -5 Z" fill={stroke} />
           </g>
 
           {/* Muzzle flash */}
