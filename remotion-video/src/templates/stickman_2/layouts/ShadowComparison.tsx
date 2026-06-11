@@ -106,53 +106,101 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
   const leftGlowStrength = leftGlowVal * 20;
   const rightGlowStrength = rightGlowVal * 20;
 
-  // ── Soccer ball kicked back and forth ─────────────────────────────────────
+  // ── Soccer ball physics ────────────────────────────────────────────────────
   const ballR = p ? 22 : 18;
-  const ballLeftX = leftFigX + 45 * figScale; // just in front of the left figure
-  const ballRightX = rightFigX - 45 * figScale; // just in front of the right figure
-  const cycleSec = 2.6;
-  const cycPhase = ((frame / fps) % cycleSec) / cycleSec; // 0..1, full there-and-back
-  const easeInOut = (x: number) =>
-    x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+  const ballLeftX  = leftFigX  + 22 * figScale * 0.5;
+  const ballRightX = rightFigX - 22 * figScale * 0.5;
+  const cycleSec = 2.8;
+  const timeSec2 = frame / fps; // alias to avoid name clash with timeSec below
+  const cycPhase = (timeSec2 % cycleSec) / cycleSec;
 
-  let ballT: number;
-  let fromX: number;
-  let toX: number;
-  if (cycPhase < 0.5) {
-    ballT = cycPhase / 0.5; // left → right
-    fromX = ballLeftX;
-    toX = ballRightX;
-  } else {
-    ballT = (cycPhase - 0.5) / 0.5; // right → left
-    fromX = ballRightX;
-    toX = ballLeftX;
-  }
-  const ballX = fromX + (toX - fromX) * easeInOut(ballT);
-  // Ball arcs up, bounces once on the ground partway across, then takes a
-  // lower arc down to the receiver's feet.
-  const bounceAt = 0.6;
-  const arcHeight1 = p ? 300 : 240; // first (high) arc
-  const arcHeight2 = p ? 120 : 95; // second (low) arc after the bounce
+  const goingRight = cycPhase < 0.5;
+  const ballT  = goingRight ? cycPhase / 0.5 : (cycPhase - 0.5) / 0.5; // 0..1 within current half
+  const fromX  = goingRight ? ballLeftX  : ballRightX;
+  const toX    = goingRight ? ballRightX : ballLeftX;
+
+  // Horizontal: constant velocity (realistic — no ease)
+  const ballX = fromX + (toX - fromX) * ballT;
+
+  // Vertical: two parabolic arcs joined at a single bounce
+  const arcH1 = p ? 270 : 215;      // peak height of the kicked arc
+  const bounceAt   = 0.64;           // where ball lands (fraction of ballT)
+  const restitution = 0.55;          // height after bounce relative to first arc peak
+
   let ballHeight: number;
   if (ballT < bounceAt) {
-    ballHeight = Math.sin((ballT / bounceAt) * Math.PI) * arcHeight1;
+    ballHeight = Math.sin((ballT / bounceAt) * Math.PI) * arcH1;
   } else {
-    ballHeight = Math.sin(((ballT - bounceAt) / (1 - bounceAt)) * Math.PI) * arcHeight2;
+    const t2 = (ballT - bounceAt) / (1 - bounceAt);
+    ballHeight = Math.sin(t2 * Math.PI) * arcH1 * restitution;
   }
-  const ballY = groundY - ballR - ballHeight;
-  const ballRot = (frame / fps) * 420 * (cycPhase < 0.5 ? 1 : -1);
 
-  // Kick pulses: left figure kicks when the ball is at the left (phase 0),
-  // right figure kicks when the ball reaches the right (phase 0.5).
-  const kickBump = (center: number) => {
-    const width = 0.1;
-    const raw = Math.abs(cycPhase - center);
-    const d = Math.min(raw, 1 - raw); // cyclic distance
-    if (d > width) return 0;
-    return 0.5 * (1 + Math.cos((d / width) * Math.PI));
+  // Squish the ball on ground contact at the bounce point
+  const bounceProx  = Math.max(0, 1 - Math.abs(ballT - bounceAt) / 0.035);
+  const ballSqX = 1 + 0.45 * bounceProx;
+  const ballSqY = 1 - 0.55 * bounceProx;
+
+  const ballY = groundY - ballR - ballHeight;
+
+  // Spin: fast at kick, exponentially decays — realistic angular momentum loss
+  const V0spin  = 680; // initial spin deg/s
+  const kSpin   = 2.0; // decay rate 1/s
+  const halfDur = cycleSec / 2;
+  const tInHalf = ballT * halfDur;
+  const spinDir = goingRight ? 1 : -1;
+  const rotThisHalf = (V0spin / kSpin) * (1 - Math.exp(-kSpin * tInHalf)) * spinDir;
+  // Add completed half-cycle contributions (they alternate, net of pairs = rotPerHalf)
+  const rotPerHalf = (V0spin / kSpin) * (1 - Math.exp(-kSpin * halfDur));
+  const completedHalves = Math.floor(timeSec2 / halfDur);
+  const prevRot = completedHalves % 2 === 1 ? rotPerHalf : 0;
+  const ballRot = prevRot + rotThisHalf;
+
+  // ── Kick state machine ─────────────────────────────────────────────────────
+  // Returns kickLeg (-0.4=wind-up back, 0=rest, 1.0=full follow-through),
+  // plantBend (0..1), and torsoBias (extra lean deg) for a player whose
+  // kick moment is at cycPhase == kickCenter.
+  const getKickState = (kickCenter: number) => {
+    let rel = ((cycPhase - kickCenter) % 1 + 1) % 1;
+    if (rel > 0.5) rel -= 1; // -0.5 to 0.5 centered on kick contact
+
+    let kickLeg = 0, plantBend = 0, torsoBias = 0;
+
+    if (rel < -0.10) {
+      // Idle jog while ball is incoming
+      const jogT = (rel + 0.5) / 0.40;
+      kickLeg = Math.sin(jogT * Math.PI * 2) * 0.13;
+    } else if (rel < 0) {
+      // Wind-up: leg pulls BACK
+      const wt = (rel + 0.10) / 0.10;
+      kickLeg   = -0.38 * wt;
+      plantBend = 0.18 * wt;
+      torsoBias = 6 * wt;
+    } else if (rel < 0.04) {
+      // Strike: explosive whip forward (covers ~120° in 0.04 cycle = ~0.11 s)
+      const st = rel / 0.04;
+      kickLeg   = -0.38 + 1.38 * st; // -0.38 → 1.0
+      plantBend = 0.38;
+      torsoBias = 6 * (1 - st);
+    } else if (rel < 0.19) {
+      // Follow-through: leg decelerates high in the air
+      const ft = (rel - 0.04) / 0.15;
+      kickLeg   = 1.0 - ft * 0.48; // 1.0 → 0.52
+      plantBend = 0.28 * (1 - ft);
+    } else if (rel < 0.46) {
+      // Recovery: leg swings back to idle
+      const rt = (rel - 0.19) / 0.27;
+      kickLeg = 0.52 * (1 - rt);
+    } else {
+      // Late idle
+      const lt = (rel - 0.46) / 0.04;
+      kickLeg = Math.sin(lt * Math.PI) * 0.13;
+    }
+
+    return { kickLeg, plantBend, torsoBias };
   };
-  const leftKick = kickBump(0.0);
-  const rightKick = kickBump(0.5);
+
+  const leftKickState  = getKickState(0.0);
+  const rightKickState = getKickState(0.5);
 
   // Starfield — seeded positions so they stay fixed across per-frame renders
   const stars = React.useMemo(() => {
@@ -231,55 +279,73 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
     titleBottom + (p ? 60 : 48) + maxCloudH * 1.3,
   );
 
-  // Footballer stick figure. Hip on (figX, figY) in a 100x160 local box
-  // (hip ≈ y105, feet ≈ y155). `kick` (0..1) swings the inner leg forward/up.
+  // Footballer with authentic kick phases: wind-up → explosive strike → follow-through → recovery
   const Footballer: React.FC<{
     isRight: boolean;
     figX: number;
     figY: number;
     scale: number;
-    kick: number;
-  }> = ({ isRight, figX, figY, scale, kick }) => {
+    kickState: { kickLeg: number; plantBend: number; torsoBias: number };
+  }> = ({ isRight, figX, figY, scale, kickState }) => {
     const stroke = textColor ?? "#FFFFFF";
-    const t = timeSec;
-    const breath = Math.sin(t * 1.2) * 1.5;
-    const dir = isRight ? -1 : 1; // forward direction (toward the ball/centre)
+    const tSec = frame / fps;
+    const breath = Math.sin(tSec * 1.3) * 1.2;
+    const dir = isRight ? -1 : 1;
+
+    const { kickLeg, plantBend, torsoBias } = kickState;
 
     const hipX = 50;
     const hipY = 105;
-    // Lean the torso back a touch while kicking, for balance.
-    const torsoLean = -dir * kick * 12 + Math.sin(t * 0.7) * 2;
+
+    // Torso: leans back during explosive strike, twists slightly
+    const kickFwd = Math.max(0, kickLeg);
+    const torsoLean = -dir * (torsoBias + kickFwd * 6) + Math.sin(tSec * 0.6) * 2;
     const torsoRad = (torsoLean * Math.PI) / 180;
     const shoulderX = hipX + Math.sin(torsoRad) * 45;
     const shoulderY = hipY - Math.cos(torsoRad) * 45 + breath;
     const headX = shoulderX + Math.sin(torsoRad) * 18;
     const headY = shoulderY - Math.cos(torsoRad) * 18;
 
-    // Arms swing for balance, exaggerated on the kick.
-    const armSwing = kick * 26 + Math.sin(t * 1.5) * 5;
-    const frontHandX = shoulderX + dir * (20 + armSwing * 0.4);
-    const frontHandY = shoulderY + 24 - armSwing * 0.5;
-    const backHandX = shoulderX - dir * (22 + armSwing * 0.4);
-    const backHandY = shoulderY + 28 + armSwing * 0.2;
-    const frontElbowX = (shoulderX + frontHandX) / 2 + dir * 8;
-    const frontElbowY = (shoulderY + frontHandY) / 2 + 8;
-    const backElbowX = (shoulderX + backHandX) / 2 - dir * 8;
-    const backElbowY = (shoulderY + backHandY) / 2 + 8;
+    // Arms counter-rotate for balance: front arm swings forward as kicking leg goes forward
+    const armSwing = kickFwd * 32 + Math.sin(tSec * 1.5) * 4;
+    const frontHandX = shoulderX + dir * (18 + armSwing * 0.5);
+    const frontHandY = shoulderY + 22 - armSwing * 0.65;
+    const backHandX  = shoulderX - dir * (20 + armSwing * 0.45);
+    const backHandY  = shoulderY + 26 + armSwing * 0.3;
+    const frontElbowX = (shoulderX + frontHandX) / 2 + dir * 9;
+    const frontElbowY = (shoulderY + frontHandY) / 2 + 6;
+    const backElbowX  = (shoulderX + backHandX)  / 2 - dir * 9;
+    const backElbowY  = (shoulderY + backHandY)  / 2 + 8;
 
     const footY = 155;
-    // Planted (back) leg.
-    const plantFootX = hipX - dir * 16;
-    const plantKneeX = (hipX + plantFootX) / 2 - dir * 3;
-    const plantKneeY = (hipY + footY) / 2 + 4;
-    // Kicking (front) leg swings forward and up with the kick.
-    const restFootX = hipX + dir * 16;
-    const restFootY = footY;
-    const extFootX = hipX + dir * 54;
-    const extFootY = footY - 40;
-    const kickFootX = restFootX + (extFootX - restFootX) * kick;
-    const kickFootY = restFootY + (extFootY - restFootY) * kick;
-    const kickKneeX = (hipX + kickFootX) / 2 + dir * 6;
-    const kickKneeY = (hipY + kickFootY) / 2 - kick * 4;
+
+    // Plant leg bends at the knee during the kick to absorb force
+    const plantFootX  = hipX - dir * 18;
+    const plantKneeX  = (hipX + plantFootX) / 2 - dir * 3 + dir * plantBend * 9;
+    const plantKneeY  = (hipY + footY) / 2 + 4 + plantBend * 12;
+    const plantFootY  = footY - plantBend * 5;
+
+    // Kicking leg: wind-up (back), explosive strike forward, high follow-through
+    const restFootX = hipX + dir * 18;
+    const backFootX = hipX - dir * 30; // wind-up: foot pulled behind body
+    const backFootY = footY - 10;
+    const extFootX  = hipX + dir * 65; // follow-through: foot high and far forward
+    const extFootY  = footY - 62;
+
+    let kickFootX: number, kickFootY: number;
+    if (kickLeg >= 0) {
+      // 0 = rest hanging, 1 = fully extended forward/up
+      kickFootX = restFootX + (extFootX - restFootX) * kickLeg;
+      kickFootY = footY      + (extFootY - footY)    * kickLeg;
+    } else {
+      // wind-up: leg swings back
+      const wt = Math.abs(kickLeg) / 0.38;
+      kickFootX = restFootX + (backFootX - restFootX) * wt;
+      kickFootY = footY      + (backFootY - footY)    * wt;
+    }
+    // Knee tracks the foot: rises and moves forward as foot extends
+    const kickKneeX = (hipX + kickFootX) / 2 + dir * 8 * kickFwd;
+    const kickKneeY = (hipY + kickFootY) / 2 - kickFwd * 10;
 
     return (
       <g transform={`translate(${figX}, ${figY})`} filter={`url(#${filterId})`}>
@@ -293,24 +359,12 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
         >
           <circle cx={headX} cy={headY} r={14} strokeWidth={4} />
           <line x1={shoulderX} y1={shoulderY} x2={hipX} y2={hipY} strokeWidth={4.5} />
-          {/* Back arm */}
-          <path
-            d={`M ${shoulderX} ${shoulderY} Q ${backElbowX} ${backElbowY} ${backHandX} ${backHandY}`}
-          />
-          {/* Front arm */}
-          <path
-            d={`M ${shoulderX} ${shoulderY} Q ${frontElbowX} ${frontElbowY} ${frontHandX} ${frontHandY}`}
-          />
-          {/* Planted leg */}
-          <polyline
-            points={`${hipX},${hipY} ${plantKneeX},${plantKneeY} ${plantFootX},${footY}`}
-            strokeWidth={4.5}
-          />
+          <path d={`M ${shoulderX} ${shoulderY} Q ${backElbowX}  ${backElbowY}  ${backHandX}  ${backHandY}`} />
+          <path d={`M ${shoulderX} ${shoulderY} Q ${frontElbowX} ${frontElbowY} ${frontHandX} ${frontHandY}`} />
+          {/* Plant leg */}
+          <polyline points={`${hipX},${hipY} ${plantKneeX},${plantKneeY} ${plantFootX},${plantFootY}`} strokeWidth={4.5} />
           {/* Kicking leg */}
-          <polyline
-            points={`${hipX},${hipY} ${kickKneeX},${kickKneeY} ${kickFootX},${kickFootY}`}
-            strokeWidth={4.5}
-          />
+          <polyline points={`${hipX},${hipY} ${kickKneeX},${kickKneeY} ${kickFootX},${kickFootY}`} strokeWidth={4.5} />
         </g>
       </g>
     );
@@ -456,18 +510,18 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
         <ellipse
           cx={ballX}
           cy={groundY + 6}
-          rx={ballR * (1.3 - 0.5 * (ballHeight / arcHeight1))}
+          rx={ballR * (1.3 - 0.5 * (ballHeight / arcH1))}
           ry={7}
           fill="url(#footShadowGrad)"
           opacity={0.45 * shadowProgress}
         />
 
         {/* Footballers */}
-        <Footballer isRight={false} figX={leftFigX} figY={figY} scale={figScale} kick={leftKick} />
-        <Footballer isRight figX={rightFigX} figY={figY} scale={figScale} kick={rightKick} />
+        <Footballer isRight={false} figX={leftFigX}  figY={figY} scale={figScale} kickState={leftKickState} />
+        <Footballer isRight         figX={rightFigX} figY={figY} scale={figScale} kickState={rightKickState} />
 
         {/* Soccer ball */}
-        <g transform={`translate(${ballX}, ${ballY}) rotate(${ballRot})`} filter={`url(#${filterId})`}>
+        <g transform={`translate(${ballX}, ${ballY}) rotate(${ballRot}) scale(${ballSqX}, ${ballSqY})`} filter={`url(#${filterId})`}>
           <circle r={ballR} fill={bgColor ?? "#000000"} stroke={accentColor ?? "#FFFFFF"} strokeWidth={3} />
           <polygon
             points={Array.from({ length: 5 }, (_, i) => {
