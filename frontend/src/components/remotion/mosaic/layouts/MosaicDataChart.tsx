@@ -626,7 +626,7 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
             >
               <div style={{ fontFamily: bodyFont, fontWeight: 500, fontSize: descSize * 0.9, lineHeight: 1.5, color: ink, opacity: 0.95, whiteSpace: "pre-wrap" }}>
                 {summaryText
-                  ? summaryText.split(/(__[^_]+__)/).map((seg, i) => {
+                  ? summaryText.split(/(__[^_]+__)/).map((seg: string, i: number) => {
                       if (seg.startsWith("__") && seg.endsWith("__")) {
                         return (
                           <span key={i} style={{ color: MOSAIC.terracotta, fontWeight: 700 }}>

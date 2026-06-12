@@ -62,9 +62,9 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, TABLE_MAX_COLS);
   const rawRows = (tickerTable?.rows ?? [])
     .slice(0, MOSAIC_TABLE_MAX_ROWS)
-    .map((row) => (row ?? []).slice(0, TABLE_MAX_COLS));
+    .map((row: string[]) => (row ?? []).slice(0, TABLE_MAX_COLS));
 
-  const colCount = Math.max(rawHeaders.length, rawRows.reduce((m, row) => Math.max(m, row.length), 0));
+  const colCount = Math.max(rawHeaders.length, rawRows.reduce((m: number, row: string[]) => Math.max(m, row.length), 0));
   const rowCount = rawRows.length;
 
   const hlColIndex =
@@ -173,7 +173,7 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
           >
             {rawHeaders.length > 0 && (
               <div style={{ display: "flex", flexDirection: "row", width: "100%", flexShrink: 0, background: HEADER_BG, borderBottom: `1.5px solid rgba(42,42,40,0.22)`, opacity: headerA, alignItems: "stretch" }}>
-                {rawHeaders.map((hdr, ci) => (
+                {rawHeaders.map((hdr: string, ci: number) => (
                   <div
                     key={ci}
                     style={{
@@ -206,7 +206,7 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
 
             <div style={{ flex: fewRows ? "0 1 auto" : "1 1 0", minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", overflow: "hidden" }}>
               {rawRows.length > 0
-                ? rawRows.map((row, ri) => (
+                ? rawRows.map((row: string[], ri: number) => (
                     <div
                       key={ri}
                       style={{
