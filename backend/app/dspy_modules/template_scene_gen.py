@@ -7,6 +7,7 @@ from app.dspy_modules import ensure_dspy_configured
 from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
     generate_chart_props_from_table_hints,
+    reconcile_chart_units,
     generate_terminal_chart_candlestick_items,
     generate_terminal_table_items,
     generate_terminal_ticker_items,
@@ -929,6 +930,29 @@ class TemplateSceneGenerator:
         # keep the LLM's explicit pick, else default to vertical bars.
         if layout == "chart_bar" and not out.get("chartType"):
             out["chartType"] = "bar"
+
+        # Reconcile the display unit and dimensions with the real data. The LLM's
+        # `unit` is otherwise trusted verbatim and can be a hallucination (e.g.
+        # "AM" inferred from a "10:00 A.M." headline on a column of dollar values),
+        # and a stray percentage row can land inside a currency chart. Only bar
+        # charts drop conflicting rows — dropping an interior point from a line
+        # chart would distort the trend.
+        reconciled = reconcile_chart_units(
+            out["chartTable"],
+            declared_unit=str(out.get("unit") or ""),
+            drop_conflicts=(layout == "chart_bar"),
+        )
+        out["chartTable"] = reconciled["chartTable"]
+        if reconciled["unit"]:
+            out["unit"] = reconciled["unit"]
+        if reconciled["dropped"]:
+            logger.info(
+                "[SCENE_GEN] Scene %s: economist '%s' dropped %d off-dimension chart row(s): %s",
+                scene_index,
+                layout,
+                len(reconciled["dropped"]),
+                reconciled["dropped"],
+            )
 
         return layout, out
 
