@@ -17,7 +17,7 @@ export const ConstellationStats: React.FC<SceneLayoutProps> = (props) => {
   } = props;
   const p = aspectRatio === "portrait";
 
-  const titlePx    = titleFontSize ?? (p ? 106 : 79);
+  const titlePx    = titleFontSize ?? (p ? 86 : 79);
   const descPx     = descriptionFontSize ?? (p ? 50 : 41);
   // Sign text size is its own entity, derived from the narration (description)
   // font size as a fixed offset smaller (descPx − 15). It is rendered at this
@@ -80,8 +80,8 @@ export const ConstellationStats: React.FC<SceneLayoutProps> = (props) => {
     // Portrait: all figures distributed evenly in X, zigzag in Y
     const margin = width * 0.14;
     const x = n === 1 ? width / 2 : margin + (i / (n - 1)) * (width - margin * 2);
-    const rowT = height * 0.50;  // upper ground line
-    const rowB = height * 0.82;  // lower ground line
+    const rowT = height * 0.58;  // upper ground line
+    const rowB = height * 0.88;  // lower ground line
     const y = i % 2 === 0 ? rowT : rowB;
     return { x, y };
   };
@@ -196,9 +196,9 @@ export const ConstellationStats: React.FC<SceneLayoutProps> = (props) => {
         {/* Ground line(s) — one flat line in landscape, two per-row lines in portrait */}
         {p ? (
           <>
-            <line x1={width * 0.06} y1={height * 0.50} x2={width * 0.94} y2={height * 0.50}
+            <line x1={width * 0.06} y1={height * 0.58} x2={width * 0.94} y2={height * 0.58}
               stroke={stroke} strokeWidth={4} strokeLinecap="round" opacity={0.5} filter="url(#chalk)" />
-            <line x1={width * 0.06} y1={height * 0.82} x2={width * 0.94} y2={height * 0.82}
+            <line x1={width * 0.06} y1={height * 0.88} x2={width * 0.94} y2={height * 0.88}
               stroke={stroke} strokeWidth={4} strokeLinecap="round" opacity={0.5} filter="url(#chalk)" />
           </>
         ) : (
