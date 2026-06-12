@@ -26,6 +26,7 @@
     "signal_fire_scene",
     "neon_countdown",
     "lantern_dialogue",
+    "data_visualisation",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -458,6 +459,143 @@
         }
       ]
     },
+    "data_visualisation": {
+      "label": "Data Visualisation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 88,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 45,
+          "landscape": 37
+        },
+        "chartType": "line",
+        "chartSummary": "The line climbs through the night before dipping back toward dawn.",
+        "chartTable": {
+          "headers": [
+            "Hour",
+            "Glow",
+            "Shadow"
+          ],
+          "rows": [
+            [
+              "10pm",
+              "298",
+              "72"
+            ],
+            [
+              "11pm",
+              "308",
+              "68"
+            ],
+            [
+              "12am",
+              "315",
+              "61"
+            ],
+            [
+              "1am",
+              "324",
+              "55"
+            ],
+            [
+              "2am",
+              "318",
+              "59"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Hour",
+        "yAxisLabel": "Glow",
+        "barPrimaryColor": "#FFFFFF",
+        "barSecondaryColor": "#8AB4F8"
+      },
+      "scene_defaults": {
+        "title": "Charting the night",
+        "narration": "The numbers light up against the dark.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
     "ending_socials": {
       "label": "Night Sign-Off",
       "defaults": {
@@ -614,6 +752,7 @@
     "moonphase_chart",
     "shadow_comparison",
     "signal_fire_scene",
+    "data_visualisation",
     "ending_socials"
   ]
 }

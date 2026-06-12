@@ -40,6 +40,11 @@ import {
   type WhiteboardLayoutProps as RemotionWhiteboardLayoutProps,
 } from "@remotion-video/templates/whiteboard/layouts";
 import {
+  STICKMAN_2_LAYOUT_REGISTRY as REMOTION_STICKMAN_2_LAYOUT_REGISTRY,
+  type Stickman2LayoutType as RemotionStickman2LayoutType,
+  type SceneLayoutProps as RemotionStickman2LayoutProps,
+} from "@remotion-video/templates/stickman_2/layouts";
+import {
   NEWSPAPER_LAYOUT_REGISTRY as REMOTION_NEWSPAPER_LAYOUT_REGISTRY,
   type NewspaperLayoutType as RemotionNewspaperLayoutType,
   type BlogLayoutProps as RemotionNewspaperLayoutProps,
@@ -1781,6 +1786,108 @@ export const RemotionEconomistVideoComposition: React.FC<
               </RemotionEconomistChrome>
               {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
             </AbsoluteFill>
+          </Sequence>
+        );
+      })}
+
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+// ─── Stickman 2 (Night Edition) ─────────────────────────────────────────────────
+
+export interface RemotionStickman2SceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: RemotionStickman2LayoutType;
+  layoutProps: Record<string, unknown>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+}
+
+export interface RemotionStickman2VideoCompositionProps {
+  scenes: RemotionStickman2SceneInput[];
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  logoSize?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+}
+
+export const RemotionStickman2VideoComposition: React.FC<
+  RemotionStickman2VideoCompositionProps
+> = ({
+  scenes,
+  accentColor,
+  bgColor,
+  textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  logoSize,
+  aspectRatio,
+  fontFamily,
+}) => {
+  const FPS = 30;
+  let currentFrame = 0;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
+      {scenes.map((scene) => {
+        const durationFrames = Math.max(
+          1,
+          Math.round((Number(scene.durationSeconds) || 5) * FPS),
+        );
+        const startFrame = currentFrame;
+        currentFrame += durationFrames;
+
+        const LayoutComponent =
+          REMOTION_STICKMAN_2_LAYOUT_REGISTRY[scene.layout] ??
+          REMOTION_STICKMAN_2_LAYOUT_REGISTRY.night_walk;
+
+        const focusX = Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)));
+        const focusY = Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)));
+
+        const layoutProps: RemotionStickman2LayoutProps = {
+          ...(scene.layoutProps as Record<string, unknown>),
+          title: scene.title,
+          narration: scene.narration,
+          imageUrl: scene.imageUrl,
+          imageObjectPosition: `${focusX}% ${focusY}%`,
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          accentColor: accentColor || "#FFFFFF",
+          bgColor: bgColor || "#000000",
+          textColor: textColor || "#FFFFFF",
+          aspectRatio,
+          sceneDurationInFrames: durationFrames,
+          fontFamily,
+        };
+
+        return (
+          <Sequence
+            key={scene.id}
+            from={startFrame}
+            durationInFrames={durationFrames}
+            name={scene.title}
+          >
+            <LayoutComponent {...layoutProps} />
+            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
           </Sequence>
         );
       })}

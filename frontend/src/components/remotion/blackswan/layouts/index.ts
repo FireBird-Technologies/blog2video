@@ -1,4 +1,5 @@
 import { ArcFeatures } from "./ArcFeatures";
+import { BlackswanDataViz } from "./BlackswanDataViz";
 import { DiveInsight } from "./DiveInsight";
 import { DropletIntro } from "./DropletIntro";
 import { EndingSocials } from "./EndingSocials";
@@ -23,5 +24,6 @@ export const BLACKSWAN_LAYOUT_REGISTRY: Record<
   dive_insight: DiveInsight,
   reactor_code: ReactorCode,
   flight_path: FlightPath,
+  data_visualisation: BlackswanDataViz,
   ending_socials: EndingSocials,
 };

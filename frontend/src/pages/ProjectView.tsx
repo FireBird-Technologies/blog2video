@@ -1264,7 +1264,7 @@ export default function ProjectView() {
           await loadProject();
           showError(
             job.error_message
-              ? `We're sorry — we couldn't regenerate your script. Your previous version has been restored and no video credit was deducted. (${job.error_message})`
+              ? `We're sorry — we couldn't regenerate your script. Your previous version has been restored and no video credit was deducted.`
               : "We're sorry — something went wrong while regenerating your script. Your previous version has been restored and no video credit was deducted. Please try again.",
             { variant: "pipeline" }
           );
@@ -3987,6 +3987,9 @@ export default function ProjectView() {
         projectName={project?.name}
         initialInstruction={regenerateScriptJob?.user_instruction ?? ""}
         confirmLabel="Regenerate"
+        // Re-running the already-paid paused job — no credit is charged (the
+        // reject endpoint does not deduct), so don't show the credit warning.
+        showsCreditWarning={false}
         onClose={() => setShowRegenerateScriptRetry(false)}
         onConfirm={async (instruction) => {
           await applyRejectRegenerateScript(instruction);

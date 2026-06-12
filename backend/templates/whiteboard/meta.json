@@ -25,6 +25,7 @@
     "countdown_timer",
     "handwritten_equation",
     "speech_bubble_dialogue",
+    "data_visualisation",
     "ending_socials"
   ],
   "layouts_without_image": [
@@ -36,6 +37,7 @@
     "countdown_timer",
     "handwritten_equation",
     "speech_bubble_dialogue",
+    "data_visualisation",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -539,6 +541,143 @@
               "label": "Unused (optional)"
             }
           ]
+        }
+      ]
+    },
+    "data_visualisation": {
+      "label": "Data Visualisation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 78,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 39,
+          "landscape": 31
+        },
+        "chartType": "line",
+        "chartSummary": "The trend climbs steadily before easing off near the end.",
+        "chartTable": {
+          "headers": [
+            "Step",
+            "Value",
+            "Target"
+          ],
+          "rows": [
+            [
+              "One",
+              "298",
+              "72"
+            ],
+            [
+              "Two",
+              "308",
+              "68"
+            ],
+            [
+              "Three",
+              "315",
+              "61"
+            ],
+            [
+              "Four",
+              "324",
+              "55"
+            ],
+            [
+              "Five",
+              "318",
+              "59"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Step",
+        "yAxisLabel": "Value",
+        "barPrimaryColor": "#1F2937",
+        "barSecondaryColor": "#C0563B"
+      },
+      "scene_defaults": {
+        "title": "By the numbers",
+        "narration": "Here's how the figures stack up on the board.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
         }
       ]
     },

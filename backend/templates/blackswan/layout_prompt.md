@@ -49,3 +49,8 @@ Props quick-reference
 | reactor_code    | `codeLanguage` (string), `codeLines` (string[], 3–10 lines)                 |
 | flight_path     | `phrases` (string[], 3–8 steps in order)                                    |
 | ending_socials  | `ctaButtonText`, `websiteLink`, `showWebsiteButton`, `socials` (object)     |
+
+- `data_visualisation`
+  - **Best for**: A real chart (line / bar / histogram) rendered from an ACTUAL data table in the article.
+  - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='data_visualisation'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
+

@@ -32,3 +32,7 @@ Use this list when picking the `preferred_layout` for each scene.
 - `ending_socials`  
   - **Best for**: Outro — follow-along CTA, social handles, and graceful close.
 
+- `data_visualisation`
+  - **Best for**: A real chart (line / bar / histogram) rendered from an ACTUAL data table in the article.
+  - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='data_visualisation'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
+

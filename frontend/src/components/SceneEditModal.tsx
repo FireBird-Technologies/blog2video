@@ -25,6 +25,7 @@ import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
 import { compileDataModule } from "../utils/compileComponent";
 import { normalizeLayoutId } from "./remotion/imageBoxConfig";
+import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 0.1;
@@ -35,6 +36,7 @@ import { ImportPreviewSheet } from "./ImportPreviewSheet";
 import {
   isBuiltinDataVizChartLayout,
   isBuiltinTickerLayout,
+  isChartTickerDataVizLayout,
   builtinChartKindForLayout,
   builtinDataVizExampleTable,
 } from "./sceneEditBuiltinDataViz";
@@ -637,7 +639,7 @@ function hasLegacyHistogramData(lp: Record<string, unknown>): boolean {
 
 function getEmptyChartTableForMode(mode: Exclude<DataVizTableMode, "auto">): { headers: string[]; rows: string[][] } {
   if (mode === "line") {
-    return { headers: ["Label", "Series 1"], rows: [] };
+    return { headers: ["Category", "Value"], rows: [] };
   }
   if (mode === "histogram") {
     return { headers: ["Bucket", "Frequency"], rows: [] };
@@ -797,50 +799,6 @@ function getEconomistChartExampleTable(
       ["India", "3.9", "7.6", "5.4"],
     ],
   };
-}
-
-/**
- * Mirrors `mergeMarketAnnotationChartDefaults()` in
- * [VideoPreview.tsx](./VideoPreview.tsx) — fills `chartTable` (and
- * `chartType`) from `meta.json` `layout_prop_schema[layout].defaults`
- * when the stored layoutProps don't carry one. Keeps SceneEditModal's
- * "Edit chart data" preview in sync with the project preview and the
- * rendered MP4.
- *
- * Scoped to laduc `market_annotation*` layouts and the built-in data-viz
- * templates' chart layouts (matrix/spotlight/chronicle `*_data*`).
- * Keep this in sync with the VideoPreview copy.
- */
-function mergeMarketAnnotationChartDefaultsForLayout(
-  layoutProps: Record<string, unknown>,
-  templateId: string | null | undefined,
-  layoutId: string | null | undefined,
-  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
-): Record<string, unknown> {
-  const isChartLayout =
-    (!!layoutId && layoutId.startsWith("market_annotation")) ||
-    isBuiltinDataVizChartLayout(templateId, layoutId);
-  if (!layoutId || !isChartLayout) return layoutProps;
-  if (!schema || Object.keys(schema).length === 0) return layoutProps;
-  const defaults = schema[layoutId]?.defaults;
-  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
-
-  const existingTable = layoutProps.chartTable;
-  const existingTableHasRows =
-    existingTable &&
-    typeof existingTable === "object" &&
-    Array.isArray((existingTable as { rows?: unknown }).rows) &&
-    ((existingTable as { rows: unknown[] }).rows.length > 0);
-  if (existingTableHasRows && layoutProps.chartType) return layoutProps;
-
-  const next = { ...layoutProps };
-  if (!existingTableHasRows && defaults.chartTable && typeof defaults.chartTable === "object") {
-    next.chartTable = defaults.chartTable;
-  }
-  if (!layoutProps.chartType && typeof defaults.chartType === "string") {
-    next.chartType = defaults.chartType;
-  }
-  return next;
 }
 
 function projectChartTableForMode(
@@ -2760,16 +2718,15 @@ export default function SceneEditModal({
         }
       } catch { /* ignore */ }
     }
-    // Mirror VideoPreview's chartTable defaults merge so the "Edit chart
-    // data" modal preview shows the same fallback data the project preview
-    // and rendered MP4 produce. No-op for non-market_annotation layouts.
-    lpCopy = mergeMarketAnnotationChartDefaultsForLayout(
+    // Mirror VideoPreview + backend render: merge meta.json layout defaults
+    // under stored layoutProps (bar colors, chart table, axis captions, etc.).
+    lpCopy = mergeLayoutSchemaDefaults(
       lpCopy,
-      normalizedTemplateId,
       layoutId,
       layouts?.layout_prop_schema as
         | Record<string, { defaults?: Record<string, unknown> }>
         | undefined,
+      project.aspect_ratio || "landscape",
     );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
@@ -3970,7 +3927,8 @@ export default function SceneEditModal({
                 // using LAYOUT_TEXT_FIELDS.
                 const builtinDataVizSchemaFields =
                   (isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
-                    isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId))
+                    isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
+                    isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId))
                     ? pickLayoutPropSchemaFieldDefs(
                         layouts?.layout_prop_schema as unknown as
                           | Record<string, LayoutPropSchema>

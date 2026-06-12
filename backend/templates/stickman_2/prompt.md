@@ -186,3 +186,19 @@ Cinematic night-sky sibling of the daytime Stick Man template — moon-cyan chal
 - Social icons come from the `socials` object_array; the `handles` string_array is only a fallback when `socials` is absent.
 - The entire scene fades in over ~18 frames and fades out over the final ~18 frames — keep the scene long enough (≥150 frames recommended) for all staggered animations to complete.
 - Icon labels and the CTA label render at the narration font size; keep labels short so the centered row does not overflow on portrait.
+
+## data_visualisation
+**Visual:** A real animated chart (line / bar / histogram) glowing against the night canvas in the hand-drawn night aesthetic, with a short read beside the chart.
+
+**Best for:** Charting an ACTUAL data table from the source article (a trend over time, a comparison between categories, or a distribution) — distinct from simple stat bars.
+
+**Props (shared with the chart pipeline — usually filled automatically from the bound table):**
+- `chartTable`: `{ headers: [...], rows: [[...]] }` — col 1 = X labels; cols 2–4 = up to 3 numeric series
+- `chartType`: `"line" | "bar" | "histogram" | "auto"` (line = trend over time; bar = named categories; histogram = numeric bins/ranges)
+- `chartSummary`: one-to-two sentence read of the chart (emphasize key phrases with `__double underscores__`)
+- `subtitle`, `yAxisLabel`, `chartYAxisTicks` (optional axis captions/ticks)
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a real chartable table (`preferred_layout='data_visualisation'` + a `data_table_index`). Never fabricate chart figures — values come from the bound table.
+
+---

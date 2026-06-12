@@ -111,6 +111,22 @@ Core rules:
 
 ---
 
+## data_visualisation
+**Visual:** A real animated chart (line / bar / histogram) drawn on a taped paper panel with the hand-drawn marker aesthetic — dashed grid, inky strokes, marker-colored series. A short read sits beside the chart.
+
+**Best for:** Charting an ACTUAL data table from the source article (a trend over time, a comparison between categories, or a distribution) — distinct from simple stat bars.
+
+**Props (shared with the chart pipeline — usually filled automatically from the bound table):**
+- `chartTable`: `{ headers: [...], rows: [[...]] }` — col 1 = X labels; cols 2–4 = up to 3 numeric series
+- `chartType`: `"line" | "bar" | "histogram" | "auto"` (line = trend over time; bar = named categories; histogram = numeric bins/ranges)
+- `chartSummary`: one-to-two sentence read of the chart (emphasize key phrases with `__double underscores__`)
+- `subtitle`, `yAxisLabel`, `chartYAxisTicks` (optional axis captions/ticks)
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a real chartable table (`preferred_layout='data_visualisation'` + a `data_table_index`). Never fabricate chart figures — values come from the bound table.
+
+---
+
 # Scene Flow Rules
 
 - Scene 0 must use `drawn_title`.

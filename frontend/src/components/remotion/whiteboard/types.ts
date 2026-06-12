@@ -10,6 +10,7 @@ export type WhiteboardLayoutType =
   | "countdown_timer"
   | "handwritten_equation"
   | "speech_bubble_dialogue"
+  | "data_visualisation"
   | "ending_socials";
 
 export interface WhiteboardStatItem {
@@ -33,6 +34,24 @@ export interface WhiteboardLayoutProps {
   leftThought?: string;
   rightThought?: string;
   fontFamily?: string;
+
+  // ── data_visualisation (chart) — shared chartTable data-viz contract ──
+  /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
+  chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
+  /** "line" | "bar" | "histogram" | "auto" (infer from label shape). */
+  chartType?: "auto" | "line" | "bar" | "histogram";
+  /** Prose beside the chart; empty → auto-summary from chartTable. */
+  chartSummary?: string;
+  /** Y-axis tick label overrides (top → bottom). */
+  chartYAxisTicks?: string[];
+  /** X-axis / category caption; empty uses chartTable.headers[0]. */
+  subtitle?: string;
+  /** Y-axis title; empty uses chartTable.headers[1]. */
+  yAxisLabel?: string;
+  /** Chart color overrides. */
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
