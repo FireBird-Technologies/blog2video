@@ -1,6 +1,15 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import {
+  AccentBars,
+  BigGlyphBackdrop,
+  FilmGrain,
+  FlashPop,
+  HalftoneField,
+  LightDust,
+  SpotlightBeam,
+} from "../components/SpotlightArtifacts";
+import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
@@ -98,7 +107,21 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — frame the title without crowding it. */}
+      {!hasImage && (
+        <BigGlyphBackdrop glyph="”" accentColor={accentColor} tint="accent" startFrame={2} />
+      )}
+      {/* Signature stage light sweeps in and lands on the title slam. */}
+      <SpotlightBeam mode="land" targetX={50} startFrame={0} />
+      {/* Dust catches the beam; halftone corner + grain give it a printed-poster feel. */}
+      <LightDust count={22} seed={3} />
+      <HalftoneField accentColor={accentColor} corner="bottom-left" />
+      {/* Camera flashes pop once the title has landed. */}
+      <FlashPop count={2} every={80} seed={19} startFrame={30} />
+      <FilmGrain />
+      <AccentBars accentColor={accentColor} position="bottom-left" startFrame={4} />
 
       <div
         style={{

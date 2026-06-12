@@ -8,6 +8,7 @@ import {
 } from "../../../fonts/chronicle-defaults";
 import { WaxSeal } from "../components/WaxSeal";
 import { OrnamentalCorner } from "../components/OrnamentalBorder";
+import { InkFlourish } from "../components/ChronicleArtifacts";
 import { EmbossedImage } from "../components/EmbossedImage";
 import { QuillText } from "../components/QuillInk";
 
@@ -66,6 +67,9 @@ export const LedgerStats: React.FC<ChronicleLayoutProps> = ({
         flexDirection: "column",
       }}
     >
+      {/* Quill divider flourish inks in beneath the ledger. */}
+      <InkFlourish variant="divider" position="bottom-center" color={accentColor} startFrame={44} />
+
       <OrnamentalCorner
         position="top-left"
         size={p ? 100 : 120}

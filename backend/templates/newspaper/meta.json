@@ -2,6 +2,7 @@
   "id": "newspaper",
   "name": "Newspaper",
   "new_template": false,
+  "popular_template": true,
   "description": "Editorial news-style template with headline cards, article lead, pull quotes, data snapshots, fact-check panels, and timelines.",
   "genres": [
     "Politics",

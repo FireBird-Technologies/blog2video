@@ -7,6 +7,7 @@ export interface UserInfo {
   videos_used_this_period: number;
   video_limit: number;
   can_create_video: boolean;
+  preferred_voice_emotion: string | null;
 }
 
 export interface AuthResponse {
@@ -65,6 +66,7 @@ export interface Project {
   logo_opacity: number;
   logo_size: number;
   custom_voice_id: string | null;
+  voice_emotion?: string | null;
   aspect_ratio: string;
   playback_speed?: number;
   custom_template_missing?: boolean;

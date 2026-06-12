@@ -19,6 +19,38 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
+
+# Built-in templates that share LaDuc's chart/ticker data-viz contract via their
+# own (chart_layout, ticker_layout) ids. Single source of truth consumed by the
+# pipeline (table classification) AND TemplateSceneGenerator (deterministic
+# table->chart binding). Add a new built-in data-viz template here and both pick
+# it up — no other backend edits. LaDuc / FJ are intentionally excluded (they
+# keep their own dedicated branch / code path).
+CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
+    "matrix": ("matrix_data", "matrix_ticker"),
+    "spotlight": ("spotlight_data", "spotlight_table"),
+    "chronicle": ("chronicle_data", "chronicle_table"),
+}
+
+# Chart/ticker base layout ids derived from the map. One *_data chart layout per
+# template handles line/bar/histogram via chartType; chart matching uses a prefix test.
+CHART_TICKER_CHART_LAYOUT_IDS: frozenset[str] = frozenset(
+    chart for chart, _ticker in CHART_TICKER_TEMPLATE_LAYOUTS.values()
+)
+CHART_TICKER_TICKER_LAYOUT_IDS: frozenset[str] = frozenset(
+    ticker for _chart, ticker in CHART_TICKER_TEMPLATE_LAYOUTS.values()
+)
+
+
+def is_builtin_chart_layout(layout: str) -> bool:
+    """True for a built-in data-viz chart layout or its bar/histogram variant."""
+    return any(layout.startswith(chart) for chart in CHART_TICKER_CHART_LAYOUT_IDS)
+
+
+def is_builtin_ticker_layout(layout: str) -> bool:
+    """True for a built-in data-viz ticker / data-table layout."""
+    return layout in CHART_TICKER_TICKER_LAYOUT_IDS
+
 # Path to backend/templates/ (relative to this file: app/services/template_service.py)
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
 

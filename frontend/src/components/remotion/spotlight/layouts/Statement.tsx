@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { AccentBars, SpotlightBeam, StreakField } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
@@ -52,7 +53,12 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — drifting stage light + streak energy. */}
+      <SpotlightBeam mode="drift" targetX={p ? 50 : 62} intensity={0.8} />
+      <StreakField accentColor={accentColor} count={9} seed={25} startFrame={6} />
+      {!imageUrl && <AccentBars accentColor={accentColor} position="top-left" count={2} startFrame={6} />}
 
       <div
         style={{

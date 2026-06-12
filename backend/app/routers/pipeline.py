@@ -32,7 +32,7 @@ from app.schemas.schemas import (
 )
 from app.config import settings
 from app.services.scraper import scrape_blog
-from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content
+from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content, classify_chart_tables_for_template
 from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
     get_line_chartable_tables_from_visual_hint,
@@ -82,6 +82,9 @@ from app.services.template_service import (
     is_custom_template,
     is_crafted_template,
     _load_custom_template_data,
+    CHART_TICKER_TEMPLATE_LAYOUTS,
+    is_builtin_chart_layout,
+    is_builtin_ticker_layout,
 )
 from app.services.crafted_template_service import validate_crafted_template_access
 from app.services.email import email_service, EmailServiceError
@@ -139,6 +142,17 @@ def _is_laduc_or_fj(template_id: str) -> bool:
     templates that share the market_annotation/ticker chart-binding pipeline."""
     tid = template_id or ""
     return ("laduc" in tid) or ("fj_research" in tid) or (tid in FJ_TEMPLATE_IDS)
+
+
+# Built-in templates that opt into the chartTable/tickerTable data-viz pipeline,
+# mapped to their (chart_layout, ticker_layout) names. Single source of truth now
+# lives in template_service (imported above) so the pipeline (table classification)
+# AND TemplateSceneGenerator (deterministic table->chart binding) stay in sync.
+# Extension point for FUTURE templates: add one line to that map AND add those two
+# layouts to its meta.json valid_layouts (plus a frontend renderer for each).
+#
+# NOTE: LaDuc / FJ are intentionally NOT here — they keep their own dedicated
+# branch (_is_laduc_or_fj) and code path above. Do not fold them into this map.
 
 
 def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
@@ -1007,6 +1021,28 @@ async def _generate_script(
             None, _econ_classify_tables
         )
 
+    elif template_id in CHART_TICKER_TEMPLATE_LAYOUTS:
+        # Built-in templates that opt into the chartTable/tickerTable data-viz
+        # pipeline use the shared classifier — chartable tables bind to the
+        # template's "chart" layout, ticker-like tables to its "ticker" layout.
+        # Add a new template by registering its two layout names in
+        # CHART_TICKER_TEMPLATE_LAYOUTS — no new branch needed here. Run in the
+        # thread pool so CPU-bound HTML parsing doesn't block the event loop.
+        _chart_layout, _ticker_layout = CHART_TICKER_TEMPLATE_LAYOUTS[template_id]
+        _dv_blog_text = getattr(project, "blog_content", None) or ""
+
+        def _classify_tables() -> tuple[list, str]:
+            return classify_chart_tables_for_template(
+                _dv_blog_text,
+                chart_layout=_chart_layout,
+                ticker_layout=_ticker_layout,
+            )
+
+        _dv_loop = asyncio.get_event_loop()
+        _all_extracted_tables, chartable_tables_json = await _dv_loop.run_in_executor(
+            None, _classify_tables
+        )
+
     # Release the DB connection during the long-running DSPy/LLM calls below.
     # Neon (serverless PostgreSQL) closes idle connections, and pool_pre_ping
     # only verifies liveness on checkout — a session already holding a
@@ -1102,11 +1138,19 @@ async def _generate_script(
             if is_custom:
                 preferred = None
         elif (
-            scene_data.get("preferred_layout") in {
-                "data_visualization", "terminal_chart", "terminal_table",
-                "terminal_dataviz", "market_annotation", "ticker",
-                "chart_line", "chart_bar", "data_table",
-            }
+            (
+                scene_data.get("preferred_layout") in {
+                    "data_visualization", "terminal_chart", "terminal_table",
+                    "terminal_dataviz", "market_annotation", "ticker",
+                    # Economist data layouts.
+                    "chart_line", "chart_bar", "data_table",
+                }
+                # Built-in data-viz templates (matrix/spotlight/chronicle) — their
+                # *_data (+ bar/histogram variants) and *_ticker layouts also need
+                # the bound table embedded so _merge_laduc_chart_props can chart it.
+                or is_builtin_chart_layout(str(scene_data.get("preferred_layout") or ""))
+                or is_builtin_ticker_layout(str(scene_data.get("preferred_layout") or ""))
+            )
             and _all_extracted_tables
         ):
             # Embed only the single bound table so scene_gen has exactly one table to use.
@@ -1330,10 +1374,14 @@ async def _generate_scenes(
             db.commit()
         else:
             content_lang = get_content_language_for_project(project)
+            # Advanced Options (paid) projects carry voice tuning in voice_emotion; those run on v3
+            # with the [excited] tag, so write the narration emotively too (emphasis / "!" / CAPS).
+            expressive = bool(getattr(project, "voice_emotion", None))
             vo_paths = await generate_all_voiceovers(
                 scenes, db,
                 video_style=getattr(project, "video_style", None) or "explainer",
                 content_language=content_lang,
+                expressive=expressive,
             )
             # generate_all_voiceovers swallows per-scene TTS failures (returns "" for a
             # failed scene). In strict mode (regenerate-script, which has a restorable

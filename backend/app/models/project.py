@@ -56,6 +56,11 @@ class Project(Base):
 
     # Voiceover
     custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Optional user voice tuning, stored as a JSON string array ["<stability>","<speed>","<emotion>"]
+    # feeding the v3 voice_settings + emotion tag. Null = per-video-style defaults. See
+    # _parse_voice_tuning in services/voiceover.py. (Column name kept as voice_emotion for migration
+    # continuity.)
+    voice_emotion: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
 
     # Template (determines layout system + DSPy prompt)
     template: Mapped[str] = mapped_column(String(50), default="default")
