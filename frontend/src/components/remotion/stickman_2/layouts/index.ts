@@ -7,6 +7,7 @@ import { ShadowComparison } from "./ShadowComparison";
 import { SignalFireScene } from "./SignalFireScene";
 import { NeonCountdown } from "./NeonCountdown";
 import { LanternDialogue } from "./LanternDialogue";
+import { Stickman2DataViz } from "./Stickman2DataViz";
 import { EndingSocials } from "./EndingSocials";
 import type { Stickman2LayoutType, SceneLayoutProps } from "../types";
 
@@ -22,5 +23,6 @@ export const STICKMAN_2_LAYOUT_REGISTRY: Record<Stickman2LayoutType, React.FC<Sc
   signal_fire_scene: SignalFireScene,
   neon_countdown: NeonCountdown,
   lantern_dialogue: LanternDialogue,
+  data_visualisation: Stickman2DataViz,
   ending_socials: EndingSocials,
 };

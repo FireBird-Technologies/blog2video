@@ -102,6 +102,41 @@ export function normalizeHex(input: string | undefined, fallback: string): strin
   return /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(v) ? v : fallback;
 }
 
+const PLACEHOLDER_HEADER_RE = /^series\s+\d+$/i;
+
+/** True for empty, synthetic col_N, or legacy "Series N" header cells. */
+export function isPlaceholderChartHeader(value: string): boolean {
+  const s = (value || "").trim();
+  if (!s) return true;
+  if (/^col_\d+$/i.test(s)) return true;
+  if (PLACEHOLDER_HEADER_RE.test(s)) return true;
+  return false;
+}
+
+/** Mirror backend chart_planner._ensure_chart_headers — never leave bare "Series N". */
+export function ensureChartHeaders(
+  headers: string[],
+  colCount: number,
+  labelColIdx = 0,
+): string[] {
+  const out = headers.map((h) => String(h ?? "").trim());
+  while (out.length < colCount) out.push("");
+  const trimmed = out.slice(0, colCount);
+
+  if (isPlaceholderChartHeader(trimmed[labelColIdx])) {
+    trimmed[labelColIdx] = "Category";
+  }
+
+  const numericCols = Array.from({ length: colCount }, (_, i) => i).filter((i) => i !== labelColIdx);
+  let metricN = 0;
+  for (const c of numericCols) {
+    if (!isPlaceholderChartHeader(trimmed[c])) continue;
+    trimmed[c] = numericCols.length === 1 ? "Value" : `Metric ${(metricN += 1)}`;
+  }
+
+  return trimmed;
+}
+
 // ─── X-axis prop builder ──────────────────────────────────────────────────────
 /**
  * Build Recharts XAxis props (tick density, angle, height, padding) from labels.
@@ -232,6 +267,7 @@ export function deriveFromTable(chartTable: ChartTableShape | undefined): Partia
   const col1Textual = col1Vals.length > 0 && col1Vals.filter((v) => v && toNumber(v) === null).length >= Math.ceil(col1Vals.length * 0.6);
   const rankLikeCol0 = col0AllNumeric && col1Textual;
   const labelColIdx = rankLikeCol0 ? 1 : 0;
+  headers = ensureChartHeaders(headers, colCount, labelColIdx);
 
   const labels: string[] = [];
   const numericCols: number[][] = Array.from({ length: colCount }, () => []);
@@ -249,7 +285,7 @@ export function deriveFromTable(chartTable: ChartTableShape | undefined): Partia
   const seriesWithMeta = numericCols
     .map((values, idx) => ({
       colIdx: idx,
-      label: headers[idx] || `Series ${idx + 1}`,
+      label: String(headers[idx] ?? "").trim(),
       values: values.map((v) => (Number.isFinite(v) ? v : Number.NaN)),
     }))
     .filter((s) =>
@@ -259,7 +295,11 @@ export function deriveFromTable(chartTable: ChartTableShape | undefined): Partia
     );
 
   const validSeries = seriesWithMeta
-    .map(({ label, values }) => ({ label, values }))
+    .map(({ colIdx, label, values }) => ({
+      label: (label || String(headers[colIdx] ?? "")).trim(),
+      values,
+    }))
+    .filter((s) => s.label.length > 0)
     .slice(0, 3);
 
   const primary = seriesWithMeta[0]?.values ?? [];

@@ -15,8 +15,7 @@ import {
   type CraftedTemplateDetail,
   type CraftedTemplateItem,
 } from "../api/client";
-import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
-import { isBuiltinDataVizChartLayout } from "./sceneEditBuiltinDataViz";
+import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
@@ -277,70 +276,6 @@ function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | CraftedT
 
 /** Map of scene type keys ("intro", "content_0", ..., "outro") to compiled React components. */
 type CompiledSceneMap = Record<string, React.FC<SceneProps>>;
-
-/** Fill missing title/description font sizes from meta.json layout_prop_schema (matches SceneEditModal). */
-function mergeMetaFontSizesIntoLayoutProps(
-  layoutProps: Record<string, unknown>,
-  layoutId: string | null | undefined,
-  aspectRatio: string,
-  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
-): Record<string, unknown> {
-  if (!layoutId || !schema || Object.keys(schema).length === 0) return layoutProps;
-  const titleRaw = layoutProps.titleFontSize;
-  const descRaw = layoutProps.descriptionFontSize;
-  const hasTitle = typeof titleRaw === "number" && Number.isFinite(titleRaw);
-  const hasDesc = typeof descRaw === "number" && Number.isFinite(descRaw);
-  if (hasTitle && hasDesc) return layoutProps;
-  const ar = aspectRatio === "portrait" ? "portrait" : "landscape";
-  const fromSchema = getDefaultFontSizesFromSchema(schema, layoutId, ar);
-  if (!fromSchema) return layoutProps;
-  const next = { ...layoutProps };
-  if (!hasTitle) next.titleFontSize = fromSchema.title;
-  if (!hasDesc) next.descriptionFontSize = fromSchema.desc;
-  return next;
-}
-
-/**
- * For LaDuc `market_annotation*` layouts, fill in `chartTable` (and
- * `chartType`) from meta.json defaults when the stored layoutProps don't
- * carry one. Mirrors the backend renderer's defaults-merge in
- * `remotion.py:932-953`, so the project preview shows the same chart that
- * the rendered MP4 produces.
- *
- * Narrowly scoped to the chart fields only — does not touch any other defaults.
- * Keep in sync with `mergeMarketAnnotationChartDefaultsForLayout` in SceneEditModal.
- */
-function mergeMarketAnnotationChartDefaults(
-  layoutProps: Record<string, unknown>,
-  templateId: string | null | undefined,
-  layoutId: string | null | undefined,
-  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
-): Record<string, unknown> {
-  const isChartLayout =
-    (!!layoutId && layoutId.startsWith("market_annotation")) ||
-    isBuiltinDataVizChartLayout(templateId, layoutId);
-  if (!layoutId || !isChartLayout) return layoutProps;
-  if (!schema || Object.keys(schema).length === 0) return layoutProps;
-  const defaults = schema[layoutId]?.defaults;
-  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
-
-  const existingTable = layoutProps.chartTable;
-  const existingTableHasRows =
-    existingTable &&
-    typeof existingTable === "object" &&
-    Array.isArray((existingTable as { rows?: unknown }).rows) &&
-    ((existingTable as { rows: unknown[] }).rows.length > 0);
-  if (existingTableHasRows && layoutProps.chartType) return layoutProps;
-
-  const next = { ...layoutProps };
-  if (!existingTableHasRows && defaults.chartTable && typeof defaults.chartTable === "object") {
-    next.chartTable = defaults.chartTable;
-  }
-  if (!layoutProps.chartType && typeof defaults.chartType === "string") {
-    next.chartType = defaults.chartType;
-  }
-  return next;
-}
 
 // ─── YouTube-style playback speed control ────────────────────────────────────
 
@@ -1082,17 +1017,11 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       const onScreenText = scene.display_text ?? scene.narration_text;
 
       if (!isCustom) {
-        layoutProps = mergeMetaFontSizesIntoLayoutProps(
+        layoutProps = mergeLayoutSchemaDefaults(
           layoutProps,
           layout,
+          effectiveLayoutPropSchema ?? undefined,
           project.aspect_ratio || "landscape",
-          effectiveLayoutPropSchema ?? undefined,
-        );
-        layoutProps = mergeMarketAnnotationChartDefaults(
-          layoutProps,
-          project.template,
-          layout,
-          effectiveLayoutPropSchema ?? undefined,
         );
       }
 

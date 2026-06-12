@@ -157,6 +157,19 @@ const chronicleExample = (kind: ChartKind): ChartTable => {
 
 // ── Registry ──────────────────────────────────────────────────────────────────
 
+/**
+ * Templates with a single `data_visualisation` chart layout (line/bar/histogram via
+ * chartType) and no ticker scene — mirrors backend `CHART_TICKER_TEMPLATE_LAYOUTS`
+ * entries that use `_NO_TICKER_SENTINEL`.
+ */
+const CHART_TICKER_SINGLE_DATAVIZ_TEMPLATES = new Set([
+  "whiteboard",
+  "newspaper",
+  "blackswan",
+  "gridcraft",
+  "stickman_2",
+]);
+
 const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
   matrix: {
     chartLayoutIds: ["matrix_data", "matrix_data_bar", "matrix_data_histogram"],
@@ -192,6 +205,15 @@ export function isBuiltinDataVizChartLayout(
 ): boolean {
   if (!layoutId) return false;
   return !!BUILTIN_DATAVIZ[normalize(templateId)]?.chartLayoutIds.includes(layoutId);
+}
+
+/** True for single-layout `data_visualisation` chart scenes (whiteboard, stickman_2, …). */
+export function isChartTickerDataVizLayout(
+  templateId: string | undefined | null,
+  layoutId: string | null | undefined,
+): boolean {
+  if (layoutId !== "data_visualisation") return false;
+  return CHART_TICKER_SINGLE_DATAVIZ_TEMPLATES.has(normalize(templateId));
 }
 
 /** True when `layoutId` is `templateId`'s ticker / data-table layout. */

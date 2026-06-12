@@ -25,6 +25,7 @@
     "bento_code",
     "pull_quote",
     "bento_steps",
+    "data_visualisation",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -525,6 +526,143 @@
         }
       ]
     },
+    "data_visualisation": {
+      "label": "Data Visualisation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 89,
+          "landscape": 63
+        },
+        "descriptionFontSize": {
+          "portrait": 44,
+          "landscape": 35
+        },
+        "chartType": "line",
+        "chartSummary": "Values climb steadily across the set before leveling near the top.",
+        "chartTable": {
+          "headers": [
+            "Stage",
+            "Value",
+            "Prior"
+          ],
+          "rows": [
+            [
+              "A",
+              "298",
+              "272"
+            ],
+            [
+              "B",
+              "308",
+              "268"
+            ],
+            [
+              "C",
+              "315",
+              "261"
+            ],
+            [
+              "D",
+              "324",
+              "255"
+            ],
+            [
+              "E",
+              "318",
+              "259"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Stage",
+        "yAxisLabel": "Value",
+        "barPrimaryColor": "#F97316",
+        "barSecondaryColor": "#171717"
+      },
+      "scene_defaults": {
+        "title": "The data at a glance",
+        "narration": "A clean read on the key figures.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
     "ending_socials": {
       "label": "Ending / Follow along",
       "defaults": {
@@ -643,6 +781,7 @@
   "layouts_without_image": [
     "bento_code",
     "editorial_body",
+    "data_visualisation",
     "ending_socials"
   ]
 }

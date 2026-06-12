@@ -27,5 +27,9 @@ Global variety rules for `preferred_layout`:
 
 - Scene 0 → **always** `news_headline`.  
 - Strongly prefer using **article_lead** for scene 1 or 2 when the story body starts.  
-- Alternate between quote (`pull_quote`), data (`data_snapshot`), fact-check (`fact_check`), and timeline (`news_timeline`) when content allows.  
+- Alternate between quote (`pull_quote`), data (`data_snapshot`), fact-check (`fact_check`), and timeline (`news_timeline`) when content allows.
+
+- `data_visualisation`
+  - **Best for**: A real chart (line / bar / histogram) rendered from an ACTUAL data table in the article.
+  - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='data_visualisation'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
 

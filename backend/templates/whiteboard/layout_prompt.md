@@ -31,6 +31,10 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `speech_bubble_dialogue`  
   - **Best for**: Dialog between two characters in speech bubbles.
 
+- `data_visualisation`
+  - **Best for**: A real chart (line / bar / histogram) rendered from an ACTUAL data table in the article.
+  - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='data_visualisation'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
+
 Variety rules:
 
 - Scene 0 → `drawn_title`.  
