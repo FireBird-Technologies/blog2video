@@ -82,6 +82,9 @@ from app.services.template_service import (
     is_custom_template,
     is_crafted_template,
     _load_custom_template_data,
+    CHART_TICKER_TEMPLATE_LAYOUTS,
+    is_builtin_chart_layout,
+    is_builtin_ticker_layout,
 )
 from app.services.crafted_template_service import validate_crafted_template_access
 from app.services.email import email_service, EmailServiceError
@@ -142,19 +145,14 @@ def _is_laduc_or_fj(template_id: str) -> bool:
 
 
 # Built-in templates that opt into the chartTable/tickerTable data-viz pipeline,
-# mapped to their (chart_layout, ticker_layout) names. This is the extension point
-# for FUTURE templates: to give a new template charts + data tables, just add a
-# line here AND add those two layouts to its meta.json valid_layouts (plus a
-# frontend renderer for each) — the pipeline gate then routes it through the shared
-# classify_chart_tables_for_template() helper with no new branch.
+# mapped to their (chart_layout, ticker_layout) names. Single source of truth now
+# lives in template_service (imported above) so the pipeline (table classification)
+# AND TemplateSceneGenerator (deterministic table->chart binding) stay in sync.
+# Extension point for FUTURE templates: add one line to that map AND add those two
+# layouts to its meta.json valid_layouts (plus a frontend renderer for each).
 #
 # NOTE: LaDuc / FJ are intentionally NOT here — they keep their own dedicated
 # branch (_is_laduc_or_fj) and code path above. Do not fold them into this map.
-CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
-    "matrix": ("matrix_data", "matrix_ticker"),
-    "spotlight": ("spotlight_data", "spotlight_table"),
-    "chronicle": ("chronicle_data", "chronicle_table"),
-}
 
 
 def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
@@ -1047,10 +1045,17 @@ async def _generate_script(
             if is_custom:
                 preferred = None
         elif (
-            scene_data.get("preferred_layout") in {
-                "data_visualization", "terminal_chart", "terminal_table",
-                "terminal_dataviz", "market_annotation", "ticker",
-            }
+            (
+                scene_data.get("preferred_layout") in {
+                    "data_visualization", "terminal_chart", "terminal_table",
+                    "terminal_dataviz", "market_annotation", "ticker",
+                }
+                # Built-in data-viz templates (matrix/spotlight/chronicle) — their
+                # *_data (+ bar/histogram variants) and *_ticker layouts also need
+                # the bound table embedded so _merge_laduc_chart_props can chart it.
+                or is_builtin_chart_layout(str(scene_data.get("preferred_layout") or ""))
+                or is_builtin_ticker_layout(str(scene_data.get("preferred_layout") or ""))
+            )
             and _all_extracted_tables
         ):
             # Embed only the single bound table so scene_gen has exactly one table to use.

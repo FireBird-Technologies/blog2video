@@ -22,6 +22,8 @@ from app.services.template_service import (
     get_valid_layouts,
     get_hero_layout,
     get_fallback_layout,
+    is_builtin_chart_layout,
+    is_builtin_ticker_layout,
 )
 from app.observability.logging import get_logger
 
@@ -553,18 +555,17 @@ class TemplateSceneGenerator:
         correct table is always selected without re-scoring all tables per call.
         """
         # Matrix / Spotlight / Chronicle share LaDuc's chart/ticker contract via
-        # their *_data / *_table (ticker) layouts.
+        # their *_data / *_table (ticker) layouts. The registered chart/ticker ids
+        # come from CHART_TICKER_TEMPLATE_LAYOUTS (single source); chart matching is
+        # by prefix so the bar/histogram Studio variants (e.g. matrix_data_bar) bind
+        # too — mirrors LaDuc's market_annotation* prefix handling.
         is_chart_layout = (
             layout.startswith("market_annotation")
-            or layout == "matrix_data"
-            or layout == "spotlight_data"
-            or layout == "chronicle_data"
+            or is_builtin_chart_layout(layout)
         )
         is_ticker_layout = (
             layout == "ticker"
-            or layout == "matrix_ticker"
-            or layout == "spotlight_table"
-            or layout == "chronicle_table"
+            or is_builtin_ticker_layout(layout)
         )
         if not (is_chart_layout or is_ticker_layout):
             return props

@@ -32,6 +32,12 @@ const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
 import { SpreadsheetTable } from "./SpreadsheetTable";
 import { ImportPreviewSheet } from "./ImportPreviewSheet";
+import {
+  isBuiltinDataVizChartLayout,
+  isBuiltinTickerLayout,
+  builtinChartKindForLayout,
+  builtinDataVizExampleTable,
+} from "./sceneEditBuiltinDataViz";
 import * as XLSX from "xlsx";
 
 type CraftedImageBoxEntry = string | { landscape?: string; portrait?: string } | undefined;
@@ -754,15 +760,20 @@ function getFJResearchMarketAnnotationExampleTable(
  * "Edit chart data" preview in sync with the project preview and the
  * rendered MP4.
  *
- * Narrowly scoped to `market_annotation*` layouts only.
+ * Scoped to laduc `market_annotation*` layouts and the built-in data-viz
+ * templates' chart layouts (matrix/spotlight/chronicle `*_data*`).
  * Keep this in sync with the VideoPreview copy.
  */
 function mergeMarketAnnotationChartDefaultsForLayout(
   layoutProps: Record<string, unknown>,
+  templateId: string | null | undefined,
   layoutId: string | null | undefined,
   schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
 ): Record<string, unknown> {
-  if (!layoutId || !layoutId.startsWith("market_annotation")) return layoutProps;
+  const isChartLayout =
+    (!!layoutId && layoutId.startsWith("market_annotation")) ||
+    isBuiltinDataVizChartLayout(templateId, layoutId);
+  if (!layoutId || !isChartLayout) return layoutProps;
   if (!schema || Object.keys(schema).length === 0) return layoutProps;
   const defaults = schema[layoutId]?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
@@ -2551,6 +2562,7 @@ export default function SceneEditModal({
     // and rendered MP4 produce. No-op for non-market_annotation layouts.
     lpCopy = mergeMarketAnnotationChartDefaultsForLayout(
       lpCopy,
+      normalizedTemplateId,
       layoutId,
       layouts?.layout_prop_schema as
         | Record<string, { defaults?: Record<string, unknown> }>
@@ -3182,6 +3194,19 @@ export default function SceneEditModal({
   const applySelectedLayout = (next: string) => {
     setSelectedLayout(next);
     if (next === "__keep__" || next === "__auto__") return;
+    // Built-in data-viz templates (matrix/spotlight/chronicle): seed themed
+    // example data when switching into a chart layout with no existing data. The
+    // bar/histogram variant layouts seed their kind; the base layout seeds line.
+    if (isBuiltinDataVizChartLayout(normalizedTemplateId, next)) {
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.chartTable);
+        if (chartTableHasData(existing)) return prev;
+        const kind = builtinChartKindForLayout(normalizedTemplateId, next) ?? "line";
+        const example = builtinDataVizExampleTable(normalizedTemplateId, kind);
+        return example ? { ...prev, chartTable: example } : prev;
+      });
+      return;
+    }
     // Seed example chart data when switching into a chart layout with no existing data
     const isChartLayout =
       ((isLaDucTemplate || isFjBriefTemplate) && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
@@ -3725,9 +3750,25 @@ export default function SceneEditModal({
                   isCraftedTemplate && currentLayoutId
                     ? pickLayoutPropSchemaFieldDefs(craftedTemplateEntry?.layout_prop_schema, currentLayoutId)
                     : undefined;
+                // Built-in (bundled) data-viz templates (matrix/spotlight/chronicle)
+                // source their chart/ticker editor fields from meta.json
+                // (layout_prop_schema), the same way crafted templates do — scoped
+                // to the registered chart + ticker layouts so other layouts keep
+                // using LAYOUT_TEXT_FIELDS.
+                const builtinDataVizSchemaFields =
+                  (isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
+                    isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId))
+                    ? pickLayoutPropSchemaFieldDefs(
+                        layouts?.layout_prop_schema as unknown as
+                          | Record<string, LayoutPropSchema>
+                          | undefined,
+                        currentLayoutId,
+                      )
+                    : undefined;
                 const rawLayoutFields =
                   craftedFields ??
                   schemaBackedFields ??
+                  builtinDataVizSchemaFields ??
                   getLayoutFields(project.template || "default", currentLayoutId);
                 let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
 
@@ -4016,6 +4057,9 @@ export default function SceneEditModal({
                           isNewscastTemplate &&
                           currentLayoutId === "data_visualization" &&
                           field.key === "chartType";
+                        const isBuiltinChartTypeField =
+                          field.key === "chartType" &&
+                          isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId);
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4023,6 +4067,23 @@ export default function SceneEditModal({
                               value={sel}
                               onChange={(e) => {
                                 const nextChartType = e.target.value;
+                                if (isBuiltinChartTypeField) {
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    const example = builtinDataVizExampleTable(normalizedTemplateId, concrete);
+                                    if (example) {
+                                      setEditableLayoutProps((prev) => ({
+                                        ...prev,
+                                        [field.key]: nextChartType,
+                                        chartTable: example,
+                                      }));
+                                      return;
+                                    }
+                                  }
+                                }
                                 if (isLaDucChartTypeField || isFjBriefChartTypeField || isFJResearchChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
                                   const concrete =
                                     nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
