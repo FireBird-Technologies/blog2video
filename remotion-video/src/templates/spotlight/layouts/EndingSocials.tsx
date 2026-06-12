@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { FlashPop, StarburstBadge, StreakField } from "../components/SpotlightArtifacts";
 import type { SpotlightLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
@@ -90,7 +91,12 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — streaks + flashes + a spinning seal for the send-off. */}
+      <StreakField accentColor={accentColor} count={8} seed={29} startFrame={6} />
+      <FlashPop count={2} every={84} seed={17} startFrame={24} />
+      <StarburstBadge accentColor={accentColor} corner="top-right" size={p ? 132 : 156} startFrame={18} />
 
       {/* 1. TOP GROUP: Moved further down from the top edge */}
       <div style={{

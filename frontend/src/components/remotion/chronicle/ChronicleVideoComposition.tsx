@@ -65,6 +65,8 @@ const LAYOUT_MIN_FRAMES: Record<ChronicleLayoutType, number> = {
   chronicle_timeline: 200,
   ledger_stats: 200,
   versus_folio: 200,
+  chronicle_data: 200,
+  chronicle_table: 200,
   chapter_plate: 170,
   illuminated_quote: 170,
   parchment_scroll: 170,
