@@ -19,6 +19,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  sceneIndex,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -60,7 +61,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         fontFamily: fontFamily ?? "'Roboto Slab', serif",
       }}
     >
-      <GeometricBackground accentColor={accentColor} frame={frame} />
+      <GeometricBackground accentColor={accentColor} frame={frame} sceneIndex={sceneIndex} />
       {/* BACKGROUND DECORATION */}
       <div style={{
         position: 'absolute',

@@ -1,66 +1,103 @@
 import React from "react";
-import { interpolate, useVideoConfig } from "remotion";
+import { interpolate, spring, useVideoConfig } from "remotion";
 
 interface GeometricBackgroundProps {
-  /** Brand accent colour — all shapes are drawn at low opacity with this colour */
+  /** Brand accent colour — contour lines and glow use this colour. */
   accentColor: string;
-  /** Current frame — drives the slow parallax drift */
+  /** Current frame — drives the gentle wave drift. */
   frame: number;
+  /** Scene index — varies the background slide-in/out direction. */
+  sceneIndex?: number;
 }
 
+const DIRECTIONS = [
+  { x: -1, y:  0 },
+  { x:  1, y:  0 },
+  { x:  0, y: -1 },
+  { x:  0, y:  1 },
+] as const;
+
 /**
- * Full-bleed geometric SVG background for the Geometric Explainer template.
+ * Full-bleed background for the Geometric Explainer template.
  *
- * Layers (back → front):
- *  1. Grid of outlined rectangles tiling the frame
- *  2. Two sets of diagonal lines (+45° and −45°) forming a criss-cross hatch
- *  3. Thick corner-cross marks (newscast lower-third style) in each corner
+ * Renders 4 very subtle, slowly-drifting sine contour lines as a
+ * barely-visible depth layer.  The whole layer slides in from a
+ * per-scene direction and exits toward the opposite side.
  *
- * The whole SVG layer drifts a few pixels over the scene duration for a
- * subtle parallax feel. All strokes use the brand accentColor at very low
- * opacity so the background never competes with content.
+ * NO plane here — there is exactly one plane on screen (in ScenePlane)
+ * and only during scene-entry / scene-exit.
  */
 export const GeometricBackground: React.FC<GeometricBackgroundProps> = ({
   accentColor,
   frame,
+  sceneIndex = 0,
 }) => {
-  const { width, height, durationInFrames } = useVideoConfig();
+  const { width, height, durationInFrames, fps } = useVideoConfig();
+  const BLEED = 80;
+  const vbW = width  + BLEED * 2;
+  const vbH = height + BLEED * 2;
 
-  // Slow parallax drift — the svg shifts slightly as the scene plays
-  const driftX = interpolate(frame, [0, durationInFrames], [-6, 6], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  // ── Background slide-in / slide-out ───────────────────────────────────────
+  const dir     = DIRECTIONS[Math.abs(sceneIndex) % 4];
+  const exitDir = DIRECTIONS[(Math.abs(sceneIndex) + 2) % 4];
+  const TRAVEL  = 140;
+
+  const enter = spring({
+    frame,
+    fps,
+    config: { damping: 200, stiffness: 70, mass: 1.2 },
   });
-  const driftY = interpolate(frame, [0, durationInFrames], [-4, 4], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const EXIT_DUR  = 22;
+  const exitStart = Math.max(0, durationInFrames - EXIT_DUR);
+  const exit = spring({
+    frame: frame - exitStart,
+    fps,
+    config: { damping: 200, stiffness: 110 },
+    durationInFrames: EXIT_DUR,
   });
 
-  // Grid dimensions
-  const COLS = 6;
-  const ROWS = 5;
-  const cellW = width / COLS;
-  const cellH = height / ROWS;
-  const PAD = 14; // inset from cell edge
+  const bgSlideX =
+    interpolate(enter, [0, 1], [dir.x * TRAVEL, 0]) +
+    interpolate(exit,  [0, 1], [0, exitDir.x * TRAVEL]);
+  const bgSlideY =
+    interpolate(enter, [0, 1], [dir.y * TRAVEL, 0]) +
+    interpolate(exit,  [0, 1], [0, exitDir.y * TRAVEL]);
+  const bgOpacity = enter * (1 - exit);
 
-  // Diagonal criss-cross — spacing between parallel diagonal lines
-  const DIAG_SPACING = 110;
-  const numDiags = Math.ceil((width + height) / DIAG_SPACING) + 4;
+  // ── Subtle contour waves ───────────────────────────────────────────────────
+  // 4 lines, very low amplitude, low opacity — purely atmospheric depth.
+  const NUM_LINES = 4;
+  const SAMPLES   = 80;            // more samples → smoother curve
+  const flow = frame / fps;
 
-  // Corner cross arm half-length and weight
-  const ARM = 32;
-  const CROSS_WEIGHT = 3.5;
-  const CORNER_INSET = 58;
-  const corners = [
-    { cx: CORNER_INSET,         cy: CORNER_INSET },
-    { cx: width - CORNER_INSET, cy: CORNER_INSET },
-    { cx: CORNER_INSET,         cy: height - CORNER_INSET },
-    { cx: width - CORNER_INSET, cy: height - CORNER_INSET },
-  ];
+  const buildPath = (i: number): string => {
+    const t      = i / (NUM_LINES - 1);
+    const baseY  = BLEED * 0.3 + t * (height + BLEED * 0.4);
+    // Amplitude 2–5 px — barely visible; scales with bgOpacity so it unfurls
+    const amp    = (2 + 3 * Math.abs(Math.sin(i * 1.2 + 1.0))) * bgOpacity;
+    // Long wavelength — one or two humps across the whole canvas
+    const freq   = (Math.PI * 2) / vbW * (0.40 + 0.07 * i);
+    // Very slow drift
+    const phase  = i * 1.6 + flow * (0.08 + 0.015 * i);
 
-  // We render the SVG slightly oversized (+ 20px on each side) so the drift
-  // never reveals a raw edge.
-  const BLEED = 20;
+    // Blend two harmonics for a more organic, flowing (less mechanical) shape
+    const harm2amp = amp * 0.30;
+    const harm2freq = freq * 2.1;
+
+    let d = "";
+    for (let s = 0; s <= SAMPLES; s++) {
+      const x = -BLEED + (s / SAMPLES) * vbW;
+      const y = baseY
+        + amp      * Math.sin(x * freq   + phase)
+        + harm2amp * Math.sin(x * harm2freq + phase * 1.4);
+      d += s === 0
+        ? `M ${x.toFixed(1)} ${y.toFixed(1)}`
+        : ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+    }
+    return d;
+  };
+
+  const glowId = `geo-glow-s${Math.abs(sceneIndex)}`;
 
   return (
     <div
@@ -71,105 +108,46 @@ export const GeometricBackground: React.FC<GeometricBackgroundProps> = ({
         overflow: "hidden",
       }}
     >
-      <svg
-        width={width + BLEED * 2}
-        height={height + BLEED * 2}
-        viewBox={`${-BLEED} ${-BLEED} ${width + BLEED * 2} ${height + BLEED * 2}`}
-        style={{
-          position: "absolute",
-          top: -BLEED,
-          left: -BLEED,
-          transform: `translate(${driftX}px, ${driftY}px)`,
-        }}
-      >
-        {/* ── Layer 1: Grid of outlined rectangles ──────────────────────── */}
-        {Array.from({ length: ROWS }, (_, row) =>
-          Array.from({ length: COLS }, (_, col) => (
-            <rect
-              key={`box-${row}-${col}`}
-              x={col * cellW + PAD}
-              y={row * cellH + PAD}
-              width={cellW - PAD * 2}
-              height={cellH - PAD * 2}
+      <div style={{ opacity: bgOpacity }}>
+        <svg
+          width={vbW}
+          height={vbH}
+          viewBox={`${-BLEED} ${-BLEED} ${vbW} ${vbH}`}
+          style={{
+            position: "absolute",
+            top: -BLEED,
+            left: -BLEED,
+            transform: `translate(${bgSlideX}px, ${bgSlideY}px)`,
+          }}
+        >
+          <defs>
+            <radialGradient id={glowId} cx="50%" cy="40%" r="52%">
+              <stop offset="0%"   stopColor={accentColor} stopOpacity={0.07} />
+              <stop offset="60%"  stopColor={accentColor} stopOpacity={0.02} />
+              <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
+            </radialGradient>
+          </defs>
+          {/* Very faint central glow */}
+          <rect
+            x={-BLEED} y={-BLEED}
+            width={vbW} height={vbH}
+            fill={`url(#${glowId})`}
+          />
+          {/* Subtle wavy contour lines */}
+          {Array.from({ length: NUM_LINES }, (_, i) => (
+            <path
+              key={i}
+              d={buildPath(i)}
               fill="none"
               stroke={accentColor}
               strokeOpacity={0.07}
-              strokeWidth={1.5}
-              rx={5}
-            />
-          ))
-        )}
-
-        {/* ── Layer 2a: Diagonal lines at +45° ─────────────────────────── */}
-        {Array.from({ length: numDiags }, (_, i) => {
-          const offset = (i - 3) * DIAG_SPACING;
-          return (
-            <line
-              key={`dp-${i}`}
-              x1={offset}
-              y1={0}
-              x2={offset + height}
-              y2={height}
-              stroke={accentColor}
-              strokeOpacity={0.045}
-              strokeWidth={1}
-            />
-          );
-        })}
-
-        {/* ── Layer 2b: Diagonal lines at −45° (criss-cross pair) ───────── */}
-        {Array.from({ length: numDiags }, (_, i) => {
-          const offset = (i - 3) * DIAG_SPACING;
-          return (
-            <line
-              key={`dn-${i}`}
-              x1={width - offset}
-              y1={0}
-              x2={-offset}
-              y2={height}
-              stroke={accentColor}
-              strokeOpacity={0.045}
-              strokeWidth={1}
-            />
-          );
-        })}
-
-        {/* ── Layer 3: Corner accent crosses ────────────────────────────── */}
-        {corners.map(({ cx, cy }, i) => (
-          <g key={`cross-${i}`}>
-            {/* Horizontal arm */}
-            <line
-              x1={cx - ARM}
-              y1={cy}
-              x2={cx + ARM}
-              y2={cy}
-              stroke={accentColor}
-              strokeOpacity={0.22}
-              strokeWidth={CROSS_WEIGHT}
+              strokeWidth={1.2}
               strokeLinecap="round"
+              strokeLinejoin="round"
             />
-            {/* Vertical arm */}
-            <line
-              x1={cx}
-              y1={cy - ARM}
-              x2={cx}
-              y2={cy + ARM}
-              stroke={accentColor}
-              strokeOpacity={0.22}
-              strokeWidth={CROSS_WEIGHT}
-              strokeLinecap="round"
-            />
-            {/* Centre dot — slightly more opaque for a sharp anchor point */}
-            <circle
-              cx={cx}
-              cy={cy}
-              r={4}
-              fill={accentColor}
-              fillOpacity={0.3}
-            />
-          </g>
-        ))}
-      </svg>
+          ))}
+        </svg>
+      </div>
     </div>
   );
 };
