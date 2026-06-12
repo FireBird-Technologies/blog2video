@@ -27,6 +27,8 @@ export const SPOTLIGHT_LAYOUT_REGISTRY: Record<
   spotlight_image: SpotlightImage,
   rapid_points: RapidPoints,
   spotlight_data: SpotlightDataChart,
+  spotlight_data_bar: SpotlightDataChart,
+  spotlight_data_histogram: SpotlightDataChart,
   spotlight_table: SpotlightTable,
   closer: Closer,
   ending_socials: EndingSocials,

@@ -27,6 +27,8 @@ export const CHRONICLE_LAYOUT_REGISTRY: Record<
   map_reveal: MapReveal,
   decree_seal: DecreeSeal,
   chronicle_data: ChronicleDataChart,
+  chronicle_data_bar: ChronicleDataChart,
+  chronicle_data_histogram: ChronicleDataChart,
   chronicle_table: ChronicleTable,
   ending_socials: EndingSocials,
 };
