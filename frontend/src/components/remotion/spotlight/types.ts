@@ -11,6 +11,8 @@ export type SpotlightLayoutType =
   | "spotlight_image"
   | "rapid_points"
   | "spotlight_data"
+  | "spotlight_data_bar"
+  | "spotlight_data_histogram"
   | "spotlight_table"
   | "closer"
   | "ending_socials";

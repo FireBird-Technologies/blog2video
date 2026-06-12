@@ -15,6 +15,8 @@ export type ChronicleLayoutType =
   | "map_reveal"
   | "decree_seal"
   | "chronicle_data"
+  | "chronicle_data_bar"
+  | "chronicle_data_histogram"
   | "chronicle_table"
   | "ending_socials";
 
