@@ -95,6 +95,7 @@ export interface UserInfo {
   videos_used_this_period: number;
   video_limit: number;
   can_create_video: boolean;
+  preferred_voice_emotion: string | null;
 }
 
 export interface AuthResponse {
@@ -156,6 +157,7 @@ export interface Project {
   logo_opacity: number;
   logo_size: number;
   custom_voice_id: string | null;
+  voice_emotion: string | null;
   aspect_ratio: string;
   video_style?: VideoStyleId;
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
@@ -930,7 +932,8 @@ export const createProject = (
   template?: string,
   video_style?: VideoStyleId,
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
-  content_language?: string | null
+  content_language?: string | null,
+  voice_emotion?: string
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -949,6 +952,7 @@ export const createProject = (
     video_style,
     video_length,
     content_language,
+    voice_emotion,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -960,6 +964,7 @@ export interface BulkProjectItem {
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
   voice_gender?: string;
   voice_accent?: string;
+  voice_emotion?: string;
   accent_color?: string;
   bg_color?: string;
   text_color?: string;
@@ -1002,6 +1007,7 @@ export const createProjectFromDocs = (
     name?: string;
     voice_gender?: string;
     voice_accent?: string;
+    voice_emotion?: string;
     accent_color?: string;
     bg_color?: string;
     text_color?: string;
@@ -1021,6 +1027,7 @@ export const createProjectFromDocs = (
   if (config.name) formData.append("name", config.name);
   if (config.voice_gender) formData.append("voice_gender", config.voice_gender);
   if (config.voice_accent) formData.append("voice_accent", config.voice_accent);
+  if (config.voice_emotion) formData.append("voice_emotion", config.voice_emotion);
   if (config.accent_color) formData.append("accent_color", config.accent_color);
   if (config.bg_color) formData.append("bg_color", config.bg_color);
   if (config.text_color) formData.append("text_color", config.text_color);
@@ -1182,6 +1189,7 @@ export const changeProjectVoice = (
     voice_gender?: string;
     voice_accent?: string;
     custom_voice_id?: string;
+    voice_emotion?: string;
   }
 ) => api.post<VoiceChangeStartResponse>(`/projects/${projectId}/change-voice`, data);
 
@@ -1196,6 +1204,23 @@ export const getVoiceChangeStatus = (projectId: number) =>
  */
 export const deleteProjectVoiceover = (projectId: number) =>
   api.post<VoiceChangeStartResponse>(`/projects/${projectId}/delete-voiceover`);
+
+/**
+ * Synthesize a short on-demand voice preview with the given voice + tuning (Advanced Options).
+ * Returns an object URL for playback — the caller must revoke it. Paid + rate-limited server-side.
+ */
+export const previewVoice = async (params: {
+  voice_gender?: string | null;
+  voice_accent?: string | null;
+  custom_voice_id?: string | null;
+  voice_emotion?: string | null;
+  video_style?: string | null;
+}): Promise<string> => {
+  const res = await api.post("/voice/preview", params, { responseType: "blob" });
+  const blob = res.data as Blob;
+  if (!blob || blob.size === 0) throw new Error("Empty audio");
+  return window.URL.createObjectURL(blob);
+};
 
 export const updateScene = (
   projectId: number,
