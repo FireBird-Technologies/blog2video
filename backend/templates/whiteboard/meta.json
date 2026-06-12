@@ -299,12 +299,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 62,
-          "landscape": 61
+          "portrait": 50,
+          "landscape": 57
         },
         "descriptionFontSize": {
-          "portrait": 20,
-          "landscape": 20
+          "portrait": 22,
+          "landscape": 29
         },
         "leftThought": "Coffee first thing in the morning",
         "rightThought": "Tea for a mindful start to the day"
