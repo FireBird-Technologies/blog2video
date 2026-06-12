@@ -1,5 +1,8 @@
+import React from "react";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
+import { TransitionSeries } from "@remotion/transitions";
 import { SPOTLIGHT_LAYOUT_REGISTRY } from "./layouts";
+import { pickSpotlightTransition } from "./transitions";
 import type { SpotlightLayoutType, SpotlightLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
@@ -47,51 +50,98 @@ export const SpotlightVideoComposition: React.FC<
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
-  let currentFrame = 0;
+  const isPortrait = aspectRatio === "portrait";
+  const w = isPortrait ? 1080 : 1920;
+  const h = isPortrait ? 1920 : 1080;
+
+  const sceneFrames = scenes.map((s) =>
+    getSceneDurationFrames(s.durationSeconds, FPS, resolvedPlaybackSpeed),
+  );
+
+  // Scene start frames accounting for transition overlap (audio sync).
+  const sceneStartFrames: number[] = [];
+  let runningFrame = 0;
+  scenes.forEach((_, i) => {
+    sceneStartFrames[i] = runningFrame;
+    runningFrame += sceneFrames[i];
+    if (i < scenes.length - 1) {
+      runningFrame -= pickSpotlightTransition(
+        i,
+        scenes[i].layout,
+        scenes[i + 1].layout,
+        w,
+        h,
+      ).frames;
+    }
+  });
+
+  const buildLayoutProps = (scene: SpotlightSceneInput): SpotlightLayoutProps => ({
+    ...scene.layoutProps,
+    title: scene.title,
+    narration: scene.narration,
+    accentColor: accentColor || "#EF4444",
+    bgColor: bgColor || "#000000",
+    textColor: textColor || "#FFFFFF",
+    aspectRatio: aspectRatio || "landscape",
+    imageUrl: scene.imageUrl,
+    imageObjectPosition:
+      String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) +
+      "% " +
+      String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) +
+      "%",
+    imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+    fontFamily,
+  });
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
-      {scenes.map((scene) => {
-        const durationFrames = getSceneDurationFrames(
-          scene.durationSeconds,
-          FPS,
-          resolvedPlaybackSpeed,
-        );
-        const startFrame = currentFrame;
-        currentFrame += durationFrames;
+      <TransitionSeries>
+        {scenes.map((scene, index) => {
+          const LayoutComponent =
+            SPOTLIGHT_LAYOUT_REGISTRY[scene.layout] ||
+            SPOTLIGHT_LAYOUT_REGISTRY.statement;
 
-        const LayoutComponent =
-          SPOTLIGHT_LAYOUT_REGISTRY[scene.layout] ||
-          SPOTLIGHT_LAYOUT_REGISTRY.statement;
+          const sequence = (
+            <TransitionSeries.Sequence
+              key={`seq-${scene.id}-${index}`}
+              durationInFrames={sceneFrames[index]}
+            >
+              <LayoutComponent {...buildLayoutProps(scene)} />
+            </TransitionSeries.Sequence>
+          );
 
-        const layoutProps: SpotlightLayoutProps = {
-          ...scene.layoutProps,
-          title: scene.title,
-          narration: scene.narration,
-          accentColor: accentColor || "#EF4444",
-          bgColor: bgColor || "#000000",
-          textColor: textColor || "#FFFFFF",
-          aspectRatio: aspectRatio || "landscape",
-          imageUrl: scene.imageUrl,
-          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
-          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
-          fontFamily,
-        };
+          if (index === scenes.length - 1) return sequence;
 
-        return (
+          const choice = pickSpotlightTransition(
+            index,
+            scene.layout,
+            scenes[index + 1].layout,
+            w,
+            h,
+          );
+          return (
+            <React.Fragment key={`scene-${scene.id}-${index}`}>
+              {sequence}
+              <TransitionSeries.Transition
+                presentation={choice.presentation}
+                timing={choice.timing}
+              />
+            </React.Fragment>
+          );
+        })}
+      </TransitionSeries>
+
+      {scenes.map((scene, index) =>
+        scene.voiceoverUrl ? (
           <Sequence
-            key={scene.id}
-            from={startFrame}
-            durationInFrames={durationFrames}
-            name={scene.title}
+            key={`audio-${scene.id}-${index}`}
+            from={sceneStartFrames[index]}
+            durationInFrames={sceneFrames[index]}
           >
-            <LayoutComponent {...layoutProps} />
-            {scene.voiceoverUrl && (
-              <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
-            )}
+            <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
           </Sequence>
-        );
-      })}
+        ) : null,
+      )}
 
       {logo && (
         <LogoOverlay
@@ -105,4 +155,3 @@ export const SpotlightVideoComposition: React.FC<
     </AbsoluteFill>
   );
 };
-

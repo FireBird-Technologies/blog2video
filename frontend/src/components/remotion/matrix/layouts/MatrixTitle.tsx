@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { buildHudStatus, GlitchSlice, RainBurst, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -81,6 +82,12 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.25} fontFamily={resolvedFontFamily} />
+
+      {/* Decorative artifacts — rain surge, HUD chrome, CRT texture, rare glitch ticks. */}
+      <RainBurst accentColor={accent} centerX={50} widthPct={80} startFrame={0} seed={5} />
+      <TerminalHUD accentColor={accent} statusText={buildHudStatus("DECODING", title)} startFrame={6} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.8} />
+      <GlitchSlice accentColor={accent} every={76} seed={51} />
 
       <div
         style={{

@@ -1,7 +1,7 @@
 {
   "id": "blackswan",
   "name": "Black Swan",
-  "new_template": true,
+  "new_template": false,
   "description": "Neon cyan on pure black cinematic theme with elliptical water ripples, swan/bird motifs, and data-forward explainer layouts.",
   "genres": [
     "Finance",

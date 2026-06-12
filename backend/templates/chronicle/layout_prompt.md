@@ -41,6 +41,14 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
   - **Rule**: Max one per video — reserve for the strongest single beat.
   - **Suggested prop**: `word` = 1–2 short, strong words (e.g. "HONOR", "FINIS", "EXILE").
 
+- `chronicle_data`
+  - **Best for**: A real animated chart (line / bar / histogram) drawn in ink on a parchment chart-folio, built from an actual table in the article.
+  - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='chronicle_data'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
+
+- `chronicle_table`
+  - **Best for**: Multi-column data tables (snapshot / ranking / holdings tables) rendered as a ruled ledger page with gain/loss ink coloring.
+  - **Rule**: Use ONLY when a scene is bound to a ticker-like table (`preferred_layout='chronicle_table'` with a `data_table_index`).
+
 - `ending_socials`
   - **Best for**: Closing colophon with "FINIS" title, wax seal, social icons, website ribbon CTA.
   - **Rule**: **Always** the final scene. Never earlier.
@@ -52,3 +60,4 @@ Global variety rules for `preferred_layout`:
 - Alternate ornamental beats (`illuminated_quote`, `decree_seal`, `chapter_plate`, `ledger_stats`, `chronicle_timeline`, `versus_folio`, `map_reveal`) with body pages (`parchment_scroll`).
 - Never stack the same layout three times consecutively.
 - Prefer `ledger_stats` when numbers dominate, `chronicle_timeline` when chronology dominates, `versus_folio` when binary comparison dominates, `map_reveal` when geography / imagery dominates, `illuminated_quote` when a direct quote is present, `decree_seal` for the single strongest punch line.
+- `chronicle_data` and `chronicle_table` are reserved for scenes the pipeline binds to a real table — do not assign them to scenes without a `data_table_index`.

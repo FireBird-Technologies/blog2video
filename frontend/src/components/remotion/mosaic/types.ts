@@ -40,4 +40,18 @@ export interface MosaicLayoutProps {
   mosaicIntensity?: number;
   mosaicTileSize?: number;
   mosaicTileGap?: number;
+  // MosaicDataChart fields
+  chartSummary?: string;
+  subtitle?: string;
+  chartYAxisTicks?: (string | number)[];
+  chartType?: string;
+  chartTable?: { headers: string[]; rows: string[][] };
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+  yAxisLabel?: string;
+  // MosaicTable fields
+  tickerTable?: { headers: string[]; rows: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
 }

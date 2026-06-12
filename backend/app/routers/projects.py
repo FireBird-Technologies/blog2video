@@ -351,6 +351,62 @@ def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
     return normalized[:10]
 
 
+def _resolve_voice_tuning(voice_emotion: str | None, user: User) -> tuple[str | None, str | None]:
+    """Validate + gate user voice tuning, sent as a JSON string array
+    ["<stability>","<speed>","<emotion>","<style>","<enabled>"] in the voice_emotion field.
+
+    Returns ``(project_value, preference_value)``:
+      - ``project_value``    — 4-element canonical array stored on the Project, or ``None`` when the
+        Advanced Options toggle is OFF (so that project narrates with plain defaults).
+      - ``preference_value`` — 5-element canonical array (tuning + enabled flag) persisted as the
+        user's remembered default, so the sliders keep their last-enabled values even while the
+        toggle is off and the toggle state itself is remembered. ``None`` only when nothing was sent.
+
+    Raises 403 if tuning is supplied by a non-paid user — mirrors the custom-template gate.
+    """
+    if voice_emotion is None:
+        return None, None
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        raise HTTPException(
+            status_code=403,
+            detail="Voice tuning requires a Pro or Standard subscription.",
+        )
+    from app.services.voiceover import SUPPORTED_EMOTIONS, DEFAULT_EMOTION, DEFAULT_STYLE, VOICE_STYLE_RANGE
+
+    try:
+        values = json.loads(voice_emotion)
+        stability = float(values[0])
+        speed = float(values[1])
+    except (ValueError, TypeError, IndexError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid voice tuning values.")
+    # Emotion (3rd element) is optional. Legacy 2-element values default to [excited]; a
+    # present-but-empty/invalid value is stored as "" (no emotion tag at synthesis).
+    if isinstance(values, list) and len(values) >= 3:
+        candidate = str(values[2]).strip().lower()
+        emotion = candidate if candidate in SUPPORTED_EMOTIONS else ""
+    else:
+        emotion = DEFAULT_EMOTION
+    # Style (4th element) is optional; missing/invalid → DEFAULT_STYLE, clamped to the safe range.
+    style = DEFAULT_STYLE
+    if isinstance(values, list) and len(values) >= 4:
+        try:
+            style = float(values[3])
+        except (TypeError, ValueError):
+            style = DEFAULT_STYLE
+    # Enabled (5th element) — the Advanced Options toggle. Legacy values without it are treated as
+    # enabled (old behaviour: sending tuning meant it was on).
+    enabled = True
+    if isinstance(values, list) and len(values) >= 5:
+        enabled = str(values[4]).strip() == "1"
+    style = max(VOICE_STYLE_RANGE[0], min(VOICE_STYLE_RANGE[1], style))
+    stability = max(0.0, min(1.0, stability))
+    speed = max(0.7, min(1.2, speed))
+    tuning = json.dumps([f"{stability:.2f}", f"{speed:.2f}", emotion, f"{style:.2f}"])
+    pref = json.dumps([f"{stability:.2f}", f"{speed:.2f}", emotion, f"{style:.2f}", "1" if enabled else "0"])
+    # Project only carries tuning when the toggle is on; the preference always remembers values + flag.
+    return (tuning if enabled else None), pref
+
+
 def _crafted_template_pk(template_id: str, db: Session) -> int | None:
     if not is_crafted_template(template_id):
         return None
@@ -756,6 +812,7 @@ def create_project(
     crafted_pk = _crafted_template_pk(template_id, db)
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(data.video_style)
+    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
     project = Project(
         user_id=user.id,
         name=name,
@@ -764,6 +821,7 @@ def create_project(
         crafted_template_id=crafted_pk,
         voice_gender=data.voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
+        voice_emotion=voice_tuning,
         accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -780,6 +838,12 @@ def create_project(
         status=ProjectStatus.CREATED,
     )
     db.add(project)
+
+    # Remember the voice tuning (values + enabled flag) so the toggle state and last-enabled slider
+    # values both pre-fill next time. Disabling no longer wipes the saved values — the flag is part
+    # of the stored preference.
+    if voice_tuning_pref is not None:
+        user.preferred_voice_emotion = voice_tuning_pref
 
     # Increment usage counter
     user.videos_used_this_period += 1
@@ -1349,6 +1413,8 @@ def _restore_voice_snapshot(project: Project | None, snapshot_raw: str | None) -
         project.voice_accent = snap["voice_accent"] or "american"
     if "custom_voice_id" in snap:
         project.custom_voice_id = snap["custom_voice_id"]
+    if "voice_emotion" in snap:
+        project.voice_emotion = snap["voice_emotion"]
 
 
 def _rollback_delete_voiceover(
@@ -2412,6 +2478,9 @@ def create_projects_bulk(
             )
         colors = get_preview_colors(template_id)
         normalized_video_style = _normalize_video_style(data.video_style)
+        voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
+        if voice_tuning_pref is not None:
+            user.preferred_voice_emotion = voice_tuning_pref
         project = Project(
             user_id=user.id,
             name=name,
@@ -2420,6 +2489,7 @@ def create_projects_bulk(
             crafted_template_id=_crafted_template_pk(template_id, db),
             voice_gender=data.voice_gender or "female",
             voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
+            voice_emotion=voice_tuning,
             accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
             bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
             text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -2475,6 +2545,7 @@ def create_project_from_upload(
     logo_position: Optional[str] = Form("bottom_right"),
     logo_opacity: Optional[float] = Form(0.9),
     custom_voice_id: Optional[str] = Form(None),
+    voice_emotion: Optional[str] = Form(None),
     aspect_ratio: Optional[str] = Form("landscape"),
     template: Optional[str] = Form(None),
     video_style: Optional[str] = Form("explainer"),
@@ -2528,6 +2599,7 @@ def create_project_from_upload(
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(video_style)
+    resolved_voice_tuning, resolved_voice_tuning_pref = _resolve_voice_tuning(voice_emotion, user)
     logger.info(
         "[PROJECTS] Creating project from upload: template='%s', validated='%s'",
         template,
@@ -2542,6 +2614,7 @@ def create_project_from_upload(
         crafted_template_id=_crafted_template_pk(template_id, db),
         voice_gender=voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(voice_accent),
+        voice_emotion=resolved_voice_tuning,
         accent_color=accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=text_color or (colors.get("text") if colors else None) or "#000000",
@@ -2557,6 +2630,8 @@ def create_project_from_upload(
         status=ProjectStatus.CREATED,
     )
     db.add(project)
+    if resolved_voice_tuning_pref is not None:
+        user.preferred_voice_emotion = resolved_voice_tuning_pref
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
@@ -4223,7 +4298,9 @@ async def regenerate_scene(
             video_style = getattr(project, "video_style", None) or "explainer"
             content_language = get_content_language_for_project(project)
             expanded_voiceover = await expand_narration_to_voiceover(
-                narration_source, scene.title, video_style=video_style, content_language=content_language
+                narration_source, scene.title, video_style=video_style,
+                content_language=content_language,
+                expressive=bool(getattr(project, "voice_emotion", None)),
             )
 
             # Persist the AI-expanded text so the narration shown in the scene
@@ -4521,6 +4598,7 @@ async def change_project_voice(
         "voice_gender": project.voice_gender,
         "voice_accent": project.voice_accent,
         "custom_voice_id": project.custom_voice_id,
+        "voice_emotion": project.voice_emotion,
     })
 
     # Apply the new voice selection. gender/accent are display-only metadata —
@@ -4537,6 +4615,11 @@ async def change_project_voice(
     # custom_voice_id may be intentionally cleared (empty string) when picking a prebuilt voice.
     if body.custom_voice_id is not None:
         project.custom_voice_id = body.custom_voice_id.strip() or None
+    # Apply voice tuning when provided (Pro/Standard only; _resolve_voice_tuning raises 403 otherwise).
+    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(body.voice_emotion, user_row)
+    project.voice_emotion = voice_tuning
+    if voice_tuning_pref is not None:
+        user_row.preferred_voice_emotion = voice_tuning_pref
 
     # Deduct one video credit and mark the project as regenerating.
     user_row.videos_used_this_period += 1

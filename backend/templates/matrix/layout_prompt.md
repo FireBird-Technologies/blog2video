@@ -25,6 +25,14 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `matrix_image`  
   - **Best for**: Image scenes inside the Matrix aesthetic.
 
+- `matrix_data`  
+  - **Best for**: A real chart (line / bar / histogram) rendered from a data table in the article.  
+  - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='matrix_data'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
+
+- `matrix_ticker`  
+  - **Best for**: A market-snapshot / comparison data table (symbol · price · % change, or any multi-column tabular readout).  
+  - **Rule**: Use ONLY when a scene is bound to a ticker-like table (`preferred_layout='matrix_ticker'` with a `data_table_index`). Rendered as an intercepted terminal table with +/- color coding.
+
 - `transmission`  
   - **Best for**: Rapid-fire intercepted transmissions / short phrases.
 
@@ -34,5 +42,6 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 Variety rules:
 
 - Scene 0 → `matrix_title`.  
-- For middle scenes, alternate between narrative (`terminal_text`), data (`cipher_metric` / `data_stream`), impact (`glitch_punch` / `transmission`), and comparison (`fork_choice`). 
+- For middle scenes, alternate between narrative (`terminal_text`), data (`cipher_metric` / `data_stream` / `matrix_data` / `matrix_ticker`), impact (`glitch_punch` / `transmission`), and comparison (`fork_choice`).
+- `matrix_data` and `matrix_ticker` are reserved for scenes the pipeline binds to a real table — do not assign them to scenes without a `data_table_index`.
 

@@ -8,6 +8,7 @@ import {
   CHRONICLE_SMALLCAPS_FONT,
 } from "../../../fonts/chronicle-defaults";
 import { WaxSeal } from "../components/WaxSeal";
+import { EmberSparks } from "../components/ChronicleArtifacts";
 import { InkSplatter, QuillText } from "../components/QuillInk";
 
 /**
@@ -71,6 +72,9 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
         gap: 20,
       }}
     >
+      {/* Embers rise as the decree is stamped. */}
+      <EmberSparks count={12} seed={21} intensity={0.85} />
+
       {/* Preamble — "Hear ye" style */}
       {(narration || title) && (
         <div
