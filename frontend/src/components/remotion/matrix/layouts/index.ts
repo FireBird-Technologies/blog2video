@@ -28,6 +28,8 @@ export const MATRIX_LAYOUT_REGISTRY: Record<
   transmission: Transmission,
   awakening: Awakening,
   matrix_data: MatrixDataChart,
+  matrix_data_bar: MatrixDataChart,
+  matrix_data_histogram: MatrixDataChart,
   matrix_ticker: MatrixTicker,
   ending_socials: EndingSocials,
 };

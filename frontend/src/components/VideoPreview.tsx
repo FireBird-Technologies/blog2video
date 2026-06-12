@@ -16,6 +16,7 @@ import {
   type CraftedTemplateItem,
 } from "../api/client";
 import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
+import { isBuiltinDataVizChartLayout } from "./sceneEditBuiltinDataViz";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
@@ -305,10 +306,14 @@ function mergeMetaFontSizesIntoLayoutProps(
  */
 function mergeMarketAnnotationChartDefaults(
   layoutProps: Record<string, unknown>,
+  templateId: string | null | undefined,
   layoutId: string | null | undefined,
   schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
 ): Record<string, unknown> {
-  if (!layoutId || !layoutId.startsWith("market_annotation")) return layoutProps;
+  const isChartLayout =
+    (!!layoutId && layoutId.startsWith("market_annotation")) ||
+    isBuiltinDataVizChartLayout(templateId, layoutId);
+  if (!layoutId || !isChartLayout) return layoutProps;
   if (!schema || Object.keys(schema).length === 0) return layoutProps;
   const defaults = schema[layoutId]?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
@@ -1071,6 +1076,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         );
         layoutProps = mergeMarketAnnotationChartDefaults(
           layoutProps,
+          project.template,
           layout,
           effectiveLayoutPropSchema ?? undefined,
         );
