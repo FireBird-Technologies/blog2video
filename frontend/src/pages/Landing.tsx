@@ -782,7 +782,6 @@ export default function Landing() {
 
       <PlatformShowcaseSection />
 
-
       <UserReviewsSection />
 
       <LandingDemoSection demos={demos} />
