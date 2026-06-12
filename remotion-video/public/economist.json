@@ -1,0 +1,245 @@
+{
+  "projectName": "The Economist — sample issue",
+  "accentColor": "#E3120B",
+  "bgColor": "#F6F4EE",
+  "textColor": "#1A1A1A",
+  "aspectRatio": "landscape",
+  "playbackSpeed": 1,
+  "scenes": [
+    {
+      "id": 1,
+      "order": 1,
+      "title": "A Starship enterprise",
+      "narration": "The week in business, finance and economics.",
+      "layout": "cover_reveal",
+      "layoutProps": {
+        "wordmark": "The Economist",
+        "dateline": "MAY 23RD–29TH 2026",
+        "teasers": [
+          "We calculate the MAGA tax",
+          "Lessons from the Premier League",
+          "NATO: time for Plan B",
+          "Are economists amoral?"
+        ]
+      },
+      "durationSeconds": 10,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2,
+      "order": 2,
+      "title": "The central bank's hardest year",
+      "narration": "After two years of forceful tightening, the Federal Reserve faces its most delicate task yet: easing policy without reigniting the inflation it has fought so hard to tame. The data point in opposite directions, and every meeting now carries the weight of a decision that will shape the next decade of growth.",
+      "layout": "leader_article",
+      "layoutProps": {
+        "sectionLabel": "BRIEFING",
+        "byline": "By our finance correspondent",
+        "illuminatedLetter": "A"
+      },
+      "durationSeconds": 8,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3,
+      "order": 3,
+      "title": "Finance & economics",
+      "narration": "",
+      "layout": "section_divider",
+      "layoutProps": {
+        "sectionLabel": "SECTION",
+        "standfirst": "Why the world's central banks are quietly changing course",
+        "dateline": "MAY 23RD–29TH 2026"
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4,
+      "order": 4,
+      "title": "People who report experiencing emotion",
+      "narration": "Percentage-point change from 2006",
+      "layout": "chart_line",
+      "layoutProps": {
+        "sectionLabel": "FINANCE",
+        "chartType": "line",
+        "panelNumber": "1",
+        "emphasizeZero": true,
+        "highlightSeries": ["Worry", "Stress", "Anger", "Enjoyment"],
+        "seriesColors": ["#9B1C1C", "#F0746E", "#E3120B", "#006BA6"],
+        "source": "Source: Gallup World Poll",
+        "note": "Percentage-point change from 2006",
+        "chartTable": {
+          "headers": ["Year", "Worry", "Stress", "Anger", "Enjoyment", "Ctx A", "Ctx B", "Ctx C"],
+          "rows": [
+            ["2006", 0, 0, 0, 0, 0, 0, 0],
+            ["08", 1, 1, 0, -1, 1, 0, -1],
+            ["10", 2, 2, 1, -1, 1, 1, 0],
+            ["12", 4, 3, 1, -2, 2, 2, -1],
+            ["14", 5, 4, 2, -3, 2, 3, -2],
+            ["16", 7, 5, 2, -3, 3, 4, -1],
+            ["18", 8, 6, 3, -4, 3, 5, -2],
+            ["20", 9, 7, 4, -5, 2, 5, -3],
+            ["22", 10, 8, 4, -4, 2, 6, -2],
+            ["24", 9, 7, 5, -3, 3, 5, -1]
+          ]
+        }
+      },
+      "durationSeconds": 8,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5,
+      "order": 5,
+      "title": "Projected GDP growth, 2026",
+      "narration": "Selected economies, % change on a year earlier",
+      "layout": "chart_bar",
+      "layoutProps": {
+        "sectionLabel": "FINANCE",
+        "chartType": "bar",
+        "unit": "%",
+        "source": "Source: IMF World Economic Outlook",
+        "chartTable": {
+          "headers": ["Economy", "Growth"],
+          "rows": [
+            ["India", 6.4],
+            ["Indonesia", 5.1],
+            ["China", 4.5],
+            ["Brazil", 2.3],
+            ["United States", 2.1],
+            ["Japan", 1.0],
+            ["Germany", 0.9]
+          ]
+        }
+      },
+      "durationSeconds": 7,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 6,
+      "order": 6,
+      "title": "The world's most valuable banks",
+      "narration": "Market capitalisation, $bn, 2026",
+      "layout": "data_table",
+      "layoutProps": {
+        "sectionLabel": "MARKETS",
+        "unit": "$bn",
+        "source": "Source: Bloomberg",
+        "chartTable": {
+          "headers": ["Bank", "Market cap"],
+          "rows": [
+            ["JPMorgan Chase", 560],
+            ["Bank of America", 300],
+            ["ICBC", 290],
+            ["Wells Fargo", 230],
+            ["HSBC", 190],
+            ["Morgan Stanley", 170],
+            ["Goldman Sachs", 150]
+          ]
+        }
+      },
+      "durationSeconds": 7,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 7,
+      "order": 7,
+      "title": "Should the Fed cut rates?",
+      "narration": "",
+      "layout": "pros_cons",
+      "layoutProps": {
+        "sectionLabel": "LEADERS",
+        "prosLabel": "PROS",
+        "consLabel": "CONS",
+        "intro": "On June 18th America's central bank will take what may prove a historic decision: the first interest-rate cut since the tightening cycle began. The data crunch is genuine, and the consequences will be profound. Here are the arguments for and against easing now.",
+        "pros": [
+          { "lead": "GROWTH IS COOLING", "body": "Hiring has slowed and manufacturing output has contracted for three straight months." },
+          { "lead": "INFLATION NEAR TARGET", "body": "Core PCE has drifted to 2.4%, within touching distance of the 2% goal." },
+          { "lead": "REAL RATES ARE HIGH", "body": "With prices easing, the inflation-adjusted policy rate is the most restrictive since 2007." }
+        ],
+        "cons": [
+          { "lead": "SERVICES STAY HOT", "body": "Wage growth in services remains above 4%, keeping underlying inflation sticky." },
+          { "lead": "CONDITIONS ALREADY EASY", "body": "Buoyant equities and tight credit spreads are doing much of the Fed's work already." },
+          { "lead": "CREDIBILITY AT STAKE", "body": "Cutting too soon risks a second wave of inflation the bank has vowed to avoid." }
+        ],
+        "source": "Source: The Economist"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 8,
+      "order": 8,
+      "title": "By the numbers",
+      "narration": "The American economy in four figures",
+      "layout": "key_indicators",
+      "layoutProps": {
+        "sectionLabel": "ECONOMIC DATA",
+        "source": "Source: BLS, BEA, CBO",
+        "indicators": [
+          { "value": "2.4%", "label": "Core inflation", "delta": "-0.3pp" },
+          { "value": "4.1%", "label": "Unemployment", "delta": "+0.2pp" },
+          { "value": "$1.9trn", "label": "Budget deficit", "delta": "+5.4%" },
+          { "value": "2.1%", "label": "GDP growth", "delta": "+0.1pp" }
+        ]
+      },
+      "durationSeconds": 7,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 9,
+      "order": 9,
+      "title": "",
+      "narration": "",
+      "layout": "leader_quote",
+      "layoutProps": {
+        "sectionLabel": "BARTLEBY",
+        "quote": "The first rule of compounding is to never interrupt it unnecessarily.",
+        "highlightPhrase": "never interrupt it",
+        "attribution": "Charlie Munger"
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 10,
+      "order": 10,
+      "title": "The new geography of capital",
+      "narration": "",
+      "layout": "image_feature",
+      "layoutProps": {
+        "sectionLabel": "FEATURE",
+        "caption": "Trading floors are emptying as capital migrates to private markets",
+        "credit": "Photograph: Getty Images"
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 11,
+      "order": 11,
+      "title": "Read more this week",
+      "narration": "Get the full analysis, every week.",
+      "layout": "ending_socials",
+      "layoutProps": {
+        "wordmark": "The Economist",
+        "ctaButtonText": "Subscribe",
+        "websiteLink": "economist.com",
+        "showWebsiteButton": true,
+        "socials": { "linkedin": "the-economist", "instagram": "@theeconomist", "youtube": "The Economist" }
+      },
+      "durationSeconds": 7,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

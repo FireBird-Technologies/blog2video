@@ -26,6 +26,40 @@ declare module "@remotion-video/templates/matrix/layouts" {
   export type MatrixLayoutProps = Record<string, any>;
 }
 
+declare module "@remotion-video/templates/spotlight/transitions" {
+  import type { TransitionPresentation, TransitionTiming } from "@remotion/transitions";
+  export interface SpotlightTransitionChoice {
+    presentation: TransitionPresentation<Record<string, unknown>>;
+    timing: TransitionTiming;
+    frames: number;
+  }
+  export function pickSpotlightTransition(
+    fromIdx: number,
+    fromLayout: string,
+    toLayout: string,
+    w?: number,
+    h?: number,
+  ): SpotlightTransitionChoice;
+  export const SPOTLIGHT_TRANSITION_POOL_SIZE: number;
+}
+
+declare module "@remotion-video/templates/matrix/transitions" {
+  import type { TransitionPresentation, TransitionTiming } from "@remotion/transitions";
+  export interface MatrixTransitionChoice {
+    presentation: TransitionPresentation<Record<string, unknown>>;
+    timing: TransitionTiming;
+    frames: number;
+  }
+  export function pickMatrixTransition(
+    fromIdx: number,
+    fromLayout?: string,
+    toLayout?: string,
+    w?: number,
+    h?: number,
+  ): MatrixTransitionChoice;
+  export const MATRIX_TRANSITION_POOL_SIZE: number;
+}
+
 declare module "@remotion-video/templates/mosaic/layouts" {
   export const MOSAIC_LAYOUT_REGISTRY: Record<string, any>;
   export type MosaicLayoutType = string;

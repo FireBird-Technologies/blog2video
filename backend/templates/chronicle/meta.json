@@ -24,6 +24,8 @@
     "chronicle_timeline",
     "map_reveal",
     "decree_seal",
+    "chronicle_data",
+    "chronicle_table",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -451,6 +453,178 @@
         }
       ]
     },
+    "chronicle_data": {
+      "label": "Data Chart",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 56,
+          "landscape": 52
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 26
+        },
+        "chartType": "line",
+        "chartSummary": "The record shows a steady rise through the period before easing off the high.",
+        "chartTable": {
+          "headers": ["Year", "Population", "Levy"],
+          "rows": [
+            ["1340", "298", "72"],
+            ["1345", "308", "68"],
+            ["1350", "315", "61"],
+            ["1355", "324", "55"],
+            ["1360", "318", "59"]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Year",
+        "yAxisLabel": "Recorded count",
+        "barPrimaryColor": "#B8860B",
+        "barSecondaryColor": "#8B2E1D"
+      },
+      "scene_defaults": {
+        "title": "The numbers of record",
+        "narration": "As set down in the ledger, the figures tell their own tale.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            { "label": "Auto (infer from data)", "value": "auto" },
+            { "label": "Line", "value": "line" },
+            { "label": "Bar", "value": "bar" },
+            { "label": "Histogram", "value": "histogram" }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "chronicle_table": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 50,
+          "landscape": 44
+        },
+        "descriptionFontSize": {
+          "portrait": 22,
+          "landscape": 19
+        },
+        "tickerTitle": "An accounting of the holdings",
+        "tickerFootnote": "Source: the great ledger · as recorded",
+        "tickerHighlightCol": 5,
+        "tickerTable": {
+          "headers": ["Name", "Shares", "Price", "Cost", "Value", "% Chg"],
+          "rows": [
+            ["House A", "25", "$20", "$500", "$600", "+20%"],
+            ["House B", "20", "$30", "$600", "$500", "-16.7%"],
+            ["House C", "30", "$90", "$2,700", "$3,000", "+11.1%"],
+            ["House D", "50", "$100", "$5,000", "$10,000", "+100%"],
+            ["House E", "100", "$20", "$2,000", "$1,000", "-50%"]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "The ledger of record",
+        "narration": "Each entry set down as the clerk recorded it.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Cell Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table sub-headline",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: numeric or text values. Max 20 rows, max 6 columns.",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based) for gain/loss coloring, e.g. 5 for the 6th column. Set to -1 to disable.",
+          "type": "number"
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Footnote / source attribution",
+          "type": "string"
+        }
+      ]
+    },
     "ending_socials": {
       "label": "Ending / Follow along",
       "defaults": {
@@ -534,6 +708,8 @@
     "chapter_plate",
     "chronicle_timeline",
     "decree_seal",
+    "chronicle_data",
+    "chronicle_table",
     "ending_socials"
   ],
   "features": [

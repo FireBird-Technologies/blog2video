@@ -418,6 +418,7 @@ interface FieldDef {
   subFields?: { key: string; label: string; placeholder?: string }[];
   placeholder?: string;
   maxItems?: number;
+  minItems?: number;
   /** Options when type === "select" */
   options?: { value: string; label: string }[];
   min?: number;
@@ -742,6 +743,52 @@ function getFJResearchMarketAnnotationExampleTable(
       ["30–40", "18"],
       ["40–50", "10"],
       ["50–60", "4"],
+    ],
+  };
+}
+
+/**
+ * Economist `chart_line` / `chart_bar` / `data_table` example datasets. Mirrors
+ * the laduc/fj seeders so the studio editor renders shape-appropriate data the
+ * moment a user switches a scene into an Economist data layout or opens an empty
+ * one (col 1 = X labels / row labels; remaining cols = numeric series).
+ */
+function getEconomistChartExampleTable(
+  kind: "line" | "bar" | "table",
+): { headers: string[]; rows: string[][] } {
+  if (kind === "line") {
+    return {
+      headers: ["Year", "Advanced economies", "Emerging markets"],
+      rows: [
+        ["2019", "1.8", "4.5"],
+        ["2020", "-4.4", "-2.1"],
+        ["2021", "5.4", "6.9"],
+        ["2022", "2.7", "4.0"],
+        ["2023", "1.6", "4.1"],
+        ["2024", "1.7", "4.2"],
+      ],
+    };
+  }
+  if (kind === "bar") {
+    return {
+      headers: ["Sector", "Share of GDP (%)"],
+      rows: [
+        ["Services", "64"],
+        ["Manufacturing", "18"],
+        ["Construction", "7"],
+        ["Agriculture", "6"],
+        ["Mining", "5"],
+      ],
+    };
+  }
+  return {
+    headers: ["Economy", "GDP ($trn)", "Growth (%)", "Inflation (%)"],
+    rows: [
+      ["United States", "27.4", "2.5", "3.1"],
+      ["China", "17.8", "5.0", "0.2"],
+      ["Germany", "4.5", "-0.1", "5.9"],
+      ["Japan", "4.2", "1.9", "3.3"],
+      ["India", "3.9", "7.6", "5.4"],
     ],
   };
 }
@@ -1551,6 +1598,100 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "phrases", label: "Path steps", type: "string_array", maxItems: 8 },
     ],
   },
+  /** Stick Man 2 (Night Edition) — layout content keys per prompt.md. ending_socials uses the dedicated CTA / socials block. */
+  stickman_2: {
+    chalk_title: [],
+    night_walk: [],
+    shooting_star: [],
+    constellation_stats: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 100, $1.2M, 98%" },
+        ],
+        minItems: 3,
+        maxItems: 6,
+      },
+      {
+        key: "signFontSize",
+        label: "Sign text size",
+        type: "number",
+        min: 10,
+        max: 80,
+        step: 1,
+      },
+    ],
+    moonphase_chart: [
+      {
+        key: "bars",
+        label: "Moon phases",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value (ignored)", placeholder: "Optional" },
+        ],
+        minItems: 3,
+        maxItems: 5,
+      },
+    ],
+    shadow_comparison: [
+      {
+        key: "leftThought",
+        label: "Left thought",
+        type: "text",
+        placeholder: "Short phrase for the left figure's thought cloud",
+      },
+      {
+        key: "rightThought",
+        label: "Right thought",
+        type: "text",
+        placeholder: "Short phrase for the right figure's thought cloud",
+      },
+    ],
+    signal_fire_scene: [],
+    neon_countdown: [
+      {
+        key: "startFrom",
+        label: "Countdown from",
+        type: "number",
+        min: 2,
+        max: 9,
+        step: 1,
+        default: 5,
+      },
+      {
+        key: "label",
+        label: "Label beneath ring",
+        type: "string",
+        placeholder: "Optional short label",
+      },
+    ],
+    lantern_dialogue: [
+      {
+        key: "leftBubble",
+        label: "Left dialogue",
+        type: "text",
+        placeholder: "Line spoken by the left figure (first half of scene)",
+      },
+      {
+        key: "rightBubble",
+        label: "Right dialogue",
+        type: "text",
+        placeholder: "Line spoken by the right figure (second half of scene)",
+      },
+      {
+        key: "speakers",
+        label: "Speaker names",
+        type: "object_array",
+        subFields: [{ key: "label", label: "Name" }],
+        maxItems: 2,
+      },
+    ],
+    ending_socials: [],
+  },
   /** LaDuc — overrides for layout IDs shared with other templates */
   laduc: {
     masthead: [
@@ -1644,6 +1785,55 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "fj_researchtrading.com" },
       { key: "chartYAxisTicks", label: "Y-axis tick labels (top → bottom, 2–4 values)", type: "string_array", maxItems: 4 },
       { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    ],
+  },
+  economist: {
+    chart_line: [
+      { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+      { key: "panelNumber", label: "Panel Number", type: "string", placeholder: "e.g. 1" },
+      { key: "highlightSeries", label: "Highlighted Series (≤4)", type: "string_array", maxItems: 4 },
+      { key: "seriesColors", label: "Series Colours", type: "string_array", maxItems: 4 },
+      {
+        key: "labelMode",
+        label: "Series Labels",
+        type: "select",
+        default: "end",
+        options: [
+          { value: "end", label: "At line end" },
+          { value: "inline", label: "Inline on chart" },
+        ],
+      },
+      {
+        key: "emphasizeZero",
+        label: "Emphasise Zero Line",
+        type: "select",
+        default: "true",
+        options: [
+          { value: "true", label: "Enabled" },
+          { value: "false", label: "Disabled" },
+        ],
+      },
+      { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
+    ],
+    chart_bar: [
+      { key: "chartTable", label: "Chart data (col 1: category labels; cols 2+: numeric series; max 20 rows)", type: "chart_table" },
+      {
+        key: "chartType",
+        label: "Orientation",
+        type: "select",
+        default: "bar",
+        options: [
+          { value: "bar", label: "Vertical bars" },
+          { value: "hbar", label: "Ranked horizontal" },
+        ],
+      },
+      { key: "unit", label: "Value Unit", type: "string", placeholder: "%" },
+      { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
+    ],
+    data_table: [
+      { key: "chartTable", label: "Table data (col 1: row labels; cols 2+: values; max 20 rows)", type: "chart_table" },
+      { key: "unit", label: "Value Unit", type: "string", placeholder: "$bn" },
+      { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
     ],
   },
 };
@@ -1760,6 +1950,7 @@ function layoutPropSchemaToFieldDefs(schema: LayoutPropSchema | undefined): Fiel
       type: ft,
       placeholder: f.placeholder,
       maxItems: f.maxItems,
+      minItems: f.minItems,
       min: f.min,
       max: f.max,
       step: f.step,
@@ -2232,6 +2423,7 @@ export default function SceneEditModal({
   const isDefaultTemplate = normalizedTemplateId === "default";
   const isBloombergTemplate = normalizedTemplateId === "bloomberg";
   const isLaDucTemplate = normalizedTemplateId === "laduc";
+  const isEconomistTemplate = normalizedTemplateId === "economist";
   // FJ Market Brief is a crafted template — project.template carries the public id.
   const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
 
@@ -2533,6 +2725,17 @@ export default function SceneEditModal({
             }
             // If no valid OHLCV items found, leave ohlcvTable unset — editor stays empty
             // and the chart renders procedural candles (correct behaviour for pre-OHLCV scenes)
+          }
+        }
+        // Economist chart_line / chart_bar / data_table: seed shape-appropriate
+        // example data when the stored chartTable is empty, so the editor (and
+        // preview) render immediately — matching laduc's data-layout behaviour.
+        if (isEconomistTemplate && (layoutId === "chart_line" || layoutId === "chart_bar" || layoutId === "data_table")) {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          if (!chartTableHasData(directChartTable)) {
+            const kind = layoutId === "chart_line" ? "line" : layoutId === "chart_bar" ? "bar" : "table";
+            lpCopy.chartTable = getEconomistChartExampleTable(kind);
           }
         }
       } catch { /* ignore */ }
@@ -3182,6 +3385,16 @@ export default function SceneEditModal({
   const applySelectedLayout = (next: string) => {
     setSelectedLayout(next);
     if (next === "__keep__" || next === "__auto__") return;
+    // Economist: seed shape-appropriate example data when switching into a data layout.
+    if (isEconomistTemplate && (next === "chart_line" || next === "chart_bar" || next === "data_table")) {
+      const kind = next === "chart_line" ? "line" : next === "chart_bar" ? "bar" : "table";
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.chartTable);
+        if (chartTableHasData(existing)) return prev;
+        return { ...prev, chartTable: getEconomistChartExampleTable(kind) };
+      });
+      return;
+    }
     // Seed example chart data when switching into a chart layout with no existing data
     const isChartLayout =
       ((isLaDucTemplate || isFjBriefTemplate) && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
@@ -4119,6 +4332,7 @@ export default function SceneEditModal({
                       }
                       if (field.type === "string_array") {
                         const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
+                        const minItems = field.minItems ?? 0;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4136,18 +4350,20 @@ export default function SceneEditModal({
                                     }}
                                     className={`flex-1 ${inputClass}`}
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = items.filter((_, j) => j !== i);
-                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
+                                  {items.length > minItems ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  ) : null}
                                 </div>
                               ))}
                               {(!field.maxItems || items.length < field.maxItems) && (
@@ -4173,6 +4389,7 @@ export default function SceneEditModal({
                             ? field.subFields
                             : inferObjectArraySubFields(items);
                         if (!subFields.length) return null;
+                        const minItems = field.minItems ?? 0;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4198,18 +4415,20 @@ export default function SceneEditModal({
                                       </div>
                                     ))}
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = items.filter((_, j) => j !== i);
-                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
+                                  {items.length > minItems ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  ) : null}
                                 </div>
                               ))}
                               {(!field.maxItems || items.length < field.maxItems) && (
