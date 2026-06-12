@@ -5,18 +5,7 @@ import { computeEconomistVideoTotalFrames } from "../remotion/economist/Economis
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-interface DemoScene {
-  id: number;
-  order: number;
-  title: string;
-  narration: string;
-  layout: string;
-  layoutProps: Record<string, unknown>;
-  durationSeconds: number;
-  imageUrl?: string;
-}
-
-const ECONOMIST_PREVIEW_SCENES: DemoScene[] = [
+const ECONOMIST_PREVIEW_SCENES = [
   {
     id: 1,
     order: 1,
@@ -97,35 +86,46 @@ const ECONOMIST_PREVIEW_SCENES: DemoScene[] = [
       ],
     },
   },
-];
+] as const;
+
+// Cumulative frame offsets per scene so dots can seek to the right spot.
+function buildSceneOffsets(scenes: typeof ECONOMIST_PREVIEW_SCENES): number[] {
+  const fps = 30;
+  const offsets: number[] = [];
+  let cursor = 0;
+  for (const scene of scenes) {
+    offsets.push(cursor);
+    cursor += Math.round(scene.durationSeconds * fps);
+  }
+  return offsets;
+}
 
 export default function EconomistPreview({
   thumbnailMode = false,
 }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const playerRef = useRef<PlayerRef>(null);
-
-  useEffect(() => {
-    if (thumbnailMode) setActiveSceneIndex(0);
-  }, [thumbnailMode]);
-
-  const activeScene = ECONOMIST_PREVIEW_SCENES[activeSceneIndex];
   const fps = 30;
-
-  const durationInFrames = useMemo(
-    () => computeEconomistVideoTotalFrames([activeScene], 1),
-    [activeScene],
-  );
-  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 120);
 
   const config = getTemplateConfig("economist");
   const Composition = config.component as React.ComponentType<any>;
-
   const { accent: accentColor, bg: bgColor, text: textColor } = config.defaultColors;
+
+  // Pass ALL scenes at once — Remotion's TransitionSeries handles the cuts
+  // internally with no Player re-mount, which eliminates the glitch.
+  const durationInFrames = useMemo(
+    () => computeEconomistVideoTotalFrames(ECONOMIST_PREVIEW_SCENES as any, 1),
+    [],
+  );
+
+  const thumbnailFrame = useMemo(() => {
+    // Show a mid-point of the cover scene for the thumbnail.
+    return Math.min(60, durationInFrames - 1);
+  }, [durationInFrames]);
 
   const inputProps = useMemo(
     () => ({
-      scenes: [activeScene],
+      scenes: ECONOMIST_PREVIEW_SCENES as any,
       accentColor,
       bgColor,
       textColor,
@@ -135,9 +135,12 @@ export default function EconomistPreview({
       logoSize: 0,
       aspectRatio: "landscape",
     }),
-    [activeScene, accentColor, bgColor, textColor],
+    [accentColor, bgColor, textColor],
   );
 
+  const sceneOffsets = useMemo(() => buildSceneOffsets(ECONOMIST_PREVIEW_SCENES), []);
+
+  // Seek to the thumbnail frame once the player is ready.
   useEffect(() => {
     if (!thumbnailMode) return;
     const p = playerRef.current;
@@ -154,16 +157,24 @@ export default function EconomistPreview({
     };
     p.addEventListener("frameupdate", onFrame);
     return () => p.removeEventListener("frameupdate", onFrame);
-  }, [thumbnailMode, thumbnailFrame, activeSceneIndex]);
+  }, [thumbnailMode, thumbnailFrame]);
 
+  // Track which dot is active based on playback position.
   useEffect(() => {
     if (thumbnailMode) return;
-    const ms = Math.max(500, Math.round((durationInFrames / fps) * 1000));
-    const t = setTimeout(() => {
-      setActiveSceneIndex((i) => (i + 1) % ECONOMIST_PREVIEW_SCENES.length);
-    }, ms);
-    return () => clearTimeout(t);
-  }, [activeSceneIndex, durationInFrames, fps, thumbnailMode]);
+    const p = playerRef.current;
+    if (!p) return;
+    const onFrame = () => {
+      const f = p.getCurrentFrame();
+      let idx = 0;
+      for (let i = sceneOffsets.length - 1; i >= 0; i--) {
+        if (f >= sceneOffsets[i]) { idx = i; break; }
+      }
+      setActiveSceneIndex(idx);
+    };
+    p.addEventListener("frameupdate", onFrame);
+    return () => p.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, sceneOffsets]);
 
   return (
     <div className="w-full">
@@ -184,23 +195,26 @@ export default function EconomistPreview({
           style={{ width: "100%", height: "100%", display: "block" }}
         />
 
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
-          {ECONOMIST_PREVIEW_SCENES.map((scene, index) => {
-            const isActive = index === activeSceneIndex;
-            return (
-              <button
-                key={scene.id}
-                onClick={() => setActiveSceneIndex(index)}
-                disabled={thumbnailMode}
-                className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
-                style={isActive ? { background: accentColor } : undefined}
-                aria-label={`Preview ${scene.title} layout`}
-                title={scene.title}
-                type="button"
-              />
-            );
-          })}
-        </div>
+        {!thumbnailMode && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
+            {ECONOMIST_PREVIEW_SCENES.map((scene, index) => {
+              const isActive = index === activeSceneIndex;
+              return (
+                <button
+                  key={scene.id}
+                  onClick={() => {
+                    playerRef.current?.seekTo(sceneOffsets[index]);
+                  }}
+                  className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
+                  style={isActive ? { background: accentColor } : undefined}
+                  aria-label={`Preview ${scene.title} layout`}
+                  title={scene.title}
+                  type="button"
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
