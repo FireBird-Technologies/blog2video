@@ -135,6 +135,8 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "spotlight_image",
   "rapid_points",
   "spotlight_data",
+  "spotlight_data_bar",
+  "spotlight_data_histogram",
   "spotlight_table",
   "closer",
   "ending_socials",
@@ -151,6 +153,8 @@ const MATRIX_LAYOUTS = new Set([
   "transmission",
   "awakening",
   "matrix_data",
+  "matrix_data_bar",
+  "matrix_data_histogram",
   "matrix_ticker",
   "ending_socials",
 ]);
@@ -241,6 +245,8 @@ const CHRONICLE_LAYOUTS = new Set([
   "map_reveal",
   "decree_seal",
   "chronicle_data",
+  "chronicle_data_bar",
+  "chronicle_data_histogram",
   "chronicle_table",
   "ending_socials",
 ]);
