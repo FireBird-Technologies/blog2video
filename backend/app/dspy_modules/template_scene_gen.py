@@ -942,9 +942,12 @@ class TemplateSceneGenerator:
             layout = "chart_bar"
 
         # chart_bar carries an explicit chartType (vertical "bar" vs ranked "hbar");
-        # keep the LLM's explicit pick, else default to vertical bars.
-        if layout == "chart_bar" and not out.get("chartType"):
-            out["chartType"] = "bar"
+        # prefer vertical bars: coerce AI-emitted "hbar" back to vertical, default empties.
+        if layout == "chart_bar":
+            if str(out.get("chartType") or "").strip().lower() == "hbar":
+                out["chartType"] = "bar"
+            elif not out.get("chartType"):
+                out["chartType"] = "bar"
 
         # Reconcile the display unit and dimensions with the real data. The LLM's
         # `unit` is otherwise trusted verbatim and can be a hallucination (e.g.
