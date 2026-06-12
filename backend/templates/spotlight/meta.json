@@ -24,6 +24,10 @@
     "versus",
     "spotlight_image",
     "rapid_points",
+    "spotlight_data",
+    "spotlight_data_bar",
+    "spotlight_data_histogram",
+    "spotlight_table",
     "closer",
     "ending_socials"
   ],
@@ -350,6 +354,524 @@
         }
       ]
     },
+    "spotlight_data": {
+      "label": "Data Chart",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 58
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 28
+        },
+        "chartType": "line",
+        "chartSummary": "The trend climbs steadily across the window before easing off the high.",
+        "chartTable": {
+          "headers": [
+            "Quarter",
+            "Revenue",
+            "Margin"
+          ],
+          "rows": [
+            [
+              "Q1",
+              "298",
+              "72"
+            ],
+            [
+              "Q2",
+              "308",
+              "68"
+            ],
+            [
+              "Q3",
+              "315",
+              "61"
+            ],
+            [
+              "Q4",
+              "324",
+              "55"
+            ],
+            [
+              "Q5",
+              "318",
+              "59"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Quarter",
+        "yAxisLabel": "Value",
+        "barPrimaryColor": "#EF4444",
+        "barSecondaryColor": "#F87171"
+      },
+      "scene_defaults": {
+        "title": "By the numbers",
+        "narration": "The data tells the story at a glance.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "spotlight_data_bar": {
+      "label": "Data Chart · Bar",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 58
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 28
+        },
+        "chartType": "bar",
+        "chartSummary": "Retail leads revenue while margin holds firmest at Partners.",
+        "chartTable": {
+          "headers": [
+            "Segment",
+            "Revenue",
+            "Margin"
+          ],
+          "rows": [
+            [
+              "Retail",
+              "324",
+              "41"
+            ],
+            [
+              "Wholesale",
+              "308",
+              "36"
+            ],
+            [
+              "Online",
+              "315",
+              "39"
+            ],
+            [
+              "Partners",
+              "298",
+              "44"
+            ],
+            [
+              "Other",
+              "318",
+              "33"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Segment",
+        "yAxisLabel": "Value",
+        "barPrimaryColor": "#EF4444",
+        "barSecondaryColor": "#F87171"
+      },
+      "scene_defaults": {
+        "title": "By the numbers",
+        "narration": "The data tells the story at a glance.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "spotlight_data_histogram": {
+      "label": "Data Chart · Histogram",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 58
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 28
+        },
+        "chartType": "histogram",
+        "chartSummary": "Accounts cluster mid-band — most fall in the 200–300 range.",
+        "chartTable": {
+          "headers": [
+            "Revenue band",
+            "Accounts"
+          ],
+          "rows": [
+            [
+              "< 100",
+              "2"
+            ],
+            [
+              "100 - 200",
+              "5"
+            ],
+            [
+              "200 - 300",
+              "9"
+            ],
+            [
+              "300 - 400",
+              "6"
+            ],
+            [
+              "400 +",
+              "3"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Revenue band",
+        "yAxisLabel": "Accounts",
+        "barPrimaryColor": "#EF4444",
+        "barSecondaryColor": "#F87171"
+      },
+      "scene_defaults": {
+        "title": "By the numbers",
+        "narration": "The data tells the story at a glance.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "spotlight_table": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 60,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 22,
+          "landscape": 18
+        },
+        "tickerTitle": "The breakdown",
+        "tickerFootnote": "Source: article data · as reported",
+        "tickerHighlightCol": 5,
+        "tickerTable": {
+          "headers": [
+            "Name",
+            "Shares",
+            "Price",
+            "Cost",
+            "Value",
+            "% Chg"
+          ],
+          "rows": [
+            [
+              "Item A",
+              "25",
+              "$20",
+              "$500",
+              "$600",
+              "+20%"
+            ],
+            [
+              "Item B",
+              "20",
+              "$30",
+              "$600",
+              "$500",
+              "-16.7%"
+            ],
+            [
+              "Item C",
+              "30",
+              "$90",
+              "$2,700",
+              "$3,000",
+              "+11.1%"
+            ],
+            [
+              "Item D",
+              "50",
+              "$100",
+              "$5,000",
+              "$10,000",
+              "+100%"
+            ],
+            [
+              "Item E",
+              "100",
+              "$20",
+              "$2,000",
+              "$1,000",
+              "-50%"
+            ]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "The breakdown",
+        "narration": "A clear table of the numbers that matter.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Cell Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table sub-headline",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: numeric or text values. Max 20 rows, max 6 columns.",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based) for green/red coloring, e.g. 5 for the 6th column. Set to -1 to disable.",
+          "type": "number"
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Footnote / source attribution",
+          "type": "string"
+        }
+      ]
+    },
     "closer": {
       "label": "Closer",
       "defaults": {
@@ -511,7 +1033,9 @@
     }
   },
   "layouts_without_image": [
-    "ending_socials"
+    "ending_socials",
+    "spotlight_data",
+    "spotlight_table"
   ],
   "features": [
     "Oversized kinetic typography with spring-slam animations",

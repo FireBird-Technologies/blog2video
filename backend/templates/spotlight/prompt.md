@@ -332,6 +332,45 @@ Narration: "No setup required. Works out of the box. Ships in 60 seconds. Scales
 
 ---
 
+## spotlight_data
+**Visual:** A real animated chart (line / bar / histogram) on a frosted glass-panel card over the black stage, with white text and accent-red (`#EF4444`) series. Line charts draw in with a trim-path reveal; bars grow in staggered. The Archivo Black title slams in (spring) above an accent rule, with a short analytical summary beside the chart.
+
+**Best for:** Showing a chart built from an actual data table in the source article (trends over time, comparisons, distributions).
+
+**Props (shared with the chart pipeline — usually filled automatically from the bound table):**
+- `chartTable`: `{ headers: [...], rows: [[...]] }` — col 1 = X labels; cols 2-4 = up to 3 numeric series
+- `chartType`: `"line" | "bar" | "histogram" | "auto"`
+- `chartSummary`: one-to-two sentence read of the chart (emphasize key phrases with `__double underscores__`)
+- `subtitle`, `yAxisLabel`, `chartYAxisTicks` (optional axis captions/ticks)
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a chartable table (`preferred_layout='spotlight_data'` + `data_table_index`).
+
+**When NOT to Use:**
+- For a single headline number (use `stat_stage`).
+- When there is no real table — never fabricate chart figures.
+
+---
+
+## spotlight_table
+**Visual:** A high-contrast data table — white-on-black grid on a frosted glass panel over the black stage. The header row carries a red accent rule; an optional change column is color-coded green (up) / red (down). Archivo Black title slams in above.
+
+**Best for:** Market-snapshot / multi-column comparison tables (name · price · % change, ranking tables, summary grids).
+
+**Props (usually filled automatically from the bound table):**
+- `tickerTable`: `{ headers: [...], rows: [[...]] }` (max 20 rows, 6 cols)
+- `tickerTitle`: optional sub-headline
+- `tickerFootnote`: optional source attribution
+- `tickerHighlightCol`: 0-based column index to color-code +/- (e.g. a "% Chg" column); -1 disables
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a ticker-like table (`preferred_layout='spotlight_table'` + `data_table_index`).
+
+**When NOT to Use:**
+- For 3-6 plain bullet phrases (use `cascade_list` or `rapid_points`).
+
+---
+
 ## closer
 **Visual:** Takeaway text (34–52px, weight 700) fades in from gaussian blur (starts blurry, sharpens over ~20 frames). Once sharp, an accent underline draws beneath the key phrase (left to right). Small CTA text fades in below with delay. Clean, final, memorable.
 
@@ -375,11 +414,12 @@ Narration: "The best time to start was yesterday. The second best time is right 
 - **Opening (scenes 1–2):** `statement` for setup
 - **Middle (scenes 3–N-1):** Alternate between:
   - Text layouts: `statement`, `cascade_list`, `rapid_points`
-  - Data moments: `stat_stage` (glass card)
+  - Data moments: `stat_stage` (glass card); chart from a bound table: `spotlight_data`; data table from a bound table: `spotlight_table`
   - Contrast: `versus`
   - Image: `spotlight_image` (when images available)
   - Impact: `word_punch` (max 1 total)
 - **Closing (scene N):** ALWAYS `closer`
+- `spotlight_data` and `spotlight_table` are reserved for scenes the pipeline binds to a real table — do not assign them to scenes without a `data_table_index`.
 
 **Variety Requirements:**
 - NEVER use same layout 2 times in a row

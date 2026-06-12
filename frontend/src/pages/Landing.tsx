@@ -8,8 +8,10 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
+import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
 // import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import { detectInAppBrowser } from "../lib/inAppBrowser";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
@@ -440,7 +442,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 }
 
 export default function Landing() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
@@ -500,8 +502,13 @@ export default function Landing() {
   // Auto-trigger Google sign-in when redirected here with ?signin=1
   useEffect(() => {
     if (searchParams.get("signin") !== "1") return;
-    // Give the Google SDK ~800ms to mount the button, then click it
+    // Give the Google SDK ~800ms to mount the button, then click it. In an in-app
+    // browser the GIS button no-ops, so reveal the escape UI instead of clicking.
     const t = setTimeout(() => {
+      if (detectInAppBrowser().isInApp) {
+        googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
       const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
       btn?.click();
     }, 800);
@@ -536,10 +543,29 @@ export default function Landing() {
 
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const isInApp = detectInAppBrowser().isInApp;
 
   const handleGenerateClick = () => {
+    // Inside an in-app browser the hidden Google (GIS) button silently no-ops,
+    // because Google blocks OAuth in embedded webviews. Reveal the sign-in block
+    // so the GoogleAuthButton's escape/instructions UI is usable instead.
+    if (isInApp) {
+      googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
     btn?.click();
+  };
+
+  // "Explore the MCP connector" CTA: go straight there if signed in, otherwise
+  // start Google sign-in and route to /mcp-connector once authenticated.
+  const handleExploreMcp = () => {
+    if (user) {
+      navigate("/mcp-connector");
+      return;
+    }
+    localStorage.setItem("b2v_pending_mcp", "1");
+    handleGenerateClick();
   };
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
@@ -564,6 +590,12 @@ export default function Landing() {
         }
       }
 
+      if (localStorage.getItem("b2v_pending_mcp")) {
+        localStorage.removeItem("b2v_pending_mcp");
+        navigate("/mcp-connector");
+        return;
+      }
+
       navigate("/dashboard");
     } catch (err: any) {
       if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
@@ -584,6 +616,11 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       setAccountDeletedOpen(false);
       setPendingCredential(null);
+      if (localStorage.getItem("b2v_pending_mcp")) {
+        localStorage.removeItem("b2v_pending_mcp");
+        navigate("/mcp-connector");
+        return;
+      }
       navigate("/dashboard");
     } catch (err: any) {
       showError(getErrorMessage(err, "Failed to reactivate account."));
@@ -720,8 +757,9 @@ export default function Landing() {
             Turn blog posts and updates into narrated videos in minutes.
           </p>
 
-          {/* Hidden Google button — triggered programmatically on form submit */}
-          <div ref={googleBtnRef} className="hidden">
+          {/* Hidden Google button — triggered programmatically on form submit.
+              In an in-app browser it's revealed so the escape/instructions UI shows. */}
+          <div ref={googleBtnRef} className={isInApp ? "mt-4 flex justify-center" : "hidden"}>
             <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}
@@ -759,10 +797,16 @@ export default function Landing() {
 
       <PlatformShowcaseSection />
 
-
       <UserReviewsSection />
 
       <LandingDemoSection demos={demos} />
+
+      {/* ─── Connect to AI (MCP) ─── */}
+      <section className="py-14 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <MCPConnectorShowcase onExplore={handleExploreMcp} />
+        </div>
+      </section>
 
       {/* ─── Multiple templates ─── */}
       <section className="py-20 border-t border-gray-100">

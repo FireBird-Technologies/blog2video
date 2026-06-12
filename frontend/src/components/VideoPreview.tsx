@@ -16,6 +16,7 @@ import {
   type CraftedTemplateItem,
 } from "../api/client";
 import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
+import { isBuiltinDataVizChartLayout } from "./sceneEditBuiltinDataViz";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
@@ -220,6 +221,12 @@ interface VideoPreviewProps {
   initialFrame?: number;
   /** Hide the Remotion playback controls bar. */
   hideControls?: boolean;
+  /**
+   * Pre-fetched crafted template detail (e.g. from a public embed response).
+   * When provided, bypasses `useCraftedTemplates()` / `ensureCraftedTemplateDetail`,
+   * which require an authenticated user and are unavailable on public preview pages.
+   */
+  precompiledCraftedDetail?: CraftedTemplateDetail | null;
 }
 
 interface SceneInput {
@@ -305,10 +312,14 @@ function mergeMetaFontSizesIntoLayoutProps(
  */
 function mergeMarketAnnotationChartDefaults(
   layoutProps: Record<string, unknown>,
+  templateId: string | null | undefined,
   layoutId: string | null | undefined,
   schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
 ): Record<string, unknown> {
-  if (!layoutId || !layoutId.startsWith("market_annotation")) return layoutProps;
+  const isChartLayout =
+    (!!layoutId && layoutId.startsWith("market_annotation")) ||
+    isBuiltinDataVizChartLayout(templateId, layoutId);
+  if (!layoutId || !isChartLayout) return layoutProps;
   if (!schema || Object.keys(schema).length === 0) return layoutProps;
   const defaults = schema[layoutId]?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
@@ -626,6 +637,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     precompiledTemplateData,
     initialFrame,
     hideControls = false,
+    precompiledCraftedDetail,
   },
   ref
 ) {
@@ -652,11 +664,16 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     }
     return null;
   }, [craftedItem]);
+  // Pre-fetched detail (e.g. from a public embed response) takes precedence
+  // over the auth-only CraftedTemplatesContext, which is unavailable to
+  // logged-out viewers.
+  const effectiveCraftedItem: CraftedTemplateItem | null = precompiledCraftedDetail ?? craftedItem;
+  const effectiveCraftedDetail: CraftedTemplateDetail | null = precompiledCraftedDetail ?? craftedDetail;
   const [compiledCrafted, setCompiledCrafted] = useState<React.ComponentType<any> | null>(null);
   const [isCompilingCrafted, setIsCompilingCrafted] = useState(false);
   const craftedTemplateLogoUrl = useMemo(
-    () => resolveCraftedTemplateLogoUrl(craftedDetail || craftedItem),
-    [craftedDetail, craftedItem],
+    () => resolveCraftedTemplateLogoUrl(effectiveCraftedDetail || effectiveCraftedItem),
+    [effectiveCraftedDetail, effectiveCraftedItem],
   );
 
   useEffect(() => {
@@ -668,18 +685,20 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     // Still waiting on the crafted item fetch — keep the player locked behind
     // the loading overlay so it never falls back to DefaultVideoComposition
     // with unknown layout names mid-mount.
-    if (!craftedItem) {
+    if (!effectiveCraftedItem) {
       setCompiledCrafted(null);
       setIsCompilingCrafted(true);
       return;
     }
-    if (!craftedDetail) {
+    if (!effectiveCraftedDetail) {
       setCompiledCrafted(null);
       setIsCompilingCrafted(true);
-      void ensureCraftedTemplateDetail(templateId);
+      if (!precompiledCraftedDetail) {
+        void ensureCraftedTemplateDetail(templateId);
+      }
       return;
     }
-    if (!craftedDetail.frontend_files || !craftedDetail.frontend_entry_rel) {
+    if (!effectiveCraftedDetail.frontend_files || !effectiveCraftedDetail.frontend_entry_rel) {
       setCompiledCrafted(null);
       setIsCompilingCrafted(false);
       return;
@@ -687,9 +706,9 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     let cancelled = false;
     setIsCompilingCrafted(true);
     compileModuleGraphEntry(
-      craftedDetail.frontend_files,
-      craftedDetail.frontend_entry_rel,
-      craftedDetail.public_asset_urls,
+      effectiveCraftedDetail.frontend_files,
+      effectiveCraftedDetail.frontend_entry_rel,
+      effectiveCraftedDetail.public_asset_urls,
     )
       .then((result) => {
         if (cancelled) return;
@@ -710,18 +729,18 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     return () => {
       cancelled = true;
     };
-  }, [isCrafted, craftedItem, craftedDetail, ensureCraftedTemplateDetail, templateId]);
+  }, [isCrafted, effectiveCraftedItem, effectiveCraftedDetail, precompiledCraftedDetail, ensureCraftedTemplateDetail, templateId]);
 
   const config = useMemo(() => {
     const base = getTemplateConfig(templateId);
-    if (isCrafted && craftedItem) {
+    if (isCrafted && effectiveCraftedItem) {
       const validLayouts =
-        Array.isArray(craftedItem.valid_layouts) && craftedItem.valid_layouts.length > 0
-          ? new Set(craftedItem.valid_layouts)
+        Array.isArray(effectiveCraftedItem.valid_layouts) && effectiveCraftedItem.valid_layouts.length > 0
+          ? new Set(effectiveCraftedItem.valid_layouts)
           : base.validLayouts;
-      const fallbackLayout = craftedItem.fallback_layout || base.fallbackLayout;
-      const heroLayout = craftedItem.hero_layout || base.heroLayout;
-      const previewColors = craftedItem.preview_colors;
+      const fallbackLayout = effectiveCraftedItem.fallback_layout || base.fallbackLayout;
+      const heroLayout = effectiveCraftedItem.hero_layout || base.heroLayout;
+      const previewColors = effectiveCraftedItem.preview_colors;
       return {
         ...base,
         validLayouts,
@@ -737,7 +756,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       };
     }
     return base;
-  }, [templateId, isCrafted, craftedItem]);
+  }, [templateId, isCrafted, effectiveCraftedItem]);
 
   const [fetchedLayoutPropSchema, setFetchedLayoutPropSchema] = useState<Record<
     string,
@@ -1071,6 +1090,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         );
         layoutProps = mergeMarketAnnotationChartDefaults(
           layoutProps,
+          project.template,
           layout,
           effectiveLayoutPropSchema ?? undefined,
         );

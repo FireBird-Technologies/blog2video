@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { buildHudStatus, DecodeSweep, GlitchSlice, ScanlinesOverlay, SignalWaveform, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -119,6 +120,14 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
+
+      {/* Decorative artifacts — transmission HUD, decode pass, glitch ticks, CRT texture. */}
+      <TerminalHUD accentColor={accent} statusText={buildHudStatus("TRANSMISSION", title)} startFrame={2} seed={23} />
+      {/* Live signal waveform reinforces the "incoming transmission" read. */}
+      <SignalWaveform accentColor={accent} edge="bottom" seed={71} startFrame={6} />
+      <DecodeSweep accentColor={accent} startFrame={4} seed={27} />
+      <GlitchSlice accentColor={accent} every={66} seed={63} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.85} />
 
       {displayPhrases.map((phrase, i) => {
         const isActive = currentIdx === i;
