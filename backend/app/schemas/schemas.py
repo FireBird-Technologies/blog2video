@@ -313,6 +313,7 @@ class BulkProjectItem(BaseModel):
     content_language: Optional[str] = None
     video_length: Optional[str] = "auto"
     playback_speed: Optional[float] = 1.0
+    voice_emotion: Optional[str] = None
 
     @field_validator("playback_speed")
     @classmethod
