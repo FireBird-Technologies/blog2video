@@ -47,9 +47,8 @@ CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "stickman_2": ("data_visualisation", _NO_TICKER_SENTINEL),
 }
 
-# Chart/ticker base layout ids derived from the map. Bar/histogram Studio variants
-# share the chart layout's prefix (e.g. "matrix_data_bar"), so chart matching uses
-# a prefix test. The no-ticker sentinel is filtered out so it is never treated as
+# Chart/ticker base layout ids derived from the map. One *_data chart layout per
+# template handles line/bar/histogram via chartType; chart matching uses a prefix test. The no-ticker sentinel is filtered out so it is never treated as
 # a real ticker layout.
 CHART_TICKER_CHART_LAYOUT_IDS: frozenset[str] = frozenset(
     chart for chart, _ticker in CHART_TICKER_TEMPLATE_LAYOUTS.values()
