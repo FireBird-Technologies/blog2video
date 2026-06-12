@@ -5,7 +5,6 @@ export default function MCPConnectorShowcase({ onExplore }: { onExplore?: () => 
     <div className="reveal">
       {/* Header — matches the other landing showcases */}
       <div className="inline-flex items-center gap-2 mb-4 w-full justify-center">
-        <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />
         <p className="text-xs font-medium text-purple-600 tracking-widest uppercase">
           Model Context Protocol
         </p>

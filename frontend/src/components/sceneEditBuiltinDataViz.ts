@@ -18,14 +18,18 @@ export type ChartKind = "line" | "bar" | "histogram";
 export type ChartTable = { headers: string[]; rows: string[][] };
 
 interface BuiltinDataVizConfig {
-  /** Pickable chart layout ids — base + the bar/histogram Studio variants. */
+  /**
+   * The data-visualization chart layout id(s). One layout per template covers
+   * line / bar / histogram — the kind is chosen via the chartType select, not
+   * via separate layouts. (Kept as an array for the generic membership checks.)
+   */
   chartLayoutIds: string[];
   /** The ticker / data-table layout id. */
   tickerLayoutId: string;
   /**
-   * Fixed chart kind for a layout id. Variants (`*_data_bar` / `*_data_histogram`)
-   * return "bar" / "histogram"; the base `*_data` returns undefined so the kind is
-   * user-driven via the chartType select (defaulting to "line").
+   * Fixed chart kind for a layout id. With a single chart layout this returns
+   * undefined (kind is user-driven via the chartType select, defaulting to
+   * "line"); kept for callers that want a per-layout hint.
    */
   layoutKind: (layoutId: string) => ChartKind | undefined;
   /** Template-themed example data per chart kind (seed + chartType reseed). */
@@ -172,19 +176,19 @@ const CHART_TICKER_SINGLE_DATAVIZ_TEMPLATES = new Set([
 
 const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
   matrix: {
-    chartLayoutIds: ["matrix_data", "matrix_data_bar", "matrix_data_histogram"],
+    chartLayoutIds: ["matrix_data"],
     tickerLayoutId: "matrix_ticker",
     layoutKind: layoutKindFromSuffix,
     exampleTable: matrixExample,
   },
   spotlight: {
-    chartLayoutIds: ["spotlight_data", "spotlight_data_bar", "spotlight_data_histogram"],
+    chartLayoutIds: ["spotlight_data"],
     tickerLayoutId: "spotlight_table",
     layoutKind: layoutKindFromSuffix,
     exampleTable: spotlightExample,
   },
   chronicle: {
-    chartLayoutIds: ["chronicle_data", "chronicle_data_bar", "chronicle_data_histogram"],
+    chartLayoutIds: ["chronicle_data"],
     tickerLayoutId: "chronicle_table",
     layoutKind: layoutKindFromSuffix,
     exampleTable: chronicleExample,

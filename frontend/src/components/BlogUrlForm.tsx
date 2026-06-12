@@ -13,7 +13,7 @@ import {
 } from "../api/blogUrlFormStep2Prefetch";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradePlanModal from "./UpgradePlanModal";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreviewSmart from "./templatePreviews/CraftedTemplatePreviewSmart";
@@ -47,10 +47,14 @@ const CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME = 128; // ~85% of 5s * 30fps first s
 /** Source-bucket sentinel values for the genre dropdown (not real template genres). */
 const GENRE_CUSTOM = "__custom__";
 export const GENRE_CRAFTED = "__crafted__";
+const GENRE_NEW = "__new__";
+const GENRE_POPULAR = "__popular__";
 
 function genreTemplateListCaption(genreFilter: string): string {
   if (genreFilter === GENRE_CUSTOM) return "Custom templates";
   if (genreFilter === GENRE_CRAFTED) return "Designer templates";
+  if (genreFilter === GENRE_NEW) return "New templates";
+  if (genreFilter === GENRE_POPULAR) return "Popular templates";
   if (genreFilter) return `Templates for ${genreFilter}`;
   return "All templates";
 }
@@ -78,6 +82,20 @@ function templateBucketsForGenre(
       suggestedTemplates: [],
       customTemplatesForStyle: [],
       craftedTemplatesForStyle: readyCraftedTemplates,
+    };
+  }
+  if (genreFilter === GENRE_NEW) {
+    return {
+      suggestedTemplates: sourceList.filter((t) => t.new_template === true),
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: [],
+    };
+  }
+  if (genreFilter === GENRE_POPULAR) {
+    return {
+      suggestedTemplates: sourceList.filter((t) => t.popular_template === true),
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: [],
     };
   }
   if (genreFilter) {
@@ -2355,12 +2373,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     craftedTemplatesForStyle,
   } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
 
+  const sortedSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
+    const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+    return rank(a) - rank(b);
+  });
+
   const styleTemplateItems: Array<
     | { type: "builtin"; id: string; data: TemplateMeta }
     | { type: "custom"; id: string; data: CustomTemplateItem }
     | { type: "crafted"; id: string; data: CraftedTemplateItem }
   > = [
-    ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+    ...sortedSuggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
     ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
     ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
   ];
@@ -2460,6 +2483,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   ? "Custom Templates"
                   : genre === GENRE_CRAFTED
                   ? "Designer"
+                  : genre === GENRE_NEW
+                  ? "New"
+                  : genre === GENRE_POPULAR
+                  ? "Popular"
                   : genre || "All genres"}
               </span>
               <svg
@@ -2489,6 +2516,30 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   </button>
                   {/* Source filters — independent of genre */}
                   <div className="my-1 border-t border-gray-100" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_NEW);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_NEW ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    ✦ New
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_POPULAR);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_POPULAR ? "bg-amber-50 text-amber-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Popular
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -2618,6 +2669,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = template === t.id;
                 const isNewTemplate = t.new_template === true;
+                const isPopularTemplate = t.popular_template === true;
                 return (
                   <div
                     key={t.id}
@@ -2627,6 +2679,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : isPopularTemplate
+                        ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
@@ -2647,9 +2701,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           </svg>
                         </div>
                       )}
-                      {t.new_template === true && (
+                      {isNewTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <NewTemplateBadge />
+                        </div>
+                      )}
+                      {!isNewTemplate && isPopularTemplate && (
+                        <div className="absolute top-0.5 left-0.5 z-[1]">
+                          <PopularTemplateBadge />
                         </div>
                       )}
                     </div>
@@ -3006,12 +3065,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       customTemplatesForStyle,
       craftedTemplatesForStyle,
     } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
+    const sortedBulkSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
+      const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+      return rank(a) - rank(b);
+    });
     const styleTemplateItems: Array<
       | { type: "builtin"; id: string; data: TemplateMeta }
       | { type: "custom"; id: string; data: CustomTemplateItem }
       | { type: "crafted"; id: string; data: CraftedTemplateItem }
     > = [
-      ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+      ...sortedBulkSuggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
       ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
       ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
     ];
@@ -3180,6 +3243,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     ? "Custom Templates"
                     : genre === GENRE_CRAFTED
                     ? "Designer"
+                    : genre === GENRE_NEW
+                    ? "New"
+                    : genre === GENRE_POPULAR
+                    ? "Popular"
                     : genre || "All genres"}
                 </span>
                 <svg
@@ -3208,6 +3275,30 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       All genres
                     </button>
                     <div className="my-1 border-t border-gray-100" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_NEW);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_NEW ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      ✦ New
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_POPULAR);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_POPULAR ? "bg-amber-50 text-amber-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Popular
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -3339,6 +3430,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = tpl === t.id;
                 const isNewTemplate = t.new_template === true;
+                const isPopularTemplate = t.popular_template === true;
                 return (
                   <div
                     key={t.id}
@@ -3348,6 +3440,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : isPopularTemplate
+                        ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
@@ -3366,9 +3460,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           </svg>
                         </div>
                       )}
-                      {t.new_template === true && (
+                      {isNewTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <NewTemplateBadge />
+                        </div>
+                      )}
+                      {!isNewTemplate && isPopularTemplate && (
+                        <div className="absolute top-0.5 left-0.5 z-[1]">
+                          <PopularTemplateBadge />
                         </div>
                       )}
                     </div>

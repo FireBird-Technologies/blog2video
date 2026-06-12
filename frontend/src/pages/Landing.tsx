@@ -801,17 +801,17 @@ export default function Landing() {
 
       <LandingDemoSection demos={demos} />
 
-      {/* ─── Connect to AI (MCP) ─── */}
-      <section className="py-14 border-t border-gray-100">
-        <div className="max-w-5xl mx-auto px-6">
-          <MCPConnectorShowcase onExplore={handleExploreMcp} />
-        </div>
-      </section>
-
       {/* ─── Multiple templates ─── */}
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
           <FullTemplateShowcase />
+        </div>
+      </section>
+
+      {/* ─── Connect to AI (MCP) ─── */}
+      <section className="py-14 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <MCPConnectorShowcase onExplore={handleExploreMcp} />
         </div>
       </section>
 
