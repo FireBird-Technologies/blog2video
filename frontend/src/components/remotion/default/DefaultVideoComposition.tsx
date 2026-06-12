@@ -89,7 +89,7 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily }}>
-      {scenes.map((scene) => {
+      {scenes.map((scene, sceneIndex) => {
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
@@ -124,6 +124,7 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
           textColor,
           aspectRatio,
           fontFamily,
+          sceneIndex,
         };
 
         return (

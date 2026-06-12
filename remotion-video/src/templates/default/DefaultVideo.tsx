@@ -253,8 +253,8 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
-        const transitionFrom = Math.max(0, durationFrames - 20);
-        const transitionDuration = Math.min(20, durationFrames);
+        const transitionFrom = Math.max(0, durationFrames - 30);
+        const transitionDuration = Math.min(30, durationFrames);
 
         // Pick layout component from registry
         const LayoutComponent =
@@ -287,6 +287,7 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           imageObjectPosition,
   imageZoom,
           fontFamily: resolvedFontFamily || undefined,
+          sceneIndex: index,
         };
 
         return (

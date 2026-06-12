@@ -1,6 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { GeometricBackground } from "../components/GeometricBackground";
+import { FlybyPlane } from "../components/FlybyPlane";
 
 export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
   const {
@@ -15,6 +16,7 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
     imageObjectPosition,
     imageZoom,
     fontFamily,
+    sceneIndex,
     ...extra
   } = props;
 
@@ -38,7 +40,9 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", overflow: "hidden" }}>
-      <GeometricBackground accentColor={accentColor} frame={frame} />
+      <GeometricBackground accentColor={accentColor} frame={frame} sceneIndex={sceneIndex} />
+      {/* Decorative flyby — dipping/spiraling plane crosses top area mid-scene */}
+      <FlybyPlane accentColor={accentColor} startFrame={38} yZone={0.12} />
       <div
         style={{
           display: "flex",

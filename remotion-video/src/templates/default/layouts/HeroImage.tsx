@@ -24,6 +24,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
     titleFontSize,
     descriptionFontSize,
     fontFamily,
+    sceneIndex,
   } = props;
 
   const frame = useCurrentFrame();
@@ -106,7 +107,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
         overflow: "hidden",
       }}
     >
-      <GeometricBackground accentColor={accentColor || "#6366F1"} frame={frame} />
+      <GeometricBackground accentColor={accentColor || "#6366F1"} frame={frame} sceneIndex={sceneIndex} />
       {/* IMAGE SECTION */}
       {hasImage && (
         <div
