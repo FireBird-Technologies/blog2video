@@ -45,6 +45,9 @@ class User(Base):
 
     free_templates_downloaded: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
+    # Remembered narration emotion/tone default, auto-selected in the create form next time.
+    preferred_voice_emotion: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

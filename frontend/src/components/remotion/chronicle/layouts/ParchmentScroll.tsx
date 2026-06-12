@@ -8,6 +8,7 @@ import {
 } from "../../../../fonts/chronicle-defaults";
 import { IlluminatedDropCap } from "../components/IlluminatedDropCap";
 import { OrnamentalCorner } from "../components/OrnamentalBorder";
+import { InkFlourish } from "../components/ChronicleArtifacts";
 import { EmbossedImage } from "../components/EmbossedImage";
 import { QuillText } from "../components/QuillInk";
 
@@ -72,6 +73,9 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
         overflow: "hidden",
       }}
     >
+      {/* Quill divider flourish inks in beneath the scroll. */}
+      <InkFlourish variant="divider" position="bottom-center" color={accentColor} startFrame={40} />
+
       {/* Top-left fleur corner */}
       <OrnamentalCorner
         position="top-left"

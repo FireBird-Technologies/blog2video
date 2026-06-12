@@ -22,6 +22,8 @@ from app.services.template_service import (
     get_valid_layouts,
     get_hero_layout,
     get_fallback_layout,
+    is_builtin_chart_layout,
+    is_builtin_ticker_layout,
 )
 from app.observability.logging import get_logger
 
@@ -552,7 +554,20 @@ class TemplateSceneGenerator:
         (populated upfront from data_table_index set by ScriptGenerator) so the
         correct table is always selected without re-scoring all tables per call.
         """
-        if not (layout.startswith("market_annotation") or layout == "ticker"):
+        # Matrix / Spotlight / Chronicle share LaDuc's chart/ticker contract via
+        # their *_data / *_table (ticker) layouts. The registered chart/ticker ids
+        # come from CHART_TICKER_TEMPLATE_LAYOUTS (single source); chart matching is
+        # by prefix (mirrors LaDuc's market_annotation* handling). One *_data layout
+        # per template covers line/bar/histogram via chartType.
+        is_chart_layout = (
+            layout.startswith("market_annotation")
+            or is_builtin_chart_layout(layout)
+        )
+        is_ticker_layout = (
+            layout == "ticker"
+            or is_builtin_ticker_layout(layout)
+        )
+        if not (is_chart_layout or is_ticker_layout):
             return props
         out = dict(props or {})
         preferred_table_index = (
@@ -564,7 +579,7 @@ class TemplateSceneGenerator:
         # Ticker layout: bypass chart planner entirely — write raw { headers, rows }
         # directly to tickerTable. _build_chart_props_from_table fails on ticker-style
         # tables that have empty "" separator columns (e.g. Name|""|Price|""|%).
-        if layout == "ticker":
+        if is_ticker_layout:
             tables = _extract_tables_from_visual_hint(visual_description)
             if not tables:
                 return out
@@ -747,6 +762,191 @@ class TemplateSceneGenerator:
 
         return out
 
+    # Economist data layouts and the chart shape each one expects.
+    _ECONOMIST_DATA_LAYOUTS = {"chart_line", "chart_bar", "data_table"}
+
+    @staticmethod
+    def _economist_current_dateline() -> str:
+        """Today's date as an Economist-style weekly issue range, uppercase.
+
+        e.g. on 2026-06-09 → "JUNE 7TH–13TH 2026" (the Sun–Sat week). Computed at
+        generation time so the deterministic render shows a real, current date.
+        """
+        from datetime import date, timedelta
+
+        def _ord(n: int) -> str:
+            if 10 <= n % 100 <= 20:
+                suf = "TH"
+            else:
+                suf = {1: "ST", 2: "ND", 3: "RD"}.get(n % 10, "TH")
+            return f"{n}{suf}"
+
+        today = date.today()
+        # Week runs Sunday→Saturday (Economist cover convention).
+        start = today - timedelta(days=(today.weekday() + 1) % 7)
+        end = start + timedelta(days=6)
+        if start.month == end.month:
+            return f"{start.strftime('%B').upper()} {_ord(start.day)}–{_ord(end.day)} {end.year}"
+        return (
+            f"{start.strftime('%B').upper()} {_ord(start.day)} – "
+            f"{end.strftime('%B').upper()} {_ord(end.day)} {end.year}"
+        )
+
+    @staticmethod
+    def _economist_backfill_leader_article(props: dict, narration: str) -> dict:
+        """Ensure a leader_article never renders as near-empty paper.
+
+        The prompt asks the LLM to always emit a ``standfirst`` deck and 2–3
+        ``keyPoints``, but a thin source (or a terse model) can still omit them.
+        Backfill ONLY what is missing, distilled from the narration the model
+        already produced — we never fabricate figures or claims, honouring the
+        template's data-grounding rule. If there is no narration to draw from we
+        leave the field unset rather than invent one.
+        """
+        import re
+
+        out = dict(props or {})
+        body = (narration or "").strip()
+        if not body:
+            return out
+
+        # Sentence split (keep it simple/deterministic — no NLP dependency).
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", body) if s.strip()]
+
+        # Standfirst: the first sentence, trimmed to ≤16 words, if absent.
+        if not str(out.get("standfirst") or "").strip() and sentences:
+            words = sentences[0].split()
+            deck = " ".join(words[:16]).rstrip(",;:")
+            if len(words) > 16:
+                deck = deck.rstrip(".") + "…"
+            out["standfirst"] = deck
+
+        # keyPoints: distil up to 3 short points from later sentences if absent.
+        existing = out.get("keyPoints")
+        has_points = isinstance(existing, list) and any(
+            str(p or "").strip() for p in existing
+        )
+        if not has_points and len(sentences) >= 2:
+            points: list[str] = []
+            # Prefer sentences after the first (which became the deck), falling
+            # back to clauses of the body if the article is a single long line.
+            pool = sentences[1:] if len(sentences) > 1 else sentences
+            for s in pool:
+                w = s.split()
+                if not w:
+                    continue
+                pt = " ".join(w[:8]).rstrip(".,;:")
+                if pt and pt.lower() not in {p.lower() for p in points}:
+                    points.append(pt)
+                if len(points) >= 3:
+                    break
+            if len(points) >= 2:
+                out["keyPoints"] = points
+        return out
+
+    def _merge_economist_chart_props(
+        self,
+        layout: str,
+        props: dict,
+        visual_description: str,
+        scene_title: str,
+        narration: str,
+        scene_index: int | None = None,
+    ) -> tuple[str, dict]:
+        """Force the Economist chart/table layouts onto real scraped table data.
+
+        The Economist data layouts (`chart_line`, `chart_bar`, `data_table`) all
+        consume the same `chartTable={headers, rows}` contract. Like newscast's
+        `data_visualization` and bloomberg's `terminal_*`, the table payload is
+        bound DETERMINISTICALLY from the scraped tables here — never from the
+        LLM's transcription, which can round or hallucinate figures.
+
+        Returns the (possibly rerouted) layout and the merged props. When the
+        scene was assigned a data layout but no real table is available, it falls
+        back to the template's prose fallback rather than inventing numbers.
+        """
+        if self.template_id != "economist":
+            return layout, props
+
+        # Dateline: stamp the real current date (the LLM otherwise emits a stale
+        # sample range like "MAY 23RD–29TH 2026"). The render is deterministic, so
+        # the date must be fixed here at generation time, not via new Date() in the
+        # component. Covers the layouts that show a dateline.
+        if layout in ("cover_reveal", "section_divider"):
+            out = dict(props or {})
+            out["dateline"] = self._economist_current_dateline()
+            props = out
+
+        # leader_article: guarantee a standfirst deck + key points so a thin beat
+        # never renders as empty paper. Backfills only what the LLM omitted,
+        # distilled from the narration (no fabricated figures).
+        if layout == "leader_article":
+            return layout, self._economist_backfill_leader_article(props, narration)
+
+        # key_indicators with no real figures (all placeholders stripped by
+        # _strip_example_stats) would render an empty KPI grid — fall back to prose.
+        if layout == "key_indicators":
+            indicators = (props or {}).get("indicators")
+            if not (isinstance(indicators, list) and len(indicators) > 0):
+                logger.info(
+                    "[SCENE_GEN] Scene %s: economist key_indicators has no real indicators, falling back to '%s'",
+                    scene_index,
+                    self._fallback_layout,
+                )
+                return self._fallback_layout, {}
+            return layout, props
+
+        if layout not in self._ECONOMIST_DATA_LAYOUTS:
+            return layout, props
+
+        out = dict(props or {})
+
+        # The takeaway panel clamps to two lines — keep the LLM's explainer short.
+        _explainer = out.get("explainer")
+        if isinstance(_explainer, str) and len(_explainer) > 220:
+            out["explainer"] = _explainer[:217].rstrip() + "…"
+        preferred_table_index = None
+        if isinstance(scene_index, int):
+            preferred_table_index = self._newscast_data_viz_table_by_scene.get(scene_index)
+
+        planned = generate_chart_props_from_table_hints(
+            visual_description=visual_description,
+            scene_title=scene_title,
+            narration=narration,
+            preferred_table_index=preferred_table_index,
+        )
+
+        planned_table = planned.get("chartTable") if isinstance(planned, dict) else None
+        if not (isinstance(planned_table, dict) and (planned_table.get("rows") or [])):
+            # No real table for this scene — a data layout would have to fabricate
+            # figures, which the Economist prompt forbids. Fall back to prose.
+            logger.info(
+                "[SCENE_GEN] Scene %s: economist '%s' has no scraped table, falling back to '%s'",
+                scene_index,
+                layout,
+                self._fallback_layout,
+            )
+            return self._fallback_layout, {}
+
+        # Bind the real data deterministically.
+        out["chartTable"] = planned_table
+
+        # Reroute the layout to match the data's natural shape: a time-like series
+        # belongs on chart_line; a categorical ranking on chart_bar / data_table.
+        planned_type = str(planned.get("chartType") or "").strip().lower()
+        if planned_type == "line" and layout != "chart_line":
+            layout = "chart_line"
+        elif planned_type in {"bar", "histogram"} and layout == "chart_line":
+            # The LLM wanted a line but the data is categorical — use a bar.
+            layout = "chart_bar"
+
+        # chart_bar carries an explicit chartType (vertical "bar" vs ranked "hbar");
+        # keep the LLM's explicit pick, else default to vertical bars.
+        if layout == "chart_bar" and not out.get("chartType"):
+            out["chartType"] = "bar"
+
+        return layout, out
+
     def _plan_newscast_data_visualization_targets(self, scenes_data: list[dict]) -> None:
         self._newscast_forced_data_viz_scenes = set()
         self._newscast_data_viz_table_by_scene = {}
@@ -907,8 +1107,34 @@ class TemplateSceneGenerator:
         "flows", "positioning", "cta",
     })
 
+    # Economist key_indicators sample labels (from templates/economist/meta.json).
+    # When a generated scene carries these, the LLM kept the placeholders instead
+    # of extracting real figures from the source.
+    _ECONOMIST_KPI_EXAMPLE_LABELS = frozenset({
+        "core inflation", "unemployment", "budget deficit", "gdp growth",
+    })
+
     def _strip_example_stats(self, layout: str, props: dict) -> dict:
         """Remove stats that are clearly copied from prompt examples rather than from the article."""
+        if layout == "key_indicators" and self.template_id == "economist":
+            indicators = props.get("indicators")
+            if isinstance(indicators, list) and indicators:
+                clean = [
+                    it for it in indicators
+                    if isinstance(it, dict)
+                    and str(it.get("label", "")).strip().lower() not in self._ECONOMIST_KPI_EXAMPLE_LABELS
+                ]
+                if len(clean) != len(indicators):
+                    logger.info(
+                        "[SCENE_GEN] Stripped %d placeholder economist indicators",
+                        len(indicators) - len(clean),
+                    )
+                if not clean:
+                    out = dict(props)
+                    out.pop("indicators", None)
+                    return out
+                return {**props, "indicators": clean}
+            return props
         if layout not in ("data_impact", "deep_dive"):
             return props
         stats = props.get("stats")
@@ -1341,11 +1567,33 @@ class TemplateSceneGenerator:
             "laduc" in self.template_id
             or "fj_research" in self.template_id
             or self.template_id in {"fj_market_brief", "crafted_fj_market_brief_bundle"}
+            or self.template_id in ("matrix", "spotlight", "chronicle")
         ):
             for i, scene in enumerate(scenes_data):
                 pl = str(scene.get("preferred_layout") or "").strip().lower()
                 if (
-                    (pl.startswith("market_annotation") or pl == "ticker")
+                    (
+                        pl.startswith("market_annotation")
+                        or pl == "ticker"
+                        or pl in (
+                            "matrix_data", "matrix_ticker",
+                            "spotlight_data", "spotlight_table",
+                            "chronicle_data", "chronicle_table",
+                        )
+                    )
+                    and isinstance(scene.get("data_table_index"), int)
+                ):
+                    self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
+
+        # Economist: same deterministic pre-binding as laduc. Populate
+        # _newscast_data_viz_table_by_scene from the data_table_index set upstream
+        # by ScriptGenerator (via chartable_tables_json) so _merge_economist_chart_props
+        # selects the exact pre-bound table per scene instead of re-scoring tables.
+        if self.template_id == "economist":
+            for i, scene in enumerate(scenes_data):
+                pl = str(scene.get("preferred_layout") or "").strip().lower()
+                if (
+                    pl in {"chart_line", "chart_bar", "data_table"}
                     and isinstance(scene.get("data_table_index"), int)
                 ):
                     self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
@@ -1478,6 +1726,14 @@ class TemplateSceneGenerator:
                     narration=narration,
                     scene_index=scene_index,
                 )
+                layout, validated_props = self._merge_economist_chart_props(
+                    layout=layout,
+                    props=validated_props,
+                    visual_description=visual_description,
+                    scene_title=scene_title,
+                    narration=narration,
+                    scene_index=scene_index,
+                )
 
                 # Guard: reroute to terminal_dataviz when the table is line-chartable
                 # (set by terminal_chart with no OHLCV, or terminal_table with time-series data).
@@ -1553,19 +1809,22 @@ class TemplateSceneGenerator:
                         layout,
                     )
 
-                # market_annotation guard: AI picked chart layout but no real table data
-                # was extractable — fall back rather than render an empty chart area.
-                if layout == "market_annotation" and not has_chart_table:
+                # market_annotation / matrix_data guard: AI picked a chart layout but no
+                # real table data was extractable — fall back rather than render an empty
+                # chart area. (Ticker layouts render a graceful "no data" message instead.)
+                if layout in ("market_annotation", "matrix_data", "spotlight_data", "chronicle_data") and not has_chart_table:
+                    chart_layout = layout
                     llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
                     layout = (
                         llm_layout
-                        if llm_layout in self._valid_layouts and llm_layout != "market_annotation"
+                        if llm_layout in self._valid_layouts and llm_layout != chart_layout
                         else self._fallback_layout
                     )
                     validated_props = {}
                     logger.info(
-                        "[SCENE_GEN] Scene %s: market_annotation had no chart data, falling back to '%s'",
+                        "[SCENE_GEN] Scene %s: %s had no chart data, falling back to '%s'",
                         scene_index,
+                        chart_layout,
                         layout,
                     )
 
@@ -1618,6 +1877,7 @@ class TemplateSceneGenerator:
 
         props = self._parse_props_json(result.layout_props_json)
         validated_props = self._validate_props(layout, props)
+        validated_props = self._strip_example_stats(layout, validated_props)
         validated_props = self._merge_chart_planner_props(
             layout=layout,
             props=validated_props,
@@ -1630,6 +1890,14 @@ class TemplateSceneGenerator:
             layout=layout,
             props=validated_props,
             visual_description=visual_description,
+        )
+        layout, validated_props = self._merge_economist_chart_props(
+            layout=layout,
+            props=validated_props,
+            visual_description=visual_description,
+            scene_title=scene_title,
+            narration=narration,
+            scene_index=scene_index,
         )
 
         # Guard: reroute to terminal_dataviz when the table is line-chartable.
