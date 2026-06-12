@@ -133,7 +133,7 @@
       "label": "Constellation Stats",
       "defaults": {
         "titleFontSize": {
-          "portrait": 106,
+          "portrait": 86,
           "landscape": 79
         },
         "descriptionFontSize": {
@@ -355,11 +355,11 @@
       "label": "Neon Countdown",
       "defaults": {
         "titleFontSize": {
-          "portrait": 92,
+          "portrait": 100,
           "landscape": 88
         },
         "descriptionFontSize": {
-          "portrait": 52,
+          "portrait": 66,
           "landscape": 40
         },
         "startFrom": 5
