@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, useCurrentFrame } from "remotion";
-import { TransitionSeries } from "@remotion/transitions";
+import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { LogoOverlay } from "./default/../LogoOverlay";
 import {
   LAYOUT_REGISTRY as REMOTION_DEFAULT_LAYOUT_REGISTRY,
@@ -72,6 +72,12 @@ import type {
   EconomistLayoutProps as RemotionEconomistLayoutProps,
 } from "@remotion-video/templates/economist/types";
 import { EconomistChrome as RemotionEconomistChrome } from "@remotion-video/templates/economist/components/EconomistChrome";
+import { pickEconomistTransition as pickRemotionEconomistTransition } from "@remotion-video/templates/economist/transitions";
+import { LAYOUT_MIN_FRAMES as ECONOMIST_LAYOUT_MIN_FRAMES } from "@remotion-video/templates/economist/constants";
+import {
+  getPlaybackSpeed as getEconomistPlaybackSpeed,
+  getSceneDurationFrames as getEconomistSceneDurationFrames,
+} from "@remotion-video/templates/playbackSpeed";
 import { NewsCastBackground } from "./newscast/NewsCastBackground";
 import { NewsCastChrome } from "./newscast/NewsCastChrome";
 import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
@@ -1694,16 +1700,44 @@ export interface RemotionEconomistVideoCompositionProps {
 }
 
 // cover_reveal owns its own dramatic opening; it skips the chrome fade.
+// NOTE: This composition is the Template Studio "remotion" preview. It MUST stay
+// behaviourally identical to the actual render (remotion-video EconomistVideo.tsx)
+// and the default frontend preview (EconomistVideoComposition.tsx): same scene
+// transitions, the same per-layout minimum durations, the same last-scene trim,
+// the same inter-scene hold, and the same chrome furniture. Otherwise the studio
+// preview diverges from what the render produces (e.g. charts cut off mid-reveal
+// because LAYOUT_MIN_FRAMES wasn't enforced, or missing page transitions).
 const ECONOMIST_LAYOUTS_WITHOUT_CHROME_FADE = new Set<string>(["cover_reveal"]);
 // Full-bleed scenes own the whole canvas — no page frame / footer furniture.
+// Matches EconomistVideo.tsx MINIMAL_CHROME_LAYOUTS (section_divider keeps its
+// furniture in the render, so it must NOT be listed here).
 const ECONOMIST_MINIMAL_CHROME_LAYOUTS = new Set<string>([
   "cover_reveal",
   "image_feature",
-  "section_divider",
 ]);
 
+const ECONOMIST_LAST_SCENE_TAIL_TRIM_FRAMES = 60;
+const ECONOMIST_EXTRA_HOLD_FRAMES = 10;
+
+const enforceEconomistLayoutMinimum = (frames: number, layout: string) =>
+  Math.max(
+    frames,
+    (ECONOMIST_LAYOUT_MIN_FRAMES as Record<string, number>)[layout] ?? 150,
+  );
+
+const trimEconomistLastScene = (frames: number) =>
+  Math.max(
+    Math.floor(frames * 0.65),
+    frames - ECONOMIST_LAST_SCENE_TAIL_TRIM_FRAMES,
+  );
+
+const resolveEconomistLayoutKey = (raw: string): RemotionEconomistLayoutType =>
+  (raw as RemotionEconomistLayoutType) in REMOTION_ECONOMIST_LAYOUT_REGISTRY
+    ? (raw as RemotionEconomistLayoutType)
+    : ("leader_article" as RemotionEconomistLayoutType);
+
 export const RemotionEconomistVideoComposition: React.FC<
-  RemotionEconomistVideoCompositionProps
+  RemotionEconomistVideoCompositionProps & { playbackSpeed?: number }
 > = ({
   scenes,
   accentColor,
@@ -1715,58 +1749,79 @@ export const RemotionEconomistVideoComposition: React.FC<
   logoSize,
   aspectRatio,
   fontFamily,
+  playbackSpeed,
 }) => {
   const FPS = 30;
+  const resolvedPlaybackSpeed = getEconomistPlaybackSpeed(playbackSpeed);
+
+  const isPortrait = aspectRatio === "portrait";
+  const canvasW = isPortrait ? 1080 : 1920;
+  const canvasH = isPortrait ? 1920 : 1080;
+
+  const resolvedScenes = scenes.map((scene, idx, arr) => {
+    const layoutKey = resolveEconomistLayoutKey(String(scene.layout));
+    const raw = getEconomistSceneDurationFrames(
+      scene.durationSeconds,
+      FPS,
+      resolvedPlaybackSpeed,
+    );
+    const withMin = enforceEconomistLayoutMinimum(raw, layoutKey);
+    const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
+    const trimTail = isLastInMulti && !scene.voiceoverUrl?.trim();
+    const durationFrames = trimTail ? trimEconomistLastScene(withMin) : withMin;
+    const sequenceFrames = isLastInMulti
+      ? durationFrames
+      : durationFrames + ECONOMIST_EXTRA_HOLD_FRAMES;
+    return { scene, layoutKey, durationFrames, sequenceFrames };
+  });
+
+  // Scene start frames accounting for transition overlap (for audio sync).
+  let runningFrame = 0;
+  const sceneStartFrames: number[] = [];
+  resolvedScenes.forEach((s, i) => {
+    sceneStartFrames[i] = runningFrame;
+    runningFrame += s.sequenceFrames;
+    if (i < resolvedScenes.length - 1) {
+      const nextLayout = resolvedScenes[i + 1].layoutKey;
+      runningFrame -= pickRemotionEconomistTransition(i, s.layoutKey, nextLayout).frames;
+    }
+  });
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#F6F4EE", fontFamily }}>
-      {scenes.map((scene, index) => {
-        const startFrame = scenes
-          .slice(0, index)
-          .reduce(
-            (acc, s) => acc + Math.max(1, Math.round((s.durationSeconds || 5) * FPS)),
-            0,
-          );
+      <TransitionSeries>
+        {resolvedScenes.map((s, index) => {
+          const { scene, layoutKey, sequenceFrames } = s;
+          const LayoutComponent =
+            REMOTION_ECONOMIST_LAYOUT_REGISTRY[layoutKey] ??
+            REMOTION_ECONOMIST_LAYOUT_REGISTRY.leader_article;
 
-        const durationFrames = Math.max(
-          1,
-          Math.round((scene.durationSeconds || 5) * FPS),
-        );
+          const rawProps = (scene.layoutProps as Record<string, unknown>) ?? {};
+          const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
+          const focusY = Math.max(0, Math.min(100, Number(rawProps.imageFocusY ?? 50)));
 
-        const LayoutComponent =
-          REMOTION_ECONOMIST_LAYOUT_REGISTRY[
-            scene.layout as RemotionEconomistLayoutType
-          ] ?? REMOTION_ECONOMIST_LAYOUT_REGISTRY.leader_article;
+          const layoutProps: RemotionEconomistLayoutProps = {
+            ...(rawProps as Partial<RemotionEconomistLayoutProps>),
+            title: scene.title,
+            narration: scene.narration,
+            imageUrl: scene.imageUrl,
+            imageObjectPosition: `${focusX}% ${focusY}%`,
+            imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
+            accentColor: accentColor || "#E3120B",
+            bgColor: bgColor || "#F6F4EE",
+            textColor: textColor || "#1A1A1A",
+            aspectRatio: (aspectRatio as "landscape" | "portrait") || "landscape",
+            fontFamily,
+          };
 
-        const rawProps = (scene.layoutProps as Record<string, unknown>) ?? {};
-        const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
-        const focusY = Math.max(0, Math.min(100, Number(rawProps.imageFocusY ?? 50)));
+          const skipFade = ECONOMIST_LAYOUTS_WITHOUT_CHROME_FADE.has(layoutKey);
+          const minimal = ECONOMIST_MINIMAL_CHROME_LAYOUTS.has(layoutKey);
 
-        const layoutProps: RemotionEconomistLayoutProps = {
-          ...(rawProps as Partial<RemotionEconomistLayoutProps>),
-          title: scene.title,
-          narration: scene.narration,
-          imageUrl: scene.imageUrl,
-          imageObjectPosition: `${focusX}% ${focusY}%`,
-          imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
-          accentColor: accentColor || "#E3120B",
-          bgColor: bgColor || "#F6F4EE",
-          textColor: textColor || "#1A1A1A",
-          aspectRatio: (aspectRatio as "landscape" | "portrait") || "landscape",
-          fontFamily,
-        };
-
-        const skipFade = ECONOMIST_LAYOUTS_WITHOUT_CHROME_FADE.has(String(scene.layout));
-        const minimal = ECONOMIST_MINIMAL_CHROME_LAYOUTS.has(String(scene.layout));
-
-        return (
-          <Sequence
-            key={`${scene.id}-${index}`}
-            from={startFrame}
-            durationInFrames={durationFrames}
-            name={scene.title}
-          >
-            <AbsoluteFill>
+          const sequence = (
+            <TransitionSeries.Sequence
+              key={`seq-${scene.id}-${index}`}
+              durationInFrames={sequenceFrames}
+            >
               <RemotionEconomistChrome
                 bgColor={bgColor || "#F6F4EE"}
                 accentColor={accentColor || "#E3120B"}
@@ -1776,11 +1831,48 @@ export const RemotionEconomistVideoComposition: React.FC<
                 wordmark={layoutProps.wordmark}
                 minimal={minimal}
                 disableFade={skipFade}
+                sceneIndex={index}
+                sceneCount={resolvedScenes.length}
               >
                 <LayoutComponent {...layoutProps} />
               </RemotionEconomistChrome>
-              {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            </AbsoluteFill>
+            </TransitionSeries.Sequence>
+          );
+
+          if (index === resolvedScenes.length - 1) {
+            return sequence;
+          }
+
+          const nextLayout = resolvedScenes[index + 1].layoutKey;
+          const choice = pickRemotionEconomistTransition(
+            index,
+            layoutKey,
+            nextLayout,
+            canvasW,
+            canvasH,
+          );
+
+          return (
+            <React.Fragment key={`scene-${scene.id}-${index}`}>
+              {sequence}
+              <TransitionSeries.Transition
+                presentation={choice.presentation}
+                timing={linearTiming({ durationInFrames: choice.frames })}
+              />
+            </React.Fragment>
+          );
+        })}
+      </TransitionSeries>
+
+      {resolvedScenes.map((s, index) => {
+        if (!s.scene.voiceoverUrl) return null;
+        return (
+          <Sequence
+            key={`audio-${s.scene.id}-${index}`}
+            from={sceneStartFrames[index]}
+            durationInFrames={s.durationFrames}
+          >
+            <Audio src={s.scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
           </Sequence>
         );
       })}
