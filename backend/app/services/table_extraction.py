@@ -33,6 +33,9 @@ def _looks_like_header_row(row: list[str]) -> bool:
 
 def _clean_cell(value: Any) -> str:
     text = str(value or "").strip()
+    # Strip inline HTML tags (e.g. "Rs.<br> 434,000" → "Rs. 434,000") that survive
+    # markdown/HTML scraping; otherwise they leak into chart labels and data tables.
+    text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text)
     if len(text) > MAX_CELL_CHARS:
         return text[:MAX_CELL_CHARS].rstrip() + "..."

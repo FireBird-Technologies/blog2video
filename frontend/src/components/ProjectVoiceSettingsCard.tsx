@@ -14,6 +14,8 @@ import {
   BACKEND_URL,
   type SavedVoiceFromAPI,
 } from "../api/client";
+import AdvancedVoiceOptions from "./AdvancedVoiceOptions";
+import { parseVoiceTuning, serializeVoiceTuning, type VoiceTuning } from "./voiceTuning";
 
 const PREBUILT_VOICES = [
   { gender: "female", accent: "american", key: "female_american", name: "Rachel", desc: "Warm & confident, clear narration" },
@@ -33,6 +35,8 @@ interface Props {
   voiceGender: string;
   voiceAccent: string;
   customVoiceId: string | null | undefined;
+  /** Current project voice tuning (the voice_emotion column value). */
+  voiceEmotion: string | null;
   isPro: boolean;
   onError: (message: string) => void;
   /** Prompt the user to upgrade when they pick a gated voice */
@@ -68,6 +72,7 @@ export default function ProjectVoiceSettingsCard({
   voiceGender,
   voiceAccent,
   customVoiceId,
+  voiceEmotion,
   isPro,
   onError,
   onUpgrade,
@@ -81,6 +86,14 @@ export default function ProjectVoiceSettingsCard({
   const [showVoiceConfirm, setShowVoiceConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Tab switch inside the modal: Voice picker vs Advanced Options (matches step 3 of the URL form).
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Voice tuning state for the Advanced Options panel (Pro only).
+  const [tuning, setTuning] = useState<VoiceTuning>(() => {
+    const [stability, speed, emotion, style, enabled] = parseVoiceTuning(voiceEmotion);
+    return { enabled, stability, speed, emotion, style };
+  });
 
   // Whether the project currently has a voiceover. When false, the card offers
   // "Add voiceover" instead of "Change voice".
@@ -164,16 +177,28 @@ export default function ProjectVoiceSettingsCard({
     };
   }, [currentCustom, savedVoices, voiceGender, voiceAccent]);
 
+  const initialTuning = useMemo<VoiceTuning>(() => {
+    const [stability, speed, emotion, style, enabled] = parseVoiceTuning(voiceEmotion);
+    return { enabled, stability, speed, emotion, style };
+  }, [voiceEmotion]);
+
   const hasChanges = useMemo(() => {
-    if (selCustomId) return selCustomId !== currentCustom;
-    return currentCustom !== "" || selGender !== voiceGender || selAccent !== voiceAccent;
-  }, [selCustomId, currentCustom, selGender, selAccent, voiceGender, voiceAccent]);
+    const voiceChanged = selCustomId
+      ? selCustomId !== currentCustom
+      : currentCustom !== "" || selGender !== voiceGender || selAccent !== voiceAccent;
+    const tuningChanged = isPro &&
+      serializeVoiceTuning(tuning.stability, tuning.speed, tuning.emotion, tuning.style, tuning.enabled) !==
+      serializeVoiceTuning(initialTuning.stability, initialTuning.speed, initialTuning.emotion, initialTuning.style, initialTuning.enabled);
+    return voiceChanged || tuningChanged;
+  }, [selCustomId, currentCustom, selGender, selAccent, voiceGender, voiceAccent, tuning, initialTuning, isPro]);
 
   const openModal = () => {
     // Reset the pending selection to the current voice each time we open.
     setSelGender(voiceGender);
     setSelAccent(voiceAccent);
     setSelCustomId(currentCustom);
+    setTuning(initialTuning);
+    setShowAdvanced(false);
     stopPreview();
     setModalOpen(true);
   };
@@ -194,6 +219,9 @@ export default function ProjectVoiceSettingsCard({
         voice_gender: selGender && selGender !== "none" ? selGender : "female",
         voice_accent: selAccent && selAccent !== "none" ? selAccent : "american",
         custom_voice_id: selCustomId,
+        voice_emotion: isPro
+          ? serializeVoiceTuning(tuning.stability, tuning.speed, tuning.emotion, tuning.style, tuning.enabled)
+          : undefined,
       });
       setModalOpen(false);
       onOperationStarted({ kind: "voice_change", total: data.total });
@@ -350,76 +378,124 @@ export default function ProjectVoiceSettingsCard({
             </div>
 
             <div className="px-6 py-4 overflow-y-auto space-y-2">
-              {/* Clone your voice — always at top, navigates to voiceover page */}
-              <CraftYourVoiceCard
-                isPro={isPro}
-                onClick={() => {
-                  const params = new URLSearchParams();
-                  params.set("tab", "voices");
-                  params.set("openCustomVoiceCreator", "1");
-                  navigate(`/dashboard?${params.toString()}`);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    const params = new URLSearchParams();
-                    params.set("tab", "voices");
-                    params.set("openCustomVoiceCreator", "1");
-                    navigate(`/dashboard?${params.toString()}`);
-                  }
-                }}
-              />
-
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 pt-1">
-                Select and play to preview
-              </p>
-
-              {/* User's saved + custom voices */}
-              {loadingVoices ? (
-                <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
-                  <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
-                  <p className="text-[11px] text-gray-500">Loading your voices…</p>
-                </div>
-              ) : savedVoices.length === 0 ? (
-                <p className="text-[11px] text-gray-500 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
-                  No saved voices. Add voices from the Voices page to use them here.
-                </p>
-              ) : (
-                savedVoices.map((saved) => {
-                  const selected = selCustomId === saved.voice_id;
-                  const canSelect = isPro || (saved.plan !== "paid" && !saved.custom_voice_id);
-                  const key = `pick_saved_${saved.voice_id}`;
-                  const { displayName } = getMyVoiceDisplayName(saved.name);
-                  const isCustom = !!saved.custom_voice_id;
-                  return (
-                    <VoiceItem
-                      key={`pick_saved_${saved.id}`}
-                      name={displayName}
-                      subtitle={subtitleForSavedVoice(saved)}
-                      hasPreview={!!saved.preview_url}
-                      isPlaying={playingKey === key}
-                      onPlay={() => playPreview(key, saved.preview_url ?? null)}
-                      isSelected={selected}
-                      onClick={() => {
-                        if (!canSelect) {
-                          onUpgrade?.();
-                          return;
-                        }
-                        setSelCustomId(saved.voice_id);
-                        if (saved.gender) setSelGender(saved.gender);
-                        if (saved.accent) setSelAccent(saved.accent);
-                      }}
-                      badge={
-                        isCustom ? (
-                          <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Custom</span>
-                        ) : saved.plan === "paid" ? (
-                          <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
-                        ) : null
+              {/* Tab switch — Voice picker vs Advanced Options (matches step 3 of the URL form) */}
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+                  {showAdvanced && isPro ? "Advanced Options" : "Select and play to preview"}
+                </label>
+                <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(false)}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                      !(showAdvanced && isPro)
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    Voice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isPro) {
+                        onUpgrade?.();
+                        return;
                       }
-                      actions={selected ? <Checkmark /> : null}
-                    />
-                  );
-                })
+                      setShowAdvanced(true);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                      showAdvanced && isPro
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    Advanced Options
+                    <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
+                      Premium
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {!(showAdvanced && isPro) ? (
+                <>
+                  {/* Clone your voice — navigates to voiceover page */}
+                  <CraftYourVoiceCard
+                    isPro={isPro}
+                    onClick={() => {
+                      const params = new URLSearchParams();
+                      params.set("tab", "voices");
+                      params.set("openCustomVoiceCreator", "1");
+                      navigate(`/dashboard?${params.toString()}`);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        const params = new URLSearchParams();
+                        params.set("tab", "voices");
+                        params.set("openCustomVoiceCreator", "1");
+                        navigate(`/dashboard?${params.toString()}`);
+                      }
+                    }}
+                  />
+
+                  {/* User's saved + custom voices */}
+                  {loadingVoices ? (
+                    <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
+                      <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
+                      <p className="text-[11px] text-gray-500">Loading your voices…</p>
+                    </div>
+                  ) : savedVoices.length === 0 ? (
+                    <p className="text-[11px] text-gray-500 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
+                      No saved voices. Add voices from the Voices page to use them here.
+                    </p>
+                  ) : (
+                    savedVoices.map((saved) => {
+                      const selected = selCustomId === saved.voice_id;
+                      const canSelect = isPro || (saved.plan !== "paid" && !saved.custom_voice_id);
+                      const key = `pick_saved_${saved.voice_id}`;
+                      const { displayName } = getMyVoiceDisplayName(saved.name);
+                      const isCustom = !!saved.custom_voice_id;
+                      return (
+                        <VoiceItem
+                          key={`pick_saved_${saved.id}`}
+                          name={displayName}
+                          subtitle={subtitleForSavedVoice(saved)}
+                          hasPreview={!!saved.preview_url}
+                          isPlaying={playingKey === key}
+                          onPlay={() => playPreview(key, saved.preview_url ?? null)}
+                          isSelected={selected}
+                          onClick={() => {
+                            if (!canSelect) {
+                              onUpgrade?.();
+                              return;
+                            }
+                            setSelCustomId(saved.voice_id);
+                            if (saved.gender) setSelGender(saved.gender);
+                            if (saved.accent) setSelAccent(saved.accent);
+                          }}
+                          badge={
+                            isCustom ? (
+                              <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Custom</span>
+                            ) : saved.plan === "paid" ? (
+                              <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
+                            ) : null
+                          }
+                          actions={selected ? <Checkmark /> : null}
+                        />
+                      );
+                    })
+                  )}
+                </>
+              ) : (
+                <AdvancedVoiceOptions
+                  value={tuning}
+                  onChange={setTuning}
+                  voiceGender={selGender}
+                  voiceAccent={selAccent}
+                  customVoiceId={selCustomId}
+                />
               )}
             </div>
 

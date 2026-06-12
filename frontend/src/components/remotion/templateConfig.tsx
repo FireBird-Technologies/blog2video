@@ -20,6 +20,8 @@ import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition
 import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
 import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition";
 import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
+import { EconomistVideoComposition } from "./economist/EconomistVideoComposition";
+import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -33,6 +35,7 @@ import {
   RemotionBlackswanVideoComposition,
   RemotionBloombergVideoComposition,
   RemotionChronicleVideoComposition,
+  RemotionEconomistVideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -241,6 +244,34 @@ const CHRONICLE_LAYOUTS = new Set([
   "chronicle_table",
   "ending_socials",
 ]);
+
+const ECONOMIST_LAYOUTS = new Set([
+  "cover_reveal",
+  "leader_article",
+  "section_divider",
+  "chart_line",
+  "chart_bar",
+  "data_table",
+  "pros_cons",
+  "key_indicators",
+  "leader_quote",
+  "image_feature",
+  "ending_socials",
+]);
+const STICKMAN_2_LAYOUTS = new Set([
+  "chalk_title",
+  "night_walk",
+  "shooting_star",
+  "constellation_stats",
+  "moonphase_chart",
+  "shadow_comparison",
+  "signal_fire_scene",
+  "neon_countdown",
+  "lantern_dialogue",
+  "text_narration",
+  "ending_socials",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -398,6 +429,32 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  economist: {
+    component: EconomistVideoComposition as React.ComponentType<any>,
+    heroLayout: "cover_reveal",
+    fallbackLayout: "leader_article",
+    validLayouts: ECONOMIST_LAYOUTS,
+    defaultColors: {
+      accent: "#E3120B",
+      bg: "#F6F4EE",
+      text: "#1A1A1A",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  stickman_2: {
+    component: Stickman2VideoComposition as React.ComponentType<any>,
+    heroLayout: "chalk_title",
+    fallbackLayout: "night_walk",
+    validLayouts: STICKMAN_2_LAYOUTS,
+    defaultColors: {
+      accent: "#7DD3FC",
+      bg: "#0A0E1A",
+      text: "#EAEAE0",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -448,6 +505,8 @@ export function getTemplateConfig(
                           ? RemotionBloombergVideoComposition
                           : id === "chronicle"
                             ? RemotionChronicleVideoComposition
+                            : id === "economist"
+                              ? RemotionEconomistVideoComposition
                     : null;
 
     if (overrideComponent) {

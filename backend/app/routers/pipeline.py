@@ -958,6 +958,69 @@ async def _generate_script(
             None, _laduc_classify_tables
         )
 
+    elif template_id == "economist":
+        # economist: bind scraped tables to the data layouts upfront so
+        # _merge_economist_chart_props finds a real TABLE_DATA_HINT_JSON per
+        # scene (without this, every chart scene falls back to prose).
+        #   chart_line  → time-series tables (incl. OHLCV — line-chartable)
+        #   chart_bar   → remaining categorical bar/histogram tables
+        #   data_table  → remaining ranked tables (headers + ≥3 multi-col rows)
+        _econ_blog_text = getattr(project, "blog_content", None) or ""
+
+        def _econ_classify_tables() -> tuple[list, str]:
+            tables = extract_tables_from_content(_econ_blog_text)
+            if not tables:
+                return tables, ""
+            tmp_hint = build_table_context_hint(tables, max_tables=len(tables))
+            line_tables = get_line_chartable_tables_from_visual_hint(tmp_hint)
+            line_indices = {idx for idx, _ in line_tables}
+            bar_tables = [
+                (idx, t)
+                for idx, t in get_chartable_tables_from_visual_hint(tmp_hint)
+                if idx not in line_indices
+            ]
+            bar_indices = {idx for idx, _ in bar_tables}
+            used = line_indices | bar_indices
+
+            def _multi_col(t: dict) -> bool:
+                return any(isinstance(r, list) and len(r) >= 2 for r in (t.get("rows") or []))
+
+            table_tables = [
+                (idx, t)
+                for idx, t in enumerate(tables)
+                if idx not in used
+                and (t.get("headers") or [])
+                and len(t.get("rows") or []) >= 3
+                and _multi_col(t)
+            ]
+            bindings = (line_tables + bar_tables + table_tables)[:3]
+            if not bindings:
+                return tables, ""
+            chart_type_by_idx = {
+                orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                for orig_idx, t in bindings
+            }
+            layout_by_idx = {
+                orig_idx: (
+                    "chart_line" if orig_idx in line_indices
+                    else "chart_bar" if orig_idx in bar_indices
+                    else "data_table"
+                )
+                for orig_idx, _ in bindings
+            }
+            payload = build_chartable_tables_payload(
+                bindings,
+                chart_type_by_index=chart_type_by_idx,
+                preferred_layout_by_index=layout_by_idx,
+                max_rows=20,
+            )
+            return tables, payload
+
+        _econ_loop = asyncio.get_event_loop()
+        _all_extracted_tables, chartable_tables_json = await _econ_loop.run_in_executor(
+            None, _econ_classify_tables
+        )
+
     elif template_id in CHART_TICKER_TEMPLATE_LAYOUTS:
         # Built-in templates that opt into the chartTable/tickerTable data-viz
         # pipeline use the shared classifier — chartable tables bind to the
@@ -1033,6 +1096,36 @@ async def _generate_script(
     db.flush()
 
     is_custom = is_custom_template(template_id)
+
+    # Economist: precompute chartable tables by type + track which indices have
+    # already been bound, so a chart_line/chart_bar/data_table scene that the LLM
+    # left WITHOUT a data_table_index still gets a real (and distinct) table —
+    # mirroring laduc's market_annotation auto-find. Without this a chart scene
+    # reaches scene-gen with no TABLE_DATA_HINT_JSON and falls back to prose.
+    _econ_chartable: list[tuple[int, str]] = []
+    _econ_used_table_indices: set[int] = set()
+    if template_id == "economist" and _all_extracted_tables:
+        for _ci, _ct in enumerate(_all_extracted_tables):
+            _cp = _build_chart_props_from_table(_ct) or {}
+            if _cp.get("chartType"):
+                _econ_chartable.append((_ci, str(_cp.get("chartType"))))
+
+    def _econ_autofind_index(layout_id: str) -> int | None:
+        """Pick the first unused chartable table whose shape matches `layout_id`."""
+        want_line = layout_id == "chart_line"
+        # First pass: prefer a type match (line→line; bar/data_table→bar/histogram).
+        for _idx, _ctype in _econ_chartable:
+            if _idx in _econ_used_table_indices:
+                continue
+            is_line = _ctype == "line"
+            if want_line == is_line:
+                return _idx
+        # Second pass: any unused chartable table.
+        for _idx, _ctype in _econ_chartable:
+            if _idx not in _econ_used_table_indices:
+                return _idx
+        return None
+
     for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
         vd = scene_data["visual_description"]
         preferred = scene_data.get("preferred_layout")
@@ -1049,6 +1142,8 @@ async def _generate_script(
                 scene_data.get("preferred_layout") in {
                     "data_visualization", "terminal_chart", "terminal_table",
                     "terminal_dataviz", "market_annotation", "ticker",
+                    # Economist data layouts.
+                    "chart_line", "chart_bar", "data_table",
                 }
                 # Built-in data-viz templates (matrix/spotlight/chronicle) — their
                 # *_data (+ bar/histogram variants) and *_ticker layouts also need
@@ -1076,7 +1171,20 @@ async def _generate_script(
                     if not is_candlestick_table(_ct):
                         bound_idx = _ci
                         break
+            # Economist chart_line/chart_bar/data_table with no bound index:
+            # auto-find a distinct chartable table so the chart never renders empty.
+            if (
+                template_id == "economist"
+                and scene_data.get("preferred_layout") in {"chart_line", "chart_bar", "data_table"}
+                and not isinstance(bound_idx, int)
+            ):
+                _auto = _econ_autofind_index(scene_data["preferred_layout"])
+                if _auto is not None:
+                    bound_idx = _auto
+                    scene_data["data_table_index"] = _auto
             if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
+                if template_id == "economist":
+                    _econ_used_table_indices.add(bound_idx)
                 _bound_table = _all_extracted_tables[bound_idx]
                 _mr = 60 if is_candlestick_table(_bound_table) else 20
                 hint = build_table_context_hint([_bound_table], max_tables=1, max_rows=_mr)
@@ -1086,7 +1194,7 @@ async def _generate_script(
             # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
             # the table binding was supposed to force a data layout.
             # Embed the table hint so scene_gen has the data and can produce the right chart.
-            (template_id == "bloomberg" or _is_laduc_or_fj(template_id))
+            (template_id == "bloomberg" or _is_laduc_or_fj(template_id) or template_id == "economist")
             and scene_data.get("data_table_index") is not None
             and _all_extracted_tables
         ):
@@ -1105,6 +1213,11 @@ async def _generate_script(
                 elif _is_laduc_or_fj(template_id):
                     scene_data["preferred_layout"] = (
                         "ticker" if is_laduc_ticker_table(_fb_table) else "market_annotation"
+                    )
+                elif template_id == "economist":
+                    _fb_type = (_build_chart_props_from_table(_fb_table) or {}).get("chartType", "")
+                    scene_data["preferred_layout"] = (
+                        "chart_line" if _fb_type == "line" else "chart_bar"
                     )
         elif scene_data.get("preferred_layout") == "terminal_ticker":
             # Inject real scraped ticker data so scene_gen overrides LLM-hallucinated values.
@@ -1261,10 +1374,14 @@ async def _generate_scenes(
             db.commit()
         else:
             content_lang = get_content_language_for_project(project)
+            # Advanced Options (paid) projects carry voice tuning in voice_emotion; those run on v3
+            # with the [excited] tag, so write the narration emotively too (emphasis / "!" / CAPS).
+            expressive = bool(getattr(project, "voice_emotion", None))
             vo_paths = await generate_all_voiceovers(
                 scenes, db,
                 video_style=getattr(project, "video_style", None) or "explainer",
                 content_language=content_lang,
+                expressive=expressive,
             )
             # generate_all_voiceovers swallows per-scene TTS failures (returns "" for a
             # failed scene). In strict mode (regenerate-script, which has a restorable
