@@ -32,9 +32,8 @@ CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "chronicle": ("chronicle_data", "chronicle_table"),
 }
 
-# Chart/ticker base layout ids derived from the map. Bar/histogram Studio variants
-# share the chart layout's prefix (e.g. "matrix_data_bar"), so chart matching uses
-# a prefix test.
+# Chart/ticker base layout ids derived from the map. One *_data chart layout per
+# template handles line/bar/histogram via chartType; chart matching uses a prefix test.
 CHART_TICKER_CHART_LAYOUT_IDS: frozenset[str] = frozenset(
     chart for chart, _ticker in CHART_TICKER_TEMPLATE_LAYOUTS.values()
 )
