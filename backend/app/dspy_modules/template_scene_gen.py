@@ -557,8 +557,8 @@ class TemplateSceneGenerator:
         # Matrix / Spotlight / Chronicle share LaDuc's chart/ticker contract via
         # their *_data / *_table (ticker) layouts. The registered chart/ticker ids
         # come from CHART_TICKER_TEMPLATE_LAYOUTS (single source); chart matching is
-        # by prefix so the bar/histogram Studio variants (e.g. matrix_data_bar) bind
-        # too — mirrors LaDuc's market_annotation* prefix handling.
+        # by prefix (mirrors LaDuc's market_annotation* handling). One *_data layout
+        # per template covers line/bar/histogram via chartType.
         is_chart_layout = (
             layout.startswith("market_annotation")
             or is_builtin_chart_layout(layout)

@@ -12,8 +12,6 @@ export type MatrixLayoutType =
   | "transmission"
   | "awakening"
   | "matrix_data"
-  | "matrix_data_bar"
-  | "matrix_data_histogram"
   | "matrix_ticker"
   | "ending_socials";
 
