@@ -211,7 +211,12 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
         defaultProps={{
-          dataUrl: "/economist.json",
+          // Must be "/data.json" like every other composition: the render
+          // workspace writes the project's real scenes to public/data.json,
+          // while public/economist.json is only the bundled template sample.
+          // Pointing at the sample here made project renders output the demo
+          // video instead of the user's project.
+          dataUrl: "/data.json",
         }}
         calculateMetadata={calculateEconomistMetadata}
       />
