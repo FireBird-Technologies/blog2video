@@ -5658,6 +5658,7 @@ export default function ProjectView() {
                 voiceGender={project.voice_gender}
                 voiceAccent={project.voice_accent}
                 customVoiceId={project.custom_voice_id}
+                voiceEmotion={project.voice_emotion ?? null}
                 isPro={isPro}
                 onError={(msg) => showError(msg)}
                 onUpgrade={() => setShowUpgrade(true)}

@@ -60,6 +60,16 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     ═══ PRONOUNCIATION RULE (CRITICAL) ═══
     - If an abbreviation is popularly pronounced as a word (e.g. SaaS → "sass", NASA → "nasa", NVIDIA → "en-vidia"), write it phonetically so TTS reads it as a word, not letter-by-letter.
     - Decimal numbers must be written with "point" between the parts. For example, 3.5 → "three point five", 9.875 → "nine point eight seven five".
+
+    ═══ EMOTIONAL DELIVERY (ONLY when expressive is true) ═══
+    - Write the line to convey energy and excitement, like an enthusiastic narrator.
+    - Add light emphasis words where natural (really, so, absolutely, truly).
+    - End emphatic sentences with an exclamation mark ("!").
+    - Do NOT use capitalization for emphasis. Never write a whole word in all-capitals — the v3
+      model reads an all-caps word letter-by-letter like an acronym (F-O-R-E-V-E-R). Use normal
+      capitalization; let the emphasis words and "!" carry the energy.
+    - Do NOT add new facts and stay within the length rules — emphasis only changes delivery, not content.
+    - When expressive is false, keep the current neutral phrasing (no added "!").
     Output ONLY the final narration text.
     No labels. No quotes. No commentary.
     """
@@ -71,6 +81,9 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     )
     content_language: str = dspy.InputField(
         desc="Language of the source content (e.g. 'English', 'Spanish'). Output expanded_voiceover in this language."
+    )
+    expressive: bool = dspy.InputField(
+        desc="When true, write the narration with emotional energy (emphasis words + exclamation marks; no capitalization for emphasis). When false, keep neutral phrasing."
     )
 
     expanded_voiceover: str = dspy.OutputField(
@@ -97,19 +110,22 @@ async def expand_narration_to_voiceover(
     scene_title: str = "",
     video_style: str = "explainer",
     content_language: str = "English",
+    expressive: bool = False,
 ) -> str:
     """
     Slightly expand a short display text into a natural voiceover narration.
     video_style (explainer | promotional | storytelling) shapes the tone.
     content_language (e.g. 'English', 'Spanish') ensures output is in the source language.
-    Returns the expanded text, or the original text if expansion fails.
+    expressive=True writes the line with emotional energy (emphasis words, "!", CAPS) — used by
+    the paid Advanced/v3 path. Returns the expanded text, or the original text if expansion fails.
     """
     if not (display_text and display_text.strip()):
         return ""
 
-    # If display text is already long, skip expansion.
+    # If display text is already long, skip expansion — but in expressive mode always run so the
+    # emotional rewrite (emphasis / "!" / CAPS) is applied regardless of length.
     word_count = len(display_text.split())
-    if word_count > 50:
+    if word_count > 50 and not expressive:
         return " ".join(display_text.strip().split())
 
     predictor_async = _get_predictor()
@@ -122,6 +138,7 @@ async def expand_narration_to_voiceover(
             display_text=display_text.strip(),
             video_style=style,
             content_language=lang,
+            expressive=expressive,
         )
         out = (result.expanded_voiceover or "").strip()
         if out:

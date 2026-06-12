@@ -1,0 +1,989 @@
+{
+  "id": "economist",
+  "name": "The Economist",
+  "new_template": true,
+  "description": "Editorial 'newspaper × economic article' template inspired by The Economist: warm paper, a red flag masthead, serif headlines with drop caps, a signature blue/red pros-and-cons page, and reference-grade custom data charts (right-axis line charts with direct end-labels, ranked bars, ranked tables). Perfect for finance, markets, economics and serious news explainers.",
+  "genres": [
+    "Finance",
+    "Business",
+    "News"
+  ],
+  "preview_colors": {
+    "accent": "#E3120B",
+    "bg": "#F6F4EE",
+    "text": "#1A1A1A"
+  },
+  "composition_id": "EconomistVideo",
+  "hero_layout": "cover_reveal",
+  "fallback_layout": "leader_article",
+  "valid_layouts": [
+    "cover_reveal",
+    "leader_article",
+    "section_divider",
+    "chart_line",
+    "chart_bar",
+    "data_table",
+    "pros_cons",
+    "key_indicators",
+    "leader_quote",
+    "image_feature",
+    "ending_socials"
+  ],
+  "layout_prop_schema": {
+    "cover_reveal": {
+      "label": "Cover Reveal (Intro)",
+      "scene_defaults": {
+        "title": "The world economy's quiet turning point",
+        "narration": "Our cover this week"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 104,
+          "landscape": 132
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 26
+        },
+        "dateline": "MAY 23RD–29TH 2026",
+        "wordmark": "The Brief",
+        "teasers": [
+          "We calculate the MAGA tax",
+          "Lessons from the Premier League",
+          "NATO: time for Plan B",
+          "Are economists amoral?"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Headline Size",
+          "type": "number",
+          "responsive": true,
+          "min": 40,
+          "max": 240,
+          "step": 1
+        },
+        {
+          "key": "wordmark",
+          "label": "Masthead Wordmark",
+          "type": "string",
+          "placeholder": "Your publication"
+        },
+        {
+          "key": "dateline",
+          "label": "Dateline",
+          "type": "string",
+          "placeholder": "MAY 23RD–29TH 2026"
+        },
+        {
+          "key": "teasers",
+          "label": "Contents Teasers (3-4)",
+          "type": "string_array",
+          "maxItems": 4
+        }
+      ]
+    },
+    "leader_article": {
+      "label": "Leader Article",
+      "scene_defaults": {
+        "title": "Why central banks are quietly changing course",
+        "narration": "After two years of holding the line, the world's big central banks are inching toward looser policy. The data have finally bent their way: hiring has cooled, manufacturing has stalled and core inflation has drifted within touching distance of target. Yet the mood among policymakers is wary rather than triumphant. Cut too soon, and a second wave of price rises could undo three years of painful tightening; wait too long, and the real economy may buckle under rates that are, in inflation-adjusted terms, the most restrictive since 2007. The decision is finely balanced, and the consequences will be felt far beyond the trading floor."
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 68,
+          "landscape": 82
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 30
+        },
+        "sectionLabel": "BRIEFING",
+        "byline": "By our finance correspondent",
+        "standfirst": "Cut too soon and inflation returns; wait too long and growth buckles.",
+        "keyPoints": [
+          "Hiring has cooled sharply",
+          "Core inflation near target",
+          "Policy most restrictive since 2007"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Headline Size",
+          "type": "number",
+          "responsive": true,
+          "min": 28,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "sectionLabel",
+          "label": "Section Kicker",
+          "type": "string",
+          "placeholder": "BRIEFING"
+        },
+        {
+          "key": "standfirst",
+          "label": "Standfirst (deck line)",
+          "type": "string",
+          "placeholder": "A one-line sub-thesis under the headline"
+        },
+        {
+          "key": "keyPoints",
+          "label": "Key Points (2-3)",
+          "type": "string_array",
+          "maxItems": 3
+        },
+        {
+          "key": "byline",
+          "label": "Byline",
+          "type": "string",
+          "placeholder": "By our correspondent"
+        },
+        {
+          "key": "illuminatedLetter",
+          "label": "Drop Cap Override",
+          "type": "string",
+          "placeholder": "Auto"
+        }
+      ]
+    },
+    "section_divider": {
+      "label": "Section Divider",
+      "scene_defaults": {
+        "title": "Markets",
+        "narration": ""
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 140,
+          "landscape": 184
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 26
+        },
+        "sectionLabel": "SECTION",
+        "standfirst": "Why the world's central banks are quietly changing course — and what a turn toward looser money means for growth, markets and the millions of households still squeezed by the cost of borrowing.",
+        "dateline": ""
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Section Size",
+          "type": "number",
+          "responsive": true,
+          "min": 48,
+          "max": 240,
+          "step": 1
+        },
+        {
+          "key": "standfirst",
+          "label": "Standfirst",
+          "type": "text",
+          "placeholder": "Short standfirst under the section name"
+        },
+        {
+          "key": "dateline",
+          "label": "Dateline",
+          "type": "string",
+          "placeholder": "Auto (current week) — or override"
+        }
+      ]
+    },
+    "chart_line": {
+      "label": "Line Chart",
+      "scene_defaults": {
+        "title": "How sentiment shifted over two decades",
+        "narration": "Self-reported emotions, index (2006 = 0)"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 46,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        },
+        "sectionLabel": "FINANCE",
+        "chartType": "line",
+        "panelNumber": "1",
+        "emphasizeZero": true,
+        "labelMode": "end",
+        "highlightSeries": [
+          "Worry",
+          "Stress",
+          "Anger",
+          "Enjoyment"
+        ],
+        "seriesColors": [
+          "#9B1C1C",
+          "#F0746E",
+          "#E3120B",
+          "#006BA6"
+        ],
+        "chartTable": {
+          "headers": [
+            "Year",
+            "Worry",
+            "Stress",
+            "Anger",
+            "Enjoyment",
+            "Ctx A",
+            "Ctx B",
+            "Ctx C"
+          ],
+          "rows": [
+            [
+              "2006",
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              "08",
+              1,
+              1,
+              0,
+              -1,
+              1,
+              0,
+              -1
+            ],
+            [
+              "10",
+              2,
+              2,
+              1,
+              -1,
+              1,
+              1,
+              0
+            ],
+            [
+              "12",
+              4,
+              3,
+              1,
+              -2,
+              2,
+              2,
+              -1
+            ],
+            [
+              "14",
+              5,
+              4,
+              2,
+              -3,
+              2,
+              3,
+              -2
+            ],
+            [
+              "16",
+              7,
+              5,
+              2,
+              -3,
+              3,
+              4,
+              -1
+            ],
+            [
+              "18",
+              8,
+              6,
+              3,
+              -4,
+              3,
+              5,
+              -2
+            ],
+            [
+              "20",
+              9,
+              7,
+              4,
+              -5,
+              2,
+              5,
+              -3
+            ],
+            [
+              "22",
+              10,
+              8,
+              4,
+              -4,
+              2,
+              6,
+              -2
+            ],
+            [
+              "24",
+              9,
+              7,
+              5,
+              -3,
+              3,
+              5,
+              -1
+            ]
+          ]
+        }
+      },
+      "sample_props": {
+        "explainer": "Satisfaction has recovered to within a point of its 1995 level, and preference for democracy is at its highest in a decade — a recovery few pollsters predicted when the series bottomed out in 2018."
+      },
+      "fields": [
+        {
+          "key": "chartTable",
+          "label": "Chart Data",
+          "type": "chart_table"
+        },
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 80,
+          "step": 1
+        },
+        {
+          "key": "highlightSeries",
+          "label": "Highlighted Series (≤4)",
+          "type": "string_array",
+          "maxItems": 4
+        },
+        {
+          "key": "seriesColors",
+          "label": "Series Colours",
+          "type": "string_array",
+          "maxItems": 4
+        },
+        {
+          "key": "panelNumber",
+          "label": "Panel Number",
+          "type": "string",
+          "placeholder": "e.g. 1"
+        },
+        {
+          "key": "labelMode",
+          "label": "Series Labels",
+          "type": "select",
+          "options": [
+            {
+              "label": "At line end",
+              "value": "end"
+            },
+            {
+              "label": "Inline on chart",
+              "value": "inline"
+            }
+          ]
+        },
+        {
+          "key": "emphasizeZero",
+          "label": "Emphasise Zero Line",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "explainer",
+          "label": "Takeaway",
+          "type": "text",
+          "placeholder": "Auto (computed from the data) — or write 1–2 sentences"
+        }
+      ]
+    },
+    "chart_bar": {
+      "label": "Bar Chart",
+      "scene_defaults": {
+        "title": "Where growth is fastest in 2026",
+        "narration": "Projected real GDP growth"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 46,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        },
+        "sectionLabel": "FINANCE",
+        "chartType": "bar",
+        "unit": "%",
+        "chartTable": {
+          "headers": [
+            "Economy",
+            "Growth"
+          ],
+          "rows": [
+            [
+              "India",
+              6.4
+            ],
+            [
+              "Indonesia",
+              5.1
+            ],
+            [
+              "China",
+              4.5
+            ],
+            [
+              "Brazil",
+              2.3
+            ],
+            [
+              "United States",
+              2.1
+            ],
+            [
+              "Japan",
+              1.0
+            ],
+            [
+              "Germany",
+              0.9
+            ]
+          ]
+        }
+      },
+      "sample_props": {
+        "explainer": "India's 6.4% projection puts it more than a full point clear of Indonesia and almost three ahead of China — a lead that, if sustained, would double Indian output roughly a decade sooner than any of its peers."
+      },
+      "fields": [
+        {
+          "key": "chartTable",
+          "label": "Chart Data",
+          "type": "chart_table"
+        },
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 80,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Orientation",
+          "type": "select",
+          "options": [
+            {
+              "label": "Vertical bars",
+              "value": "bar"
+            },
+            {
+              "label": "Ranked horizontal",
+              "value": "hbar"
+            }
+          ]
+        },
+        {
+          "key": "unit",
+          "label": "Value Unit",
+          "type": "string",
+          "placeholder": "%"
+        },
+        {
+          "key": "explainer",
+          "label": "Takeaway",
+          "type": "text",
+          "placeholder": "Auto (computed from the data) — or write 1–2 sentences"
+        }
+      ]
+    },
+    "data_table": {
+      "label": "Ranked Table",
+      "scene_defaults": {
+        "title": "The world's biggest banks by market value",
+        "narration": "Market capitalisation, latest"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 48,
+          "landscape": 52
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        },
+        "sectionLabel": "MARKETS",
+        "unit": "$bn",
+        "chartTable": {
+          "headers": [
+            "Bank",
+            "Market cap"
+          ],
+          "rows": [
+            [
+              "JPMorgan Chase",
+              560
+            ],
+            [
+              "Bank of America",
+              300
+            ],
+            [
+              "ICBC",
+              290
+            ],
+            [
+              "Wells Fargo",
+              230
+            ],
+            [
+              "HSBC",
+              190
+            ],
+            [
+              "Morgan Stanley",
+              170
+            ],
+            [
+              "Goldman Sachs",
+              150
+            ]
+          ]
+        }
+      },
+      "sample_props": {
+        "explainer": "JPMorgan Chase's $560bn valuation is nearly double Bank of America's, and exceeds the combined worth of HSBC, Morgan Stanley and Goldman Sachs — a concentration at the top unseen since before the financial crisis."
+      },
+      "fields": [
+        {
+          "key": "chartTable",
+          "label": "Table Data",
+          "type": "chart_table"
+        },
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 80,
+          "step": 1
+        },
+        {
+          "key": "unit",
+          "label": "Value Unit",
+          "type": "string",
+          "placeholder": "$bn"
+        },
+        {
+          "key": "explainer",
+          "label": "Takeaway",
+          "type": "text",
+          "placeholder": "Auto (computed from the data) — or write 1–2 sentences"
+        }
+      ]
+    },
+    "pros_cons": {
+      "label": "Pros & Cons",
+      "scene_defaults": {
+        "title": "Should the Fed cut rates now?",
+        "narration": ""
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 56,
+          "landscape": 64
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        },
+        "sectionLabel": "LEADERS",
+        "prosLabel": "PROS",
+        "consLabel": "CONS",
+        "intro": "On June 18th America's central bank will take what may prove a historic decision: the first interest-rate cut since the tightening cycle began. The data crunch is genuine, and the consequences will be profound. Here are the arguments for and against easing now.",
+        "pros": [
+          {
+            "lead": "GROWTH IS COOLING",
+            "body": "Hiring has slowed and manufacturing output has contracted for three straight months."
+          },
+          {
+            "lead": "INFLATION NEAR TARGET",
+            "body": "Core PCE has drifted to 2.4%, within touching distance of the 2% goal."
+          },
+          {
+            "lead": "REAL RATES ARE HIGH",
+            "body": "With prices easing, the inflation-adjusted policy rate is the most restrictive since 2007."
+          }
+        ],
+        "cons": [
+          {
+            "lead": "SERVICES STAY HOT",
+            "body": "Wage growth in services remains above 4%, keeping underlying inflation sticky."
+          },
+          {
+            "lead": "CONDITIONS ALREADY EASY",
+            "body": "Buoyant equities and tight credit spreads are doing much of the Fed's work already."
+          },
+          {
+            "lead": "CREDIBILITY AT STAKE",
+            "body": "Cutting too soon risks a second wave of inflation the bank has vowed to avoid."
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Headline Size",
+          "type": "number",
+          "responsive": true,
+          "min": 28,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "intro",
+          "label": "Intro Paragraph",
+          "type": "text",
+          "placeholder": "Short justified intro"
+        },
+        {
+          "key": "prosLabel",
+          "label": "Left Column Header",
+          "type": "string",
+          "placeholder": "PROS"
+        },
+        {
+          "key": "consLabel",
+          "label": "Right Column Header",
+          "type": "string",
+          "placeholder": "CONS"
+        },
+        {
+          "key": "pros",
+          "label": "Pros (3-6)",
+          "type": "object_array",
+          "maxItems": 6,
+          "subFields": [
+            {
+              "key": "lead",
+              "label": "Lead-in"
+            },
+            {
+              "key": "body",
+              "label": "Explanation"
+            }
+          ]
+        },
+        {
+          "key": "cons",
+          "label": "Cons (3-6)",
+          "type": "object_array",
+          "maxItems": 6,
+          "subFields": [
+            {
+              "key": "lead",
+              "label": "Lead-in"
+            },
+            {
+              "key": "body",
+              "label": "Explanation"
+            }
+          ]
+        }
+      ]
+    },
+    "key_indicators": {
+      "label": "Key Indicators",
+      "scene_defaults": {
+        "title": "The economy by the numbers",
+        "narration": "Latest readings vs a year ago"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 56
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        },
+        "sectionLabel": "ECONOMIC DATA",
+        "indicators": [
+          {
+            "value": "2.4%",
+            "label": "Core inflation",
+            "delta": "-0.3pp",
+            "compareValue": "2.7%",
+            "compareLabel": "vs 2025"
+          },
+          {
+            "value": "4.1%",
+            "label": "Unemployment",
+            "delta": "+0.2pp",
+            "compareValue": "3.9%",
+            "compareLabel": "vs 2025"
+          },
+          {
+            "value": "$1.9trn",
+            "label": "Budget deficit",
+            "delta": "+5.4%",
+            "compareValue": "$1.8trn",
+            "compareLabel": "vs 2025"
+          },
+          {
+            "value": "2.1%",
+            "label": "GDP growth",
+            "delta": "+0.1pp",
+            "compareValue": "2.0%",
+            "compareLabel": "vs 2025"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 24,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "indicators",
+          "label": "Indicators (2-4)",
+          "type": "object_array",
+          "maxItems": 4,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Figure"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "delta",
+              "label": "Trend (e.g. +2.3%)"
+            },
+            {
+              "key": "compareValue",
+              "label": "Compare value (e.g. 2.7%)"
+            },
+            {
+              "key": "compareLabel",
+              "label": "Compare label (e.g. vs 2025)"
+            }
+          ]
+        }
+      ]
+    },
+    "leader_quote": {
+      "label": "Pull Quote",
+      "scene_defaults": {
+        "title": "Pull quote",
+        "narration": ""
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 84
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        },
+        "sectionLabel": "BARTLEBY",
+        "quote": "The big money is not in the buying and the selling, but in the waiting — the first rule of compounding is to never interrupt it unnecessarily.",
+        "highlightPhrase": "never interrupt it",
+        "attribution": "Charlie Munger, vice-chairman of Berkshire Hathaway"
+      },
+      "fields": [
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text",
+          "placeholder": "The quotation"
+        },
+        {
+          "key": "highlightPhrase",
+          "label": "Highlighted Phrase",
+          "type": "string",
+          "placeholder": "Substring to colour red"
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string",
+          "placeholder": "— Name, role"
+        },
+        {
+          "key": "titleFontSize",
+          "label": "Quote Size",
+          "type": "number",
+          "responsive": true,
+          "min": 28,
+          "max": 140,
+          "step": 1
+        }
+      ]
+    },
+    "image_feature": {
+      "label": "Image Feature",
+      "scene_defaults": {
+        "title": "The new geography of capital",
+        "narration": ""
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        },
+        "sectionLabel": "FEATURE",
+        "wordmark": "The Brief",
+        "caption": "Trading floors are emptying as capital migrates to private markets — a quiet but profound rewiring of how the world's biggest companies raise money, and who gets to share in their growth.",
+        "credit": "Photograph: Getty Images"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Headline Size",
+          "type": "number",
+          "responsive": true,
+          "min": 28,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "type": "text",
+          "placeholder": "Photo caption"
+        },
+        {
+          "key": "credit",
+          "label": "Credit",
+          "type": "string",
+          "placeholder": "Photograph: ..."
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Ending / Socials",
+      "scene_defaults": {
+        "title": "Read more at",
+        "narration": ""
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 56,
+          "landscape": 60
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 24
+        },
+        "wordmark": "The Brief",
+        "ctaButtonText": "Subscribe",
+        "websiteLink": "thebrief.news",
+        "showWebsiteButton": true,
+        "socials": {
+          "linkedin": "the-brief",
+          "instagram": "@thebrief",
+          "youtube": "The Brief"
+        }
+      },
+      "fields": [
+        {
+          "key": "wordmark",
+          "label": "Masthead Wordmark",
+          "type": "string",
+          "placeholder": "Your publication"
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "placeholder": "Subscribe"
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website Button",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "chart_line",
+    "chart_bar",
+    "data_table",
+    "pros_cons",
+    "key_indicators",
+    "ending_socials"
+  ],
+  "features": [
+    "Warm-paper editorial aesthetic with a red flag masthead (homage, not a copy)",
+    "Premium cinematic magazine-cover intro with parallax photo and teaser headlines",
+    "Reference-grade custom line charts: right-side axis, emphasised black zero line, direct colour-coded end-labels, grey context lines, and a boxed panel number",
+    "Ranked bar charts (vertical and horizontal) with staggered grow-in",
+    "Ranked data tables with inline red magnitude bars",
+    "Signature blue PROS / red CONS debate page",
+    "By-the-numbers KPI panels with trend arrows",
+    "Oversized red pull-quotes with highlighted phrases",
+    "Full-bleed photo features with caption and credit",
+    "Serif headlines with drop caps and justified article body",
+    "Kinetic editorial scene transitions — parallax page-push, whip-blur, clock-wipe, iris and a branded ink-bar wipe",
+    "Portrait and landscape responsive layouts"
+  ]
+}
