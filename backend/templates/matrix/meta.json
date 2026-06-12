@@ -25,8 +25,6 @@
     "transmission",
     "awakening",
     "matrix_data",
-    "matrix_data_bar",
-    "matrix_data_histogram",
     "matrix_ticker",
     "ending_socials"
   ],
@@ -419,13 +417,37 @@
         "chartType": "line",
         "chartSummary": "Signal climbs steadily through the window before easing off the high.",
         "chartTable": {
-          "headers": ["Cycle", "Signal", "Noise"],
+          "headers": [
+            "Cycle",
+            "Signal",
+            "Noise"
+          ],
           "rows": [
-            ["T-04", "298", "72"],
-            ["T-03", "308", "68"],
-            ["T-02", "315", "61"],
-            ["T-01", "324", "55"],
-            ["T-00", "318", "59"]
+            [
+              "T-04",
+              "298",
+              "72"
+            ],
+            [
+              "T-03",
+              "308",
+              "68"
+            ],
+            [
+              "T-02",
+              "315",
+              "61"
+            ],
+            [
+              "T-01",
+              "324",
+              "55"
+            ],
+            [
+              "T-00",
+              "318",
+              "59"
+            ]
           ]
         },
         "chartYAxisTicks": [],
@@ -463,212 +485,22 @@
           "label": "Chart Type",
           "type": "select",
           "options": [
-            { "label": "Auto (infer from data)", "value": "auto" },
-            { "label": "Line", "value": "line" },
-            { "label": "Bar", "value": "bar" },
-            { "label": "Histogram", "value": "histogram" }
-          ]
-        },
-        {
-          "key": "chartTable",
-          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
-          "type": "chart_table"
-        },
-        {
-          "key": "yAxisLabel",
-          "label": "Y-axis label (overrides chart header)",
-          "type": "string"
-        },
-        {
-          "key": "subtitle",
-          "label": "X-axis / category caption (overrides first column header)",
-          "type": "string"
-        },
-        {
-          "key": "chartYAxisTicks",
-          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
-          "type": "string_array"
-        },
-        {
-          "key": "chartSummary",
-          "label": "Chart summary (short read beside the graphic)",
-          "type": "string"
-        },
-        {
-          "key": "barPrimaryColor",
-          "label": "Series color 1",
-          "type": "color"
-        },
-        {
-          "key": "barSecondaryColor",
-          "label": "Series color 2",
-          "type": "color"
-        }
-      ]
-    },
-    "matrix_data_bar": {
-      "label": "Data Chart · Bar",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 46,
-          "landscape": 40
-        },
-        "descriptionFontSize": {
-          "portrait": 28,
-          "landscape": 28
-        },
-        "chartType": "bar",
-        "chartSummary": "Signal leads across nodes — Alpha tops the set while Bravo lags.",
-        "chartTable": {
-          "headers": ["Node", "Signal", "Noise"],
-          "rows": [
-            ["Alpha", "324", "72"],
-            ["Bravo", "308", "55"],
-            ["Charlie", "315", "61"],
-            ["Delta", "298", "68"],
-            ["Echo", "318", "59"]
-          ]
-        },
-        "chartYAxisTicks": [],
-        "subtitle": "Node",
-        "yAxisLabel": "Magnitude",
-        "barPrimaryColor": "#00FF41",
-        "barSecondaryColor": "#00B82E"
-      },
-      "scene_defaults": {
-        "title": "Signal analysis",
-        "narration": "Decoded dataset from intercepted transmission.",
-        "durationSeconds": 6
-      },
-      "fields": [
-        {
-          "key": "titleFontSize",
-          "label": "Title Size",
-          "type": "number",
-          "responsive": true,
-          "min": 14,
-          "max": 160,
-          "step": 1
-        },
-        {
-          "key": "descriptionFontSize",
-          "label": "Body Size",
-          "type": "number",
-          "responsive": true,
-          "min": 10,
-          "max": 90,
-          "step": 1
-        },
-        {
-          "key": "chartType",
-          "label": "Chart Type",
-          "type": "select",
-          "options": [
-            { "label": "Auto (infer from data)", "value": "auto" },
-            { "label": "Line", "value": "line" },
-            { "label": "Bar", "value": "bar" },
-            { "label": "Histogram", "value": "histogram" }
-          ]
-        },
-        {
-          "key": "chartTable",
-          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
-          "type": "chart_table"
-        },
-        {
-          "key": "yAxisLabel",
-          "label": "Y-axis label (overrides chart header)",
-          "type": "string"
-        },
-        {
-          "key": "subtitle",
-          "label": "X-axis / category caption (overrides first column header)",
-          "type": "string"
-        },
-        {
-          "key": "chartYAxisTicks",
-          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
-          "type": "string_array"
-        },
-        {
-          "key": "chartSummary",
-          "label": "Chart summary (short read beside the graphic)",
-          "type": "string"
-        },
-        {
-          "key": "barPrimaryColor",
-          "label": "Series color 1",
-          "type": "color"
-        },
-        {
-          "key": "barSecondaryColor",
-          "label": "Series color 2",
-          "type": "color"
-        }
-      ]
-    },
-    "matrix_data_histogram": {
-      "label": "Data Chart · Histogram",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 46,
-          "landscape": 40
-        },
-        "descriptionFontSize": {
-          "portrait": 28,
-          "landscape": 28
-        },
-        "chartType": "histogram",
-        "chartSummary": "Signal clusters mid-range — most readings fall in the 40–60 band.",
-        "chartTable": {
-          "headers": ["Signal bucket", "Count"],
-          "rows": [
-            ["0 - 20", "1"],
-            ["20 - 40", "3"],
-            ["40 - 60", "6"],
-            ["60 - 80", "4"],
-            ["80 - 100", "2"]
-          ]
-        },
-        "chartYAxisTicks": [],
-        "subtitle": "Signal bucket",
-        "yAxisLabel": "Count",
-        "barPrimaryColor": "#00FF41",
-        "barSecondaryColor": "#00B82E"
-      },
-      "scene_defaults": {
-        "title": "Signal analysis",
-        "narration": "Decoded dataset from intercepted transmission.",
-        "durationSeconds": 6
-      },
-      "fields": [
-        {
-          "key": "titleFontSize",
-          "label": "Title Size",
-          "type": "number",
-          "responsive": true,
-          "min": 14,
-          "max": 160,
-          "step": 1
-        },
-        {
-          "key": "descriptionFontSize",
-          "label": "Body Size",
-          "type": "number",
-          "responsive": true,
-          "min": 10,
-          "max": 90,
-          "step": 1
-        },
-        {
-          "key": "chartType",
-          "label": "Chart Type",
-          "type": "select",
-          "options": [
-            { "label": "Auto (infer from data)", "value": "auto" },
-            { "label": "Line", "value": "line" },
-            { "label": "Bar", "value": "bar" },
-            { "label": "Histogram", "value": "histogram" }
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
           ]
         },
         {
@@ -723,13 +555,55 @@
         "tickerFootnote": "Source: intercepted stream · as of close",
         "tickerHighlightCol": 5,
         "tickerTable": {
-          "headers": ["Name", "Shares", "Price", "Cost", "Value", "% Chg"],
+          "headers": [
+            "Name",
+            "Shares",
+            "Price",
+            "Cost",
+            "Value",
+            "% Chg"
+          ],
           "rows": [
-            ["Node A", "25", "$20", "$500", "$600", "+20%"],
-            ["Node B", "20", "$30", "$600", "$500", "-16.7%"],
-            ["Node C", "30", "$90", "$2,700", "$3,000", "+11.1%"],
-            ["Node D", "50", "$100", "$5,000", "$10,000", "+100%"],
-            ["Node E", "100", "$20", "$2,000", "$1,000", "-50%"]
+            [
+              "Node A",
+              "25",
+              "$20",
+              "$500",
+              "$600",
+              "+20%"
+            ],
+            [
+              "Node B",
+              "20",
+              "$30",
+              "$600",
+              "$500",
+              "-16.7%"
+            ],
+            [
+              "Node C",
+              "30",
+              "$90",
+              "$2,700",
+              "$3,000",
+              "+11.1%"
+            ],
+            [
+              "Node D",
+              "50",
+              "$100",
+              "$5,000",
+              "$10,000",
+              "+100%"
+            ],
+            [
+              "Node E",
+              "100",
+              "$20",
+              "$2,000",
+              "$1,000",
+              "-50%"
+            ]
           ]
         }
       },
