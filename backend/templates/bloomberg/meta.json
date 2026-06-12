@@ -1,7 +1,7 @@
 {
   "id": "bloomberg",
   "name": "Bloomberg",
-  "new_template": true,
+  "new_template": false,
   "description": "Bloomberg terminal-inspired financial storytelling: amber monospace on pure black, dense data panels, KPI grids, and chart scenes for trader-facing explainer videos.",
   "genres": [
     "Finance",
