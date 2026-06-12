@@ -21,7 +21,21 @@ _TIME_LIKE_RE = re.compile(
     r"|(^("
     r"jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|"
     r"jul(y)?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?"
-    r")(\b|[./-]\d{2,4}|\s+\d{2,4})$)",
+    r")(\b|[./-]\d{2,4}|\s+\d{2,4})$)"
+    # "1 Jun", "5 June 2026", "11 Jun, 26" — day SPACE month (optional year)
+    r"|(^\d{1,2}\s+("
+    r"jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|"
+    r"jul(y)?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?"
+    r")(,?\s*\d{2,4})?$)"
+    # weekday names ("Mon", "Tuesday") — daily series
+    r"|(^(mon(day)?|tue(s|sday)?|wed(nesday)?|thu(r|rs|rsday)?|fri(day)?|sat(urday)?|sun(day)?)$)"
+    # "Week 1" / "Day 3" / "Wk 12" ordinal periods
+    r"|(^(week|wk|day)\s*\d+$)"
+    # fiscal years ("FY24", "FY 2025") and half-years ("H1", "H2 2025")
+    r"|(^fy\s*'?\d{2,4}$)"
+    r"|(^h[1-2](\s*\d{2,4})?$)"
+    # year ranges ("2023-24", "2023/2024")
+    r"|(^\d{4}\s*[-–/]\s*\d{2,4}$)",
     re.IGNORECASE,
 )
 _BUCKET_LIKE_RE = re.compile(r"(^\d+\s*[-–]\s*\d+$)|(^<\s*\d+$)|(^>\s*\d+$)|(^\d+\+$)")
@@ -96,6 +110,19 @@ def _parse_number(value: Any) -> float | None:
 
 def _tokenize(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(t) > 2}
+
+
+def _clean_text_cell(value: Any) -> str:
+    """Strip inline HTML tags + collapse whitespace from a display cell.
+
+    The chartTable bound to a scene is rendered verbatim (especially by the
+    data_table layout), so leftover tags like "Rs.<br> 434,000" must be removed.
+    Tables read straight from EXTRACTED_TABLES_JSON bypass table_extraction's own
+    cleaner, so we re-clean here at the point the chartTable is built.
+    """
+    text = str(value or "")
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 
@@ -774,8 +801,8 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
     bucket_like = _is_bucket_like(labels)
 
     chart_table = {
-        "headers": headers[:8],
-        "rows": [[str(cell or "") for cell in row[:8]] for row in rows[:20]],
+        "headers": [_clean_text_cell(h) for h in headers[:8]],
+        "rows": [[_clean_text_cell(cell) for cell in row[:8]] for row in rows[:20]],
     }
 
     # Prefer line charts for ordered/time-like rows; otherwise histogram for bucket labels; else bar.

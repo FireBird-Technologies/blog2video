@@ -1,4 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { CodeFragments, DecodeSweep, GlitchSlice, ScanlinesOverlay } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -243,6 +244,12 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
           )}
         </div>
       </div>
+
+      {/* Decorative artifacts — decode pass, glitch ticks, readouts, CRT texture over the split. */}
+      <DecodeSweep accentColor={accent} startFrame={8} seed={31} />
+      <GlitchSlice accentColor={accent} every={70} seed={33} />
+      <CodeFragments accentColor={accent} count={7} seed={61} startFrame={12} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.7} />
     </AbsoluteFill>
   );
 };

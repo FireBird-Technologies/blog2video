@@ -32,6 +32,12 @@ const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
 import { SpreadsheetTable } from "./SpreadsheetTable";
 import { ImportPreviewSheet } from "./ImportPreviewSheet";
+import {
+  isBuiltinDataVizChartLayout,
+  isBuiltinTickerLayout,
+  builtinChartKindForLayout,
+  builtinDataVizExampleTable,
+} from "./sceneEditBuiltinDataViz";
 import * as XLSX from "xlsx";
 
 type CraftedImageBoxEntry = string | { landscape?: string; portrait?: string } | undefined;
@@ -418,6 +424,7 @@ interface FieldDef {
   subFields?: { key: string; label: string; placeholder?: string }[];
   placeholder?: string;
   maxItems?: number;
+  minItems?: number;
   /** Options when type === "select" */
   options?: { value: string; label: string }[];
   min?: number;
@@ -747,6 +754,52 @@ function getFJResearchMarketAnnotationExampleTable(
 }
 
 /**
+ * Economist `chart_line` / `chart_bar` / `data_table` example datasets. Mirrors
+ * the laduc/fj seeders so the studio editor renders shape-appropriate data the
+ * moment a user switches a scene into an Economist data layout or opens an empty
+ * one (col 1 = X labels / row labels; remaining cols = numeric series).
+ */
+function getEconomistChartExampleTable(
+  kind: "line" | "bar" | "table",
+): { headers: string[]; rows: string[][] } {
+  if (kind === "line") {
+    return {
+      headers: ["Year", "Advanced economies", "Emerging markets"],
+      rows: [
+        ["2019", "1.8", "4.5"],
+        ["2020", "-4.4", "-2.1"],
+        ["2021", "5.4", "6.9"],
+        ["2022", "2.7", "4.0"],
+        ["2023", "1.6", "4.1"],
+        ["2024", "1.7", "4.2"],
+      ],
+    };
+  }
+  if (kind === "bar") {
+    return {
+      headers: ["Sector", "Share of GDP (%)"],
+      rows: [
+        ["Services", "64"],
+        ["Manufacturing", "18"],
+        ["Construction", "7"],
+        ["Agriculture", "6"],
+        ["Mining", "5"],
+      ],
+    };
+  }
+  return {
+    headers: ["Economy", "GDP ($trn)", "Growth (%)", "Inflation (%)"],
+    rows: [
+      ["United States", "27.4", "2.5", "3.1"],
+      ["China", "17.8", "5.0", "0.2"],
+      ["Germany", "4.5", "-0.1", "5.9"],
+      ["Japan", "4.2", "1.9", "3.3"],
+      ["India", "3.9", "7.6", "5.4"],
+    ],
+  };
+}
+
+/**
  * Mirrors `mergeMarketAnnotationChartDefaults()` in
  * [VideoPreview.tsx](./VideoPreview.tsx) — fills `chartTable` (and
  * `chartType`) from `meta.json` `layout_prop_schema[layout].defaults`
@@ -754,15 +807,20 @@ function getFJResearchMarketAnnotationExampleTable(
  * "Edit chart data" preview in sync with the project preview and the
  * rendered MP4.
  *
- * Narrowly scoped to `market_annotation*` layouts only.
+ * Scoped to laduc `market_annotation*` layouts and the built-in data-viz
+ * templates' chart layouts (matrix/spotlight/chronicle `*_data*`).
  * Keep this in sync with the VideoPreview copy.
  */
 function mergeMarketAnnotationChartDefaultsForLayout(
   layoutProps: Record<string, unknown>,
+  templateId: string | null | undefined,
   layoutId: string | null | undefined,
   schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
 ): Record<string, unknown> {
-  if (!layoutId || !layoutId.startsWith("market_annotation")) return layoutProps;
+  const isChartLayout =
+    (!!layoutId && layoutId.startsWith("market_annotation")) ||
+    isBuiltinDataVizChartLayout(templateId, layoutId);
+  if (!layoutId || !isChartLayout) return layoutProps;
   if (!schema || Object.keys(schema).length === 0) return layoutProps;
   const defaults = schema[layoutId]?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
@@ -1551,6 +1609,100 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "phrases", label: "Path steps", type: "string_array", maxItems: 8 },
     ],
   },
+  /** Stick Man 2 (Night Edition) — layout content keys per prompt.md. ending_socials uses the dedicated CTA / socials block. */
+  stickman_2: {
+    chalk_title: [],
+    night_walk: [],
+    shooting_star: [],
+    constellation_stats: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 100, $1.2M, 98%" },
+        ],
+        minItems: 3,
+        maxItems: 6,
+      },
+      {
+        key: "signFontSize",
+        label: "Sign text size",
+        type: "number",
+        min: 10,
+        max: 80,
+        step: 1,
+      },
+    ],
+    moonphase_chart: [
+      {
+        key: "bars",
+        label: "Moon phases",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value (ignored)", placeholder: "Optional" },
+        ],
+        minItems: 3,
+        maxItems: 5,
+      },
+    ],
+    shadow_comparison: [
+      {
+        key: "leftThought",
+        label: "Left thought",
+        type: "text",
+        placeholder: "Short phrase for the left figure's thought cloud",
+      },
+      {
+        key: "rightThought",
+        label: "Right thought",
+        type: "text",
+        placeholder: "Short phrase for the right figure's thought cloud",
+      },
+    ],
+    signal_fire_scene: [],
+    neon_countdown: [
+      {
+        key: "startFrom",
+        label: "Countdown from",
+        type: "number",
+        min: 2,
+        max: 9,
+        step: 1,
+        default: 5,
+      },
+      {
+        key: "label",
+        label: "Label beneath ring",
+        type: "string",
+        placeholder: "Optional short label",
+      },
+    ],
+    lantern_dialogue: [
+      {
+        key: "leftBubble",
+        label: "Left dialogue",
+        type: "text",
+        placeholder: "Line spoken by the left figure (first half of scene)",
+      },
+      {
+        key: "rightBubble",
+        label: "Right dialogue",
+        type: "text",
+        placeholder: "Line spoken by the right figure (second half of scene)",
+      },
+      {
+        key: "speakers",
+        label: "Speaker names",
+        type: "object_array",
+        subFields: [{ key: "label", label: "Name" }],
+        maxItems: 2,
+      },
+    ],
+    ending_socials: [],
+  },
   /** LaDuc — overrides for layout IDs shared with other templates */
   laduc: {
     masthead: [
@@ -1644,6 +1796,55 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "fj_researchtrading.com" },
       { key: "chartYAxisTicks", label: "Y-axis tick labels (top → bottom, 2–4 values)", type: "string_array", maxItems: 4 },
       { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    ],
+  },
+  economist: {
+    chart_line: [
+      { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+      { key: "panelNumber", label: "Panel Number", type: "string", placeholder: "e.g. 1" },
+      { key: "highlightSeries", label: "Highlighted Series (≤4)", type: "string_array", maxItems: 4 },
+      { key: "seriesColors", label: "Series Colours", type: "string_array", maxItems: 4 },
+      {
+        key: "labelMode",
+        label: "Series Labels",
+        type: "select",
+        default: "end",
+        options: [
+          { value: "end", label: "At line end" },
+          { value: "inline", label: "Inline on chart" },
+        ],
+      },
+      {
+        key: "emphasizeZero",
+        label: "Emphasise Zero Line",
+        type: "select",
+        default: "true",
+        options: [
+          { value: "true", label: "Enabled" },
+          { value: "false", label: "Disabled" },
+        ],
+      },
+      { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
+    ],
+    chart_bar: [
+      { key: "chartTable", label: "Chart data (col 1: category labels; cols 2+: numeric series; max 20 rows)", type: "chart_table" },
+      {
+        key: "chartType",
+        label: "Orientation",
+        type: "select",
+        default: "bar",
+        options: [
+          { value: "bar", label: "Vertical bars" },
+          { value: "hbar", label: "Ranked horizontal" },
+        ],
+      },
+      { key: "unit", label: "Value Unit", type: "string", placeholder: "%" },
+      { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
+    ],
+    data_table: [
+      { key: "chartTable", label: "Table data (col 1: row labels; cols 2+: values; max 20 rows)", type: "chart_table" },
+      { key: "unit", label: "Value Unit", type: "string", placeholder: "$bn" },
+      { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
     ],
   },
 };
@@ -1760,6 +1961,7 @@ function layoutPropSchemaToFieldDefs(schema: LayoutPropSchema | undefined): Fiel
       type: ft,
       placeholder: f.placeholder,
       maxItems: f.maxItems,
+      minItems: f.minItems,
       min: f.min,
       max: f.max,
       step: f.step,
@@ -1854,12 +2056,13 @@ function parseUnknownLayoutPropValue(raw: string, prevValue: unknown): unknown {
 }
 
 // Auto-growing textarea component
-function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
+function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2, disabled = false }: {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   className?: string;
   placeholder?: string;
   minRows?: number;
+  disabled?: boolean;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1882,6 +2085,7 @@ function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2
       placeholder={placeholder}
       className={className}
       rows={minRows}
+      disabled={disabled}
     />
   );
 }
@@ -2081,7 +2285,7 @@ export default function SceneEditModal({
   demoMode,
 }: Props) {
   const isDemo = !!demoMode;
-  const [editMode, setEditMode] = useState<EditMode>(demoMode?.editMode ?? "manual");
+  const [editMode, setEditMode] = useState<EditMode>(demoMode?.editMode ?? "ai");
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
@@ -2158,6 +2362,8 @@ export default function SceneEditModal({
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
+  // AI-mode disclosure: reveal the "tell AI what to change" box on demand.
+  const [showImproveBox, setShowImproveBox] = useState(false);
   const [showImageGenModal, setShowImageGenModal] = useState(false);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
@@ -2228,6 +2434,7 @@ export default function SceneEditModal({
   const isDefaultTemplate = normalizedTemplateId === "default";
   const isBloombergTemplate = normalizedTemplateId === "bloomberg";
   const isLaDucTemplate = normalizedTemplateId === "laduc";
+  const isEconomistTemplate = normalizedTemplateId === "economist";
   // FJ Market Brief is a crafted template — project.template carries the public id.
   const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
 
@@ -2298,6 +2505,26 @@ export default function SceneEditModal({
     regenerateVoiceover ||
     selectedLayout !== "__keep__";
 
+  // True when the AI model actually runs a rewrite (an instruction was given, or AI
+  // is asked to re-pick the layout). Plain text edits / toggles are just a save.
+  const aiWillRewrite =
+    description.trim().length > 0 || selectedLayout === "__auto__";
+
+  // Display-only helpers for the AI panel meta row + voiceover status.
+  const aiWordCount = aiNarration.trim() ? aiNarration.trim().split(/\s+/).length : 0;
+  // Rough estimate: ~2.5 spoken words per second.
+  const aiEstimatedSeconds = Math.max(1, Math.round(aiWordCount / 2.5));
+  const voiceoverUpToDate =
+    !regenerateVoiceover &&
+    aiNarration.trim() === (scene.narration_text || "").trim();
+  const voiceLabel = (() => {
+    const accent = project.voice_accent ? project.voice_accent.trim() : "";
+    const gender = project.voice_gender ? project.voice_gender.trim() : "";
+    if (project.custom_voice_id) return "Custom voice";
+    const parts = [accent, gender].filter(Boolean);
+    return parts.length ? parts.join(" · ") : "Default";
+  })();
+
   useEffect(() => {
     if (!open) return;
     setTitle(scene.title);
@@ -2307,6 +2534,7 @@ export default function SceneEditModal({
     setDisplayText(initialDisplay);
     setAiNarration(scene.narration_text || "");
     setExtraHoldSeconds(scene.extra_hold_seconds != null ? String(scene.extra_hold_seconds) : "");
+    setShowImproveBox(false);
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
@@ -2510,6 +2738,17 @@ export default function SceneEditModal({
             // and the chart renders procedural candles (correct behaviour for pre-OHLCV scenes)
           }
         }
+        // Economist chart_line / chart_bar / data_table: seed shape-appropriate
+        // example data when the stored chartTable is empty, so the editor (and
+        // preview) render immediately — matching laduc's data-layout behaviour.
+        if (isEconomistTemplate && (layoutId === "chart_line" || layoutId === "chart_bar" || layoutId === "data_table")) {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          if (!chartTableHasData(directChartTable)) {
+            const kind = layoutId === "chart_line" ? "line" : layoutId === "chart_bar" ? "bar" : "table";
+            lpCopy.chartTable = getEconomistChartExampleTable(kind);
+          }
+        }
       } catch { /* ignore */ }
     }
     // For custom templates, CTA data lives in ctaProps, not layoutProps
@@ -2526,6 +2765,7 @@ export default function SceneEditModal({
     // and rendered MP4 produce. No-op for non-market_annotation layouts.
     lpCopy = mergeMarketAnnotationChartDefaultsForLayout(
       lpCopy,
+      normalizedTemplateId,
       layoutId,
       layouts?.layout_prop_schema as
         | Record<string, { defaults?: Record<string, unknown> }>
@@ -3157,6 +3397,29 @@ export default function SceneEditModal({
   const applySelectedLayout = (next: string) => {
     setSelectedLayout(next);
     if (next === "__keep__" || next === "__auto__") return;
+    // Economist: seed shape-appropriate example data when switching into a data layout.
+    if (isEconomistTemplate && (next === "chart_line" || next === "chart_bar" || next === "data_table")) {
+      const kind = next === "chart_line" ? "line" : next === "chart_bar" ? "bar" : "table";
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.chartTable);
+        if (chartTableHasData(existing)) return prev;
+        return { ...prev, chartTable: getEconomistChartExampleTable(kind) };
+      });
+      return;
+    }
+    // Built-in data-viz templates (matrix/spotlight/chronicle): seed themed
+    // example data when switching into a chart layout with no existing data. The
+    // bar/histogram variant layouts seed their kind; the base layout seeds line.
+    if (isBuiltinDataVizChartLayout(normalizedTemplateId, next)) {
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.chartTable);
+        if (chartTableHasData(existing)) return prev;
+        const kind = builtinChartKindForLayout(normalizedTemplateId, next) ?? "line";
+        const example = builtinDataVizExampleTable(normalizedTemplateId, kind);
+        return example ? { ...prev, chartTable: example } : prev;
+      });
+      return;
+    }
     // Seed example chart data when switching into a chart layout with no existing data
     const isChartLayout =
       ((isLaDucTemplate || isFjBriefTemplate) && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
@@ -3408,10 +3671,10 @@ export default function SceneEditModal({
         onClick={onClose}
       />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+        className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[92vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
             Edit Scene {scene.order}
           </h2>
@@ -3425,8 +3688,8 @@ export default function SceneEditModal({
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1">
-          {/* Manual vs AI toggle */}
+        <div className="px-8 py-6 overflow-y-auto flex-1">
+          {/* Manual vs AI toggle (compact). AI-Assisted is the default selection. */}
           <div>
             <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
               Editing mode
@@ -3456,20 +3719,20 @@ export default function SceneEditModal({
               </button>
             </div>
             {editMode === "ai" && canUseAI && (
-              <p className="mt-1 text-xs text-gray-600 font-medium">
-                AI-Assisted-Editing limit: {isPro ? "Unlimited" : `${Math.max(0, 3 - aiUsageCount)} of 3 remaining this period`}
+              <p className="mt-2 text-xs text-gray-600 font-medium">
+                AI edits remaining: {isPro ? "Unlimited" : `${Math.max(0, 3 - aiUsageCount)} of 3 this period`}
               </p>
             )}
             {editMode === "ai" && !canUseAI && (
-              <p className="mt-1 text-xs font-medium text-red-600">
-                The limit for AI-Assisted Editing has been reached.
+              <p className="mt-2 text-xs font-medium text-red-600">
+                You've used all your AI edits for this period.
               </p>
             )}
           </div>
 
           {/* ── Manual mode fields ── */}
           {editMode === "manual" && (
-            <div className="mt-5 space-y-4">
+            <div className="mt-4 space-y-4">
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                   Title
@@ -3700,9 +3963,25 @@ export default function SceneEditModal({
                   isCraftedTemplate && currentLayoutId
                     ? pickLayoutPropSchemaFieldDefs(craftedTemplateEntry?.layout_prop_schema, currentLayoutId)
                     : undefined;
+                // Built-in (bundled) data-viz templates (matrix/spotlight/chronicle)
+                // source their chart/ticker editor fields from meta.json
+                // (layout_prop_schema), the same way crafted templates do — scoped
+                // to the registered chart + ticker layouts so other layouts keep
+                // using LAYOUT_TEXT_FIELDS.
+                const builtinDataVizSchemaFields =
+                  (isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
+                    isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId))
+                    ? pickLayoutPropSchemaFieldDefs(
+                        layouts?.layout_prop_schema as unknown as
+                          | Record<string, LayoutPropSchema>
+                          | undefined,
+                        currentLayoutId,
+                      )
+                    : undefined;
                 const rawLayoutFields =
                   craftedFields ??
                   schemaBackedFields ??
+                  builtinDataVizSchemaFields ??
                   getLayoutFields(project.template || "default", currentLayoutId);
                 let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
 
@@ -3991,6 +4270,9 @@ export default function SceneEditModal({
                           isNewscastTemplate &&
                           currentLayoutId === "data_visualization" &&
                           field.key === "chartType";
+                        const isBuiltinChartTypeField =
+                          field.key === "chartType" &&
+                          isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId);
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -3998,6 +4280,23 @@ export default function SceneEditModal({
                               value={sel}
                               onChange={(e) => {
                                 const nextChartType = e.target.value;
+                                if (isBuiltinChartTypeField) {
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    const example = builtinDataVizExampleTable(normalizedTemplateId, concrete);
+                                    if (example) {
+                                      setEditableLayoutProps((prev) => ({
+                                        ...prev,
+                                        [field.key]: nextChartType,
+                                        chartTable: example,
+                                      }));
+                                      return;
+                                    }
+                                  }
+                                }
                                 if (isLaDucChartTypeField || isFjBriefChartTypeField || isFJResearchChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
                                   const concrete =
                                     nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
@@ -4094,6 +4393,7 @@ export default function SceneEditModal({
                       }
                       if (field.type === "string_array") {
                         const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
+                        const minItems = field.minItems ?? 0;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4111,18 +4411,20 @@ export default function SceneEditModal({
                                     }}
                                     className={`flex-1 ${inputClass}`}
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = items.filter((_, j) => j !== i);
-                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
+                                  {items.length > minItems ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  ) : null}
                                 </div>
                               ))}
                               {(!field.maxItems || items.length < field.maxItems) && (
@@ -4148,6 +4450,7 @@ export default function SceneEditModal({
                             ? field.subFields
                             : inferObjectArraySubFields(items);
                         if (!subFields.length) return null;
+                        const minItems = field.minItems ?? 0;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4173,18 +4476,20 @@ export default function SceneEditModal({
                                       </div>
                                     ))}
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = items.filter((_, j) => j !== i);
-                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
+                                  {items.length > minItems ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  ) : null}
                                 </div>
                               ))}
                               {(!field.maxItems || items.length < field.maxItems) && (
@@ -4683,24 +4988,18 @@ export default function SceneEditModal({
 
           {/* ── AI-Assisted mode fields ── */}
           {editMode === "ai" && (
-            <div className={`mt-5 space-y-4 ${!canUseAI ? "pointer-events-none opacity-60" : ""}`}>
+            <div className={`mt-4 space-y-4 ${!canUseAI ? "pointer-events-none opacity-60" : ""}`}>
+              {/* STEP 1 — the narration box, clearly labeled as the thing being edited. */}
               <div>
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Visual description <span className="normal-case tracking-normal text-gray-300">(optional)</span>
-                </h4>
-                <AutoGrowTextarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe how you want the visuals to change..."
-                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
-                  minRows={2}
-                />
-              </div>
-
-              <div>
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Narration text (voiceover script)
-                </h4>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <h4 className="text-sm font-semibold text-gray-900">Scene narration</h4>
+                  <span className="text-xs text-gray-400">{aiWordCount} {aiWordCount === 1 ? "word" : "words"} · ~{aiEstimatedSeconds}s</span>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">
+                  {showImproveBox
+                    ? "AI will rewrite this for you — finish your instruction below. Close “Rewrite with AI” to edit it by hand."
+                    : "This is what's spoken in the voiceover and shown on screen. Edit it directly, or use AI below."}
+                </p>
                 <AutoGrowTextarea
                   value={aiNarration}
                   onChange={(e) => {
@@ -4711,68 +5010,163 @@ export default function SceneEditModal({
                       setRegenerateVoiceover(true);
                     }
                   }}
-                  placeholder="Edit the narration that will be spoken in the voiceover..."
-                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
-                  minRows={3}
+                  disabled={showImproveBox}
+                  placeholder="Edit the narration that will be spoken in this scene..."
+                  className={`w-full px-4 py-3 text-[15px] leading-relaxed border rounded-xl resize-none overflow-hidden transition-colors ${
+                    showImproveBox
+                      ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                      : "border-gray-200 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  }`}
+                  minRows={4}
                 />
-                <p className="mt-1 text-xs text-gray-500">
-                  This controls the spoken narration and scene timing. Display text is edited in Manual mode.
-                </p>
+                {/* Make the auto-enabled re-record visible — no silent state change. */}
+                {!showImproveBox &&
+                  aiNarration.trim() !== (scene.narration_text || "").trim() &&
+                  regenerateVoiceover && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-600">
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9l-7.5 13A2 2 0 004.5 20h15a2 2 0 001.7-3.1l-7.5-13a2 2 0 00-3.4 0z" />
+                      </svg>
+                      You changed the narration, so the voiceover will be re-recorded on save.
+                    </p>
+                  )}
               </div>
 
-              <div className="flex items-center justify-between">
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-                  Regenerate voiceover
-                </h4>
+              {/* STEP 2 — the one AI action, plainly named. Opens an instruction box. */}
+              <div>
                 <button
                   type="button"
-                  onClick={() => setRegenerateVoiceover(!regenerateVoiceover)}
-                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                    regenerateVoiceover ? "bg-purple-600" : "bg-gray-200"
+                  onClick={() => setShowImproveBox((v) => !v)}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+                    showImproveBox || description.trim()
+                      ? "border-purple-500 bg-purple-600 text-white hover:bg-purple-700"
+                      : "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
                   }`}
-                  role="switch"
-                  aria-checked={regenerateVoiceover}
                 >
-                  <span
-                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      regenerateVoiceover ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
+                  <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M11.3 1.9a.7.7 0 011.4 0l1 3.1a3 3 0 001.9 1.9l3.1 1a.7.7 0 010 1.4l-3.1 1a3 3 0 00-1.9 1.9l-1 3.1a.7.7 0 01-1.4 0l-1-3.1a3 3 0 00-1.9-1.9l-3.1-1a.7.7 0 010-1.4l3.1-1a3 3 0 001.9-1.9l1-3.1z" />
+                  </svg>
+                  {showImproveBox ? "Tell AI what to change" : "Rewrite this with AI"}
                 </button>
+                {showImproveBox && (
+                  <div className="mt-3 rounded-xl border border-purple-200 bg-purple-50/40 p-3">
+                    <label className="block text-xs font-semibold text-purple-700 mb-1.5">
+                      What should AI change?
+                    </label>
+                    <AutoGrowTextarea
+                      value={description}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setDescription(next);
+                        // An AI instruction means the narration will change, so the
+                        // current voiceover is now stale — auto-enable re-record.
+                        if (next.trim()) {
+                          setRegenerateVoiceover(true);
+                        }
+                      }}
+                      placeholder="Describe the change in plain English. For example: “Make it shorter and punchier, lead with the café count, and keep a warm, inviting tone.”"
+                      className="w-full px-3.5 py-3 text-[15px] text-gray-800 leading-relaxed border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
+                      minRows={4}
+                    />
+                  </div>
+                )}
               </div>
 
-              {regenerateVoiceover && (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-                      Match narration exactly
-                    </h4>
-                    <p className="mt-0.5 text-[11px] text-gray-400">
-                      Speak the narration word-for-word, without AI rephrasing.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setMatchNarrationExactly(!matchNarrationExactly)}
-                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                      matchNarrationExactly ? "bg-purple-600" : "bg-gray-200"
-                    }`}
-                    role="switch"
-                    aria-checked={matchNarrationExactly}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        matchNarrationExactly ? "translate-x-4" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+              {/* STEP 3 — settings applied when you save. Grouped + labeled so each is clear. */}
+              <div className="rounded-xl border border-gray-100 divide-y divide-gray-100">
+                <div className="px-4 py-2.5 bg-gray-50/70 rounded-t-xl">
+                  <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">When you save</h4>
                 </div>
-              )}
 
-              <div ref={layoutRef} className="relative">
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Layout
-                </h4>
+                {/* Regenerate voiceover — a setting, with description + live status. */}
+                <div className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800">Re-record the voiceover</p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        Generate fresh audio for the new narration. Turn off to keep the current audio.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRegenerateVoiceover((v) => !v)}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                        regenerateVoiceover ? "bg-purple-600" : "bg-gray-200"
+                      }`}
+                      role="switch"
+                      aria-checked={regenerateVoiceover}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          regenerateVoiceover ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Sub-option only matters when re-recording. */}
+                  {regenerateVoiceover && (
+                    <div className="mt-3 ml-0 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-700">Speak it word-for-word</p>
+                        <p className="mt-0.5 text-[11px] text-gray-500">
+                          On: say the narration exactly. Off: let AI smooth the phrasing.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMatchNarrationExactly(!matchNarrationExactly)}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                          matchNarrationExactly ? "bg-purple-600" : "bg-gray-200"
+                        }`}
+                        role="switch"
+                        aria-checked={matchNarrationExactly}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            matchNarrationExactly ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Live status so the choice's effect is obvious. */}
+                  <div className="mt-2.5 flex items-center gap-1.5 text-xs">
+                    {voiceoverUpToDate ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="9" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.5 2.5 4.5-5" />
+                        </svg>
+                        <span className="text-green-600 font-medium">Voiceover is up to date — no new audio needed</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9l-7.5 13A2 2 0 004.5 20h15a2 2 0 001.7-3.1l-7.5-13a2 2 0 00-3.4 0z" />
+                        </svg>
+                        <span className="text-amber-600 font-medium">New voiceover will be generated on save</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Which voice — quiet info. */}
+                  <div className="mt-2 flex items-center gap-1.5 text-[11px] text-gray-400">
+                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3zM5 10v1a7 7 0 0014 0v-1M12 18v4" />
+                    </svg>
+                    <span>Voice: <span className="font-medium text-gray-500 capitalize">{voiceLabel}</span> — change in project Settings</span>
+                  </div>
+                </div>
+
+                {/* Scene layout — labeled, inline, no mystery "Advanced". */}
+                <div ref={layoutRef} className="relative px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800">Scene layout</p>
+                      <p className="mt-0.5 text-xs text-gray-500">How this scene is arranged on screen. Keep it, or let AI re-pick.</p>
+                    </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
                     {selectedLayout === "__keep__"
@@ -4853,13 +5247,15 @@ export default function SceneEditModal({
                       })}
                   </div>
                 )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
         </div>
 
-        <div className="p-6 border-t border-gray-100 flex justify-end gap-2">
+        <div className="px-8 py-5 border-t border-gray-100 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -4875,7 +5271,13 @@ export default function SceneEditModal({
             disabled={loading || (editMode === "ai" && (!aiHasChanges || !canUseAI))}
             className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Saving..." : editMode === "manual" ? "Save changes" : "Apply AI edit"}
+            {loading
+              ? "Saving..."
+              : editMode === "manual"
+                ? "Save changes"
+                : aiWillRewrite
+                  ? "Rewrite with AI"
+                  : "Save changes"}
           </button>
         </div>
       </div>

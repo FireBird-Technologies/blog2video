@@ -6,6 +6,8 @@ import { StatStage } from "./StatStage";
 import { Versus } from "./Versus";
 import { SpotlightImage } from "./SpotlightImage";
 import { RapidPoints } from "./RapidPoints";
+import { SpotlightDataChart } from "./SpotlightDataChart";
+import { SpotlightTable } from "./SpotlightTable";
 import { Closer } from "./Closer";
 import { EndingSocials } from "./EndingSocials";
 import type { SpotlightLayoutType, SpotlightLayoutProps } from "../types";
@@ -24,6 +26,10 @@ export const SPOTLIGHT_LAYOUT_REGISTRY: Record<
   versus: Versus,
   spotlight_image: SpotlightImage,
   rapid_points: RapidPoints,
+  spotlight_data: SpotlightDataChart,
+  spotlight_data_bar: SpotlightDataChart,
+  spotlight_data_histogram: SpotlightDataChart,
+  spotlight_table: SpotlightTable,
   closer: Closer,
   ending_socials: EndingSocials,
 };

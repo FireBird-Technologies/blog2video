@@ -9,6 +9,8 @@ import { VersusFolio } from "./VersusFolio";
 import { ChronicleTimeline } from "./ChronicleTimeline";
 import { MapReveal } from "./MapReveal";
 import { DecreeSeal } from "./DecreeSeal";
+import { ChronicleDataChart } from "./ChronicleDataChart";
+import { ChronicleTable } from "./ChronicleTable";
 import { EndingSocials } from "./EndingSocials";
 
 export const CHRONICLE_LAYOUT_REGISTRY: Record<
@@ -24,6 +26,8 @@ export const CHRONICLE_LAYOUT_REGISTRY: Record<
   chronicle_timeline: ChronicleTimeline,
   map_reveal: MapReveal,
   decree_seal: DecreeSeal,
+  chronicle_data: ChronicleDataChart,
+  chronicle_table: ChronicleTable,
   ending_socials: EndingSocials,
 };
 
@@ -37,5 +41,7 @@ export {
   ChronicleTimeline,
   MapReveal,
   DecreeSeal,
+  ChronicleDataChart,
+  ChronicleTable,
   EndingSocials,
 };

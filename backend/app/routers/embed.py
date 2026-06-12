@@ -13,8 +13,8 @@ from app.config import settings
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.schemas import SceneOut, AssetOut
-from app.services.template_service import is_custom_template, is_crafted_template, _load_custom_template_data
-from app.services.crafted_template_service import validate_crafted_template_access
+from app.services.template_service import is_custom_template, is_crafted_template, _load_custom_template_data, get_meta
+from app.services.crafted_template_service import validate_crafted_template_access, load_crafted_template_package
 
 router = APIRouter(prefix="/api/embed", tags=["embed"])
 
@@ -86,14 +86,60 @@ def get_embed_project(token: str, db: Session = Depends(get_db)) -> JSONResponse
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if is_custom_template(project.template) or is_crafted_template(project.template):
-        if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, project.user_id, db):
+    crafted_template: Optional[dict] = None
+    custom_template_code: Optional[dict] = None
+    layout_prop_schema: Optional[dict] = None
+
+    if is_crafted_template(project.template):
+        if not validate_crafted_template_access(project.template, project.user_id, db):
             raise HTTPException(status_code=403, detail="Crafted template access revoked for this project")
+        package = load_crafted_template_package(
+            template_id=project.template,
+            user_id=project.user_id,
+            db=db,
+            require_entitlement=True,
+        )
+        if not package:
+            raise HTTPException(status_code=404, detail="Crafted template package not found")
+        meta = package.get("meta") if isinstance(package.get("meta"), dict) else {}
+        project.custom_theme = package.get("theme")
+        crafted_template = {
+            "id": package.get("template_id") or project.template,
+            "name": package.get("name") or "",
+            "valid_layouts": meta.get("valid_layouts"),
+            "fallback_layout": meta.get("fallback_layout"),
+            "hero_layout": meta.get("hero_layout"),
+            "layout_prop_schema": meta.get("layout_prop_schema"),
+            "preview_colors": meta.get("preview_colors"),
+            "intro_code": package.get("intro_code"),
+            "outro_code": package.get("outro_code"),
+            "content_codes": package.get("content_codes"),
+            "content_archetype_ids": package.get("content_archetype_ids"),
+            "frontend_files": package.get("frontend_files") or {},
+            "frontend_entry_rel": package.get("frontend_entry_rel") or "",
+            "frontend_layout_index_rel": package.get("frontend_layout_index_rel") or "",
+            "frontend_mount_id": package.get("frontend_mount_id") or "",
+            "public_asset_urls": package.get("public_asset_urls") or {},
+            "theme": package.get("theme"),
+        }
+    elif is_custom_template(project.template):
         data = _load_custom_template_data(project.template, db=db, user_id=project.user_id)
         project.custom_theme = data["theme"] if data else None
+        if data:
+            custom_template_code = {
+                "intro_code": data.get("intro_code"),
+                "outro_code": data.get("outro_code"),
+                "content_codes": data.get("content_codes"),
+            }
     else:
         project.custom_theme = None
+        meta = get_meta(project.template)
+        layout_prop_schema = (meta or {}).get("layout_prop_schema") or {}
 
     out = EmbedProjectOut.model_validate(project)
+    payload = out.model_dump(mode="json")
+    payload["crafted_template"] = crafted_template
+    payload["custom_template_code"] = custom_template_code
+    payload["layout_prop_schema"] = layout_prop_schema
     headers = {"Access-Control-Allow-Origin": "*"}
-    return JSONResponse(content=out.model_dump(mode="json"), headers=headers)
+    return JSONResponse(content=payload, headers=headers)
