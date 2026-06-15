@@ -509,6 +509,13 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0, h: 1.0 },
   },
 
+  // Polaroid expert photo: left 45% column landscape / top 38% band portrait
+  // (see ExpertProfile.tsx — image card with 6% side margins in portrait).
+  expert_profile: {
+    landscape: { w: 0.38, h: 0.58 }, // ~45% col polaroid card
+    portrait:  { w: 0.88, h: 0.38 }, // top 38% with 6% side margin
+  },
+
   // ─────────────────────────────────────────────────────────────────────────
   // WHITEBOARD template  (canvas 1280 × 720)
   // ─────────────────────────────────────────────────────────────────────────
@@ -603,9 +610,30 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   // rail ≈ 55% canvas height (top header + bottom footnote + padV 5.5% × 2)
   // image takes flex: 0 0 28% of rail width → 0.28 × 0.85 ≈ 0.24 wide × 0.55 high
   // See LaDucFrameworkFlow.tsx:330-344
-  framework_flow: {
-    landscape: { w: 0.24, h: 0.55 },
-    portrait:  { w: 1.00, h: 1.00 },
+  // ─────────────────────────────────────────────────────────────────────────
+  // STICKMAN 2 template  (canvas 1920 × 1080)
+  // Full-bleed atmospheric background at 0.35 opacity — same as chalk_title hero.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  chalk_title: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+  shooting_star: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+  night_walk: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+  lantern_dialogue: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+  neon_countdown: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
   },
 };
 

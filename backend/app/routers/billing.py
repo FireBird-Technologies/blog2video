@@ -1,6 +1,6 @@
 """
 Stripe billing router: checkout sessions, customer portal, webhooks.
-Supports both Pro subscription ($50/mo) and per-video purchase ($3).
+Supports both Pro subscription ($60/mo) and per-video purchase ($3).
 """
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -364,6 +364,428 @@ def create_per_video_checkout(
     return CheckoutResponse(checkout_url=session.url)
 
 
+# ─── Change Plan (Upgrade / Downgrade for existing paid users) ────
+
+# Lexicographic rank — tier dominates cycle. Higher rank = more expensive commitment.
+_PLAN_RANK: dict[str, tuple[int, int]] = {
+    "standard_monthly": (1, 1),
+    "standard_annual":  (1, 2),
+    "pro_monthly":      (2, 1),
+    "pro_annual":       (2, 2),
+}
+
+
+def _target_slug(plan: str, billing_cycle: str) -> str:
+    return f"{plan}_{billing_cycle}"
+
+
+def _classify_direction(current_slug: str, target_slug: str) -> str:
+    """Return 'upgrade' or 'downgrade'. Raises 400 if same or unknown."""
+    if current_slug == target_slug:
+        raise HTTPException(status_code=400, detail="Already on this plan")
+    if current_slug not in _PLAN_RANK or target_slug not in _PLAN_RANK:
+        raise HTTPException(status_code=400, detail="Unsupported plan slug")
+    return "upgrade" if _PLAN_RANK[target_slug] > _PLAN_RANK[current_slug] else "downgrade"
+
+
+class ChangePlanRequest(BaseModel):
+    plan: str           # "standard" | "pro"
+    billing_cycle: str  # "monthly" | "annual"
+
+
+class ChangePlanPreviewOut(BaseModel):
+    direction: str
+    current_plan_slug: str
+    target_plan_slug: str
+    amount_due_today_cents: int          # 0 for downgrade
+    proration_credit_cents: int          # for upgrade only; 0 for downgrade
+    credit_to_balance_cents: int = 0     # surplus proration credit parked on the customer balance
+    target_plan_price_cents: int         # full price of the target plan
+    new_period_start_iso: str            # today for upgrade; current_period_end for downgrade
+    new_period_end_iso: str | None
+    effective_date_iso: str
+    currency: str = "usd"
+
+
+class ChangePlanOut(BaseModel):
+    status: str
+    direction: str
+    target_plan_slug: str
+    effective_date_iso: str
+    amount_due_today_cents: int
+
+
+def _get_active_subscription(user: User, db: Session) -> Subscription:
+    sub = (
+        db.query(Subscription)
+        .filter(
+            Subscription.user_id == user.id,
+            Subscription.status.in_([
+                SubscriptionStatus.ACTIVE,
+                SubscriptionStatus.PAST_DUE,
+                SubscriptionStatus.REQUIRES_ACTION,
+            ]),
+            Subscription.stripe_subscription_id.isnot(None),
+        )
+        .order_by(Subscription.created_at.desc())
+        .first()
+    )
+    if not sub or not user.stripe_subscription_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No active subscription — use /checkout to subscribe",
+        )
+    return sub
+
+
+def _validate_change_plan_request(body: ChangePlanRequest) -> str:
+    if body.plan not in ("standard", "pro"):
+        raise HTTPException(status_code=400, detail="plan must be 'standard' or 'pro'")
+    if body.billing_cycle not in ("monthly", "annual"):
+        raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'annual'")
+    return _target_slug(body.plan, body.billing_cycle)
+
+
+def _release_existing_schedule(sub: Subscription) -> None:
+    """Release any in-flight SubscriptionSchedule so we can either upgrade now
+    or set a fresh schedule. Silently tolerates a stale id."""
+    if not sub.stripe_schedule_id:
+        return
+    try:
+        stripe.SubscriptionSchedule.release(sub.stripe_schedule_id)
+    except stripe.error.InvalidRequestError as e:
+        logger.warning(
+            "[BILLING] Could not release schedule %s: %s",
+            sub.stripe_schedule_id, e,
+        )
+    sub.stripe_schedule_id = None
+    sub.scheduled_plan_id = None
+    sub.scheduled_change_at = None
+
+
+@router.post("/change-plan-preview", response_model=ChangePlanPreviewOut)
+def preview_change_plan(
+    body: ChangePlanRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return the dollar amount and effective date for a proposed plan switch."""
+    target_slug = _validate_change_plan_request(body)
+    sub = _get_active_subscription(user, db)
+    current_slug = sub.plan.slug if sub.plan else ""
+    direction = _classify_direction(current_slug, target_slug)
+
+    target_plan = db.query(SubscriptionPlan).filter_by(slug=target_slug).first()
+    if not target_plan or not target_plan.stripe_price_id:
+        raise HTTPException(status_code=400, detail=f"Target plan {target_slug} is not configured")
+
+    now = datetime.utcnow()
+
+    if direction == "downgrade":
+        # Scheduled at period end — no charge today.
+        effective_date = sub.current_period_end or now
+        return ChangePlanPreviewOut(
+            direction="downgrade",
+            current_plan_slug=current_slug,
+            target_plan_slug=target_slug,
+            amount_due_today_cents=0,
+            proration_credit_cents=0,
+            target_plan_price_cents=target_plan.price_cents,
+            new_period_start_iso=effective_date.isoformat(),
+            new_period_end_iso=None,
+            effective_date_iso=effective_date.isoformat(),
+        )
+
+    # Upgrade: ask Stripe to preview the invoice with proration + cycle reset.
+    try:
+        stripe_sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
+        item_id = stripe_sub["items"]["data"][0]["id"]
+
+        if hasattr(stripe.Invoice, "create_preview"):
+            upcoming = stripe.Invoice.create_preview(
+                customer=user.stripe_customer_id,
+                subscription=user.stripe_subscription_id,
+                subscription_details={
+                    "items": [{"id": item_id, "price": target_plan.stripe_price_id}],
+                    "proration_behavior": "always_invoice",
+                    "billing_cycle_anchor": "now",
+                },
+            )
+        else:
+            upcoming = stripe.Invoice.upcoming(
+                customer=user.stripe_customer_id,
+                subscription=user.stripe_subscription_id,
+                subscription_items=[{"id": item_id, "price": target_plan.stripe_price_id}],
+                subscription_proration_behavior="always_invoice",
+                subscription_billing_cycle_anchor="now",
+            )
+    except stripe.error.StripeError as e:
+        logger.exception("[BILLING] Failed to preview upgrade for user=%s", user.id)
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # `total` is the net of the invoice and can be negative when the proration
+    # credit for unused time exceeds the new plan's prorated charge. Stripe never
+    # bills a negative amount — it parks the surplus on the customer's credit
+    # balance and applies it to future invoices. We surface both numbers.
+    total_cents = int(getattr(upcoming, "total", 0) or 0)
+    amount_due = int(getattr(upcoming, "amount_due", 0) or 0)
+    if not amount_due:
+        amount_due = total_cents
+
+    # Sum negative line items to surface the credit applied for unused time.
+    credit_cents = 0
+    lines = getattr(upcoming, "lines", None)
+    line_items = getattr(lines, "data", []) if lines is not None else []
+    for line in line_items:
+        amt = getattr(line, "amount", None)
+        if isinstance(line, dict):
+            amt = line.get("amount")
+        if isinstance(amt, int) and amt < 0:
+            credit_cents += -amt
+
+    return ChangePlanPreviewOut(
+        direction="upgrade",
+        current_plan_slug=current_slug,
+        target_plan_slug=target_slug,
+        amount_due_today_cents=max(0, amount_due),
+        proration_credit_cents=credit_cents,
+        credit_to_balance_cents=max(0, -total_cents),
+        target_plan_price_cents=target_plan.price_cents,
+        new_period_start_iso=now.isoformat(),
+        new_period_end_iso=None,
+        effective_date_iso=now.isoformat(),
+    )
+
+
+@router.post("/change-plan", response_model=ChangePlanOut)
+def change_plan(
+    body: ChangePlanRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Switch an existing paid user to a different paid plan.
+
+    Upgrade  → immediate switch via Subscription.modify with proration.
+    Downgrade → scheduled at period end via SubscriptionSchedule.
+    """
+    target_slug = _validate_change_plan_request(body)
+    sub = _get_active_subscription(user, db)
+    current_slug = sub.plan.slug if sub.plan else ""
+
+    # Block plan changes when payment is in trouble — user must resolve first.
+    if sub.status in (SubscriptionStatus.PAST_DUE, SubscriptionStatus.REQUIRES_ACTION):
+        raise HTTPException(
+            status_code=409,
+            detail="Resolve your payment issue in the billing portal before changing plans",
+        )
+
+    direction = _classify_direction(current_slug, target_slug)
+
+    target_plan = db.query(SubscriptionPlan).filter_by(slug=target_slug).first()
+    if not target_plan or not target_plan.stripe_price_id:
+        raise HTTPException(status_code=400, detail=f"Target plan {target_slug} is not configured")
+
+    try:
+        stripe_sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    item_id = stripe_sub["items"]["data"][0]["id"]
+    now = datetime.utcnow()
+
+    if direction == "upgrade":
+        # Wipe any pending downgrade first — upgrading supersedes it.
+        _release_existing_schedule(sub)
+
+        try:
+            updated = stripe.Subscription.modify(
+                user.stripe_subscription_id,
+                items=[{"id": item_id, "price": target_plan.stripe_price_id}],
+                proration_behavior="always_invoice",
+                billing_cycle_anchor="now",
+                cancel_at_period_end=False,
+                payment_behavior="error_if_incomplete",
+                metadata={
+                    "plan": body.plan,
+                    "billing_cycle": body.billing_cycle,
+                    "switch_reason": "upgrade",
+                },
+            )
+        except stripe.error.CardError as e:
+            raise HTTPException(status_code=402, detail=str(e))
+        except stripe.error.StripeError as e:
+            logger.exception("[BILLING] Stripe error on upgrade for user=%s", user.id)
+            raise HTTPException(status_code=400, detail=str(e))
+
+        # The proration invoice (always_invoice) is what the user actually paid
+        # today — not the full recurring price. Read it back so amount_paid_cents
+        # reflects reality. Fall back to the plan price if the invoice is missing.
+        charged_cents = target_plan.price_cents
+        latest_invoice_id = (
+            updated.get("latest_invoice") if isinstance(updated, dict)
+            else getattr(updated, "latest_invoice", None)
+        )
+        if isinstance(latest_invoice_id, dict):
+            latest_invoice_id = latest_invoice_id.get("id")
+        elif hasattr(latest_invoice_id, "id"):
+            latest_invoice_id = latest_invoice_id.id
+        if latest_invoice_id:
+            try:
+                inv = stripe.Invoice.retrieve(latest_invoice_id)
+                charged_cents = (
+                    int(getattr(inv, "amount_paid", 0) or 0)
+                    or int(getattr(inv, "amount_due", 0) or 0)
+                )
+            except stripe.error.StripeError:
+                logger.warning(
+                    "[BILLING] Could not read proration invoice %s for user=%s; "
+                    "falling back to plan price",
+                    latest_invoice_id, user.id,
+                )
+
+        # Sync DB synchronously — webhook is a safety net.
+        sub.plan_id = target_plan.id
+        sub.status = SubscriptionStatus.ACTIVE
+        sub.amount_paid_cents = charged_cents
+        sub.canceled_at = None
+        period_start = (
+            updated.get("current_period_start") if isinstance(updated, dict)
+            else getattr(updated, "current_period_start", None)
+        )
+        period_end = (
+            updated.get("current_period_end") if isinstance(updated, dict)
+            else getattr(updated, "current_period_end", None)
+        )
+        sub.current_period_start = datetime.utcfromtimestamp(period_start) if period_start else now
+        if period_end:
+            sub.current_period_end = datetime.utcfromtimestamp(period_end)
+
+        # Update user-level state for the new cycle.
+        if target_slug.startswith("pro"):
+            user.plan = PlanTier.PRO
+        else:
+            user.plan = PlanTier.STANDARD
+        user.videos_used_this_period = 0
+        user.period_start = now
+        _recalculate_video_limit_bonus(user, db)
+
+        db.commit()
+        return ChangePlanOut(
+            status="ok",
+            direction="upgrade",
+            target_plan_slug=target_slug,
+            effective_date_iso=now.isoformat(),
+            amount_due_today_cents=charged_cents,
+        )
+
+    # ── downgrade: schedule at period end ────────────────────────────────────
+    current_price_id = sub.plan.stripe_price_id if sub.plan else None
+    if not current_price_id:
+        raise HTTPException(status_code=400, detail="Current plan has no Stripe price configured")
+
+    effective_date = sub.current_period_end
+    if not effective_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Current subscription has no period end; cannot schedule downgrade",
+        )
+
+    try:
+        # Reuse an existing schedule if Stripe already attached one; otherwise create.
+        schedule_id = (
+            stripe_sub.get("schedule") if isinstance(stripe_sub, dict)
+            else getattr(stripe_sub, "schedule", None)
+        )
+        if isinstance(schedule_id, dict):
+            schedule_id = schedule_id.get("id")
+        elif hasattr(schedule_id, "id"):
+            schedule_id = schedule_id.id
+
+        if not schedule_id:
+            schedule = stripe.SubscriptionSchedule.create(
+                from_subscription=user.stripe_subscription_id,
+            )
+            schedule_id = schedule["id"] if isinstance(schedule, dict) else schedule.id
+        else:
+            schedule = stripe.SubscriptionSchedule.retrieve(schedule_id)
+
+        phases = schedule["phases"] if isinstance(schedule, dict) else schedule.phases
+        current_phase = phases[0]
+        current_phase_start = (
+            current_phase["start_date"] if isinstance(current_phase, dict)
+            else current_phase.start_date
+        )
+        current_phase_end = (
+            current_phase["end_date"] if isinstance(current_phase, dict)
+            else current_phase.end_date
+        )
+
+        stripe.SubscriptionSchedule.update(
+            schedule_id,
+            end_behavior="release",
+            phases=[
+                {
+                    "items": [{"price": current_price_id, "quantity": 1}],
+                    "start_date": current_phase_start,
+                    "end_date": current_phase_end,
+                    "proration_behavior": "none",
+                },
+                {
+                    "items": [{"price": target_plan.stripe_price_id, "quantity": 1}],
+                    "iterations": 1,
+                    "proration_behavior": "none",
+                },
+            ],
+            metadata={
+                "plan": body.plan,
+                "billing_cycle": body.billing_cycle,
+                "switch_reason": "downgrade",
+            },
+        )
+    except stripe.error.StripeError as e:
+        logger.exception("[BILLING] Stripe error scheduling downgrade for user=%s", user.id)
+        raise HTTPException(status_code=400, detail=str(e))
+
+    sub.scheduled_plan_id = target_plan.id
+    sub.scheduled_change_at = effective_date
+    sub.stripe_schedule_id = schedule_id
+    db.commit()
+
+    return ChangePlanOut(
+        status="ok",
+        direction="downgrade",
+        target_plan_slug=target_slug,
+        effective_date_iso=effective_date.isoformat(),
+        amount_due_today_cents=0,
+    )
+
+
+@router.post("/cancel-scheduled-change")
+def cancel_scheduled_change(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Release a pending scheduled downgrade — subscription continues on current plan."""
+    sub = _get_active_subscription(user, db)
+    if not sub.scheduled_plan_id or not sub.stripe_schedule_id:
+        raise HTTPException(status_code=400, detail="No scheduled plan change to cancel")
+
+    try:
+        stripe.SubscriptionSchedule.release(sub.stripe_schedule_id)
+    except stripe.error.InvalidRequestError as e:
+        logger.warning(
+            "[BILLING] SubscriptionSchedule.release failed for schedule=%s: %s",
+            sub.stripe_schedule_id, e,
+        )
+
+    sub.scheduled_plan_id = None
+    sub.scheduled_change_at = None
+    sub.stripe_schedule_id = None
+    db.commit()
+
+    return {"status": "ok", "message": "Scheduled plan change cancelled"}
+
+
 # ─── Customer Portal ──────────────────────────────────────
 
 @router.post("/portal", response_model=PortalResponse)
@@ -412,6 +834,9 @@ class SubscriptionDetailOut(BaseModel):
     amount_paid_cents: int
     canceled_at: str | None = None
     retention_offer_eligible: bool = False
+    scheduled_plan_slug: str | None = None
+    scheduled_plan_name: str | None = None
+    scheduled_change_at: str | None = None
     created_at: str
 
     class Config:
@@ -684,6 +1109,9 @@ def get_subscription_detail(
         amount_paid_cents=sub.amount_paid_cents,
         canceled_at=sub.canceled_at.isoformat() if sub.canceled_at else None,
         retention_offer_eligible=_is_retention_offer_eligible(user),
+        scheduled_plan_slug=sub.scheduled_plan.slug if sub.scheduled_plan else None,
+        scheduled_plan_name=sub.scheduled_plan.name if sub.scheduled_plan else None,
+        scheduled_change_at=sub.scheduled_change_at.isoformat() if sub.scheduled_change_at else None,
         created_at=sub.created_at.isoformat(),
     )
 
@@ -1123,6 +1551,20 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
     cancel_at_period_end = bool(subscription_data.get("cancel_at_period_end"))
     cancel_at_ts = subscription_data.get("cancel_at")  # Unix timestamp when it will cancel, if set
 
+    # Extract the price id of the current subscription item (used to detect plan switches).
+    incoming_price_id: str | None = None
+    try:
+        items = subscription_data.get("items") or {}
+        item_data = items.get("data") if isinstance(items, dict) else None
+        if item_data:
+            price_obj = item_data[0].get("price") if isinstance(item_data[0], dict) else None
+            if isinstance(price_obj, dict):
+                incoming_price_id = price_obj.get("id")
+            elif price_obj is not None:
+                incoming_price_id = getattr(price_obj, "id", None)
+    except Exception:
+        incoming_price_id = None
+
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
         if status in ("canceled", "unpaid", "past_due"):
@@ -1134,6 +1576,31 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
             stripe_subscription_id=stripe_sub_id
         ).first()
         if sub:
+            # Detect a price-id change (e.g. a scheduled downgrade firing on renewal,
+            # or a portal-initiated plan switch). Reconcile sub.plan_id from the new price.
+            if (
+                incoming_price_id
+                and sub.plan
+                and incoming_price_id != sub.plan.stripe_price_id
+            ):
+                new_plan = (
+                    db.query(SubscriptionPlan)
+                    .filter_by(stripe_price_id=incoming_price_id)
+                    .first()
+                )
+                if new_plan:
+                    was_scheduled_downgrade = (
+                        sub.scheduled_plan_id is not None
+                        and sub.scheduled_plan_id == new_plan.id
+                    )
+                    sub.plan_id = new_plan.id
+                    sub.scheduled_plan_id = None
+                    sub.scheduled_change_at = None
+                    sub.stripe_schedule_id = None
+                    if was_scheduled_downgrade:
+                        user.videos_used_this_period = 0
+                        user.period_start = datetime.utcnow()
+
             if status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("standard"):
                 user.plan = PlanTier.STANDARD
             elif status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("pro"):

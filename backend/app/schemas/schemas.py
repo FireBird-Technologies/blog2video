@@ -23,6 +23,7 @@ class ProjectCreate(BaseModel):
     logo_opacity: Optional[float] = 0.9  # 0.0 - 1.0
     logo_size: Optional[float] = 100.0  # percentage, e.g. 100 = 100%
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
+    voice_emotion: Optional[str] = None      # narration emotion/tone key (paid); neutral/None = default v2 path
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
     video_style: Optional[str] = "auto"   # auto | explainer | promotional | storytelling (auto = LLM picks after scraping)
     video_length: Optional[str] = "auto"  # auto | short (4-5) | medium (12-15) | detailed (23-30) | more_detailed (35-40)
@@ -76,6 +77,7 @@ class ProjectVoiceChange(BaseModel):
     voice_gender: Optional[str] = None
     voice_accent: Optional[str] = None
     custom_voice_id: Optional[str] = None
+    voice_emotion: Optional[str] = None
 
 
 class ProjectTemplateChangeRequest(BaseModel):
@@ -108,6 +110,7 @@ class ProjectRegenerateScriptJobOut(BaseModel):
     total_scenes: int
     processed_scenes: int
     error_message: Optional[str] = None
+    user_instruction: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None
@@ -124,6 +127,7 @@ class SceneOut(BaseModel):
     display_text: Optional[str] = None
     visual_description: str
     remotion_code: Optional[str] = None
+    preferred_layout: Optional[str] = None
     voiceover_path: Optional[str] = None
     duration_seconds: float
     extra_hold_seconds: Optional[float] = None
@@ -131,6 +135,21 @@ class SceneOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RegenerateScriptPreviewScene(BaseModel):
+    """A previous (pre-regeneration) scene, for the verify-step before/after comparison."""
+    order: int
+    title: str
+    display_text: Optional[str] = None
+    narration_text: str
+    visual_description: str
+    remotion_code: Optional[str] = None
+    preferred_layout: Optional[str] = None
+
+
+class RegenerateScriptPreviewOut(BaseModel):
+    previous_scenes: list[RegenerateScriptPreviewScene] = []
 
 
 class AssetOut(BaseModel):
@@ -243,6 +262,7 @@ class ProjectOut(BaseModel):
     logo_opacity: float = 0.9
     logo_size: float = 100.0  # percentage
     custom_voice_id: Optional[str] = None
+    voice_emotion: Optional[str] = None
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
     video_length: str = "auto"
@@ -293,6 +313,7 @@ class BulkProjectItem(BaseModel):
     content_language: Optional[str] = None
     video_length: Optional[str] = "auto"
     playback_speed: Optional[float] = 1.0
+    voice_emotion: Optional[str] = None
 
     @field_validator("playback_speed")
     @classmethod

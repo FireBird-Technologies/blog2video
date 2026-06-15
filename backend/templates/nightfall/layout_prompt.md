@@ -31,11 +31,18 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `glass_image`  
   - **Best for**: Image-focused scenes with caption / description.
 
-- `data_visualization`  
-  - **Best for**: Bar/line/pie charts, data dashboards, and visual analytics.
+- `nightfall_data_visualization`  
+  - **Best for**: Quantitative stories — trends over time, distributions, comparisons across categories. Supports line, bar, and histogram-style charts. Dark glass panel with neon-glow accent lines.  
+  - **Data**: Provide `chartTable` (headers + rows), `chartType` (`"line"` / `"bar"` / `"histogram"` / `"auto"`), and optionally `chartSummary`, `yAxisLabel`, `subtitle` (X-axis caption), `barPrimaryColor` (`#00E5FF`), `barSecondaryColor` (`#7B2FBE`).  
+  - **Rule**: Use at most **1 time per video**. Do NOT use the old `data_visualization` id.
+
+- `nightfall_ticker`  
+  - **Best for**: Tabular data — leaderboards, comparison matrices, metric grids, node stats.  
+  - **Data**: Provide `tickerTable` (headers + rows), `tickerTitle`, `tickerHighlightCol` (0-based column index for gain/loss colouring), `tickerFootnote`.  
+  - **Rule**: Use at most **1 time per video**.
 
 Variety rules:
 
 - Scene 0 → `cinematic_title`.  
-- In the middle of the video, **alternate** between narrative (`glass_narrative`), data (`glow_metric` / `data_visualization`), code (`glass_code`), and impact (`kinetic_insight` / `split_glass`).  
+- In the middle of the video, **alternate** between narrative (`glass_narrative`), data (`glow_metric` / `nightfall_data_visualization` / `nightfall_ticker`), code (`glass_code`), and impact (`kinetic_insight` / `split_glass`).  
 

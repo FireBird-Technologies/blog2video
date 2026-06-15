@@ -16,6 +16,10 @@ class ProjectTemplateChangeJob(Base):
     total_scenes: Mapped[int] = mapped_column(Integer, default=0)
     processed_scenes: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON snapshot of each scene's remotion_code + preferred_layout (and the prior
+    # project.template) captured before the in-place relayout, so a reaped/failed run
+    # can be fully reverted.
+    scene_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow

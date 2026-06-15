@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from typing import Callable
 
 import dspy
@@ -8,6 +9,10 @@ from app.dspy_modules import ensure_dspy_configured
 from app.services.social_content_signals import (
     detect_social_platforms_in_text,
     format_social_platforms_for_script_prompt,
+)
+from app.services.template_service import (
+    is_builtin_chart_layout,
+    is_builtin_ticker_layout,
 )
 
 class BlogToScript(dspy.Signature):
@@ -303,7 +308,39 @@ class BlogToScript(dspy.Signature):
             "one with preferred_layout='market_annotation' and data_table_index=0 (comparing gold purity "
             "tiers), and another with preferred_layout='market_annotation' and data_table_index=1 (showing "
             "the gold-price time-series). Never collapse them. Never reassign either to data_impact or any "
-            "non-chart layout."
+            "non-chart layout. "
+            "LAYOUT PRIORITY FOR ECONOMIST — apply in this order: "
+            "(1) If the entry's preferred_layout is 'chart_line' → emit a scene with "
+            "preferred_layout='chart_line'. (2) If it is 'chart_bar' → emit a scene with "
+            "preferred_layout='chart_bar'. (3) If it is 'data_table' → emit a scene with "
+            "preferred_layout='data_table'. DO NOT downgrade any of these to leader_article, "
+            "section_divider, or any prose layout — the chartable_tables_json bindings are AUTHORITATIVE "
+            "for Economist; the upstream pipeline has already confirmed the table is chartable. "
+            "(4) Every chartable entry needs its OWN dedicated scene (two chartable tables = two economist "
+            "chart/table scenes, never one scene referencing both). "
+            "(5) Each such scene MUST include a \"data_table_index\" field (int) set to that entry's \"index\". "
+            "HARD CARDINALITY RULE: count the entries in chartable_tables_json with an economist data layout. "
+            "The number of scenes whose preferred_layout is 'chart_line', 'chart_bar', or 'data_table' MUST "
+            "equal that count, each with its own unique data_table_index. "
+            "EXAMPLE — given chartable_tables_json = [{index:0, preferred_layout:'chart_bar', "
+            "headers:['Region','Worry index']}, {index:1, preferred_layout:'chart_line', "
+            "headers:['Year','Share']}], the script MUST contain exactly two scenes: one with "
+            "preferred_layout='chart_bar' and data_table_index=0, and another with "
+            "preferred_layout='chart_line' and data_table_index=1. Never collapse them. Never reassign "
+            "either to a prose layout. "
+            "GENERAL RULE FOR ALL OTHER TEMPLATES (applies to EVERY preferred_layout value that appears in "
+            "chartable_tables_json — e.g. 'chronicle_data', 'matrix_data', 'spotlight_data', their "
+            "'*_table' ticker layouts, and 'data_visualization'): the entry's preferred_layout is "
+            "AUTHORITATIVE. Emit exactly one dedicated scene per entry using that EXACT preferred_layout "
+            "string and set data_table_index to the entry's index. Do NOT downgrade a chartable entry to a "
+            "prose/quote/stat layout, and do NOT merge two entries into one scene. "
+            "HARD CARDINALITY RULE (all templates): for EACH distinct preferred_layout value in "
+            "chartable_tables_json, the number of output scenes carrying that preferred_layout MUST equal "
+            "the number of entries carrying it. Example: chartable_tables_json with 2 entries of "
+            "preferred_layout='chronicle_data' → the output MUST contain exactly 2 scenes with "
+            "preferred_layout='chronicle_data', each with its own data_table_index (0 and 1). The same holds "
+            "for 'matrix_data' and 'spotlight_data'. These chart scenes belong after the opening scene and "
+            "before the ending_socials scene."
         )
     )
 
@@ -608,6 +645,15 @@ class ScriptGenerator:
         if not outline_scenes:
             return {"title": title_str, "scenes": []}
 
+        # Deterministic safety net: guarantee every chartable table becomes a chart
+        # scene even when the outline LLM under-emits them (the prompt cardinality
+        # rule is best-effort). No-op when entries are already bound (laduc/bloomberg).
+        outline_scenes = self._enforce_chartable_bindings(
+            outline_scenes,
+            chartable_tables_json,
+            include_ending_socials=include_ending_socials,
+        )
+
         total = len(outline_scenes)
         full_outline_json = json.dumps(
             [{"title": s["title"], "key_point": s.get("key_point", "")} for s in outline_scenes]
@@ -893,6 +939,109 @@ class ScriptGenerator:
 
         return out
 
+    def _enforce_chartable_bindings(
+        self,
+        scenes: list[dict],
+        chartable_tables_json: str,
+        *,
+        include_ending_socials: bool = False,
+    ) -> list[dict]:
+        """Deterministic safety net guaranteeing one scene per chartable table.
+
+        The outline LLM is *told* to emit one scene per chartable_tables_json entry
+        (with its preferred_layout + data_table_index), but compliance is best-effort
+        — for the built-in data-viz templates (chronicle/matrix/spotlight) it often
+        under-emits, so chartable tables silently never become charts. This pass
+        binds any unsatisfied entry by converting the best-matching non-hero /
+        non-ending / still-unbound scene to the entry's preferred_layout +
+        data_table_index, appending a minimal scene only when nothing is convertible.
+
+        No-op when there are no entries or when every entry is already bound (the
+        common case for laduc/bloomberg, whose prompt path emits them reliably), so
+        it cannot regress those templates.
+        """
+        if not chartable_tables_json or not scenes:
+            print(f"[F7-DEBUG] _enforce_chartable_bindings: no-op (chartable_tables_json empty={not chartable_tables_json}, scenes={len(scenes) if scenes else 0})")
+            return scenes
+        try:
+            entries = json.loads(chartable_tables_json)
+        except Exception:
+            print("[F7-DEBUG] _enforce_chartable_bindings: chartable_tables_json failed to parse")
+            return scenes
+        if not isinstance(entries, list) or not entries:
+            return scenes
+        print(f"[F7-DEBUG] _enforce_chartable_bindings: {len(entries)} chartable entries, preferred_layouts={[e.get('preferred_layout') for e in entries if isinstance(e, dict)]}")
+
+        from app.services.table_extraction import _table_fingerprint
+
+        unique_entries: list[dict] = []
+        seen_fingerprints: set[str] = set()
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            fp = _table_fingerprint(entry)
+            if fp and fp in seen_fingerprints:
+                print(f"[F7-DEBUG] _enforce_chartable_bindings: skipping duplicate table index={entry.get('index')}")
+                continue
+            if fp:
+                seen_fingerprints.add(fp)
+            unique_entries.append(entry)
+        entries = unique_entries
+
+        bound_indices = {
+            s["data_table_index"]
+            for s in scenes
+            if isinstance(s.get("data_table_index"), int)
+        }
+
+        def _tokens(text: str) -> set[str]:
+            return {w for w in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(w) > 2}
+
+        ending_idx = (len(scenes) - 1) if (include_ending_socials and scenes) else None
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            idx = entry.get("index")
+            pl = str(entry.get("preferred_layout") or "").strip()
+            if not isinstance(idx, int) or not pl or idx in bound_indices:
+                continue
+
+            header_tokens = _tokens(" ".join(str(h) for h in (entry.get("headers") or [])))
+
+            # Prefer the convertible scene with the best keyword overlap with the
+            # table headers; fall back to the first convertible scene.
+            best_j, best_score = None, -1
+            for j, s in enumerate(scenes):
+                if j == 0:  # keep the hero/opening scene
+                    continue
+                if ending_idx is not None and j == ending_idx:
+                    continue
+                if isinstance(s.get("data_table_index"), int):
+                    continue
+                score = len(_tokens(f"{s.get('title','')} {s.get('key_point','')}") & header_tokens)
+                if score > best_score:
+                    best_j, best_score = j, score
+
+            if best_j is not None:
+                scenes[best_j]["preferred_layout"] = pl
+                scenes[best_j]["data_table_index"] = idx
+                print(f"[F7-DEBUG] _enforce_chartable_bindings: bound table {idx} -> scene[{best_j}] '{scenes[best_j].get('title','')}' as {pl}")
+            else:
+                new_scene = {
+                    "title": (str((entry.get("headers") or [""])[0]).strip() or "Key data"),
+                    "key_point": "",
+                    "preferred_layout": pl,
+                    "data_table_index": idx,
+                }
+                insert_at = ending_idx if ending_idx is not None else len(scenes)
+                scenes.insert(insert_at, new_scene)
+                if ending_idx is not None:
+                    ending_idx += 1
+            bound_indices.add(idx)
+
+        return scenes
+
     def _parse_outline(
         self,
         scenes_json: object,
@@ -1016,7 +1165,15 @@ class ScriptGenerator:
                     row["cta_button_text"] = cta_btn
                 raw_idx = scene.get("data_table_index")
                 _data_layouts = {"data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz", "market_annotation", "ticker"}
-                if preferred_layout in _data_layouts and isinstance(raw_idx, int):
+                # Also preserve the binding for built-in data-viz templates'
+                # chart/ticker layouts (matrix/spotlight/chronicle *_data + variants,
+                # *_ticker/*_table) — otherwise data_table_index is dropped here and
+                # the table never binds, so the chart scene falls back to prose.
+                if isinstance(raw_idx, int) and (
+                    preferred_layout in _data_layouts
+                    or is_builtin_chart_layout(preferred_layout or "")
+                    or is_builtin_ticker_layout(preferred_layout or "")
+                ):
                     row["data_table_index"] = raw_idx
                 validated.append(row)
 

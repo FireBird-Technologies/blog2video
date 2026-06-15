@@ -26,7 +26,8 @@
     "quote_callout",
     "image_caption",
     "timeline",
-    "data_visualization",
+    "default_data_visualization",
+    "default_ticker",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -34,11 +35,11 @@
       "label": "Hero Image",
       "defaults": {
         "titleFontSize": {
-          "portrait": 92,
+          "portrait": 106,
           "landscape": 76
         },
         "descriptionFontSize": {
-          "portrait": 52,
+          "portrait": 60,
           "landscape": 40
         }
       },
@@ -67,11 +68,11 @@
       "label": "Text Narration",
       "defaults": {
         "titleFontSize": {
-          "portrait": 102,
+          "portrait": 118,
           "landscape": 84
         },
         "descriptionFontSize": {
-          "portrait": 52,
+          "portrait": 60,
           "landscape": 47
         }
       },
@@ -100,11 +101,11 @@
       "label": "Code Block",
       "defaults": {
         "titleFontSize": {
-          "portrait": 99,
+          "portrait": 114,
           "landscape": 77
         },
         "descriptionFontSize": {
-          "portrait": 46,
+          "portrait": 53,
           "landscape": 38
         },
         "codeLanguage": "python",
@@ -149,11 +150,11 @@
       "label": "Bullet List",
       "defaults": {
         "titleFontSize": {
-          "portrait": 72,
+          "portrait": 84,
           "landscape": 60
         },
         "descriptionFontSize": {
-          "portrait": 37,
+          "portrait": 43,
           "landscape": 29
         },
         "bullets": [
@@ -228,11 +229,11 @@
       "label": "Flow Diagram",
       "defaults": {
         "titleFontSize": {
-          "portrait": 50,
+          "portrait": 58,
           "landscape": 51
         },
         "descriptionFontSize": {
-          "portrait": 35,
+          "portrait": 40,
           "landscape": 27
         },
         "steps": [
@@ -272,11 +273,11 @@
       "label": "Comparison",
       "defaults": {
         "titleFontSize": {
-          "portrait": 70,
+          "portrait": 80,
           "landscape": 78
         },
         "descriptionFontSize": {
-          "portrait": 43,
+          "portrait": 50,
           "landscape": 33
         },
         "leftLabel": "Option A",
@@ -329,11 +330,11 @@
       "label": "Metric",
       "defaults": {
         "titleFontSize": {
-          "portrait": 45,
+          "portrait": 52,
           "landscape": 46
         },
         "descriptionFontSize": {
-          "portrait": 35,
+          "portrait": 40,
           "landscape": 31
         },
         "metrics": [
@@ -394,11 +395,11 @@
       "label": "Quote Callout",
       "defaults": {
         "titleFontSize": {
-          "portrait": 54,
+          "portrait": 62,
           "landscape": 49
         },
         "descriptionFontSize": {
-          "portrait": 30,
+          "portrait": 35,
           "landscape": 26
         },
         "quote": "A concise insight worth highlighting.",
@@ -439,11 +440,11 @@
       "label": "Image Caption",
       "defaults": {
         "titleFontSize": {
-          "portrait": 57,
+          "portrait": 66,
           "landscape": 56
         },
         "descriptionFontSize": {
-          "portrait": 37,
+          "portrait": 43,
           "landscape": 32
         }
       },
@@ -472,11 +473,11 @@
       "label": "Timeline",
       "defaults": {
         "titleFontSize": {
-          "portrait": 85,
+          "portrait": 98,
           "landscape": 74
         },
         "descriptionFontSize": {
-          "portrait": 40,
+          "portrait": 46,
           "landscape": 30
         },
         "timelineItems": [
@@ -531,86 +532,175 @@
         }
       ]
     },
-    "data_visualization": {
-      "label": "Data visualization",
+    "default_data_visualization": {
+      "label": "Data Visualisation",
       "defaults": {
         "titleFontSize": {
-          "portrait": 64,
-          "landscape": 56
+          "portrait": 66,
+          "landscape": 52
         },
         "descriptionFontSize": {
-          "portrait": 32,
-          "landscape": 28
+          "portrait": 34,
+          "landscape": 26
         },
-        "barChartRows": [
-          { "label": "Q1", "value": "18" },
-          { "label": "Q2", "value": "24" },
-          { "label": "Q3", "value": "21" }
-        ],
-        "lineChartLabels": ["Jan", "Feb", "Mar", "Apr"],
-        "lineChartDatasets": [
-          { "label": "Trend", "valuesStr": "12, 18, 22, 19" }
-        ],
-        "histogramRows": [
-          { "label": "0–10", "value": "4" },
-          { "label": "10–20", "value": "12" },
-          { "label": "20–30", "value": "8" }
-        ]
+        "chartType": "line",
+        "chartSummary": "The data reveals a clear trend across releases.",
+        "chartTable": {
+          "headers": ["Release", "Adoption", "Retention"],
+          "rows": [
+            ["v1.0", "298", "72"],
+            ["v1.1", "308", "68"],
+            ["v1.2", "315", "61"],
+            ["v2.0", "324", "55"],
+            ["v2.1", "318", "59"]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Release",
+        "yAxisLabel": "Recorded value",
+        "barPrimaryColor": "#7C3AED",
+        "barSecondaryColor": "#2563EB"
+      },
+      "scene_defaults": {
+        "title": "The data behind the story",
+        "narration": "Each data point maps a step in the journey.",
+        "durationSeconds": 7
       },
       "fields": [
         {
           "key": "titleFontSize",
-          "label": "Title Font Size",
+          "label": "Title Size",
           "type": "number",
           "responsive": true,
-          "min": 20,
-          "max": 220,
+          "min": 14,
+          "max": 160,
           "step": 1
         },
         {
           "key": "descriptionFontSize",
-          "label": "Body Font Size",
+          "label": "Body Size",
           "type": "number",
           "responsive": true,
-          "min": 12,
-          "max": 140,
+          "min": 10,
+          "max": 90,
           "step": 1
         },
         {
-          "key": "barChartRows",
-          "label": "Bar chart",
-          "type": "object_array",
-          "maxItems": 12,
-          "subFields": [
-            { "key": "label", "label": "Label" },
-            { "key": "value", "label": "Value" }
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            { "label": "Auto (infer from data)", "value": "auto" },
+            { "label": "Line", "value": "line" },
+            { "label": "Bar", "value": "bar" },
+            { "label": "Histogram", "value": "histogram" }
           ]
         },
         {
-          "key": "lineChartLabels",
-          "label": "Line chart — X labels",
-          "type": "string_array",
-          "maxItems": 12
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges.",
+          "type": "chart_table"
         },
         {
-          "key": "lineChartDatasets",
-          "label": "Line chart — series",
-          "type": "object_array",
-          "maxItems": 6,
-          "subFields": [
-            { "key": "label", "label": "Series" },
-            { "key": "valuesStr", "label": "Values (comma-separated)" }
-          ]
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
         },
         {
-          "key": "histogramRows",
-          "label": "Histogram bins",
-          "type": "object_array",
-          "maxItems": 16,
-          "subFields": [
-            { "key": "label", "label": "Bin / range" },
-            { "key": "value", "label": "Count" }
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "default_ticker": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 58,
+          "landscape": 44
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 19
+        },
+        "tickerTitle": "A breakdown of the numbers",
+        "tickerFootnote": "",
+        "tickerHighlightCol": 5,
+        "tickerTable": {
+          "headers": ["Module", "Requests", "Errors", "P50", "P99", "% Err"],
+          "rows": [
+            ["Auth", "12,400", "24", "18ms", "120ms", "+0.2%"],
+            ["API", "84,200", "112", "22ms", "180ms", "-0.1%"],
+            ["Cache", "31,000", "8", "4ms", "40ms", "+0.0%"],
+            ["DB", "9,800", "56", "45ms", "320ms", "+0.6%"],
+            ["UI", "44,100", "18", "12ms", "95ms", "-0.04%"]
           ]
+        }
+      },
+      "scene_defaults": {
+        "title": "The numbers at a glance",
+        "narration": "Each row tells part of the story.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Cell Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table sub-headline",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: numeric or text values. Max 20 rows, max 6 columns.",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based) for gain/loss coloring, e.g. 5 for the 6th column. Set to -1 to disable.",
+          "type": "number"
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Footnote / source attribution",
+          "type": "string"
         }
       ]
     },
@@ -618,11 +708,11 @@
       "label": "Ending / Follow along",
       "defaults": {
         "titleFontSize": {
-          "portrait": 88,
+          "portrait": 102,
           "landscape": 79
         },
         "descriptionFontSize": {
-          "portrait": 44,
+          "portrait": 51,
           "landscape": 36
         },
         "hideImage": true,
@@ -736,7 +826,8 @@
     "comparison",
     "metric",
     "quote_callout",
-    "data_visualization",
+    "default_data_visualization",
+    "default_ticker",
     "ending_socials"
   ]
 }

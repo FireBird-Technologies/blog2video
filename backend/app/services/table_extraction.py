@@ -3,7 +3,15 @@ import re
 from typing import Any
 
 from bs4 import BeautifulSoup
-from app.services.chart_planner import compute_ohlcv_chart_analysis, is_candlestick_table
+from app.services.chart_planner import (
+    compute_ohlcv_chart_analysis,
+    is_candlestick_table,
+    is_laduc_ticker_table,
+    get_chartable_tables_from_visual_hint,
+    _build_chart_props_from_table,
+    _clean_text_cell,
+    _ensure_chart_headers,
+)
 
 
 TABLE_SECTION_MARKER = "EXTRACTED_TABLES_JSON"
@@ -26,8 +34,7 @@ def _looks_like_header_row(row: list[str]) -> bool:
 
 
 def _clean_cell(value: Any) -> str:
-    text = str(value or "").strip()
-    text = re.sub(r"\s+", " ", text)
+    text = _clean_text_cell(value)
     if len(text) > MAX_CELL_CHARS:
         return text[:MAX_CELL_CHARS].rstrip() + "..."
     return text
@@ -59,12 +66,19 @@ def _normalize_table(headers: list[str], rows: list[list[str]], source: str) -> 
             clean_rows = clean_rows[1:]
 
     if not any(clean_headers):
-        # Last-resort fallback for truly headerless tables.
+        # Last-resort: category column + value/metric columns (never generic "Series N").
         col_count = max(len(r) for r in clean_rows)
-        clean_headers = [f"Series {i + 1}" for i in range(col_count)]
+        clean_headers = ["Category"]
+        if col_count == 2:
+            clean_headers.append("Value")
+        else:
+            clean_headers.extend(f"Metric {i}" for i in range(1, col_count))
 
     if len(clean_rows) < 2:
         return None
+
+    col_count = max(len(clean_headers), max((len(r) for r in clean_rows), default=0))
+    clean_headers = _ensure_chart_headers(clean_headers, col_count, label_col_idx=0)
 
     return {
         "source": source,
@@ -158,11 +172,54 @@ def extract_tables_from_markdown(markdown_text: str, source: str) -> list[dict[s
     return tables
 
 
+def _normalize_stored_table(table: dict[str, Any]) -> dict[str, Any] | None:
+    """Clean headers/rows on an already-extracted table dict."""
+    if not isinstance(table, dict):
+        return None
+    headers = table.get("headers")
+    rows = table.get("rows")
+    if not isinstance(headers, list) or not isinstance(rows, list):
+        return None
+
+    clean_rows: list[list[str]] = []
+    for row in rows[:MAX_ROWS_PER_TABLE]:
+        if not isinstance(row, list):
+            continue
+        cells = [_clean_cell(cell) for cell in row[:MAX_COLS_PER_TABLE]]
+        if any(cells):
+            clean_rows.append(cells)
+    if not clean_rows:
+        return None
+
+    clean_headers = [_clean_cell(h) for h in headers[:MAX_COLS_PER_TABLE]]
+    col_count = max(len(clean_headers), max((len(r) for r in clean_rows), default=0))
+    clean_headers = _ensure_chart_headers(clean_headers, col_count, label_col_idx=0)
+
+    return {
+        **table,
+        "headers": clean_headers,
+        "rows": clean_rows,
+    }
+
+
+def _table_fingerprint(table: dict[str, Any]) -> str:
+    """Stable identity for dedup — uses normalized headers + sample rows."""
+    norm = _normalize_stored_table(table)
+    if not norm:
+        return ""
+    headers = "|".join(str(h or "").strip().lower() for h in (norm.get("headers") or []))
+    row_sigs: list[str] = []
+    for row in (norm.get("rows") or [])[:8]:
+        if isinstance(row, list):
+            row_sigs.append("|".join(str(c or "").strip().lower() for c in row))
+    return f"{headers}::{'||'.join(row_sigs)}"
+
+
 def append_tables_to_content(content: str, tables: list[dict[str, Any]]) -> str:
     if not tables:
         return content
 
-    clipped = tables[:MAX_TABLES]
+    clipped = _dedup_tables([t for t in tables if isinstance(t, dict)])[:MAX_TABLES]
     payload = json.dumps({"tables": clipped}, ensure_ascii=False, separators=(",", ":"))
     block = (
         f"\n\n═══ {TABLE_SECTION_MARKER} ═══\n"
@@ -173,11 +230,12 @@ def append_tables_to_content(content: str, tables: list[dict[str, Any]]) -> str:
 
 
 def _dedup_tables(tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Remove duplicate tables that share the same header fingerprint.
+    """Remove duplicate tables that share the same normalized content fingerprint.
 
     When duplicates exist (e.g. firecrawl_html + firecrawl_markdown scraped the
-    same table), keep the copy with the most complete data, preferring
-    firecrawl_markdown over firecrawl_html as a tiebreaker.
+    same table, or one copy still has markdown links in headers/labels), keep the
+    copy with the most complete data, preferring firecrawl_markdown over
+    firecrawl_html as a tiebreaker. All survivors are cell-normalized.
     """
     def _cell_count(tbl: dict) -> int:
         return sum(
@@ -190,22 +248,22 @@ def _dedup_tables(tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     seen: dict[str, dict[str, Any]] = {}
     for t in tables:
-        if not isinstance(t, dict):
+        norm = _normalize_stored_table(t)
+        if not norm:
             continue
-        headers = t.get("headers") or []
-        key = "|".join(str(h).strip().lower() for h in headers)
+        key = _table_fingerprint(norm)
         if not key:
             continue
         if key not in seen:
-            seen[key] = t
+            seen[key] = norm
         else:
             existing = seen[key]
             existing_is_md = (existing.get("source") or "").startswith("firecrawl_markdown")
-            new_is_md = (t.get("source") or "").startswith("firecrawl_markdown")
+            new_is_md = (norm.get("source") or "").startswith("firecrawl_markdown")
             if new_is_md and not existing_is_md:
-                seen[key] = t
-            elif new_is_md == existing_is_md and _cell_count(t) > _cell_count(existing):
-                seen[key] = t
+                seen[key] = norm
+            elif new_is_md == existing_is_md and _cell_count(norm) > _cell_count(existing):
+                seen[key] = norm
     return list(seen.values())
 
 
@@ -237,13 +295,14 @@ def build_table_context_hint(
         return ""
     clipped = []
     for table in tables[:max_tables]:
-        if not isinstance(table, dict):
+        norm = _normalize_stored_table(table) if isinstance(table, dict) else None
+        if not norm:
             continue
         clipped.append(
             {
-                "source": table.get("source"),
-                "headers": table.get("headers", []),
-                "rows": (table.get("rows", []) or [])[:max_rows],
+                "source": norm.get("source"),
+                "headers": norm.get("headers", []),
+                "rows": (norm.get("rows", []) or [])[:max_rows],
             }
         )
     if not clipped:
@@ -273,13 +332,16 @@ def build_chartable_tables_payload(
     for orig_idx, table in chartable_tables:
         if not isinstance(table, dict):
             continue
+        norm = _normalize_stored_table(table)
+        if not norm:
+            continue
         chart_type = (chart_type_by_index or {}).get(orig_idx, "auto")
         entry: dict[str, Any] = {
             "index": orig_idx,
             "chartType": chart_type,
-            "source": table.get("source"),
-            "headers": table.get("headers", []),
-            "rows": (table.get("rows", []) or [])[:max_rows],
+            "source": norm.get("source"),
+            "headers": norm.get("headers", []),
+            "rows": (norm.get("rows", []) or [])[:max_rows],
         }
         pl = (preferred_layout_by_index or {}).get(orig_idx)
         if pl:
@@ -292,3 +354,65 @@ def build_chartable_tables_payload(
     if not entries:
         return ""
     return json.dumps(entries, ensure_ascii=False, separators=(",", ":"))
+
+
+def classify_chart_tables_for_template(
+    blog_text: str,
+    *,
+    chart_layout: str,
+    ticker_layout: str,
+    max_tables_each: int = 2,
+    max_rows: int = 20,
+) -> tuple[list[dict[str, Any]], str]:
+    """Extract + classify a blog's tables into chart / ticker scene bindings.
+
+    Template-agnostic version of the per-template gate in pipeline.py: any
+    template that wants the chartTable/tickerTable data-viz pipeline calls this
+    with its own two layout names. Chartable (line/bar/histogram) tables bind to
+    ``chart_layout``; ticker-like tables bind to ``ticker_layout`` (and are
+    excluded from the chartable set so the same table is never double-bound).
+
+    CPU-bound (HTML parsing) — call it in a thread pool from async code, e.g.
+    ``await loop.run_in_executor(None, partial(classify_chart_tables_for_template, ...))``.
+
+    Returns ``(all_extracted_tables, chartable_tables_json)``. The JSON is the
+    ``chartable_tables_json`` payload fed to ScriptGenerator; empty string when
+    nothing qualifies.
+    """
+    tables = extract_tables_from_content(blog_text)
+    if not tables:
+        return tables, ""
+
+    tmp_hint = build_table_context_hint(tables, max_tables=len(tables))
+    # Chartable candidates (line/bar/histogram) → chart_layout.
+    chartable_all = get_chartable_tables_from_visual_hint(tmp_hint)
+    # Ticker-like tables → ticker_layout (excluded from chartable so we don't
+    # double-bind the same table to two scenes).
+    ticker_tables_all: list[tuple[int, dict]] = [
+        (idx, t) for idx, t in enumerate(tables)
+        if isinstance(t, dict) and is_laduc_ticker_table(t)
+    ]
+    ticker_indices = {idx for idx, _ in ticker_tables_all}
+    # If a table matches both, prefer ticker (strict ticker classification).
+    chartable = [(idx, t) for idx, t in chartable_all if idx not in ticker_indices][:max_tables_each]
+    ticker_tables = ticker_tables_all[:max_tables_each]
+    if not chartable and not ticker_tables:
+        return tables, ""
+
+    chart_type_by_idx = {
+        orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+        for orig_idx, t in chartable
+    }
+    preferred_layout_by_idx: dict[int, str] = {}
+    for orig_idx, _ in chartable:
+        preferred_layout_by_idx[orig_idx] = chart_layout
+    for orig_idx, _ in ticker_tables:
+        preferred_layout_by_idx[orig_idx] = ticker_layout
+
+    payload = build_chartable_tables_payload(
+        chartable + ticker_tables,
+        chart_type_by_index=chart_type_by_idx,
+        preferred_layout_by_index=preferred_layout_by_idx,
+        max_rows=max_rows,
+    )
+    return tables, payload

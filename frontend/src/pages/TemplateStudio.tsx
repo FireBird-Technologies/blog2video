@@ -104,6 +104,20 @@ const NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: Re
   data_visualization: { titleFontSize: { portrait: 46, landscape: 34 }, descriptionFontSize: { portrait: 30, landscape: 25 } },
 };
 
+const ECONOMIST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue }> = {
+  cover_reveal: { titleFontSize: { portrait: 104, landscape: 132 }, descriptionFontSize: { portrait: 30, landscape: 26 } },
+  leader_article: { titleFontSize: { portrait: 68, landscape: 82 }, descriptionFontSize: { portrait: 32, landscape: 30 } },
+  section_divider: { titleFontSize: { portrait: 120, landscape: 156 }, descriptionFontSize: { portrait: 28, landscape: 26 } },
+  chart_line: { titleFontSize: { portrait: 46, landscape: 50 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  chart_bar: { titleFontSize: { portrait: 46, landscape: 50 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  data_table: { titleFontSize: { portrait: 48, landscape: 52 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  pros_cons: { titleFontSize: { portrait: 56, landscape: 62 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  key_indicators: { titleFontSize: { portrait: 52, landscape: 56 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  leader_quote: { titleFontSize: { portrait: 56, landscape: 72 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  image_feature: { titleFontSize: { portrait: 64, landscape: 80 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  ending_socials: { titleFontSize: { portrait: 56, landscape: 60 }, descriptionFontSize: { portrait: 26, landscape: 24 } },
+};
+
 function withTypographyControls(
   schema: LayoutPropSchema,
   options?: { defaultTypography?: { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue } },
@@ -138,13 +152,19 @@ function getSchema(
 ): LayoutPropSchema | undefined {
   if (!template || !layoutId) return undefined;
   const explicit = template.layout_prop_schema?.[layoutId];
-  const newscastTypographyDefaults =
-    normalizeTemplateId(template.id) === "newscast" && layoutId
-      ? NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT[layoutId]
-      : undefined;
+  const tid = normalizeTemplateId(template.id);
+  const perLayoutTypography =
+    tid === "newscast"
+      ? NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
+      : tid === "economist"
+        ? ECONOMIST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
+        : null;
+  const applyTypography = perLayoutTypography !== null;
+  const layoutTypographyDefaults =
+    perLayoutTypography && layoutId ? perLayoutTypography[layoutId] : undefined;
   if (explicit) {
-    return normalizeTemplateId(template.id) === "newscast"
-      ? withTypographyControls(explicit, { defaultTypography: newscastTypographyDefaults })
+    return applyTypography
+      ? withTypographyControls(explicit, { defaultTypography: layoutTypographyDefaults })
       : explicit;
   }
 
@@ -153,8 +173,8 @@ function getSchema(
     defaults: TYPOGRAPHY_DEFAULTS,
     fields: TYPOGRAPHY_FIELDS,
   };
-  return normalizeTemplateId(template.id) === "newscast"
-    ? withTypographyControls(fallbackSchema, { defaultTypography: newscastTypographyDefaults })
+  return applyTypography
+    ? withTypographyControls(fallbackSchema, { defaultTypography: layoutTypographyDefaults })
     : fallbackSchema;
 }
 
@@ -1104,7 +1124,9 @@ export default function TemplateStudio() {
   useEffect(() => {
     if (!schema) return;
     const defaults = (schema.defaults ?? {}) as Record<string, unknown>;
-    setLayoutProps(defaults);
+    // sample_props are Studio-only stress-test values (e.g. a long explainer);
+    // the render path ignores them, so they can never leak into real videos.
+    setLayoutProps({ ...defaults, ...(schema.sample_props ?? {}) });
     const sd = schema.scene_defaults ?? {};
     if (sd.title)                   setTitle(sd.title);
     if (sd.narration !== undefined) setNarration(sd.narration);

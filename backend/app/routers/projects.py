@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, inspect, text
+from sqlalchemy import func, inspect, text, update
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -22,6 +22,9 @@ from app.models.review import Review
 from app.models.scene import Scene
 from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
+from app.models.project_voice_change_job import ProjectVoiceChangeJob
+from app.services import stall_recovery
+from app.services.stall_recovery import STALL_RETRY_MESSAGE
 from app.models.crafted_template import CraftedTemplate
 from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
 from app.models.custom_template import CustomTemplate
@@ -33,6 +36,7 @@ from app.schemas.schemas import (
     SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
     ProjectTemplateChangeJobOut, ProjectVoiceChange,
     ProjectRegenerateScriptJobOut,
+    RegenerateScriptPreviewOut, RegenerateScriptPreviewScene,
 )
 from app.services import r2_storage
 from app.services.remotion import (
@@ -254,24 +258,10 @@ def get_template_availability_signal(
     }
 
 
-def _sanitize_data_viz_layout_props(layout: str | None, layout_props: dict | None) -> dict:
-    props = dict(layout_props or {})
-    if (layout or "").strip().lower().replace("-", "_") != "data_visualization":
-        return props
-    for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
-        props.pop(key, None)
-    return props
-
-
 def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
-    out = dict(descriptor or {})
-    layout = out.get("layout")
-    layout_props = out.get("layoutProps") if isinstance(out.get("layoutProps"), dict) else {}
-    out["layoutProps"] = _sanitize_data_viz_layout_props(
-        layout=str(layout) if layout is not None else "",
-        layout_props=layout_props,
-    )
-    return out
+    from app.services.chart_planner import sanitize_chart_descriptor
+
+    return sanitize_chart_descriptor(descriptor)
 
 
 def _normalize_video_style(video_style: str | None) -> str:
@@ -345,6 +335,62 @@ def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
 
     # Safety net: never exceed DB column length.
     return normalized[:10]
+
+
+def _resolve_voice_tuning(voice_emotion: str | None, user: User) -> tuple[str | None, str | None]:
+    """Validate + gate user voice tuning, sent as a JSON string array
+    ["<stability>","<speed>","<emotion>","<style>","<enabled>"] in the voice_emotion field.
+
+    Returns ``(project_value, preference_value)``:
+      - ``project_value``    — 4-element canonical array stored on the Project, or ``None`` when the
+        Advanced Options toggle is OFF (so that project narrates with plain defaults).
+      - ``preference_value`` — 5-element canonical array (tuning + enabled flag) persisted as the
+        user's remembered default, so the sliders keep their last-enabled values even while the
+        toggle is off and the toggle state itself is remembered. ``None`` only when nothing was sent.
+
+    Raises 403 if tuning is supplied by a non-paid user — mirrors the custom-template gate.
+    """
+    if voice_emotion is None:
+        return None, None
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        raise HTTPException(
+            status_code=403,
+            detail="Voice tuning requires a Pro or Standard subscription.",
+        )
+    from app.services.voiceover import SUPPORTED_EMOTIONS, DEFAULT_EMOTION, DEFAULT_STYLE, VOICE_STYLE_RANGE
+
+    try:
+        values = json.loads(voice_emotion)
+        stability = float(values[0])
+        speed = float(values[1])
+    except (ValueError, TypeError, IndexError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid voice tuning values.")
+    # Emotion (3rd element) is optional. Legacy 2-element values default to [excited]; a
+    # present-but-empty/invalid value is stored as "" (no emotion tag at synthesis).
+    if isinstance(values, list) and len(values) >= 3:
+        candidate = str(values[2]).strip().lower()
+        emotion = candidate if candidate in SUPPORTED_EMOTIONS else ""
+    else:
+        emotion = DEFAULT_EMOTION
+    # Style (4th element) is optional; missing/invalid → DEFAULT_STYLE, clamped to the safe range.
+    style = DEFAULT_STYLE
+    if isinstance(values, list) and len(values) >= 4:
+        try:
+            style = float(values[3])
+        except (TypeError, ValueError):
+            style = DEFAULT_STYLE
+    # Enabled (5th element) — the Advanced Options toggle. Legacy values without it are treated as
+    # enabled (old behaviour: sending tuning meant it was on).
+    enabled = True
+    if isinstance(values, list) and len(values) >= 5:
+        enabled = str(values[4]).strip() == "1"
+    style = max(VOICE_STYLE_RANGE[0], min(VOICE_STYLE_RANGE[1], style))
+    stability = max(0.0, min(1.0, stability))
+    speed = max(0.7, min(1.2, speed))
+    tuning = json.dumps([f"{stability:.2f}", f"{speed:.2f}", emotion, f"{style:.2f}"])
+    pref = json.dumps([f"{stability:.2f}", f"{speed:.2f}", emotion, f"{style:.2f}", "1" if enabled else "0"])
+    # Project only carries tuning when the toggle is on; the preference always remembers values + flag.
+    return (tuning if enabled else None), pref
 
 
 def _crafted_template_pk(template_id: str, db: Session) -> int | None:
@@ -489,7 +535,21 @@ def _run_project_template_change_job(job_id: int) -> None:
         scenes = db.query(Scene).filter(Scene.project_id == project.id).order_by(Scene.order).all()
         job.total_scenes = len(scenes)
         job.processed_scenes = 0
+        # Snapshot the pre-relayout state so a reaped/failed run can be fully reverted.
+        # Captured before the loop mutates scenes and before project.template flips below.
+        job.scene_snapshot = json.dumps({
+            "template": project.template,
+            "crafted_template_id": project.crafted_template_id,
+            "accent_color": project.accent_color,
+            "bg_color": project.bg_color,
+            "text_color": project.text_color,
+            "scenes": [
+                {"id": s.id, "remotion_code": s.remotion_code, "preferred_layout": s.preferred_layout}
+                for s in scenes
+            ],
+        })
         db.commit()
+        cancel_event = stall_recovery.arm("template", job.id)
 
         target_template = job.target_template
         layout_planner = TemplateLayoutPlanner(target_template)
@@ -580,6 +640,9 @@ def _run_project_template_change_job(job_id: int) -> None:
                         "layoutConfig": {},
                     }
                 )
+                if cancel_event.is_set():
+                    logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s superseded by reaper; aborting", job_id)
+                    return
                 job.processed_scenes = idx + 1
                 db.commit()
         else:
@@ -650,10 +713,17 @@ def _run_project_template_change_job(job_id: int) -> None:
                             }
                         descriptor_layout = recovery_layout
 
-                scene.remotion_code = json.dumps(new_descriptor)
+                scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(new_descriptor))
                 scene.preferred_layout = descriptor_layout or (preferred_layout or None)
+                if cancel_event.is_set():
+                    logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s superseded by reaper; aborting", job_id)
+                    return
                 job.processed_scenes = idx + 1
                 db.commit()
+
+        if cancel_event.is_set():
+            logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s superseded by reaper; aborting before finalize", job_id)
+            return
 
         project.template = target_template
         project.crafted_template_id = _crafted_template_pk(target_template, db)
@@ -670,18 +740,29 @@ def _run_project_template_change_job(job_id: int) -> None:
         # Rebuild workspace with updated descriptors.
         rebuild_workspace(project, scenes, db)
 
-        job.status = "completed"
-        job.completed_at = datetime.utcnow()
+        # Only finalize if a reaper hasn't already claimed (failed) this job.
+        finalized = db.execute(
+            update(ProjectTemplateChangeJob)
+            .where(ProjectTemplateChangeJob.id == job_id, ProjectTemplateChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+            .values(status="completed", completed_at=datetime.utcnow())
+        )
         db.commit()
+        if not finalized.rowcount:
+            logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s already reaped; skipping completion", job_id)
     except Exception as e:
         logger.exception("[PROJECT_TEMPLATE_CHANGE] job=%s failed: %s", job_id, e)
-        job = db.query(ProjectTemplateChangeJob).filter(ProjectTemplateChangeJob.id == job_id).first()
+        # Don't clobber a reaper that already failed/reverted this job.
+        job = db.query(ProjectTemplateChangeJob).filter(
+            ProjectTemplateChangeJob.id == job_id,
+            ProjectTemplateChangeJob.status.in_(_JOB_ACTIVE_STATUSES),
+        ).first()
         if job:
             job.status = "failed"
             job.error_message = str(e)
             job.completed_at = datetime.utcnow()
             db.commit()
     finally:
+        stall_recovery.clear("template", job_id)
         db.close()
 
 
@@ -717,6 +798,7 @@ def create_project(
     crafted_pk = _crafted_template_pk(template_id, db)
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(data.video_style)
+    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
     project = Project(
         user_id=user.id,
         name=name,
@@ -725,6 +807,7 @@ def create_project(
         crafted_template_id=crafted_pk,
         voice_gender=data.voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
+        voice_emotion=voice_tuning,
         accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -741,6 +824,12 @@ def create_project(
         status=ProjectStatus.CREATED,
     )
     db.add(project)
+
+    # Remember the voice tuning (values + enabled flag) so the toggle state and last-enabled slider
+    # values both pre-fill next time. Disabling no longer wipes the saved values — the flag is part
+    # of the stored preference.
+    if voice_tuning_pref is not None:
+        user.preferred_voice_emotion = voice_tuning_pref
 
     # Increment usage counter
     user.videos_used_this_period += 1
@@ -880,11 +969,18 @@ def get_project_template_change_status(
         .order_by(ProjectTemplateChangeJob.id.desc())
         .first()
     )
+    # Stall recovery: if this job is active but its heartbeat is stale, this poll
+    # reverts the project + refunds, then we return the now-failed job so the UI
+    # surfaces the retry popup.
+    if maybe_reap_stale_template_change(db, job):
+        db.refresh(job)
     return job
 
 
 
-_ACTIVE_REGENERATE_SCRIPT_STATUSES = {"queued", "running"}
+# "awaiting_review" is the paused state between the script and scene stages — treat it as
+# active so the duplicate-job guard blocks starting a fresh regeneration while one is parked.
+_ACTIVE_REGENERATE_SCRIPT_STATUSES = {"queued", "running", "awaiting_review"}
 
 
 def _set_regenerate_script_step(job_id: int, step: str) -> None:
@@ -902,21 +998,834 @@ def _set_regenerate_script_step(job_id: int, step: str) -> None:
         db.close()
 
 
-def _run_regenerate_script_job(job_id: int) -> None:
-    from app.routers.pipeline import _generate_script, _generate_scenes
+def _regenerate_audio_dir(project_id: int) -> str:
+    return os.path.join(settings.MEDIA_DIR, f"projects/{project_id}", "audio")
+
+
+def _regenerate_audio_backup_dir(project_id: int, job_id: int) -> str:
+    return os.path.join(settings.MEDIA_DIR, f"projects/{project_id}", f"audio_bak_{job_id}")
+
+
+def _ensure_local_audio_from_r2(project_id: int, db: Session) -> None:
+    """Pull each scene's original audio down from R2 if it's missing locally.
+
+    Voiceover audio is durably stored in R2 (the local MEDIA_DIR copy is a cache that
+    may be cold on a fresh checkout/redeploy). Without this, _backup_project_audio
+    would snapshot an empty dir and a later rollback couldn't restore the originals.
+    Best-effort.
+    """
+    if not r2_storage.is_r2_configured():
+        return
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return
+    audio_dir = _regenerate_audio_dir(project_id)
+    os.makedirs(audio_dir, exist_ok=True)
+    scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
+    for s in scenes:
+        if not s.voiceover_path:
+            continue
+        filename = os.path.basename(s.voiceover_path)
+        local = os.path.join(audio_dir, filename)
+        if os.path.exists(local):
+            continue
+        try:
+            key = r2_storage.audio_key(project.user_id, project_id, filename)
+            data = r2_storage.download_bytes(key)
+            if data:
+                with open(local, "wb") as f:
+                    f.write(data)
+        except Exception:
+            logger.exception(
+                "[AUDIO-BACKUP] failed to pull original audio %s from R2 for project=%s",
+                filename, project_id,
+            )
+
+
+def _reupload_audio_to_r2(project_id: int, db: Session) -> None:
+    """Re-upload the local audio files to R2 (stable keys) so the durable store matches
+    the restored originals. R2 audio keys are overwritten in place during regeneration,
+    so a local-only restore would still leave R2 (and thus the workspace's R2 fallback)
+    holding the new voice. Best-effort.
+    """
+    if not r2_storage.is_r2_configured():
+        return
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return
+    audio_dir = _regenerate_audio_dir(project_id)
+    if not os.path.isdir(audio_dir):
+        return
+    for fn in sorted(os.listdir(audio_dir)):
+        if not fn.lower().endswith(".mp3"):
+            continue
+        try:
+            r2_storage.upload_project_audio(
+                project.user_id, project_id, os.path.join(audio_dir, fn), fn
+            )
+        except Exception:
+            logger.exception(
+                "[AUDIO-RESTORE] failed to re-upload %s to R2 for project=%s",
+                fn, project_id,
+            )
+
+
+def _backup_project_audio(project_id: int, job_id: int) -> None:
+    """Snapshot the project's voiceover audio before scene generation overwrites it.
+
+    Stage B regenerates every scene's MP3 in place (scene_N.mp3); the DB snapshot only
+    captures voiceover_path strings, so without this copy a rollback would leave the
+    paths pointing at the new (failed-run) audio. Best-effort — failures are logged.
+    """
+    src = _regenerate_audio_dir(project_id)
+    dst = _regenerate_audio_backup_dir(project_id, job_id)
+    try:
+        if os.path.isdir(dst):
+            shutil.rmtree(dst, ignore_errors=True)
+        if os.path.isdir(src):
+            shutil.copytree(src, dst)
+    except Exception:
+        logger.exception(
+            "[REGENERATE_SCRIPT_JOB] failed to back up audio for project=%s job=%s",
+            project_id, job_id,
+        )
+
+
+def _restore_project_audio(project_id: int, job_id: int) -> None:
+    src = _regenerate_audio_backup_dir(project_id, job_id)
+    dst = _regenerate_audio_dir(project_id)
+    try:
+        if os.path.isdir(src):
+            if os.path.isdir(dst):
+                shutil.rmtree(dst, ignore_errors=True)
+            shutil.copytree(src, dst)
+    except Exception:
+        logger.exception(
+            "[REGENERATE_SCRIPT_JOB] failed to restore audio for project=%s job=%s",
+            project_id, job_id,
+        )
+
+
+def _cleanup_audio_backup(project_id: int, job_id: int) -> None:
+    dst = _regenerate_audio_backup_dir(project_id, job_id)
+    try:
+        if os.path.isdir(dst):
+            shutil.rmtree(dst, ignore_errors=True)
+    except Exception:
+        logger.exception(
+            "[REGENERATE_SCRIPT_JOB] failed to clean up audio backup for project=%s job=%s",
+            project_id, job_id,
+        )
+
+
+def _rollback_regenerate_script(
+    db,
+    job_project_id: int | None,
+    scene_snapshot_raw: str,
+    job_id: int | None = None,
+    restore_audio: bool = False,
+) -> None:
+    """Restore the project to its pre-regeneration state after a failure.
+
+    Restores all scene rows from the snapshot, optionally restores on-disk voiceover
+    audio from the stage-B backup, then rebuilds the Remotion workspace so data.json
+    matches the restored scenes/audio/layouts. Never deducts a credit.
+    """
     from app.services.remotion import rebuild_workspace
 
+    if job_project_id is None:
+        return
+    # This runs from a job's except-handler, where the triggering failure was
+    # usually a db.commit() that left the session in a failed-transaction state.
+    # Without rolling back first, the very next statement (the DELETE below)
+    # raises PendingRollbackError and the restore silently fails — leaving the
+    # project with the half-written (or zero) scenes from the aborted run.
+    try:
+        db.rollback()
+    except Exception:
+        pass
+    try:
+        snapshot = json.loads(scene_snapshot_raw)
+        db.query(Scene).filter(Scene.project_id == job_project_id).delete()
+        db.flush()
+        for s in snapshot:
+            db.add(Scene(
+                project_id=job_project_id,
+                order=s["order"],
+                title=s["title"],
+                narration_text=s["narration_text"],
+                display_text=s.get("display_text"),
+                visual_description=s["visual_description"],
+                remotion_code=s.get("remotion_code"),
+                voiceover_path=s.get("voiceover_path"),
+                duration_seconds=s.get("duration_seconds", 10.0),
+                extra_hold_seconds=s.get("extra_hold_seconds"),
+                preferred_layout=s.get("preferred_layout"),
+                scene_type=s.get("scene_type"),
+            ))
+        project = db.query(Project).filter(Project.id == job_project_id).first()
+        if project:
+            project.status = ProjectStatus.GENERATED
+        db.commit()
+
+        # Restore the original voiceover audio that stage B overwrote (req 4).
+        if restore_audio and job_id is not None:
+            _restore_project_audio(job_project_id, job_id)
+            # R2 holds audio durably and was overwritten in place — push the restored
+            # originals back so the workspace's R2 fallback serves them too.
+            _reupload_audio_to_r2(job_project_id, db)
+
+        # Rebuild the workspace from the restored scenes so a re-render/preview is
+        # consistent with the rolled-back state. Keep existing image assignments.
+        if project:
+            restored_scenes = (
+                db.query(Scene)
+                .filter(Scene.project_id == job_project_id)
+                .order_by(Scene.order)
+                .all()
+            )
+            try:
+                rebuild_workspace(project, restored_scenes, db, redistribute_images=False)
+            except Exception:
+                logger.exception(
+                    "[REGENERATE_SCRIPT_JOB] workspace rebuild failed during rollback for project=%s",
+                    job_project_id,
+                )
+    except Exception as restore_err:
+        logger.exception(
+            "[REGENERATE_SCRIPT_JOB] restore failed for project=%s: %s",
+            job_project_id, restore_err,
+        )
+        try:
+            db.rollback()
+            project = db.query(Project).filter(Project.id == job_project_id).first()
+            if project:
+                project.status = ProjectStatus.GENERATED
+                db.commit()
+        except Exception:
+            pass
+
+
+def _mark_regenerate_script_failed(db, job_id: int, error: Exception) -> None:
+    """Mark a regenerate-script job failed and refund its reserved credit (once).
+
+    The credit is reserved upfront when the job is created, so every failure path must
+    refund it. Guarded on the prior status so a repeated call (e.g. crash recovery running
+    after the job was already failed) can't refund twice.
+    """
+    try:
+        job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
+        if not job:
+            return
+        if job.status != "failed":
+            # Atomic decrement (mirrors project_cleanup) so concurrent refunds don't lose updates.
+            db.execute(
+                update(User)
+                .where(User.id == job.user_id, User.videos_used_this_period > 0)
+                .values(videos_used_this_period=User.videos_used_this_period - 1)
+            )
+        job.status = "failed"
+        job.error_message = str(error)
+        job.completed_at = datetime.utcnow()
+        db.commit()
+    except Exception:
+        pass
+
+
+def recover_orphaned_regenerate_script_jobs() -> None:
+    """Roll back regenerate-script jobs left mid-run by a server crash/restart.
+
+    The job executes in a background thread (``loop.run_in_executor``); if the process
+    dies the thread is gone but the DB row stays ``queued``/``running``, so the project is
+    stuck in ``script_regenerating`` forever and the UI keeps showing the loader. The
+    in-process try/except can't catch process death, so we recover at boot: treat any such
+    job as failed and restore the original scenes + audio + workspace (no credit charged).
+
+    The ``awaiting_review`` pause is intentional and fully recoverable across restarts
+    (scenes persist; the user can still Proceed/Regenerate), so it is left untouched.
+    """
     db = SessionLocal()
+    try:
+        orphaned = (
+            db.query(ProjectRegenerateScriptJob)
+            .filter(ProjectRegenerateScriptJob.status.in_(["queued", "running"]))
+            .all()
+        )
+        if not orphaned:
+            return
+        logger.warning(
+            "[REGENERATE_SCRIPT_JOB] recovering %d orphaned job(s) after restart",
+            len(orphaned),
+        )
+        # Snapshot the identifiers first — rollback commits will expire the ORM rows.
+        targets = [(j.id, j.project_id, j.scene_snapshot or "[]") for j in orphaned]
+        for job_id, job_project_id, scene_snapshot_raw in targets:
+            try:
+                _rollback_regenerate_script(
+                    db, job_project_id, scene_snapshot_raw, job_id=job_id, restore_audio=True
+                )
+                _mark_regenerate_script_failed(
+                    db,
+                    job_id,
+                    RuntimeError(
+                        "Server restarted during regeneration; previous version restored."
+                    ),
+                )
+                _cleanup_audio_backup(job_project_id, job_id)
+            except Exception:
+                logger.exception(
+                    "[REGENERATE_SCRIPT_JOB] failed to recover orphaned job=%s", job_id
+                )
+    except Exception:
+        logger.exception("[REGENERATE_SCRIPT_JOB] orphaned-job recovery sweep failed")
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stall recovery — reap stuck background jobs via the status-polling API + boot.
+#
+# Each job heartbeats its ``updated_at`` as it progresses. When a status poll (or
+# the boot sweep) finds an active job whose heartbeat is stale past its threshold,
+# the owning recover_stalled_* function best-effort cancels the worker, atomically
+# flips the job to "failed", reverts the project, and refunds the credit. The
+# atomic status claim guarantees exactly one of any concurrent pollers reverts +
+# refunds; the rest are no-ops.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_JOB_ACTIVE_STATUSES = ("queued", "running")
+
+
+def _seconds_since(dt: datetime | None) -> float:
+    if dt is None:
+        return float("inf")
+    return (datetime.utcnow() - dt).total_seconds()
+
+
+def _refund_video_credit(db: Session, user_id: int) -> None:
+    """Atomic decrement of the reserved video credit (never goes below zero)."""
+    db.execute(
+        update(User)
+        .where(User.id == user_id, User.videos_used_this_period > 0)
+        .values(videos_used_this_period=User.videos_used_this_period - 1)
+    )
+
+
+def recover_stalled_template_change_job(db: Session, job: ProjectTemplateChangeJob) -> bool:
+    """Reap a stuck template-change job: cancel, revert scenes/template, refund.
+
+    Returns True if it reverted. False if the work had already landed (finalized as
+    completed instead) or another caller claimed the job first.
+    """
+    from app.services.remotion import rebuild_workspace
+
+    project = db.query(Project).filter(Project.id == job.project_id).first()
+
+    # Completion-race guard: the substantive work already landed (scenes written,
+    # template switched) and only the heartbeat-free rebuild tail was outstanding.
+    # Finalize as completed — do NOT revert or refund.
+    if project and project.status == ProjectStatus.GENERATED and project.template == job.target_template:
+        db.execute(
+            update(ProjectTemplateChangeJob)
+            .where(ProjectTemplateChangeJob.id == job.id, ProjectTemplateChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+            .values(status="completed", completed_at=datetime.utcnow())
+        )
+        db.commit()
+        stall_recovery.clear("template", job.id)
+        return False
+
+    stall_recovery.request_cancel("template", job.id)
+    snapshot_raw = job.scene_snapshot
+    user_id = job.user_id
+
+    claimed = db.execute(
+        update(ProjectTemplateChangeJob)
+        .where(ProjectTemplateChangeJob.id == job.id, ProjectTemplateChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+        .values(status="failed", error_message=STALL_RETRY_MESSAGE, completed_at=datetime.utcnow())
+    )
+    if not claimed.rowcount:
+        db.rollback()
+        return False
+
+    _refund_video_credit(db, user_id)
+    if project:
+        _restore_template_change_snapshot(db, project, snapshot_raw)
+    db.commit()
+
+    if project:
+        try:
+            scenes = db.query(Scene).filter(Scene.project_id == project.id).order_by(Scene.order).all()
+            rebuild_workspace(project, scenes, db, redistribute_images=False)
+        except Exception:
+            logger.exception("[STALL] template-change workspace rebuild failed for project=%s", job.project_id)
+    stall_recovery.clear("template", job.id)
+    logger.warning("[STALL] reverted stalled template-change job=%s project=%s", job.id, job.project_id)
+    return True
+
+
+def _restore_template_change_snapshot(db: Session, project: Project, snapshot_raw: str | None) -> None:
+    """Restore project template fields + scene descriptors from the job snapshot."""
+    try:
+        snap = json.loads(snapshot_raw or "{}")
+    except Exception:
+        snap = {}
+    if snap:
+        if snap.get("template"):
+            project.template = snap["template"]
+        project.crafted_template_id = snap.get("crafted_template_id")
+        if snap.get("accent_color"):
+            project.accent_color = snap["accent_color"]
+        if snap.get("bg_color"):
+            project.bg_color = snap["bg_color"]
+        if snap.get("text_color"):
+            project.text_color = snap["text_color"]
+        scene_snaps = {s["id"]: s for s in snap.get("scenes", []) if "id" in s}
+        if scene_snaps:
+            for sc in db.query(Scene).filter(Scene.project_id == project.id).all():
+                ss = scene_snaps.get(sc.id)
+                if ss is not None:
+                    sc.remotion_code = ss.get("remotion_code")
+                    sc.preferred_layout = ss.get("preferred_layout")
+    project.status = ProjectStatus.GENERATED
+
+
+def _restore_voice_snapshot(project: Project | None, snapshot_raw: str | None) -> None:
+    """Restore the project's prior voice settings (gender/accent/custom_voice_id).
+
+    voice_gender / voice_accent are non-nullable (column defaults female/american), so a
+    null in the snapshot (legacy rows) falls back to the default rather than violating
+    NOT NULL. custom_voice_id is nullable — a null legitimately means "prebuilt voice".
+    """
+    if not project:
+        return
+    try:
+        snap = json.loads(snapshot_raw or "{}")
+    except Exception:
+        return
+    if "voice_gender" in snap:
+        project.voice_gender = snap["voice_gender"] or "female"
+    if "voice_accent" in snap:
+        project.voice_accent = snap["voice_accent"] or "american"
+    if "custom_voice_id" in snap:
+        project.custom_voice_id = snap["custom_voice_id"]
+    if "voice_emotion" in snap:
+        project.voice_emotion = snap["voice_emotion"]
+
+
+def _rollback_delete_voiceover(
+    db: Session,
+    project_id: int,
+    snapshot_raw: str | None,
+    *,
+    audio_backed_up: bool,
+    backup_id: int,
+) -> None:
+    """Fully restore a project after a failed/reaped 'delete voiceover' run.
+
+    Delete nulls scene.voiceover_path, recomputes durations, deletes the AUDIO Asset
+    rows + files and rebuilds the workspace mute — so this puts ALL of that back from
+    the job snapshot: voice settings, per-scene voiceover_path/duration, the AUDIO
+    Asset rows, the audio files (local + R2), and the rebuilt workspace. Never refunds
+    a credit (delete never charges one).
+    """
+    from app.models.asset import Asset, AssetType
+    from app.services.remotion import rebuild_workspace
+
+    try:
+        snap = json.loads(snapshot_raw or "{}")
+    except Exception:
+        snap = {}
+    if not isinstance(snap, dict):
+        snap = {}
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return
+    try:
+        # 1. Voice settings.
+        _restore_voice_snapshot(project, snapshot_raw)
+
+        # 2. Per-scene voiceover_path + duration_seconds.
+        for srow in snap.get("scenes", []) or []:
+            sid = srow.get("id")
+            if sid is None:
+                continue
+            db.execute(
+                update(Scene)
+                .where(Scene.id == sid)
+                .values(
+                    voiceover_path=srow.get("voiceover_path"),
+                    duration_seconds=srow.get("duration_seconds")
+                    or settings.MIN_SCENE_DURATION_SECONDS,
+                )
+            )
+
+        # 3. AUDIO asset rows: clear any current ones, recreate from the snapshot.
+        db.query(Asset).filter(
+            Asset.project_id == project_id, Asset.asset_type == AssetType.AUDIO
+        ).delete()
+        db.flush()
+        for arow in snap.get("assets", []) or []:
+            db.add(
+                Asset(
+                    project_id=project_id,
+                    asset_type=AssetType.AUDIO,
+                    original_url=None,
+                    local_path=arow.get("local_path"),
+                    filename=arow.get("filename"),
+                    r2_key=arow.get("r2_key"),
+                    r2_url=arow.get("r2_url"),
+                )
+            )
+        db.commit()
+
+        # 4. Audio files (local) + push back to R2 so the workspace fallback serves them.
+        if audio_backed_up:
+            _restore_project_audio(project_id, backup_id)
+            _reupload_audio_to_r2(project_id, db)
+
+        # 5. Rebuild the workspace so data.json references the restored audio again.
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        try:
+            rebuild_workspace(project, scenes, db, redistribute_images=False)
+        except Exception:
+            logger.exception(
+                "[DELETE-VOICEOVER] workspace rebuild failed during rollback for project=%s",
+                project_id,
+            )
+    except Exception:
+        logger.exception("[DELETE-VOICEOVER] rollback failed for project=%s", project_id)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+
+def _purge_project_audio(db: Session, project: Project) -> None:
+    """Delete every AUDIO asset (R2 objects + DB rows) and local .mp3 file for a project."""
+    from app.models.asset import Asset, AssetType
+
+    audio_assets = (
+        db.query(Asset)
+        .filter(Asset.project_id == project.id, Asset.asset_type == AssetType.AUDIO)
+        .all()
+    )
+    for asset in audio_assets:
+        if r2_storage.is_r2_configured():
+            try:
+                key = asset.r2_key or r2_storage.audio_key(project.user_id, project.id, asset.filename)
+                r2_storage.delete_object(key)
+            except Exception:
+                logger.exception(
+                    "[VOICEOVER-CLEANUP] failed to delete R2 audio for project=%s file=%s",
+                    project.id, asset.filename,
+                )
+        db.delete(asset)
+    db.commit()
+
+    audio_dir = _regenerate_audio_dir(project.id)
+    if os.path.isdir(audio_dir):
+        for fn in os.listdir(audio_dir):
+            if fn.lower().endswith(".mp3"):
+                try:
+                    os.remove(os.path.join(audio_dir, fn))
+                except Exception:
+                    logger.exception(
+                        "[VOICEOVER-CLEANUP] failed to delete local audio %s for project=%s",
+                        fn, project.id,
+                    )
+
+
+def _reset_scenes_to_muted(db: Session, project_id: int) -> None:
+    """Null every scene's voiceover_path and re-estimate its duration from the narration
+    word count (mirrors the no-audio path in voiceover.generate_voiceover)."""
+    from app.services.voiceover import WORDS_PER_SECOND, DURATION_PAD
+
+    scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
+    for s in scenes:
+        text = (s.narration_text or "").strip()
+        if text:
+            wc = len(text.split())
+            est = max(5.0, wc / WORDS_PER_SECOND)
+            s.duration_seconds = round(
+                max(settings.MIN_SCENE_DURATION_SECONDS, est + DURATION_PAD), 1
+            )
+        s.voiceover_path = None
+    db.commit()
+
+
+def _snapshot_is_add(snapshot_raw: str | None) -> bool:
+    """A voice-change snapshot whose prior voice was 'none' represents an ADD (the
+    project was muted before). A failed add must roll back to muted — deleting the
+    partial audio — rather than restoring originals that never existed.
+    """
+    try:
+        snap = json.loads(snapshot_raw or "{}")
+        return isinstance(snap, dict) and snap.get("voice_gender") == "none"
+    except Exception:
+        return False
+
+
+def _rollback_added_voiceover(db: Session, project_id: int, snapshot_raw: str | None) -> None:
+    """Roll a failed/reaped 'add voiceover' back to the muted state.
+
+    Add starts from a muted project (no audio), so on failure we restore the prior
+    voice settings ("none"), delete any partial audio the run created (assets + files),
+    null every scene's voiceover_path + re-estimate durations, and rebuild the workspace
+    mute. There is no audio backup to restore (none existed). Never refunds here — the
+    caller handles the credit refund.
+    """
+    from app.services.remotion import rebuild_workspace
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return
+    try:
+        _restore_voice_snapshot(project, snapshot_raw)  # -> voice_gender "none", custom None
+        db.commit()
+        _purge_project_audio(db, project)
+        _reset_scenes_to_muted(db, project_id)
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        try:
+            rebuild_workspace(project, scenes, db, redistribute_images=False)
+        except Exception:
+            logger.exception(
+                "[VOICE-ADD] workspace rebuild failed during rollback for project=%s",
+                project_id,
+            )
+        db.commit()
+    except Exception:
+        logger.exception("[VOICE-ADD] rollback failed for project=%s", project_id)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+
+def _is_delete_job(job: "ProjectVoiceChangeJob | None") -> bool:
+    """Whether a voice-change job row actually represents a 'delete voiceover' op.
+
+    Delete reuses ProjectVoiceChangeJob (so the same heartbeat + stall-recovery
+    machinery applies) but is tagged via the voice_snapshot JSON ("_op": "delete")
+    so the reaper skips the credit refund and the status reset — deletes never
+    charge a credit and never change the project status.
+    """
+    if job is None:
+        return False
+    try:
+        snap = json.loads(job.voice_snapshot or "{}")
+        return isinstance(snap, dict) and snap.get("_op") == "delete"
+    except Exception:
+        return False
+
+
+def recover_stalled_voice_change_job(db: Session, job: ProjectVoiceChangeJob) -> bool:
+    """Reap a stuck voice-change (or delete) job: cancel, restore audio, refund.
+
+    For a delete job the refund and status reset are skipped (deletes don't charge
+    a credit and leave the project status/render untouched).
+    """
+    from app.services.remotion import rebuild_workspace
+
+    project = db.query(Project).filter(Project.id == job.project_id).first()
+    is_delete = _is_delete_job(job)
+
+    # Completion-race guard (voice-change only): voiceovers already regenerated and
+    # project finalized. Delete leaves the status untouched, so it relies on the
+    # claim rowcount below instead.
+    if not is_delete and project and project.status == ProjectStatus.GENERATED:
+        db.execute(
+            update(ProjectVoiceChangeJob)
+            .where(ProjectVoiceChangeJob.id == job.id, ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+            .values(status="completed", completed_at=datetime.utcnow())
+        )
+        db.commit()
+        stall_recovery.clear("voice", job.id)
+        return False
+
+    stall_recovery.request_cancel("voice", job.id)
+    user_id, project_id, job_id, backed_up = job.user_id, job.project_id, job.id, job.audio_backed_up
+    voice_snapshot_raw = job.voice_snapshot
+
+    claimed = db.execute(
+        update(ProjectVoiceChangeJob)
+        .where(ProjectVoiceChangeJob.id == job.id, ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+        .values(status="failed", error_message=STALL_RETRY_MESSAGE, completed_at=datetime.utcnow())
+    )
+    if not claimed.rowcount:
+        db.rollback()
+        return False
+
+    # Delete: no refund, no status reset — fully restore scenes/assets/audio/workspace.
+    if is_delete:
+        db.commit()
+        _rollback_delete_voiceover(
+            db, project_id, voice_snapshot_raw,
+            audio_backed_up=backed_up, backup_id=job_id,
+        )
+        _cleanup_audio_backup(project_id, job_id)
+        stall_recovery.clear("voice", job_id)
+        logger.warning("[STALL] reverted stalled delete-voiceover job=%s project=%s", job_id, project_id)
+        return True
+
+    # Add and change both reserved a credit — refund it.
+    _refund_video_credit(db, user_id)
+
+    # Add: roll back to muted, deleting the partial audio (no originals existed).
+    if _snapshot_is_add(voice_snapshot_raw):
+        if project:
+            project.status = ProjectStatus.GENERATED
+        db.commit()
+        _rollback_added_voiceover(db, project_id, voice_snapshot_raw)
+        _cleanup_audio_backup(project_id, job_id)
+        stall_recovery.clear("voice", job_id)
+        logger.warning("[STALL] reverted stalled add-voiceover job=%s project=%s", job_id, project_id)
+        return True
+
+    # Change: restore the prior voice settings + original audio in place.
+    if project:
+        project.status = ProjectStatus.GENERATED
+        _restore_voice_snapshot(project, voice_snapshot_raw)
+    db.commit()
+
+    if backed_up:
+        _restore_project_audio(project_id, job_id)
+        # Push the restored originals back to R2 (overwriting the new-voice objects),
+        # otherwise the workspace's R2 fallback would still serve the new voice.
+        _reupload_audio_to_r2(project_id, db)
+        if project:
+            try:
+                scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
+                rebuild_workspace(project, scenes, db, redistribute_images=False)
+            except Exception:
+                logger.exception("[STALL] voice-change workspace rebuild failed for project=%s", project_id)
+    _cleanup_audio_backup(project_id, job_id)
+    stall_recovery.clear("voice", job_id)
+    logger.warning("[STALL] reverted stalled voice-change job=%s project=%s", job_id, project_id)
+    return True
+
+
+def recover_stalled_regenerate_script_job(db: Session, job: ProjectRegenerateScriptJob) -> bool:
+    """Reap a stuck regenerate-script job: cancel, restore scenes/audio, refund.
+
+    ``awaiting_review`` is intentionally NOT reaped (it only matches active statuses).
+    """
+    stall_recovery.request_cancel("script", job.id)
+    job_id, project_id, user_id = job.id, job.project_id, job.user_id
+    snapshot_raw = job.scene_snapshot or "[]"
+
+    claimed = db.execute(
+        update(ProjectRegenerateScriptJob)
+        .where(ProjectRegenerateScriptJob.id == job_id, ProjectRegenerateScriptJob.status.in_(_JOB_ACTIVE_STATUSES))
+        .values(status="failed", error_message=STALL_RETRY_MESSAGE, completed_at=datetime.utcnow())
+    )
+    if not claimed.rowcount:
+        db.rollback()
+        return False
+
+    _refund_video_credit(db, user_id)
+    db.commit()
+
+    # Restore scenes + audio + workspace (never refunds; we already did).
+    _rollback_regenerate_script(db, project_id, snapshot_raw, job_id=job_id, restore_audio=True)
+    _cleanup_audio_backup(project_id, job_id)
+    stall_recovery.clear("script", job_id)
+    logger.warning("[STALL] reverted stalled regenerate-script job=%s project=%s", job_id, project_id)
+    return True
+
+
+def maybe_reap_stale_template_change(db: Session, job: ProjectTemplateChangeJob | None) -> bool:
+    if job is None or job.status not in _JOB_ACTIVE_STATUSES:
+        return False
+    if _seconds_since(job.updated_at) < settings.STALL_THRESHOLD_TEMPLATE_SECONDS:
+        return False
+    return recover_stalled_template_change_job(db, job)
+
+
+def maybe_reap_stale_voice_change(db: Session, job: ProjectVoiceChangeJob | None) -> bool:
+    if job is None or job.status not in _JOB_ACTIVE_STATUSES:
+        return False
+    if _seconds_since(job.updated_at) < settings.STALL_THRESHOLD_VOICE_SECONDS:
+        return False
+    return recover_stalled_voice_change_job(db, job)
+
+
+def maybe_reap_stale_regenerate_script(db: Session, job: ProjectRegenerateScriptJob | None) -> bool:
+    if job is None or job.status not in _JOB_ACTIVE_STATUSES:
+        return False
+    if _seconds_since(job.updated_at) < settings.STALL_THRESHOLD_SCRIPT_SECONDS:
+        return False
+    return recover_stalled_regenerate_script_job(db, job)
+
+
+def reap_orphaned_template_change_jobs() -> None:
+    """Boot sweep: any active template-change job is orphaned (its process is gone)."""
+    db = SessionLocal()
+    try:
+        jobs = db.query(ProjectTemplateChangeJob).filter(
+            ProjectTemplateChangeJob.status.in_(_JOB_ACTIVE_STATUSES)
+        ).all()
+        for job in jobs:
+            try:
+                recover_stalled_template_change_job(db, job)
+            except Exception:
+                logger.exception("[STALL] boot recovery failed for template-change job=%s", job.id)
+    except Exception:
+        logger.exception("[STALL] template-change boot sweep failed")
+    finally:
+        db.close()
+
+
+def reap_orphaned_voice_change_jobs() -> None:
+    """Boot sweep: any active voice-change job is orphaned (its process is gone)."""
+    db = SessionLocal()
+    try:
+        jobs = db.query(ProjectVoiceChangeJob).filter(
+            ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES)
+        ).all()
+        for job in jobs:
+            try:
+                recover_stalled_voice_change_job(db, job)
+            except Exception:
+                logger.exception("[STALL] boot recovery failed for voice-change job=%s", job.id)
+    except Exception:
+        logger.exception("[STALL] voice-change boot sweep failed")
+    finally:
+        db.close()
+
+
+def _run_regenerate_script_stage_a(job_id: int) -> None:
+    """Stage A: regenerate the script + re-plan layouts, then PAUSE for user review.
+
+    Deletes the existing scenes and creates new ones (with planned ``preferred_layout``
+    but no ``remotion_code`` yet), then parks the job in ``awaiting_review`` so the user
+    can verify the new script before the expensive scene/voiceover stage runs. Re-run on
+    "Regenerate" (reject); advanced to stage B on "Proceed" (verify).
+    """
+    from app.routers.pipeline import _generate_script, _sanitize_script_layouts
+    from app.dspy_modules.template_layout_planner import TemplateLayoutPlanner
+
+    db = SessionLocal()
+    job_project_id = None
+    scene_snapshot_raw = "[]"
     try:
         job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
         if not job:
             return
         project = db.query(Project).filter(Project.id == job.project_id).first()
         if not project:
-            job.status = "failed"
-            job.error_message = "Project not found."
-            job.completed_at = datetime.utcnow()
-            db.commit()
+            # Refund the reserved credit — the project is gone, so the regeneration can't run.
+            _mark_regenerate_script_failed(db, job_id, RuntimeError("Project not found."))
             return
 
         # Read scalar fields into plain locals before db.commit() expires the object
@@ -928,10 +1837,12 @@ def _run_regenerate_script_job(job_id: int) -> None:
 
         job.status = "running"
         job.current_step = "analyzing_instruction"
+        # Reset the pause/scene counters in case this is a re-run after a rejection.
+        job.total_scenes = 0
+        job.processed_scenes = 0
         db.commit()
 
         # Phase 1: Regenerate script — deletes existing scenes and creates new ones.
-        # total_scenes stays 0 so the UI shows ~8% (indeterminate phase).
         # _generate_script returns the analyzer's distilled summary so we can
         # hand it to the layout planner below without re-running the analyzer.
         user_instruction_summary = asyncio.run(
@@ -955,9 +1866,7 @@ def _run_regenerate_script_job(job_id: int) -> None:
             db.commit()
 
         # Reload the freshly generated scenes (new titles / narration / visuals produced by
-        # _generate_script). This is a COMPLETE regeneration — narration and voiceover are
-        # regenerated too, so nothing is restored from the snapshot here (the snapshot is kept
-        # solely for rollback on failure).
+        # _generate_script).
         new_scenes = (
             db.query(Scene)
             .filter(Scene.project_id == job_project_id)
@@ -972,9 +1881,6 @@ def _run_regenerate_script_job(job_id: int) -> None:
         # Mirror the (crafted-proven) template-change job: re-plan preferred layouts with the
         # variety-aware planner + sanitizer for ALL template types, then _generate_scenes honors
         # the fresh assignments. No template-type check — every template is treated the same.
-        from app.dspy_modules.template_layout_planner import TemplateLayoutPlanner
-        from app.routers.pipeline import _sanitize_script_layouts
-
         replan_template_id = validate_template_id(
             project.template or "default", db=db, user_id=job_user_id
         )
@@ -1010,16 +1916,100 @@ def _run_regenerate_script_job(job_id: int) -> None:
                         else ""
                     )
                 }
-                for i in range(len(new_scenes))
+                for i in range(len(planner_scenes_data))
             ],
             include_ending_socials=replan_supports_ending,
         )
-        for i, scene in enumerate(new_scenes):
+        # Re-load the scenes from the DB right before mutating them. The DSPy
+        # planner above runs the model in a worker thread (dspy.asyncify) and
+        # _generate_script earlier closed/re-opened this session and bulk-deleted
+        # + re-inserted scenes — both can leave the `new_scenes` objects loaded
+        # above stale in the identity map. A bulk delete with the default
+        # synchronize_session does NOT evict those rows from the session, so a
+        # later UPDATE flush can target PKs that no longer exist and raise
+        # StaleDataError ("expected to update N row(s); 0 were matched"). Expiring
+        # the session and re-querying guarantees the mutation hits live rows.
+        db.expire_all()
+        fresh_scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == job_project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        for i, scene in enumerate(fresh_scenes):
             entry = sanitized_pairs[i] if i < len(sanitized_pairs) else None
             new_layout = (entry.get("preferred_layout") or "") if isinstance(entry, dict) else ""
             if new_layout:
                 scene.preferred_layout = new_layout
         db.commit()
+        new_scenes = fresh_scenes
+
+        # Phase 2.6: Re-embed TABLE_DATA_HINT_JSON for scenes that Phase 2.5 assigned
+        # to a data-viz layout. _generate_script embeds the hint during scene creation,
+        # but Phase 2.5 may change which scenes carry a data-viz layout — those scenes
+        # won't have the hint yet, and _generate_scenes (stage B) relies on it being
+        # present in visual_description. Without this, data-viz scenes get no real chart
+        # data and fall back to prose/example data.
+        from app.services.table_extraction import (
+            classify_chart_tables_for_template,
+            build_table_context_hint,
+        )
+        from app.services.template_service import (
+            CHART_TICKER_TEMPLATE_LAYOUTS,
+            is_builtin_chart_layout,
+            is_builtin_ticker_layout,
+        )
+
+        _blog_text = getattr(project, "blog_content", None) or ""
+        _all_regen_tables: list[dict] = []
+        if replan_template_id in CHART_TICKER_TEMPLATE_LAYOUTS and _blog_text:
+            _chart_layout, _ticker_layout = CHART_TICKER_TEMPLATE_LAYOUTS[replan_template_id]
+            _all_regen_tables, _ = classify_chart_tables_for_template(
+                _blog_text,
+                chart_layout=_chart_layout,
+                ticker_layout=_ticker_layout,
+            )
+
+        if _all_regen_tables:
+            # Assign tables round-robin to scenes that carry a data-viz layout but lack
+            # the hint. Scenes that already contain TABLE_DATA_HINT_JSON (written by
+            # _generate_script for scenes that were already data-viz) keep theirs.
+            _TABLE_HINT_MARKER = "TABLE_DATA_HINT_JSON"
+            _table_idx = 0
+            db.expire_all()
+            fresh_scenes_dv = (
+                db.query(Scene)
+                .filter(Scene.project_id == job_project_id)
+                .order_by(Scene.order)
+                .all()
+            )
+            hint_written = False
+            for scene in fresh_scenes_dv:
+                layout = scene.preferred_layout or ""
+                is_dv = is_builtin_chart_layout(layout) or is_builtin_ticker_layout(layout)
+                if not is_dv:
+                    continue
+                vd = scene.visual_description or ""
+                if _TABLE_HINT_MARKER in vd:
+                    _table_idx += 1
+                    continue
+                if _table_idx < len(_all_regen_tables):
+                    hint = build_table_context_hint(
+                        [_all_regen_tables[_table_idx]], max_tables=1, max_rows=20
+                    )
+                    if hint:
+                        scene.visual_description = (vd.rstrip() + "\n\n" + hint).strip()
+                        hint_written = True
+                    _table_idx += 1
+            if hint_written:
+                db.commit()
+                new_scenes = (
+                    db.query(Scene)
+                    .filter(Scene.project_id == job_project_id)
+                    .order_by(Scene.order)
+                    .all()
+                )
+
         logger.info(
             "[REGENERATE_SCRIPT_JOB] job=%s re-planned layouts for template=%s: %s",
             job_id,
@@ -1027,21 +2017,81 @@ def _run_regenerate_script_job(job_id: int) -> None:
             [s.preferred_layout for s in new_scenes],
         )
 
-        # Phase 3: Regenerate scene descriptors + layouts AND voiceovers for ALL templates
-        # uniformly via the canonical pipeline function (it handles custom/builtin/crafted
-        # internally and writes the Remotion workspace data). This is a complete regeneration —
-        # voiceover is regenerated from the freshly written narration.
+        # Pause for verification. The new script (with planned layouts) is now in the DB;
+        # the frontend reloads the project and shows it for review with Proceed / Regenerate.
+        job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
+        if job:
+            job.status = "awaiting_review"
+            job.current_step = "verify"
+            db.commit()
+
+    except Exception as e:
+        logger.exception("[REGENERATE_SCRIPT_JOB] stage A job=%s failed: %s", job_id, e)
+        # Script-gen only touched the DB (audio untouched); restore scenes + workspace.
+        _rollback_regenerate_script(db, job_project_id, scene_snapshot_raw, job_id=job_id, restore_audio=False)
+        _mark_regenerate_script_failed(db, job_id, e)
+    finally:
+        db.close()
+
+
+def _run_regenerate_script_stage_b(job_id: int) -> None:
+    """Stage B: generate scene descriptors + voiceovers, finalize, and charge one credit.
+
+    Runs only after the user verifies the regenerated script. On any failure the project
+    is fully rolled back — scene rows, on-disk voiceover audio, and the workspace — and no
+    credit is deducted.
+    """
+    from app.routers.pipeline import _generate_scenes
+    from app.services.remotion import rebuild_workspace
+
+    db = SessionLocal()
+    job_project_id = None
+    scene_snapshot_raw = "[]"
+    audio_backed_up = False
+    try:
+        job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
+        if not job:
+            return
+        project = db.query(Project).filter(Project.id == job.project_id).first()
+        if not project:
+            # Refund the reserved credit — the project is gone, so the regeneration can't run.
+            _mark_regenerate_script_failed(db, job_id, RuntimeError("Project not found."))
+            return
+
+        job_project_id = job.project_id
+        scene_snapshot_raw = job.scene_snapshot or "[]"
+
+        new_scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == job_project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        job.status = "running"
         job.current_step = "generating_scenes"
         job.total_scenes = len(new_scenes)
         job.processed_scenes = 0
         db.commit()
 
+        # Back up the original voiceover audio BEFORE _generate_scenes overwrites it (req 4).
+        # Pull originals from R2 first in case the local cache is cold.
+        _ensure_local_audio_from_r2(job_project_id, db)
+        _backup_project_audio(job_project_id, job_id)
+        audio_backed_up = True
+
+        # Phase 3: Regenerate scene descriptors + layouts AND voiceovers for ALL templates
+        # uniformly via the canonical pipeline function (it handles custom/builtin/crafted
+        # internally and writes the Remotion workspace data). This is a complete regeneration —
+        # voiceover is regenerated from the freshly written narration.
         asyncio.run(
             _generate_scenes(
                 project,
                 db,
                 preserve_image_assignments=False,
                 redistribute_images=True,
+                # Raise on partial TTS failure so the except branch restores the
+                # backed-up original audio instead of shipping silent scenes.
+                strict_voiceover=True,
             )
         )
 
@@ -1078,68 +2128,62 @@ def _run_regenerate_script_job(job_id: int) -> None:
         project.r2_video_url = None
         db.commit()
 
-        # Rebuild the remotion workspace BEFORE charging — if this throws, the except
-        # block rolls back and no credit is deducted.
+        # Rebuild the remotion workspace before completing — if this throws, the except
+        # block rolls back and refunds the credit reserved at initiation.
         rebuild_workspace(project, new_scenes, db, redistribute_images=True)
 
-        # Deduct one video credit only now that every fallible step has succeeded.
-        # Committed together with job completion so a failure anywhere above never charges.
-        user_row = db.query(User).filter(User.id == job_user_id).first()
-        if user_row:
-            user_row.videos_used_this_period += 1
-
-        job.status = "completed"
-        job.completed_at = datetime.utcnow()
+        # The video credit was already reserved when the job was created; nothing to charge
+        # here. Just mark the job complete (the reserved credit is now kept) — unless a
+        # stall reaper already claimed (failed/reverted) this job.
+        finalized = db.execute(
+            update(ProjectRegenerateScriptJob)
+            .where(ProjectRegenerateScriptJob.id == job_id, ProjectRegenerateScriptJob.status.in_(_JOB_ACTIVE_STATUSES))
+            .values(status="completed", completed_at=datetime.utcnow())
+        )
         db.commit()
+        if not finalized.rowcount:
+            logger.warning("[REGENERATE_SCRIPT_JOB] stage B job=%s already reaped; skipping completion", job_id)
+
+        # Success — the new audio is committed, drop the backup.
+        _cleanup_audio_backup(job_project_id, job_id)
 
     except Exception as e:
-        logger.exception("[REGENERATE_SCRIPT_JOB] job=%s failed: %s", job_id, e)
-        # Rollback: restore original scenes from snapshot; do NOT deduct credit.
-        try:
-            snapshot = json.loads(scene_snapshot_raw)
-            db.query(Scene).filter(Scene.project_id == job_project_id).delete()
-            db.flush()
-            for s in snapshot:
-                db.add(Scene(
-                    project_id=job_project_id,
-                    order=s["order"],
-                    title=s["title"],
-                    narration_text=s["narration_text"],
-                    display_text=s.get("display_text"),
-                    visual_description=s["visual_description"],
-                    remotion_code=s.get("remotion_code"),
-                    voiceover_path=s.get("voiceover_path"),
-                    duration_seconds=s.get("duration_seconds", 10.0),
-                    extra_hold_seconds=s.get("extra_hold_seconds"),
-                    preferred_layout=s.get("preferred_layout"),
-                    scene_type=s.get("scene_type"),
-                ))
-            project = db.query(Project).filter(Project.id == job_project_id).first()
-            if project:
-                project.status = ProjectStatus.GENERATED
-            db.commit()
-        except Exception as restore_err:
-            logger.exception("[REGENERATE_SCRIPT_JOB] restore failed for job=%s: %s", job_id, restore_err)
-            try:
-                db.rollback()
-                project = db.query(Project).filter(Project.id == job_project_id).first()
-                if project:
-                    project.status = ProjectStatus.GENERATED
-                    db.commit()
-            except Exception:
-                pass
-
-        try:
-            job = db.query(ProjectRegenerateScriptJob).filter(ProjectRegenerateScriptJob.id == job_id).first()
-            if job:
-                job.status = "failed"
-                job.error_message = str(e)
-                job.completed_at = datetime.utcnow()
-                db.commit()
-        except Exception:
-            pass
+        logger.exception("[REGENERATE_SCRIPT_JOB] stage B job=%s failed: %s", job_id, e)
+        # Full rollback: scenes + on-disk audio + workspace; do NOT deduct credit.
+        _rollback_regenerate_script(
+            db, job_project_id, scene_snapshot_raw, job_id=job_id, restore_audio=audio_backed_up
+        )
+        _mark_regenerate_script_failed(db, job_id, e)
+        if job_project_id is not None:
+            _cleanup_audio_backup(job_project_id, job_id)
     finally:
         db.close()
+
+
+async def _assert_instruction_in_context(instruction: str, project: Project) -> None:
+    """Raise 422 if the regeneration instruction is completely out of context.
+
+    Lenient: only clearly-unrelated instructions are rejected; valid tone/structure/
+    wording feedback always passes. Fails open if there's no blog text to judge against
+    or if the classifier errors.
+    """
+    from app.dspy_modules.instruction_relevance_checker import InstructionRelevanceChecker
+
+    blog_summary = (project.blog_content or "")[:2000]
+    if not blog_summary.strip():
+        return  # nothing to judge against — accept
+    result = await InstructionRelevanceChecker().check(
+        user_instruction=instruction, blog_summary=blog_summary
+    )
+    if not result.get("in_context", True):
+        raise HTTPException(
+            status_code=422,
+            detail=result.get("reason")
+            or (
+                "This instruction doesn't seem related to your blog or video. Please give "
+                "feedback about the script — tone, focus, structure, wording, or what to add or remove."
+            ),
+        )
 
 
 class RegenerateScriptRequest(BaseModel):
@@ -1200,6 +2244,10 @@ async def regenerate_script(
     if not scenes:
         raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
 
+    # Reject instructions that are completely unrelated to the blog/script before doing any
+    # destructive work or reserving a credit. Fails open on classifier error.
+    await _assert_instruction_in_context(instruction, project)
+
     scene_snapshot = [
         {
             "order": s.order,
@@ -1229,11 +2277,15 @@ async def regenerate_script(
     )
     db.add(job)
     project.status = ProjectStatus.SCRIPT_REGENERATING
+    # Reserve the video credit upfront (same as new-project creation) so a concurrent
+    # generation can't double-spend the user's last credit. Refunded on any failure
+    # (in-job exception or crash recovery); kept once the regeneration succeeds.
+    user.videos_used_this_period += 1
     db.commit()
     db.refresh(job)
 
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _run_regenerate_script_job, job.id)
+    loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
     return job
 
 
@@ -1254,6 +2306,129 @@ def get_regenerate_script_status(
         .order_by(ProjectRegenerateScriptJob.id.desc())
         .first()
     )
+    # Stall recovery: reap a stuck job (awaiting_review is never reaped — it only
+    # matches active statuses), then return the now-failed job for the retry popup.
+    if maybe_reap_stale_regenerate_script(db, job):
+        db.refresh(job)
+    return job
+
+
+def _get_awaiting_review_job(project_id: int, user_id: int, db: Session) -> ProjectRegenerateScriptJob:
+    """Fetch the latest regenerate-script job for the project, asserting it is paused for review."""
+    _ = _get_user_project(project_id, user_id, db)
+    job = (
+        db.query(ProjectRegenerateScriptJob)
+        .filter(ProjectRegenerateScriptJob.project_id == project_id)
+        .order_by(ProjectRegenerateScriptJob.id.desc())
+        .first()
+    )
+    if not job or job.status != "awaiting_review":
+        raise HTTPException(
+            status_code=409,
+            detail="No script regeneration is awaiting review for this project.",
+        )
+    return job
+
+
+@router.get(
+    "/{project_id}/regenerate-script/preview",
+    response_model=RegenerateScriptPreviewOut,
+)
+def get_regenerate_script_preview(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return the previous (pre-regeneration) scenes for the verify-step before/after comparison.
+
+    The original scenes live only in the paused job's snapshot — the live Scene rows now hold the
+    newly regenerated script. Only valid while the job is awaiting review.
+    """
+    job = _get_awaiting_review_job(project_id, user.id, db)
+    try:
+        snapshot = json.loads(job.scene_snapshot or "[]")
+    except Exception:
+        snapshot = []
+    previous = [
+        RegenerateScriptPreviewScene(
+            order=s.get("order", i),
+            title=s.get("title", "") or "",
+            display_text=s.get("display_text"),
+            narration_text=s.get("narration_text", "") or "",
+            visual_description=s.get("visual_description", "") or "",
+            remotion_code=s.get("remotion_code"),
+            preferred_layout=s.get("preferred_layout"),
+        )
+        for i, s in enumerate(snapshot)
+        if isinstance(s, dict)
+    ]
+    previous.sort(key=lambda p: p.order)
+    return RegenerateScriptPreviewOut(previous_scenes=previous)
+
+
+@router.post(
+    "/{project_id}/regenerate-script/verify",
+    response_model=ProjectRegenerateScriptJobOut,
+)
+async def verify_regenerate_script(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Approve the regenerated script and resume into scene/voiceover generation (stage B)."""
+    job = _get_awaiting_review_job(project_id, user.id, db)
+    job.status = "running"
+    job.current_step = "generating_scenes"
+    db.commit()
+    db.refresh(job)
+
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_regenerate_script_stage_b, job.id)
+    return job
+
+
+class RegenerateScriptRetryRequest(BaseModel):
+    user_instruction: str | None = None
+
+
+@router.post(
+    "/{project_id}/regenerate-script/regenerate",
+    response_model=ProjectRegenerateScriptJobOut,
+)
+async def reject_regenerate_script(
+    project_id: int,
+    body: RegenerateScriptRetryRequest = RegenerateScriptRetryRequest(),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Discard the regenerated script and re-run stage A (optionally with a new instruction).
+
+    No credit is charged — only the final verify -> stage B finalize charges one credit.
+    """
+    job = _get_awaiting_review_job(project_id, user.id, db)
+    project = db.query(Project).filter(Project.id == project_id).first()
+
+    new_instruction = (body.user_instruction or "").strip()
+    if new_instruction:
+        if len(new_instruction) > 25_000:
+            raise HTTPException(
+                status_code=400, detail="user_instruction is too long (max 25,000 characters)"
+            )
+        # Only the newly-provided instruction needs validating — the existing one was already
+        # accepted when the job was created. Reject up front before re-running stage A.
+        if project:
+            await _assert_instruction_in_context(new_instruction, project)
+        job.user_instruction = new_instruction
+
+    job.status = "queued"
+    job.current_step = "analyzing_instruction"
+    if project:
+        project.status = ProjectStatus.SCRIPT_REGENERATING
+    db.commit()
+    db.refresh(job)
+
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
     return job
 
 
@@ -1382,6 +2557,9 @@ def create_projects_bulk(
             )
         colors = get_preview_colors(template_id)
         normalized_video_style = _normalize_video_style(data.video_style)
+        voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
+        if voice_tuning_pref is not None:
+            user.preferred_voice_emotion = voice_tuning_pref
         project = Project(
             user_id=user.id,
             name=name,
@@ -1390,6 +2568,7 @@ def create_projects_bulk(
             crafted_template_id=_crafted_template_pk(template_id, db),
             voice_gender=data.voice_gender or "female",
             voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
+            voice_emotion=voice_tuning,
             accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
             bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
             text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -1445,6 +2624,7 @@ def create_project_from_upload(
     logo_position: Optional[str] = Form("bottom_right"),
     logo_opacity: Optional[float] = Form(0.9),
     custom_voice_id: Optional[str] = Form(None),
+    voice_emotion: Optional[str] = Form(None),
     aspect_ratio: Optional[str] = Form("landscape"),
     template: Optional[str] = Form(None),
     video_style: Optional[str] = Form("explainer"),
@@ -1498,6 +2678,7 @@ def create_project_from_upload(
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(video_style)
+    resolved_voice_tuning, resolved_voice_tuning_pref = _resolve_voice_tuning(voice_emotion, user)
     logger.info(
         "[PROJECTS] Creating project from upload: template='%s', validated='%s'",
         template,
@@ -1512,6 +2693,7 @@ def create_project_from_upload(
         crafted_template_id=_crafted_template_pk(template_id, db),
         voice_gender=voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(voice_accent),
+        voice_emotion=resolved_voice_tuning,
         accent_color=accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=text_color or (colors.get("text") if colors else None) or "#000000",
@@ -1527,6 +2709,8 @@ def create_project_from_upload(
         status=ProjectStatus.CREATED,
     )
     db.add(project)
+    if resolved_voice_tuning_pref is not None:
+        user.preferred_voice_emotion = resolved_voice_tuning_pref
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
@@ -3193,7 +4377,9 @@ async def regenerate_scene(
             video_style = getattr(project, "video_style", None) or "explainer"
             content_language = get_content_language_for_project(project)
             expanded_voiceover = await expand_narration_to_voiceover(
-                narration_source, scene.title, video_style=video_style, content_language=content_language
+                narration_source, scene.title, video_style=video_style,
+                content_language=content_language,
+                expressive=bool(getattr(project, "voice_emotion", None)),
             )
 
             # Persist the AI-expanded text so the narration shown in the scene
@@ -3255,11 +4441,12 @@ def _get_user_project(project_id: int, user_id: int, db: Session) -> Project:
     return project
 
 
-async def _run_voice_change(project_id: int) -> None:
+async def _run_voice_change(project_id: int, job_id: int) -> None:
     """Background worker: regenerate every scene's voiceover in the new voice.
 
     Runs in its own DB session (the request's session is closed once the response
-    is sent) and advances the progress store one step per scene.
+    is sent). Heartbeats ``ProjectVoiceChangeJob.updated_at`` one step per scene so
+    a stalled run can be reaped + reverted via the status-polling API.
     """
     from app.database import SessionLocal
     from app.services.voiceover import generate_all_voiceovers
@@ -3267,27 +4454,96 @@ async def _run_voice_change(project_id: int) -> None:
     from app.services.language_detection import get_content_language_for_project
     from app.services import voice_change_progress
 
-    db = SessionLocal()
+    # Register this coroutine so a stall reaper can cancel it for real.
     try:
+        stall_recovery.register_task("voice", job_id, asyncio.current_task())
+    except Exception:
+        pass
+
+    db = SessionLocal()
+    job_user_id = None
+    audio_backed_up = False
+    voice_snapshot_raw = None
+    try:
+        job = db.query(ProjectVoiceChangeJob).filter(ProjectVoiceChangeJob.id == job_id).first()
         project = db.query(Project).filter(Project.id == project_id).first()
-        if not project:
+        if not project or not job:
             voice_change_progress.finish(project_id, error="Project not found.")
+            if job:
+                job.status = "failed"
+                job.error_message = "Project not found."
+                job.completed_at = datetime.utcnow()
+                db.commit()
             return
+        job_user_id = job.user_id
+        voice_snapshot_raw = job.voice_snapshot
         scenes = (
             db.query(Scene)
             .filter(Scene.project_id == project_id)
             .order_by(Scene.order)
             .all()
         )
+
+        # Back up existing voiceover audio BEFORE generate overwrites scene_N.mp3 in place,
+        # so a reaped/failed run can restore the originals. Pull originals from R2 first
+        # in case the local cache is cold (otherwise the backup would be empty).
+        _ensure_local_audio_from_r2(project_id, db)
+        _backup_project_audio(project_id, job_id)
+        audio_backed_up = True
+        job.status = "running"
+        job.total_scenes = len(scenes)
+        job.processed_scenes = 0
+        job.audio_backed_up = True
+        db.commit()
+
+        def _advance() -> None:
+            voice_change_progress.advance(project_id)
+            # Heartbeat in a separate short-lived session so we never disturb the
+            # worker's session mid-generation.
+            hb = SessionLocal()
+            try:
+                hb.execute(
+                    update(ProjectVoiceChangeJob)
+                    .where(ProjectVoiceChangeJob.id == job_id)
+                    .values(
+                        processed_scenes=ProjectVoiceChangeJob.processed_scenes + 1,
+                        updated_at=datetime.utcnow(),
+                    )
+                )
+                hb.commit()
+            except Exception:
+                hb.rollback()
+            finally:
+                hb.close()
+
         content_language = get_content_language_for_project(project)
-        await generate_all_voiceovers(
+        new_paths = await generate_all_voiceovers(
             scenes,
             db,
             video_style=getattr(project, "video_style", None) or "explainer",
             content_language=content_language,
             verbatim=True,
-            progress_cb=lambda: voice_change_progress.advance(project_id),
+            progress_cb=_advance,
         )
+
+        # generate_all_voiceovers swallows per-scene TTS failures (returns "" for a
+        # failed scene). A scene legitimately has no audio only when its narration is
+        # empty — so any scene WITH narration but WITHOUT a new path means a partial
+        # failure. Don't accept it as success (which would delete the originals);
+        # raise so the except branch restores the backed-up audio and refunds.
+        # Skipped in no-audio mode (voice_gender == "none"), where every scene
+        # legitimately returns an empty path.
+        if getattr(project, "voice_gender", None) != "none":
+            failed_scenes = [
+                scenes[i].order
+                for i in range(len(scenes))
+                if (scenes[i].narration_text or "").strip()
+                and not (new_paths[i] if i < len(new_paths) else "")
+            ]
+            if failed_scenes:
+                raise RuntimeError(
+                    f"Voiceover regeneration failed for {len(failed_scenes)} scene(s): {failed_scenes}"
+                )
 
         # Rebuild the Remotion workspace so the new audio is referenced.
         scenes = (
@@ -3301,19 +4557,57 @@ async def _run_voice_change(project_id: int) -> None:
         # Clear the stale rendered video and reset status so the user can re-render.
         project.r2_video_url = None
         project.status = ProjectStatus.GENERATED
+        # Finalize only if a reaper hasn't already claimed (failed/reverted) this job.
+        finalized = db.execute(
+            update(ProjectVoiceChangeJob)
+            .where(ProjectVoiceChangeJob.id == job_id, ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+            .values(status="completed", completed_at=datetime.utcnow())
+        )
         db.commit()
-        voice_change_progress.finish(project_id)
+        if finalized.rowcount:
+            _cleanup_audio_backup(project_id, job_id)
+            voice_change_progress.finish(project_id)
+        else:
+            logger.warning("[VOICE-CHANGE] job=%s already reaped; skipping completion", job_id)
+            voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
+    except asyncio.CancelledError:
+        # A stall reaper cancelled us; it owns the revert + refund. Leave state alone.
+        logger.warning("[VOICE-CHANGE] job=%s cancelled by reaper", job_id)
+        voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
+        raise
     except Exception as e:  # noqa: BLE001
         logger.exception("[VOICE-CHANGE] Failed for project %s: %s", project_id, e)
         try:
+            claimed = db.execute(
+                update(ProjectVoiceChangeJob)
+                .where(ProjectVoiceChangeJob.id == job_id, ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+                .values(status="failed", error_message=STALL_RETRY_MESSAGE, completed_at=datetime.utcnow())
+            )
+            if claimed.rowcount and job_user_id is not None:
+                _refund_video_credit(db, job_user_id)
             project = db.query(Project).filter(Project.id == project_id).first()
-            if project and project.status == ProjectStatus.GENERATING:
+            if project and project.status in (ProjectStatus.GENERATING, ProjectStatus.VOICE_REGENERATING):
                 project.status = ProjectStatus.GENERATED
-                db.commit()
+            db.commit()
+            if claimed.rowcount:
+                if _snapshot_is_add(voice_snapshot_raw):
+                    # ADD failed: there were no originals — roll back to muted and
+                    # delete the partial audio (assets + files) the run created.
+                    _rollback_added_voiceover(db, project_id, voice_snapshot_raw)
+                else:
+                    # CHANGE failed: restore the prior voice + original audio in place.
+                    project = db.query(Project).filter(Project.id == project_id).first()
+                    _restore_voice_snapshot(project, voice_snapshot_raw)
+                    db.commit()
+                    if audio_backed_up:
+                        _restore_project_audio(project_id, job_id)
+                        _reupload_audio_to_r2(project_id, db)
+            _cleanup_audio_backup(project_id, job_id)
         except Exception:
             db.rollback()
-        voice_change_progress.finish(project_id, error="Failed to regenerate voiceovers. Please try again.")
+        voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
     finally:
+        stall_recovery.clear("voice", job_id)
         db.close()
 
 
@@ -3337,7 +4631,19 @@ async def change_project_voice(
 
     project = _get_user_project(project_id, user.id, db)
 
-    # Don't start a second regeneration while one is already running.
+    # Don't start a second regeneration while one is already running. Check the DB job
+    # (survives worker restarts) as well as the in-memory bar.
+    active_job = (
+        db.query(ProjectVoiceChangeJob)
+        .filter(
+            ProjectVoiceChangeJob.project_id == project_id,
+            ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES),
+        )
+        .order_by(ProjectVoiceChangeJob.id.desc())
+        .first()
+    )
+    if active_job and _seconds_since(active_job.updated_at) < settings.STALL_THRESHOLD_VOICE_SECONDS:
+        raise HTTPException(status_code=409, detail="A voice change is already in progress.")
     existing = voice_change_progress.get(project_id)
     if existing and not existing.get("done", True):
         raise HTTPException(status_code=409, detail="A voice change is already in progress.")
@@ -3365,23 +4671,53 @@ async def change_project_voice(
     if not scenes:
         raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
 
-    # Apply the new voice selection.
+    # Snapshot the prior voice settings BEFORE applying the new ones, so a reaped/failed
+    # run can restore them (otherwise the project would show the new voice with old audio).
+    voice_snapshot = json.dumps({
+        "voice_gender": project.voice_gender,
+        "voice_accent": project.voice_accent,
+        "custom_voice_id": project.custom_voice_id,
+        "voice_emotion": project.voice_emotion,
+    })
+
+    # Apply the new voice selection. gender/accent are display-only metadata —
+    # the actual TTS voice is driven by custom_voice_id (or the VOICE_MAP fallback).
+    # Adding a voiceover to a previously-muted project ("none") via a voice that
+    # carries no gender/accent must not leave voice_gender == "none" (that would
+    # skip TTS), so coerce empty/"none" to the defaults.
     if body.voice_gender is not None:
-        project.voice_gender = body.voice_gender.strip() or "female"
+        g = body.voice_gender.strip()
+        project.voice_gender = g if g and g != "none" else "female"
     if body.voice_accent is not None:
-        project.voice_accent = body.voice_accent.strip() or "american"
+        a = body.voice_accent.strip()
+        project.voice_accent = a if a and a != "none" else "american"
     # custom_voice_id may be intentionally cleared (empty string) when picking a prebuilt voice.
     if body.custom_voice_id is not None:
         project.custom_voice_id = body.custom_voice_id.strip() or None
+    # Apply voice tuning when provided (Pro/Standard only; _resolve_voice_tuning raises 403 otherwise).
+    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(body.voice_emotion, user_row)
+    project.voice_emotion = voice_tuning
+    if voice_tuning_pref is not None:
+        user_row.preferred_voice_emotion = voice_tuning_pref
 
-    # Deduct one video credit and mark the project as regenerating.
+    # Deduct one video credit and mark the project as voice-regenerating.
     user_row.videos_used_this_period += 1
-    project.status = ProjectStatus.GENERATING
+    project.status = ProjectStatus.VOICE_REGENERATING
+    job = ProjectVoiceChangeJob(
+        project_id=project_id,
+        user_id=user.id,
+        status="queued",
+        total_scenes=len(scenes),
+        processed_scenes=0,
+        voice_snapshot=voice_snapshot,
+    )
+    db.add(job)
     db.commit()
+    db.refresh(job)
 
     # Seed progress and kick off regeneration in the background.
     voice_change_progress.start(project_id, len(scenes))
-    background_tasks.add_task(_run_voice_change, project_id)
+    background_tasks.add_task(_run_voice_change, project_id, job.id)
 
     return {"started": True, "total": len(scenes)}
 
@@ -3396,13 +4732,56 @@ async def voice_change_status(
     from app.services import voice_change_progress
 
     project = _get_user_project(project_id, user.id, db)
+
+    # Stall recovery: if the latest voice-change job is active but its heartbeat is
+    # stale, this poll reverts + refunds. The reaped job surfaces the retry copy.
+    latest_job = (
+        db.query(ProjectVoiceChangeJob)
+        .filter(ProjectVoiceChangeJob.project_id == project_id)
+        .order_by(ProjectVoiceChangeJob.id.desc())
+        .first()
+    )
+    if maybe_reap_stale_voice_change(db, latest_job):
+        db.refresh(project)
+        voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
+        status_value = project.status.value if hasattr(project.status, "value") else str(project.status)
+        return {
+            "active": False,
+            "done": True,
+            "error": STALL_RETRY_MESSAGE,
+            "total": 0,
+            "completed": 0,
+            "progress": 100,
+            "status": status_value,
+            "r2_video_url": project.r2_video_url,
+            "kind": "voice_change",
+        }
+
     prog = voice_change_progress.get(project_id)
     status_value = project.status.value if hasattr(project.status, "value") else str(project.status)
 
     if not prog:
-        # No in-memory record on this worker: fall back to the DB status so
-        # completion is still detected reliably across workers/restarts.
-        regenerating = project.status == ProjectStatus.GENERATING
+        # No in-memory record on this worker (e.g. after a refresh or on another
+        # worker): fall back to the DB. Prefer the job row — it carries durable
+        # progress and its kind ("delete" vs voice change). A delete leaves the
+        # project status untouched, so the status==GENERATING fallback only covers
+        # voice changes.
+        if latest_job and latest_job.status in _JOB_ACTIVE_STATUSES:
+            j_total = int(latest_job.total_scenes or 0)
+            j_completed = int(latest_job.processed_scenes or 0)
+            j_progress = int(min(j_completed / j_total, 1.0) * 100) if j_total > 0 else 0
+            return {
+                "active": True,
+                "done": False,
+                "error": None,
+                "total": j_total,
+                "completed": j_completed,
+                "progress": j_progress,
+                "status": status_value,
+                "r2_video_url": project.r2_video_url,
+                "kind": "delete" if _is_delete_job(latest_job) else "voice_change",
+            }
+        regenerating = project.status == ProjectStatus.VOICE_REGENERATING
         return {
             "active": regenerating,
             "done": not regenerating,
@@ -3412,6 +4791,7 @@ async def voice_change_status(
             "progress": 0 if regenerating else 100,
             "status": status_value,
             "r2_video_url": project.r2_video_url,
+            "kind": "voice_change",
         }
 
     total = int(prog.get("total") or 0)
@@ -3430,7 +4810,259 @@ async def voice_change_status(
         "progress": progress,
         "status": status_value,
         "r2_video_url": project.r2_video_url,
+        "kind": prog.get("kind") or "voice_change",
     }
+
+
+async def _run_delete_voiceover(project_id: int, job_id: int) -> None:
+    """Background worker: strip the project's voiceover and make the video mute.
+
+    Switches the project to no-audio mode (voice_gender="none", custom_voice_id=None),
+    re-estimates each scene's duration (no TTS), deletes the audio (files, R2 objects,
+    Asset rows) and rebuilds the workspace so the composition drops its <Audio> tags.
+
+    Progress is tracked durably on the ProjectVoiceChangeJob row (heartbeat per scene
+    via ``updated_at``/``processed_scenes``) — like a voice change — so it survives a
+    page refresh and is reapable if stalled. Does NOT deduct a credit and does NOT
+    clear the existing render — the user re-renders (a paid re-render) to materialize
+    the muted video. On failure the prior voice settings + audio are restored.
+    """
+    from app.database import SessionLocal
+    from app.services.voiceover import generate_all_voiceovers
+    from app.services.remotion import rebuild_workspace
+    from app.services.language_detection import get_content_language_for_project
+    from app.services import voice_change_progress
+
+    # Register so a stall reaper can cancel this run for real.
+    try:
+        stall_recovery.register_task("voice", job_id, asyncio.current_task())
+    except Exception:
+        pass
+
+    db = SessionLocal()
+    backup_id = job_id
+    audio_backed_up = False
+    voice_snapshot_raw = None
+    try:
+        job = db.query(ProjectVoiceChangeJob).filter(ProjectVoiceChangeJob.id == job_id).first()
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project or not job:
+            voice_change_progress.finish(project_id, error="Project not found.")
+            if job:
+                job.status = "failed"
+                job.error_message = "Project not found."
+                job.completed_at = datetime.utcnow()
+                db.commit()
+            return
+        voice_snapshot_raw = job.voice_snapshot
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+
+        # Back up existing audio so a failure can roll back, then switch to no-audio mode.
+        _ensure_local_audio_from_r2(project_id, db)
+        _backup_project_audio(project_id, backup_id)
+        audio_backed_up = True
+        job.status = "running"
+        job.total_scenes = len(scenes)
+        job.processed_scenes = 0
+        job.audio_backed_up = True
+        db.commit()
+
+        def _advance() -> None:
+            voice_change_progress.advance(project_id)
+            # Heartbeat the job row in a short-lived session so the progress survives
+            # refreshes/worker restarts and a stall reaper can detect liveness.
+            hb = SessionLocal()
+            try:
+                hb.execute(
+                    update(ProjectVoiceChangeJob)
+                    .where(ProjectVoiceChangeJob.id == job_id)
+                    .values(
+                        processed_scenes=ProjectVoiceChangeJob.processed_scenes + 1,
+                        updated_at=datetime.utcnow(),
+                    )
+                )
+                hb.commit()
+            except Exception:
+                hb.rollback()
+            finally:
+                hb.close()
+
+        # With voice_gender == "none", _get_voice_id() returns None, so
+        # generate_all_voiceovers skips TTS, nulls voiceover_path and re-estimates each
+        # scene's duration from its narration word count.
+        project.voice_gender = "none"
+        project.custom_voice_id = None
+        db.commit()
+
+        content_language = get_content_language_for_project(project)
+        await generate_all_voiceovers(
+            scenes,
+            db,
+            video_style=getattr(project, "video_style", None) or "explainer",
+            content_language=content_language,
+            verbatim=True,
+            progress_cb=_advance,
+        )
+
+        # Delete the now-orphaned audio: R2 objects, Asset rows, and local files.
+        _purge_project_audio(db, project)
+
+        # Rebuild the workspace (drops <Audio> tags). Deliberately keep r2_video_url and
+        # the project status — the prior render stays available; re-rendering to apply the
+        # mute is a paid re-render.
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        rebuild_workspace(project, scenes, db)
+        # Finalize only if a reaper hasn't already claimed (failed/reverted) this job.
+        finalized = db.execute(
+            update(ProjectVoiceChangeJob)
+            .where(ProjectVoiceChangeJob.id == job_id, ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+            .values(status="completed", completed_at=datetime.utcnow())
+        )
+        db.commit()
+        if finalized.rowcount:
+            _cleanup_audio_backup(project_id, backup_id)
+            voice_change_progress.finish(project_id)
+        else:
+            logger.warning("[DELETE-VOICEOVER] job=%s already reaped; skipping completion", job_id)
+            voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
+    except asyncio.CancelledError:
+        # A stall reaper cancelled us; it owns the revert. Leave state alone.
+        logger.warning("[DELETE-VOICEOVER] job=%s cancelled by reaper", job_id)
+        voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
+        raise
+    except Exception as e:  # noqa: BLE001
+        logger.exception("[DELETE-VOICEOVER] Failed for project %s: %s", project_id, e)
+        try:
+            claimed = db.execute(
+                update(ProjectVoiceChangeJob)
+                .where(ProjectVoiceChangeJob.id == job_id, ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+                .values(status="failed", error_message=STALL_RETRY_MESSAGE, completed_at=datetime.utcnow())
+            )
+            db.commit()
+            # Full restore: scenes, AUDIO assets, audio files, voice settings, workspace.
+            if claimed.rowcount:
+                _rollback_delete_voiceover(
+                    db, project_id, voice_snapshot_raw,
+                    audio_backed_up=audio_backed_up, backup_id=backup_id,
+                )
+            _cleanup_audio_backup(project_id, backup_id)
+        except Exception:
+            db.rollback()
+        voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
+    finally:
+        stall_recovery.clear("voice", job_id)
+        db.close()
+
+
+@router.post("/{project_id}/delete-voiceover")
+async def delete_project_voiceover(
+    project_id: int,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove the project's voiceover and make the video mute.
+
+    Runs in the background as a ProjectVoiceChangeJob tagged "_op: delete" (poll the
+    shared ``/voice-change-status`` for scene-by-scene progress — it reports the job
+    kind). Does NOT deduct a video credit and does NOT clear the existing render —
+    re-rendering to apply the mute is a normal (paid) re-render.
+    """
+    from app.services import voice_change_progress
+
+    project = _get_user_project(project_id, user.id, db)
+
+    # Already muted — nothing to do.
+    if getattr(project, "voice_gender", None) == "none":
+        return {"started": False, "total": 0}
+
+    # Don't strip audio while a voice change or another delete is running.
+    active_job = (
+        db.query(ProjectVoiceChangeJob)
+        .filter(
+            ProjectVoiceChangeJob.project_id == project_id,
+            ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES),
+        )
+        .order_by(ProjectVoiceChangeJob.id.desc())
+        .first()
+    )
+    if active_job and _seconds_since(active_job.updated_at) < settings.STALL_THRESHOLD_VOICE_SECONDS:
+        raise HTTPException(status_code=409, detail="A voice change is already in progress.")
+    existing = voice_change_progress.get(project_id)
+    if existing and not existing.get("done", True):
+        raise HTTPException(status_code=409, detail="An operation is already in progress.")
+
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+    if not scenes:
+        raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
+
+    # Snapshot the FULL pre-delete state so a failed/reaped run can fully roll back —
+    # delete nulls scene.voiceover_path, recomputes durations, removes AUDIO assets and
+    # rebuilds the workspace mute, so restoring only the voice settings would leave a
+    # broken/muted project. We capture voice settings + per-scene paths/durations + the
+    # AUDIO asset rows (the audio files themselves are restored from the on-disk backup
+    # the worker takes). The "_op": "delete" marker reuses ProjectVoiceChangeJob but
+    # tells the stall-reaper this is a delete (no refund, no status reset).
+    from app.models.asset import Asset as _Asset, AssetType as _AssetType
+
+    audio_assets = (
+        db.query(_Asset)
+        .filter(_Asset.project_id == project_id, _Asset.asset_type == _AssetType.AUDIO)
+        .all()
+    )
+    voice_snapshot = json.dumps({
+        "voice_gender": project.voice_gender,
+        "voice_accent": project.voice_accent,
+        "custom_voice_id": project.custom_voice_id,
+        "_op": "delete",
+        "scenes": [
+            {
+                "id": s.id,
+                "voiceover_path": s.voiceover_path,
+                "duration_seconds": s.duration_seconds,
+            }
+            for s in scenes
+        ],
+        "assets": [
+            {
+                "filename": a.filename,
+                "local_path": a.local_path,
+                "r2_key": a.r2_key,
+                "r2_url": a.r2_url,
+            }
+            for a in audio_assets
+        ],
+    })
+    job = ProjectVoiceChangeJob(
+        project_id=project_id,
+        user_id=user.id,
+        status="queued",
+        total_scenes=len(scenes),
+        processed_scenes=0,
+        voice_snapshot=voice_snapshot,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    voice_change_progress.start(project_id, len(scenes), kind="delete")
+    background_tasks.add_task(_run_delete_voiceover, project_id, job.id)
+    return {"started": True, "total": len(scenes)}
 
 
 def _name_from_url(url: str) -> str:

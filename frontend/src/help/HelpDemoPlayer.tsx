@@ -379,6 +379,7 @@ const DEMO_PROJECT: Project = {
   logo_opacity: 0.9,
   logo_size: 1,
   custom_voice_id: null,
+  voice_emotion: null,
   aspect_ratio: "landscape",
   video_style: "promotional",
   video_length: "medium",

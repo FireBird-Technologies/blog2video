@@ -5,7 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
-import { getVoicePreviews, getMyVoices, getPrebuiltVoices, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
+import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import {
   primeBlogUrlFormStep2Prefetch,
   fetchBlogUrlFormBuiltinTemplatesDeduped,
@@ -13,7 +13,7 @@ import {
 } from "../api/blogUrlFormStep2Prefetch";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradePlanModal from "./UpgradePlanModal";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreviewSmart from "./templatePreviews/CraftedTemplatePreviewSmart";
@@ -22,6 +22,22 @@ import GetMoreTemplatesModal from "./GetMoreTemplatesModal";
 import DesignerTemplateRequestModal from "./DesignerTemplateRequestModal";
 import CraftYourVoiceCard from "./CraftYourVoiceCard";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
+import AdvancedVoiceOptions from "./AdvancedVoiceOptions";
+import {
+  VOICE_STABILITY_DEFAULT,
+  VOICE_STABILITY_MIN,
+  VOICE_STABILITY_MAX,
+  VOICE_SPEED_DEFAULT,
+  VOICE_SPEED_MIN,
+  VOICE_SPEED_MAX,
+  VOICE_TUNING_STEP,
+  VOICE_STYLE_DEFAULT,
+  VOICE_STYLE_MIN,
+  VOICE_STYLE_MAX,
+  VOICE_EMOTIONS,
+  parseVoiceTuning,
+  serializeVoiceTuning,
+} from "./voiceTuning";
 
 export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
 
@@ -31,10 +47,14 @@ const CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME = 128; // ~85% of 5s * 30fps first s
 /** Source-bucket sentinel values for the genre dropdown (not real template genres). */
 const GENRE_CUSTOM = "__custom__";
 export const GENRE_CRAFTED = "__crafted__";
+const GENRE_NEW = "__new__";
+const GENRE_POPULAR = "__popular__";
 
 function genreTemplateListCaption(genreFilter: string): string {
   if (genreFilter === GENRE_CUSTOM) return "Custom templates";
   if (genreFilter === GENRE_CRAFTED) return "Designer templates";
+  if (genreFilter === GENRE_NEW) return "New templates";
+  if (genreFilter === GENRE_POPULAR) return "Popular templates";
   if (genreFilter) return `Templates for ${genreFilter}`;
   return "All templates";
 }
@@ -62,6 +82,20 @@ function templateBucketsForGenre(
       suggestedTemplates: [],
       customTemplatesForStyle: [],
       craftedTemplatesForStyle: readyCraftedTemplates,
+    };
+  }
+  if (genreFilter === GENRE_NEW) {
+    return {
+      suggestedTemplates: sourceList.filter((t) => t.new_template === true),
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: [],
+    };
+  }
+  if (genreFilter === GENRE_POPULAR) {
+    return {
+      suggestedTemplates: sourceList.filter((t) => t.popular_template === true),
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: [],
     };
   }
   if (genreFilter) {
@@ -155,7 +189,8 @@ interface Props {
     template?: string,
     videoStyle?: VideoStyleId,
     videoLength?: "short" | "medium" | "detailed" | "more_detailed",
-    contentLanguage?: string | null
+    contentLanguage?: string | null,
+    voiceEmotion?: string
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
@@ -193,6 +228,16 @@ const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed" | "mo
   medium: "Medium  ~  1 - 3 mins",
   detailed: "Detailed  ~  3 – 8 mins",
   more_detailed: "More Detailed  ~  8+ mins",
+};
+
+/**
+ * Minimum source-content word count each tier needs to actually reach that length.
+ * Mirrors the backend thresholds in pipeline.py (_effective_video_length_for_content):
+ * below these counts the video is automatically shortened to a smaller tier.
+ */
+const VIDEO_LENGTH_MIN_WORDS: Partial<Record<"short" | "medium" | "detailed" | "more_detailed", number>> = {
+  detailed: 1500,
+  more_detailed: 2000,
 };
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"];
@@ -761,6 +806,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   bulkTemplatesRef.current = bulkTemplates;
   const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
+  const [bulkVoiceStability, setBulkVoiceStability] = useState<number[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[0]]);
+  const [bulkVoiceSpeed, setBulkVoiceSpeed] = useState<number[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[1]]);
+  const [bulkVoiceEmotion, setBulkVoiceEmotion] = useState<string[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[2]]);
+  const [bulkVoiceStyle, setBulkVoiceStyle] = useState<number[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[3]]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
   const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
   const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed" | "more_detailed")[]>(["short"]);
@@ -787,6 +836,70 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
   const [voiceAccent, setVoiceAccent] = useState<string>("american");
+  // Voice tuning sliders (paid). Initialized from the remembered per-user preference so a returning
+  // user sees their last settings pre-selected.
+  const [voiceStability, setVoiceStability] = useState<number>(() => parseVoiceTuning(user?.preferred_voice_emotion)[0]);
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(() => parseVoiceTuning(user?.preferred_voice_emotion)[1]);
+  const [voiceEmotion, setVoiceEmotion] = useState<string>(() => parseVoiceTuning(user?.preferred_voice_emotion)[2]);
+  const [voiceStyle, setVoiceStyle] = useState<number>(() => parseVoiceTuning(user?.preferred_voice_emotion)[3]);
+  // Live voice-preview playback state (Advanced Options "Listen").
+  const [previewState, setPreviewState] = useState<"idle" | "loading" | "playing">("idle");
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+
+  const stopVoicePreview = useCallback(() => {
+    previewAudioRef.current?.pause();
+    previewAudioRef.current = null;
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPreviewState("idle");
+  }, []);
+
+  // Synthesize + play a short sample with the given voice + tuning. Toggling while playing stops it.
+  const handleVoicePreview = useCallback(
+    async (args: { gender: string; accent: string; customVoiceId: string; stability: number; speed: number; emotion: string; style: number }) => {
+      if (previewState === "playing") {
+        stopVoicePreview();
+        return;
+      }
+      if (previewState === "loading") return;
+      setPreviewState("loading");
+      try {
+        const url = await previewVoice({
+          voice_gender: args.gender,
+          voice_accent: args.accent,
+          custom_voice_id: args.customVoiceId || undefined,
+          voice_emotion: serializeVoiceTuning(args.stability, args.speed, args.emotion, args.style, true),
+        });
+        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = url;
+        const audio = new Audio(url);
+        audio.addEventListener("ended", stopVoicePreview);
+        previewAudioRef.current = audio;
+        await audio.play();
+        setPreviewState("playing");
+      } catch (err: any) {
+        setPreviewState("idle");
+        const status = err?.response?.status;
+        if (status === 429) showError("Please wait a moment before previewing again.");
+        else if (status === 403) showError("Voice preview requires a Pro or Standard plan.");
+        else showError("Couldn't generate a voice preview. Please try again.");
+      }
+    },
+    [previewState, stopVoicePreview, showError]
+  );
+
+  // Stop any preview playback when the component unmounts.
+  useEffect(() => () => stopVoicePreview(), [stopVoicePreview]);
+  // Whether the "Advanced Options" tab (voice tuning sliders) is expanded. Paid-only.
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState<boolean>(false);
+  // Master switch for the expressive v3 path. Off → standard v2 voice. Only when ON is the voice
+  // tuning sent (which is what routes the project through eleven_v3 + [excited] + emotive narration).
+  // Defaults ON for users who previously enabled it (a saved preference exists) — it stays enabled
+  // across sessions until they explicitly turn it off on a voiced video.
+  const [expressiveEnabled, setExpressiveEnabled] = useState<boolean>(() => parseVoiceTuning(user?.preferred_voice_emotion)[4]);
   const [contentLanguage, setContentLanguage] = useState<string>("auto");
   const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed" | "more_detailed">("short");
   const [customVoiceId, setCustomVoiceId] = useState("");
@@ -929,7 +1042,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const renderVideoLengthDropdown = (
     value: "short" | "medium" | "detailed" | "more_detailed",
     onSelect: (next: "short" | "medium" | "detailed" | "more_detailed") => void
-  ) => (
+  ) => {
+    const minWords = VIDEO_LENGTH_MIN_WORDS[value];
+    return (
+    <>
     <details className="relative group">
       <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
         <span>{VIDEO_LENGTH_DURATION_LABELS[value]}</span>
@@ -963,7 +1079,20 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </div>
     </details>
-  );
+    {minWords && (
+      <p className="mt-1.5 flex items-start gap-1 text-[11px] text-red-600 leading-relaxed">
+        <svg className="w-3.5 h-3.5 flex-shrink-0 mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <span>
+          Make sure your content is at least ~{minWords.toLocaleString()} words for this length,
+          otherwise the video will be automatically shortened.
+        </span>
+      </p>
+    )}
+    </>
+    );
+  };
 
   // Load templates, voice previews, and user's saved voices once
   useEffect(() => {
@@ -1524,6 +1653,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         video_length: bulkVideoLength[i] ?? "short",
         voice_gender: inferredGender,
         voice_accent: inferredAccent,
+        voice_emotion: (() => {
+          const s = bulkVoiceStability[i] ?? VOICE_STABILITY_DEFAULT;
+          const sp = bulkVoiceSpeed[i] ?? VOICE_SPEED_DEFAULT;
+          const em = bulkVoiceEmotion[i] ?? "";
+          const sty = bulkVoiceStyle[i] ?? VOICE_STYLE_DEFAULT;
+          // Always send for Pro+voiced so the enabled/disabled flag + last values are remembered;
+          // the backend only applies tuning to the project when the flag is on.
+          return isPro && inferredGender !== "none" ? serializeVoiceTuning(s, sp, em, sty, expressiveEnabled) : undefined;
+        })(),
         accent_color:
           bulkAccentColors[i] && bulkAccentColors[i].trim()
             ? bulkAccentColors[i]
@@ -1564,6 +1702,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkTemplates([pickerDefaultTemplateId]);
       setBulkVoiceGender(["female"]);
       setBulkVoiceAccent(["american"]);
+      setBulkVoiceStability([VOICE_STABILITY_DEFAULT]);
+      setBulkVoiceSpeed([VOICE_SPEED_DEFAULT]);
+      setBulkVoiceEmotion([""]);
+      setBulkVoiceStyle([VOICE_STYLE_DEFAULT]);
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
       setBulkVideoLength(["short"]);
@@ -1618,7 +1760,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         template !== "default" ? template : undefined,
         videoStyle,
         videoLength,
-        contentLanguage === "auto" ? null : contentLanguage
+        contentLanguage === "auto" ? null : contentLanguage,
+        isPro && inferredGender !== "none"
+          ? serializeVoiceTuning(voiceStability, voiceSpeed, voiceEmotion, voiceStyle, expressiveEnabled)
+          : undefined
       );
       setDocFiles([]);
       setName("");
@@ -1655,7 +1800,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           template !== "default" ? template : undefined,
           videoStyle,
           videoLength,
-          contentLanguage === "auto" ? null : contentLanguage
+          contentLanguage === "auto" ? null : contentLanguage,
+          isPro && inferredGender !== "none"
+          ? serializeVoiceTuning(voiceStability, voiceSpeed, voiceEmotion, voiceStyle, expressiveEnabled)
+          : undefined
         );
       }
       setUrls([""]);
@@ -2225,12 +2373,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     craftedTemplatesForStyle,
   } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
 
+  const sortedSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
+    const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+    return rank(a) - rank(b);
+  });
+
   const styleTemplateItems: Array<
     | { type: "builtin"; id: string; data: TemplateMeta }
     | { type: "custom"; id: string; data: CustomTemplateItem }
     | { type: "crafted"; id: string; data: CraftedTemplateItem }
   > = [
-    ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+    ...sortedSuggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
     ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
     ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
   ];
@@ -2330,6 +2483,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   ? "Custom Templates"
                   : genre === GENRE_CRAFTED
                   ? "Designer"
+                  : genre === GENRE_NEW
+                  ? "New"
+                  : genre === GENRE_POPULAR
+                  ? "Popular"
                   : genre || "All genres"}
               </span>
               <svg
@@ -2359,6 +2516,30 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   </button>
                   {/* Source filters — independent of genre */}
                   <div className="my-1 border-t border-gray-100" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_NEW);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_NEW ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    ✦ New
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_POPULAR);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_POPULAR ? "bg-amber-50 text-amber-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Popular
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -2488,6 +2669,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = template === t.id;
                 const isNewTemplate = t.new_template === true;
+                const isPopularTemplate = t.popular_template === true;
                 return (
                   <div
                     key={t.id}
@@ -2497,6 +2679,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : isPopularTemplate
+                        ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
@@ -2517,9 +2701,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           </svg>
                         </div>
                       )}
-                      {t.new_template === true && (
+                      {isNewTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <NewTemplateBadge />
+                        </div>
+                      )}
+                      {!isNewTemplate && isPopularTemplate && (
+                        <div className="absolute top-0.5 left-0.5 z-[1]">
+                          <PopularTemplateBadge />
                         </div>
                       )}
                     </div>
@@ -2876,12 +3065,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       customTemplatesForStyle,
       craftedTemplatesForStyle,
     } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
+    const sortedBulkSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
+      const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+      return rank(a) - rank(b);
+    });
     const styleTemplateItems: Array<
       | { type: "builtin"; id: string; data: TemplateMeta }
       | { type: "custom"; id: string; data: CustomTemplateItem }
       | { type: "crafted"; id: string; data: CraftedTemplateItem }
     > = [
-      ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+      ...sortedBulkSuggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
       ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
       ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
     ];
@@ -3050,6 +3243,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     ? "Custom Templates"
                     : genre === GENRE_CRAFTED
                     ? "Designer"
+                    : genre === GENRE_NEW
+                    ? "New"
+                    : genre === GENRE_POPULAR
+                    ? "Popular"
                     : genre || "All genres"}
                 </span>
                 <svg
@@ -3078,6 +3275,30 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       All genres
                     </button>
                     <div className="my-1 border-t border-gray-100" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_NEW);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_NEW ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      ✦ New
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_POPULAR);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_POPULAR ? "bg-amber-50 text-amber-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Popular
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -3209,6 +3430,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = tpl === t.id;
                 const isNewTemplate = t.new_template === true;
+                const isPopularTemplate = t.popular_template === true;
                 return (
                   <div
                     key={t.id}
@@ -3218,6 +3440,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : isPopularTemplate
+                        ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
@@ -3236,9 +3460,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           </svg>
                         </div>
                       )}
-                      {t.new_template === true && (
+                      {isNewTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <NewTemplateBadge />
+                        </div>
+                      )}
+                      {!isNewTemplate && isPopularTemplate && (
+                        <div className="absolute top-0.5 left-0.5 z-[1]">
+                          <PopularTemplateBadge />
                         </div>
                       )}
                     </div>
@@ -3579,9 +3808,45 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
       {/* Voices from user's saved list + premium teasers for free users */}
       <div className={voiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
-        <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
-          Voice — Select and Play to Preview
-        </label>
+        <div className="flex items-center justify-between mb-3">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            {showAdvancedOptions && isPro ? "Advanced Options" : "Voice — Select and Play to Preview"}
+          </label>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedOptions(false)}
+              className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                !(showAdvancedOptions && isPro)
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Voice
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isPro) {
+                  setShowUpgrade(true);
+                  return;
+                }
+                setShowAdvancedOptions(true);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                showAdvancedOptions && isPro
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Advanced Options
+              <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
+                Premium
+              </span>
+            </button>
+          </div>
+        </div>
+        {!(showAdvancedOptions && isPro) && (
         <div className="space-y-2 max-h-[320px] overflow-y-auto">
           <CraftYourVoiceCard
             isPro={isPro}
@@ -3676,7 +3941,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </>
           )}
         </div>
-        {!myVoicesLoading && myVoicesList.length === 0 && (
+        )}
+        {!(showAdvancedOptions && isPro) && !myVoicesLoading && myVoicesList.length === 0 && (
           <p className="text-[11px] text-gray-500 mt-2">
             No voices saved. Add voices in the Voices tab to use them here.{" "}
             {!isPro && (
@@ -3685,6 +3951,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               </button>
             )}
           </p>
+        )}
+        {/* Advanced Options tab content — voice tuning sliders (paid) */}
+        {showAdvancedOptions && isPro && voiceGender !== "none" && (
+          <AdvancedVoiceOptions
+            value={{ enabled: expressiveEnabled, stability: voiceStability, speed: voiceSpeed, emotion: voiceEmotion, style: voiceStyle }}
+            onChange={(t) => { setExpressiveEnabled(t.enabled); setVoiceStability(t.stability); setVoiceSpeed(t.speed); setVoiceEmotion(t.emotion); setVoiceStyle(t.style); }}
+            voiceGender={voiceGender}
+            voiceAccent={voiceAccent}
+            customVoiceId={customVoiceId}
+          />
         )}
       </div>
 
@@ -3746,6 +4022,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       indexed[0].i;
     const rowVoiceGender = bulkVoiceGender[activeIndex] ?? "female";
     const rowVoiceAccent = bulkVoiceAccent[activeIndex] ?? "american";
+    const rowVoiceStability = bulkVoiceStability[activeIndex] ?? VOICE_STABILITY_DEFAULT;
+    const rowVoiceSpeed = bulkVoiceSpeed[activeIndex] ?? VOICE_SPEED_DEFAULT;
+    const rowVoiceEmotion = bulkVoiceEmotion[activeIndex] ?? "";
+    const rowVoiceStyle = bulkVoiceStyle[activeIndex] ?? VOICE_STYLE_DEFAULT;
     const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
     const rowContentLanguage = bulkContentLanguage[activeIndex] ?? "auto";
     const rowVideoLength = bulkVideoLength[activeIndex] ?? "short";
@@ -3763,6 +4043,34 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         const next = [...prev];
         targetIndices.forEach((idx) => {
           next[idx] = rowVoiceAccent;
+        });
+        return next;
+      });
+      setBulkVoiceStability((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceStability;
+        });
+        return next;
+      });
+      setBulkVoiceSpeed((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceSpeed;
+        });
+        return next;
+      });
+      setBulkVoiceEmotion((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceEmotion;
+        });
+        return next;
+      });
+      setBulkVoiceStyle((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceStyle;
         });
         return next;
       });
@@ -3924,9 +4232,45 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </label>
 
         <div className={rowVoiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
-          <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
-            Voice — select and play to preview
-          </label>
+          <div className="flex items-center justify-between mb-3">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              {showAdvancedOptions && isPro ? "Advanced Options" : "Voice — select and play to preview"}
+            </label>
+            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedOptions(false)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                  !(showAdvancedOptions && isPro)
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Voice
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isPro) {
+                    setShowUpgrade(true);
+                    return;
+                  }
+                  setShowAdvancedOptions(true);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                  showAdvancedOptions && isPro
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Advanced Options
+                <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
+                  Premium
+                </span>
+              </button>
+            </div>
+          </div>
+          {!(showAdvancedOptions && isPro) && (
           <div className="space-y-2 max-h-[320px] overflow-y-auto">
             {myVoicesLoading ? (
               <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
@@ -4049,7 +4393,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               </>
             )}
           </div>
-          {!myVoicesLoading && myVoicesList.length === 0 && (
+          )}
+          {!(showAdvancedOptions && isPro) && !myVoicesLoading && myVoicesList.length === 0 && (
             <p className="text-[11px] text-gray-500 mt-2">
               No voices saved. Add voices in the Voices tab to use them here.{" "}
               {!isPro && (
@@ -4060,6 +4405,173 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </p>
           )}
         </div>
+
+        {/* Voice tuning — Stability + Speed sliders (paid); apply-to-all sync mirrors other voice controls */}
+        {(() => {
+          const applyBulkTuning = <T,>(
+            setter: React.Dispatch<React.SetStateAction<T[]>>,
+            value: T,
+          ) => {
+            const targetIndices = indexed.map(({ i }) => i);
+            if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+              setter((prev) => {
+                const next = [...prev];
+                targetIndices.forEach((idx) => { next[idx] = value; });
+                return next;
+              });
+            } else {
+              setBulkApplyVoiceAll(false);
+              setter((prev) => {
+                const next = [...prev];
+                next[activeIndex] = value;
+                return next;
+              });
+            }
+          };
+          return (
+            <div className={rowVoiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
+              {showAdvancedOptions && isPro && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Enable</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={expressiveEnabled}
+                      onClick={() => setExpressiveEnabled((v) => !v)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${expressiveEnabled ? "bg-purple-600" : "bg-gray-300"}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${expressiveEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                  <div
+                    className={`space-y-4 transition-opacity ${expressiveEnabled ? "" : "opacity-50 pointer-events-none select-none"}`}
+                    aria-disabled={!expressiveEnabled}
+                  >
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] font-medium text-gray-600">
+                            Emotion <span className="font-normal text-gray-400">(optional)</span>
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {VOICE_EMOTIONS.map((em) => {
+                            const selected = rowVoiceEmotion === em.value;
+                            return (
+                              <button
+                                key={em.value}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => applyBulkTuning(setBulkVoiceEmotion, selected ? "" : em.value)}
+                                className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                                  selected
+                                    ? "bg-purple-600 border-purple-600 text-white"
+                                    : "bg-white border-gray-200 text-gray-600 hover:border-purple-300"
+                                }`}
+                              >
+                                {em.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-medium text-gray-600">Expressiveness</span>
+                          <span className="text-[11px] text-gray-400 tabular-nums">{rowVoiceStability.toFixed(2)}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={VOICE_STABILITY_MIN}
+                          max={VOICE_STABILITY_MAX}
+                          step={VOICE_TUNING_STEP}
+                          value={rowVoiceStability}
+                          onChange={(e) => applyBulkTuning(setBulkVoiceStability, parseFloat(e.target.value))}
+                          className="w-full accent-purple-600 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                          <span>Steady</span>
+                          <span>Expressive</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-medium text-gray-600">Character</span>
+                          <span className="text-[11px] text-gray-400 tabular-nums">{rowVoiceStyle.toFixed(2)}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={VOICE_STYLE_MIN}
+                          max={VOICE_STYLE_MAX}
+                          step={VOICE_TUNING_STEP}
+                          value={rowVoiceStyle}
+                          onChange={(e) => applyBulkTuning(setBulkVoiceStyle, parseFloat(e.target.value))}
+                          className="w-full accent-purple-600 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                          <span>Natural</span>
+                          <span>Dramatic</span>
+                        </div>
+                        {rowVoiceStyle >= 0.4 && rowVoiceStability >= 0.7 && (
+                          <p className="text-[10px] text-amber-600 mt-0.5">High Character + high Expressiveness can sound distorted.</p>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-medium text-gray-600">Speed</span>
+                          <span className="text-[11px] text-gray-400 tabular-nums">{rowVoiceSpeed.toFixed(2)}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={VOICE_SPEED_MIN}
+                          max={VOICE_SPEED_MAX}
+                          step={VOICE_TUNING_STEP}
+                          value={rowVoiceSpeed}
+                          onChange={(e) => applyBulkTuning(setBulkVoiceSpeed, parseFloat(e.target.value))}
+                          className="w-full accent-purple-600 cursor-pointer"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleVoicePreview({
+                            gender: rowVoiceGender,
+                            accent: rowVoiceAccent,
+                            customVoiceId: rowCustomVoiceId,
+                            stability: rowVoiceStability,
+                            speed: rowVoiceSpeed,
+                            emotion: rowVoiceEmotion,
+                            style: rowVoiceStyle,
+                          })
+                        }
+                        disabled={previewState === "loading"}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:border-purple-300 hover:text-purple-700 transition-colors disabled:opacity-50"
+                      >
+                        {previewState === "loading" ? (
+                          <>
+                            <span className="w-3.5 h-3.5 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin" />
+                            Generating…
+                          </>
+                        ) : previewState === "playing" ? (
+                          <>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                            Stop
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+                            Listen to a sample
+                          </>
+                        )}
+                      </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="flex gap-2 pt-1">
           <button

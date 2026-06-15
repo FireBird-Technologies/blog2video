@@ -6431,8 +6431,8 @@ export const blogPosts: BlogPost[] = [
         bullets: [
           "Free: 3 videos, no watermark, no credit card required.",
           "Pay-as-you-go: $4/video (1–9), $3/video (10–30), $2.80/video (31–200).",
-          "Standard: $25/month ($20/month billed annually) — 30 videos/month.",
-          "Pro: $50/month ($40/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
+          "Standard: $35/month ($28/month billed annually) — 30 videos/month.",
+          "Pro: $60/month ($48/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
           "No minute caps, no per-voice upsells, no credit system on subscription plans.",
         ],
       },
@@ -6618,7 +6618,7 @@ export const blogPosts: BlogPost[] = [
           "Entry-point pricing for each tool (cheapest paid plan, billed monthly unless noted), and what the mid-tier looks like for comparison.",
         ],
         bullets: [
-          "Blog2Video: Free (3 videos, no watermark) → $4/video pay-as-you-go → Standard $25/mo (30 videos) → Pro $50/mo (100 videos + unlimited AI)",
+          "Blog2Video: Free (3 videos, no watermark) → $4/video pay-as-you-go → Standard $35/mo (30 videos) → Pro $60/mo (100 videos + unlimited AI)",
           "Lumen5: Free (watermarked, 5 videos, 720p) → paid from ~$19/mo",
           "Pictory: 14-day trial → Starter $29/mo ($25 annual, 200 min, 100 AI credits) → Professional $59/mo ($35 annual) → Team $199/mo ($119 annual)",
           "InVideo AI: Free (watermarked, 10 exports/week) → Plus $25/mo ($20 annual, 50 videos, 1080p) → Max $60/mo ($48 annual, 120 videos, 4K)",
@@ -6698,7 +6698,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "Which blog-to-video tool is cheapest in 2026?",
         answer:
-          "VideoGen at $12/month (annual billing) is the cheapest subscription. Blog2Video's pay-as-you-go tier starts at $4/video with no monthly commitment, which is the most affordable entry point for low-volume users. For teams producing 10+ videos per month, Blog2Video Standard at $25/month and Predis.ai Core at $19/month are the most affordable mid-tier options.",
+          "VideoGen at $12/month (annual billing) is the cheapest subscription. Blog2Video's pay-as-you-go tier starts at $4/video with no monthly commitment, which is the most affordable entry point for low-volume users. For teams producing 10+ videos per month, Blog2Video Standard at $35/month and Predis.ai Core at $19/month are the most affordable mid-tier options.",
       },
       {
         question: "Does any blog-to-video tool offer a free plan without a watermark?",
@@ -6718,7 +6718,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "How does Blog2Video pricing compare to Pictory?",
         answer:
-          "Pictory Starter is $29/month (or $25 annual) and gives 200 video minutes plus 100 AI credits — a dual-cap system that trips users up. Blog2Video Standard is $25/month (or $20 annual) and gives 30 complete videos per month with no minute or credit caps. For teams that consistently hit Pictory's limits, Blog2Video's flat pricing is more predictable at scale.",
+          "Pictory Starter is $29/month (or $25 annual) and gives 200 video minutes plus 100 AI credits — a dual-cap system that trips users up. Blog2Video Standard is $35/month (or $28 annual) and gives 30 complete videos per month with no minute or credit caps. For teams that consistently hit Pictory's limits, Blog2Video's flat pricing is more predictable at scale.",
       },
     ],
     distributionPlan: [

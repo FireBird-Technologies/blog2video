@@ -48,9 +48,17 @@ import {
   calculateChronicleMetadata,
 } from "./templates/chronicle/ChronicleVideo";
 import {
+  EconomistVideo,
+  calculateEconomistMetadata,
+} from "./templates/economist/EconomistVideo";
+import {
   GeneratedVideo,
   calculateGeneratedMetadata,
 } from "./templates/generated/GeneratedVideo";
+import {
+  Stickman2Video,
+  calculateStickman2Metadata,
+} from "./templates/stickman_2/Stickman2Video";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -200,6 +208,23 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={calculateChronicleMetadata}
       />
       <Composition
+        id="EconomistVideo"
+        component={EconomistVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          // Must be "/data.json" like every other composition: the render
+          // workspace writes the project's real scenes to public/data.json,
+          // while public/economist.json is only the bundled template sample.
+          // Pointing at the sample here made project renders output the demo
+          // video instead of the user's project.
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateEconomistMetadata}
+      />
+      <Composition
         id="GeneratedVideo"
         component={GeneratedVideo}
         durationInFrames={30 * 300}
@@ -210,6 +235,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateGeneratedMetadata}
+      />
+      <Composition
+        id="Stickman2Video"
+        component={Stickman2Video}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateStickman2Metadata}
       />
     </>
   );

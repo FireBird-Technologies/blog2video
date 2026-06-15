@@ -89,6 +89,8 @@ const LAYOUT_MIN_FRAMES: Record<ChronicleLayoutType, number> = {
   chronicle_timeline: 200, // staggered timeline items
   ledger_stats: 200, // staggered stat cells
   versus_folio: 200, // two staggered halves
+  chronicle_data: 200, // chart draw-in + summary reveal
+  chronicle_table: 200, // staggered ledger rows
   chapter_plate: 170,
   illuminated_quote: 170,
   parchment_scroll: 170,

@@ -11,16 +11,24 @@ interface Props {
   isRegenerating?: boolean;
   /** Disable all interactive buttons (editing, regeneration) when pipeline/render is in progress. */
   disabled?: boolean;
+  /** When provided, the Edit button opens the shared SceneEditModal (same as the Edit Scenes tab)
+   *  instead of the inline title/display-text form. */
+  onEditScene?: (scene: Scene) => void;
 }
 
-function resolveLayout(scene: Scene): string | null {
+// Resolve the layout to display, distinguishing the planned hint (preferred_layout, set
+// when the script is ready) from the final assigned layout (remotion_code, set once scenes
+// are fully generated). "final" wins whenever remotion_code carries a layout.
+function resolveLayout(scene: Scene): { value: string; stage: "planned" | "final" } | null {
   if (scene.remotion_code) {
     try {
       const parsed = JSON.parse(scene.remotion_code);
-      return parsed.layout ?? parsed.layoutConfig?.arrangement ?? null;
+      const assigned = parsed.layout ?? parsed.layoutConfig?.arrangement ?? null;
+      if (assigned) return { value: assigned, stage: "final" };
     } catch {}
   }
-  return scene.preferred_layout ?? null;
+  if (scene.preferred_layout) return { value: scene.preferred_layout, stage: "planned" };
+  return null;
 }
 
 export default function ScriptPanel({
@@ -31,6 +39,7 @@ export default function ScriptPanel({
   onRegenerateScript,
   isRegenerating,
   disabled,
+  onEditScene,
 }: Props) {
   const [editingSceneId, setEditingSceneId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ title: string; display_text: string }>({
@@ -43,6 +52,11 @@ export default function ScriptPanel({
 
   function openEdit(scene: Scene) {
     if (isDisabled) return;
+    // Prefer the shared full edit modal when the parent wires it up.
+    if (onEditScene) {
+      onEditScene(scene);
+      return;
+    }
     setEditingSceneId(scene.id);
     setEditDraft({ title: scene.title, display_text: scene.display_text ?? "" });
   }
@@ -83,15 +97,15 @@ export default function ScriptPanel({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-baseline gap-4">
-          <h2 className="text-base font-medium text-gray-900">{projectName}</h2>
-          <span className="text-xs text-gray-400">
+      <div className="flex flex-wrap items-center justify-between gap-y-2 mb-2">
+        <div className="flex items-baseline gap-4 min-w-0">
+          <h2 className="text-base font-medium text-gray-900 truncate">{projectName}</h2>
+          <span className="text-xs text-gray-400 shrink-0">
             {scenes.length} scenes — ~{Math.ceil(totalDuration / 60)} min
           </span>
         </div>
 
-        {/* {isRegenerating ? (
+        {isRegenerating ? (
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
             Regenerating…
@@ -100,15 +114,25 @@ export default function ScriptPanel({
           <button
             onClick={onRegenerateScript}
             disabled={isDisabled}
+            title="Regenerate with AI"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              className="w-3.5 h-3.5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 4H7a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-4M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
+              />
             </svg>
-            Regenerate Script
+            Regenerate with AI
           </button>
-        )} */}
+        )}
       </div>
 
       {/* Scene cards */}
@@ -178,18 +202,18 @@ export default function ScriptPanel({
                         {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
                       </span>
                     </div>
-                    {/* <button
+                    <button
                       onClick={() => openEdit(scene)}
                       disabled={isDisabled}
                       className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors flex-shrink-0 text-xs font-medium disabled:opacity-40 disabled:pointer-events-none"
-                      title="Edit title and display text"
+                      title={onEditScene ? "Edit scene" : "Edit title and display text"}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                       Edit
-                    </button> */}
+                    </button>
                   </div>
 
                   {/* Display text */}
@@ -202,10 +226,22 @@ export default function ScriptPanel({
                     {scene.visual_description}
                   </p>
 
-                  {/* Layout pill — bottom, matches SceneEditModal style */}
+                  {/* Layout pill — planned (muted, pre-generation) vs final assigned. */}
                   {layout && (
-                    <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                      {layout}
+                    <span
+                      className={`inline-block px-2.5 py-1 rounded-lg text-xs font-medium ${
+                        layout.stage === "planned"
+                          ? "bg-gray-50 text-gray-500 border border-gray-200"
+                          : "bg-purple-50 text-purple-600"
+                      }`}
+                      title={
+                        layout.stage === "planned"
+                          ? "Planned layout — final layout is assigned once scenes are generated"
+                          : "Assigned layout"
+                      }
+                    >
+                      {/* {layout.stage === "planned" ? " " : ""} */}
+                      {layout.value}
                     </span>
                   )}
                 </>

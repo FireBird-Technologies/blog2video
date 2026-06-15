@@ -84,11 +84,13 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({imageUrl,
             const g = pixel[1];
             const b = pixel[2];
 
-            // Add subtle color variation for authentic mosaic look
+            // Seeded per-tile variance so render frames are deterministic.
+            const seed = (row * 36 + col) * 2654435761;
+            const rand = (((seed >>> 0) ^ (seed >>> 16)) * 2246822519) >>> 0;
             const variance = 6;
-            const vr = Math.min(255, Math.max(0, r + (Math.random() - 0.5) * variance));
-            const vg = Math.min(255, Math.max(0, g + (Math.random() - 0.5) * variance));
-            const vb = Math.min(255, Math.max(0, b + (Math.random() - 0.5) * variance));
+            const vr = Math.min(255, Math.max(0, r + (rand / 0xffffffff - 0.5) * variance));
+            const vg = Math.min(255, Math.max(0, g + ((rand ^ 0xdeadbeef) / 0xffffffff - 0.5) * variance));
+            const vb = Math.min(255, Math.max(0, b + ((rand ^ 0x12345678) / 0xffffffff - 0.5) * variance));
 
             const order = row * cols + col;
             const x = col * tileW;

@@ -20,6 +20,8 @@ import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition
 import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
 import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition";
 import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
+import { EconomistVideoComposition } from "./economist/EconomistVideoComposition";
+import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -33,6 +35,8 @@ import {
   RemotionBlackswanVideoComposition,
   RemotionBloombergVideoComposition,
   RemotionChronicleVideoComposition,
+  RemotionEconomistVideoComposition,
+  RemotionStickman2VideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -91,7 +95,8 @@ const DEFAULT_LAYOUTS = new Set([
   "quote_callout",
   "image_caption",
   "timeline",
-  "data_visualization",
+  "default_data_visualization",
+  "default_ticker",
   "ending_socials",
 ]);
 
@@ -105,7 +110,8 @@ const NIGHTFALL_LAYOUTS = new Set([
   "split_glass",
   "chapter_break",
   "glass_image",
-  "data_visualization",
+  "nightfall_data_visualization",
+  "nightfall_ticker",
   "ending_socials",
 ]);
 
@@ -119,6 +125,8 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "bento_code",
   "pull_quote",
   "bento_steps",
+  "data_visualisation",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -131,6 +139,8 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "versus",
   "spotlight_image",
   "rapid_points",
+  "spotlight_data",
+  "spotlight_table",
   "closer",
   "ending_socials",
 ]);
@@ -145,6 +155,8 @@ const MATRIX_LAYOUTS = new Set([
   "matrix_image",
   "transmission",
   "awakening",
+  "matrix_data",
+  "matrix_ticker",
   "ending_socials",
 ]);
 
@@ -156,6 +168,8 @@ const MOSAIC_LAYOUTS = new Set([
   "mosaic_metric",
   "mosaic_phrases",
   "mosaic_close",
+  "mosaic_data_visualization",
+  "mosaic_ticker",
   "ending_socials",
 ]);
 
@@ -169,6 +183,8 @@ const WHITEBOARD_LAYOUTS = new Set([
   "countdown_timer",
   "handwritten_equation",
   "speech_bubble_dialogue",
+  "data_visualisation",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -179,6 +195,10 @@ const NEWSPAPER_LAYOUTS = new Set([
   "data_snapshot",
   "fact_check",
   "news_timeline",
+  "data_visualisation",
+  "expert_profile",
+  "perspective_split",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -204,7 +224,9 @@ const BLACKSWAN_LAYOUTS = new Set([
   "dive_insight",
   "reactor_code",
   "flight_path",
-  "ending_socials"
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
 ]);
 
 const BLOOMBERG_LAYOUTS = new Set([
@@ -233,8 +255,39 @@ const CHRONICLE_LAYOUTS = new Set([
   "chronicle_timeline",
   "map_reveal",
   "decree_seal",
+  "chronicle_data",
+  "chronicle_table",
   "ending_socials",
 ]);
+
+const ECONOMIST_LAYOUTS = new Set([
+  "cover_reveal",
+  "leader_article",
+  "section_divider",
+  "chart_line",
+  "chart_bar",
+  "data_table",
+  "pros_cons",
+  "key_indicators",
+  "leader_quote",
+  "image_feature",
+  "ending_socials",
+]);
+const STICKMAN_2_LAYOUTS = new Set([
+  "chalk_title",
+  "night_walk",
+  "shooting_star",
+  "constellation_stats",
+  "moonphase_chart",
+  "shadow_comparison",
+  "signal_fire_scene",
+  "neon_countdown",
+  "lantern_dialogue",
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -392,6 +445,32 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  economist: {
+    component: EconomistVideoComposition as React.ComponentType<any>,
+    heroLayout: "cover_reveal",
+    fallbackLayout: "leader_article",
+    validLayouts: ECONOMIST_LAYOUTS,
+    defaultColors: {
+      accent: "#E3120B",
+      bg: "#F6F4EE",
+      text: "#1A1A1A",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  stickman_2: {
+    component: Stickman2VideoComposition as React.ComponentType<any>,
+    heroLayout: "chalk_title",
+    fallbackLayout: "night_walk",
+    validLayouts: STICKMAN_2_LAYOUTS,
+    defaultColors: {
+      accent: "#FFFFFF",
+      bg: "#000000",
+      text: "#FFFFFF",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -442,6 +521,10 @@ export function getTemplateConfig(
                           ? RemotionBloombergVideoComposition
                           : id === "chronicle"
                             ? RemotionChronicleVideoComposition
+                            : id === "economist"
+                              ? RemotionEconomistVideoComposition
+                              : id === "stickman_2"
+                                ? RemotionStickman2VideoComposition
                     : null;
 
     if (overrideComponent) {
