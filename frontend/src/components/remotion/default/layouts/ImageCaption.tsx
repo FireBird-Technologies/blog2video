@@ -1,6 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { AnimatedImage } from "./AnimatedImage";
+import { FlybyPlane } from "../components/FlybyPlane";
 
 export const ImageCaption: React.FC<SceneLayoutProps> = ({
   title,
@@ -137,11 +138,17 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         display: "flex",
         flexDirection: p ? "column" : "row",
         alignItems: "center",
+        justifyContent: !hasImage ? "center" : undefined,
         padding: p ? "60px 50px" : "60px 80px",
-        gap: hasImage ? (p ? 80 : 56) : 0, // No gap if no image
+        gap: hasImage ? (p ? 80 : 56) : 0,
         overflow: "hidden",
       }}
     >
+      {/* Flyby plane decoration when no image */}
+      {!hasImage && (
+        <FlybyPlane accentColor={accentColor ?? "#6366F1"} startFrame={20} yZone={0.15} />
+      )}
+
       {/* Image area */}
       {hasImage && ( // Only render image area if imageUrl exists
         <div
@@ -175,10 +182,14 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
       {/* Text area */}
       <div
         style={{
-          flex: hasImage ? (p ? "none" : 1) : 1, // If no image, text takes full available flex space.
+          flex: hasImage ? (p ? "none" : 1) : "none",
+          width: !hasImage ? (p ? "90%" : "70%") : undefined,
           opacity: currentTextOpacity,
           transform: `translateY(${currentTextTranslateY}px) translateX(${currentTextTranslateX}px) scale(${currentTextScale})`,
-          textAlign: hasImage ? (p ? "center" : "left") : "center", // Center text if no image
+          textAlign: "center",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
         }}
       >
         <div
