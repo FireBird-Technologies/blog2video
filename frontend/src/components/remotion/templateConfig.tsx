@@ -126,6 +126,7 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "pull_quote",
   "bento_steps",
   "data_visualisation",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -183,6 +184,7 @@ const WHITEBOARD_LAYOUTS = new Set([
   "handwritten_equation",
   "speech_bubble_dialogue",
   "data_visualisation",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -194,6 +196,9 @@ const NEWSPAPER_LAYOUTS = new Set([
   "fact_check",
   "news_timeline",
   "data_visualisation",
+  "expert_profile",
+  "perspective_split",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -220,6 +225,7 @@ const BLACKSWAN_LAYOUTS = new Set([
   "reactor_code",
   "flight_path",
   "data_visualisation",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -278,6 +284,7 @@ const STICKMAN_2_LAYOUTS = new Set([
   "neon_countdown",
   "lantern_dialogue",
   "data_visualisation",
+  "ticker_table",
   "ending_socials",
 ]);
 

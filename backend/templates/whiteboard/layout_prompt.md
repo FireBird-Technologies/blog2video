@@ -31,6 +31,10 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `speech_bubble_dialogue`  
   - **Best for**: Dialog between two characters in speech bubbles.
 
+- `ending_socials`
+  - **Best for**: Final scene only — hand-drawn sign-off with stick figure, social icons, and website CTA.
+  - **Rule**: Use **only** on the last scene when CTA or social data is available.
+
 - `data_visualisation`
   - **Best for**: A real chart (line / bar / histogram) rendered from an ACTUAL data table in the article.
   - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='data_visualisation'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
@@ -43,5 +47,7 @@ Variety rules:
 
 - Scene 0 → `drawn_title`.  
 - Early scenes: prefer `marker_story` or `stick_figure_scene` to establish the narrative.  
-- Mix in `stats_figures` / `stats_chart` for data, `comparison` for A vs B, `speech_bubble_dialogue` for conversations, etc.  
+- Mix in `stats_figures` / `stats_chart` for data, `comparison` for A vs B, `speech_bubble_dialogue` for conversations, etc.
+- `data_visualisation` and `ticker_table` are reserved for scenes the pipeline binds to a real table (`data_table_index` set).
+- The last scene → `ending_socials` when CTA or social data is available.
 

@@ -39,8 +39,14 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
   - **Best for**: Displaying a static data table (rows × columns) from the article — rankings, comparisons, schedules, product matrices. Up to 20 rows, 6 columns.
   - **Rule**: Use ONLY when the source contains a real tabular dataset. Never invent rows. Column 1 = row labels; columns 2–6 = values. Optionally set `tickerHighlightCol` to the 0-based index of the value column to green/red color by sign.
 
+- `ending_socials`
+  - **Best for**: Final scene only — bento-style sign-off with social icons and website CTA.
+  - **Rule**: Use **only** on the last scene when CTA or social data is available.
+
 Variety rules:
 
 - Scene 0 → `bento_hero`.  
-- In the middle, mix `bento_features`, `bento_highlight`, `kpi_grid`, `bento_compare`, `pull_quote`, `bento_steps`, and `editorial_body` as content demands.  
+- In the middle, mix `bento_features`, `bento_highlight`, `kpi_grid`, `bento_compare`, `pull_quote`, `bento_steps`, `editorial_body`, `data_visualisation`, and `ticker_table` as content demands.
+- `data_visualisation` and `ticker_table` are reserved for scenes the pipeline binds to a real table (`data_table_index` set).
+- The last scene → `ending_socials` when CTA or social data is available; otherwise `pull_quote`, `kpi_grid`, or `editorial_body`.
 

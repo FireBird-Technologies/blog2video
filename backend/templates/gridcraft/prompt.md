@@ -481,14 +481,32 @@ Narration: "The process is simple: first, paste your blog URL. Then our AI analy
 
 ---
 
+## ending_socials
+**Visual:** Clean bento-style sign-off on the near-white frame — serif title, accent-colored CTA card(s) with website link, narration subtext, and a row of social platform icons with labels.
+
+**Best for:** Final scene only — follow-along, social handles, and website link.
+
+**Props:**
+- `socials` — array of `{ platform, enabled, label }` rows. Supported platforms: `facebook`, `instagram`, `youtube`, `medium`, `substack`, `linkedin`, `tiktok`.
+- `showWebsiteButton` — toggle website CTA visibility.
+- `websiteLink` — URL shown in the CTA block.
+- `ctaButtonText` — optional CTA label.
+- `ctas` — optional array (≤3) of `{ ctaButtonText, websiteLink, showWebsiteButton }` for multiple CTAs.
+- `narration` (global) — warm closing line.
+
+**When to Use:** Always the **last scene** when CTA or social data exists. Do not use mid-video.
+
+---
+
 # Scene Flow Rules
 
 - **Scene 0:** ALWAYS `bento_hero` (non-negotiable)
 - **Opening (scenes 1–2):** `editorial_body` or `bento_features` for setup
 - **Middle (scenes 3–N-1):** Alternate between:
-  - Grid layouts: `bento_features`, `bento_highlight`, `kpi_grid`, `bento_compare`, `bento_code`, `bento_steps`
+  - Grid layouts: `bento_features`, `bento_highlight`, `kpi_grid`, `bento_compare`, `bento_code`, `bento_steps`, `data_visualisation`, `ticker_table`
   - Non-grid breaks: `editorial_body`, `pull_quote`
-- **Closing (scene N):** `pull_quote`, `editorial_body`, or `kpi_grid` for strong finish
+- **Closing (scene N):** `ending_socials` when CTA or social data is available; otherwise `pull_quote`, `editorial_body`, or `kpi_grid` for a strong finish.
+- **`data_visualisation`** and **`ticker_table`** are reserved for scenes the pipeline binds to a real table (`data_table_index` set).
 
 **Variety Requirements:**
 - NEVER use same layout 2 times in a row

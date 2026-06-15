@@ -40,3 +40,11 @@ Use this list when picking the `preferred_layout` for each scene.
   - **Best for**: Displaying a static data table (rows × columns) from the article — rankings, comparisons, schedules. Up to 20 rows, 6 columns.
   - **Rule**: Use ONLY when the source contains a real tabular dataset. Never invent rows. Column 1 = row labels; columns 2–6 = values. Optionally set `tickerHighlightCol` to the 0-based index of the value column to green/red color by sign.
 
+Global variety rules for `preferred_layout`:
+
+- Scene 0 → **always** `chalk_title`.
+- The last scene → **`ending_socials`** when CTA or social data is available; otherwise close with `shooting_star`, `constellation_stats`, or `night_walk`.
+- Prefer `night_walk` as the default narrative workhorse for middle scenes.
+- `data_visualisation` and `ticker_table` are reserved for scenes the pipeline binds to a real table (`data_table_index` set) — never assign them otherwise.
+- Never repeat the same layout in consecutive scenes.
+

@@ -144,11 +144,29 @@ Core rules:
 
 ---
 
+## ending_socials
+**Visual:** Hand-drawn whiteboard sign-off — marker-style title, stick figure waving in the corner, chalk-stroke social icons with labels, and an optional website CTA block on the paper background.
+
+**Best for:** Final scene only — follow-along, social handles, and website link.
+
+**Props:**
+- `socials` — array of `{ platform, enabled, label }` rows. Supported platforms: `facebook`, `instagram`, `youtube`, `medium`, `substack`, `linkedin`, `tiktok`.
+- `showWebsiteButton` — toggle website CTA visibility.
+- `websiteLink` — URL shown in the CTA block.
+- `ctaButtonText` — optional CTA label.
+- `narration` (global) — warm closing line.
+
+**When to Use:** Always the **last scene** when CTA or social data exists. Do not use mid-video.
+
+---
+
 # Scene Flow Rules
 
 - Scene 0 must use `drawn_title`.
 - Prefer `marker_story` as baseline.
 - Insert `stick_figure_scene` for key narrative pivots. Use `stats_figures` or `stats_chart` for data; use `comparison` for two-sided comparisons. Use `countdown_timer` for countdowns, `handwritten_equation` for formulas, `speech_bubble_dialogue` for dialogue.
+- Use `data_visualisation` when the pipeline binds a chartable table; use `ticker_table` for multi-row datasets.
+- Close with `ending_socials` when CTA or social data is available.
 - Keep transitions soft and hand-crafted; avoid harsh kinetic jumps.
 - Aim for setup -> development -> payoff structure.
 
@@ -167,4 +185,5 @@ Core rules:
 
 - Do not repeat the same layout more than 3 consecutive scenes.
 - Alternate between text-led (`marker_story`), metaphor-led (`stick_figure_scene`), stats-led (`stats_figures`, `stats_chart`), comparison (`comparison`), countdown (`countdown_timer`), equation (`handwritten_equation`), and dialogue (`speech_bubble_dialogue`) beats when appropriate.
-- End with a clear payoff or conclusion scene that resolves the story arc.
+- Use `data_visualisation` and `ticker_table` only when the pipeline binds a real table.
+- End with a clear payoff: `ending_socials` when CTA/social data exists; otherwise a conclusion scene that resolves the story arc.
