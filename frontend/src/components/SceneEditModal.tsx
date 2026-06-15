@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import {
@@ -3692,6 +3692,77 @@ export default function SceneEditModal({
     setIsAdjustDragging(true);
   };
 
+  const openImportPreview = useCallback(
+    (
+      matrix: string[][],
+      maxCols: number,
+      maxRows: number,
+      onApply: (t: { headers: string[]; rows: string[][] }) => void,
+      sheetNames?: string[],
+      activeSheet?: string,
+      wb?: import("xlsx").WorkBook,
+      isChartTable?: boolean,
+    ) => {
+      if (matrix.length === 0) return;
+      chartImportCallbackRef.current = onApply;
+      setImportPreview({ matrix, maxCols, maxRows, sheetNames, activeSheet, wb, isChartTable });
+    },
+    [],
+  );
+
+  const matrixFromSheet = useCallback((wb: import("xlsx").WorkBook, sheetName: string): string[][] => {
+    const ws = wb.Sheets[sheetName];
+    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r: string[]) =>
+      (r as unknown[]).map(String),
+    );
+  }, []);
+
+  const handleTableFileImport = useCallback(
+    (
+      file: File,
+      maxCols: number,
+      maxRows: number,
+      onApply: (t: { headers: string[]; rows: string[][] }) => void,
+      isChartTable?: boolean,
+    ) => {
+      const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+      if (isExcel) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+          const wb = XLSX.read(data, { type: "array" });
+          const firstSheet = wb.SheetNames[0];
+          const matrix = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[firstSheet], {
+            header: 1,
+            defval: "",
+          }).map((r: string[]) => (r as unknown[]).map(String));
+          openImportPreview(
+            matrix,
+            maxCols,
+            maxRows,
+            onApply,
+            wb.SheetNames.length > 1 ? wb.SheetNames : undefined,
+            firstSheet,
+            wb.SheetNames.length > 1 ? wb : undefined,
+            isChartTable,
+          );
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        if (!text) return;
+        const lines = text.trim().split(/\r?\n/);
+        const matrix = lines.map((l) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, "")));
+        openImportPreview(matrix, maxCols, maxRows, onApply, undefined, undefined, undefined, isChartTable);
+      };
+      reader.readAsText(file);
+    },
+    [openImportPreview],
+  );
+
   if (!open) return null;
 
   const manualOnly = editMode === "manual";
@@ -4176,6 +4247,53 @@ export default function SceneEditModal({
                               {field.label}
                             </label>
                             <div className="rounded-lg border border-gray-200 bg-gray-50/30 p-3 space-y-2">
+                              <div
+                                className={`rounded-lg border-2 border-dashed px-3 py-2 flex items-center gap-2 transition-colors ${tickerDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-white"}`}
+                                onDragOver={(e) => { e.preventDefault(); setTickerDropOver(true); }}
+                                onDragLeave={() => setTickerDropOver(false)}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  setTickerDropOver(false);
+                                  const file = e.dataTransfer.files[0];
+                                  if (!file) return;
+                                  handleTableFileImport(
+                                    file,
+                                    TICKER_TABLE_MAX_COLS,
+                                    TICKER_TABLE_MAX_ROWS,
+                                    (next) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next })),
+                                  );
+                                }}
+                              >
+                                <span className={`text-[11px] flex-1 ${tickerDropOver ? "text-purple-600" : "text-gray-400"}`}>
+                                  {tickerDropOver ? (
+                                    "Release to import"
+                                  ) : (
+                                    <>
+                                      Drop <strong className="font-medium text-gray-500">.csv</strong> or{" "}
+                                      <strong className="font-medium text-gray-500">.xlsx</strong> here
+                                    </>
+                                  )}
+                                </span>
+                                <label className="flex-shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:text-purple-600 hover:border-purple-400 cursor-pointer transition-colors">
+                                  Upload
+                                  <input
+                                    type="file"
+                                    accept=".csv,.xlsx,.xls,text/csv"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      handleTableFileImport(
+                                        file,
+                                        TICKER_TABLE_MAX_COLS,
+                                        TICKER_TABLE_MAX_ROWS,
+                                        (next) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next })),
+                                      );
+                                      e.target.value = "";
+                                    }}
+                                  />
+                                </label>
+                              </div>
                               <SpreadsheetTable
                                 data={table}
                                 onChange={(next) =>
@@ -5665,7 +5783,7 @@ export default function SceneEditModal({
             setTickerDropOver(false);
             const file = e.dataTransfer.files[0];
             if (!file) return;
-            handleTickerFileImport(file, (t) => setTickerTableDraft(t));
+            handleTableFileImport(file, TICKER_MODAL_MAX_COLS, TICKER_MODAL_MAX_ROWS, (t) => setTickerTableDraft(t));
           }}
         >
           <svg className={`w-5 h-5 flex-shrink-0 transition-colors ${tickerDropOver ? "text-purple-400" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -5759,29 +5877,6 @@ export default function SceneEditModal({
     chartTableErrorTimeoutRef.current = setTimeout(() => setChartTableError(null), 4000);
   };
 
-  /** Open the ImportPreviewSheet for a raw matrix. */
-  const openImportPreview = (
-    matrix: string[][],
-    maxCols: number,
-    maxRows: number,
-    onApply: (t: { headers: string[]; rows: string[][] }) => void,
-    sheetNames?: string[],
-    activeSheet?: string,
-    wb?: import("xlsx").WorkBook,
-    isChartTable?: boolean,
-  ) => {
-    if (matrix.length === 0) return;
-    chartImportCallbackRef.current = onApply;
-    setImportPreview({ matrix, maxCols, maxRows, sheetNames, activeSheet, wb, isChartTable });
-  };
-
-  const matrixFromSheet = (wb: import("xlsx").WorkBook, sheetName: string): string[][] => {
-    const ws = wb.Sheets[sheetName];
-    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r: string[]) =>
-      (r as unknown[]).map(String)
-    );
-  };
-
   /** Entry point for file import. maxCols/maxRows = hard limits for destination table.
    *  onApply = where to write the result (defaults to setChartTableDraft). */
   const handleFileImport = (
@@ -5792,36 +5887,7 @@ export default function SceneEditModal({
     isChartTable?: boolean,
   ) => {
     const cb = onApply ?? ((t: { headers: string[]; rows: string[][] }) => setChartTableDraft(t));
-    const isExcel = /\.(xlsx|xls)$/i.test(file.name);
-    if (isExcel) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: "array" });
-        const firstSheet = wb.SheetNames[0];
-        const matrix = matrixFromSheet(wb, firstSheet);
-        openImportPreview(
-          matrix, maxCols, maxRows, cb,
-          wb.SheetNames.length > 1 ? wb.SheetNames : undefined,
-          firstSheet,
-          wb.SheetNames.length > 1 ? wb : undefined,
-          isChartTable,
-        );
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const text = ev.target?.result as string;
-        if (!text) return;
-        const lines = text.trim().split(/\r?\n/);
-        const matrix = lines.map((l) =>
-          l.split(",").map((c) => c.trim().replace(/^"|"$/g, ""))
-        );
-        openImportPreview(matrix, maxCols, maxRows, cb, undefined, undefined, undefined, isChartTable);
-      };
-      reader.readAsText(file);
-    }
+    handleTableFileImport(file, maxCols, maxRows, cb, isChartTable);
   };
 
   // Convenience wrappers
@@ -5829,11 +5895,6 @@ export default function SceneEditModal({
     file: File,
     onApply?: (t: { headers: string[]; rows: string[][] }) => void,
   ) => handleFileImport(file, CHART_MODAL_MAX_COLS, CHART_MODAL_MAX_ROWS, onApply, true);
-
-  const handleTickerFileImport = (
-    file: File,
-    onApply?: (t: { headers: string[]; rows: string[][] }) => void,
-  ) => handleFileImport(file, TICKER_MODAL_MAX_COLS, TICKER_MODAL_MAX_ROWS, onApply);
 
   /**
    * Parse clipboard text into a 2-D matrix of cells.
