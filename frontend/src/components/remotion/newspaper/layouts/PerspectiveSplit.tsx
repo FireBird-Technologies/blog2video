@@ -30,8 +30,8 @@ export const PerspectiveSplit: React.FC<BlogLayoutProps> = ({
   const rightLabel = stats?.[1]?.label ?? "PERSPECTIVE B";
   const rightStat = stats?.[1]?.value ?? "";
 
-  const titleSize = titleFontSize ?? (p ? 68 : 63);
-  const descSize = descriptionFontSize ?? (p ? 30 : 25);
+  const titleSize = titleFontSize ?? (p ? 58 : 40);
+  const descSize = descriptionFontSize ?? (p ? 25 : 18);
 
   // Shard entrance wipe: two panels slide in from left/right
   const shardProgress = interpolate(frame, [0, 35], [0, 1], { extrapolateRight: "clamp" });
@@ -85,14 +85,20 @@ export const PerspectiveSplit: React.FC<BlogLayoutProps> = ({
   const narrationY = interpolate(frame, [85, 100], [12, 0], { extrapolateRight: "clamp" });
 
   const panelStyle = (side: "left" | "right"): React.CSSProperties => ({
-    flex: 1,
     display: "flex",
     flexDirection: "column",
+    // Landscape: card width grows with its content (up to a cap) so longer
+    // thoughts expand the card horizontally rather than pushing it taller and
+    // crowding the centered title. Portrait: full-width stacked cards.
+    width: p ? "100%" : "fit-content",
+    minWidth: p ? undefined : "40%",
+    maxWidth: p ? "100%" : "78%",
+    alignSelf: p ? "stretch" : side === "right" ? "flex-start" : "flex-end",
     borderRadius: 4,
     backgroundColor: "rgba(255,255,255,0.6)",
     borderLeft: side === "left" ? `6px solid ${accentColor}` : "none",
     borderRight: side === "right" ? `6px solid ${textColor}` : "none",
-    padding: p ? "5% 6%" : "4% 5%",
+    padding: p ? "5% 6%" : "3% 4%",
     overflow: "hidden",
     opacity: side === "left" ? leftPanelOp : rightPanelOp,
     transform: `translateX(${side === "left" ? leftPanelX : rightPanelX}px)`,
@@ -154,84 +160,126 @@ export const PerspectiveSplit: React.FC<BlogLayoutProps> = ({
           transform: "translateZ(40px)",
         }}
       >
-        {/* Category badge */}
-        {category && (
-          <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: textColor, opacity: categoryOp * 0.65 }}>
-            {category}
-          </div>
-        )}
-
-        {/* Title + rule */}
-        <div style={{ opacity: titleOp }}>
-          <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: titleSize, fontWeight: 800, color: textColor, lineHeight: 1.05, letterSpacing: "-0.01em" }}>
-            {title}
-          </div>
-          <div style={{ height: 3, background: textColor, opacity: 0.18, width: `${ruleW}%`, marginTop: 10 }} />
-        </div>
-
-        {/* Two panels */}
+        {/* Diagonal stack: right card (top), title (center), left card (bottom).
+            In portrait the cards swap roles: left card on top, right card at bottom. */}
         <div
           style={{
             flex: 1,
             display: "flex",
-            flexDirection: p ? "column" : "row",
-            gap: 0,
-            alignItems: "stretch",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            gap: p ? 16 : 12,
             overflow: "hidden",
           }}
         >
-          {/* LEFT PANEL */}
-          <div style={panelStyle("left")}>
-            {/* Label with sweep */}
-            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", color: textColor, ...badgeHL(accentColor, hlSweepLeft), padding: "4px 8px", marginBottom: 14 }}>
-              {leftLabel}
-            </div>
-
-            {/* Left thought word-reveal */}
-            <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: descSize, fontWeight: 500, color: textColor, lineHeight: 1.4, fontStyle: "italic", flex: 1 }}>
-              "{leftWords.slice(0, leftVisWords).join(" ")}
-              {leftVisWords < leftWords.length && leftVisWords > 0 && (
-                <span style={{ display: "inline-block", width: 3, height: "0.8em", background: textColor, opacity: 0.45, marginLeft: 3, verticalAlign: "middle" }} />
-              )}"
-            </div>
-
-            {/* Left stat badge */}
-            {leftStat && (
-              <div style={{ marginTop: 16, opacity: leftStatSpring, transform: `scale(${leftStatSpring})`, transformOrigin: "bottom left" }}>
-                <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 900, fontSize: descSize + 16, color: textColor, lineHeight: 1 }}>{leftStat}</div>
-              </div>
-            )}
-          </div>
-
-          {/* Diagonal divider (landscape) or horizontal rule (portrait) */}
+          {/* TOP CARD — right panel in landscape, left panel in portrait */}
           {p ? (
-            <div style={{ height: 3, background: accentColor, flexShrink: 0, margin: "4px 0" }} />
-          ) : (
-            <div style={{ width: 2, alignSelf: "stretch", background: `${textColor}20`, flexShrink: 0 }} />
-          )}
+            <div style={panelStyle("left")}>
+              {/* Label with sweep */}
+              <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", color: textColor, ...badgeHL(accentColor, hlSweepLeft), padding: "4px 8px", marginBottom: 14 }}>
+                {leftLabel}
+              </div>
 
-          {/* RIGHT PANEL */}
-          <div style={panelStyle("right")}>
-            {/* Label with sweep */}
-            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", color: textColor, border: `1.5px solid ${textColor}`, ...badgeHL(`${textColor}18`, hlSweepRight), padding: "4px 8px", marginBottom: 14 }}>
-              {rightLabel}
-            </div>
+              {/* Left thought word-reveal */}
+              <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: descSize, fontWeight: 500, color: textColor, lineHeight: 1.4, fontStyle: "italic", flex: 1 }}>
+                "{leftWords.slice(0, leftVisWords).join(" ")}
+                {leftVisWords < leftWords.length && leftVisWords > 0 && (
+                  <span style={{ display: "inline-block", width: 3, height: "0.8em", background: textColor, opacity: 0.45, marginLeft: 3, verticalAlign: "middle" }} />
+                )}"
+              </div>
 
-            {/* Right thought word-reveal */}
-            <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: descSize, fontWeight: 500, color: textColor, lineHeight: 1.45, flex: 1 }}>
-              {rightWords.slice(0, rightVisWords).join(" ")}
-              {rightVisWords < rightWords.length && rightVisWords > 0 && (
-                <span style={{ display: "inline-block", width: 3, height: "0.8em", background: textColor, opacity: 0.45, marginLeft: 3, verticalAlign: "middle" }} />
+              {/* Left stat badge */}
+              {leftStat && (
+                <div style={{ marginTop: 16, opacity: leftStatSpring, transform: `scale(${leftStatSpring})`, transformOrigin: "bottom left" }}>
+                  <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 900, fontSize: descSize + 16, color: textColor, lineHeight: 1 }}>{leftStat}</div>
+                </div>
               )}
             </div>
+          ) : (
+            <div style={panelStyle("right")}>
+              {/* Label with sweep */}
+              <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", color: textColor, border: `1.5px solid ${textColor}`, ...badgeHL(`${textColor}18`, hlSweepRight), padding: "4px 8px", marginBottom: 14 }}>
+                {rightLabel}
+              </div>
 
-            {/* Right stat badge */}
-            {rightStat && (
-              <div style={{ marginTop: 16, opacity: rightStatSpring, transform: `scale(${rightStatSpring})`, transformOrigin: "bottom right", alignSelf: "flex-end" }}>
-                <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 900, fontSize: descSize + 16, color: textColor, lineHeight: 1, textAlign: "right" }}>{rightStat}</div>
+              {/* Right thought word-reveal */}
+              <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: descSize, fontWeight: 500, color: textColor, lineHeight: 1.45, flex: 1 }}>
+                {rightWords.slice(0, rightVisWords).join(" ")}
+                {rightVisWords < rightWords.length && rightVisWords > 0 && (
+                  <span style={{ display: "inline-block", width: 3, height: "0.8em", background: textColor, opacity: 0.45, marginLeft: 3, verticalAlign: "middle" }} />
+                )}
+              </div>
+
+              {/* Right stat badge */}
+              {rightStat && (
+                <div style={{ marginTop: 16, opacity: rightStatSpring, transform: `scale(${rightStatSpring})`, transformOrigin: "bottom right", alignSelf: "flex-end" }}>
+                  <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 900, fontSize: descSize + 16, color: textColor, lineHeight: 1, textAlign: "right" }}>{rightStat}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CENTER — category badge + title + rule */}
+          <div style={{ textAlign: "center", flexShrink: 0 }}>
+            {category && (
+              <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: textColor, opacity: categoryOp * 0.65, marginBottom: 8 }}>
+                {category}
               </div>
             )}
+            <div style={{ opacity: titleOp }}>
+              <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: titleSize, fontWeight: 800, color: textColor, lineHeight: 1.05, letterSpacing: "-0.01em" }}>
+                {title}
+              </div>
+              <div style={{ height: 3, background: textColor, opacity: 0.18, width: `${ruleW}%`, maxWidth: 220, margin: "10px auto 0" }} />
+            </div>
           </div>
+
+          {/* BOTTOM CARD — left panel in landscape, right panel in portrait */}
+          {p ? (
+            <div style={panelStyle("right")}>
+              {/* Label with sweep */}
+              <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", color: textColor, border: `1.5px solid ${textColor}`, ...badgeHL(`${textColor}18`, hlSweepRight), padding: "4px 8px", marginBottom: 14 }}>
+                {rightLabel}
+              </div>
+
+              {/* Right thought word-reveal */}
+              <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: descSize, fontWeight: 500, color: textColor, lineHeight: 1.45, flex: 1 }}>
+                {rightWords.slice(0, rightVisWords).join(" ")}
+                {rightVisWords < rightWords.length && rightVisWords > 0 && (
+                  <span style={{ display: "inline-block", width: 3, height: "0.8em", background: textColor, opacity: 0.45, marginLeft: 3, verticalAlign: "middle" }} />
+                )}
+              </div>
+
+              {/* Right stat badge */}
+              {rightStat && (
+                <div style={{ marginTop: 16, opacity: rightStatSpring, transform: `scale(${rightStatSpring})`, transformOrigin: "bottom right", alignSelf: "flex-end" }}>
+                  <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 900, fontSize: descSize + 16, color: textColor, lineHeight: 1, textAlign: "right" }}>{rightStat}</div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={panelStyle("left")}>
+              {/* Label with sweep */}
+              <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", color: textColor, ...badgeHL(accentColor, hlSweepLeft), padding: "4px 8px", marginBottom: 14 }}>
+                {leftLabel}
+              </div>
+
+              {/* Left thought word-reveal */}
+              <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: descSize, fontWeight: 500, color: textColor, lineHeight: 1.4, fontStyle: "italic", flex: 1 }}>
+                "{leftWords.slice(0, leftVisWords).join(" ")}
+                {leftVisWords < leftWords.length && leftVisWords > 0 && (
+                  <span style={{ display: "inline-block", width: 3, height: "0.8em", background: textColor, opacity: 0.45, marginLeft: 3, verticalAlign: "middle" }} />
+                )}"
+              </div>
+
+              {/* Left stat badge */}
+              {leftStat && (
+                <div style={{ marginTop: 16, opacity: leftStatSpring, transform: `scale(${leftStatSpring})`, transformOrigin: "bottom left" }}>
+                  <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 900, fontSize: descSize + 16, color: textColor, lineHeight: 1 }}>{leftStat}</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Editor's narration note */}

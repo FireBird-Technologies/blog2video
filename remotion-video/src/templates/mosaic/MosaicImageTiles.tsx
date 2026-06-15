@@ -80,12 +80,16 @@ export const MosaicImageTiles: React.FC<MosaicImageTilesProps> = ({imageUrl,
           const r = pixel[0];
           const g = pixel[1];
           const b = pixel[2];
-          
-          // Add slight color variation for mosaic authenticity
+
+          // Seeded per-tile variance so render frames are deterministic.
+          // mulberry32 from a position-based seed keeps each tile's color fixed.
+          const seed = (row * 96 + col) * 2654435761;
+          const rand = (((seed >>> 0) ^ (seed >>> 16)) * 2246822519) >>> 0;
+          const t = (rand / 0xffffffff) - 0.5;
           const variance = 8;
-          const vr = Math.floor(r + (Math.random() - 0.5) * variance);
-          const vg = Math.floor(g + (Math.random() - 0.5) * variance);
-          const vb = Math.floor(b + (Math.random() - 0.5) * variance);
+          const vr = Math.floor(r + t * variance);
+          const vg = Math.floor(g + ((rand ^ 0xdeadbeef) / 0xffffffff - 0.5) * variance);
+          const vb = Math.floor(b + ((rand ^ 0x12345678) / 0xffffffff - 0.5) * variance);
           
           const order = row * cols + col;
           const x = col * tileW;

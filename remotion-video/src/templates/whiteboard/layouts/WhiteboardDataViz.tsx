@@ -10,7 +10,6 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
@@ -34,6 +33,7 @@ import {
   clampProgressAt,
 } from "../../_shared/chartData";
 import { LineChartEndCallouts, lineChartCalloutMargin } from "../../_shared/LineChartEndCallouts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 
 /**
  * WhiteboardDataViz — data-visualization scene (line / bar / histogram) driven by
@@ -578,7 +578,7 @@ export const WhiteboardDataViz: React.FC<WhiteboardLayoutProps> = ({
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>
         <defs>
           <filter id="dv-grain">
-            <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" stitchTiles="stitch" />
+            <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" stitchTiles="stitch" seed="42" />
             <feColorMatrix type="saturate" values="0" />
             <feComponentTransfer><feFuncA type="linear" slope="0.05" /></feComponentTransfer>
             <feComposite in2="SourceGraphic" operator="over" />
@@ -647,9 +647,9 @@ export const WhiteboardDataViz: React.FC<WhiteboardLayoutProps> = ({
                     )}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font, color: textColor, fontSize: descSize, fontStyle: "italic", opacity: 0.7 }}>
