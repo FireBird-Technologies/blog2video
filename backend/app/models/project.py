@@ -18,6 +18,10 @@ class ProjectStatus(str, enum.Enum):
     # titles/layouts). Distinct from SCRIPTED so a reload mid-job doesn't auto-start the
     # full generation pipeline.
     SCRIPT_REGENERATING = "script_regenerating"
+    # Dedicated state for the voice change job. Distinct from GENERATING so the
+    # voice-change-status endpoint doesn't need to guess whether GENERATING belongs
+    # to a voice change or a template relayout.
+    VOICE_REGENERATING = "voice_regenerating"
 
 
 class Project(Base):
