@@ -451,7 +451,8 @@
         "subtitle": "Period",
         "yAxisLabel": "Index",
         "barPrimaryColor": "#111111",
-        "barSecondaryColor": "#B23B3B"
+        "barSecondaryColor": "#B23B3B",
+        "barTertiaryColor": "#2F5C8A"
       },
       "scene_defaults": {
         "title": "The numbers behind the story",
@@ -533,6 +534,11 @@
         {
           "key": "barSecondaryColor",
           "label": "Series color 2",
+          "type": "color"
+        },
+        {
+          "key": "barTertiaryColor",
+          "label": "Series color 3",
           "type": "color"
         }
       ]

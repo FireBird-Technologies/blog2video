@@ -578,7 +578,8 @@
         "subtitle": "Stage",
         "yAxisLabel": "Value",
         "barPrimaryColor": "#F97316",
-        "barSecondaryColor": "#171717"
+        "barSecondaryColor": "#171717",
+        "barTertiaryColor": "#6B7280"
       },
       "scene_defaults": {
         "title": "The data at a glance",
@@ -660,6 +661,11 @@
         {
           "key": "barSecondaryColor",
           "label": "Series color 2",
+          "type": "color"
+        },
+        {
+          "key": "barTertiaryColor",
+          "label": "Series color 3",
           "type": "color"
         }
       ]

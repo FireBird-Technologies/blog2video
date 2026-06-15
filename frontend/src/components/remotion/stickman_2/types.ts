@@ -52,6 +52,7 @@ export interface SceneLayoutProps {
   /** Chart color overrides. */
   barPrimaryColor?: string;
   barSecondaryColor?: string;
+  barTertiaryColor?: string;
 
   // ── ticker_table ──────────────────────────────────────────────────────────
   tickerTable?: { headers?: string[]; rows?: string[][] };

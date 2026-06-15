@@ -4160,6 +4160,16 @@ export default function SceneEditModal({
                   isBloombergTemplate && currentLayoutId === "terminal_chart";
                 const suppressExtraKeysForBloombergDataViz =
                   isBloombergTemplate && currentLayoutId === "terminal_dataviz";
+                // Built-in data-viz chart + ticker layouts (newspaper, whiteboard,
+                // gridcraft, stickman_2, blackswan, matrix, spotlight, chronicle, …)
+                // fully define their editable fields from meta.json's
+                // layout_prop_schema. Don't surface other scenes' leftover props
+                // (e.g. chartTable on a ticker scene, tickerTable/CSV/raw JSON on a
+                // chart scene) as raw "extra" fields.
+                const suppressExtraKeysForBuiltinDataViz =
+                  isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
+                  isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
+                  isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId);
                 const craftedHasLayoutFieldsSource =
                   isCraftedTemplate &&
                   Boolean(
@@ -4169,7 +4179,7 @@ export default function SceneEditModal({
                   );
                 const deferCraftedExtraKeys = craftedHasLayoutFieldsSource && !craftedLayoutFieldsReady;
                 const extraKeys =
-                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz)
+                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz || suppressExtraKeysForBuiltinDataViz)
                     ? []
                     : deferCraftedExtraKeys
                       ? []
