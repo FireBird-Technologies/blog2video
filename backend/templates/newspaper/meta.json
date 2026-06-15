@@ -547,12 +547,12 @@
       "label": "Ending / Follow along",
       "defaults": {
         "titleFontSize": {
-          "portrait": 88,
-          "landscape": 72
+          "portrait": 70,
+          "landscape": 55
         },
         "descriptionFontSize": {
-          "portrait": 35,
-          "landscape": 27
+          "portrait": 38,
+          "landscape": 25
         },
         "hideImage": true,
         "socials": [
@@ -734,12 +734,12 @@
       "label": "Perspective Split",
       "defaults": {
         "titleFontSize": {
-          "portrait": 68,
-          "landscape": 63
+          "portrait": 58,
+          "landscape": 40
         },
         "descriptionFontSize": {
-          "portrait": 30,
-          "landscape": 25
+          "portrait": 25,
+          "landscape": 18
         },
         "leftThought": "This policy creates opportunity and drives long-term economic growth for everyone.",
         "rightThought": "The costs are too high and the benefits too uncertain to justify moving forward now.",
