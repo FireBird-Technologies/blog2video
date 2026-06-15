@@ -118,6 +118,126 @@ def assign_chart_axis_captions(props: dict[str, Any]) -> dict[str, Any]:
 
     return out
 
+# Markdown emphasis markers that leak into scraped/LLM labels (e.g. a "**Value**"
+# header showing literally in a chart legend). Stripped from display cells only.
+_MARKDOWN_EMPHASIS_RE = re.compile(r"\*\*|__|~~|`")
+_PERCENT_RE = re.compile(r"%")
+_CURRENCY_SYMBOL_RE = re.compile(r"[$€£¥₹]")
+_CURRENCY_WORD_RE = re.compile(r"\b(rs|pkr|usd|eur|gbp|aed|sar|inr)\b\.?", re.IGNORECASE)
+
+
+def _strip_markdown(text: str) -> str:
+    """Remove markdown emphasis markers (**bold**, __bold__, ~~strike~~, `code`).
+
+    Single * / _ are intentionally left alone: they appear unmatched in real prose
+    and identifiers and stripping them would mangle labels more than it helps.
+    """
+    return _MARKDOWN_EMPHASIS_RE.sub("", text)
+
+
+def _value_cell_dimension(value: Any) -> str | None:
+    """Classify a cell's measurement dimension: 'percent', 'currency', or None.
+
+    A percent sign wins over a currency hint (a "+30%" cell is a percentage even
+    if the table is otherwise about money), so the two never get conflated.
+    """
+    text = re.sub(r"<[^>]+>", " ", str(value or ""))
+    if _PERCENT_RE.search(text):
+        return "percent"
+    if _CURRENCY_SYMBOL_RE.search(text) or _CURRENCY_WORD_RE.search(text):
+        return "currency"
+    return None
+
+
+def _detect_currency_unit(cells: list) -> str:
+    """Return the most common currency token ($, €, Rs, …) across cells, else ''."""
+    counts: dict[str, int] = {}
+    for c in cells:
+        text = re.sub(r"<[^>]+>", " ", str(c or ""))
+        m = _CURRENCY_SYMBOL_RE.search(text)
+        if m:
+            counts[m.group(0)] = counts.get(m.group(0), 0) + 1
+            continue
+        m2 = _CURRENCY_WORD_RE.search(text)
+        if m2:
+            tok = m2.group(0).rstrip(".")
+            tok = "Rs" if tok.lower() == "rs" else tok.upper()
+            counts[tok] = counts.get(tok, 0) + 1
+    if not counts:
+        return ""
+    return max(counts, key=counts.get)
+
+
+def reconcile_chart_units(
+    chart_table: dict[str, Any],
+    declared_unit: str = "",
+    drop_conflicts: bool = True,
+) -> dict[str, Any]:
+    """Reconcile a chartTable's display unit with its actual data.
+
+    Two independent fixes for bar/line charts whose unit and rows came from the
+    LLM rather than the numbers:
+
+    1. Unit: when the value column has a clear currency/percent dimension and the
+       declared unit doesn't match it (e.g. a hallucinated "AM" on a "$" column),
+       replace the declared unit with one derived from the data. A declared unit
+       that already matches the data's dimension (e.g. "USD" vs "$") is respected.
+    2. Mixed dimensions: drop rows whose value cells are entirely the conflicting
+       dimension (e.g. a "Premium ~30%" row inside a dollar bar chart), which would
+       otherwise render as a meaningless "$30" bar. Never strips below two rows.
+
+    Returns {"unit", "chartTable", "dropped"}.
+    """
+    if not isinstance(chart_table, dict):
+        return {"unit": declared_unit, "chartTable": chart_table, "dropped": []}
+    rows = [r for r in (chart_table.get("rows") or []) if isinstance(r, list)]
+    headers = chart_table.get("headers") or []
+    if not rows:
+        return {"unit": declared_unit, "chartTable": chart_table, "dropped": []}
+
+    dim_counts = {"currency": 0, "percent": 0}
+    currency_cells: list[Any] = []
+    for r in rows:
+        for cell in r[1:]:
+            d = _value_cell_dimension(cell)
+            if d in dim_counts:
+                dim_counts[d] += 1
+            if d == "currency":
+                currency_cells.append(cell)
+
+    dominant_dim: str | None = None
+    if dim_counts["currency"] or dim_counts["percent"]:
+        dominant_dim = max(dim_counts, key=dim_counts.get)
+
+    resolved_unit = declared_unit
+    declared_dim = _value_cell_dimension(declared_unit)
+    if dominant_dim == "currency" and declared_dim != "currency":
+        resolved_unit = _detect_currency_unit(currency_cells) or "$"
+    elif dominant_dim == "percent" and declared_dim != "percent":
+        resolved_unit = "%"
+
+    dropped: list[str] = []
+    out_rows = rows
+    if drop_conflicts and dominant_dim in ("currency", "percent"):
+        conflict_dim = "percent" if dominant_dim == "currency" else "currency"
+        kept = []
+        for r in rows:
+            known = [d for d in (_value_cell_dimension(c) for c in r[1:]) if d]
+            if known and all(d == conflict_dim for d in known):
+                dropped.append(str(r[0]) if r else "")
+                continue
+            kept.append(r)
+        if len(kept) >= 2:
+            out_rows = kept
+        else:
+            dropped = []
+
+    return {
+        "unit": resolved_unit,
+        "chartTable": {"headers": headers, "rows": out_rows},
+        "dropped": dropped,
+    }
+
 
 def _looks_like_header_row(values: list[str]) -> bool:
     if not values:
@@ -190,6 +310,9 @@ def _clean_text_cell(value: Any) -> str:
     """
     text = html.unescape(str(value or ""))
     text = re.sub(r"<[^>]+>", " ", text)
+    # Strip markdown emphasis so a "**Value**" header / "__label__" cell doesn't
+    # render its asterisks literally in a chart legend or table.
+    text = _strip_markdown(text)
     text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
     text = re.sub(r"\*([^*]+)\*", r"\1", text)
@@ -965,14 +1088,14 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
                 "chartType": "line",
                 "chartTable": chart_table,
                 **axis_captions,
-                "marketSymbol": numeric_columns[0][1],
+                "marketSymbol": _clean_text_cell(numeric_columns[0][1]),
                 "marketValue": f"{end:g}",
                 "marketDelta": f"{delta:+.2f}",
                 "marketPercent": f"{pct:+.2f}%",
                 "marketTrend": "up" if delta >= 0 else "down",
             }
 
-    primary_label = numeric_columns[0][1]
+    primary_label = _clean_text_cell(numeric_columns[0][1])
     primary_values = numeric_columns[0][2]
     rows_out = []
     for i, value in enumerate(primary_values):
