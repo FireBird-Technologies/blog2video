@@ -282,6 +282,11 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     data_snapshot: { title: [38, 50], desc: [14, 16] },
     fact_check: { title: [36, 48], desc: [22, 24] },
     news_timeline: { title: [36, 48], desc: [15, 18] },
+    expert_profile: { title: [55, 58], desc: [32, 26] },
+    perspective_split: { title: [68, 63], desc: [30, 25] },
+    data_visualisation: { title: [64, 51], desc: [33, 27] },
+    ticker_table: { title: [64, 51], desc: [33, 27] },
+    ending_socials: { title: [88, 72], desc: [35, 27] },
   },
   mosaic: {
     mosaic_title: { title: [150, 100], desc: [64, 44] },
@@ -1346,6 +1351,35 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   news_timeline: [
     { key: "stats", label: "Timeline events", type: "object_array", subFields: [{ key: "value", label: "Date" }, { key: "label", label: "Description" }], maxItems: 5 },
+  ],
+  expert_profile: [
+    { key: "category", label: "Section badge", type: "string", placeholder: "e.g. Expert Voices" },
+    { key: "leftThought", label: "Expert name", type: "string", placeholder: "e.g. Dr. Jane Smith" },
+    { key: "rightThought", label: "Expert role / organisation", type: "string", placeholder: "e.g. Senior Policy Analyst" },
+    {
+      key: "stats",
+      label: "Key credential",
+      type: "object_array",
+      subFields: [
+        { key: "value", label: "Value (e.g. 20yr)" },
+        { key: "label", label: "Caption (e.g. in Federal Policy)" },
+      ],
+      maxItems: 1,
+    },
+  ],
+  perspective_split: [
+    { key: "leftThought", label: "Left perspective", type: "text", placeholder: "Supporters' argument" },
+    { key: "rightThought", label: "Right perspective", type: "text", placeholder: "Critics' argument" },
+    {
+      key: "stats",
+      label: "Panel labels & stats",
+      type: "object_array",
+      subFields: [
+        { key: "label", label: "Panel heading (e.g. SUPPORTERS SAY)" },
+        { key: "value", label: "Key stat (e.g. +14%)" },
+      ],
+      maxItems: 2,
+    },
   ],
   // LaDuc layouts
   data_impact: [
@@ -4083,11 +4117,21 @@ export default function SceneEditModal({
                         currentLayoutId,
                       )
                     : undefined;
+                const bundledMetaSchemaFields =
+                  !isCraftedTemplate && currentLayoutId
+                    ? pickLayoutPropSchemaFieldDefs(
+                        layouts?.layout_prop_schema as unknown as
+                          | Record<string, LayoutPropSchema>
+                          | undefined,
+                        currentLayoutId,
+                      )
+                    : undefined;
                 const rawLayoutFields =
                   craftedFields ??
                   schemaBackedFields ??
                   builtinDataVizSchemaFields ??
-                  getLayoutFields(project.template || "default", currentLayoutId);
+                  getLayoutFields(project.template || "default", currentLayoutId) ??
+                  bundledMetaSchemaFields;
                 let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
 
                 if (isNewscastTemplate && currentLayoutId === "data_visualization") {

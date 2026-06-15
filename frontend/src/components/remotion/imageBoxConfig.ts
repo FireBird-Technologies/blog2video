@@ -509,6 +509,13 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0, h: 1.0 },
   },
 
+  // Polaroid expert photo: left 45% column landscape / top 38% band portrait
+  // (see ExpertProfile.tsx — image card with 6% side margins in portrait).
+  expert_profile: {
+    landscape: { w: 0.38, h: 0.58 }, // ~45% col polaroid card
+    portrait:  { w: 0.88, h: 0.38 }, // top 38% with 6% side margin
+  },
+
   // ─────────────────────────────────────────────────────────────────────────
   // WHITEBOARD template  (canvas 1280 × 720)
   // ─────────────────────────────────────────────────────────────────────────
