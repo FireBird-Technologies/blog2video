@@ -1,5 +1,7 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { DarkBackground } from "../DarkBackground";
+import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
 
 const NIGHTFALL_TABLE_MAX_ROWS = 20;
@@ -10,9 +12,7 @@ const INK_DIM = "rgba(232,232,240,0.50)";
 const POSITIVE_COLOR = "#00E5FF";
 const NEGATIVE_COLOR = "#FF4D6A";
 const GRID_STROKE = "rgba(232,232,240,0.10)";
-const PANEL_BG = "rgba(0,229,255,0.04)";
-const HEADER_BG = "rgba(0,229,255,0.08)";
-const NIGHTFALL_BG = "#0A0A14";
+const HEADER_BG = "rgba(255,255,255,0.05)";
 
 const NIGHTFALL_FONT_FAMILY = "'Playfair Display', Georgia, serif";
 
@@ -53,7 +53,7 @@ export const NightfallTable: React.FC<NightfallLayoutProps> = ({
   tickerHighlightCol,
 }) => {
   const frame = useCurrentFrame();
-  const { height, width, durationInFrames } = useVideoConfig();
+  const { height, width, durationInFrames, fps } = useVideoConfig();
   const p = aspectRatio === "portrait" || height > width;
   const bodyFont = fontFamily || NIGHTFALL_FONT_FAMILY;
   const ink = textColor || NIGHTFALL_INK;
@@ -77,7 +77,6 @@ export const NightfallTable: React.FC<NightfallLayoutProps> = ({
 
   const densityTier = rowCount <= 10 ? 0 : rowCount <= 16 ? 1 : 2;
   const fewRows = rowCount <= 6;
-  const fewCols = colCount <= 4;
 
   const cellFontSize = (() => {
     const colTier = colCount <= 3 ? 0 : colCount <= 5 ? 1 : 2;
@@ -99,6 +98,7 @@ export const NightfallTable: React.FC<NightfallLayoutProps> = ({
   })();
 
   const titleA = reveal(frame, 4, 22);
+  const titleY = interpolate(frame, [4, 22], [16, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const headerA = reveal(frame, 10, 26);
   function rowOpacity(i: number): number {
     const start = 16 + i * (rowCount <= 6 ? 6 : rowCount <= 12 ? 4 : 3);
@@ -107,101 +107,161 @@ export const NightfallTable: React.FC<NightfallLayoutProps> = ({
   const footnoteA = reveal(frame, 60, 80);
   const fadeOut = interpolate(frame, [durationInFrames - 18, durationInFrames], [1, 0], { extrapolateLeft: "clamp" });
 
+  // Card entrance spring — matches GlassNarrative's panel motion
+  const cardSpring = spring({ frame: frame - 5, fps, config: { damping: 22, stiffness: 75, mass: 1 } });
+  const cardOpacity = interpolate(frame, [0, 24], [0, 1], { extrapolateRight: "clamp" });
+  const floatY = Math.sin(frame / 60) * 3;
+
   const nCols = Math.max(colCount, rawHeaders.length, 1);
   const cellBorder = (ci: number) => (ci < nCols - 1 ? `1px solid ${GRID_STROKE}` : "none");
 
-  const bg = bgColor || NIGHTFALL_BG;
-
   return (
-    <AbsoluteFill style={{ overflow: "hidden", opacity: fadeOut, background: bg }}>
-      <AbsoluteFill style={{ background: "linear-gradient(135deg, rgba(0,229,255,0.07) 0%, rgba(123,47,190,0.09) 100%)", pointerEvents: "none" }} />
-      {/* Ambient corner glow */}
-      <div style={{ position: "absolute", top: "-10%", left: "-5%", width: "40%", height: "40%", borderRadius: "50%", background: `radial-gradient(circle, ${accent}12 0%, transparent 70%)`, pointerEvents: "none" }} />
-      <div style={{ position: "absolute", bottom: "-10%", right: "-5%", width: "35%", height: "35%", borderRadius: "50%", background: "radial-gradient(circle, rgba(123,47,190,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+    <AbsoluteFill style={{ overflow: "hidden", opacity: fadeOut }}>
+      <DarkBackground bgColor={bgColor} />
 
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${p ? "7%" : "5.5%"} ${p ? "6%" : "7%"}`, minHeight: 0, gap: 0 }}>
-        <div style={{ opacity: titleA, flexShrink: 0, marginBottom: Math.round(height * 0.016), textAlign: "center" }}>
-          <div style={{ fontFamily: bodyFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.06, color: ink, letterSpacing: "-0.01em" }}>
-            {title}
-          </div>
-          {tickerTitle && (
-            <div style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: Math.round(descSize * 0.92), letterSpacing: "0.07em", textTransform: "uppercase", color: INK_DIM, marginTop: Math.round(height * 0.007) }}>
-              {tickerTitle}
-            </div>
-          )}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, margin: `${Math.round(height * 0.012)}px auto 0` }}>
-            <div style={{ width: 48, height: 2, background: accent, opacity: 0.90, borderRadius: 1, boxShadow: `0 0 8px ${accent}` }} />
-            <div style={{ width: 5, height: 5, background: accent, opacity: 0.75, transform: "rotate(45deg)", boxShadow: `0 0 4px ${accent}` }} />
-            <div style={{ width: 48, height: 2, background: accent, opacity: 0.90, borderRadius: 1, boxShadow: `0 0 8px ${accent}` }} />
-          </div>
-        </div>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: p ? 50 : 100 }}>
+        {/* Ambient glow behind card */}
+        <div
+          style={{
+            position: "absolute",
+            width: p ? "95%" : "85%",
+            maxWidth: 1400,
+            height: p ? 800 : 700,
+            background: `radial-gradient(ellipse at center, ${accent}15 0%, transparent 70%)`,
+            filter: "blur(60px)",
+            opacity: cardOpacity * 0.6,
+          }}
+        />
 
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: fewCols ? "center" : "stretch", justifyContent: fewRows ? "center" : "flex-start" }}>
+        {/* Main glass card */}
+        <div
+          style={{
+            ...glassCardStyle(accent, 0.1),
+            width: tableWidthCap,
+            maxWidth: "95%",
+            maxHeight: "100%",
+            padding: p ? 44 : 56,
+            transform: `translateY(${(1 - cardSpring) * 50 + floatY}px)`,
+            opacity: cardOpacity,
+            position: "relative",
+            boxShadow: `
+              0 8px 32px rgba(0, 0, 0, 0.3),
+              0 0 0 1px rgba(255, 255, 255, 0.05),
+              inset 0 1px 0 rgba(255, 255, 255, 0.08)
+            `,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+          }}
+        >
+          {/* Top accent line */}
           <div
             style={{
-              alignSelf: fewCols ? "center" : "stretch",
-              width: tableWidthCap,
-              maxWidth: "100%",
-              flex: fewRows ? "0 1 auto" : "1 1 0",
-              minHeight: 0,
-              maxHeight: "100%",
-              display: "flex",
-              flexDirection: "column",
-              borderRadius: 10,
-              overflow: "hidden",
-              background: PANEL_BG,
-              border: `1.5px solid rgba(0,229,255,0.28)`,
-              borderTop: `3px solid ${accent}`,
-              boxShadow: `0 0 40px rgba(0,229,255,0.12), 0 0 12px rgba(0,229,255,0.07), 0 4px 32px rgba(0,0,0,0.65)`,
-              backdropFilter: "blur(12px)",
+              position: "absolute",
+              top: 0,
+              left: "10%",
+              width: "80%",
+              height: 2,
+              background: `linear-gradient(90deg, transparent, ${accent}60, transparent)`,
+              opacity: cardOpacity,
             }}
-          >
-            {rawHeaders.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "row", width: "100%", flexShrink: 0, background: HEADER_BG, borderBottom: `1.5px solid rgba(0,229,255,0.20)`, opacity: headerA, alignItems: "stretch" }}>
-                {rawHeaders.map((hdr, ci) => (
-                  <div key={ci} style={{ flex: "1 1 0", minWidth: 0, boxSizing: "border-box", padding: `${Math.round(cellPadV * 1.1)}px ${cellPadH}px`, fontFamily: bodyFont, fontWeight: 700, fontSize: headerFontSize, letterSpacing: "0.07em", textTransform: "uppercase", color: accent, borderRight: cellBorder(ci), whiteSpace: "normal", overflowWrap: "break-word", wordBreak: "break-word", lineHeight: 1.2, textAlign: ci > 0 ? "right" : "left", display: "flex", alignItems: "center", justifyContent: ci > 0 ? "flex-end" : "flex-start" }}>
-                    {hdr}
-                  </div>
-                ))}
+          />
+
+          {/* Title */}
+          <div style={{ opacity: titleA, transform: `translateY(${titleY}px)`, flexShrink: 0, marginBottom: Math.round(height * 0.018), textAlign: "center" }}>
+            <div style={{ fontFamily: bodyFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.06, color: ink, letterSpacing: "-0.01em" }}>
+              {title}
+            </div>
+            {tickerTitle && (
+              <div style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: Math.round(descSize * 0.92), letterSpacing: "0.07em", textTransform: "uppercase", color: INK_DIM, marginTop: Math.round(height * 0.007) }}>
+                {tickerTitle}
               </div>
             )}
-
-            <div style={{ flex: fewRows ? "0 1 auto" : "1 1 0", minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", overflow: "hidden" }}>
-              {rawRows.length > 0
-                ? rawRows.map((row, ri) => (
-                    <div key={ri} style={{ flex: fewRows ? `0 0 ${naturalRowHeight}px` : "1 1 0", minHeight: 0, display: "flex", flexDirection: "row", alignItems: "stretch", background: ri % 2 === 1 ? "rgba(0,229,255,0.05)" : "transparent", borderBottom: ri < rawRows.length - 1 ? `1px solid ${GRID_STROKE}` : "none", opacity: rowOpacity(ri) }}>
-                      {Array.from({ length: nCols }).map((_, ci) => {
-                        const cellRaw = row[ci] ?? "";
-                        const isHL = ci === hlColIndex;
-                        const hlStyle = isHL ? highlightCellColor(cellRaw) : undefined;
-                        const hlColor = hlStyle ? hlStyle.color : ci === 0 ? ink : "rgba(232,232,240,0.85)";
-                        return (
-                          <div key={ci} style={{ flex: "1 1 0", minWidth: 0, boxSizing: "border-box", padding: `${cellPadV}px ${cellPadH}px`, fontFamily: bodyFont, fontWeight: hlStyle?.bold ? 700 : ci === 0 ? 600 : 400, fontSize: cellFontSize, letterSpacing: "0.01em", lineHeight: 1.4, color: hlColor, textShadow: hlStyle ? `0 0 8px ${hlStyle.color}60` : undefined, borderRight: cellBorder(ci), whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word", textAlign: ci > 0 ? "right" : "left", fontVariantNumeric: "tabular-nums", display: "flex", alignItems: "center", justifyContent: ci > 0 ? "flex-end" : "flex-start" }}>
-                            <span style={{ maxWidth: "100%" }}>{cellRaw}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))
-                : null}
-              {rawRows.length === 0 && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: `${Math.round(height * 0.04)}px`, fontFamily: bodyFont, fontSize: descSize, color: INK_DIM, fontStyle: "italic" }}>
-                  No entries — add data by editing this scene
-                </div>
-              )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, margin: `${Math.round(height * 0.012)}px auto 0` }}>
+              <div style={{ width: 48, height: 2, background: accent, opacity: 0.90, borderRadius: 1, boxShadow: `0 0 8px ${accent}` }} />
+              <div style={{ width: 5, height: 5, background: accent, opacity: 0.75, transform: "rotate(45deg)", boxShadow: `0 0 4px ${accent}` }} />
+              <div style={{ width: 48, height: 2, background: accent, opacity: 0.90, borderRadius: 1, boxShadow: `0 0 8px ${accent}` }} />
             </div>
           </div>
-        </div>
 
-        {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.012), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(descSize * 0.85), letterSpacing: "0.02em", color: INK_DIM, lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
-            {tickerFootnote || narration}
+          {/* Table panel */}
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: fewRows ? "center" : "flex-start" }}>
+            <div
+              style={{
+                width: "100%",
+                flex: fewRows ? "0 1 auto" : "1 1 0",
+                minHeight: 0,
+                maxHeight: "100%",
+                display: "flex",
+                flexDirection: "column",
+                borderRadius: 10,
+                overflow: "hidden",
+                background: "rgba(255,255,255,0.03)",
+                border: `1px solid rgba(255,255,255,0.10)`,
+                borderTop: `3px solid ${accent}`,
+                boxShadow: `0 4px 24px rgba(0,0,0,0.45)`,
+              }}
+            >
+              {rawHeaders.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "row", width: "100%", flexShrink: 0, background: HEADER_BG, borderBottom: `1.5px solid rgba(255,255,255,0.12)`, opacity: headerA, alignItems: "stretch" }}>
+                  {rawHeaders.map((hdr, ci) => (
+                    <div key={ci} style={{ flex: "1 1 0", minWidth: 0, boxSizing: "border-box", padding: `${Math.round(cellPadV * 1.1)}px ${cellPadH}px`, fontFamily: bodyFont, fontWeight: 700, fontSize: headerFontSize, letterSpacing: "0.07em", textTransform: "uppercase", color: accent, borderRight: cellBorder(ci), whiteSpace: "normal", overflowWrap: "break-word", wordBreak: "break-word", lineHeight: 1.2, textAlign: ci > 0 ? "right" : "left", display: "flex", alignItems: "center", justifyContent: ci > 0 ? "flex-end" : "flex-start" }}>
+                      {hdr}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ flex: fewRows ? "0 1 auto" : "1 1 0", minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", overflow: "hidden" }}>
+                {rawRows.length > 0
+                  ? rawRows.map((row, ri) => (
+                      <div key={ri} style={{ flex: fewRows ? `0 0 ${naturalRowHeight}px` : "1 1 0", minHeight: 0, display: "flex", flexDirection: "row", alignItems: "stretch", background: ri % 2 === 1 ? "rgba(255,255,255,0.025)" : "transparent", borderBottom: ri < rawRows.length - 1 ? `1px solid ${GRID_STROKE}` : "none", opacity: rowOpacity(ri) }}>
+                        {Array.from({ length: nCols }).map((_, ci) => {
+                          const cellRaw = row[ci] ?? "";
+                          const isHL = ci === hlColIndex;
+                          const hlStyle = isHL ? highlightCellColor(cellRaw) : undefined;
+                          const hlColor = hlStyle ? hlStyle.color : ci === 0 ? ink : "rgba(232,232,240,0.85)";
+                          return (
+                            <div key={ci} style={{ flex: "1 1 0", minWidth: 0, boxSizing: "border-box", padding: `${cellPadV}px ${cellPadH}px`, fontFamily: bodyFont, fontWeight: hlStyle?.bold ? 700 : ci === 0 ? 600 : 400, fontSize: cellFontSize, letterSpacing: "0.01em", lineHeight: 1.4, color: hlColor, textShadow: hlStyle ? `0 0 8px ${hlStyle.color}60` : undefined, borderRight: cellBorder(ci), whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word", textAlign: ci > 0 ? "right" : "left", fontVariantNumeric: "tabular-nums", display: "flex", alignItems: "center", justifyContent: ci > 0 ? "flex-end" : "flex-start" }}>
+                              <span style={{ maxWidth: "100%" }}>{cellRaw}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))
+                  : null}
+                {rawRows.length === 0 && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: `${Math.round(height * 0.04)}px`, fontFamily: bodyFont, fontSize: descSize, color: INK_DIM, fontStyle: "italic" }}>
+                    No entries — add data by editing this scene
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Bottom neon stripe */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: accent, boxShadow: `0 0 12px ${accent}, 0 0 4px ${accent}` }} />
+          {(tickerFootnote || narration) && (
+            <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.014), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(descSize * 0.85), letterSpacing: "0.02em", color: INK_DIM, lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
+              {tickerFootnote || narration}
+            </div>
+          )}
+
+          {/* Decorative corner accent */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: p ? 24 : 32,
+              right: p ? 24 : 32,
+              width: 40,
+              height: 40,
+              borderRight: `2px solid ${accent}30`,
+              borderBottom: `2px solid ${accent}30`,
+              borderRadius: "0 0 4px 0",
+              opacity: cardOpacity * 0.5,
+              pointerEvents: "none",
+            }}
+          />
+        </div>
+      </div>
     </AbsoluteFill>
   );
 };
