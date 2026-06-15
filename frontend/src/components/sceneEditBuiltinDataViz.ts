@@ -272,6 +272,53 @@ const nightfallExample = (kind: ChartKind): ChartTable => {
 
 // ── Registry ──────────────────────────────────────────────────────────────────
 
+/**
+ * Templates with a single `data_visualisation` chart layout (line/bar/histogram via
+ * chartType) and no ticker scene — mirrors backend `CHART_TICKER_TEMPLATE_LAYOUTS`
+ * entries that use `_NO_TICKER_SENTINEL`.
+ */
+const CHART_TICKER_SINGLE_DATAVIZ_TEMPLATES = new Set([
+  "whiteboard",
+  "newspaper",
+  "blackswan",
+  "gridcraft",
+  "stickman_2",
+]);
+
+/** Shared ticker layout id for single-chart templates (not matrix/chronicle-style split ids). */
+const SHARED_TICKER_LAYOUT_ID = "ticker_table";
+
+const sharedTickerExample = (): ChartTable => ({
+  headers: ["Category", "Value", "Change"],
+  rows: [
+    ["Item A", "1,240", "+4.2%"],
+    ["Item B", "980", "-1.8%"],
+    ["Item C", "2,100", "+7.1%"],
+  ],
+});
+
+const TICKER_EXAMPLE_BY_TEMPLATE: Record<string, () => ChartTable> = {
+  newspaper: sharedTickerExample,
+  whiteboard: () => ({
+    headers: ["Metric", "Value"],
+    rows: [
+      ["Growth", "50%"],
+      ["Users", "10K"],
+      ["Retention", "92%"],
+    ],
+  }),
+  blackswan: () => ({
+    headers: ["Category", "Value", "Change"],
+    rows: [
+      ["Signal", "1,240", "+4.2%"],
+      ["Noise", "980", "-1.8%"],
+      ["Nodes", "2,100", "+7.1%"],
+    ],
+  }),
+  gridcraft: sharedTickerExample,
+  stickman_2: sharedTickerExample,
+};
+
 const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
   matrix: {
     chartLayoutIds: ["matrix_data"],
@@ -327,13 +374,31 @@ export function isBuiltinDataVizChartLayout(
   return !!BUILTIN_DATAVIZ[normalize(templateId)]?.chartLayoutIds.includes(layoutId);
 }
 
+/** True for single-layout `data_visualisation` chart scenes (whiteboard, stickman_2, …). */
+export function isChartTickerDataVizLayout(
+  templateId: string | undefined | null,
+  layoutId: string | null | undefined,
+): boolean {
+  if (layoutId !== "data_visualisation") return false;
+  return CHART_TICKER_SINGLE_DATAVIZ_TEMPLATES.has(normalize(templateId));
+}
+
 /** True when `layoutId` is `templateId`'s ticker / data-table layout. */
 export function isBuiltinTickerLayout(
   templateId: string | undefined | null,
   layoutId: string | null | undefined,
 ): boolean {
   if (!layoutId) return false;
-  return BUILTIN_DATAVIZ[normalize(templateId)]?.tickerLayoutId === layoutId;
+  const tid = normalize(templateId);
+  if (BUILTIN_DATAVIZ[tid]?.tickerLayoutId === layoutId) return true;
+  return layoutId === SHARED_TICKER_LAYOUT_ID && CHART_TICKER_SINGLE_DATAVIZ_TEMPLATES.has(tid);
+}
+
+/** Template-themed example ticker table, or undefined if not registered. */
+export function builtinTickerExampleTable(
+  templateId: string | undefined | null,
+): ChartTable | undefined {
+  return TICKER_EXAMPLE_BY_TEMPLATE[normalize(templateId)]?.();
 }
 
 /**

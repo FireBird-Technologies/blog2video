@@ -34,8 +34,8 @@ export const NeonCountdown: React.FC<SceneLayoutProps> = (props) => {
   const masterOpacity = enter * exit;
 
   // Typography
-  const titlePx = titleFontSize ?? (p ? 92 : 88);
-  const descPx = descriptionFontSize ?? (p ? 52 : 40);
+  const titlePx = titleFontSize ?? (p ? 100 : 88);
+  const descPx = descriptionFontSize ?? (p ? 66 : 40);
 
   // Canvas dimensions
   const W = p ? 1080 : 1920;
@@ -382,64 +382,68 @@ export const NeonCountdown: React.FC<SceneLayoutProps> = (props) => {
           </text>
         </g>
 
-        {/* Label below ring */}
-        {label ? (
-          <text
-            x={ringCX}
-            y={p ? ringCY + ringR + 100 : ringCY + ringR + 80}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={descriptionFontSize ?? (p ? 52 : 40)}
-            fontFamily={ff}
-            fill={text}
-            opacity={labelOpacity}
-            style={{
-              filter: `drop-shadow(0 0 6px rgba(255,255,255,0.4))`,
-            }}
-          >
-            {label}
-          </text>
-        ) : null}
-
-        {/* Title (narration) below label */}
-        {narration ? (
-          <text
-            x={ringCX}
-            y={p ? ringCY + ringR + 180 : ringCY + ringR + 150}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={descPx}
-            fontFamily={ff}
-            fill={accent}
-            opacity={labelOpacity}
-            style={{
-              filter: `drop-shadow(0 0 12px ${accent})`,
-            }}
-          >
-            {narration}
-          </text>
-        ) : null}
-
-        {/* Title text at top */}
-        {title ? (
-          <text
-            x={ringCX}
-            y={p ? 120 : 80}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={titlePx}
-            fontFamily={ff}
-            fontWeight="bold"
-            fill={accent}
-            opacity={enter}
-            style={{
-              filter: `drop-shadow(0 0 12px ${accent})`,
-            }}
-          >
-            {title}
-          </text>
-        ) : null}
       </svg>
+
+      {/* Title text at top — HTML so long text wraps instead of overflowing */}
+      {title ? (
+        <div style={{
+          position: "absolute",
+          top: p ? 60 : 40,
+          left: p ? 60 : 120,
+          right: p ? 60 : 120,
+          textAlign: "center",
+          color: accent,
+          fontSize: titlePx,
+          fontFamily: ff,
+          fontWeight: "bold",
+          lineHeight: 1.2,
+          opacity: enter,
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          textShadow: `0 0 12px ${accent}`,
+          zIndex: 2,
+        }}>{title}</div>
+      ) : null}
+
+      {/* Label below ring — HTML for wrapping */}
+      {label ? (
+        <div style={{
+          position: "absolute",
+          top: (ringCY + ringR + (p ? 60 : 50)) * (height / H),
+          left: p ? 60 : 120,
+          right: p ? 60 : 120,
+          textAlign: "center",
+          color: text,
+          fontSize: descriptionFontSize ?? (p ? 66 : 40),
+          fontFamily: ff,
+          lineHeight: 1.3,
+          opacity: labelOpacity,
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          textShadow: "0 0 6px rgba(255,255,255,0.4)",
+          zIndex: 2,
+        }}>{label}</div>
+      ) : null}
+
+      {/* Narration below label — HTML for wrapping */}
+      {narration ? (
+        <div style={{
+          position: "absolute",
+          top: (ringCY + ringR + (p ? 140 : 110)) * (height / H),
+          left: p ? 60 : 120,
+          right: p ? 60 : 120,
+          textAlign: "center",
+          color: accent,
+          fontSize: descPx,
+          fontFamily: ff,
+          lineHeight: 1.4,
+          opacity: labelOpacity,
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          textShadow: `0 0 12px ${accent}`,
+          zIndex: 2,
+        }}>{narration}</div>
+      ) : null}
     </AbsoluteFill>
   );
 };

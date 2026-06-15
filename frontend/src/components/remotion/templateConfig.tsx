@@ -36,6 +36,7 @@ import {
   RemotionBloombergVideoComposition,
   RemotionChronicleVideoComposition,
   RemotionEconomistVideoComposition,
+  RemotionStickman2VideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -124,6 +125,8 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "bento_code",
   "pull_quote",
   "bento_steps",
+  "data_visualisation",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -180,6 +183,8 @@ const WHITEBOARD_LAYOUTS = new Set([
   "countdown_timer",
   "handwritten_equation",
   "speech_bubble_dialogue",
+  "data_visualisation",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -190,6 +195,10 @@ const NEWSPAPER_LAYOUTS = new Set([
   "data_snapshot",
   "fact_check",
   "news_timeline",
+  "data_visualisation",
+  "expert_profile",
+  "perspective_split",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -215,7 +224,9 @@ const BLACKSWAN_LAYOUTS = new Set([
   "dive_insight",
   "reactor_code",
   "flight_path",
-  "ending_socials"
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
 ]);
 
 const BLOOMBERG_LAYOUTS = new Set([
@@ -272,7 +283,8 @@ const STICKMAN_2_LAYOUTS = new Set([
   "signal_fire_scene",
   "neon_countdown",
   "lantern_dialogue",
-  "text_narration",
+  "data_visualisation",
+  "ticker_table",
   "ending_socials",
 ]);
 
@@ -452,9 +464,9 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     fallbackLayout: "night_walk",
     validLayouts: STICKMAN_2_LAYOUTS,
     defaultColors: {
-      accent: "#7DD3FC",
-      bg: "#0A0E1A",
-      text: "#EAEAE0",
+      accent: "#FFFFFF",
+      bg: "#000000",
+      text: "#FFFFFF",
     },
     baseWidth: 1920,
     baseHeight: 1080,
@@ -511,6 +523,8 @@ export function getTemplateConfig(
                             ? RemotionChronicleVideoComposition
                             : id === "economist"
                               ? RemotionEconomistVideoComposition
+                              : id === "stickman_2"
+                                ? RemotionStickman2VideoComposition
                     : null;
 
     if (overrideComponent) {

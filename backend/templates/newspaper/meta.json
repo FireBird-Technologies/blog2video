@@ -24,6 +24,10 @@
     "data_snapshot",
     "fact_check",
     "news_timeline",
+    "data_visualisation",
+    "expert_profile",
+    "perspective_split",
+    "ticker_table",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -31,12 +35,12 @@
       "label": "News Headline",
       "defaults": {
         "titleFontSize": {
-          "portrait": 82,
-          "landscape": 78
+          "portrait": 77,
+          "landscape": 68
         },
         "descriptionFontSize": {
           "portrait": 39,
-          "landscape": 35
+          "landscape": 29
         },
         "category": "News",
         "leftThought": "breakthrough, launch",
@@ -401,6 +405,138 @@
         }
       ]
     },
+    "data_visualisation": {
+      "label": "Data Visualisation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 69,
+          "landscape": 55
+        },
+        "descriptionFontSize": {
+          "portrait": 33,
+          "landscape": 26
+        },
+        "chartType": "line",
+        "chartSummary": "Readings rise through the period before settling back from the peak.",
+        "chartTable": {
+          "headers": [
+            "Period",
+            "Index",
+            "Prior"
+          ],
+          "rows": [
+            [
+              "Q1",
+              "298",
+              "272"
+            ],
+            [
+              "Q2",
+              "308",
+              "268"
+            ],
+            [
+              "Q3",
+              "315",
+              "261"
+            ],
+            [
+              "Q4",
+              "324",
+              "255"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Period",
+        "yAxisLabel": "Index",
+        "barPrimaryColor": "#111111",
+        "barSecondaryColor": "#B23B3B"
+      },
+      "scene_defaults": {
+        "title": "The numbers behind the story",
+        "narration": "The figures tell their own story.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
     "ending_socials": {
       "label": "Ending / Follow along",
       "defaults": {
@@ -514,12 +650,247 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
+    },
+    "expert_profile": {
+      "label": "Expert Profile",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 55,
+          "landscape": 58
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 26
+        },
+        "category": "Expert Voices",
+        "leftThought": "Dr. Jane Smith",
+        "rightThought": "Senior Policy Analyst",
+        "stats": [
+          {
+            "value": "20yr",
+            "label": "in Federal Policy"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "category",
+          "label": "Section Badge",
+          "type": "string"
+        },
+        {
+          "key": "leftThought",
+          "label": "Expert Name",
+          "type": "string"
+        },
+        {
+          "key": "rightThought",
+          "label": "Expert Role / Organisation",
+          "type": "string"
+        },
+        {
+          "key": "stats",
+          "label": "Key Credential",
+          "type": "object_array",
+          "maxItems": 1,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Value (e.g. 20yr)"
+            },
+            {
+              "key": "label",
+              "label": "Caption (e.g. in Federal Policy)"
+            }
+          ]
+        }
+      ]
+    },
+    "perspective_split": {
+      "label": "Perspective Split",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 68,
+          "landscape": 63
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 25
+        },
+        "leftThought": "This policy creates opportunity and drives long-term economic growth for everyone.",
+        "rightThought": "The costs are too high and the benefits too uncertain to justify moving forward now.",
+        "stats": [
+          {
+            "label": "SUPPORTERS SAY",
+            "value": "+14%"
+          },
+          {
+            "label": "CRITICS SAY",
+            "value": "$1.2T"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Panel Text Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "leftThought",
+          "label": "Left Perspective",
+          "type": "text"
+        },
+        {
+          "key": "rightThought",
+          "label": "Right Perspective",
+          "type": "text"
+        },
+        {
+          "key": "stats",
+          "label": "Panel Labels & Stats",
+          "type": "object_array",
+          "maxItems": 2,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Panel heading (e.g. SUPPORTERS SAY)"
+            },
+            {
+              "key": "value",
+              "label": "Key stat (e.g. +14%)"
+            }
+          ]
+        }
+      ]
+    },
+    "ticker_table": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 51
+        },
+        "descriptionFontSize": {
+          "portrait": 33,
+          "landscape": 27
+        },
+        "tickerTitle": "Key Figures",
+        "tickerFootnote": "Source: editorial research",
+        "tickerHighlightCol": 2,
+        "tickerTable": {
+          "headers": [
+            "Category",
+            "Value",
+            "Change"
+          ],
+          "rows": [
+            [
+              "Item A",
+              "1,240",
+              "+4.2%"
+            ],
+            [
+              "Item B",
+              "980",
+              "-1.8%"
+            ],
+            [
+              "Item C",
+              "2,100",
+              "+7.1%"
+            ]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "The numbers at a glance",
+        "narration": "Key figures from the story.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table subtitle",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: values (max 20 rows, 6 cols)",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based, -1 to disable)",
+          "type": "number",
+          "min": -1,
+          "max": 5,
+          "step": 1
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Source / Footnote",
+          "type": "string"
+        }
+      ]
     }
   },
   "layouts_without_image": [
     "pull_quote",
     "data_snapshot",
-    "ending_socials"
+    "data_visualisation",
+    "ending_socials",
+    "perspective_split",
+    "ticker_table"
   ],
   "features": [
     "News headline hero with category and byline",
@@ -528,6 +899,8 @@
     "Data snapshot cards with key figures",
     "Fact-check claim vs facts layout",
     "News timeline with spine and dates",
+    "Expert profile with image, name, role and credential",
+    "Perspective split for balanced two-sides comparison",
     "Portrait and landscape responsive layout"
   ]
 }

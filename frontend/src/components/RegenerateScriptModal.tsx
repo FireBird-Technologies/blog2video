@@ -10,6 +10,12 @@ interface Props {
   initialInstruction?: string;
   /** Override the confirm button label (defaults to "Confirm"). */
   confirmLabel?: string;
+  /**
+   * Whether to show the "counts as one video credit" warning. Defaults to true
+   * (the initial regeneration reserves a credit). The verify-step "Regenerate"
+   * re-runs an already-paid job and charges nothing, so it passes false.
+   */
+  showsCreditWarning?: boolean;
 }
 
 const MAX_FILE_BYTES = 25 * 1024; // 25 KB
@@ -31,6 +37,7 @@ export default function RegenerateScriptModal({
   onConfirm,
   initialInstruction = "",
   confirmLabel = "Confirm",
+  showsCreditWarning = true,
 }: Props) {
   const [step, setStep] = useState<"input" | "warning">("input");
   const [instruction, setInstruction] = useState(initialInstruction);
@@ -264,7 +271,9 @@ export default function RegenerateScriptModal({
               <p className="text-sm text-gray-700">
                 This will completely regenerate the script — your current version will be replaced.
               </p>
-              <p className="text-sm text-amber-700 font-medium">This counts as one video credit.</p>
+              {showsCreditWarning && (
+                <p className="text-sm text-amber-700 font-medium">This counts as one video credit.</p>
+              )}
 
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-32 overflow-y-auto">
                 <p className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">

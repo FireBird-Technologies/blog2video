@@ -1,7 +1,7 @@
 import type { SocialsMap, SocialsRow } from "../SocialIcons";
 
 export type Stickman2LayoutType =
-  | "chalk_title" | "night_walk" | "shooting_star" | "constellation_stats" | "moonphase_chart" | "shadow_comparison" | "signal_fire_scene" | "neon_countdown" | "lantern_dialogue" | "ending_socials";
+  | "chalk_title" | "night_walk" | "shooting_star" | "constellation_stats" | "moonphase_chart" | "shadow_comparison" | "signal_fire_scene" | "neon_countdown" | "lantern_dialogue" | "data_visualisation" | "ending_socials" | "ticker_table";
 
 export interface SceneLayoutProps {
   title: string;
@@ -35,4 +35,27 @@ export interface SceneLayoutProps {
   rightBubble?: string;
   speakers?: Array<{ label?: string; value?: string }>;
   handles?: string[];
+
+  // ── data_visualisation (chart) — shared chartTable data-viz contract ──
+  /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
+  chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
+  /** "line" | "bar" | "histogram" | "auto" (infer from label shape). */
+  chartType?: "auto" | "line" | "bar" | "histogram";
+  /** Prose beside the chart; empty → auto-summary from chartTable. */
+  chartSummary?: string;
+  /** Y-axis tick label overrides (top → bottom). */
+  chartYAxisTicks?: string[];
+  /** X-axis / category caption; empty uses chartTable.headers[0]. */
+  subtitle?: string;
+  /** Y-axis title; empty uses chartTable.headers[1]. */
+  yAxisLabel?: string;
+  /** Chart color overrides. */
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
 }

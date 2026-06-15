@@ -9,6 +9,8 @@ from app.services.chart_planner import (
     is_laduc_ticker_table,
     get_chartable_tables_from_visual_hint,
     _build_chart_props_from_table,
+    _clean_text_cell,
+    _ensure_chart_headers,
 )
 
 
@@ -32,11 +34,7 @@ def _looks_like_header_row(row: list[str]) -> bool:
 
 
 def _clean_cell(value: Any) -> str:
-    text = str(value or "").strip()
-    # Strip inline HTML tags (e.g. "Rs.<br> 434,000" → "Rs. 434,000") that survive
-    # markdown/HTML scraping; otherwise they leak into chart labels and data tables.
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text)
+    text = _clean_text_cell(value)
     if len(text) > MAX_CELL_CHARS:
         return text[:MAX_CELL_CHARS].rstrip() + "..."
     return text
@@ -68,12 +66,19 @@ def _normalize_table(headers: list[str], rows: list[list[str]], source: str) -> 
             clean_rows = clean_rows[1:]
 
     if not any(clean_headers):
-        # Last-resort fallback for truly headerless tables.
+        # Last-resort: category column + value/metric columns (never generic "Series N").
         col_count = max(len(r) for r in clean_rows)
-        clean_headers = [f"Series {i + 1}" for i in range(col_count)]
+        clean_headers = ["Category"]
+        if col_count == 2:
+            clean_headers.append("Value")
+        else:
+            clean_headers.extend(f"Metric {i}" for i in range(1, col_count))
 
     if len(clean_rows) < 2:
         return None
+
+    col_count = max(len(clean_headers), max((len(r) for r in clean_rows), default=0))
+    clean_headers = _ensure_chart_headers(clean_headers, col_count, label_col_idx=0)
 
     return {
         "source": source,
@@ -167,11 +172,54 @@ def extract_tables_from_markdown(markdown_text: str, source: str) -> list[dict[s
     return tables
 
 
+def _normalize_stored_table(table: dict[str, Any]) -> dict[str, Any] | None:
+    """Clean headers/rows on an already-extracted table dict."""
+    if not isinstance(table, dict):
+        return None
+    headers = table.get("headers")
+    rows = table.get("rows")
+    if not isinstance(headers, list) or not isinstance(rows, list):
+        return None
+
+    clean_rows: list[list[str]] = []
+    for row in rows[:MAX_ROWS_PER_TABLE]:
+        if not isinstance(row, list):
+            continue
+        cells = [_clean_cell(cell) for cell in row[:MAX_COLS_PER_TABLE]]
+        if any(cells):
+            clean_rows.append(cells)
+    if not clean_rows:
+        return None
+
+    clean_headers = [_clean_cell(h) for h in headers[:MAX_COLS_PER_TABLE]]
+    col_count = max(len(clean_headers), max((len(r) for r in clean_rows), default=0))
+    clean_headers = _ensure_chart_headers(clean_headers, col_count, label_col_idx=0)
+
+    return {
+        **table,
+        "headers": clean_headers,
+        "rows": clean_rows,
+    }
+
+
+def _table_fingerprint(table: dict[str, Any]) -> str:
+    """Stable identity for dedup — uses normalized headers + sample rows."""
+    norm = _normalize_stored_table(table)
+    if not norm:
+        return ""
+    headers = "|".join(str(h or "").strip().lower() for h in (norm.get("headers") or []))
+    row_sigs: list[str] = []
+    for row in (norm.get("rows") or [])[:8]:
+        if isinstance(row, list):
+            row_sigs.append("|".join(str(c or "").strip().lower() for c in row))
+    return f"{headers}::{'||'.join(row_sigs)}"
+
+
 def append_tables_to_content(content: str, tables: list[dict[str, Any]]) -> str:
     if not tables:
         return content
 
-    clipped = tables[:MAX_TABLES]
+    clipped = _dedup_tables([t for t in tables if isinstance(t, dict)])[:MAX_TABLES]
     payload = json.dumps({"tables": clipped}, ensure_ascii=False, separators=(",", ":"))
     block = (
         f"\n\n═══ {TABLE_SECTION_MARKER} ═══\n"
@@ -182,11 +230,12 @@ def append_tables_to_content(content: str, tables: list[dict[str, Any]]) -> str:
 
 
 def _dedup_tables(tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Remove duplicate tables that share the same header fingerprint.
+    """Remove duplicate tables that share the same normalized content fingerprint.
 
     When duplicates exist (e.g. firecrawl_html + firecrawl_markdown scraped the
-    same table), keep the copy with the most complete data, preferring
-    firecrawl_markdown over firecrawl_html as a tiebreaker.
+    same table, or one copy still has markdown links in headers/labels), keep the
+    copy with the most complete data, preferring firecrawl_markdown over
+    firecrawl_html as a tiebreaker. All survivors are cell-normalized.
     """
     def _cell_count(tbl: dict) -> int:
         return sum(
@@ -199,22 +248,22 @@ def _dedup_tables(tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     seen: dict[str, dict[str, Any]] = {}
     for t in tables:
-        if not isinstance(t, dict):
+        norm = _normalize_stored_table(t)
+        if not norm:
             continue
-        headers = t.get("headers") or []
-        key = "|".join(str(h).strip().lower() for h in headers)
+        key = _table_fingerprint(norm)
         if not key:
             continue
         if key not in seen:
-            seen[key] = t
+            seen[key] = norm
         else:
             existing = seen[key]
             existing_is_md = (existing.get("source") or "").startswith("firecrawl_markdown")
-            new_is_md = (t.get("source") or "").startswith("firecrawl_markdown")
+            new_is_md = (norm.get("source") or "").startswith("firecrawl_markdown")
             if new_is_md and not existing_is_md:
-                seen[key] = t
-            elif new_is_md == existing_is_md and _cell_count(t) > _cell_count(existing):
-                seen[key] = t
+                seen[key] = norm
+            elif new_is_md == existing_is_md and _cell_count(norm) > _cell_count(existing):
+                seen[key] = norm
     return list(seen.values())
 
 
@@ -246,13 +295,14 @@ def build_table_context_hint(
         return ""
     clipped = []
     for table in tables[:max_tables]:
-        if not isinstance(table, dict):
+        norm = _normalize_stored_table(table) if isinstance(table, dict) else None
+        if not norm:
             continue
         clipped.append(
             {
-                "source": table.get("source"),
-                "headers": table.get("headers", []),
-                "rows": (table.get("rows", []) or [])[:max_rows],
+                "source": norm.get("source"),
+                "headers": norm.get("headers", []),
+                "rows": (norm.get("rows", []) or [])[:max_rows],
             }
         )
     if not clipped:
@@ -282,13 +332,16 @@ def build_chartable_tables_payload(
     for orig_idx, table in chartable_tables:
         if not isinstance(table, dict):
             continue
+        norm = _normalize_stored_table(table)
+        if not norm:
+            continue
         chart_type = (chart_type_by_index or {}).get(orig_idx, "auto")
         entry: dict[str, Any] = {
             "index": orig_idx,
             "chartType": chart_type,
-            "source": table.get("source"),
-            "headers": table.get("headers", []),
-            "rows": (table.get("rows", []) or [])[:max_rows],
+            "source": norm.get("source"),
+            "headers": norm.get("headers", []),
+            "rows": (norm.get("rows", []) or [])[:max_rows],
         }
         pl = (preferred_layout_by_index or {}).get(orig_idx)
         if pl:

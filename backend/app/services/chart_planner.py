@@ -1,3 +1,4 @@
+import html
 import json
 import re
 from typing import Any
@@ -47,6 +48,75 @@ _STRICT_NUMERIC_CELL_RE = re.compile(
 )
 _CURRENCY_HINT_RE = re.compile(r"(?:^|\b)(rs\.?|pkr|usd|eur|gbp|aed|sar|inr|\$|€|£|¥|₹)", re.IGNORECASE)
 _SYNTH_HEADER_RE = re.compile(r"^col_\d+$", re.IGNORECASE)
+_PLACEHOLDER_HEADER_RE = re.compile(r"^series\s+\d+$", re.IGNORECASE)
+
+
+def _is_placeholder_chart_header(value: str) -> bool:
+    s = (value or "").strip()
+    if not s:
+        return True
+    if _SYNTH_HEADER_RE.fullmatch(s):
+        return True
+    if _PLACEHOLDER_HEADER_RE.fullmatch(s):
+        return True
+    return False
+
+
+def _ensure_chart_headers(
+    headers: list[str],
+    col_count: int,
+    label_col_idx: int = 0,
+) -> list[str]:
+    """Guarantee every chart column has a display header (never bare 'Series N')."""
+    out = [_clean_text_cell(h) for h in headers]
+    while len(out) < col_count:
+        out.append("")
+    out = out[:col_count]
+
+    if _is_placeholder_chart_header(out[label_col_idx]):
+        out[label_col_idx] = "Category"
+
+    numeric_cols = [c for c in range(col_count) if c != label_col_idx]
+    metric_n = 0
+    for c in numeric_cols:
+        if not _is_placeholder_chart_header(out[c]):
+            continue
+        if len(numeric_cols) == 1:
+            out[c] = "Value"
+        else:
+            metric_n += 1
+            out[c] = f"Metric {metric_n}"
+
+    return out
+
+
+def assign_chart_axis_captions(props: dict[str, Any]) -> dict[str, Any]:
+    """Normalize chartTable headers and set subtitle / yAxisLabel from real column names."""
+    chart_table = props.get("chartTable")
+    if not isinstance(chart_table, dict):
+        return props
+
+    normalized = normalize_chart_table(chart_table)
+    if not normalized or len(normalized.get("headers") or []) < 2:
+        return props
+
+    headers = normalized["headers"]
+    col_count = len(headers)
+    out = dict(props)
+    out["chartTable"] = normalized
+
+    if not str(out.get("subtitle") or "").strip() and headers[0]:
+        out["subtitle"] = headers[0]
+
+    numeric_headers = [
+        headers[c]
+        for c in range(col_count)
+        if c != 0 and headers[c] and not _is_placeholder_chart_header(headers[c])
+    ]
+    if not str(out.get("yAxisLabel") or "").strip() and numeric_headers:
+        out["yAxisLabel"] = numeric_headers[0]
+
+    return out
 
 # Markdown emphasis markers that leak into scraped/LLM labels (e.g. a "**Value**"
 # header showing literally in a chart legend). Stripped from display cells only.
@@ -233,19 +303,84 @@ def _tokenize(text: str) -> set[str]:
 
 
 def _clean_text_cell(value: Any) -> str:
-    """Strip inline HTML tags + collapse whitespace from a display cell.
+    """Normalize scraped or LLM text for chart labels and table cells.
 
-    The chartTable bound to a scene is rendered verbatim (especially by the
-    data_table layout), so leftover tags like "Rs.<br> 434,000" must be removed.
-    Tables read straight from EXTRACTED_TABLES_JSON bypass table_extraction's own
-    cleaner, so we re-clean here at the point the chartTable is built.
+    Strips HTML tags/entities, markdown link/formatting noise, and collapses
+    whitespace so chartTable values saved to the DB are plain display text.
     """
-    text = str(value or "")
+    text = html.unescape(str(value or ""))
     text = re.sub(r"<[^>]+>", " ", text)
     # Strip markdown emphasis so a "**Value**" header / "__label__" cell doesn't
     # render its asterisks literally in a chart legend or table.
     text = _strip_markdown(text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    text = re.sub(r"\*([^*]+)\*", r"\1", text)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    text = re.sub(r"[\u200b-\u200d\ufeff]", "", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def normalize_chart_table(chart_table: dict | None) -> dict | None:
+    """Return a chartTable with cleaned headers/rows and guaranteed column labels."""
+    if not isinstance(chart_table, dict):
+        return None
+
+    raw_headers = chart_table.get("headers")
+    raw_rows = chart_table.get("rows")
+    if not isinstance(raw_headers, list) or not isinstance(raw_rows, list):
+        return None
+
+    clean_rows: list[list[str]] = []
+    for row in raw_rows[:20]:
+        if not isinstance(row, list):
+            continue
+        cells = [_clean_text_cell(cell) for cell in row[:8]]
+        if any(cells):
+            clean_rows.append(cells)
+
+    if not clean_rows:
+        return None
+
+    col_count = max(len(raw_headers), max((len(r) for r in clean_rows), default=0))
+    headers = _ensure_chart_headers(
+        [_clean_text_cell(h) for h in raw_headers[:8]],
+        col_count,
+        label_col_idx=0,
+    )
+    return {"headers": headers, "rows": clean_rows}
+
+
+def sanitize_chart_table_layout_props(props: dict | None) -> dict:
+    """Normalize chartTable and axis caption strings in layoutProps."""
+    out = dict(props or {})
+    normalized = normalize_chart_table(out.get("chartTable"))
+    if normalized:
+        out["chartTable"] = normalized
+    for key in ("subtitle", "yAxisLabel"):
+        if key in out and out[key] is not None:
+            out[key] = _clean_text_cell(out[key])
+    return assign_chart_axis_captions(out)
+
+
+def sanitize_chart_descriptor(descriptor: dict | None) -> dict:
+    """Normalize chart data in a scene descriptor before persisting to the DB."""
+    out = dict(descriptor or {})
+    layout_props = out.get("layoutProps")
+    if not isinstance(layout_props, dict):
+        return out
+
+    props = dict(layout_props)
+    layout_norm = str(out.get("layout") or "").strip().lower().replace("-", "_")
+    if layout_norm == "data_visualization":
+        for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
+            props.pop(key, None)
+
+    if isinstance(props.get("chartTable"), dict):
+        props = sanitize_chart_table_layout_props(props)
+
+    out["layoutProps"] = props
+    return out
 
 
 
@@ -265,7 +400,12 @@ def _extract_tables_from_visual_hint(visual_description: str) -> list[dict[str, 
     except json.JSONDecodeError:
         return []
     tables = payload.get("tables") if isinstance(payload, dict) else None
-    return tables if isinstance(tables, list) else []
+    if not isinstance(tables, list):
+        return []
+    from app.services.table_extraction import _dedup_tables, _normalize_stored_table
+
+    normalized = [_normalize_stored_table(t) for t in tables if isinstance(t, dict)]
+    return _dedup_tables([t for t in normalized if t])
 
 
 def count_tables_in_visual_hint(visual_description: str) -> int:
@@ -899,7 +1039,11 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
                 return {}
 
     col_count = max(len(r) for r in rows)
-    labels = [str(r[0] if len(r) > 0 else "").strip() or str(i + 1) for i, r in enumerate(rows)]
+    headers = _ensure_chart_headers(headers, col_count, label_col_idx=0)
+    labels = [
+        _clean_text_cell(r[0] if len(r) > 0 else "") or str(i + 1)
+        for i, r in enumerate(rows)
+    ]
 
     numeric_columns: list[tuple[int, str, list[float]]] = []
     for c in range(1, col_count):
@@ -914,7 +1058,7 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
             else:
                 values.append(n)
         if sum(1 for x in values if x == x) >= 2:
-            label = headers[c] if c < len(headers) and headers[c] else f"Series {c}"
+            label = headers[c] if c < len(headers) else ""
             numeric_columns.append((c, label, values))
 
     if not numeric_columns:
@@ -926,6 +1070,10 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
     chart_table = {
         "headers": [_clean_text_cell(h) for h in headers[:8]],
         "rows": [[_clean_text_cell(cell) for cell in row[:8]] for row in rows[:20]],
+    }
+    axis_captions = {
+        "subtitle": headers[0] if headers else "",
+        "yAxisLabel": numeric_columns[0][1] if numeric_columns else "",
     }
 
     # Prefer line charts for ordered/time-like rows; otherwise histogram for bucket labels; else bar.
@@ -939,6 +1087,7 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
             return {
                 "chartType": "line",
                 "chartTable": chart_table,
+                **axis_captions,
                 "marketSymbol": _clean_text_cell(numeric_columns[0][1]),
                 "marketValue": f"{end:g}",
                 "marketDelta": f"{delta:+.2f}",
@@ -961,6 +1110,7 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
         return {
             "chartType": "histogram",
             "chartTable": chart_table,
+            **axis_captions,
             "marketSymbol": primary_label,
         }
 
@@ -971,6 +1121,7 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
     return {
         "chartType": "bar",
         "chartTable": chart_table,
+        **axis_captions,
         "marketSymbol": primary_label,
         "marketValue": f"{end:g}",
         "marketDelta": f"{delta:+.2f}",

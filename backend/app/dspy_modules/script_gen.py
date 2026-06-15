@@ -972,6 +972,22 @@ class ScriptGenerator:
             return scenes
         print(f"[F7-DEBUG] _enforce_chartable_bindings: {len(entries)} chartable entries, preferred_layouts={[e.get('preferred_layout') for e in entries if isinstance(e, dict)]}")
 
+        from app.services.table_extraction import _table_fingerprint
+
+        unique_entries: list[dict] = []
+        seen_fingerprints: set[str] = set()
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            fp = _table_fingerprint(entry)
+            if fp and fp in seen_fingerprints:
+                print(f"[F7-DEBUG] _enforce_chartable_bindings: skipping duplicate table index={entry.get('index')}")
+                continue
+            if fp:
+                seen_fingerprints.add(fp)
+            unique_entries.append(entry)
+        entries = unique_entries
+
         bound_indices = {
             s["data_table_index"]
             for s in scenes
