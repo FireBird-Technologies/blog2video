@@ -62,9 +62,9 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, TABLE_MAX_COLS);
   const rawRows = (tickerTable?.rows ?? [])
     .slice(0, MOSAIC_TABLE_MAX_ROWS)
-    .map((row) => (row ?? []).slice(0, TABLE_MAX_COLS));
+    .map((row: string[]) => (row ?? []).slice(0, TABLE_MAX_COLS));
 
-  const colCount = Math.max(rawHeaders.length, rawRows.reduce((m, row) => Math.max(m, row.length), 0));
+  const colCount = Math.max(rawHeaders.length, rawRows.reduce((m: number, row: string[]) => Math.max(m, row.length), 0));
   const rowCount = rawRows.length;
 
   const hlColIndex =
