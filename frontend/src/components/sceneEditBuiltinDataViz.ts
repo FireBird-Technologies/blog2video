@@ -122,6 +122,43 @@ const spotlightExample = (kind: ChartKind): ChartTable => {
   };
 };
 
+const mosaicExample = (kind: ChartKind): ChartTable => {
+  if (kind === "bar") {
+    return {
+      headers: ["Fragment", "Coverage", "Density"],
+      rows: [
+        ["Terracotta", "324", "72"],
+        ["Cobalt", "308", "55"],
+        ["Cream", "315", "61"],
+        ["Slate", "298", "68"],
+        ["Gold", "318", "59"],
+      ],
+    };
+  }
+  if (kind === "histogram") {
+    return {
+      headers: ["Tile size", "Count"],
+      rows: [
+        ["0 - 10", "2"],
+        ["10 - 20", "6"],
+        ["20 - 30", "9"],
+        ["30 - 40", "5"],
+        ["40 +", "2"],
+      ],
+    };
+  }
+  return {
+    headers: ["Quarter", "Coverage", "Density"],
+    rows: [
+      ["Q1", "298", "72"],
+      ["Q2", "308", "68"],
+      ["Q3", "315", "61"],
+      ["Q4", "324", "55"],
+      ["Q5", "318", "59"],
+    ],
+  };
+};
+
 const chronicleExample = (kind: ChartKind): ChartTable => {
   if (kind === "bar") {
     return {
@@ -159,6 +196,80 @@ const chronicleExample = (kind: ChartKind): ChartTable => {
   };
 };
 
+const defaultExample = (kind: ChartKind): ChartTable => {
+  if (kind === "bar") {
+    return {
+      headers: ["Module", "Performance", "Coverage"],
+      rows: [
+        ["Auth", "324", "72"],
+        ["API", "308", "55"],
+        ["UI", "315", "61"],
+        ["Cache", "298", "68"],
+        ["DB", "318", "59"],
+      ],
+    };
+  }
+  if (kind === "histogram") {
+    return {
+      headers: ["Latency bucket", "Requests"],
+      rows: [
+        ["0 - 20ms", "2"],
+        ["20 - 40ms", "6"],
+        ["40 - 60ms", "9"],
+        ["60 - 80ms", "5"],
+        ["80ms+", "2"],
+      ],
+    };
+  }
+  return {
+    headers: ["Release", "Adoption", "Retention"],
+    rows: [
+      ["v1.0", "298", "72"],
+      ["v1.1", "308", "68"],
+      ["v1.2", "315", "61"],
+      ["v2.0", "324", "55"],
+      ["v2.1", "318", "59"],
+    ],
+  };
+};
+
+const nightfallExample = (kind: ChartKind): ChartTable => {
+  if (kind === "bar") {
+    return {
+      headers: ["Node", "Throughput", "Latency"],
+      rows: [
+        ["Alpha", "324", "18"],
+        ["Bravo", "308", "22"],
+        ["Charlie", "315", "19"],
+        ["Delta", "298", "25"],
+        ["Echo", "318", "21"],
+      ],
+    };
+  }
+  if (kind === "histogram") {
+    return {
+      headers: ["Response time", "Requests"],
+      rows: [
+        ["0 - 50ms", "3"],
+        ["50 - 100ms", "8"],
+        ["100 - 200ms", "12"],
+        ["200 - 500ms", "5"],
+        ["500ms+", "1"],
+      ],
+    };
+  }
+  return {
+    headers: ["Week", "Requests", "Errors"],
+    rows: [
+      ["W-04", "298", "12"],
+      ["W-03", "308", "9"],
+      ["W-02", "315", "7"],
+      ["W-01", "324", "5"],
+      ["W-00", "318", "6"],
+    ],
+  };
+};
+
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
@@ -179,6 +290,24 @@ const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
     tickerLayoutId: "chronicle_table",
     layoutKind: layoutKindFromSuffix,
     exampleTable: chronicleExample,
+  },
+  mosaic: {
+    chartLayoutIds: ["mosaic_data_visualization"],
+    tickerLayoutId: "mosaic_ticker",
+    layoutKind: layoutKindFromSuffix,
+    exampleTable: mosaicExample,
+  },
+  default: {
+    chartLayoutIds: ["default_data_visualization"],
+    tickerLayoutId: "default_ticker",
+    layoutKind: layoutKindFromSuffix,
+    exampleTable: defaultExample,
+  },
+  nightfall: {
+    chartLayoutIds: ["nightfall_data_visualization"],
+    tickerLayoutId: "nightfall_ticker",
+    layoutKind: layoutKindFromSuffix,
+    exampleTable: nightfallExample,
   },
 };
 

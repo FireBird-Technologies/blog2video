@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { MosaicBackground } from "../MosaicBackground";
-import { getSceneTransition, getStaggeredReveal } from "../transitions";
+import { getSceneTransition, getStaggeredReveal } from "../../mosaic/transitions";
+import { GeometricBackground } from "../components/GeometricBackground";
+import { FlybyPlane } from "../components/FlybyPlane";
 import {
   Area,
   Bar,
@@ -16,8 +17,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { MosaicLayoutProps } from "../types";
-import { MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
+import type { SceneLayoutProps } from "../types";
 import {
   toNumber,
   formatAxisTick,
@@ -36,40 +36,42 @@ import {
   clampProgressAt,
 } from "../../_shared/chartData";
 
-// ─── Mosaic chart palette (stone & terracotta) ────────────────────────────────
-const MOSAIC_BG = "#EAE4DA";
-const MOSAIC_INK = "#2A2A28";
-const MOSAIC = {
-  terracotta: "#C26240",
-  stone:      "#6B645E",
-  sand:       "#A09A92",
-  axisTxt:    "rgba(42,42,40,0.80)",
-  grid:       "rgba(42,42,40,0.12)",
-  panelBg:    "rgba(234,228,218,0.55)",
-  panelBorder:"rgba(42,42,40,0.22)",
+// ─── Geometric Explainer chart palette (light theme) ─────────────────────────
+const DEFAULT_BG = "#F0F0F0";
+const DEFAULT_INK = "#1D1D1F";
+const DEFAULT_COLORS = {
+  accent:     "#6366F1",
+  secondary:  "#2563EB",
+  muted:      "#7C3AED",
+  axisTxt:    "rgba(0,0,0,0.50)",
+  grid:       "rgba(0,0,0,0.08)",
+  panelBg:    "rgba(255,255,255,0.80)",
+  panelBorder:"rgba(0,0,0,0.08)",
 } as const;
 
-const DEFAULT_BAR_COLORS = [MOSAIC.terracotta, MOSAIC.stone, MOSAIC.sand] as const;
+const DEFAULT_BAR_COLORS = [DEFAULT_COLORS.accent, DEFAULT_COLORS.secondary, DEFAULT_COLORS.muted] as const;
 const VALUE_LABEL_FW = 700;
-const AXIS_LINE_STYLE = { stroke: "rgba(42,42,40,0.45)", strokeWidth: 1.4 };
-const TICK_LINE_STYLE = { stroke: "rgba(42,42,40,0.35)", strokeWidth: 1.0 };
+const AXIS_LINE_STYLE = { stroke: "rgba(0,0,0,0.25)", strokeWidth: 1.4 };
+const TICK_LINE_STYLE = { stroke: "rgba(0,0,0,0.15)", strokeWidth: 1.0 };
 
 const HIST_BIN_RADIUS: [number, number, number, number] = [0, 0, 0, 0];
-const HIST_BIN_STROKE = "rgba(42,42,40,0.35)";
+const HIST_BIN_STROKE = "rgba(0,0,0,0.12)";
 const HIST_BIN_STROKE_W = 1.0;
 const HIST_MAX_BAR_SINGLE = 120;
 const HIST_MAX_BAR_GROUPED = 52;
+
+const DEFAULT_FONT_FAMILY = "'Roboto Slab', serif";
 
 type BarDatum =
   | { label: string; value: number }
   | { label: string; s0: number | null; s1: number | null; s2: number | null };
 
-export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
-  title = "The pattern in the numbers",
+export const DefaultDataChart: React.FC<SceneLayoutProps> = ({
+  title = "The data behind the story",
   narration = "",
-  accentColor = MOSAIC.terracotta,
+  accentColor,
   bgColor,
-  textColor = MOSAIC_INK,
+  textColor,
   aspectRatio = "landscape",
   fontFamily,
   titleFontSize,
@@ -82,21 +84,18 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
   barPrimaryColor,
   barSecondaryColor,
   yAxisLabel,
-  mosaicPattern,
-  mosaicIntensity,
-  mosaicTileSize,
-  mosaicTileGap,
+  sceneIndex,
 }) => {
   const frame = useCurrentFrame();
   const { width, height, fps, durationInFrames } = useVideoConfig();
   const p = aspectRatio === "portrait" || height > width;
-  const bodyFont = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
+  const bodyFont = fontFamily || DEFAULT_FONT_FAMILY;
 
-  const ink = textColor || MOSAIC_INK;
-  const accent = accentColor || MOSAIC.terracotta;
+  const ink = textColor || DEFAULT_INK;
+  const accent = accentColor || DEFAULT_COLORS.accent;
 
-  const titleSize = titleFontSize ?? (p ? 56 : 52);
-  const descSize = descriptionFontSize ?? (p ? 28 : 26);
+  const titleSize = titleFontSize ?? (p ? 66 : 52);
+  const descSize = descriptionFontSize ?? (p ? 34 : 26);
   const chartTickSize = Math.round(descSize * 0.86);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
@@ -111,11 +110,10 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
   ) =>
     buildXAxisPropsShared(labels, isPortrait, descSizeArg, forceAllLabels, chartAreaPx, {
       largerXTicks: opts?.largerXTicks,
-      axisTextColor: MOSAIC.axisTxt,
+      axisTextColor: DEFAULT_COLORS.axisTxt,
       fontFamily: bodyFont,
     });
 
-  // ── Mosaic tile / scene transition ──────────────────────────────────────────
   const motion = getSceneTransition(frame, durationInFrames, 24, 18);
   const tileEntry = interpolate(frame, [0, 80], [0, 1], {
     extrapolateLeft: "clamp",
@@ -388,14 +386,14 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
   const chartMarginLeft = chartLeft + 10;
   const chartBottom = p ? 70 : 56;
 
-  const yTickStyle = { fill: MOSAIC.axisTxt, fontSize: Math.max(9, chartTickSize), fontWeight: 500, fontFamily: bodyFont };
+  const yTickStyle = { fill: DEFAULT_COLORS.axisTxt, fontSize: Math.max(9, chartTickSize), fontWeight: 500, fontFamily: bodyFont };
   const yLabelProp = hasYLabel
     ? {
         value: resolvedYAxisCaption,
         angle: -90 as const,
         position: "left" as const,
         offset: 10,
-        style: { fill: MOSAIC.axisTxt, fontSize: chartAxisLabelSize, fontWeight: 600, textAnchor: "middle" as const, fontFamily: bodyFont },
+        style: { fill: DEFAULT_COLORS.axisTxt, fontSize: chartAxisLabelSize, fontWeight: 600, textAnchor: "middle" as const, fontFamily: bodyFont },
       }
     : undefined;
   const yAxisTickFmt = customYAxis?.tickFormatter ?? formatAxisTick;
@@ -405,31 +403,33 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
           value: xCaptionText,
           position: "bottom" as const,
           offset: 8,
-          style: { fill: MOSAIC.axisTxt, fontSize: chartAxisLabelSize, fontWeight: 600, fontFamily: bodyFont, letterSpacing: "0.06em" },
+          style: { fill: DEFAULT_COLORS.axisTxt, fontSize: chartAxisLabelSize, fontWeight: 600, fontFamily: bodyFont, letterSpacing: "0.06em" },
         }
       : undefined;
   const xCaption = buildXCaption();
 
   const LegendDot: React.FC<{ color: string; label: string }> = ({ color, label }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <div style={{ width: 11, height: 11, borderRadius: 2, background: color, border: `1px solid rgba(42,42,40,0.25)` }} />
+      <div style={{ width: 11, height: 11, borderRadius: 2, background: color, border: `1px solid rgba(0,0,0,0.12)` }} />
       <span style={{ color: ink, fontSize: 14, fontWeight: 700, fontFamily: bodyFont, opacity: 0.92 }}>
         {label}
       </span>
     </div>
   );
 
+  const bg = bgColor || DEFAULT_BG;
+
   const renderChart = () => {
     if (resolvedChartType === "line") {
       return (
         <ComposedChart data={linePlotData} margin={{ top: chartMarginTop, right: chartMarginRight, left: chartMarginLeft, bottom: chartBottom }}>
           <defs>
-            <linearGradient id="mosaic-line-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={barColors[0]} stopOpacity={0.28} />
+            <linearGradient id="default-line-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={barColors[0]} stopOpacity={0.32} />
               <stop offset="95%" stopColor={barColors[0]} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke={MOSAIC.grid} vertical={false} />
+          <CartesianGrid stroke={DEFAULT_COLORS.grid} vertical={false} />
           <XAxis dataKey="label" axisLine={AXIS_LINE_STYLE} label={xCaption} {...lineXAxisProps} tickLine={false} />
           <YAxis
             yAxisId="left" axisLine={AXIS_LINE_STYLE} tickLine={TICK_LINE_STYLE} tick={yTickStyle} width={yAxisWidth}
@@ -443,8 +443,8 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
           <Area
             yAxisId={axisForKey("s0")} type="monotone" dataKey="s0"
             stroke={barColors[0]} strokeWidth={linePointCount >= 14 ? 3 : 3.6}
-            fill="url(#mosaic-line-fill)" fillOpacity={0.28} isAnimationActive={false}
-            dot={showDots0 ? { r: lineDotR0, fill: MOSAIC_BG, stroke: barColors[0], strokeWidth: 1.6 } : false}
+            fill="url(#default-line-fill)" fillOpacity={0.28} isAnimationActive={false}
+            dot={showDots0 ? { r: lineDotR0, fill: bg, stroke: barColors[0], strokeWidth: 1.6 } : false}
             activeDot={false}
           >
             {showDots0 && (
@@ -457,7 +457,7 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
           {chartInputs.lineSeries[1] && (
             <Line yAxisId={axisForKey("s1")} type="monotone" dataKey="s1"
               stroke={barColors[1]} strokeWidth={linePointCount >= 14 ? 2.1 : 2.5} strokeOpacity={lineOp1}
-              dot={showDots1 ? { r: lineDotR12, fill: MOSAIC_BG, stroke: barColors[1], strokeWidth: 1.2 } : false}
+              dot={showDots1 ? { r: lineDotR12, fill: bg, stroke: barColors[1], strokeWidth: 1.2 } : false}
               activeDot={false} strokeDasharray="5 4" isAnimationActive={false}
             >
               {showDots1 && (
@@ -471,7 +471,7 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
           {chartInputs.lineSeries[2] && (
             <Line yAxisId={axisForKey("s2")} type="monotone" dataKey="s2"
               stroke={barColors[2]} strokeWidth={linePointCount >= 14 ? 2.1 : 2.5} strokeOpacity={lineOp2}
-              dot={showDots2 ? { r: lineDotR12, fill: MOSAIC_BG, stroke: barColors[2], strokeWidth: 1.2 } : false}
+              dot={showDots2 ? { r: lineDotR12, fill: bg, stroke: barColors[2], strokeWidth: 1.2 } : false}
               activeDot={false} isAnimationActive={false}
             >
               {showDots2 && (
@@ -481,9 +481,9 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
               )}
             </Line>
           )}
-          {showDots0 && lastS0 && <ReferenceDot yAxisId={axisForKey("s0")} x={lastS0.x} y={lastS0.y} r={linePointCount >= 16 ? 3 : 4.5} fill={MOSAIC_BG} stroke={barColors[0]} strokeWidth={2.2} />}
-          {showDots1 && lastS1 && <ReferenceDot yAxisId={axisForKey("s1")} x={lastS1.x} y={lastS1.y} r={linePointCount >= 16 ? 2.8 : 3.5} fill={MOSAIC_BG} stroke={barColors[1]} strokeWidth={1.8} />}
-          {showDots2 && lastS2 && <ReferenceDot yAxisId={axisForKey("s2")} x={lastS2.x} y={lastS2.y} r={linePointCount >= 16 ? 2.8 : 3.5} fill={MOSAIC_BG} stroke={barColors[2]} strokeWidth={1.8} />}
+          {showDots0 && lastS0 && <ReferenceDot yAxisId={axisForKey("s0")} x={lastS0.x} y={lastS0.y} r={linePointCount >= 16 ? 3 : 4.5} fill={bg} stroke={barColors[0]} strokeWidth={2.2} />}
+          {showDots1 && lastS1 && <ReferenceDot yAxisId={axisForKey("s1")} x={lastS1.x} y={lastS1.y} r={linePointCount >= 16 ? 2.8 : 3.5} fill={bg} stroke={barColors[1]} strokeWidth={1.8} />}
+          {showDots2 && lastS2 && <ReferenceDot yAxisId={axisForKey("s2")} x={lastS2.x} y={lastS2.y} r={linePointCount >= 16 ? 2.8 : 3.5} fill={bg} stroke={barColors[2]} strokeWidth={1.8} />}
         </ComposedChart>
       );
     }
@@ -534,7 +534,7 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
         margin={{ top: chartMarginTop, right: chartMarginRight, left: chartMarginLeft, bottom: chartBottom }}
         barGap={hasComparisonBars ? barGapGroupedPx : 4}
         barCategoryGap={hasComparisonBars ? barCatGapGroupedPct : barCatGapSinglePct}>
-        <CartesianGrid stroke={MOSAIC.grid} vertical={false} />
+        <CartesianGrid stroke={DEFAULT_COLORS.grid} vertical={false} />
         <XAxis dataKey="label" axisLine={AXIS_LINE_STYLE} label={xCaption} {...barXAxisProps} tickLine={false} />
         <YAxis axisLine={AXIS_LINE_STYLE} tickLine={TICK_LINE_STYLE} tick={yTickStyle} width={yAxisWidth}
           domain={customYAxis ? customYAxis.domain : [0, barAxisTop]} ticks={customYAxis?.ticks} tickFormatter={yAxisTickFmt} label={yLabelProp} />
@@ -564,35 +564,9 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
   };
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden" }}>
-      {/* ── Mosaic tile background ── */}
-      <MosaicBackground
-        bgColor={bgColor}
-        accentColor={accentColor}
-        variant="panelField"
-        frameReveal={tileEntry * motion.exit}
-        frameDrift={tileEntry}
-        tileBuildProgress={tileEntry}
-        tileEntryPattern={mosaicPattern ?? "diagonal"}
-        tileEntryIntensity={mosaicIntensity ?? 18}
-        tileExitProgress={tileExit}
-        tileExitSeed={42}
-        tileExitIntensity={mosaicIntensity ?? 22}
-        tileExitPattern={mosaicPattern ?? "diagonal"}
-        tileGridSize={mosaicTileSize}
-        tileGridGap={mosaicTileGap}
-      />
-
-      {/* ── Decorative seam lines (like MosaicPunch) ── */}
-      <AbsoluteFill style={{ pointerEvents: "none" }}>
-        {/* horizontal rule near top */}
-        <div style={{ position: "absolute", top: p ? "11%" : "9%", left: "6%", right: "6%", height: 1, background: "rgba(42,42,40,0.18)" }} />
-        {/* growing accent bars */}
-        <div style={{ position: "absolute", top: p ? "11%" : "9%", left: "6%", width: Math.round(width * 0.22 * seamGrow), height: 2, background: accent, opacity: 0.75 * fadeOut }} />
-        <div style={{ position: "absolute", top: p ? "11%" : "9%", right: "6%", width: Math.round(width * 0.22 * seamGrow), height: 2, background: accent, opacity: 0.75 * fadeOut, transform: "translateX(0)" }} />
-        {/* vertical margin line */}
-        <div style={{ position: "absolute", left: "6%", top: "9%", bottom: "7%", width: 1, background: "rgba(42,42,40,0.14)" }} />
-      </AbsoluteFill>
+    <AbsoluteFill style={{ overflow: "hidden", background: bg }}>
+      <GeometricBackground accentColor={accent} frame={frame} sceneIndex={sceneIndex} />
+      <FlybyPlane accentColor={accent} startFrame={45} yZone={0.14} />
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "14% 7% 6%" : "12% 7% 5%", opacity: fadeOut }}>
         {/* Title */}
@@ -600,7 +574,6 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
           <div style={{ fontFamily: bodyFont, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, color: ink, letterSpacing: "0.01em" }}>
             {title}
           </div>
-          {/* mosaic-style accent underline: wide bar + small square */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, margin: `${Math.round(height * 0.012)}px auto 0` }}>
             <div style={{ width: 56, height: 3, background: accent, opacity: 0.85, borderRadius: 1 }} />
             <div style={{ width: 6, height: 6, background: accent, opacity: 0.70, transform: "rotate(45deg)" }} />
@@ -615,13 +588,13 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
               position: "relative",
               flex: p ? "0 0 auto" : "0 0 80%",
               height: p ? "60%" : "auto",
-              borderRadius: 4,
+              borderRadius: 8,
               overflow: "hidden",
               opacity: ra,
-              background: MOSAIC.panelBg,
-              border: `1.5px solid ${MOSAIC.panelBorder}`,
+              background: DEFAULT_COLORS.panelBg,
+              border: `1px solid ${DEFAULT_COLORS.panelBorder}`,
               borderTop: `3px solid ${accent}`,
-              boxShadow: "0 2px 16px rgba(42,42,40,0.10)",
+              boxShadow: `0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)`,
             }}
           >
             {hasRealChart ? (
@@ -647,7 +620,7 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: bodyFont, color: "rgba(42,42,40,0.50)", fontSize: descSize, fontStyle: "italic", opacity: ra }}>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: bodyFont, color: "rgba(0,0,0,0.35)", fontSize: descSize, fontStyle: "italic", opacity: ra }}>
                 No data — add data by editing this scene
               </div>
             )}
@@ -659,15 +632,15 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
               style={{
                 opacity: interpolate(frame, [55, 75], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
                 borderTop: `2px solid ${accent}`,
-                borderLeft: p ? undefined : `1px solid rgba(42,42,40,0.18)`,
+                borderLeft: p ? undefined : `1px solid rgba(0,0,0,0.12)`,
                 paddingTop: Math.round(descSize * 0.5),
                 paddingLeft: p ? 0 : Math.round(descSize * 0.4),
                 overflow: "hidden",
               }}
             >
-              <div style={{ fontFamily: bodyFont, fontWeight: 500, fontSize: descSize * 0.9, lineHeight: 1.5, color: ink, opacity: 0.95, whiteSpace: "pre-wrap" }}>
+              <div style={{ fontFamily: bodyFont, fontWeight: 500, fontSize: descSize * 0.9, lineHeight: 1.5, color: ink, opacity: 0.92, whiteSpace: "pre-wrap" }}>
                 {summaryText
-                  ? summaryText.split(/(__[^_]+__)/).map((seg: string, i: number) => {
+                  ? summaryText.split(/(__[^_]+__)/).map((seg, i) => {
                       if (seg.startsWith("__") && seg.endsWith("__")) {
                         return <span key={i} style={{ color: accent, fontWeight: 700 }}>{seg.slice(2, -2)}</span>;
                       }
@@ -682,12 +655,15 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
         {/* Narration */}
         {narration && (
           <div style={{ opacity: interpolate(frame, [60, 80], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }), marginTop: Math.round(height * 0.018) }}>
-            <div style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: descSize * 0.82, color: ink, opacity: 0.60, lineHeight: 1.45, textAlign: "center", overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: descSize * 0.82, color: ink, opacity: 0.55, lineHeight: 1.45, textAlign: "center", overflowWrap: "break-word", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>
         )}
       </div>
+
+      {/* Bottom accent stripe */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 4, background: accent }} />
     </AbsoluteFill>
   );
 };

@@ -820,10 +820,25 @@ function mergeMarketAnnotationChartDefaultsForLayout(
   const isChartLayout =
     (!!layoutId && layoutId.startsWith("market_annotation")) ||
     isBuiltinDataVizChartLayout(templateId, layoutId);
-  if (!layoutId || !isChartLayout) return layoutProps;
+  const isTickerLayout = isBuiltinTickerLayout(templateId, layoutId);
+  if (!layoutId || (!isChartLayout && !isTickerLayout)) return layoutProps;
   if (!schema || Object.keys(schema).length === 0) return layoutProps;
   const defaults = schema[layoutId]?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  if (isTickerLayout) {
+    const existingTickerTable = layoutProps.tickerTable;
+    const existingTickerTableHasRows =
+      existingTickerTable &&
+      typeof existingTickerTable === "object" &&
+      Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+      ((existingTickerTable as { rows: unknown[] }).rows.length > 0);
+    if (existingTickerTableHasRows) return layoutProps;
+    if (defaults.tickerTable && typeof defaults.tickerTable === "object") {
+      return { ...layoutProps, tickerTable: defaults.tickerTable };
+    }
+    return layoutProps;
+  }
 
   const existingTable = layoutProps.chartTable;
   const existingTableHasRows =
@@ -1942,6 +1957,8 @@ function schemaLayoutPropTypeToFieldType(t: LayoutPropFieldType): FieldType | nu
       return t;
     case "chart_table":
       return "chart_table";
+    case "ticker_table":
+      return "ticker_table";
     default:
       return null;
   }
@@ -3417,6 +3434,17 @@ export default function SceneEditModal({
         const kind = builtinChartKindForLayout(normalizedTemplateId, next) ?? "line";
         const example = builtinDataVizExampleTable(normalizedTemplateId, kind);
         return example ? { ...prev, chartTable: example } : prev;
+      });
+      return;
+    }
+    // Built-in data-viz templates: seed themed example data when switching into
+    // the ticker / data-table layout with no existing tickerTable.
+    if (isBuiltinTickerLayout(normalizedTemplateId, next)) {
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.tickerTable);
+        if (chartTableHasData(existing)) return prev;
+        const example = builtinDataVizExampleTable(normalizedTemplateId, "line");
+        return example ? { ...prev, tickerTable: example } : prev;
       });
       return;
     }

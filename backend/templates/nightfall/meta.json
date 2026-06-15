@@ -26,7 +26,8 @@
     "split_glass",
     "chapter_break",
     "glass_image",
-    "data_visualization",
+    "nightfall_data_visualization",
+    "nightfall_ticker",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -444,121 +445,175 @@
         }
       ]
     },
-    "data_visualization": {
-      "label": "Data Visualization",
+    "nightfall_data_visualization": {
+      "label": "Data Visualisation",
       "defaults": {
         "titleFontSize": {
-          "portrait": 67,
-          "landscape": 61
+          "portrait": 64,
+          "landscape": 58
         },
         "descriptionFontSize": {
-          "portrait": 40,
-          "landscape": 36
+          "portrait": 32,
+          "landscape": 28
         },
-        "barChartRows": [
-          {
-            "label": "Q1",
-            "value": "18"
-          },
-          {
-            "label": "Q2",
-            "value": "24"
-          }
-        ],
-        "lineChartLabels": [
-          "Jan",
-          "Feb",
-          "Mar"
-        ],
-        "lineChartDatasets": [
-          {
-            "label": "Series A",
-            "valuesStr": "10, 14, 18"
-          }
-        ],
-        "pieChartRows": [
-          {
-            "label": "Segment A",
-            "value": "45"
-          },
-          {
-            "label": "Segment B",
-            "value": "55"
-          }
-        ]
+        "chartType": "line",
+        "chartSummary": "The signal emerges clearly from the noise.",
+        "chartTable": {
+          "headers": ["Week", "Requests", "Errors"],
+          "rows": [
+            ["W-04", "298", "12"],
+            ["W-03", "308", "9"],
+            ["W-02", "315", "7"],
+            ["W-01", "324", "5"],
+            ["W-00", "318", "6"]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Week",
+        "yAxisLabel": "Recorded value",
+        "barPrimaryColor": "#00E5FF",
+        "barSecondaryColor": "#7B2FBE"
+      },
+      "scene_defaults": {
+        "title": "The data behind the story",
+        "narration": "The numbers reveal what the narrative hints at.",
+        "durationSeconds": 7
       },
       "fields": [
         {
           "key": "titleFontSize",
-          "label": "Title Font Size",
+          "label": "Title Size",
           "type": "number",
           "responsive": true,
-          "min": 20,
-          "max": 220,
+          "min": 14,
+          "max": 160,
           "step": 1
         },
         {
           "key": "descriptionFontSize",
-          "label": "Body Font Size",
+          "label": "Body Size",
           "type": "number",
           "responsive": true,
-          "min": 12,
-          "max": 140,
+          "min": 10,
+          "max": 90,
           "step": 1
         },
         {
-          "key": "barChartRows",
-          "label": "Bar Chart Rows",
-          "type": "object_array",
-          "maxItems": 12,
-          "subFields": [
-            {
-              "key": "label",
-              "label": "Label"
-            },
-            {
-              "key": "value",
-              "label": "Value"
-            }
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            { "label": "Auto (infer from data)", "value": "auto" },
+            { "label": "Line", "value": "line" },
+            { "label": "Bar", "value": "bar" },
+            { "label": "Histogram", "value": "histogram" }
           ]
         },
         {
-          "key": "lineChartLabels",
-          "label": "Line Chart Labels",
-          "type": "string_array",
-          "maxItems": 12
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges.",
+          "type": "chart_table"
         },
         {
-          "key": "lineChartDatasets",
-          "label": "Line Chart Series",
-          "type": "object_array",
-          "maxItems": 6,
-          "subFields": [
-            {
-              "key": "label",
-              "label": "Series"
-            },
-            {
-              "key": "valuesStr",
-              "label": "Values (comma-separated)"
-            }
-          ]
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
         },
         {
-          "key": "pieChartRows",
-          "label": "Pie Chart Rows",
-          "type": "object_array",
-          "maxItems": 12,
-          "subFields": [
-            {
-              "key": "label",
-              "label": "Label"
-            },
-            {
-              "key": "value",
-              "label": "Value"
-            }
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "nightfall_ticker": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 58,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 22
+        },
+        "tickerTitle": "A record of the signals",
+        "tickerFootnote": "Source: system telemetry",
+        "tickerHighlightCol": 5,
+        "tickerTable": {
+          "headers": ["Node", "Requests", "Errors", "P50", "P99", "% Err"],
+          "rows": [
+            ["Alpha", "12,400", "24", "18ms", "120ms", "+0.2%"],
+            ["Bravo", "84,200", "112", "22ms", "180ms", "-0.1%"],
+            ["Charlie", "31,000", "8", "4ms", "40ms", "+0.0%"],
+            ["Delta", "9,800", "56", "45ms", "320ms", "+0.6%"],
+            ["Echo", "44,100", "18", "12ms", "95ms", "-0.04%"]
           ]
+        }
+      },
+      "scene_defaults": {
+        "title": "The data in view",
+        "narration": "Each row a signal — each column a dimension of truth.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Cell Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table sub-headline",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: numeric or text values. Max 20 rows, max 6 columns.",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based) for gain/loss coloring, e.g. 5 for the 6th column. Set to -1 to disable.",
+          "type": "number"
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Footnote / source attribution",
+          "type": "string"
         }
       ]
     },
@@ -682,13 +737,14 @@
     "glass_code",
     "kinetic_insight",
     "chapter_break",
-    "data_visualization",
+    "nightfall_data_visualization",
+    "nightfall_ticker",
     "ending_socials"
   ],
   "features": [
     "Image support in all layouts",
-    "Animated bar charts, line charts, and pie charts",
-    "Data visualization layout for stats-heavy content",
+    "Neon-glow data visualisation with line, bar, and histogram charts",
+    "Data table layout for stats-heavy content",
     "Neon glow effects on charts and metrics",
     "Responsive layouts (portrait/landscape)"
   ]

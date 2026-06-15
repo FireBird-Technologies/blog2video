@@ -26,6 +26,8 @@ export interface SceneLayoutProps {
   textColor: string;
   aspectRatio?: string;  // "landscape" or "portrait"
   fontFamily?: string;
+  /** Index of this scene in the video — used to vary the background fly-in direction per scene. */
+  sceneIndex?: number;
   // code_block
   codeLines?: string[];
   codeLanguage?: string;
