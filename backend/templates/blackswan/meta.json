@@ -456,7 +456,8 @@
         "subtitle": "Cycle",
         "yAxisLabel": "Magnitude",
         "barPrimaryColor": "#00E5FF",
-        "barSecondaryColor": "#00AAFF"
+        "barSecondaryColor": "#00AAFF",
+        "barTertiaryColor": "#0089A0"
       },
       "scene_defaults": {
         "title": "Signal analysis",
@@ -538,6 +539,11 @@
         {
           "key": "barSecondaryColor",
           "label": "Series color 2",
+          "type": "color"
+        },
+        {
+          "key": "barTertiaryColor",
+          "label": "Series color 3",
           "type": "color"
         }
       ]
