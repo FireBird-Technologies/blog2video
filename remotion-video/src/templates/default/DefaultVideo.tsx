@@ -14,44 +14,6 @@ import { TransitionWipe } from "../../components/Transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
-/** Schema rows → barChart / lineChart / histogram for data_visualization */
-function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
-  const out = { ...lp };
-  if (Array.isArray(out.barChartRows)) {
-    const rows = out.barChartRows as { label?: string; value?: string }[];
-    out.barChart = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) =>
-        r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
-      ),
-    };
-    delete out.barChartRows;
-  }
-  if (Array.isArray(out.histogramRows)) {
-    const rows = out.histogramRows as { label?: string; value?: string }[];
-    out.histogram = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) =>
-        r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
-      ),
-    };
-    delete out.histogramRows;
-  }
-  if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
-    const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
-    const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
-      label: (d && d.label != null ? String(d.label) : "") as string,
-      values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
-        .split(",")
-        .map((s) => Number(s.trim()) || 0),
-    }));
-    out.lineChart = { labels, datasets };
-    delete out.lineChartLabels;
-    delete out.lineChartDatasets;
-  }
-  return out;
-}
-
 // ─── Types ───────────────────────────────────────────────────
 
 interface SceneData {
@@ -264,10 +226,7 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
-        const rawLayoutProps =
-          scene.layout === "data_visualization"
-            ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
-            : scene.layoutProps;
+        const rawLayoutProps = scene.layoutProps;
         const imageFocusX = Number((rawLayoutProps as Record<string, unknown>)?.imageFocusX ?? 50);
         const imageFocusY = Number((rawLayoutProps as Record<string, unknown>)?.imageFocusY ?? 50);
         const imageZoom = Math.max(0.1, Number((rawLayoutProps as Record<string, unknown>)?.imageZoom ?? 1));
