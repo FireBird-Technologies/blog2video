@@ -511,7 +511,8 @@
         "subtitle": "Hour",
         "yAxisLabel": "Glow",
         "barPrimaryColor": "#FFFFFF",
-        "barSecondaryColor": "#8AB4F8"
+        "barSecondaryColor": "#8AB4F8",
+        "barTertiaryColor": "#7FB7FF"
       },
       "scene_defaults": {
         "title": "Charting the night",
@@ -593,6 +594,11 @@
         {
           "key": "barSecondaryColor",
           "label": "Series color 2",
+          "type": "color"
+        },
+        {
+          "key": "barTertiaryColor",
+          "label": "Series color 3",
           "type": "color"
         }
       ]

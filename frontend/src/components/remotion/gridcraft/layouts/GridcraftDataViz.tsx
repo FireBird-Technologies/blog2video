@@ -72,6 +72,7 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
   chartTable,
   barPrimaryColor,
   barSecondaryColor,
+  barTertiaryColor,
   yAxisLabel,
 }) => {
   const frame = useCurrentFrame();
@@ -148,7 +149,7 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
   const barColors = [
     normalizeHex(barPrimaryColor, DEFAULT_BAR_COLORS[0]),
     normalizeHex(barSecondaryColor, DEFAULT_BAR_COLORS[1]),
-    DEFAULT_BAR_COLORS[2],
+    normalizeHex(barTertiaryColor, DEFAULT_BAR_COLORS[2]),
   ] as const;
   const defaultBarColor = barColors[0];
 
