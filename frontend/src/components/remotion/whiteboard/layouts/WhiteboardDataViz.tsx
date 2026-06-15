@@ -93,8 +93,8 @@ export const WhiteboardDataViz: React.FC<WhiteboardLayoutProps> = ({
   const DEFAULT_BAR_COLORS = [accentColor, MARKER_SECONDARY, MARKER_TERTIARY] as const;
   const axisInk = textColor;
 
-  const titleSize = titleFontSize ?? (p ? 78 : 62);
-  const descSize = descriptionFontSize ?? (p ? 39 : 31);
+  const titleSize = titleFontSize ?? (p ? 78 : 57);
+  const descSize = descriptionFontSize ?? (p ? 33 : 27);
   const chartTickSize = Math.round(descSize * 0.86);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
   const VALUE_LABEL_FS = Math.round(descSize * 0.6);

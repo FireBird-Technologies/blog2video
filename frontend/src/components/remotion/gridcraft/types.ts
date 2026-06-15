@@ -12,7 +12,8 @@ export type GridcraftLayoutType =
   | "pull_quote"
   | "bento_steps"
   | "data_visualisation"
-  | "ending_socials";
+  | "ending_socials"
+  | "ticker_table";
 
 export interface DataPoint {
   label: string;
@@ -83,6 +84,12 @@ export interface GridcraftLayoutProps {
   /** Chart color overrides. */
   barPrimaryColor?: string;
   barSecondaryColor?: string;
+
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
 
   // General
   version?: string;

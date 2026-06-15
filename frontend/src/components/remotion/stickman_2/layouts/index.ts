@@ -9,6 +9,7 @@ import { NeonCountdown } from "./NeonCountdown";
 import { LanternDialogue } from "./LanternDialogue";
 import { Stickman2DataViz } from "./Stickman2DataViz";
 import { EndingSocials } from "./EndingSocials";
+import { Stickman2TickerTable } from "./Stickman2TickerTable";
 import type { Stickman2LayoutType, SceneLayoutProps } from "../types";
 
 export type { Stickman2LayoutType, SceneLayoutProps };
@@ -25,4 +26,5 @@ export const STICKMAN_2_LAYOUT_REGISTRY: Record<Stickman2LayoutType, React.FC<Sc
   lantern_dialogue: LanternDialogue,
   data_visualisation: Stickman2DataViz,
   ending_socials: EndingSocials,
+  ticker_table: Stickman2TickerTable,
 };

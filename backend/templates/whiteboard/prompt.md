@@ -127,6 +127,23 @@ Core rules:
 
 ---
 
+## ticker_table
+**Visual:** A hand-drawn data table on the whiteboard paper background — title with a wavy chalk underline, rows stagger in with dashed separators, accent-colored column headers, numeric cells in the highlight column colored green (positive) or red (negative).
+
+**Best for:** Any scene with a real multi-row, multi-column dataset — rankings, comparison grids, schedules, financial tables.
+
+**Props:**
+- `tickerTable`: `{ headers: string[], rows: string[][] }` — col 1 = row labels; cols 2–6 = values. Max 20 rows, 6 columns. Never fabricate rows — use only data present in the source.
+- `tickerTitle` (string): optional subtitle line under the main title
+- `tickerHighlightCol` (number): 0-based column index to green/red-color by sign. Set `-1` to disable.
+- `tickerFootnote` (string): optional source/footnote line at the bottom
+
+**When to Use:**
+- The source contains a real table or multi-row dataset that cannot be captured well by a chart or stat cards.
+- Prefer `data_visualisation` for trend/distribution charts; use `ticker_table` for structured grids.
+
+---
+
 # Scene Flow Rules
 
 - Scene 0 must use `drawn_title`.

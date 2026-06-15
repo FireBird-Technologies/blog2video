@@ -163,6 +163,24 @@ Core rules:
 
 ---
 
+## ticker_table
+**Visual:** A neon-bordered data table on the pure-black starfield canvas — cyan accent column headers with a glow, rows stagger-fade in, numeric cells in the highlight column colored neon-green (positive) or red (negative) against the dark background. Righteous font throughout.
+
+**Best for:** Any scene with a real multi-row, multi-column dataset — rankings, financial tables, comparison grids.
+
+**Props:**
+- `tickerTable`: `{ headers: string[], rows: string[][] }` — col 1 = row labels; cols 2–6 = values. Max 20 rows, 6 columns. Never fabricate rows — use only data from the source.
+- `tickerTitle` (string): optional subtitle line under the main title
+- `tickerHighlightCol` (number): 0-based column index to green/red-color by sign. Set `-1` to disable.
+- `tickerFootnote` (string): optional source/footnote line
+
+**When to Use:**
+- The source contains a real table or multi-row dataset.
+- Prefer `data_visualisation` for trend/distribution charts; use `ticker_table` for structured grids.
+- Complements `pulse_metric` (for 1–4 big numbers) — use `ticker_table` for more rows/columns.
+
+---
+
 # Scene Flow Rules
 
 - Scene **0** must use **`droplet_intro`** (hero).

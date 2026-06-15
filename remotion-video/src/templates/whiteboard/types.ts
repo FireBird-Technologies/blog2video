@@ -11,7 +11,8 @@ export type WhiteboardLayoutType =
   | "handwritten_equation"
   | "speech_bubble_dialogue"
   | "data_visualisation"
-  | "ending_socials";
+  | "ending_socials"
+  | "ticker_table";
 
 export interface WhiteboardStatItem {
   label: string;
@@ -30,9 +31,7 @@ export interface WhiteboardLayoutProps {
   aspectRatio?: string;
   titleFontSize?: number;
   descriptionFontSize?: number;
-  /** Optional stats for stats_figures and stats_chart layouts */
   stats?: WhiteboardStatItem[];
-  /** For comparison layout: thought cloud content for left and right stick figures */
   leftThought?: string;
   rightThought?: string;
   fontFamily?: string;
@@ -54,7 +53,12 @@ export interface WhiteboardLayoutProps {
   barPrimaryColor?: string;
   barSecondaryColor?: string;
 
-  // ending_socials
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
+
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;

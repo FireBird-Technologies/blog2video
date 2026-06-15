@@ -176,7 +176,7 @@ export const NewsHeadline: React.FC<
         : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
 
   // Calculate description font size for relative scaling
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 39 : 35);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 39 : 29);
   const categoryBaseFontSize = p ? 28 : 24; // Base for category without descriptionFontSize
   const authorBaseFontSize = p ? 20 : 16; // Base for author without descriptionFontSize
   const portraitNoImage = p && !imageUrl;
@@ -333,7 +333,7 @@ export const NewsHeadline: React.FC<
           style={{
             fontFamily: fontFamily ?? H_FONT,
             // Drastically increased portrait size for mobile impact
-            fontSize: titleFontSize ?? (p ? 82 : 78),
+            fontSize: titleFontSize ?? (p ? 77 : 68),
             fontWeight: 800,
             lineHeight: 1.0,
             marginBottom: portraitNoImage ? 0 : p ? 40 : 36,
