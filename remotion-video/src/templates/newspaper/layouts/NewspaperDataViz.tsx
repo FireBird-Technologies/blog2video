@@ -10,7 +10,6 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
@@ -34,6 +33,7 @@ import {
   clampProgressAt,
 } from "../../_shared/chartData";
 import { LineChartEndCallouts, lineChartCalloutMargin } from "../../_shared/LineChartEndCallouts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 
 /**
  * NewspaperDataViz — data-visualization scene (line / bar / histogram) driven by
@@ -704,9 +704,9 @@ export const NewspaperDataViz: React.FC<BlogLayoutProps> = ({
                     )}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: headFont, color: textColor, fontSize: descSize, fontStyle: "italic", opacity: 0.7 }}>

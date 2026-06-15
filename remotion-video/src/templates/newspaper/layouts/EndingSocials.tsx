@@ -233,7 +233,7 @@ export const EndingSocials: React.FC<
             <div
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 70 : 60),
+                fontSize: titleFontSize ?? (p ? 70 : 55),
                 fontWeight: 900,
                 textTransform: "uppercase",
                 lineHeight: 1.1,
@@ -248,7 +248,7 @@ export const EndingSocials: React.FC<
             <div
               style={{
                 textAlign: "justify",
-                fontSize: descriptionFontSize ?? (p ? 26 : 21),
+                fontSize: descriptionFontSize ?? (p ? 38 : 25),
                 lineHeight: 1.6,
                 fontFamily: B_FONT,
                 color: textCol,
