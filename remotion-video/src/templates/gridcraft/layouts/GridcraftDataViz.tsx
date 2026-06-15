@@ -10,7 +10,6 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
@@ -35,6 +34,7 @@ import {
   clampProgressAt,
 } from "../../_shared/chartData";
 import { LineChartEndCallouts, lineChartCalloutMargin } from "../../_shared/LineChartEndCallouts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 
 /**
  * GridcraftDataViz — data-visualization scene (line / bar / histogram) driven by
@@ -618,9 +618,9 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
                     )}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font, color: COLORS.MUTED, fontSize: descSize, fontStyle: "italic" }}>
