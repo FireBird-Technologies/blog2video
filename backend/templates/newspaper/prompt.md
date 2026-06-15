@@ -145,6 +145,22 @@ Core rules:
 
 ---
 
+## ending_socials
+**Visual:** Vintage editorial sign-off on warm paper — serif headline, thin accent rule, italic closing narration, website CTA pill(s), and a row of social platform icons with labels beneath.
+
+**Best for:** Final scene only — follow-along, social handles, and website link.
+
+**Props:**
+- `socials` — array of `{ platform, enabled, label }` rows. Supported platforms: `facebook`, `instagram`, `youtube`, `medium`, `substack`, `linkedin`, `tiktok`.
+- `showWebsiteButton` — toggle website CTA visibility (`"true"` / `"false"`).
+- `websiteLink` — URL shown in the CTA block.
+- `ctaButtonText` — optional CTA label above the link.
+- `narration` (global) — warm closing line beneath the rule.
+
+**When to Use:** Always the **last scene** when CTA or social data exists. Do not use mid-video.
+
+---
+
 # Scene Flow Rules
 
 - Scene 0 must use `news_headline`.
@@ -152,9 +168,10 @@ Core rules:
 - Use `pull_quote` for quotes, `data_snapshot` for stats, `fact_check` for claim vs fact, `news_timeline` for chronology.
 - Use `expert_profile` when a named person with a photo is the scene focus (requires `imageUrl`).
 - Use `perspective_split` for "both sides" editorial moments — two arguments, no verdict.
-- Use `ticker_table` when the source has a real multi-row table (rankings, schedules, comparison grids).
+- Use `data_visualisation` when the pipeline binds a chartable table; use `ticker_table` for multi-row datasets.
+- Use `ending_socials` as the final scene when CTA or social data is available.
 - Keep transitions clear and editorial; avoid chaotic motion.
-- Aim for setup (headline/lead) → development (quote, stats, fact-check, expert, split) → resolution or timeline.
+- Aim for setup (headline/lead) → development (quote, stats, fact-check, expert, split, data) → resolution (`pull_quote`, `news_timeline`, or `ending_socials`).
 
 ---
 
@@ -174,4 +191,5 @@ Core rules:
 - Use `expert_profile` at most once per video (it's a spotlight, not a pattern).
 - Use `perspective_split` at most twice per video.
 - Use `ticker_table` only when a real table is available in the source.
-- End with a clear conclusion: closing quote, final stat, timeline endpoint, or expert perspective.
+- Use `data_visualisation` only when the pipeline binds a chartable table.
+- End with a clear conclusion: `ending_socials` when CTA/social data exists; otherwise a closing quote, final stat, timeline endpoint, or expert perspective.

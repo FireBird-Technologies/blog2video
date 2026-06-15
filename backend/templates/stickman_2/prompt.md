@@ -167,26 +167,6 @@ Cinematic night-sky sibling of the daytime Stick Man template — moon-cyan chal
 
 ---
 
-## ending_socials
-**Visual:** A dark night-sky scene with a twinkling starfield, drifting fireflies, and a large crescent moon at the top-center. The sign-off title appears in moon-cyan below the moon, followed by a centered row of inline chalk-stroke social icons — each captioned with its label — and a website CTA (label above, link below). A chalk stick figure stands on the right, facing the camera with a drawn face, waving toward the text area.
-
-**Props:**
-  - `socials` (object_array) — Up to 7 `{ platform, enabled, label }` items. Each item with `enabled: "true"` renders as an inline chalk-stroke icon with its `label` shown beneath it. Valid `platform` values: `facebook`, `instagram`, `youtube`, `medium`, `substack`, `linkedin`, `tiktok`.
-  - `handles` (string_array) — Fallback text handles, only used when no `socials` map is provided.
-  - `ctas` (object_array) — Up to 3 CTAs, each `{ ctaButtonText, websiteLink, showWebsiteButton }`, rendered side by side (label above, link below). Overrides the single-CTA fields below when provided.
-  - `showWebsiteButton` (select `"true"`/`"false"`) — Toggles the (single) website CTA block.
-  - `ctaButtonText` (string) — Call-to-action label shown above the website link (e.g. `"Explore more on"`).
-  - `websiteLink` (string) — Website URL shown beneath the CTA label (the `https://` prefix is stripped for display).
-
-**When to Use:** Ideal as a final scene where you want a dreamy, atmospheric sign-off that showcases social platforms and an optional website link with cinematic chalk-on-night-sky aesthetics.
-
-**Avoid When:** The video has a bright, high-energy, or corporate visual style that conflicts with the dark starfield and hand-drawn chalk aesthetic.
-
-**Notes:**
-- Social icons come from the `socials` object_array; the `handles` string_array is only a fallback when `socials` is absent.
-- The entire scene fades in over ~18 frames and fades out over the final ~18 frames — keep the scene long enough (≥150 frames recommended) for all staggered animations to complete.
-- Icon labels and the CTA label render at the narration font size; keep labels short so the centered row does not overflow on portrait.
-
 ## data_visualisation
 **Visual:** A real animated chart (line / bar / histogram) glowing against the night canvas in the hand-drawn night aesthetic, with a short read beside the chart.
 
@@ -219,3 +199,51 @@ Cinematic night-sky sibling of the daytime Stick Man template — moon-cyan chal
 - Prefer `data_visualisation` for trend/distribution charts; use `ticker_table` for structured grids.
 
 ---
+
+## ending_socials
+**Visual:** A dark night-sky scene with a twinkling starfield, drifting fireflies, and a large crescent moon at the top-center. The sign-off title appears in moon-cyan below the moon, followed by a centered row of inline chalk-stroke social icons — each captioned with its label — and a website CTA (label above, link below). A chalk stick figure stands on the right, facing the camera with a drawn face, waving toward the text area.
+
+**Props:**
+  - `socials` (object_array) — Up to 7 `{ platform, enabled, label }` items. Each item with `enabled: "true"` renders as an inline chalk-stroke icon with its `label` shown beneath it. Valid `platform` values: `facebook`, `instagram`, `youtube`, `medium`, `substack`, `linkedin`, `tiktok`.
+  - `handles` (string_array) — Fallback text handles, only used when no `socials` map is provided.
+  - `ctas` (object_array) — Up to 3 CTAs, each `{ ctaButtonText, websiteLink, showWebsiteButton }`, rendered side by side (label above, link below). Overrides the single-CTA fields below when provided.
+  - `showWebsiteButton` (select `"true"`/`"false"`) — Toggles the (single) website CTA block.
+  - `ctaButtonText` (string) — Call-to-action label shown above the website link (e.g. `"Explore more on"`).
+  - `websiteLink` (string) — Website URL shown beneath the CTA label (the `https://` prefix is stripped for display).
+
+**When to Use:** Ideal as a final scene where you want a dreamy, atmospheric sign-off that showcases social platforms and an optional website link with cinematic chalk-on-night-sky aesthetics.
+
+**Avoid When:** The video has a bright, high-energy, or corporate visual style that conflicts with the dark starfield and hand-drawn chalk aesthetic.
+
+**Notes:**
+- Social icons come from the `socials` object_array; the `handles` string_array is only a fallback when `socials` is absent.
+- The entire scene fades in over ~18 frames and fades out over the final ~18 frames — keep the scene long enough (≥150 frames recommended) for all staggered animations to complete.
+- Icon labels and the CTA label render at the narration font size; keep labels short so the centered row does not overflow on portrait.
+
+---
+
+# Scene Flow Rules
+
+- Scene **0** must use **`chalk_title`** (hero).
+- **Middle:** prefer **`night_walk`** as the narrative workhorse; rotate atmospheric beats (`shooting_star`, `signal_fire_scene`, `shadow_comparison`, `lantern_dialogue`, `constellation_stats`, `moonphase_chart`, `neon_countdown`) as content demands.
+- **`data_visualisation`** and **`ticker_table`** are reserved for scenes the pipeline binds to a real table (`data_table_index` set) — never assign them otherwise.
+- **Closing:** use **`ending_socials`** as the final scene when CTA or social data is available; otherwise close with `shooting_star`, `constellation_stats`, or a strong `night_walk`.
+- Keep transitions calm and atmospheric; avoid stacking identical layouts back-to-back.
+
+---
+
+# Content Extraction Rules
+
+- `title`: 3–8 words, scene headline in a calm, cinematic tone.
+- `narration`: concise spoken-style sentence, about 12–20 words per scene.
+- Emphasize journey, reflection, and transformation language suited to the night-sky aesthetic.
+- For `lantern_dialogue`, keep each bubble line short enough to fit the chalk speech-bubble dimensions.
+
+---
+
+# Variety Rules
+
+- Do not repeat the same layout more than 3 consecutive scenes.
+- Alternate narrative (`night_walk`), insight (`shooting_star`), data (`constellation_stats`, `moonphase_chart`, `data_visualisation`, `ticker_table`), comparison (`shadow_comparison`), and dialogue (`lantern_dialogue`) beats when appropriate.
+- Use `neon_countdown` sparingly — at most once per video.
+- End with `ending_socials` when CTA/social data exists; otherwise a memorable closing beat (`shooting_star` or `constellation_stats`).

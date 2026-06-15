@@ -39,6 +39,7 @@ import {
   isChartTickerDataVizLayout,
   builtinChartKindForLayout,
   builtinDataVizExampleTable,
+  builtinTickerExampleTable,
 } from "./sceneEditBuiltinDataViz";
 import * as XLSX from "xlsx";
 
@@ -316,6 +317,9 @@ const LEGACY_NEWSCAST_LAYOUT_ID_ALIASES: Record<string, string> = {
   newscast_glass_stack: "story_stack",
   newscast_kinetic_insight: "headline_insight",
 };
+
+const TICKER_TABLE_MAX_COLS = 6;
+const TICKER_TABLE_MAX_ROWS = 20;
 
 function normalizeLegacyNewscastLayoutId(template: string, layoutId: string): string {
   const normalizedTemplate = (template || "").toLowerCase();
@@ -3444,7 +3448,7 @@ export default function SceneEditModal({
       setEditableLayoutProps((prev) => {
         const existing = normalizeChartTableValue(prev.tickerTable);
         if (chartTableHasData(existing)) return prev;
-        const example = builtinDataVizExampleTable(normalizedTemplateId, "line");
+        const example = builtinTickerExampleTable(normalizedTemplateId);
         return example ? { ...prev, tickerTable: example } : prev;
       });
       return;
@@ -4165,36 +4169,63 @@ export default function SceneEditModal({
                         );
                       }
                       if (field.type === "ticker_table") {
-                        const raw = editableLayoutProps[field.key] as { headers: string[]; rows: string[][] } | null | undefined;
-                        const rowCount = raw?.rows?.length ?? 0;
-                        const colCount = raw?.headers?.length ?? 0;
+                        const table = normalizeChartTableValue(editableLayoutProps[field.key]);
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
                               {field.label}
                             </label>
-                            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2 flex-wrap">
-                              <span className="text-xs text-gray-400 flex-1 min-w-0">
-                                {rowCount > 0 ? (
-                                  `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}`
-                                ) : (
-                                  "No data yet"
-                                )}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const parsed = raw && typeof raw === "object" && Array.isArray(raw.rows)
-                                    ? { headers: Array.isArray(raw.headers) ? raw.headers.map(String) : ["Label", "Value"], rows: (raw.rows as unknown[][]).map((r) => Array.isArray(r) ? r.map(String) : [""]) }
-                                    : { headers: ["Label", "Value"], rows: [[""]] };
-                                  setTickerTableDraft(parsed);
-                                  setTickerTableModalKey(field.key);
-                                  setTickerTableModalOpen(true);
-                                }}
-                                className="px-3 py-1 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white transition-colors"
-                              >
-                                Edit table
-                              </button>
+                            <div className="rounded-lg border border-gray-200 bg-gray-50/30 p-3 space-y-2">
+                              <SpreadsheetTable
+                                data={table}
+                                onChange={(next) =>
+                                  setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next }))
+                                }
+                                maxRows={TICKER_TABLE_MAX_ROWS}
+                                maxCols={TICKER_TABLE_MAX_COLS}
+                              />
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditableLayoutProps((prev) => {
+                                      const current = normalizeChartTableValue(prev[field.key]);
+                                      if (current.rows.length >= TICKER_TABLE_MAX_ROWS) return prev;
+                                      return {
+                                        ...prev,
+                                        [field.key]: {
+                                          ...current,
+                                          rows: [...current.rows, Array(current.headers.length).fill("")],
+                                        },
+                                      };
+                                    })
+                                  }
+                                  disabled={table.rows.length >= TICKER_TABLE_MAX_ROWS}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  + Row
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditableLayoutProps((prev) => {
+                                      const current = normalizeChartTableValue(prev[field.key]);
+                                      if (current.headers.length >= TICKER_TABLE_MAX_COLS) return prev;
+                                      return {
+                                        ...prev,
+                                        [field.key]: {
+                                          headers: [...current.headers, `Col ${current.headers.length + 1}`],
+                                          rows: current.rows.map((r) => [...r, ""]),
+                                        },
+                                      };
+                                    })
+                                  }
+                                  disabled={table.headers.length >= TICKER_TABLE_MAX_COLS}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  + Col
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -5600,8 +5631,8 @@ export default function SceneEditModal({
     </>
   );
 
-  const TICKER_MODAL_MAX_COLS = 6;
-  const TICKER_MODAL_MAX_ROWS = 20;
+  const TICKER_MODAL_MAX_COLS = TICKER_TABLE_MAX_COLS;
+  const TICKER_MODAL_MAX_ROWS = TICKER_TABLE_MAX_ROWS;
   const CHART_MODAL_MAX_COLS = 4;
   const CHART_MODAL_MAX_ROWS = 50;
   const tickerDraft = tickerTableDraft ?? { headers: ["Label", "Value"], rows: [[""]] };

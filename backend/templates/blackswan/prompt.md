@@ -121,32 +121,6 @@ Core rules:
 
 ---
 
-## ending_socials
-
-**Visual:** DropletIntro-style cinematic frame (star field, swan silhouette, animated droplet fall, NeonWater ripple band). Instead of a title, a neon pill-shaped CTA button is centred on stage. Below the button: an optional website URL in muted accent text, a neon divider line, the narration paragraph in body text, and a row of social-platform icons at the bottom.
-
-**Best for:** Final outro scenes that convert — “follow us”, “try it free”, “visit the site”. Always the last scene when the video has CTA or social data.
-
-**Props:**
-- `ctaButtonText` — **string**, short imperative phrase shown inside the neon pill button (e.g. `”Get Started”`, `”Try Free”`, `”Learn More”`, `”Subscribe Now”`). Keep it under **4 words**.
-- `websiteLink` — **string**, the URL or domain to display beneath the button (e.g. `”www.example.com”`). If empty or absent, the URL line is hidden.
-- `showWebsiteButton` — **boolean**, set `false` to hide both the CTA button and the URL entirely. Defaults to `true`.
-- `socials` — **object**, key-value map of social platform names to their handles or URLs. Supported keys (use exactly): `instagram`, `twitter`, `linkedin`, `youtube`, `facebook`, `tiktok`, `github`, `website`. Example:
-  ```json
-  {
-    “instagram”: “@mybrand”,
-    “linkedin”: “linkedin.com/company/mybrand”,
-    “youtube”: “youtube.com/@mybrand”
-  }
-  ```
-  Omit platforms that were not mentioned in the source. If no social data is available, omit `socials` entirely.
-- `narration` (global) — shown as the body paragraph below the divider. Write it as a warm closing line (e.g. “Follow us for weekly insights on AI, design, and growth.”).
-- `title` (global) — not displayed visually in this layout; still required by the schema but its value is ignored in the render. Set it to a short internal label like `”Closing”` or leave it as the video brand name.
-
-**When to Use:** Always the **last scene** of a video when CTA or social data exists. Do not use this layout mid-video.
-
----
-
 ## data_visualisation
 **Visual:** A real animated chart (line / bar / histogram) on a neon-cyan-on-black panel with subtle glow and ripple ambience. Line charts draw in; bars grow staggered. A short read sits beside the chart.
 
@@ -181,12 +155,39 @@ Core rules:
 
 ---
 
+## ending_socials
+
+**Visual:** DropletIntro-style cinematic frame (star field, swan silhouette, animated droplet fall, NeonWater ripple band). Instead of a title, a neon pill-shaped CTA button is centred on stage. Below the button: an optional website URL in muted accent text, a neon divider line, the narration paragraph in body text, and a row of social-platform icons at the bottom.
+
+**Best for:** Final outro scenes that convert — “follow us”, “try it free”, “visit the site”. Always the last scene when the video has CTA or social data.
+
+**Props:**
+- `ctaButtonText` — **string**, short imperative phrase shown inside the neon pill button (e.g. `”Get Started”`, `”Try Free”`, `”Learn More”`, `”Subscribe Now”`). Keep it under **4 words**.
+- `websiteLink` — **string**, the URL or domain to display beneath the button (e.g. `”www.example.com”`). If empty or absent, the URL line is hidden.
+- `showWebsiteButton` — **boolean**, set `false` to hide both the CTA button and the URL entirely. Defaults to `true`.
+- `socials` — **object**, key-value map of social platform names to their handles or URLs. Supported keys (use exactly): `instagram`, `twitter`, `linkedin`, `youtube`, `facebook`, `tiktok`, `github`, `website`. Example:
+  ```json
+  {
+    “instagram”: “@mybrand”,
+    “linkedin”: “linkedin.com/company/mybrand”,
+    “youtube”: “youtube.com/@mybrand”
+  }
+  ```
+  Omit platforms that were not mentioned in the source. If no social data is available, omit `socials` entirely.
+- `narration` (global) — shown as the body paragraph below the divider. Write it as a warm closing line (e.g. “Follow us for weekly insights on AI, design, and growth.”).
+- `title` (global) — not displayed visually in this layout; still required by the schema but its value is ignored in the render. Set it to a short internal label like `”Closing”` or leave it as the video brand name.
+
+**When to Use:** Always the **last scene** of a video when CTA or social data exists. Do not use this layout mid-video.
+
+---
+
 # Scene Flow Rules
 
 - Scene **0** must use **`droplet_intro`** (hero).
-- **Middle:** alternate **`neon_narrative`** (prose) with structured layouts (`arc_features`, `flight_path`, `pulse_metric`, `signal_split`, `dive_insight`, `reactor_code`) as the content demands.
+- **Middle:** alternate **`neon_narrative`** (prose) with structured layouts (`arc_features`, `flight_path`, `pulse_metric`, `signal_split`, `dive_insight`, `reactor_code`, `data_visualisation`, `ticker_table`) as the content demands.
 - **Closing:** use **`ending_socials`** as the final scene when CTA or social data is available; otherwise close with `dive_insight` (quote), `pulse_metric`, or a strong `neon_narrative`.
-- For **6+** total scenes, include **at least one** data-forward layout: **`pulse_metric`** (unless the source material has no numbers at all).
+- For **6+** total scenes, include **at least one** data-forward layout: **`pulse_metric`**, **`data_visualisation`**, or **`ticker_table`** (unless the source material has no numbers at all).
+- **`data_visualisation`** and **`ticker_table`** are reserved for scenes the pipeline binds to a real table (`data_table_index` set) — never assign them otherwise.
 - Balance **structure** (lists, path, code) with **breathing room** (`neon_narrative`, `dive_insight`).
 
 ---
