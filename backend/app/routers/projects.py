@@ -4586,7 +4586,7 @@ async def _run_voice_change(project_id: int, job_id: int) -> None:
             if claimed.rowcount and job_user_id is not None:
                 _refund_video_credit(db, job_user_id)
             project = db.query(Project).filter(Project.id == project_id).first()
-            if project and project.status == ProjectStatus.GENERATING:
+            if project and project.status in (ProjectStatus.GENERATING, ProjectStatus.VOICE_REGENERATING):
                 project.status = ProjectStatus.GENERATED
             db.commit()
             if claimed.rowcount:
@@ -4700,9 +4700,9 @@ async def change_project_voice(
     if voice_tuning_pref is not None:
         user_row.preferred_voice_emotion = voice_tuning_pref
 
-    # Deduct one video credit and mark the project as regenerating.
+    # Deduct one video credit and mark the project as voice-regenerating.
     user_row.videos_used_this_period += 1
-    project.status = ProjectStatus.GENERATING
+    project.status = ProjectStatus.VOICE_REGENERATING
     job = ProjectVoiceChangeJob(
         project_id=project_id,
         user_id=user.id,
@@ -4781,7 +4781,7 @@ async def voice_change_status(
                 "r2_video_url": project.r2_video_url,
                 "kind": "delete" if _is_delete_job(latest_job) else "voice_change",
             }
-        regenerating = project.status == ProjectStatus.GENERATING
+        regenerating = project.status == ProjectStatus.VOICE_REGENERATING
         return {
             "active": regenerating,
             "done": not regenerating,
