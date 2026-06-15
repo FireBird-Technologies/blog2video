@@ -589,7 +589,6 @@ export const WhiteboardDataViz: React.FC<WhiteboardLayoutProps> = ({
         </defs>
         <rect width="100%" height="100%" filter="url(#dv-grain)" fill="none" />
         <g stroke={accentColor} strokeWidth="5" fill="none" opacity="0.8" filter="url(#dv-ink)">
-          <path d="M 50,120 Q 80,95 110,120 T 170,120" strokeDasharray="10 5" />
           <path d="M 88%,86% L 95%,93% M 95%,86% L 88%,93%" />
         </g>
       </svg>
