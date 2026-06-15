@@ -1,6 +1,6 @@
-/** Gridcraft template layout types. */
 import type { SocialsMap } from "../SocialIcons";
 
+/** Gridcraft template layout types (frontend mirror). */
 export type GridcraftLayoutType =
   | "bento_hero"
   | "bento_features"
@@ -12,7 +12,8 @@ export type GridcraftLayoutType =
   | "pull_quote"
   | "bento_steps"
   | "data_visualisation"
-  | "ending_socials";
+  | "ending_socials"
+  | "ticker_table";
 
 export interface DataPoint {
   label: string;
@@ -26,7 +27,7 @@ export interface DataPoint {
 
 export interface GridcraftLayoutProps {
   title: string;
-  subtitle?: string; // Added
+  subtitle?: string;
   narration: string;
   imageUrl?: string;
   imageObjectPosition?: string;
@@ -36,17 +37,17 @@ export interface GridcraftLayoutProps {
   textColor: string;
   aspectRatio?: string;
   fontFamily?: string;
-  
+
   // Shared data points (used by KPI, Steps)
   dataPoints?: DataPoint[];
-  
+
   // Bento Features
   features?: { icon: string; label: string; description: string }[];
   highlightIndex?: number;
 
   // Bento Code
-  codeSnippet?: string; // Legacy/Fallback
-  codeLines?: string[]; // Backend standard
+  codeSnippet?: string;
+  codeLines?: string[];
   codeLanguage?: string;
 
   // Bento Compare
@@ -65,7 +66,7 @@ export interface GridcraftLayoutProps {
   attribution?: string;
   highlightPhrase?: string;
 
-  // Bento Steps steps
+  // Bento Steps
   steps?: { label: string; description?: string }[];
 
   // ── data_visualisation (chart) — shared chartTable data-viz contract ──
@@ -84,18 +85,22 @@ export interface GridcraftLayoutProps {
   barPrimaryColor?: string;
   barSecondaryColor?: string;
 
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
+
   // General
   version?: string;
 
   // Bento Hero - category/icon for small cells
-  category?: string;
-  icon?: string;
+  category?: string; // e.g. "Featured", "Census"
+  icon?: string; // emoji or short text for icon cell
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
   categoryFontSize?: number;
-
-  // ending_socials
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;

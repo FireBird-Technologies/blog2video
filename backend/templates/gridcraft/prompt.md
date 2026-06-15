@@ -463,6 +463,24 @@ Narration: "The process is simple: first, paste your blog URL. Then our AI analy
 
 ---
 
+## ticker_table
+**Visual:** A data table inside a glass-morphism card with an orange accent-colored header row, Inter font, dot-grid background. Rows stagger-fade in top-to-bottom; numeric cells in the highlight column are colored green (positive) or red (negative).
+
+**Best for:** Product comparison matrices, pricing tables, feature grids, benchmarks, or any multi-row dataset from the article.
+
+**Props:**
+- `tickerTable`: `{ headers: string[], rows: string[][] }` — col 1 = row labels; cols 2–6 = values. Max 20 rows, 6 columns. Never fabricate rows — use only data from the source.
+- `tickerTitle` (string): optional subtitle line (e.g. "Comparison as of Q3 2024")
+- `tickerHighlightCol` (number): 0-based column index to green/red-color by sign. Set `-1` to disable.
+- `tickerFootnote` (string): optional source/footnote line
+
+**When to Use:**
+- The source contains a real table, ranking, or multi-column dataset.
+- Prefer `data_visualisation` for trend/distribution charts; use `ticker_table` for structured grids.
+- Complements `kpi_grid` (for 2–3 big numbers) — use `ticker_table` when there are more rows/columns.
+
+---
+
 # Scene Flow Rules
 
 - **Scene 0:** ALWAYS `bento_hero` (non-negotiable)

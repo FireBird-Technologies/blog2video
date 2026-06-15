@@ -29,7 +29,21 @@ Global variety rules for `preferred_layout`:
 - Strongly prefer using **article_lead** for scene 1 or 2 when the story body starts.  
 - Alternate between quote (`pull_quote`), data (`data_snapshot`), fact-check (`fact_check`), and timeline (`news_timeline`) when content allows.
 
+- `expert_profile`
+  - **Best for**: Spotlighting a named expert, source, or key person behind the story. Landscape: photo on the left with name/role credit, title + bio + stat on the right. Portrait: full-width photo + info stacked below.
+  - **Props**: `leftThought` = expert's name; `rightThought` = expert's role/title; `imageUrl` = headshot; `category` = section label (e.g. "Expert Voices"); `stats[0]` = `{ value: "20yr", label: "in Policy" }` for a stat badge; `narration` = short bio or quote.
+  - **Rule**: Use when the scene centers on a named individual with a photo. Requires `imageUrl`.
+
+- `perspective_split`
+  - **Best for**: Two-sided comparison without a verdict — editorial "both sides" framing. Full-width title, two panels (left with accent border, right with text border), optional narration below.
+  - **Props**: `leftThought` = left panel argument text; `rightThought` = right panel argument text; `stats[0]` = `{ label: "SUPPORTERS SAY", value: "+14%" }`; `stats[1]` = `{ label: "CRITICS SAY", value: "$1.2T" }`; `category` = optional section label.
+  - **Rule**: Use for balanced "here's both sides" editorial moments. No image needed.
+
 - `data_visualisation`
   - **Best for**: A real chart (line / bar / histogram) rendered from an ACTUAL data table in the article.
   - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='data_visualisation'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
+
+- `ticker_table`
+  - **Best for**: Displaying a static data table (rows × columns) from the article — rankings, comparisons, schedules, financial figures. Up to 20 rows, 6 columns.
+  - **Rule**: Use ONLY when the source contains a real tabular dataset. Never invent rows. Column 1 = row labels; columns 2–6 = values. Optionally set `tickerHighlightCol` to the 0-based index of the value column that should be green/red coded (positive/negative numbers).
 

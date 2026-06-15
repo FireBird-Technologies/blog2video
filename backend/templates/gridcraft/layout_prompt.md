@@ -35,6 +35,10 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
   - **Best for**: A real chart (line / bar / histogram) rendered from an ACTUAL data table in the article.
   - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='data_visualisation'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
 
+- `ticker_table`
+  - **Best for**: Displaying a static data table (rows × columns) from the article — rankings, comparisons, schedules, product matrices. Up to 20 rows, 6 columns.
+  - **Rule**: Use ONLY when the source contains a real tabular dataset. Never invent rows. Column 1 = row labels; columns 2–6 = values. Optionally set `tickerHighlightCol` to the 0-based index of the value column to green/red color by sign.
+
 Variety rules:
 
 - Scene 0 → `bento_hero`.  

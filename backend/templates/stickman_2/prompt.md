@@ -202,3 +202,20 @@ Cinematic night-sky sibling of the daytime Stick Man template — moon-cyan chal
 - ONLY for a scene the pipeline bound to a real chartable table (`preferred_layout='data_visualisation'` + a `data_table_index`). Never fabricate chart figures — values come from the bound table.
 
 ---
+
+## ticker_table
+**Visual:** A frosted-glass data table on the starfield night canvas — cyan accent headers, rows stagger-fade in, numeric cells in the highlight column glow green (positive) or pulse red (negative) against the dark background.
+
+**Best for:** Any scene with a real multi-row, multi-column dataset — rankings, statistics tables, comparison grids.
+
+**Props:**
+- `tickerTable`: `{ headers: string[], rows: string[][] }` — col 1 = row labels; cols 2–6 = values. Max 20 rows, 6 columns. Never fabricate rows — use only data from the source.
+- `tickerTitle` (string): optional subtitle line under the main title
+- `tickerHighlightCol` (number): 0-based column index to green/red-color by sign. Set `-1` to disable.
+- `tickerFootnote` (string): optional source/footnote line
+
+**When to Use:**
+- The source contains a real table or multi-row dataset that cannot be captured well by `constellation_stats` or `moonphase_chart`.
+- Prefer `data_visualisation` for trend/distribution charts; use `ticker_table` for structured grids.
+
+---

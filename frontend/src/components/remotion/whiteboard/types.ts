@@ -11,7 +11,8 @@ export type WhiteboardLayoutType =
   | "handwritten_equation"
   | "speech_bubble_dialogue"
   | "data_visualisation"
-  | "ending_socials";
+  | "ending_socials"
+  | "ticker_table";
 
 export interface WhiteboardStatItem {
   label: string;
@@ -51,6 +52,12 @@ export interface WhiteboardLayoutProps {
   /** Chart color overrides. */
   barPrimaryColor?: string;
   barSecondaryColor?: string;
+
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
 
   socials?: SocialsMap;
   websiteLink?: string;

@@ -26,6 +26,7 @@
     "pull_quote",
     "bento_steps",
     "data_visualisation",
+    "ticker_table",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -531,11 +532,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 89,
-          "landscape": 63
+          "landscape": 57
         },
         "descriptionFontSize": {
-          "portrait": 44,
-          "landscape": 35
+          "portrait": 32,
+          "landscape": 29
         },
         "chartType": "line",
         "chartSummary": "Values climb steadily across the set before leveling near the top.",
@@ -776,12 +777,101 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
+    },
+    "ticker_table": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 90,
+          "landscape": 87
+        },
+        "descriptionFontSize": {
+          "portrait": 39,
+          "landscape": 33
+        },
+        "tickerTitle": "Key Figures",
+        "tickerFootnote": "Source: editorial research",
+        "tickerHighlightCol": 2,
+        "tickerTable": {
+          "headers": [
+            "Category",
+            "Value",
+            "Change"
+          ],
+          "rows": [
+            [
+              "Item A",
+              "1,240",
+              "+4.2%"
+            ],
+            [
+              "Item B",
+              "980",
+              "-1.8%"
+            ],
+            [
+              "Item C",
+              "2,100",
+              "+7.1%"
+            ]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "The numbers at a glance",
+        "narration": "Key figures from the story.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table subtitle",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: values (max 20 rows, 6 cols)",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based, -1 to disable)",
+          "type": "number",
+          "min": -1,
+          "max": 5,
+          "step": 1
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Source / Footnote",
+          "type": "string"
+        }
+      ]
     }
   },
   "layouts_without_image": [
     "bento_code",
     "editorial_body",
     "data_visualisation",
-    "ending_socials"
+    "ending_socials",
+    "ticker_table"
   ]
 }

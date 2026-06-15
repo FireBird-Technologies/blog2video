@@ -63,6 +63,12 @@ export interface BlogLayoutProps {
   barPrimaryColor?: string;
   barSecondaryColor?: string;
 
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
+
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
@@ -79,4 +85,7 @@ export type NewspaperLayoutType =
   | "fact_check"
   | "news_timeline"
   | "data_visualisation"
-  | "ending_socials";
+  | "ending_socials"
+  | "expert_profile"
+  | "perspective_split"
+  | "ticker_table";

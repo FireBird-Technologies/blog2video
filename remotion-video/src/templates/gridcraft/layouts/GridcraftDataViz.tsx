@@ -85,8 +85,8 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
   const DEFAULT_BAR_COLORS = [accentColor, SERIES_2, SERIES_3] as const;
   const axisInk = COLORS.MUTED;
 
-  const titleSize = titleFontSize ?? (p ? 89 : 63);
-  const descSize = descriptionFontSize ?? (p ? 44 : 35);
+  const titleSize = titleFontSize ?? (p ? 89 : 57);
+  const descSize = descriptionFontSize ?? (p ? 32 : 29);
   const chartTickSize = Math.round(descSize * 0.8);
   const chartAxisLabelSize = Math.round(descSize * 0.68);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
@@ -361,8 +361,8 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
   const xCaptionText = (subtitle || tableAxisHeaders.category || "").trim();
 
   const hasYLabel = resolvedYAxisCaption.length > 0;
-  const yAxisWidth = hasYLabel ? 76 : 58;
-  const chartLeft = hasYLabel ? (p ? 40 : 34) : (p ? 10 : 4);
+  const yAxisWidth = hasYLabel ? 128 : 58;
+  const chartLeft = hasYLabel ? (p ? 76 : 70) : (p ? 10 : 4);
   const chartMarginTop = 50;
   const useLineEndCallouts = chartInputs.lineSeries.length >= 2;
   const chartMarginRight =
@@ -378,7 +378,7 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
         value: resolvedYAxisCaption,
         angle: -90 as const,
         position: "left" as const,
-        offset: 10,
+        offset: -2,
         style: { fill: axisInk, fontSize: chartAxisLabelSize, fontWeight: 600, textAnchor: "middle" as const, fontFamily: font },
       }
     : undefined;

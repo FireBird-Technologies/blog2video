@@ -8,7 +8,8 @@ export type BlackswanLayoutType =
   | "reactor_code"
   | "flight_path"
   | "data_visualisation"
-  | "ending_socials";
+  | "ending_socials"
+  | "ticker_table";
 
 export interface BlackswanMetric {
   value: string;
@@ -64,6 +65,12 @@ export interface BlackswanLayoutProps {
   /** Chart color overrides. */
   barPrimaryColor?: string;
   barSecondaryColor?: string;
+
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
 
   socials?: Record<string, unknown> | Array<Record<string, unknown>>;
   websiteLink?: string;
