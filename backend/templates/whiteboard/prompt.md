@@ -111,11 +111,62 @@ Core rules:
 
 ---
 
+## data_visualisation
+**Visual:** A real animated chart (line / bar / histogram) drawn on a taped paper panel with the hand-drawn marker aesthetic — dashed grid, inky strokes, marker-colored series. A short read sits beside the chart.
+
+**Best for:** Charting an ACTUAL data table from the source article (a trend over time, a comparison between categories, or a distribution) — distinct from simple stat bars.
+
+**Props (shared with the chart pipeline — usually filled automatically from the bound table):**
+- `chartTable`: `{ headers: [...], rows: [[...]] }` — col 1 = X labels; cols 2–4 = up to 3 numeric series
+- `chartType`: `"line" | "bar" | "histogram" | "auto"` (line = trend over time; bar = named categories; histogram = numeric bins/ranges)
+- `chartSummary`: one-to-two sentence read of the chart (emphasize key phrases with `__double underscores__`)
+- `subtitle`, `yAxisLabel`, `chartYAxisTicks` (optional axis captions/ticks)
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a real chartable table (`preferred_layout='data_visualisation'` + a `data_table_index`). Never fabricate chart figures — values come from the bound table.
+
+---
+
+## ticker_table
+**Visual:** A hand-drawn data table on the whiteboard paper background — title with a wavy chalk underline, rows stagger in with dashed separators, accent-colored column headers, numeric cells in the highlight column colored green (positive) or red (negative).
+
+**Best for:** Any scene with a real multi-row, multi-column dataset — rankings, comparison grids, schedules, financial tables.
+
+**Props:**
+- `tickerTable`: `{ headers: string[], rows: string[][] }` — col 1 = row labels; cols 2–6 = values. Max 20 rows, 6 columns. Never fabricate rows — use only data present in the source.
+- `tickerTitle` (string): optional subtitle line under the main title
+- `tickerHighlightCol` (number): 0-based column index to green/red-color by sign. Set `-1` to disable.
+- `tickerFootnote` (string): optional source/footnote line at the bottom
+
+**When to Use:**
+- The source contains a real table or multi-row dataset that cannot be captured well by a chart or stat cards.
+- Prefer `data_visualisation` for trend/distribution charts; use `ticker_table` for structured grids.
+
+---
+
+## ending_socials
+**Visual:** Hand-drawn whiteboard sign-off — marker-style title, stick figure waving in the corner, chalk-stroke social icons with labels, and an optional website CTA block on the paper background.
+
+**Best for:** Final scene only — follow-along, social handles, and website link.
+
+**Props:**
+- `socials` — array of `{ platform, enabled, label }` rows. Supported platforms: `facebook`, `instagram`, `youtube`, `medium`, `substack`, `linkedin`, `tiktok`.
+- `showWebsiteButton` — toggle website CTA visibility.
+- `websiteLink` — URL shown in the CTA block.
+- `ctaButtonText` — optional CTA label.
+- `narration` (global) — warm closing line.
+
+**When to Use:** Always the **last scene** when CTA or social data exists. Do not use mid-video.
+
+---
+
 # Scene Flow Rules
 
 - Scene 0 must use `drawn_title`.
 - Prefer `marker_story` as baseline.
 - Insert `stick_figure_scene` for key narrative pivots. Use `stats_figures` or `stats_chart` for data; use `comparison` for two-sided comparisons. Use `countdown_timer` for countdowns, `handwritten_equation` for formulas, `speech_bubble_dialogue` for dialogue.
+- Use `data_visualisation` when the pipeline binds a chartable table; use `ticker_table` for multi-row datasets.
+- Close with `ending_socials` when CTA or social data is available.
 - Keep transitions soft and hand-crafted; avoid harsh kinetic jumps.
 - Aim for setup -> development -> payoff structure.
 
@@ -134,4 +185,5 @@ Core rules:
 
 - Do not repeat the same layout more than 3 consecutive scenes.
 - Alternate between text-led (`marker_story`), metaphor-led (`stick_figure_scene`), stats-led (`stats_figures`, `stats_chart`), comparison (`comparison`), countdown (`countdown_timer`), equation (`handwritten_equation`), and dialogue (`speech_bubble_dialogue`) beats when appropriate.
-- End with a clear payoff or conclusion scene that resolves the story arc.
+- Use `data_visualisation` and `ticker_table` only when the pipeline binds a real table.
+- End with a clear payoff: `ending_socials` when CTA/social data exists; otherwise a conclusion scene that resolves the story arc.

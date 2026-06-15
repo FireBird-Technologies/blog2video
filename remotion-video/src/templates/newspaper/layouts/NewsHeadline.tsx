@@ -138,7 +138,8 @@ export const NewsHeadline: React.FC<
   titleFontSize,
   descriptionFontSize,
   stats,
-  category,imageUrl,
+  category,
+  imageUrl,
   imageObjectPosition,
   imageZoom,
   leftThought,
@@ -175,9 +176,10 @@ export const NewsHeadline: React.FC<
         : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
 
   // Calculate description font size for relative scaling
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 39 : 35);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 39 : 29);
   const categoryBaseFontSize = p ? 28 : 24; // Base for category without descriptionFontSize
   const authorBaseFontSize = p ? 20 : 16; // Base for author without descriptionFontSize
+  const portraitNoImage = p && !imageUrl;
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT }}>
@@ -269,15 +271,22 @@ export const NewsHeadline: React.FC<
           inset: 0,
           display: "flex",
           flexDirection: "column",
-          // Portrait stacks content at bottom, Landscape centers it
-          justifyContent: p ? "flex-end" : "center",
-          padding: p ? "0 10% 15% 10%" : "7% 10%",
+          justifyContent: portraitNoImage ? "flex-start" : p ? "flex-end" : "center",
+          padding: portraitNoImage ? "12% 10% 10% 10%" : p ? "0 10% 15% 10%" : "7% 10%",
           zIndex: 10,
           opacity: contentOpacity,
         }}
       >
         {/* CATEGORY + AUTHOR (from stats) */}
-        <div style={{ marginBottom: p ? 20 : 30, display: "flex", flexDirection: "column", gap: 6 }}>
+        <div
+          style={{
+            marginBottom: portraitNoImage ? 24 : p ? 20 : 30,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            flexShrink: 0,
+          }}
+        >
           <div
             style={{
               display: "inline-block",
@@ -324,11 +333,12 @@ export const NewsHeadline: React.FC<
           style={{
             fontFamily: fontFamily ?? H_FONT,
             // Drastically increased portrait size for mobile impact
-            fontSize: titleFontSize ?? (p ? 82 : 78),
+            fontSize: titleFontSize ?? (p ? 77 : 68),
             fontWeight: 800,
             lineHeight: 1.0,
-            marginBottom: p ? 40 : 36,
+            marginBottom: portraitNoImage ? 0 : p ? 40 : 36,
             maxWidth: p ? "100%" : (imageUrl ? "50%" : "60%"),
+            flexShrink: 0,
           }}
         >
           {words.map((word, i) => {
@@ -363,20 +373,36 @@ export const NewsHeadline: React.FC<
         {/* NARRATION */}
         {narration && (
           <div
-            style={{
-              fontSize: actualDescriptionFontSize, // Use the potentially derived value
-              fontWeight: 600,
-              color: textColor,
-              lineHeight: 1.4,
-              maxWidth: p ? "100%" : (imageUrl ? "50%" : "70%"),
-              opacity: 0.9,
-            }}
+            style={
+              portraitNoImage
+                ? {
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 0,
+                    paddingTop: 24,
+                    paddingBottom: 24,
+                  }
+                : undefined
+            }
           >
-            {narration}
+            <div
+              style={{
+                fontSize: actualDescriptionFontSize,
+                fontWeight: 600,
+                color: textColor,
+                lineHeight: 1.4,
+                maxWidth: p ? "100%" : (imageUrl ? "50%" : "70%"),
+                opacity: 0.9,
+                textAlign: portraitNoImage ? "center" : undefined,
+              }}
+            >
+              {narration}
+            </div>
           </div>
         )}
       </div>
     </AbsoluteFill>
   );
 };
-

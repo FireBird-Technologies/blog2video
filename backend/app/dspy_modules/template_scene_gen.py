@@ -13,6 +13,8 @@ from app.services.chart_planner import (
     generate_terminal_ticker_items,
     is_candlestick_table,
     has_candlestick_table_in_visual_hint,
+    assign_chart_axis_captions,
+    sanitize_chart_table_layout_props,
     _extract_tables_from_visual_hint,
     _score_table_for_scene,
     is_laduc_ticker_table,
@@ -521,6 +523,8 @@ class TemplateSceneGenerator:
         chart_keys = {
             "chartType",
             "chartTable",
+            "subtitle",
+            "yAxisLabel",
             "marketSymbol",
             "marketValue",
             "marketDelta",
@@ -535,9 +539,11 @@ class TemplateSceneGenerator:
             if k in chart_keys:
                 if k == "chartType" and out.get("chartType"):
                     continue
+                if k in ("subtitle", "yAxisLabel") and str(out.get(k) or "").strip():
+                    continue
                 out[k] = v
 
-        return out
+        return assign_chart_axis_captions(out)
 
     async def _merge_laduc_chart_props(
         self,
@@ -607,6 +613,8 @@ class TemplateSceneGenerator:
             preferred_table_index=preferred_table_index,
         )
         if not planned:
+            if is_chart_layout and isinstance(out.get("chartTable"), dict):
+                return sanitize_chart_table_layout_props(out)
             return out
         # market_annotation: always override chartTable with real scraped data
         # — never keep LLM's fabricated rows. Keep AI's chartType only if it's
@@ -617,6 +625,10 @@ class TemplateSceneGenerator:
             ai_chart_type = out.get("chartType", "")
             if not ai_chart_type or ai_chart_type == "auto":
                 out["chartType"] = planned["chartType"]
+        for caption_key in ("subtitle", "yAxisLabel"):
+            if caption_key in planned and not str(out.get(caption_key) or "").strip():
+                out[caption_key] = planned[caption_key]
+        out = sanitize_chart_table_layout_props(assign_chart_axis_captions(out))
 
         # Populate chartSummary with an LLM-written analytical caption when the
         # scene has real bound chart data and nobody (manual edit / upstream
@@ -931,6 +943,7 @@ class TemplateSceneGenerator:
 
         # Bind the real data deterministically.
         out["chartTable"] = planned_table
+        out = assign_chart_axis_captions(out)
 
         # Reroute the layout to match the data's natural shape: a time-like series
         # belongs on chart_line; a categorical ranking on chart_bar / data_table.
@@ -1839,7 +1852,13 @@ class TemplateSceneGenerator:
                 # market_annotation / matrix_data guard: AI picked a chart layout but no
                 # real table data was extractable — fall back rather than render an empty
                 # chart area. (Ticker layouts render a graceful "no data" message instead.)
-                if layout in ("market_annotation", "matrix_data", "spotlight_data", "chronicle_data") and not has_chart_table:
+                if layout in (
+                    "market_annotation",
+                    "matrix_data",
+                    "spotlight_data",
+                    "chronicle_data",
+                    "data_visualisation",
+                ) and not has_chart_table:
                     chart_layout = layout
                     llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
                     layout = (

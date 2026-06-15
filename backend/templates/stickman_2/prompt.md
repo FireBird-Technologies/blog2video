@@ -167,6 +167,39 @@ Cinematic night-sky sibling of the daytime Stick Man template — moon-cyan chal
 
 ---
 
+## data_visualisation
+**Visual:** A real animated chart (line / bar / histogram) glowing against the night canvas in the hand-drawn night aesthetic, with a short read beside the chart.
+
+**Best for:** Charting an ACTUAL data table from the source article (a trend over time, a comparison between categories, or a distribution) — distinct from simple stat bars.
+
+**Props (shared with the chart pipeline — usually filled automatically from the bound table):**
+- `chartTable`: `{ headers: [...], rows: [[...]] }` — col 1 = X labels; cols 2–4 = up to 3 numeric series
+- `chartType`: `"line" | "bar" | "histogram" | "auto"` (line = trend over time; bar = named categories; histogram = numeric bins/ranges)
+- `chartSummary`: one-to-two sentence read of the chart (emphasize key phrases with `__double underscores__`)
+- `subtitle`, `yAxisLabel`, `chartYAxisTicks` (optional axis captions/ticks)
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a real chartable table (`preferred_layout='data_visualisation'` + a `data_table_index`). Never fabricate chart figures — values come from the bound table.
+
+---
+
+## ticker_table
+**Visual:** A frosted-glass data table on the starfield night canvas — cyan accent headers, rows stagger-fade in, numeric cells in the highlight column glow green (positive) or pulse red (negative) against the dark background.
+
+**Best for:** Any scene with a real multi-row, multi-column dataset — rankings, statistics tables, comparison grids.
+
+**Props:**
+- `tickerTable`: `{ headers: string[], rows: string[][] }` — col 1 = row labels; cols 2–6 = values. Max 20 rows, 6 columns. Never fabricate rows — use only data from the source.
+- `tickerTitle` (string): optional subtitle line under the main title
+- `tickerHighlightCol` (number): 0-based column index to green/red-color by sign. Set `-1` to disable.
+- `tickerFootnote` (string): optional source/footnote line
+
+**When to Use:**
+- The source contains a real table or multi-row dataset that cannot be captured well by `constellation_stats` or `moonphase_chart`.
+- Prefer `data_visualisation` for trend/distribution charts; use `ticker_table` for structured grids.
+
+---
+
 ## ending_socials
 **Visual:** A dark night-sky scene with a twinkling starfield, drifting fireflies, and a large crescent moon at the top-center. The sign-off title appears in moon-cyan below the moon, followed by a centered row of inline chalk-stroke social icons — each captioned with its label — and a website CTA (label above, link below). A chalk stick figure stands on the right, facing the camera with a drawn face, waving toward the text area.
 
@@ -186,3 +219,31 @@ Cinematic night-sky sibling of the daytime Stick Man template — moon-cyan chal
 - Social icons come from the `socials` object_array; the `handles` string_array is only a fallback when `socials` is absent.
 - The entire scene fades in over ~18 frames and fades out over the final ~18 frames — keep the scene long enough (≥150 frames recommended) for all staggered animations to complete.
 - Icon labels and the CTA label render at the narration font size; keep labels short so the centered row does not overflow on portrait.
+
+---
+
+# Scene Flow Rules
+
+- Scene **0** must use **`chalk_title`** (hero).
+- **Middle:** prefer **`night_walk`** as the narrative workhorse; rotate atmospheric beats (`shooting_star`, `signal_fire_scene`, `shadow_comparison`, `lantern_dialogue`, `constellation_stats`, `moonphase_chart`, `neon_countdown`) as content demands.
+- **`data_visualisation`** and **`ticker_table`** are reserved for scenes the pipeline binds to a real table (`data_table_index` set) — never assign them otherwise.
+- **Closing:** use **`ending_socials`** as the final scene when CTA or social data is available; otherwise close with `shooting_star`, `constellation_stats`, or a strong `night_walk`.
+- Keep transitions calm and atmospheric; avoid stacking identical layouts back-to-back.
+
+---
+
+# Content Extraction Rules
+
+- `title`: 3–8 words, scene headline in a calm, cinematic tone.
+- `narration`: concise spoken-style sentence, about 12–20 words per scene.
+- Emphasize journey, reflection, and transformation language suited to the night-sky aesthetic.
+- For `lantern_dialogue`, keep each bubble line short enough to fit the chalk speech-bubble dimensions.
+
+---
+
+# Variety Rules
+
+- Do not repeat the same layout more than 3 consecutive scenes.
+- Alternate narrative (`night_walk`), insight (`shooting_star`), data (`constellation_stats`, `moonphase_chart`, `data_visualisation`, `ticker_table`), comparison (`shadow_comparison`), and dialogue (`lantern_dialogue`) beats when appropriate.
+- Use `neon_countdown` sparingly — at most once per video.
+- End with `ending_socials` when CTA/social data exists; otherwise a memorable closing beat (`shooting_star` or `constellation_stats`).

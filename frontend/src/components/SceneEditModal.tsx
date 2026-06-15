@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import {
@@ -25,6 +25,7 @@ import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
 import { compileDataModule } from "../utils/compileComponent";
 import { normalizeLayoutId } from "./remotion/imageBoxConfig";
+import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 0.1;
@@ -35,8 +36,10 @@ import { ImportPreviewSheet } from "./ImportPreviewSheet";
 import {
   isBuiltinDataVizChartLayout,
   isBuiltinTickerLayout,
+  isChartTickerDataVizLayout,
   builtinChartKindForLayout,
   builtinDataVizExampleTable,
+  builtinTickerExampleTable,
 } from "./sceneEditBuiltinDataViz";
 import * as XLSX from "xlsx";
 
@@ -279,6 +282,11 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     data_snapshot: { title: [38, 50], desc: [14, 16] },
     fact_check: { title: [36, 48], desc: [22, 24] },
     news_timeline: { title: [36, 48], desc: [15, 18] },
+    expert_profile: { title: [55, 58], desc: [32, 26] },
+    perspective_split: { title: [68, 63], desc: [30, 25] },
+    data_visualisation: { title: [64, 51], desc: [33, 27] },
+    ticker_table: { title: [64, 51], desc: [33, 27] },
+    ending_socials: { title: [88, 72], desc: [35, 27] },
   },
   mosaic: {
     mosaic_title: { title: [150, 100], desc: [64, 44] },
@@ -314,6 +322,9 @@ const LEGACY_NEWSCAST_LAYOUT_ID_ALIASES: Record<string, string> = {
   newscast_glass_stack: "story_stack",
   newscast_kinetic_insight: "headline_insight",
 };
+
+const TICKER_TABLE_MAX_COLS = 6;
+const TICKER_TABLE_MAX_ROWS = 20;
 
 function normalizeLegacyNewscastLayoutId(template: string, layoutId: string): string {
   const normalizedTemplate = (template || "").toLowerCase();
@@ -637,7 +648,7 @@ function hasLegacyHistogramData(lp: Record<string, unknown>): boolean {
 
 function getEmptyChartTableForMode(mode: Exclude<DataVizTableMode, "auto">): { headers: string[]; rows: string[][] } {
   if (mode === "line") {
-    return { headers: ["Label", "Series 1"], rows: [] };
+    return { headers: ["Category", "Value"], rows: [] };
   }
   if (mode === "histogram") {
     return { headers: ["Bucket", "Frequency"], rows: [] };
@@ -820,10 +831,25 @@ function mergeMarketAnnotationChartDefaultsForLayout(
   const isChartLayout =
     (!!layoutId && layoutId.startsWith("market_annotation")) ||
     isBuiltinDataVizChartLayout(templateId, layoutId);
-  if (!layoutId || !isChartLayout) return layoutProps;
+  const isTickerLayout = isBuiltinTickerLayout(templateId, layoutId);
+  if (!layoutId || (!isChartLayout && !isTickerLayout)) return layoutProps;
   if (!schema || Object.keys(schema).length === 0) return layoutProps;
   const defaults = schema[layoutId]?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  if (isTickerLayout) {
+    const existingTickerTable = layoutProps.tickerTable;
+    const existingTickerTableHasRows =
+      existingTickerTable &&
+      typeof existingTickerTable === "object" &&
+      Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+      ((existingTickerTable as { rows: unknown[] }).rows.length > 0);
+    if (existingTickerTableHasRows) return layoutProps;
+    if (defaults.tickerTable && typeof defaults.tickerTable === "object") {
+      return { ...layoutProps, tickerTable: defaults.tickerTable };
+    }
+    return layoutProps;
+  }
 
   const existingTable = layoutProps.chartTable;
   const existingTableHasRows =
@@ -1325,6 +1351,35 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   news_timeline: [
     { key: "stats", label: "Timeline events", type: "object_array", subFields: [{ key: "value", label: "Date" }, { key: "label", label: "Description" }], maxItems: 5 },
+  ],
+  expert_profile: [
+    { key: "category", label: "Section badge", type: "string", placeholder: "e.g. Expert Voices" },
+    { key: "leftThought", label: "Expert name", type: "string", placeholder: "e.g. Dr. Jane Smith" },
+    { key: "rightThought", label: "Expert role / organisation", type: "string", placeholder: "e.g. Senior Policy Analyst" },
+    {
+      key: "stats",
+      label: "Key credential",
+      type: "object_array",
+      subFields: [
+        { key: "value", label: "Value (e.g. 20yr)" },
+        { key: "label", label: "Caption (e.g. in Federal Policy)" },
+      ],
+      maxItems: 1,
+    },
+  ],
+  perspective_split: [
+    { key: "leftThought", label: "Left perspective", type: "text", placeholder: "Supporters' argument" },
+    { key: "rightThought", label: "Right perspective", type: "text", placeholder: "Critics' argument" },
+    {
+      key: "stats",
+      label: "Panel labels & stats",
+      type: "object_array",
+      subFields: [
+        { key: "label", label: "Panel heading (e.g. SUPPORTERS SAY)" },
+        { key: "value", label: "Key stat (e.g. +14%)" },
+      ],
+      maxItems: 2,
+    },
   ],
   // LaDuc layouts
   data_impact: [
@@ -1942,6 +1997,8 @@ function schemaLayoutPropTypeToFieldType(t: LayoutPropFieldType): FieldType | nu
       return t;
     case "chart_table":
       return "chart_table";
+    case "ticker_table":
+      return "ticker_table";
     default:
       return null;
   }
@@ -2760,16 +2817,15 @@ export default function SceneEditModal({
         }
       } catch { /* ignore */ }
     }
-    // Mirror VideoPreview's chartTable defaults merge so the "Edit chart
-    // data" modal preview shows the same fallback data the project preview
-    // and rendered MP4 produce. No-op for non-market_annotation layouts.
-    lpCopy = mergeMarketAnnotationChartDefaultsForLayout(
+    // Mirror VideoPreview + backend render: merge meta.json layout defaults
+    // under stored layoutProps (bar colors, chart table, axis captions, etc.).
+    lpCopy = mergeLayoutSchemaDefaults(
       lpCopy,
-      normalizedTemplateId,
       layoutId,
       layouts?.layout_prop_schema as
         | Record<string, { defaults?: Record<string, unknown> }>
         | undefined,
+      project.aspect_ratio || "landscape",
     );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
@@ -3420,6 +3476,17 @@ export default function SceneEditModal({
       });
       return;
     }
+    // Built-in data-viz templates: seed themed example data when switching into
+    // the ticker / data-table layout with no existing tickerTable.
+    if (isBuiltinTickerLayout(normalizedTemplateId, next)) {
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.tickerTable);
+        if (chartTableHasData(existing)) return prev;
+        const example = builtinTickerExampleTable(normalizedTemplateId);
+        return example ? { ...prev, tickerTable: example } : prev;
+      });
+      return;
+    }
     // Seed example chart data when switching into a chart layout with no existing data
     const isChartLayout =
       ((isLaDucTemplate || isFjBriefTemplate) && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
@@ -3658,6 +3725,77 @@ export default function SceneEditModal({
     };
     setIsAdjustDragging(true);
   };
+
+  const openImportPreview = useCallback(
+    (
+      matrix: string[][],
+      maxCols: number,
+      maxRows: number,
+      onApply: (t: { headers: string[]; rows: string[][] }) => void,
+      sheetNames?: string[],
+      activeSheet?: string,
+      wb?: import("xlsx").WorkBook,
+      isChartTable?: boolean,
+    ) => {
+      if (matrix.length === 0) return;
+      chartImportCallbackRef.current = onApply;
+      setImportPreview({ matrix, maxCols, maxRows, sheetNames, activeSheet, wb, isChartTable });
+    },
+    [],
+  );
+
+  const matrixFromSheet = useCallback((wb: import("xlsx").WorkBook, sheetName: string): string[][] => {
+    const ws = wb.Sheets[sheetName];
+    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r: string[]) =>
+      (r as unknown[]).map(String),
+    );
+  }, []);
+
+  const handleTableFileImport = useCallback(
+    (
+      file: File,
+      maxCols: number,
+      maxRows: number,
+      onApply: (t: { headers: string[]; rows: string[][] }) => void,
+      isChartTable?: boolean,
+    ) => {
+      const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+      if (isExcel) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+          const wb = XLSX.read(data, { type: "array" });
+          const firstSheet = wb.SheetNames[0];
+          const matrix = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[firstSheet], {
+            header: 1,
+            defval: "",
+          }).map((r: string[]) => (r as unknown[]).map(String));
+          openImportPreview(
+            matrix,
+            maxCols,
+            maxRows,
+            onApply,
+            wb.SheetNames.length > 1 ? wb.SheetNames : undefined,
+            firstSheet,
+            wb.SheetNames.length > 1 ? wb : undefined,
+            isChartTable,
+          );
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        if (!text) return;
+        const lines = text.trim().split(/\r?\n/);
+        const matrix = lines.map((l) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, "")));
+        openImportPreview(matrix, maxCols, maxRows, onApply, undefined, undefined, undefined, isChartTable);
+      };
+      reader.readAsText(file);
+    },
+    [openImportPreview],
+  );
 
   if (!open) return null;
 
@@ -3970,7 +4108,17 @@ export default function SceneEditModal({
                 // using LAYOUT_TEXT_FIELDS.
                 const builtinDataVizSchemaFields =
                   (isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
-                    isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId))
+                    isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
+                    isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId))
+                    ? pickLayoutPropSchemaFieldDefs(
+                        layouts?.layout_prop_schema as unknown as
+                          | Record<string, LayoutPropSchema>
+                          | undefined,
+                        currentLayoutId,
+                      )
+                    : undefined;
+                const bundledMetaSchemaFields =
+                  !isCraftedTemplate && currentLayoutId
                     ? pickLayoutPropSchemaFieldDefs(
                         layouts?.layout_prop_schema as unknown as
                           | Record<string, LayoutPropSchema>
@@ -3982,7 +4130,8 @@ export default function SceneEditModal({
                   craftedFields ??
                   schemaBackedFields ??
                   builtinDataVizSchemaFields ??
-                  getLayoutFields(project.template || "default", currentLayoutId);
+                  getLayoutFields(project.template || "default", currentLayoutId) ??
+                  bundledMetaSchemaFields;
                 let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
 
                 if (isNewscastTemplate && currentLayoutId === "data_visualization") {
@@ -4011,6 +4160,16 @@ export default function SceneEditModal({
                   isBloombergTemplate && currentLayoutId === "terminal_chart";
                 const suppressExtraKeysForBloombergDataViz =
                   isBloombergTemplate && currentLayoutId === "terminal_dataviz";
+                // Built-in data-viz chart + ticker layouts (newspaper, whiteboard,
+                // gridcraft, stickman_2, blackswan, matrix, spotlight, chronicle, …)
+                // fully define their editable fields from meta.json's
+                // layout_prop_schema. Don't surface other scenes' leftover props
+                // (e.g. chartTable on a ticker scene, tickerTable/CSV/raw JSON on a
+                // chart scene) as raw "extra" fields.
+                const suppressExtraKeysForBuiltinDataViz =
+                  isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
+                  isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
+                  isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId);
                 const craftedHasLayoutFieldsSource =
                   isCraftedTemplate &&
                   Boolean(
@@ -4020,7 +4179,7 @@ export default function SceneEditModal({
                   );
                 const deferCraftedExtraKeys = craftedHasLayoutFieldsSource && !craftedLayoutFieldsReady;
                 const extraKeys =
-                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz)
+                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz || suppressExtraKeysForBuiltinDataViz)
                     ? []
                     : deferCraftedExtraKeys
                       ? []
@@ -4135,36 +4294,110 @@ export default function SceneEditModal({
                         );
                       }
                       if (field.type === "ticker_table") {
-                        const raw = editableLayoutProps[field.key] as { headers: string[]; rows: string[][] } | null | undefined;
-                        const rowCount = raw?.rows?.length ?? 0;
-                        const colCount = raw?.headers?.length ?? 0;
+                        const table = normalizeChartTableValue(editableLayoutProps[field.key]);
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
                               {field.label}
                             </label>
-                            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2 flex-wrap">
-                              <span className="text-xs text-gray-400 flex-1 min-w-0">
-                                {rowCount > 0 ? (
-                                  `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}`
-                                ) : (
-                                  "No data yet"
-                                )}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const parsed = raw && typeof raw === "object" && Array.isArray(raw.rows)
-                                    ? { headers: Array.isArray(raw.headers) ? raw.headers.map(String) : ["Label", "Value"], rows: (raw.rows as unknown[][]).map((r) => Array.isArray(r) ? r.map(String) : [""]) }
-                                    : { headers: ["Label", "Value"], rows: [[""]] };
-                                  setTickerTableDraft(parsed);
-                                  setTickerTableModalKey(field.key);
-                                  setTickerTableModalOpen(true);
+                            <div className="rounded-lg border border-gray-200 bg-gray-50/30 p-3 space-y-2">
+                              <div
+                                className={`rounded-lg border-2 border-dashed px-3 py-2 flex items-center gap-2 transition-colors ${tickerDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-white"}`}
+                                onDragOver={(e) => { e.preventDefault(); setTickerDropOver(true); }}
+                                onDragLeave={() => setTickerDropOver(false)}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  setTickerDropOver(false);
+                                  const file = e.dataTransfer.files[0];
+                                  if (!file) return;
+                                  handleTableFileImport(
+                                    file,
+                                    TICKER_TABLE_MAX_COLS,
+                                    TICKER_TABLE_MAX_ROWS,
+                                    (next) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next })),
+                                  );
                                 }}
-                                className="px-3 py-1 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white transition-colors"
                               >
-                                Edit table
-                              </button>
+                                <span className={`text-[11px] flex-1 ${tickerDropOver ? "text-purple-600" : "text-gray-400"}`}>
+                                  {tickerDropOver ? (
+                                    "Release to import"
+                                  ) : (
+                                    <>
+                                      Drop <strong className="font-medium text-gray-500">.csv</strong> or{" "}
+                                      <strong className="font-medium text-gray-500">.xlsx</strong> here
+                                    </>
+                                  )}
+                                </span>
+                                <label className="flex-shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:text-purple-600 hover:border-purple-400 cursor-pointer transition-colors">
+                                  Upload
+                                  <input
+                                    type="file"
+                                    accept=".csv,.xlsx,.xls,text/csv"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      handleTableFileImport(
+                                        file,
+                                        TICKER_TABLE_MAX_COLS,
+                                        TICKER_TABLE_MAX_ROWS,
+                                        (next) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next })),
+                                      );
+                                      e.target.value = "";
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                              <SpreadsheetTable
+                                data={table}
+                                onChange={(next) =>
+                                  setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next }))
+                                }
+                                maxRows={TICKER_TABLE_MAX_ROWS}
+                                maxCols={TICKER_TABLE_MAX_COLS}
+                              />
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditableLayoutProps((prev) => {
+                                      const current = normalizeChartTableValue(prev[field.key]);
+                                      if (current.rows.length >= TICKER_TABLE_MAX_ROWS) return prev;
+                                      return {
+                                        ...prev,
+                                        [field.key]: {
+                                          ...current,
+                                          rows: [...current.rows, Array(current.headers.length).fill("")],
+                                        },
+                                      };
+                                    })
+                                  }
+                                  disabled={table.rows.length >= TICKER_TABLE_MAX_ROWS}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  + Row
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditableLayoutProps((prev) => {
+                                      const current = normalizeChartTableValue(prev[field.key]);
+                                      if (current.headers.length >= TICKER_TABLE_MAX_COLS) return prev;
+                                      return {
+                                        ...prev,
+                                        [field.key]: {
+                                          headers: [...current.headers, `Col ${current.headers.length + 1}`],
+                                          rows: current.rows.map((r) => [...r, ""]),
+                                        },
+                                      };
+                                    })
+                                  }
+                                  disabled={table.headers.length >= TICKER_TABLE_MAX_COLS}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  + Col
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -5570,8 +5803,8 @@ export default function SceneEditModal({
     </>
   );
 
-  const TICKER_MODAL_MAX_COLS = 6;
-  const TICKER_MODAL_MAX_ROWS = 20;
+  const TICKER_MODAL_MAX_COLS = TICKER_TABLE_MAX_COLS;
+  const TICKER_MODAL_MAX_ROWS = TICKER_TABLE_MAX_ROWS;
   const CHART_MODAL_MAX_COLS = 4;
   const CHART_MODAL_MAX_ROWS = 50;
   const tickerDraft = tickerTableDraft ?? { headers: ["Label", "Value"], rows: [[""]] };
@@ -5604,7 +5837,7 @@ export default function SceneEditModal({
             setTickerDropOver(false);
             const file = e.dataTransfer.files[0];
             if (!file) return;
-            handleTickerFileImport(file, (t) => setTickerTableDraft(t));
+            handleTableFileImport(file, TICKER_MODAL_MAX_COLS, TICKER_MODAL_MAX_ROWS, (t) => setTickerTableDraft(t));
           }}
         >
           <svg className={`w-5 h-5 flex-shrink-0 transition-colors ${tickerDropOver ? "text-purple-400" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -5698,29 +5931,6 @@ export default function SceneEditModal({
     chartTableErrorTimeoutRef.current = setTimeout(() => setChartTableError(null), 4000);
   };
 
-  /** Open the ImportPreviewSheet for a raw matrix. */
-  const openImportPreview = (
-    matrix: string[][],
-    maxCols: number,
-    maxRows: number,
-    onApply: (t: { headers: string[]; rows: string[][] }) => void,
-    sheetNames?: string[],
-    activeSheet?: string,
-    wb?: import("xlsx").WorkBook,
-    isChartTable?: boolean,
-  ) => {
-    if (matrix.length === 0) return;
-    chartImportCallbackRef.current = onApply;
-    setImportPreview({ matrix, maxCols, maxRows, sheetNames, activeSheet, wb, isChartTable });
-  };
-
-  const matrixFromSheet = (wb: import("xlsx").WorkBook, sheetName: string): string[][] => {
-    const ws = wb.Sheets[sheetName];
-    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r: string[]) =>
-      (r as unknown[]).map(String)
-    );
-  };
-
   /** Entry point for file import. maxCols/maxRows = hard limits for destination table.
    *  onApply = where to write the result (defaults to setChartTableDraft). */
   const handleFileImport = (
@@ -5731,36 +5941,7 @@ export default function SceneEditModal({
     isChartTable?: boolean,
   ) => {
     const cb = onApply ?? ((t: { headers: string[]; rows: string[][] }) => setChartTableDraft(t));
-    const isExcel = /\.(xlsx|xls)$/i.test(file.name);
-    if (isExcel) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: "array" });
-        const firstSheet = wb.SheetNames[0];
-        const matrix = matrixFromSheet(wb, firstSheet);
-        openImportPreview(
-          matrix, maxCols, maxRows, cb,
-          wb.SheetNames.length > 1 ? wb.SheetNames : undefined,
-          firstSheet,
-          wb.SheetNames.length > 1 ? wb : undefined,
-          isChartTable,
-        );
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const text = ev.target?.result as string;
-        if (!text) return;
-        const lines = text.trim().split(/\r?\n/);
-        const matrix = lines.map((l) =>
-          l.split(",").map((c) => c.trim().replace(/^"|"$/g, ""))
-        );
-        openImportPreview(matrix, maxCols, maxRows, cb, undefined, undefined, undefined, isChartTable);
-      };
-      reader.readAsText(file);
-    }
+    handleTableFileImport(file, maxCols, maxRows, cb, isChartTable);
   };
 
   // Convenience wrappers
@@ -5768,11 +5949,6 @@ export default function SceneEditModal({
     file: File,
     onApply?: (t: { headers: string[]; rows: string[][] }) => void,
   ) => handleFileImport(file, CHART_MODAL_MAX_COLS, CHART_MODAL_MAX_ROWS, onApply, true);
-
-  const handleTickerFileImport = (
-    file: File,
-    onApply?: (t: { headers: string[]; rows: string[][] }) => void,
-  ) => handleFileImport(file, TICKER_MODAL_MAX_COLS, TICKER_MODAL_MAX_ROWS, onApply);
 
   /**
    * Parse clipboard text into a 2-D matrix of cells.

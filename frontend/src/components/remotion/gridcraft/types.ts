@@ -11,7 +11,9 @@ export type GridcraftLayoutType =
   | "bento_code"
   | "pull_quote"
   | "bento_steps"
-  | "ending_socials";
+  | "data_visualisation"
+  | "ending_socials"
+  | "ticker_table";
 
 export interface DataPoint {
   label: string;
@@ -66,6 +68,29 @@ export interface GridcraftLayoutProps {
 
   // Bento Steps
   steps?: { label: string; description?: string }[];
+
+  // ── data_visualisation (chart) — shared chartTable data-viz contract ──
+  // (reuses the existing `subtitle` prop above as the X-axis / category caption)
+  /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
+  chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
+  /** "line" | "bar" | "histogram" | "auto" (infer from label shape). */
+  chartType?: "auto" | "line" | "bar" | "histogram";
+  /** Prose beside the chart; empty → auto-summary from chartTable. */
+  chartSummary?: string;
+  /** Y-axis tick label overrides (top → bottom). */
+  chartYAxisTicks?: string[];
+  /** Y-axis title; empty uses chartTable.headers[1]. */
+  yAxisLabel?: string;
+  /** Chart color overrides. */
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+  barTertiaryColor?: string;
+
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
 
   // General
   version?: string;

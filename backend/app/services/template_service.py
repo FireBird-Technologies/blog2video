@@ -26,19 +26,40 @@ logger = logging.getLogger(__name__)
 # table->chart binding). Add a new built-in data-viz template here and both pick
 # it up — no other backend edits. LaDuc / FJ are intentionally excluded (they
 # keep their own dedicated branch / code path).
+# Sentinel ticker id for chart-only templates: a value that is intentionally NOT
+# a real layout. A template using it has a chart scene but no ticker scene, so
+# ticker-like tables never bind to a renderable layout (chartable tables still
+# bind to the chart layout). It is excluded from the derived ticker-id set below
+# so is_builtin_ticker_layout() never matches it.
+_NO_TICKER_SENTINEL = "data_visualisation_ticker__unused"
+
 CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "matrix": ("matrix_data", "matrix_ticker"),
     "spotlight": ("spotlight_data", "spotlight_table"),
     "chronicle": ("chronicle_data", "chronicle_table"),
+    "mosaic": ("mosaic_data_visualization", "mosaic_ticker"),
+    "default": ("default_data_visualization", "default_ticker"),
+    "nightfall": ("nightfall_data_visualization", "nightfall_ticker"),
+    # Templates with a single data_visualisation chart scene (line/bar/histogram,
+    # chartType switchable in Studio) and NO ticker scene — ticker slot is the
+    # sentinel above.
+    "whiteboard": ("data_visualisation", _NO_TICKER_SENTINEL),
+    "newspaper": ("data_visualisation", _NO_TICKER_SENTINEL),
+    "blackswan": ("data_visualisation", _NO_TICKER_SENTINEL),
+    "gridcraft": ("data_visualisation", _NO_TICKER_SENTINEL),
+    "stickman_2": ("data_visualisation", _NO_TICKER_SENTINEL),
 }
 
 # Chart/ticker base layout ids derived from the map. One *_data chart layout per
-# template handles line/bar/histogram via chartType; chart matching uses a prefix test.
+# template handles line/bar/histogram via chartType; chart matching uses a prefix test. The no-ticker sentinel is filtered out so it is never treated as
+# a real ticker layout.
 CHART_TICKER_CHART_LAYOUT_IDS: frozenset[str] = frozenset(
     chart for chart, _ticker in CHART_TICKER_TEMPLATE_LAYOUTS.values()
 )
 CHART_TICKER_TICKER_LAYOUT_IDS: frozenset[str] = frozenset(
-    ticker for _chart, ticker in CHART_TICKER_TEMPLATE_LAYOUTS.values()
+    ticker
+    for _chart, ticker in CHART_TICKER_TEMPLATE_LAYOUTS.values()
+    if ticker != _NO_TICKER_SENTINEL
 )
 
 

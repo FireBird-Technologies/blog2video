@@ -447,14 +447,66 @@ Narration: "The process is simple: first, paste your blog URL. Then our AI analy
 
 ---
 
+## data_visualisation
+**Visual:** A real animated chart (line / bar / histogram) inside a clean bento data cell — crisp grid, tabular numerals, one accent series — with a short read beside it.
+
+**Best for:** Charting an ACTUAL data table from the source article (a trend over time, a comparison between categories, or a distribution) — distinct from simple stat bars.
+
+**Props (shared with the chart pipeline — usually filled automatically from the bound table):**
+- `chartTable`: `{ headers: [...], rows: [[...]] }` — col 1 = X labels; cols 2–4 = up to 3 numeric series
+- `chartType`: `"line" | "bar" | "histogram" | "auto"` (line = trend over time; bar = named categories; histogram = numeric bins/ranges)
+- `chartSummary`: one-to-two sentence read of the chart (emphasize key phrases with `__double underscores__`)
+- `subtitle`, `yAxisLabel`, `chartYAxisTicks` (optional axis captions/ticks)
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a real chartable table (`preferred_layout='data_visualisation'` + a `data_table_index`). Never fabricate chart figures — values come from the bound table.
+
+---
+
+## ticker_table
+**Visual:** A data table inside a glass-morphism card with an orange accent-colored header row, Inter font, dot-grid background. Rows stagger-fade in top-to-bottom; numeric cells in the highlight column are colored green (positive) or red (negative).
+
+**Best for:** Product comparison matrices, pricing tables, feature grids, benchmarks, or any multi-row dataset from the article.
+
+**Props:**
+- `tickerTable`: `{ headers: string[], rows: string[][] }` — col 1 = row labels; cols 2–6 = values. Max 20 rows, 6 columns. Never fabricate rows — use only data from the source.
+- `tickerTitle` (string): optional subtitle line (e.g. "Comparison as of Q3 2024")
+- `tickerHighlightCol` (number): 0-based column index to green/red-color by sign. Set `-1` to disable.
+- `tickerFootnote` (string): optional source/footnote line
+
+**When to Use:**
+- The source contains a real table, ranking, or multi-column dataset.
+- Prefer `data_visualisation` for trend/distribution charts; use `ticker_table` for structured grids.
+- Complements `kpi_grid` (for 2–3 big numbers) — use `ticker_table` when there are more rows/columns.
+
+---
+
+## ending_socials
+**Visual:** Clean bento-style sign-off on the near-white frame — serif title, accent-colored CTA card(s) with website link, narration subtext, and a row of social platform icons with labels.
+
+**Best for:** Final scene only — follow-along, social handles, and website link.
+
+**Props:**
+- `socials` — array of `{ platform, enabled, label }` rows. Supported platforms: `facebook`, `instagram`, `youtube`, `medium`, `substack`, `linkedin`, `tiktok`.
+- `showWebsiteButton` — toggle website CTA visibility.
+- `websiteLink` — URL shown in the CTA block.
+- `ctaButtonText` — optional CTA label.
+- `ctas` — optional array (≤3) of `{ ctaButtonText, websiteLink, showWebsiteButton }` for multiple CTAs.
+- `narration` (global) — warm closing line.
+
+**When to Use:** Always the **last scene** when CTA or social data exists. Do not use mid-video.
+
+---
+
 # Scene Flow Rules
 
 - **Scene 0:** ALWAYS `bento_hero` (non-negotiable)
 - **Opening (scenes 1–2):** `editorial_body` or `bento_features` for setup
 - **Middle (scenes 3–N-1):** Alternate between:
-  - Grid layouts: `bento_features`, `bento_highlight`, `kpi_grid`, `bento_compare`, `bento_code`, `bento_steps`
+  - Grid layouts: `bento_features`, `bento_highlight`, `kpi_grid`, `bento_compare`, `bento_code`, `bento_steps`, `data_visualisation`, `ticker_table`
   - Non-grid breaks: `editorial_body`, `pull_quote`
-- **Closing (scene N):** `pull_quote`, `editorial_body`, or `kpi_grid` for strong finish
+- **Closing (scene N):** `ending_socials` when CTA or social data is available; otherwise `pull_quote`, `editorial_body`, or `kpi_grid` for a strong finish.
+- **`data_visualisation`** and **`ticker_table`** are reserved for scenes the pipeline binds to a real table (`data_table_index` set).
 
 **Variety Requirements:**
 - NEVER use same layout 2 times in a row

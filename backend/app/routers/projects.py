@@ -258,24 +258,10 @@ def get_template_availability_signal(
     }
 
 
-def _sanitize_data_viz_layout_props(layout: str | None, layout_props: dict | None) -> dict:
-    props = dict(layout_props or {})
-    if (layout or "").strip().lower().replace("-", "_") != "data_visualization":
-        return props
-    for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
-        props.pop(key, None)
-    return props
-
-
 def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
-    out = dict(descriptor or {})
-    layout = out.get("layout")
-    layout_props = out.get("layoutProps") if isinstance(out.get("layoutProps"), dict) else {}
-    out["layoutProps"] = _sanitize_data_viz_layout_props(
-        layout=str(layout) if layout is not None else "",
-        layout_props=layout_props,
-    )
-    return out
+    from app.services.chart_planner import sanitize_chart_descriptor
+
+    return sanitize_chart_descriptor(descriptor)
 
 
 def _normalize_video_style(video_style: str | None) -> str:
@@ -727,7 +713,7 @@ def _run_project_template_change_job(job_id: int) -> None:
                             }
                         descriptor_layout = recovery_layout
 
-                scene.remotion_code = json.dumps(new_descriptor)
+                scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(new_descriptor))
                 scene.preferred_layout = descriptor_layout or (preferred_layout or None)
                 if cancel_event.is_set():
                     logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s superseded by reaper; aborting", job_id)
@@ -1149,6 +1135,15 @@ def _rollback_regenerate_script(
 
     if job_project_id is None:
         return
+    # This runs from a job's except-handler, where the triggering failure was
+    # usually a db.commit() that left the session in a failed-transaction state.
+    # Without rolling back first, the very next statement (the DELETE below)
+    # raises PendingRollbackError and the restore silently fails — leaving the
+    # project with the half-written (or zero) scenes from the aborted run.
+    try:
+        db.rollback()
+    except Exception:
+        pass
     try:
         snapshot = json.loads(scene_snapshot_raw)
         db.query(Scene).filter(Scene.project_id == job_project_id).delete()
@@ -1921,16 +1916,100 @@ def _run_regenerate_script_stage_a(job_id: int) -> None:
                         else ""
                     )
                 }
-                for i in range(len(new_scenes))
+                for i in range(len(planner_scenes_data))
             ],
             include_ending_socials=replan_supports_ending,
         )
-        for i, scene in enumerate(new_scenes):
+        # Re-load the scenes from the DB right before mutating them. The DSPy
+        # planner above runs the model in a worker thread (dspy.asyncify) and
+        # _generate_script earlier closed/re-opened this session and bulk-deleted
+        # + re-inserted scenes — both can leave the `new_scenes` objects loaded
+        # above stale in the identity map. A bulk delete with the default
+        # synchronize_session does NOT evict those rows from the session, so a
+        # later UPDATE flush can target PKs that no longer exist and raise
+        # StaleDataError ("expected to update N row(s); 0 were matched"). Expiring
+        # the session and re-querying guarantees the mutation hits live rows.
+        db.expire_all()
+        fresh_scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == job_project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        for i, scene in enumerate(fresh_scenes):
             entry = sanitized_pairs[i] if i < len(sanitized_pairs) else None
             new_layout = (entry.get("preferred_layout") or "") if isinstance(entry, dict) else ""
             if new_layout:
                 scene.preferred_layout = new_layout
         db.commit()
+        new_scenes = fresh_scenes
+
+        # Phase 2.6: Re-embed TABLE_DATA_HINT_JSON for scenes that Phase 2.5 assigned
+        # to a data-viz layout. _generate_script embeds the hint during scene creation,
+        # but Phase 2.5 may change which scenes carry a data-viz layout — those scenes
+        # won't have the hint yet, and _generate_scenes (stage B) relies on it being
+        # present in visual_description. Without this, data-viz scenes get no real chart
+        # data and fall back to prose/example data.
+        from app.services.table_extraction import (
+            classify_chart_tables_for_template,
+            build_table_context_hint,
+        )
+        from app.services.template_service import (
+            CHART_TICKER_TEMPLATE_LAYOUTS,
+            is_builtin_chart_layout,
+            is_builtin_ticker_layout,
+        )
+
+        _blog_text = getattr(project, "blog_content", None) or ""
+        _all_regen_tables: list[dict] = []
+        if replan_template_id in CHART_TICKER_TEMPLATE_LAYOUTS and _blog_text:
+            _chart_layout, _ticker_layout = CHART_TICKER_TEMPLATE_LAYOUTS[replan_template_id]
+            _all_regen_tables, _ = classify_chart_tables_for_template(
+                _blog_text,
+                chart_layout=_chart_layout,
+                ticker_layout=_ticker_layout,
+            )
+
+        if _all_regen_tables:
+            # Assign tables round-robin to scenes that carry a data-viz layout but lack
+            # the hint. Scenes that already contain TABLE_DATA_HINT_JSON (written by
+            # _generate_script for scenes that were already data-viz) keep theirs.
+            _TABLE_HINT_MARKER = "TABLE_DATA_HINT_JSON"
+            _table_idx = 0
+            db.expire_all()
+            fresh_scenes_dv = (
+                db.query(Scene)
+                .filter(Scene.project_id == job_project_id)
+                .order_by(Scene.order)
+                .all()
+            )
+            hint_written = False
+            for scene in fresh_scenes_dv:
+                layout = scene.preferred_layout or ""
+                is_dv = is_builtin_chart_layout(layout) or is_builtin_ticker_layout(layout)
+                if not is_dv:
+                    continue
+                vd = scene.visual_description or ""
+                if _TABLE_HINT_MARKER in vd:
+                    _table_idx += 1
+                    continue
+                if _table_idx < len(_all_regen_tables):
+                    hint = build_table_context_hint(
+                        [_all_regen_tables[_table_idx]], max_tables=1, max_rows=20
+                    )
+                    if hint:
+                        scene.visual_description = (vd.rstrip() + "\n\n" + hint).strip()
+                        hint_written = True
+                    _table_idx += 1
+            if hint_written:
+                db.commit()
+                new_scenes = (
+                    db.query(Scene)
+                    .filter(Scene.project_id == job_project_id)
+                    .order_by(Scene.order)
+                    .all()
+                )
+
         logger.info(
             "[REGENERATE_SCRIPT_JOB] job=%s re-planned layouts for template=%s: %s",
             job_id,
@@ -4507,7 +4586,7 @@ async def _run_voice_change(project_id: int, job_id: int) -> None:
             if claimed.rowcount and job_user_id is not None:
                 _refund_video_credit(db, job_user_id)
             project = db.query(Project).filter(Project.id == project_id).first()
-            if project and project.status == ProjectStatus.GENERATING:
+            if project and project.status in (ProjectStatus.GENERATING, ProjectStatus.VOICE_REGENERATING):
                 project.status = ProjectStatus.GENERATED
             db.commit()
             if claimed.rowcount:
@@ -4621,9 +4700,9 @@ async def change_project_voice(
     if voice_tuning_pref is not None:
         user_row.preferred_voice_emotion = voice_tuning_pref
 
-    # Deduct one video credit and mark the project as regenerating.
+    # Deduct one video credit and mark the project as voice-regenerating.
     user_row.videos_used_this_period += 1
-    project.status = ProjectStatus.GENERATING
+    project.status = ProjectStatus.VOICE_REGENERATING
     job = ProjectVoiceChangeJob(
         project_id=project_id,
         user_id=user.id,
@@ -4702,7 +4781,7 @@ async def voice_change_status(
                 "r2_video_url": project.r2_video_url,
                 "kind": "delete" if _is_delete_job(latest_job) else "voice_change",
             }
-        regenerating = project.status == ProjectStatus.GENERATING
+        regenerating = project.status == ProjectStatus.VOICE_REGENERATING
         return {
             "active": regenerating,
             "done": not regenerating,
