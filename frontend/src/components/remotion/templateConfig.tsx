@@ -95,7 +95,8 @@ const DEFAULT_LAYOUTS = new Set([
   "quote_callout",
   "image_caption",
   "timeline",
-  "data_visualization",
+  "default_data_visualization",
+  "default_ticker",
   "ending_socials",
 ]);
 
@@ -109,7 +110,8 @@ const NIGHTFALL_LAYOUTS = new Set([
   "split_glass",
   "chapter_break",
   "glass_image",
-  "data_visualization",
+  "nightfall_data_visualization",
+  "nightfall_ticker",
   "ending_socials",
 ]);
 
@@ -165,6 +167,8 @@ const MOSAIC_LAYOUTS = new Set([
   "mosaic_metric",
   "mosaic_phrases",
   "mosaic_close",
+  "mosaic_data_visualization",
+  "mosaic_ticker",
   "ending_socials",
 ]);
 

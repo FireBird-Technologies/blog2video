@@ -801,6 +801,65 @@ function getEconomistChartExampleTable(
   };
 }
 
+/**
+ * Mirrors `mergeMarketAnnotationChartDefaults()` in
+ * [VideoPreview.tsx](./VideoPreview.tsx) — fills `chartTable` (and
+ * `chartType`) from `meta.json` `layout_prop_schema[layout].defaults`
+ * when the stored layoutProps don't carry one. Keeps SceneEditModal's
+ * "Edit chart data" preview in sync with the project preview and the
+ * rendered MP4.
+ *
+ * Scoped to laduc `market_annotation*` layouts and the built-in data-viz
+ * templates' chart layouts (matrix/spotlight/chronicle `*_data*`).
+ * Keep this in sync with the VideoPreview copy.
+ */
+function mergeMarketAnnotationChartDefaultsForLayout(
+  layoutProps: Record<string, unknown>,
+  templateId: string | null | undefined,
+  layoutId: string | null | undefined,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  const isChartLayout =
+    (!!layoutId && layoutId.startsWith("market_annotation")) ||
+    isBuiltinDataVizChartLayout(templateId, layoutId);
+  const isTickerLayout = isBuiltinTickerLayout(templateId, layoutId);
+  if (!layoutId || (!isChartLayout && !isTickerLayout)) return layoutProps;
+  if (!schema || Object.keys(schema).length === 0) return layoutProps;
+  const defaults = schema[layoutId]?.defaults;
+  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  if (isTickerLayout) {
+    const existingTickerTable = layoutProps.tickerTable;
+    const existingTickerTableHasRows =
+      existingTickerTable &&
+      typeof existingTickerTable === "object" &&
+      Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+      ((existingTickerTable as { rows: unknown[] }).rows.length > 0);
+    if (existingTickerTableHasRows) return layoutProps;
+    if (defaults.tickerTable && typeof defaults.tickerTable === "object") {
+      return { ...layoutProps, tickerTable: defaults.tickerTable };
+    }
+    return layoutProps;
+  }
+
+  const existingTable = layoutProps.chartTable;
+  const existingTableHasRows =
+    existingTable &&
+    typeof existingTable === "object" &&
+    Array.isArray((existingTable as { rows?: unknown }).rows) &&
+    ((existingTable as { rows: unknown[] }).rows.length > 0);
+  if (existingTableHasRows && layoutProps.chartType) return layoutProps;
+
+  const next = { ...layoutProps };
+  if (!existingTableHasRows && defaults.chartTable && typeof defaults.chartTable === "object") {
+    next.chartTable = defaults.chartTable;
+  }
+  if (!layoutProps.chartType && typeof defaults.chartType === "string") {
+    next.chartType = defaults.chartType;
+  }
+  return next;
+}
+
 function projectChartTableForMode(
   table: { headers: string[]; rows: string[][] },
   mode: DataVizTableMode,
@@ -1900,6 +1959,8 @@ function schemaLayoutPropTypeToFieldType(t: LayoutPropFieldType): FieldType | nu
       return t;
     case "chart_table":
       return "chart_table";
+    case "ticker_table":
+      return "ticker_table";
     default:
       return null;
   }
@@ -3374,6 +3435,17 @@ export default function SceneEditModal({
         const kind = builtinChartKindForLayout(normalizedTemplateId, next) ?? "line";
         const example = builtinDataVizExampleTable(normalizedTemplateId, kind);
         return example ? { ...prev, chartTable: example } : prev;
+      });
+      return;
+    }
+    // Built-in data-viz templates: seed themed example data when switching into
+    // the ticker / data-table layout with no existing tickerTable.
+    if (isBuiltinTickerLayout(normalizedTemplateId, next)) {
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.tickerTable);
+        if (chartTableHasData(existing)) return prev;
+        const example = builtinDataVizExampleTable(normalizedTemplateId, "line");
+        return example ? { ...prev, tickerTable: example } : prev;
       });
       return;
     }
