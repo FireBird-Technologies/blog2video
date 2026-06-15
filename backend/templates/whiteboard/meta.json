@@ -598,7 +598,8 @@
         "subtitle": "Step",
         "yAxisLabel": "Value",
         "barPrimaryColor": "#1F2937",
-        "barSecondaryColor": "#C0563B"
+        "barSecondaryColor": "#C0563B",
+        "barTertiaryColor": "#2F7D5B"
       },
       "scene_defaults": {
         "title": "By the numbers",
@@ -680,6 +681,11 @@
         {
           "key": "barSecondaryColor",
           "label": "Series color 2",
+          "type": "color"
+        },
+        {
+          "key": "barTertiaryColor",
+          "label": "Series color 3",
           "type": "color"
         }
       ]
