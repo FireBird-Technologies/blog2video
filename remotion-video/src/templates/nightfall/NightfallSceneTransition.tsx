@@ -23,7 +23,8 @@ const LAYOUT_FAMILY: Record<string, NightfallTransitionFamily> = {
   ending_socials: "text_focus",
   glass_stack: "falling_in",
   glow_metric: "falling_in",
-  data_visualization: "falling_in",
+  nightfall_data_visualization: "falling_in",
+  nightfall_ticker: "falling_in",
   glass_image: "shooting_star_wipe",
 };
 
