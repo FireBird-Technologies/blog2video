@@ -434,6 +434,8 @@ export interface TemplateMeta {
   description: string;
   /** When true, show a highlighted "New" tag on the template picker (step 2). */
   new_template?: boolean;
+  /** When true, show an amber "Popular" tag on the template picker. */
+  popular_template?: boolean;
   styles?: string[];  // DEPRECATED — was video_style filter; now replaced by `genres`. Kept for back-compat readers.
   genres?: string[];  // topical categorization, e.g. ["Finance", "Politics"] — drives the genre dropdown filter
   preview_colors?: { accent: string; bg: string; text: string };

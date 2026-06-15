@@ -78,6 +78,17 @@ export function NewTemplateBadge({ className = "" }: { className?: string }) {
   );
 }
 
+/** Amber "Popular" chip for templates marked popular_template: true */
+export function PopularTemplateBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.45)] ring-1 ring-amber-400/70 ${className}`}
+    >
+      Popular
+    </span>
+  );
+}
+
 /** Same treatment as {@link NewTemplateBadge} — used on custom template thumbnails in pickers. */
 export function CustomTemplateBadge({ className = "" }: { className?: string }) {
   return (

@@ -16,7 +16,7 @@ import {
   type CraftedTemplateItem,
 } from "../api/client";
 import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
-import { isBuiltinDataVizChartLayout } from "./sceneEditBuiltinDataViz";
+import { isBuiltinDataVizChartLayout, isBuiltinTickerLayout } from "./sceneEditBuiltinDataViz";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
@@ -319,10 +319,25 @@ function mergeMarketAnnotationChartDefaults(
   const isChartLayout =
     (!!layoutId && layoutId.startsWith("market_annotation")) ||
     isBuiltinDataVizChartLayout(templateId, layoutId);
-  if (!layoutId || !isChartLayout) return layoutProps;
+  const isTickerLayout = isBuiltinTickerLayout(templateId, layoutId);
+  if (!layoutId || (!isChartLayout && !isTickerLayout)) return layoutProps;
   if (!schema || Object.keys(schema).length === 0) return layoutProps;
   const defaults = schema[layoutId]?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  if (isTickerLayout) {
+    const existingTickerTable = layoutProps.tickerTable;
+    const existingTickerTableHasRows =
+      existingTickerTable &&
+      typeof existingTickerTable === "object" &&
+      Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+      ((existingTickerTable as { rows: unknown[] }).rows.length > 0);
+    if (existingTickerTableHasRows) return layoutProps;
+    if (defaults.tickerTable && typeof defaults.tickerTable === "object") {
+      return { ...layoutProps, tickerTable: defaults.tickerTable };
+    }
+    return layoutProps;
+  }
 
   const existingTable = layoutProps.chartTable;
   const existingTableHasRows =
