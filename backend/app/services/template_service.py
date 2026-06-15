@@ -30,6 +30,9 @@ CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "matrix": ("matrix_data", "matrix_ticker"),
     "spotlight": ("spotlight_data", "spotlight_table"),
     "chronicle": ("chronicle_data", "chronicle_table"),
+    "mosaic": ("mosaic_data_visualization", "mosaic_ticker"),
+    "default": ("default_data_visualization", "default_ticker"),
+    "nightfall": ("nightfall_data_visualization", "nightfall_ticker"),
 }
 
 # Chart/ticker base layout ids derived from the map. One *_data chart layout per

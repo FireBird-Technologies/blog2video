@@ -5,6 +5,8 @@ import { MosaicStream } from "./MosaicStream";
 import { MosaicMetric } from "./MosaicMetric";
 import { MosaicPhrases } from "./MosaicPhrases";
 import { MosaicClose } from "./MosaicClose";
+import { MosaicDataChart } from "./MosaicDataChart";
+import { MosaicTable } from "./MosaicTable";
 import { EndingSocials } from "./EndingSocials";
 import type { MosaicLayoutType, MosaicLayoutProps } from "../types";
 
@@ -21,5 +23,7 @@ export const MOSAIC_LAYOUT_REGISTRY: Record<
   mosaic_metric: MosaicMetric,
   mosaic_phrases: MosaicPhrases,
   mosaic_close: MosaicClose,
+  mosaic_data_visualization: MosaicDataChart,
+  mosaic_ticker: MosaicTable,
   ending_socials: EndingSocials,
 };

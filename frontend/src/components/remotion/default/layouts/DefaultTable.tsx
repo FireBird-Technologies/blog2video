@@ -1,18 +1,20 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import type { MosaicLayoutProps } from "../types";
-import { MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
+import type { SceneLayoutProps } from "../types";
+import { GeometricBackground } from "../components/GeometricBackground";
+import { FlybyPlane } from "../components/FlybyPlane";
 
-const MOSAIC_TABLE_MAX_ROWS = 20;
+const DEFAULT_TABLE_MAX_ROWS = 20;
 const TABLE_MAX_COLS = 6;
 
-const MOSAIC_INK = "#2A2A28";
-const INK_DIM = "rgba(42,42,40,0.60)";
-const POSITIVE_COLOR = "#3B6E50";
-const NEGATIVE_COLOR = "#B04A28";
-const GRID_STROKE = "rgba(42,42,40,0.18)";
-const PANEL_BG = "rgba(234,228,218,0.55)";
-const HEADER_BG = "rgba(194,98,64,0.12)";
+const DEFAULT_INK = "#1D1D1F";
+const INK_DIM = "rgba(0,0,0,0.45)";
+const POSITIVE_COLOR = "#16A34A";
+const NEGATIVE_COLOR = "#DC2626";
+const GRID_STROKE = "rgba(0,0,0,0.07)";
+const DEFAULT_BG = "#F0F0F0";
+
+const DEFAULT_FONT_FAMILY = "'Roboto Slab', serif";
 
 function parseNumericCell(raw: string): number {
   const s = raw.trim();
@@ -35,11 +37,12 @@ function reveal(frame: number, start: number, end: number): number {
   return Math.max(0, Math.min(1, (frame - start) / (end - start)));
 }
 
-export const MosaicTable: React.FC<MosaicLayoutProps> = ({
+export const DefaultTable: React.FC<SceneLayoutProps> = ({
   title = "The data in view",
   narration,
-  accentColor = "#C26240",
-  textColor = MOSAIC_INK,
+  accentColor,
+  bgColor,
+  textColor,
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
@@ -48,20 +51,21 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
   tickerTitle,
   tickerFootnote,
   tickerHighlightCol,
+  sceneIndex,
 }) => {
   const frame = useCurrentFrame();
   const { height, width, durationInFrames } = useVideoConfig();
   const p = aspectRatio === "portrait" || height > width;
-  const bodyFont = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
-  const ink = textColor || MOSAIC_INK;
-  const accent = accentColor || "#C26240";
+  const bodyFont = fontFamily || DEFAULT_FONT_FAMILY;
+  const ink = textColor || DEFAULT_INK;
+  const accent = accentColor || "#6366F1";
 
-  const titleSize = titleFontSize ?? (p ? 50 : 44);
-  const descSize = descriptionFontSize ?? (p ? 22 : 19);
+  const titleSize = titleFontSize ?? (p ? 58 : 44);
+  const descSize = descriptionFontSize ?? (p ? 26 : 19);
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, TABLE_MAX_COLS);
   const rawRows = (tickerTable?.rows ?? [])
-    .slice(0, MOSAIC_TABLE_MAX_ROWS)
+    .slice(0, DEFAULT_TABLE_MAX_ROWS)
     .map((row) => (row ?? []).slice(0, TABLE_MAX_COLS));
 
   const colCount = Math.max(rawHeaders.length, rawRows.reduce((m, row) => Math.max(m, row.length), 0));
@@ -107,8 +111,15 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
   const nCols = Math.max(colCount, rawHeaders.length, 1);
   const cellBorder = (ci: number) => (ci < nCols - 1 ? `1px solid ${GRID_STROKE}` : "none");
 
+  const bg = bgColor || DEFAULT_BG;
+  const headerBg = `${accent}18`;
+  const altRowBg = `${accent}0A`;
+
   return (
-    <AbsoluteFill style={{ overflow: "hidden", opacity: fadeOut, background: "#EAE4DA" }}>
+    <AbsoluteFill style={{ overflow: "hidden", opacity: fadeOut, background: bg }}>
+      <GeometricBackground accentColor={accent} frame={frame} sceneIndex={sceneIndex} />
+      <FlybyPlane accentColor={accent} startFrame={35} yZone={0.10} />
+
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${p ? "7%" : "5.5%"} ${p ? "6%" : "7%"}`, minHeight: 0, gap: 0 }}>
         <div style={{ opacity: titleA, flexShrink: 0, marginBottom: Math.round(height * 0.014), textAlign: "center" }}>
           <div style={{ fontFamily: bodyFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink }}>
@@ -119,7 +130,7 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
               {tickerTitle}
             </div>
           )}
-          <div style={{ width: 60, height: 2, background: accent, margin: `${Math.round(height * 0.01)}px auto 0`, opacity: 0.85, borderRadius: 2 }} />
+          <div style={{ width: 60, height: 3, background: accent, margin: `${Math.round(height * 0.01)}px auto 0`, opacity: 0.85, borderRadius: 2 }} />
         </div>
 
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: fewCols ? "center" : "stretch", justifyContent: fewRows ? "center" : "flex-start" }}>
@@ -133,18 +144,18 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
               maxHeight: "100%",
               display: "flex",
               flexDirection: "column",
-              borderRadius: 6,
+              borderRadius: 8,
               overflow: "hidden",
-              background: PANEL_BG,
-              border: `1.5px solid rgba(42,42,40,0.22)`,
+              background: "rgba(255,255,255,0.80)",
+              border: `1px solid rgba(0,0,0,0.08)`,
               borderTop: `3px solid ${accent}`,
-              boxShadow: "0 2px 12px rgba(42,42,40,0.08)",
+              boxShadow: `0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)`,
             }}
           >
             {rawHeaders.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "row", width: "100%", flexShrink: 0, background: HEADER_BG, borderBottom: `1.5px solid rgba(42,42,40,0.22)`, opacity: headerA, alignItems: "stretch" }}>
+              <div style={{ display: "flex", flexDirection: "row", width: "100%", flexShrink: 0, background: headerBg, borderBottom: `1.5px solid rgba(0,0,0,0.10)`, opacity: headerA, alignItems: "stretch" }}>
                 {rawHeaders.map((hdr, ci) => (
-                  <div key={ci} style={{ flex: "1 1 0", minWidth: 0, boxSizing: "border-box", padding: `${Math.round(cellPadV * 1.08)}px ${cellPadH}px`, fontFamily: bodyFont, fontWeight: 700, fontSize: headerFontSize, letterSpacing: "0.08em", textTransform: "uppercase", color: ink, borderRight: cellBorder(ci), whiteSpace: "normal", overflowWrap: "break-word", wordBreak: "break-word", lineHeight: 1.2, textAlign: ci > 0 ? "right" : "left", display: "flex", alignItems: "center", justifyContent: ci > 0 ? "flex-end" : "flex-start" }}>
+                  <div key={ci} style={{ flex: "1 1 0", minWidth: 0, boxSizing: "border-box", padding: `${Math.round(cellPadV * 1.08)}px ${cellPadH}px`, fontFamily: bodyFont, fontWeight: 700, fontSize: headerFontSize, letterSpacing: "0.06em", textTransform: "uppercase", color: ink, borderRight: cellBorder(ci), whiteSpace: "normal", overflowWrap: "break-word", wordBreak: "break-word", lineHeight: 1.2, textAlign: ci > 0 ? "right" : "left", display: "flex", alignItems: "center", justifyContent: ci > 0 ? "flex-end" : "flex-start" }}>
                     {hdr}
                   </div>
                 ))}
@@ -154,7 +165,7 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
             <div style={{ flex: fewRows ? "0 1 auto" : "1 1 0", minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", overflow: "hidden" }}>
               {rawRows.length > 0
                 ? rawRows.map((row, ri) => (
-                    <div key={ri} style={{ flex: fewRows ? `0 0 ${naturalRowHeight}px` : "1 1 0", minHeight: 0, display: "flex", flexDirection: "row", alignItems: "stretch", background: ri % 2 === 1 ? "rgba(194,98,64,0.05)" : "transparent", borderBottom: ri < rawRows.length - 1 ? `1px solid ${GRID_STROKE}` : "none", opacity: rowOpacity(ri) }}>
+                    <div key={ri} style={{ flex: fewRows ? `0 0 ${naturalRowHeight}px` : "1 1 0", minHeight: 0, display: "flex", flexDirection: "row", alignItems: "stretch", background: ri % 2 === 1 ? altRowBg : "transparent", borderBottom: ri < rawRows.length - 1 ? `1px solid ${GRID_STROKE}` : "none", opacity: rowOpacity(ri) }}>
                       {Array.from({ length: nCols }).map((_, ci) => {
                         const cellRaw = row[ci] ?? "";
                         const isHL = ci === hlColIndex;
@@ -183,6 +194,9 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
           </div>
         )}
       </div>
+
+      {/* Bottom accent stripe */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 4, background: accent }} />
     </AbsoluteFill>
   );
 };
