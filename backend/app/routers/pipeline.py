@@ -41,6 +41,7 @@ from app.services.chart_planner import (
     is_ticker_snapshot_table,
     is_laduc_ticker_table,
     extract_ticker_items_from_blog,
+    sanitize_chart_descriptor,
 )
 from app.services.scraper import scrape_blog, BlogScrapeFailed
 from app.services.project_cleanup import (
@@ -1587,7 +1588,7 @@ async def _generate_scenes(
                         descriptor["layoutProps"]["hideImage"] = True
             except (json.JSONDecodeError, TypeError):
                 pass
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(sanitize_chart_descriptor(descriptor))
         resolved_layout = _descriptor_layout_name(template_id, descriptor)
         if resolved_layout:
             scene.preferred_layout = resolved_layout

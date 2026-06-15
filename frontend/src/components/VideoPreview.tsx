@@ -17,6 +17,7 @@ import {
 } from "../api/client";
 import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
 import { isBuiltinDataVizChartLayout, isBuiltinTickerLayout } from "./sceneEditBuiltinDataViz";
+import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
@@ -746,6 +747,36 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     };
   }, [isCrafted, effectiveCraftedItem, effectiveCraftedDetail, precompiledCraftedDetail, ensureCraftedTemplateDetail, templateId]);
 
+  const [fetchedLayoutPropSchema, setFetchedLayoutPropSchema] = useState<Record<
+    string,
+    { defaults?: Record<string, unknown> }
+  > | null>(null);
+  const [fetchedValidLayouts, setFetchedValidLayouts] = useState<readonly string[] | null>(null);
+
+  useEffect(() => {
+    if (layoutPropSchema !== undefined || !project.id || isCustom) {
+      return;
+    }
+    let cancelled = false;
+    void getValidLayouts(project.id).then((lr) => {
+      if (cancelled) return;
+      const s = lr.data.layout_prop_schema;
+      setFetchedLayoutPropSchema(
+        s && typeof s === "object" ? (s as Record<string, { defaults?: Record<string, unknown> }>) : null,
+      );
+      const layouts = lr.data.layouts;
+      setFetchedValidLayouts(Array.isArray(layouts) && layouts.length > 0 ? layouts : null);
+    }).catch(() => {
+      if (!cancelled) {
+        setFetchedLayoutPropSchema(null);
+        setFetchedValidLayouts(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, project.template, isCustom, layoutPropSchema]);
+
   const config = useMemo(() => {
     const base = getTemplateConfig(templateId);
     if (isCrafted && effectiveCraftedItem) {
@@ -770,32 +801,14 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           : base.defaultColors,
       };
     }
-    return base;
-  }, [templateId, isCrafted, effectiveCraftedItem]);
-
-  const [fetchedLayoutPropSchema, setFetchedLayoutPropSchema] = useState<Record<
-    string,
-    { defaults?: Record<string, unknown> }
-  > | null>(null);
-
-  useEffect(() => {
-    if (layoutPropSchema !== undefined || !project.id || isCustom) {
-      return;
+    if (!isCustom && fetchedValidLayouts && fetchedValidLayouts.length > 0) {
+      return {
+        ...base,
+        validLayouts: new Set(fetchedValidLayouts),
+      };
     }
-    let cancelled = false;
-    void getValidLayouts(project.id).then((lr) => {
-      if (cancelled) return;
-      const s = lr.data.layout_prop_schema;
-      setFetchedLayoutPropSchema(
-        s && typeof s === "object" ? (s as Record<string, { defaults?: Record<string, unknown> }>) : null,
-      );
-    }).catch(() => {
-      if (!cancelled) setFetchedLayoutPropSchema(null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [project.id, project.template, isCustom, layoutPropSchema]);
+    return base;
+  }, [templateId, isCrafted, effectiveCraftedItem, isCustom, fetchedValidLayouts]);
 
   const effectiveLayoutPropSchema = useMemo((): Record<string, { defaults?: Record<string, unknown> }> | null => {
     if (layoutPropSchema !== undefined) {
@@ -1097,17 +1110,11 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       const onScreenText = scene.display_text ?? scene.narration_text;
 
       if (!isCustom) {
-        layoutProps = mergeMetaFontSizesIntoLayoutProps(
+        layoutProps = mergeLayoutSchemaDefaults(
           layoutProps,
           layout,
+          effectiveLayoutPropSchema ?? undefined,
           project.aspect_ratio || "landscape",
-          effectiveLayoutPropSchema ?? undefined,
-        );
-        layoutProps = mergeMarketAnnotationChartDefaults(
-          layoutProps,
-          project.template,
-          layout,
-          effectiveLayoutPropSchema ?? undefined,
         );
       }
 

@@ -24,6 +24,8 @@
     "dive_insight",
     "reactor_code",
     "flight_path",
+    "data_visualisation",
+    "ticker_table",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -403,6 +405,143 @@
         }
       ]
     },
+    "data_visualisation": {
+      "label": "Data Visualisation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 80,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 48,
+          "landscape": 39
+        },
+        "chartType": "line",
+        "chartSummary": "The curve rises through the window before easing off the high.",
+        "chartTable": {
+          "headers": [
+            "Cycle",
+            "Signal",
+            "Noise"
+          ],
+          "rows": [
+            [
+              "T-04",
+              "298",
+              "72"
+            ],
+            [
+              "T-03",
+              "308",
+              "68"
+            ],
+            [
+              "T-02",
+              "315",
+              "61"
+            ],
+            [
+              "T-01",
+              "324",
+              "55"
+            ],
+            [
+              "T-00",
+              "318",
+              "59"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Cycle",
+        "yAxisLabel": "Magnitude",
+        "barPrimaryColor": "#00E5FF",
+        "barSecondaryColor": "#00AAFF"
+      },
+      "scene_defaults": {
+        "title": "Signal analysis",
+        "narration": "The data surfaces the pattern beneath the noise.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
     "ending_socials": {
       "label": "Ending Socials",
       "defaults": {
@@ -511,6 +650,94 @@
           ]
         }
       ]
+    },
+    "ticker_table": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 80,
+          "landscape": 65
+        },
+        "descriptionFontSize": {
+          "portrait": 38,
+          "landscape": 31
+        },
+        "tickerTitle": "Key Figures",
+        "tickerFootnote": "Source: editorial research",
+        "tickerHighlightCol": 2,
+        "tickerTable": {
+          "headers": [
+            "Category",
+            "Value",
+            "Change"
+          ],
+          "rows": [
+            [
+              "Item A",
+              "1,240",
+              "+4.2%"
+            ],
+            [
+              "Item B",
+              "980",
+              "-1.8%"
+            ],
+            [
+              "Item C",
+              "2,100",
+              "+7.1%"
+            ]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "The numbers at a glance",
+        "narration": "Key figures from the story.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table subtitle",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: values (max 20 rows, 6 cols)",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based, -1 to disable)",
+          "type": "number",
+          "min": -1,
+          "max": 5,
+          "step": 1
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Source / Footnote",
+          "type": "string"
+        }
+      ]
     }
   },
   "layouts_without_image": [
@@ -518,7 +745,9 @@
     "pulse_metric",
     "reactor_code",
     "flight_path",
-    "ending_socials"
+    "data_visualisation",
+    "ending_socials",
+    "ticker_table"
   ],
   "features": [
     "Neon water-ring atmosphere on pure black",
