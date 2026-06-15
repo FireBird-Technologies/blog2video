@@ -7,6 +7,7 @@ export interface UserInfo {
   videos_used_this_period: number;
   video_limit: number;
   can_create_video: boolean;
+  preferred_voice_emotion: string | null;
 }
 
 export interface AuthResponse {
@@ -65,6 +66,7 @@ export interface Project {
   logo_opacity: number;
   logo_size: number;
   custom_voice_id: string | null;
+  voice_emotion?: string | null;
   aspect_ratio: string;
   playback_speed?: number;
   custom_template_missing?: boolean;
@@ -103,8 +105,8 @@ export interface ProjectRegenerateScriptJob {
   id: number;
   project_id: number;
   user_id: number;
-  status: "queued" | "running" | "completed" | "failed";
-  current_step?: "analyzing_instruction" | "generating_script" | "generating_scenes";
+  status: "queued" | "running" | "awaiting_review" | "completed" | "failed";
+  current_step?: "analyzing_instruction" | "generating_script" | "verify" | "generating_scenes";
   total_scenes: number;
   processed_scenes: number;
   error_message: string | null;
@@ -112,6 +114,21 @@ export interface ProjectRegenerateScriptJob {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+}
+
+// Previous (pre-regeneration) scene for the verify-step before/after comparison.
+export interface RegenerateScriptPreviewScene {
+  order: number;
+  title: string;
+  display_text?: string | null;
+  narration_text: string;
+  visual_description: string;
+  remotion_code?: string | null;
+  preferred_layout?: string | null;
+}
+
+export interface RegenerateScriptPreviewOut {
+  previous_scenes: RegenerateScriptPreviewScene[];
 }
 
 export interface ChatMessage {
@@ -185,7 +202,32 @@ export interface SubscriptionDetail {
   amount_paid_cents: number;
   canceled_at: string | null;
   retention_offer_eligible: boolean;
+  scheduled_plan_slug: string | null;
+  scheduled_plan_name: string | null;
+  scheduled_change_at: string | null;
   created_at: string;
+}
+
+export interface ChangePlanPreview {
+  direction: "upgrade" | "downgrade";
+  current_plan_slug: string;
+  target_plan_slug: string;
+  amount_due_today_cents: number;
+  proration_credit_cents: number;
+  credit_to_balance_cents: number;
+  target_plan_price_cents: number;
+  new_period_start_iso: string;
+  new_period_end_iso: string | null;
+  effective_date_iso: string;
+  currency: string;
+}
+
+export interface ChangePlanResult {
+  status: string;
+  direction: "upgrade" | "downgrade";
+  target_plan_slug: string;
+  effective_date_iso: string;
+  amount_due_today_cents: number;
 }
 
 export interface Invoice {

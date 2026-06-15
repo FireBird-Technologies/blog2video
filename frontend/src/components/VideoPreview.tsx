@@ -16,6 +16,8 @@ import {
   type CraftedTemplateItem,
 } from "../api/client";
 import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
+import { isBuiltinDataVizChartLayout, isBuiltinTickerLayout } from "./sceneEditBuiltinDataViz";
+import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
@@ -220,6 +222,12 @@ interface VideoPreviewProps {
   initialFrame?: number;
   /** Hide the Remotion playback controls bar. */
   hideControls?: boolean;
+  /**
+   * Pre-fetched crafted template detail (e.g. from a public embed response).
+   * When provided, bypasses `useCraftedTemplates()` / `ensureCraftedTemplateDetail`,
+   * which require an authenticated user and are unavailable on public preview pages.
+   */
+  precompiledCraftedDetail?: CraftedTemplateDetail | null;
 }
 
 interface SceneInput {
@@ -305,13 +313,32 @@ function mergeMetaFontSizesIntoLayoutProps(
  */
 function mergeMarketAnnotationChartDefaults(
   layoutProps: Record<string, unknown>,
+  templateId: string | null | undefined,
   layoutId: string | null | undefined,
   schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
 ): Record<string, unknown> {
-  if (!layoutId || !layoutId.startsWith("market_annotation")) return layoutProps;
+  const isChartLayout =
+    (!!layoutId && layoutId.startsWith("market_annotation")) ||
+    isBuiltinDataVizChartLayout(templateId, layoutId);
+  const isTickerLayout = isBuiltinTickerLayout(templateId, layoutId);
+  if (!layoutId || (!isChartLayout && !isTickerLayout)) return layoutProps;
   if (!schema || Object.keys(schema).length === 0) return layoutProps;
   const defaults = schema[layoutId]?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  if (isTickerLayout) {
+    const existingTickerTable = layoutProps.tickerTable;
+    const existingTickerTableHasRows =
+      existingTickerTable &&
+      typeof existingTickerTable === "object" &&
+      Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+      ((existingTickerTable as { rows: unknown[] }).rows.length > 0);
+    if (existingTickerTableHasRows) return layoutProps;
+    if (defaults.tickerTable && typeof defaults.tickerTable === "object") {
+      return { ...layoutProps, tickerTable: defaults.tickerTable };
+    }
+    return layoutProps;
+  }
 
   const existingTable = layoutProps.chartTable;
   const existingTableHasRows =
@@ -626,6 +653,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     precompiledTemplateData,
     initialFrame,
     hideControls = false,
+    precompiledCraftedDetail,
   },
   ref
 ) {
@@ -652,11 +680,16 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     }
     return null;
   }, [craftedItem]);
+  // Pre-fetched detail (e.g. from a public embed response) takes precedence
+  // over the auth-only CraftedTemplatesContext, which is unavailable to
+  // logged-out viewers.
+  const effectiveCraftedItem: CraftedTemplateItem | null = precompiledCraftedDetail ?? craftedItem;
+  const effectiveCraftedDetail: CraftedTemplateDetail | null = precompiledCraftedDetail ?? craftedDetail;
   const [compiledCrafted, setCompiledCrafted] = useState<React.ComponentType<any> | null>(null);
   const [isCompilingCrafted, setIsCompilingCrafted] = useState(false);
   const craftedTemplateLogoUrl = useMemo(
-    () => resolveCraftedTemplateLogoUrl(craftedDetail || craftedItem),
-    [craftedDetail, craftedItem],
+    () => resolveCraftedTemplateLogoUrl(effectiveCraftedDetail || effectiveCraftedItem),
+    [effectiveCraftedDetail, effectiveCraftedItem],
   );
 
   useEffect(() => {
@@ -668,18 +701,20 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     // Still waiting on the crafted item fetch — keep the player locked behind
     // the loading overlay so it never falls back to DefaultVideoComposition
     // with unknown layout names mid-mount.
-    if (!craftedItem) {
+    if (!effectiveCraftedItem) {
       setCompiledCrafted(null);
       setIsCompilingCrafted(true);
       return;
     }
-    if (!craftedDetail) {
+    if (!effectiveCraftedDetail) {
       setCompiledCrafted(null);
       setIsCompilingCrafted(true);
-      void ensureCraftedTemplateDetail(templateId);
+      if (!precompiledCraftedDetail) {
+        void ensureCraftedTemplateDetail(templateId);
+      }
       return;
     }
-    if (!craftedDetail.frontend_files || !craftedDetail.frontend_entry_rel) {
+    if (!effectiveCraftedDetail.frontend_files || !effectiveCraftedDetail.frontend_entry_rel) {
       setCompiledCrafted(null);
       setIsCompilingCrafted(false);
       return;
@@ -687,9 +722,9 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     let cancelled = false;
     setIsCompilingCrafted(true);
     compileModuleGraphEntry(
-      craftedDetail.frontend_files,
-      craftedDetail.frontend_entry_rel,
-      craftedDetail.public_asset_urls,
+      effectiveCraftedDetail.frontend_files,
+      effectiveCraftedDetail.frontend_entry_rel,
+      effectiveCraftedDetail.public_asset_urls,
     )
       .then((result) => {
         if (cancelled) return;
@@ -710,18 +745,48 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     return () => {
       cancelled = true;
     };
-  }, [isCrafted, craftedItem, craftedDetail, ensureCraftedTemplateDetail, templateId]);
+  }, [isCrafted, effectiveCraftedItem, effectiveCraftedDetail, precompiledCraftedDetail, ensureCraftedTemplateDetail, templateId]);
+
+  const [fetchedLayoutPropSchema, setFetchedLayoutPropSchema] = useState<Record<
+    string,
+    { defaults?: Record<string, unknown> }
+  > | null>(null);
+  const [fetchedValidLayouts, setFetchedValidLayouts] = useState<readonly string[] | null>(null);
+
+  useEffect(() => {
+    if (layoutPropSchema !== undefined || !project.id || isCustom) {
+      return;
+    }
+    let cancelled = false;
+    void getValidLayouts(project.id).then((lr) => {
+      if (cancelled) return;
+      const s = lr.data.layout_prop_schema;
+      setFetchedLayoutPropSchema(
+        s && typeof s === "object" ? (s as Record<string, { defaults?: Record<string, unknown> }>) : null,
+      );
+      const layouts = lr.data.layouts;
+      setFetchedValidLayouts(Array.isArray(layouts) && layouts.length > 0 ? layouts : null);
+    }).catch(() => {
+      if (!cancelled) {
+        setFetchedLayoutPropSchema(null);
+        setFetchedValidLayouts(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, project.template, isCustom, layoutPropSchema]);
 
   const config = useMemo(() => {
     const base = getTemplateConfig(templateId);
-    if (isCrafted && craftedItem) {
+    if (isCrafted && effectiveCraftedItem) {
       const validLayouts =
-        Array.isArray(craftedItem.valid_layouts) && craftedItem.valid_layouts.length > 0
-          ? new Set(craftedItem.valid_layouts)
+        Array.isArray(effectiveCraftedItem.valid_layouts) && effectiveCraftedItem.valid_layouts.length > 0
+          ? new Set(effectiveCraftedItem.valid_layouts)
           : base.validLayouts;
-      const fallbackLayout = craftedItem.fallback_layout || base.fallbackLayout;
-      const heroLayout = craftedItem.hero_layout || base.heroLayout;
-      const previewColors = craftedItem.preview_colors;
+      const fallbackLayout = effectiveCraftedItem.fallback_layout || base.fallbackLayout;
+      const heroLayout = effectiveCraftedItem.hero_layout || base.heroLayout;
+      const previewColors = effectiveCraftedItem.preview_colors;
       return {
         ...base,
         validLayouts,
@@ -736,32 +801,14 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           : base.defaultColors,
       };
     }
-    return base;
-  }, [templateId, isCrafted, craftedItem]);
-
-  const [fetchedLayoutPropSchema, setFetchedLayoutPropSchema] = useState<Record<
-    string,
-    { defaults?: Record<string, unknown> }
-  > | null>(null);
-
-  useEffect(() => {
-    if (layoutPropSchema !== undefined || !project.id || isCustom) {
-      return;
+    if (!isCustom && fetchedValidLayouts && fetchedValidLayouts.length > 0) {
+      return {
+        ...base,
+        validLayouts: new Set(fetchedValidLayouts),
+      };
     }
-    let cancelled = false;
-    void getValidLayouts(project.id).then((lr) => {
-      if (cancelled) return;
-      const s = lr.data.layout_prop_schema;
-      setFetchedLayoutPropSchema(
-        s && typeof s === "object" ? (s as Record<string, { defaults?: Record<string, unknown> }>) : null,
-      );
-    }).catch(() => {
-      if (!cancelled) setFetchedLayoutPropSchema(null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [project.id, project.template, isCustom, layoutPropSchema]);
+    return base;
+  }, [templateId, isCrafted, effectiveCraftedItem, isCustom, fetchedValidLayouts]);
 
   const effectiveLayoutPropSchema = useMemo((): Record<string, { defaults?: Record<string, unknown> }> | null => {
     if (layoutPropSchema !== undefined) {
@@ -1063,16 +1110,11 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       const onScreenText = scene.display_text ?? scene.narration_text;
 
       if (!isCustom) {
-        layoutProps = mergeMetaFontSizesIntoLayoutProps(
+        layoutProps = mergeLayoutSchemaDefaults(
           layoutProps,
           layout,
+          effectiveLayoutPropSchema ?? undefined,
           project.aspect_ratio || "landscape",
-          effectiveLayoutPropSchema ?? undefined,
-        );
-        layoutProps = mergeMarketAnnotationChartDefaults(
-          layoutProps,
-          layout,
-          effectiveLayoutPropSchema ?? undefined,
         );
       }
 

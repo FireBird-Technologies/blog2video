@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
-  interpolate,
   Sequence,
   staticFile,
-  useCurrentFrame,
+  useVideoConfig,
   CalculateMetadataFunction,
 } from "remotion";
+import { TransitionSeries } from "@remotion/transitions";
 import { MATRIX_LAYOUT_REGISTRY } from "./layouts";
+import { pickMatrixTransition } from "./transitions";
 import { resolveFontFamily } from "../../fonts/registry";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MatrixLayoutType, MatrixLayoutProps } from "./types";
@@ -49,45 +50,11 @@ interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
-/** Matrix-style transition — glitch distort + green flash + fade to black */
-const MatrixTransition: React.FC = () => {
-  const frame = useCurrentFrame();
-
-  // Phase 1 (frames 0-3): Green scanline flash with glitch offset
-  const flashProgress = interpolate(frame, [0, 3], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Phase 2 (frames 3-8): Scale up + fade to black
-  const fadeProgress = interpolate(frame, [3, 8], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const scale = interpolate(frame, [2, 8], [1, 1.12], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Glitch horizontal offset during flash phase
-  const glitchX = frame < 3 ? Math.sin(frame * 8) * 6 : 0;
-
-  return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: flashProgress < 1 ? "#00FF4133" : "#000000",
-        opacity: flashProgress < 1 ? flashProgress : fadeProgress,
-        transform: `scale(${scale}) translateX(${glitchX}px)`,
-        boxShadow: flashProgress < 1
-          ? `0 0 60px #00FF4144, inset 0 0 120px #00FF4122`
-          : "none",
-      }}
-    />
-  );
-};
-
 // ─── Metadata ─────────────────────────────────────────────────
+// Transitions OVERLAP adjacent scenes (TransitionSeries consumes `frames` from
+// the boundary), so the composition is shorter than the naive sum of scene
+// durations. Subtract every transition's frame cost — keyed by index so this
+// matches pickMatrixTransition() in the render exactly.
 
 export const calculateMatrixMetadata: CalculateMetadataFunction<VideoProps> =
   async ({ props }) => {
@@ -102,7 +69,14 @@ export const calculateMatrixMetadata: CalculateMetadataFunction<VideoProps> =
       const sceneFrames = data.scenes.map((s) =>
         getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
-      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
+      let totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
+      for (let i = 0; i < data.scenes.length - 1; i++) {
+        totalFrames -= pickMatrixTransition(
+          i,
+          data.scenes[i].layout,
+          data.scenes[i + 1].layout,
+        ).frames;
+      }
 
       const isPortrait = data.aspectRatio === "portrait";
 
@@ -127,6 +101,7 @@ export const calculateMatrixMetadata: CalculateMetadataFunction<VideoProps> =
 
 export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
+  const { width, height } = useVideoConfig();
 
   useEffect(() => {
     fetch(staticFile(dataUrl.replace(/^\//, "")))
@@ -182,7 +157,49 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
   const FPS = 30;
   const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
-  let currentFrame = 0;
+
+  const sceneFrames = data.scenes.map((s) =>
+    getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
+  );
+
+  // Scene start frames accounting for transition overlap (for audio sync).
+  const sceneStartFrames: number[] = [];
+  let runningFrame = 0;
+  data.scenes.forEach((_, i) => {
+    sceneStartFrames[i] = runningFrame;
+    runningFrame += sceneFrames[i];
+    if (i < data.scenes.length - 1) {
+      runningFrame -= pickMatrixTransition(
+        i,
+        data.scenes[i].layout,
+        data.scenes[i + 1].layout,
+        width,
+        height,
+      ).frames;
+    }
+  });
+
+  const buildLayoutProps = (scene: SceneData): MatrixLayoutProps => {
+    const imageUrl =
+      scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+    return {
+      ...scene.layoutProps,
+      title: scene.title,
+      narration: scene.narration,
+      accentColor: data.accentColor || "#00FF41",
+      bgColor: data.bgColor || "#000000",
+      textColor: data.textColor || "#00FF41",
+      aspectRatio: data.aspectRatio || "landscape",
+      imageUrl,
+      imageObjectPosition:
+        String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) +
+        "% " +
+        String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) +
+        "%",
+      imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+      fontFamily: resolvedFontFamily || undefined,
+    };
+  };
 
   return (
     <AbsoluteFill
@@ -191,57 +208,54 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-      {data.scenes.map((scene, index) => {
-        const durationFrames = getSceneDurationFrames(
-          scene.durationSeconds,
-          FPS,
-          playbackSpeed,
-        );
-        const startFrame = currentFrame;
-        currentFrame += durationFrames;
+      <TransitionSeries>
+        {data.scenes.map((scene, index) => {
+          const LayoutComponent =
+            MATRIX_LAYOUT_REGISTRY[scene.layout] ||
+            MATRIX_LAYOUT_REGISTRY.terminal_text;
 
-        const LayoutComponent =
-          MATRIX_LAYOUT_REGISTRY[scene.layout] ||
-          MATRIX_LAYOUT_REGISTRY.terminal_text;
+          const sequence = (
+            <TransitionSeries.Sequence
+              key={`seq-${scene.id}-${index}`}
+              durationInFrames={sceneFrames[index]}
+            >
+              <LayoutComponent {...buildLayoutProps(scene)} />
+            </TransitionSeries.Sequence>
+          );
 
-        const imageUrl =
-          scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+          if (index === data.scenes.length - 1) return sequence;
 
-        const layoutProps: MatrixLayoutProps = {
-          ...scene.layoutProps,
-          title: scene.title,
-          narration: scene.narration,
-          accentColor: data.accentColor || "#00FF41",
-          bgColor: data.bgColor || "#000000",
-          textColor: data.textColor || "#00FF41",
-          aspectRatio: data.aspectRatio || "landscape",
-          imageUrl,
-          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
-          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
-          fontFamily: resolvedFontFamily || undefined,
-        };
+          const choice = pickMatrixTransition(
+            index,
+            scene.layout,
+            data.scenes[index + 1].layout,
+            width,
+            height,
+          );
+          return (
+            <React.Fragment key={`scene-${scene.id}-${index}`}>
+              {sequence}
+              <TransitionSeries.Transition
+                presentation={choice.presentation}
+                timing={choice.timing}
+              />
+            </React.Fragment>
+          );
+        })}
+      </TransitionSeries>
 
-        return (
+      {/* Audio runs on its own overlap-adjusted timeline. */}
+      {data.scenes.map((scene, index) =>
+        scene.voiceoverFile ? (
           <Sequence
-            key={scene.id}
-            from={startFrame}
-            durationInFrames={durationFrames}
-            name={scene.title}
+            key={`audio-${scene.id}-${index}`}
+            from={sceneStartFrames[index]}
+            durationInFrames={sceneFrames[index]}
           >
-            <LayoutComponent {...layoutProps} />
-
-            {scene.voiceoverFile && (
-              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
-            )}
-
-            {index < data.scenes.length - 1 && (
-              <Sequence from={durationFrames - 8} durationInFrames={8}>
-                <MatrixTransition />
-              </Sequence>
-            )}
+            <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
           </Sequence>
-        );
-      })}
+        ) : null,
+      )}
 
       {data.logo && (
         <LogoOverlay
@@ -252,8 +266,6 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}
-
     </AbsoluteFill>
   );
 };
-

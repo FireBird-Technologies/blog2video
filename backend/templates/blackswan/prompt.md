@@ -121,6 +121,40 @@ Core rules:
 
 ---
 
+## data_visualisation
+**Visual:** A real animated chart (line / bar / histogram) on a neon-cyan-on-black panel with subtle glow and ripple ambience. Line charts draw in; bars grow staggered. A short read sits beside the chart.
+
+**Best for:** Charting an ACTUAL data table from the source article (a trend over time, a comparison between categories, or a distribution) — distinct from simple stat bars.
+
+**Props (shared with the chart pipeline — usually filled automatically from the bound table):**
+- `chartTable`: `{ headers: [...], rows: [[...]] }` — col 1 = X labels; cols 2–4 = up to 3 numeric series
+- `chartType`: `"line" | "bar" | "histogram" | "auto"` (line = trend over time; bar = named categories; histogram = numeric bins/ranges)
+- `chartSummary`: one-to-two sentence read of the chart (emphasize key phrases with `__double underscores__`)
+- `subtitle`, `yAxisLabel`, `chartYAxisTicks` (optional axis captions/ticks)
+
+**When to Use:**
+- ONLY for a scene the pipeline bound to a real chartable table (`preferred_layout='data_visualisation'` + a `data_table_index`). Never fabricate chart figures — values come from the bound table.
+
+---
+
+## ticker_table
+**Visual:** A neon-bordered data table on the pure-black starfield canvas — cyan accent column headers with a glow, rows stagger-fade in, numeric cells in the highlight column colored neon-green (positive) or red (negative) against the dark background. Righteous font throughout.
+
+**Best for:** Any scene with a real multi-row, multi-column dataset — rankings, financial tables, comparison grids.
+
+**Props:**
+- `tickerTable`: `{ headers: string[], rows: string[][] }` — col 1 = row labels; cols 2–6 = values. Max 20 rows, 6 columns. Never fabricate rows — use only data from the source.
+- `tickerTitle` (string): optional subtitle line under the main title
+- `tickerHighlightCol` (number): 0-based column index to green/red-color by sign. Set `-1` to disable.
+- `tickerFootnote` (string): optional source/footnote line
+
+**When to Use:**
+- The source contains a real table or multi-row dataset.
+- Prefer `data_visualisation` for trend/distribution charts; use `ticker_table` for structured grids.
+- Complements `pulse_metric` (for 1–4 big numbers) — use `ticker_table` for more rows/columns.
+
+---
+
 ## ending_socials
 
 **Visual:** DropletIntro-style cinematic frame (star field, swan silhouette, animated droplet fall, NeonWater ripple band). Instead of a title, a neon pill-shaped CTA button is centred on stage. Below the button: an optional website URL in muted accent text, a neon divider line, the narration paragraph in body text, and a row of social-platform icons at the bottom.
@@ -150,9 +184,10 @@ Core rules:
 # Scene Flow Rules
 
 - Scene **0** must use **`droplet_intro`** (hero).
-- **Middle:** alternate **`neon_narrative`** (prose) with structured layouts (`arc_features`, `flight_path`, `pulse_metric`, `signal_split`, `dive_insight`, `reactor_code`) as the content demands.
+- **Middle:** alternate **`neon_narrative`** (prose) with structured layouts (`arc_features`, `flight_path`, `pulse_metric`, `signal_split`, `dive_insight`, `reactor_code`, `data_visualisation`, `ticker_table`) as the content demands.
 - **Closing:** use **`ending_socials`** as the final scene when CTA or social data is available; otherwise close with `dive_insight` (quote), `pulse_metric`, or a strong `neon_narrative`.
-- For **6+** total scenes, include **at least one** data-forward layout: **`pulse_metric`** (unless the source material has no numbers at all).
+- For **6+** total scenes, include **at least one** data-forward layout: **`pulse_metric`**, **`data_visualisation`**, or **`ticker_table`** (unless the source material has no numbers at all).
+- **`data_visualisation`** and **`ticker_table`** are reserved for scenes the pipeline binds to a real table (`data_table_index` set) — never assign them otherwise.
 - Balance **structure** (lists, path, code) with **breathing room** (`neon_narrative`, `dive_insight`).
 
 ---

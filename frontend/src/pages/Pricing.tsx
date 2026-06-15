@@ -1,8 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
-import { googleLogin, createCheckoutSession, createPerVideoCheckout, sendEnterpriseContact } from "../api/client";
+import {
+  googleLogin,
+  createCheckoutSession,
+  createPerVideoCheckout,
+  getSubscriptionDetail,
+  sendEnterpriseContact,
+  SubscriptionDetail,
+} from "../api/client";
+import type { BillingCycle, PlanKey } from "../api/billing";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
@@ -12,6 +20,9 @@ import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 import { pricingSchema } from "../seo/schema";
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
+import PlanCardCTA from "../components/PlanCardCTA";
+import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
+import { isPaidSlug, type CurrentSlug } from "../lib/planSwitch";
 import {
   STANDARD_MONTHLY_PRICE,
   STANDARD_ANNUAL_MONTHLY_PRICE,
@@ -37,11 +48,52 @@ export default function Pricing() {
   const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
   const [pendingCredential, setPendingCredential] = useState<string | null>(null);
   const [reactivating, setReactivating] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionDetail | null>(null);
+  const [pendingSwitch, setPendingSwitch] = useState<{
+    plan: PlanKey;
+    billing_cycle: BillingCycle;
+  } | null>(null);
+  // Default the monthly/annual toggle to the user's current plan cycle, but only
+  // once — after that the user's manual toggling wins.
+  const cycleInitRef = useRef(false);
 
   useEffect(() => {
     const ref = searchParams.get("ref");
     if (ref) localStorage.setItem("b2v_ref_code", ref);
   }, [searchParams]);
+
+  // Fetch subscription detail for logged-in paid users so the CTAs can
+  // show Upgrade / Downgrade / Switch correctly instead of generic "Upgrade to X".
+  useEffect(() => {
+    if (!user) {
+      setSubscription(null);
+      return;
+    }
+    if (user.plan === "free") {
+      setSubscription(null);
+      return;
+    }
+    getSubscriptionDetail()
+      .then((res) => {
+        setSubscription(res.data);
+        if (!cycleInitRef.current && res.data?.plan_slug) {
+          cycleInitRef.current = true;
+          setBillingCycle(
+            res.data.plan_slug.endsWith("annual") ? "annual" : "monthly"
+          );
+        }
+      })
+      .catch(() => setSubscription(null));
+  }, [user]);
+
+  const refreshSubscription = async () => {
+    try {
+      const res = await getSubscriptionDetail();
+      setSubscription(res.data);
+    } catch {
+      // ignore
+    }
+  };
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
@@ -123,6 +175,30 @@ export default function Pricing() {
 
   const isPro = user?.plan === "pro";
   const isStandard = user?.plan === "standard";
+
+  const currentSlug: CurrentSlug = (() => {
+    if (subscription?.plan_slug && isPaidSlug(subscription.plan_slug)) {
+      return subscription.plan_slug;
+    }
+    if (user?.plan === "pro") return "pro_monthly";
+    if (user?.plan === "standard") return "standard_monthly";
+    return "free";
+  })();
+
+  const scheduledPending = Boolean(subscription?.scheduled_plan_slug);
+  const paymentBlocked =
+    subscription?.status === "past_due" ||
+    subscription?.status === "requires_action";
+
+  const openSwitchModal = (plan: PlanKey, cycle: BillingCycle) => {
+    setPendingSwitch({ plan, billing_cycle: cycle });
+  };
+
+  const handlePlanSwitchSuccess = async () => {
+    await refreshSubscription();
+    // Force a hard reload so the auth context picks up the new user.plan.
+    window.location.reload();
+  };
 
   const [serviceModal, setServiceModal] = useState<"designer" | "editing" | null>(null);
   const [serviceName, setServiceName] = useState("");
@@ -387,31 +463,18 @@ export default function Pricing() {
               ))}
             </ul>
             {user ? (
-              isStandard ? (
-                <button
-                  disabled
-                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
-                >
-                  Current plan
-                </button>
-              ) : isPro ? (
-                <button
-                  disabled
-                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
-                >
-                  You're on Pro
-                </button>
-              ) : (
-                <button
-                  onClick={handleStandardUpgrade}
-                  disabled={standardCheckoutLoading}
-                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
-                >
-                  {standardCheckoutLoading
-                    ? "Redirecting to checkout..."
-                    : "Upgrade to Standard"}
-                </button>
-              )
+              <PlanCardCTA
+                tier="standard"
+                currentSlug={currentSlug}
+                billingCycle={billingCycle}
+                scheduledTargetSlug={subscription?.scheduled_plan_slug}
+                scheduledPending={scheduledPending}
+                paymentBlocked={paymentBlocked}
+                onSubscribe={handleStandardUpgrade}
+                onSwitch={openSwitchModal}
+                subscribeLoading={standardCheckoutLoading}
+                variant="full"
+              />
             ) : (
               <div className="flex justify-center">
                 <GoogleAuthButton
@@ -492,25 +555,18 @@ export default function Pricing() {
               ))}
             </ul>
             {user ? (
-              isPro ? (
-                <button
-                  disabled
-                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-50 text-purple-400 cursor-not-allowed"
-                >
-                  Current plan
-                </button>
-              ) : (
-                <button
-                  onClick={handleUpgrade}
-                  data-action="upgrade-pro"
-                  disabled={checkoutLoading}
-                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-60"
-                >
-                  {checkoutLoading
-                    ? "Redirecting to checkout..."
-                    : "Upgrade to Pro"}
-                </button>
-              )
+              <PlanCardCTA
+                tier="pro"
+                currentSlug={currentSlug}
+                billingCycle={billingCycle}
+                scheduledTargetSlug={subscription?.scheduled_plan_slug}
+                scheduledPending={scheduledPending}
+                paymentBlocked={paymentBlocked}
+                onSubscribe={handleUpgrade}
+                onSwitch={openSwitchModal}
+                subscribeLoading={checkoutLoading}
+                variant="full"
+              />
             ) : (
               <div className="flex justify-center">
                 <GoogleAuthButton
@@ -811,6 +867,14 @@ export default function Pricing() {
         onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
         onReactivate={handleReactivate}
         reactivating={reactivating}
+      />
+
+      <PlanSwitchConfirmModal
+        open={Boolean(pendingSwitch)}
+        plan={pendingSwitch?.plan ?? "standard"}
+        billingCycle={pendingSwitch?.billing_cycle ?? "monthly"}
+        onClose={() => setPendingSwitch(null)}
+        onSuccess={handlePlanSwitchSuccess}
       />
 
       {serviceModal && ReactDOM.createPortal(

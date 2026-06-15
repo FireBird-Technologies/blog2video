@@ -45,6 +45,9 @@ class User(Base):
 
     free_templates_downloaded: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
+    # Remembered narration emotion/tone default, auto-selected in the create form next time.
+    preferred_voice_emotion: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -59,6 +62,7 @@ class User(Base):
     crafted_template_entitlements = relationship("CraftedTemplateEntitlement", back_populates="user", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     referrals = relationship("Referral", foreign_keys="Referral.referrer_id", cascade="all, delete-orphan", passive_deletes=True)
 
     @property

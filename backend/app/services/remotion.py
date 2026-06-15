@@ -108,6 +108,8 @@ _SHARED_SRC_FILES = [
     "src/fonts/nightfall-defaults.ts",
     # Chronicle template default fonts (bundled, not in registry)
     "src/fonts/chronicle-defaults.ts",
+    # Economist template default fonts (bundled, not in registry)
+    "src/fonts/economist-defaults.ts",
     # LaDuc template default fonts (bundled, not in registry)
     "src/fonts/laduc-defaults.ts",
     # Shared socials renderer used by multiple template layouts
@@ -980,6 +982,8 @@ def write_remotion_data(
 
         # Merge meta.json layout defaults under stored layoutProps so fields like
         # editorialWordmark are always present even if the LLM didn't emit them.
+        # Economist wordmark/dateline/teasers are LLM-authored content, not defaults.
+        _ECONOMIST_CONTENT_SKIP_KEYS = {"wordmark", "dateline", "teasers"}
         if not is_custom_template(template_id) and layout:
             try:
                 _meta = get_meta(template_id)
@@ -989,10 +993,17 @@ def write_remotion_data(
                     .get(layout, {})
                     .get("defaults", {})
                 )
+                _skip_keys = (
+                    _ECONOMIST_CONTENT_SKIP_KEYS
+                    if str(template_id).lower() == "economist"
+                    else set()
+                )
                 if _layout_defaults:
                     _ar = (getattr(project, "aspect_ratio", None) or "landscape").strip().lower()
                     _resolved_defaults = {}
                     for _k, _v in _layout_defaults.items():
+                        if _k in _skip_keys:
+                            continue
                         if isinstance(_v, dict) and "portrait" in _v and "landscape" in _v:
                             _resolved_defaults[_k] = _v.get(_ar) or _v.get("landscape")
                         else:

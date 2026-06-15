@@ -7,7 +7,9 @@ export type BlackswanLayoutType =
   | "dive_insight"
   | "reactor_code"
   | "flight_path"
-  | "ending_socials";
+  | "data_visualisation"
+  | "ending_socials"
+  | "ticker_table";
 
 export interface BlackswanMetric {
   value: string;
@@ -46,6 +48,31 @@ export interface BlackswanLayoutProps {
   codeLines?: string[];
   phrases?: string[];
   barChartRows?: BlackswanRow[];
+
+  // ── data_visualisation (chart) — shared chartTable data-viz contract ──
+  /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
+  chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
+  /** "line" | "bar" | "histogram" | "auto" (infer from label shape). */
+  chartType?: "auto" | "line" | "bar" | "histogram";
+  /** Prose beside the chart; empty → auto-summary from chartTable. */
+  chartSummary?: string;
+  /** Y-axis tick label overrides (top → bottom). */
+  chartYAxisTicks?: string[];
+  /** X-axis / category caption; empty uses chartTable.headers[0]. */
+  subtitle?: string;
+  /** Y-axis title; empty uses chartTable.headers[1]. */
+  yAxisLabel?: string;
+  /** Chart color overrides. */
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+  barTertiaryColor?: string;
+
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
+
   socials?: Record<string, unknown> | Array<Record<string, unknown>>;
   websiteLink?: string;
   showWebsiteButton?: boolean;

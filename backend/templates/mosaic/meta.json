@@ -1,7 +1,7 @@
 {
   "id": "mosaic",
   "name": "Mosaic",
-  "new_template": true,
+  "new_template": false,
   "description": "Warm stone-and-cream tessera style with terracotta accents and fine linework. Editorial serif typography with structured, handcrafted layouts on soft beige backgrounds.",
   "genres": [
     "History",
@@ -23,6 +23,8 @@
     "mosaic_metric",
     "mosaic_phrases",
     "mosaic_close",
+    "mosaic_data_visualization",
+    "mosaic_ticker",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -319,6 +321,182 @@
         }
       ]
     },
+    "mosaic_data_visualization": {
+      "label": "Data Visualisation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 56,
+          "landscape": 52
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 26
+        },
+        "chartType": "line",
+        "chartSummary": "The pattern shows a steady rise before levelling off.",
+        "chartTable": {
+          "headers": [
+            "Quarter",
+            "Coverage",
+            "Density"
+          ],
+          "rows": [
+            ["Q1", "298", "72"],
+            ["Q2", "308", "68"],
+            ["Q3", "315", "61"],
+            ["Q4", "324", "55"],
+            ["Q5", "318", "59"]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Quarter",
+        "yAxisLabel": "Recorded value",
+        "barPrimaryColor": "#C26240",
+        "barSecondaryColor": "#6B645E"
+      },
+      "scene_defaults": {
+        "title": "The pattern in the numbers",
+        "narration": "Each tile adds to the whole — the data tells its own story.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            { "label": "Auto (infer from data)", "value": "auto" },
+            { "label": "Line", "value": "line" },
+            { "label": "Bar", "value": "bar" },
+            { "label": "Histogram", "value": "histogram" }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "mosaic_ticker": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 50,
+          "landscape": 44
+        },
+        "descriptionFontSize": {
+          "portrait": 22,
+          "landscape": 19
+        },
+        "tickerTitle": "A record of the fragments",
+        "tickerFootnote": "Source: the composition log",
+        "tickerHighlightCol": 5,
+        "tickerTable": {
+          "headers": ["Name", "Shares", "Price", "Cost", "Value", "% Chg"],
+          "rows": [
+            ["Tile A", "25", "$20", "$500", "$600", "+20%"],
+            ["Tile B", "20", "$30", "$600", "$500", "-16.7%"],
+            ["Tile C", "30", "$90", "$2,700", "$3,000", "+11.1%"],
+            ["Tile D", "50", "$100", "$5,000", "$10,000", "+100%"],
+            ["Tile E", "100", "$20", "$2,000", "$1,000", "-50%"]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "The data in view",
+        "narration": "Each entry set in stone as the record shows.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Cell Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table sub-headline",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: numeric or text values. Max 20 rows, max 6 columns.",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based) for gain/loss coloring, e.g. 5 for the 6th column. Set to -1 to disable.",
+          "type": "number"
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Footnote / source attribution",
+          "type": "string"
+        }
+      ]
+    },
     "ending_socials": {
       "label": "Ending / Follow along",
       "defaults": {
@@ -446,6 +624,8 @@
     "mosaic_metric",
     "mosaic_phrases",
     "mosaic_close",
+    "mosaic_data_visualization",
+    "mosaic_ticker",
     "ending_socials"
   ],
   "features": [

@@ -8,8 +8,10 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
+import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
 // import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import { detectInAppBrowser } from "../lib/inAppBrowser";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
@@ -440,7 +442,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 }
 
 export default function Landing() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
@@ -500,8 +502,13 @@ export default function Landing() {
   // Auto-trigger Google sign-in when redirected here with ?signin=1
   useEffect(() => {
     if (searchParams.get("signin") !== "1") return;
-    // Give the Google SDK ~800ms to mount the button, then click it
+    // Give the Google SDK ~800ms to mount the button, then click it. In an in-app
+    // browser the GIS button no-ops, so reveal the escape UI instead of clicking.
     const t = setTimeout(() => {
+      if (detectInAppBrowser().isInApp) {
+        googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
       const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
       btn?.click();
     }, 800);
@@ -536,10 +543,29 @@ export default function Landing() {
 
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const isInApp = detectInAppBrowser().isInApp;
 
   const handleGenerateClick = () => {
+    // Inside an in-app browser the hidden Google (GIS) button silently no-ops,
+    // because Google blocks OAuth in embedded webviews. Reveal the sign-in block
+    // so the GoogleAuthButton's escape/instructions UI is usable instead.
+    if (isInApp) {
+      googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
     btn?.click();
+  };
+
+  // "Explore the MCP connector" CTA: go straight there if signed in, otherwise
+  // start Google sign-in and route to /mcp-connector once authenticated.
+  const handleExploreMcp = () => {
+    if (user) {
+      navigate("/mcp-connector");
+      return;
+    }
+    localStorage.setItem("b2v_pending_mcp", "1");
+    handleGenerateClick();
   };
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
@@ -564,6 +590,12 @@ export default function Landing() {
         }
       }
 
+      if (localStorage.getItem("b2v_pending_mcp")) {
+        localStorage.removeItem("b2v_pending_mcp");
+        navigate("/mcp-connector");
+        return;
+      }
+
       navigate("/dashboard");
     } catch (err: any) {
       if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
@@ -584,6 +616,11 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       setAccountDeletedOpen(false);
       setPendingCredential(null);
+      if (localStorage.getItem("b2v_pending_mcp")) {
+        localStorage.removeItem("b2v_pending_mcp");
+        navigate("/mcp-connector");
+        return;
+      }
       navigate("/dashboard");
     } catch (err: any) {
       showError(getErrorMessage(err, "Failed to reactivate account."));
@@ -720,8 +757,9 @@ export default function Landing() {
             Turn blog posts and updates into narrated videos in minutes.
           </p>
 
-          {/* Hidden Google button — triggered programmatically on form submit */}
-          <div ref={googleBtnRef} className="hidden">
+          {/* Hidden Google button — triggered programmatically on form submit.
+              In an in-app browser it's revealed so the escape/instructions UI shows. */}
+          <div ref={googleBtnRef} className={isInApp ? "mt-4 flex justify-center" : "hidden"}>
             <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}
@@ -759,7 +797,6 @@ export default function Landing() {
 
       <PlatformShowcaseSection />
 
-
       <UserReviewsSection />
 
       <LandingDemoSection demos={demos} />
@@ -768,6 +805,13 @@ export default function Landing() {
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
           <FullTemplateShowcase />
+        </div>
+      </section>
+
+      {/* ─── Connect to AI (MCP) ─── */}
+      <section className="py-14 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <MCPConnectorShowcase onExplore={handleExploreMcp} />
         </div>
       </section>
 
@@ -1096,8 +1140,8 @@ export default function Landing() {
             Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first 3 videos are free. Then from $2.80/video pay-as-you-go, $25/month
-            (or $20/mo annual), $50/month with unlimited AI edit & image generation,
+            Your first 3 videos are free. Then from $2.80/video pay-as-you-go, $35/month
+            (or $28/mo annual), $60/month with unlimited AI edit & image generation,
             or custom plans for enterprise teams.
           </p>
 
@@ -1114,16 +1158,16 @@ export default function Landing() {
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
-              <p className="text-3xl font-bold text-gray-900">$25<span className="text-sm font-normal text-gray-400">/mo</span></p>
-              <p className="text-xs text-gray-400 mt-1">or $20/mo annual</p>
+              <p className="text-3xl font-bold text-gray-900">$35<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">or $28/mo annual</p>
             </div>
             <div className="relative px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/60" style={{ background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.10), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.95)" }}>
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                 <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Best value</span>
               </div>
               <p className="text-sm font-medium text-gray-900 mb-1">Pro</p>
-              <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
-              <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
+              <p className="text-3xl font-bold text-gray-900">$60<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">or $48/mo annual</p>
             </div>
             <div className="px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/50" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
               <p className="text-sm font-medium text-gray-900 mb-1">Customized</p>

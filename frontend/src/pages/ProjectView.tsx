@@ -38,7 +38,11 @@ import {
   getProjectTemplateChangeStatus,
   regenerateScript,
   getRegenerateScriptStatus,
+  getRegenerateScriptPreview,
+  verifyRegenerateScript,
+  rejectRegenerateScript,
   type ProjectRegenerateScriptJob,
+  type RegenerateScriptPreviewScene,
   generateEmbedToken,
   type TemplateMeta,
   type CraftedTemplateItem,
@@ -66,9 +70,11 @@ import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import RegenerateScriptModal from "../components/RegenerateScriptModal";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
+import VerifyScriptModal from "../components/VerifyScriptModal";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
+import VoiceOperationModal from "../components/VoiceOperationModal";
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
@@ -179,6 +185,50 @@ const PIPELINE_STEPS_UPLOAD = [
   { id: 2, label: "Script" },
   { id: 3, label: "Scenes" },
 ] as const;
+
+// Tips shown while generation runs — teach the editing capabilities available
+// once the video is ready (rotated one at a time in <GenerationTips />).
+const GENERATION_TIPS = [
+  { tab: "Edit Scenes", text: "Refine any scene from the Edit Scenes tab — use AI-assisted changes or edit the text and layout manually." },
+  { tab: "Script", text: "Not happy with the narration? Regenerate the whole script from the Script tab with your own instructions." },
+  { tab: "Images", text: "Add or remove images per scene from the Images tab — you can also drop in your own logo." },
+  { tab: "Settings", text: "Switch the template, colors, and fonts anytime from the Settings tab." },
+  { tab: "Edit Scenes", text: "Edit a scene's narration and regenerate just that voiceover." },
+  { tab: "Edit Scenes", text: "Reorder, duplicate, or delete scenes from the Edit Scenes tab to shape the final flow." },
+] as const;
+
+// Rotating product tips for the generation loading screen. Self-contained so its
+// hooks stay stable (not re-created inside renderGenerationLoader on every render).
+function GenerationTips() {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx((i) => (i + 1) % GENERATION_TIPS.length);
+        setVisible(true);
+      }, 250);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
+  const tip = GENERATION_TIPS[idx];
+  return (
+    <div className="mt-6 pt-5 border-t border-gray-100">
+      <div
+        className="min-h-[3.5rem] flex flex-col items-center justify-center gap-1.5 px-2"
+        style={{ opacity: visible ? 1 : 0, transition: "opacity 0.25s ease" }}
+      >
+        <span className="text-[10px] font-semibold tracking-wide text-purple-500 uppercase">
+          💡 {tip.tab}
+        </span>
+        <p className="text-sm font-medium text-gray-600 leading-relaxed max-w-xs text-center">
+          {tip.text}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 // ─── URL Helpers ─────────────────────────────────────────────
 
@@ -477,7 +527,20 @@ export default function ProjectView() {
   const templateRelayoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [regenerateScriptJob, setRegenerateScriptJob] = useState<ProjectRegenerateScriptJob | null>(null);
   const [showRegenerateScriptConfirm, setShowRegenerateScriptConfirm] = useState(false);
+  // The "Regenerate" action at the verify step reuses the same modal, pre-filled with the
+  // job's prior instruction; on confirm it re-runs stage A instead of creating a new job.
+  const [showRegenerateScriptRetry, setShowRegenerateScriptRetry] = useState(false);
+  const [regenerateScriptVerifying, setRegenerateScriptVerifying] = useState(false);
+  // Previous (pre-regeneration) scenes for the verify popup's before/after comparison.
+  // null = loading; [] = loaded with no previous scenes (treat all as new).
+  const [regenScriptPreviousScenes, setRegenScriptPreviousScenes] =
+    useState<RegenerateScriptPreviewScene[] | null>(null);
   const regenerateScriptPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // True once the user has clicked "Proceed". The DB write that flips the job from
+  // "awaiting_review" to "running" may not be visible to the very next poll, so we ignore
+  // any stale "awaiting_review" reads while this is set — otherwise the UI bounces back to
+  // the verify step. Reset whenever a fresh stage-A run starts (initiate / regenerate).
+  const regenerateScriptProceededRef = useRef(false);
   const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
   useEffect(() => {
@@ -541,6 +604,12 @@ export default function ProjectView() {
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
   const PIPELINE_STEPS = isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL;
+
+  // Page-level voiceover add/change/delete progress modal (survives tab switches
+  // and page refresh — see VoiceOperationModal). Set to kick it off instantly.
+  const [voiceOpKickstart, setVoiceOpKickstart] = useState<
+    { kind: "voice_change" | "delete"; total: number } | null
+  >(null);
 
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
@@ -1121,12 +1190,19 @@ export default function ProjectView() {
           await loadProject();
         } else if (job.status === "failed") {
           stopTemplateRelayoutPolling();
+          setTemplateRelayoutJob(null);
+          await loadProject();
+          showError(
+            job.error_message ||
+              "We faced an unforeseen error while processing your request. Please retry — your video count has not been deducted.",
+            { variant: "pipeline" }
+          );
         }
       } catch {
         stopTemplateRelayoutPolling();
       }
     }, 2000);
-  }, [loadProject, projectId, stopTemplateRelayoutPolling]);
+  }, [loadProject, projectId, stopTemplateRelayoutPolling, showError]);
 
   const stopRegenerateScriptPolling = useCallback(() => {
     if (regenerateScriptPollRef.current) {
@@ -1135,6 +1211,17 @@ export default function ProjectView() {
     }
   }, []);
 
+  // Load the previous scenes for the verify popup. On error, fall back to [] so the popup
+  // isn't stuck on a loading spinner (it then treats every scene as new, no comparison).
+  const loadRegenerateScriptPreview = useCallback(async () => {
+    try {
+      const res = await getRegenerateScriptPreview(projectId);
+      setRegenScriptPreviousScenes(res.data?.previous_scenes ?? []);
+    } catch {
+      setRegenScriptPreviousScenes([]);
+    }
+  }, [projectId]);
+
   const startRegenerateScriptPolling = useCallback(() => {
     stopRegenerateScriptPolling();
     regenerateScriptPollRef.current = setInterval(async () => {
@@ -1142,8 +1229,24 @@ export default function ProjectView() {
         const res = await getRegenerateScriptStatus(projectId);
         const job = res.data;
         if (!job) return;
+        // After the user proceeds, the persisted status may briefly still read
+        // "awaiting_review" (DB write not yet visible to this read). Ignore those stale
+        // reads so the UI doesn't bounce back to the verify step — keep polling until the
+        // status catches up to running/completed/failed.
+        if (job.status === "awaiting_review" && regenerateScriptProceededRef.current) {
+          return;
+        }
         setRegenerateScriptJob(job);
-        if (job.status === "completed") {
+        if (job.status === "awaiting_review") {
+          // Paused for verification — stop polling, load the new scenes, and fetch the previous
+          // scenes so the verify popup can show the before/after comparison.
+          stopRegenerateScriptPolling();
+          await loadProject();
+          setRegenerateScriptJob(job);
+          loadRegenerateScriptPreview();
+        } else if (job.status === "completed") {
+          regenerateScriptProceededRef.current = false;
+          setRegenScriptPreviousScenes(null);
           stopRegenerateScriptPolling();
           // Clear any pipeline state that may have been set by a spurious auto-start
           // (e.g. if the project was stuck in "scripted" on mount and kickOffGeneration fired).
@@ -1152,6 +1255,8 @@ export default function ProjectView() {
           await loadProject();
           setRegenerateScriptJob(null);
         } else if (job.status === "failed") {
+          regenerateScriptProceededRef.current = false;
+          setRegenScriptPreviousScenes(null);
           stopRegenerateScriptPolling();
           stopPolling();
           setPipelineRunning(false);
@@ -1159,7 +1264,7 @@ export default function ProjectView() {
           await loadProject();
           showError(
             job.error_message
-              ? `We're sorry — we couldn't regenerate your script. Your previous version has been restored and no video credit was deducted. (${job.error_message})`
+              ? `We're sorry — we couldn't regenerate your script. Your previous version has been restored and no video credit was deducted.`
               : "We're sorry — something went wrong while regenerating your script. Your previous version has been restored and no video credit was deducted. Please try again.",
             { variant: "pipeline" }
           );
@@ -1168,7 +1273,7 @@ export default function ProjectView() {
         stopRegenerateScriptPolling();
       }
     }, 2000);
-  }, [loadProject, projectId, stopRegenerateScriptPolling, showError]);
+  }, [loadProject, projectId, stopRegenerateScriptPolling, showError, loadRegenerateScriptPreview]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1216,13 +1321,16 @@ export default function ProjectView() {
         setRegenerateScriptJob(res.data);
         if (res.data.status === "queued" || res.data.status === "running") {
           startRegenerateScriptPolling();
+        } else if (res.data.status === "awaiting_review") {
+          // Resume the verify popup on reload / navigating back into the project.
+          loadRegenerateScriptPreview();
         }
       } catch {
         // ignore
       }
     };
     refreshRegenerateScriptJob();
-  }, [projectId, startRegenerateScriptPolling]);
+  }, [projectId, startRegenerateScriptPolling, loadRegenerateScriptPreview]);
 
   // Handle ?purchased=true redirect from Stripe per-video checkout
   useEffect(() => {
@@ -2092,16 +2200,57 @@ export default function ProjectView() {
     if (!project) return;
     try {
       const res = await regenerateScript(project.id, { user_instruction: instruction });
+      regenerateScriptProceededRef.current = false; // fresh run — the verify pause is expected
       setRegenerateScriptJob(res.data);
       startRegenerateScriptPolling();
     } catch (err) {
       const status = err && typeof err === "object" && "response" in err
         ? (err as { response?: { status?: number } }).response?.status
         : undefined;
-      showError(
-        getErrorMessage(err, "Failed to start script regeneration."),
-        status === 403 ? { showUpgrade: true } : undefined
-      );
+      // 422 = out-of-context instruction; the modal already shows it inline, so don't also toast it.
+      if (status !== 422) {
+        showError(
+          getErrorMessage(err, "Failed to start script regeneration."),
+          status === 403 ? { showUpgrade: true } : undefined
+        );
+      }
+      throw err; // let the modal surface the error inline
+    }
+  };
+
+  // Verify step — "Proceed": approve the regenerated script and resume scene generation.
+  const handleVerifyRegenerateScript = async () => {
+    if (!project) return;
+    setRegenerateScriptVerifying(true);
+    regenerateScriptProceededRef.current = true; // ignore stale "awaiting_review" reads from now on
+    try {
+      const res = await verifyRegenerateScript(project.id);
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to continue script generation."));
+    } finally {
+      setRegenerateScriptVerifying(false);
+    }
+  };
+
+  // Verify step — "Regenerate" (modal confirm): discard and re-run stage A with the
+  // (optionally edited) instruction. No credit is charged for re-runs.
+  const applyRejectRegenerateScript = async (instruction: string) => {
+    if (!project) return;
+    try {
+      const res = await rejectRegenerateScript(project.id, { user_instruction: instruction });
+      regenerateScriptProceededRef.current = false; // re-run reaches the verify pause again
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+      // 422 = out-of-context instruction; the modal already shows it inline, so don't also toast it.
+      if (status !== 422) {
+        showError(getErrorMessage(err, "Failed to regenerate the script."));
+      }
       throw err; // let the modal surface the error inline
     }
   };
@@ -2208,7 +2357,15 @@ export default function ProjectView() {
   };
 
   const tabs: ProjectTabItem[] = [
-    { id: "scenes", label: "Scenes" },
+    {
+      id: "scenes",
+      label: "Edit Scenes",
+      icon: (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      ),
+    },
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
     ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
@@ -2649,9 +2806,13 @@ export default function ProjectView() {
     templateRelayoutJob?.status === "running" || templateRelayoutJob?.status === "queued";
   // Also treat the project's own "script_regenerating" status as running so the loader stays
   // visible during the brief window before the job poll loads (and on resume after reload).
+  // "awaiting_review" must keep the loader up too: at the running→awaiting_review transition the
+  // job poll sets the status before loadProject refreshes project.status, so without this the
+  // loader would briefly drop out and flash the completed video.
   const regenerateScriptRunning =
     regenerateScriptJob?.status === "running" ||
     regenerateScriptJob?.status === "queued" ||
+    regenerateScriptJob?.status === "awaiting_review" ||
     project.status === "script_regenerating";
   const statusForBadge = templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
   const renderGenerationLoader = (mode: "pipeline" | "template-relayout" | "regenerate-script" = "pipeline") => {
@@ -2663,23 +2824,34 @@ export default function ProjectView() {
         : 0;
     const relayoutProgress = Math.max(8, Math.min(98, Math.round(relayoutProgressRaw)));
     // Regenerate-script is shown as discrete backend phases instead of a percentage.
+    // The "verify" step is a user-gated pause between the script and scene stages.
     const REGEN_SCRIPT_STEPS = [
       { id: "analyzing_instruction", label: "Analyzing instruction" },
       { id: "generating_script", label: "Generating script" },
+      { id: "verify", label: "Verify script" },
       { id: "generating_scenes", label: "Generating scenes" },
     ] as const;
+    const regenScriptAwaitingReview = regenerateScriptJob?.status === "awaiting_review";
     const regenScriptStepId =
-      regenerateScriptJob?.current_step ??
-      (regenerateScriptJob && regenerateScriptJob.total_scenes > 0
-        ? "generating_scenes"
-        : regenerateScriptJob?.status === "queued"
-        ? "analyzing_instruction"
-        : "generating_script");
+      regenScriptAwaitingReview
+        ? "verify"
+        : regenerateScriptJob?.current_step ??
+          (regenerateScriptJob && regenerateScriptJob.total_scenes > 0
+            ? "generating_scenes"
+            : regenerateScriptJob?.status === "queued"
+            ? "analyzing_instruction"
+            : "generating_script");
     const regenScriptCompleted = regenerateScriptJob?.status === "completed";
     const regenScriptStepIdx =
       regenScriptCompleted
         ? REGEN_SCRIPT_STEPS.length
         : Math.max(0, REGEN_SCRIPT_STEPS.findIndex((step) => step.id === regenScriptStepId));
+    // Fill for the progress bar above the step circles. Each step maps to a fixed percentage
+    // (the last step stays below 100% — it only completes when the run actually finishes).
+    const REGEN_SCRIPT_PROGRESS = [15, 40, 60, 80];
+    const regenScriptProgress = regenScriptCompleted
+      ? 100
+      : REGEN_SCRIPT_PROGRESS[Math.min(regenScriptStepIdx, REGEN_SCRIPT_PROGRESS.length - 1)];
     const stepLabels =
       mode === "template-relayout" || mode === "regenerate-script"
         ? []
@@ -2718,41 +2890,50 @@ export default function ProjectView() {
             </div>
           )}
 
-          {/* Regenerate-script: active step is highlighted, completed steps show a tick. */}
+          {/* Regenerate-script: a standalone progress bar (fills purple as the run proceeds)
+              above a row of independent step circles — the circles are NOT connected. */}
           {mode === "regenerate-script" && (
-            <div className="flex items-center justify-center gap-4 sm:gap-10 mb-8 mt-2">
-              {REGEN_SCRIPT_STEPS.map(({ id, label }, i) => {
-                const isDone = i < regenScriptStepIdx;
-                const isActive = i === regenScriptStepIdx;
-                return (
-                  <div key={id} className="flex flex-col items-center gap-2">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-                        isDone
-                          ? "bg-green-100 text-green-600"
-                          : isActive
-                          ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
-                          : "bg-gray-100 text-gray-400"
-                      }`}
-                    >
-                      {isDone ? (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        i + 1
-                      )}
+            <div className="mb-8 mt-2">
+              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
+                <div
+                  className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${regenScriptProgress}%` }}
+                />
+              </div>
+              <div className="flex items-start justify-between">
+                {REGEN_SCRIPT_STEPS.map(({ id, label }, i) => {
+                  const isDone = i < regenScriptStepIdx;
+                  const isActive = i === regenScriptStepIdx;
+                  return (
+                    <div key={id} className="flex flex-col items-center gap-2 w-16 sm:w-20">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                          isDone
+                            ? "bg-green-100 text-green-600"
+                            : isActive
+                            ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {isDone ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <span
+                        className={`text-[11px] sm:text-xs font-medium text-center leading-tight ${
+                          isDone ? "text-green-600" : isActive ? "text-purple-600" : "text-gray-400"
+                        }`}
+                      >
+                        {label}
+                      </span>
                     </div>
-                    <span
-                      className={`text-xs font-medium ${
-                        isDone ? "text-green-600" : isActive ? "text-purple-600" : "text-gray-400"
-                      }`}
-                    >
-                      {label}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -2812,18 +2993,32 @@ export default function ProjectView() {
             </div>
           )}
 
-          <div className="flex items-center justify-center gap-2">
-            <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-            <span className="text-xs text-gray-400">
-              {mode === "regenerate-script"
-                ? regenScriptCompleted
-                  ? "Regeneration complete..."
-                  : `${REGEN_SCRIPT_STEPS[regenScriptStepIdx]?.label ?? "Finishing up"}...`
-                : mode === "template-relayout"
-                ? `${progress}% complete`
-                : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
-            </span>
-          </div>
+          {mode === "regenerate-script" && regenScriptAwaitingReview ? (
+            /* Verify step — paused for review. Actions live in the (non-closeable) verify popup. */
+            <div className="flex flex-col items-center gap-1.5">
+              <span className="text-sm text-gray-700 font-medium">Verify the script</span>
+              <span className="text-xs text-gray-400 max-w-xs">
+                Review the changes in the popup, then proceed or regenerate.
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+              <span className="text-xs text-gray-400">
+                {mode === "regenerate-script"
+                  ? regenScriptCompleted
+                    ? "Regeneration complete..."
+                    : `${REGEN_SCRIPT_STEPS[regenScriptStepIdx]?.label ?? "Finishing up"}...`
+                  : mode === "template-relayout"
+                  ? `${progress}% complete`
+                  : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
+              </span>
+            </div>
+          )}
+
+          {!(mode === "regenerate-script" && regenScriptAwaitingReview) && (
+            <GenerationTips />
+          )}
 
           {hasError && (
             <div className="mt-6">
@@ -2902,6 +3097,8 @@ export default function ProjectView() {
               <p className="mt-6 text-sm text-gray-400">
                 Feel free to browse other tabs — just don't close this one.
               </p>
+
+              <GenerationTips />
 
               {hasError && (
                 <div className="mt-4">
@@ -3317,6 +3514,21 @@ export default function ProjectView() {
         secondsRemaining={offer.secondsRemaining}
         isWindowLive={offer.isWindowLive}
         onExpand={offer.expand}
+      />
+
+      {/* Page-level voiceover add/change/delete progress — survives tab switches and
+          page refresh (it re-detects an in-flight op from the server on mount). */}
+      <VoiceOperationModal
+        projectId={projectId}
+        onComplete={async () => {
+          await loadProject();
+          setVoiceOpKickstart(null);
+        }}
+        onError={(msg) => {
+          setVoiceOpKickstart(null);
+          showError(msg);
+        }}
+        kickstart={voiceOpKickstart}
       />
 
       {showReviewPopup && ReactDOM.createPortal(
@@ -3768,6 +3980,34 @@ export default function ProjectView() {
         }}
       />
 
+      {/* Verify-step "Regenerate": re-run the script (optionally with an edited instruction),
+          pre-filled with the instruction the paused job used. */}
+      <RegenerateScriptModal
+        open={showRegenerateScriptRetry}
+        projectName={project?.name}
+        initialInstruction={regenerateScriptJob?.user_instruction ?? ""}
+        confirmLabel="Regenerate"
+        // Re-running the already-paid paused job — no credit is charged (the
+        // reject endpoint does not deduct), so don't show the credit warning.
+        showsCreditWarning={false}
+        onClose={() => setShowRegenerateScriptRetry(false)}
+        onConfirm={async (instruction) => {
+          await applyRejectRegenerateScript(instruction);
+        }}
+      />
+
+      {/* Non-closeable verify popup — walks the user through new-vs-old scene comparisons.
+          Shown whenever the regeneration is paused awaiting review (persists across reloads). */}
+      <VerifyScriptModal
+        open={regenerateScriptJob?.status === "awaiting_review" && !showRegenerateScriptRetry}
+        projectName={project?.name}
+        newScenes={project?.scenes ?? []}
+        previousScenes={regenScriptPreviousScenes}
+        verifying={regenerateScriptVerifying}
+        onProceed={handleVerifyRegenerateScript}
+        onRegenerate={() => setShowRegenerateScriptRetry(true)}
+      />
+
       <ConfirmDeleteModal
         open={imageAssetDeletePending != null}
         onClose={() => setImageAssetDeletePending(null)}
@@ -3883,11 +4123,15 @@ export default function ProjectView() {
                     {templateChangePickerTab === "builtin" ? (
                       templateMetas.length > 0 ? (
                         <div className="grid grid-cols-3 gap-4">
-                          {templateMetas.map((t) => {
+                          {[...templateMetas].sort((a, b) => {
+                            const rank = (t: typeof a) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+                            return rank(a) - rank(b);
+                          }).map((t) => {
                             const PreviewComp = TEMPLATE_PREVIEWS[t.id];
                             const desc = TEMPLATE_DESCRIPTIONS[t.id];
                             const isSel = templateChangeDraft === t.id;
                             const isNew = t.new_template === true;
+                            const isPopular = t.popular_template === true;
                             return (
                               <button
                                 key={t.id}
@@ -3898,6 +4142,8 @@ export default function ProjectView() {
                                     ? "ring-2 ring-purple-500 ring-offset-1 ring-offset-gray-50"
                                     : isNew
                                     ? "ring-1 ring-purple-400/60 hover:ring-purple-500"
+                                    : isPopular
+                                    ? "ring-1 ring-amber-400/60 hover:ring-amber-500"
                                     : "ring-1 ring-gray-200/60 hover:ring-purple-300/60"
                                 }`}
                               >
@@ -3912,6 +4158,11 @@ export default function ProjectView() {
                                   {isNew && (
                                     <div className="absolute top-0.5 left-0.5 z-[1]">
                                       <NewTemplateBadge />
+                                    </div>
+                                  )}
+                                  {!isNew && isPopular && (
+                                    <div className="absolute top-0.5 left-0.5 z-[1]">
+                                      <PopularTemplateBadge />
                                     </div>
                                   )}
                                 </div>
@@ -4529,6 +4780,7 @@ export default function ProjectView() {
             onRegenerateScript={() => setShowRegenerateScriptConfirm(true)}
             isRegenerating={regenerateScriptRunning}
             disabled={!["generated", "done"].includes(project.status)}
+            onEditScene={(scene) => setSceneEditModal(scene)}
           />
         )}
 
@@ -4555,7 +4807,7 @@ export default function ProjectView() {
                       {project.name}
                     </h2>
                     <span className="text-xs text-gray-400">
-                      {project.scenes.length} scenes — {imageAssets.length} images. Drag to reorder.
+                      {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its text, narration, or layout. Drag to reorder.
                     </span>
                   </div>
                 </div>
@@ -5026,22 +5278,6 @@ export default function ProjectView() {
                 </div>
                 </div>
 
-                {/* Scene edit modal */}
-                {sceneEditModal && (
-                  <SceneEditModal
-                    open={!!sceneEditModal}
-                    onClose={() => setSceneEditModal(null)}
-                    scene={sceneEditModal}
-                    project={project}
-                    imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
-                    availableImageItems={activeImageAssets.map((asset) => ({
-                      asset,
-                      url: resolveAssetUrl(asset, project.id),
-                    }))}
-                    onSaved={loadProject}
-                  />
-                )}
-
                 <input
                   ref={localSceneImageInputRef}
                   type="file"
@@ -5384,6 +5620,23 @@ export default function ProjectView() {
           </div>
         )}
 
+        {/* Scene edit modal — rendered outside the tab blocks so it opens from both
+            the Edit Scenes tab and the Script tab. */}
+        {sceneEditModal && (
+          <SceneEditModal
+            open={!!sceneEditModal}
+            onClose={() => setSceneEditModal(null)}
+            scene={sceneEditModal}
+            project={project}
+            imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
+            availableImageItems={activeImageAssets.map((asset) => ({
+              asset,
+              url: resolveAssetUrl(asset, project.id),
+            }))}
+            onSaved={loadProject}
+          />
+        )}
+
        {activeTab === "settings" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-visible">
           {/* 1. Template */}
@@ -5411,18 +5664,19 @@ export default function ProjectView() {
           />
           </div>
 
-          {/* 2. Voiceover (only when project has a voice) */}
-          {project.voice_gender !== "none" ? (
+          {/* 2. Voiceover — Add (when muted) / Change + Delete (when present) */}
+          {(
             <>
               <ProjectVoiceSettingsCard
                 projectId={project.id}
                 voiceGender={project.voice_gender}
                 voiceAccent={project.voice_accent}
                 customVoiceId={project.custom_voice_id}
+                voiceEmotion={project.voice_emotion ?? null}
                 isPro={isPro}
-                onChanged={loadProject}
                 onError={(msg) => showError(msg)}
                 onUpgrade={() => setShowUpgrade(true)}
+                onOperationStarted={(op) => setVoiceOpKickstart(op)}
               />
 
               {/* 3. Colors + Font family (with voiceover present) */}
@@ -5680,268 +5934,6 @@ export default function ProjectView() {
                         "Apply to all Scenes"
                       )}
                     </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            /* No voiceover: Font sizes is 2nd, Colors+Font is 3rd */
-            <>
-              {/* 2. Font sizes (no voiceover) */}
-              <div>
-                <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
-                <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
-                <div className="glass-card p-4 flex flex-col gap-2">
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                      <span>Title font size</span>
-                      <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
-                    </label>
-                    <input
-                      type="range"
-                      min={20}
-                      max={200}
-                      step={1}
-                      value={globalTitleSize}
-                      onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
-                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                      <span>Display text size</span>
-                      <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
-                    </label>
-                    <input
-                      type="range"
-                      min={12}
-                      max={80}
-                      step={1}
-                      value={globalDescSize}
-                      onChange={(e) => setGlobalDescSize(Number(e.target.value))}
-                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      disabled={savingGlobalTypography}
-                      onClick={async () => {
-                        setSavingGlobalTypography(true);
-                        try {
-                          await bulkUpdateSceneTypography(project.id, {
-                            title_font_size: globalTitleSize,
-                            description_font_size: globalDescSize,
-                          });
-                          await loadProject();
-                        } catch (err) {
-                          showError(getErrorMessage(err, "Failed to update typography."));
-                        } finally {
-                          setSavingGlobalTypography(false);
-                        }
-                      }}
-                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                    >
-                      {savingGlobalTypography ? (
-                        <>
-                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Applying…
-                        </>
-                      ) : (
-                        "Apply to all Scenes"
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Colors + Font family (no voiceover) */}
-              <div>
-                <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
-                <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
-                <div className="glass-card p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 overflow-visible relative z-30">
-                  {/* Colors */}
-                  <div className="flex flex-col gap-5">
-                    <p className="text-xs font-semibold text-gray-900">Colors</p>
-                    {(
-                      [
-                        { label: "Accent color", value: settingsAccentColor, setter: setSettingsAccentColor, hint: "Buttons, highlights, and brand color" },
-                        { label: "Text color", value: settingsTextColor, setter: setSettingsTextColor, hint: "Primary on-screen text" },
-                        { label: "Background color", value: settingsBgColor, setter: setSettingsBgColor, hint: "Scene background" },
-                      ] as const
-                    ).map(({ label, value, setter, hint }) => (
-                      <div key={label} className="flex items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-700">{label}</p>
-                          <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div
-                            className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm cursor-pointer overflow-hidden"
-                            style={{ backgroundColor: value }}
-                            onClick={() => (document.getElementById(`color-input-${label}-nv`) as HTMLInputElement)?.click()}
-                          >
-                            <input
-                              id={`color-input-${label}-nv`}
-                              type="color"
-                              value={value}
-                              onChange={(e) => setter(e.target.value)}
-                              className="opacity-0 w-full h-full cursor-pointer"
-                            />
-                          </div>
-                          <input
-                            type="text"
-                            value={value}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setter(v);
-                            }}
-                            className="w-24 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300 bg-white"
-                            placeholder="#000000"
-                            maxLength={7}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        disabled={savingColors}
-                        onClick={async () => {
-                          setSavingColors(true);
-                          try {
-                            await updateProject(project.id, {
-                              accent_color: settingsAccentColor,
-                              bg_color: settingsBgColor,
-                              text_color: settingsTextColor,
-                            });
-                            await loadProject();
-                          } catch (err) {
-                            showError(getErrorMessage(err, "Failed to save colors."));
-                          } finally {
-                            setSavingColors(false);
-                          }
-                        }}
-                        className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                      >
-                        {savingColors ? (
-                          <>
-                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Saving…
-                          </>
-                        ) : (
-                          "Save colors"
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Font family */}
-                  <div className="flex flex-col gap-4 sm:border-l sm:border-gray-100 sm:pl-6">
-                    <div>
-                      <p className="text-xs font-semibold text-gray-900">Font family</p>
-                      <p className="text-[11px] text-gray-400 mt-0.5">Leave as Default to use the template's built-in fonts.</p>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <div ref={fontDropdownRef} className="relative w-full max-w-sm">
-                        <button
-                          type="button"
-                          onClick={() => setShowFontDropdown((v) => !v)}
-                          className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between"
-                          data-action="font-selector"
-                        >
-                          <span>
-                            {settingsFontId
-                              ? FONT_REGISTRY[settingsFontId as keyof typeof FONT_REGISTRY]?.label || settingsFontId
-                              : "Default (template)"}
-                          </span>
-                          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {showFontDropdown && (
-                          <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 max-h-72 overflow-y-auto">
-                            <div className="grid grid-cols-1 gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSettingsFontId(null);
-                                  setShowFontDropdown(false);
-                                }}
-                                className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
-                                  !settingsFontId ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-700"
-                                }`}
-                              >
-                                Default
-                              </button>
-                              {Object.values(FONT_REGISTRY)
-                                .filter((opt) => opt.id !== "fira_code")
-                                .map((opt) => (
-                                  <button
-                                    key={opt.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setSettingsFontId(opt.id);
-                                      setShowFontDropdown(false);
-                                    }}
-                                    className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
-                                      settingsFontId === opt.id
-                                        ? "bg-purple-50 text-purple-700"
-                                        : "hover:bg-gray-50 text-gray-700"
-                                    }`}
-                                  >
-                                    {opt.label}
-                                  </button>
-                                ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {settingsFontId && (
-                      <div className="mt-2">
-                        <p className="text-[11px] text-gray-500 mb-1">Preview</p>
-                        <div
-                          className="px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
-                          style={{
-                            fontFamily:
-                              resolveFontFamily(settingsFontId) ??
-                              "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                          }}
-                        >
-                          The quick brown fox jumps over the lazy dog.
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        disabled={savingFontFamily}
-                        onClick={async () => {
-                          setSavingFontFamily(true);
-                          try {
-                            await updateProject(project.id, {
-                              font_family: settingsFontId || null,
-                            });
-                            await loadProject();
-                          } catch (err) {
-                            showError(getErrorMessage(err, "Failed to save font family."));
-                          } finally {
-                            setSavingFontFamily(false);
-                          }
-                        }}
-                        className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                      >
-                        {savingFontFamily ? (
-                          <>
-                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Saving…
-                          </>
-                        ) : (
-                          "Save font"
-                        )}
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>

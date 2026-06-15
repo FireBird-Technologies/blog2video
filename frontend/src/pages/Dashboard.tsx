@@ -283,7 +283,8 @@ export default function Dashboard() {
     template?: string,
     videoStyle?: VideoStyleId,
     videoLength?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
-    contentLanguage?: string | null
+    contentLanguage?: string | null,
+    voiceEmotion?: string
   ) => {
     setCreating(true);
     try {
@@ -295,6 +296,7 @@ export default function Dashboard() {
           name,
           voice_gender: voiceGender,
           voice_accent: voiceAccent,
+          voice_emotion: voiceEmotion,
           accent_color: accentColor,
           bg_color: bgColor,
           text_color: textColor,
@@ -326,7 +328,8 @@ export default function Dashboard() {
           template,
           videoStyle,
           videoLength,
-          contentLanguage
+          contentLanguage,
+          voiceEmotion
         );
       }
 
@@ -472,7 +475,7 @@ export default function Dashboard() {
             onClick={handleUpgrade}
             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
           >
-            Upgrade to Pro -- $50/mo
+            Upgrade to Pro -- $60/mo
           </button>
         )}
       </div>

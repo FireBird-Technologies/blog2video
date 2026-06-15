@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { CipherRing, CodeFragments, RainBurst, ScanlinesOverlay } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
@@ -116,6 +117,12 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <MatrixBackground bgColor={bgColor} opacity={0.25 * bgOpacity} fontFamily={resolvedFontFamily} />
+
+      {/* Decorative artifacts — rain surge, cipher dial, readouts, CRT texture for the outro. */}
+      <RainBurst accentColor={accent} centerX={50} widthPct={85} columns={14} startFrame={0} seed={47} />
+      <CipherRing accentColor={accent} scale={0.85} startFrame={Math.max(0, socialStart - 6)} seed={49} />
+      <CodeFragments accentColor={accent} count={8} seed={75} startFrame={14} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.8} />
 
       {/* 1. TOP GROUP: Moved significantly lower toward center */}
       <div style={{

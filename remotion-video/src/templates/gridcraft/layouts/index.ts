@@ -7,7 +7,9 @@ import { BentoCompare } from "./BentoCompare";
 import { BentoCode } from "./BentoCode";
 import { PullQuote } from "./PullQuote";
 import { BentoSteps } from "./BentoSteps";
+import { GridcraftDataViz } from "./GridcraftDataViz";
 import { EndingSocials } from "./EndingSocials";
+import { GridcraftTickerTable } from "./GridcraftTickerTable";
 import { GridcraftLayoutType } from "../types";
 
 export const GRIDCRAFT_LAYOUT_REGISTRY: Record<
@@ -23,10 +25,12 @@ export const GRIDCRAFT_LAYOUT_REGISTRY: Record<
   bento_code: BentoCode,
   pull_quote: PullQuote,
   bento_steps: BentoSteps,
+  data_visualisation: GridcraftDataViz,
   ending_socials: EndingSocials,
-  
+  ticker_table: GridcraftTickerTable,
+
   // Backward compatibility alias if needed
-  intro: BentoHero, 
+  intro: BentoHero,
 };
 
 export * from "./BentoHero";
@@ -38,4 +42,5 @@ export * from "./BentoCompare";
 export * from "./BentoCode";
 export * from "./PullQuote";
 export * from "./BentoSteps";
+export * from "./GridcraftDataViz";
 export * from "./EndingSocials";

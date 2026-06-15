@@ -18,6 +18,10 @@ class ProjectStatus(str, enum.Enum):
     # titles/layouts). Distinct from SCRIPTED so a reload mid-job doesn't auto-start the
     # full generation pipeline.
     SCRIPT_REGENERATING = "script_regenerating"
+    # Dedicated state for the voice change job. Distinct from GENERATING so the
+    # voice-change-status endpoint doesn't need to guess whether GENERATING belongs
+    # to a voice change or a template relayout.
+    VOICE_REGENERATING = "voice_regenerating"
 
 
 class Project(Base):
@@ -56,6 +60,11 @@ class Project(Base):
 
     # Voiceover
     custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Optional user voice tuning, stored as a JSON string array ["<stability>","<speed>","<emotion>"]
+    # feeding the v3 voice_settings + emotion tag. Null = per-video-style defaults. See
+    # _parse_voice_tuning in services/voiceover.py. (Column name kept as voice_emotion for migration
+    # continuity.)
+    voice_emotion: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
 
     # Template (determines layout system + DSPy prompt)
     template: Mapped[str] = mapped_column(String(50), default="default")
@@ -101,3 +110,4 @@ class Project(Base):
     reviews = relationship("Review", back_populates="project", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
