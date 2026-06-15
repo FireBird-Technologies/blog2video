@@ -103,10 +103,12 @@ export const NewspaperDataViz: React.FC<BlogLayoutProps> = ({
   // 3D camera — inspired by article_lead but from a slightly different editorial angle.
   const ENTRANCE_END = 58;
   const EXIT_DURATION = Math.round(fps * 3);
-  const EXIT_FADE_DURATION = Math.round(fps * 0.55);
   const EXIT_START = Math.max(ENTRANCE_END + 12, durationInFrames - EXIT_DURATION);
-  const FADE_START = durationInFrames - EXIT_FADE_DURATION;
-  const MOTION_END = FADE_START;
+  // Exit phases: zoom (1/2 of exit), pan right (1/4), fade (1/4)
+  const ZOOM_END = EXIT_START + Math.round(EXIT_DURATION * 0.25);
+  const PAN_START = EXIT_START + Math.round(EXIT_DURATION * 0.55);
+  const PAN_END = EXIT_START + EXIT_DURATION;
+  const FADE_START = PAN_START;
 
   const exitEase = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const, easing: easeInOutCubic };
   const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
@@ -117,22 +119,23 @@ export const NewspaperDataViz: React.FC<BlogLayoutProps> = ({
 
   const cameraRotateX =
     frame >= EXIT_START
-      ? interpolate(frame, [EXIT_START, MOTION_END], [3.5, 4.2], exitEase)
+      ? interpolate(frame, [EXIT_START, ZOOM_END], [3.5, 4.2], { ...exitEase, extrapolateRight: "clamp" as const })
       : interpolate(frame, [0, ENTRANCE_END], [11, 3.5], clamp);
   const cameraRotateY =
     frame >= EXIT_START
-      ? interpolate(frame, [EXIT_START, MOTION_END], [2, 3.2], exitEase)
+      ? interpolate(frame, [EXIT_START, ZOOM_END], [2, 3.2], { ...exitEase, extrapolateRight: "clamp" as const })
       : interpolate(frame, [0, ENTRANCE_END], [-8, 2], clamp);
   const cameraScale =
     frame >= EXIT_START
-      ? interpolate(frame, [EXIT_START, MOTION_END], [1.0, p ? 1.08 : 1.1], exitEase)
+      ? interpolate(frame, [EXIT_START, ZOOM_END], [1.0, p ? 1.08 : 1.1], { ...exitEase, extrapolateRight: "clamp" as const })
       : interpolate(frame, [0, 28, ENTRANCE_END], [1.07, 1.16, 1.0], clamp);
   const cameraTranslateY =
     frame >= EXIT_START ? 0 : interpolate(frame, [0, ENTRANCE_END], [22, 0], clamp);
+  // Pan left only after hold phase completes
   const cameraPanX = interpolate(
     frame,
-    [EXIT_START, MOTION_END],
-    [0, p ? width * 0.035 : width * 0.07],
+    [PAN_START, PAN_END],
+    [0, p ? -width * 0.12 : -width * 0.18],
     exitEase,
   );
 
