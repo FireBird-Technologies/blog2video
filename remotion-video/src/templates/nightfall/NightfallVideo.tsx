@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
-  interpolate,
   Sequence,
   staticFile,
-  useCurrentFrame,
   CalculateMetadataFunction,
 } from "remotion";
 import "../../fonts/nightfall-defaults";
@@ -13,41 +11,8 @@ import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { NightfallSceneTransition } from "./NightfallSceneTransition";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
-
-/** Convert schema format (barChartRows, etc.) to component format (barChart, etc.) for data_visualization */
-function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
-  const out = { ...lp };
-  if (Array.isArray(out.barChartRows)) {
-    const rows = out.barChartRows as { label?: string; value?: string }[];
-    out.barChart = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
-    };
-    delete out.barChartRows;
-  }
-  if (Array.isArray(out.pieChartRows)) {
-    const rows = out.pieChartRows as { label?: string; value?: string }[];
-    out.pieChart = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
-    };
-    delete out.pieChartRows;
-  }
-  if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
-    const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
-    const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
-      label: (d && d.label != null ? String(d.label) : "") as string,
-      values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
-        .split(",")
-        .map((s) => Number(s.trim()) || 0),
-    }));
-    out.lineChart = { labels, datasets };
-    delete out.lineChartLabels;
-    delete out.lineChartDatasets;
-  }
-  return out;
-}
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -82,40 +47,6 @@ interface VideoData {
 interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
-
-// Cinematic dark transition with blur + scale for nightfall
-const NightfallTransition: React.FC = () => {
-  const frame = useCurrentFrame();
-
-  // Smooth ease-in opacity
-  const opacity = interpolate(frame, [0, 12], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Subtle scale up for a cinematic "push" feel
-  const scale = interpolate(frame, [0, 15], [1, 1.06], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Blur ramps up to soften the scene before cutting
-  const blur = interpolate(frame, [0, 10], [0, 8], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: "#0A0A1A",
-        opacity,
-        transform: `scale(${scale})`,
-        backdropFilter: `blur(${blur}px)`,
-      }}
-    />
-  );
-};
 
 // ─── Metadata ─────────────────────────────────────────────────
 
@@ -228,9 +159,7 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
-        const rawLayoutProps = scene.layout === "data_visualization"
-          ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
-          : scene.layoutProps;
+        const rawLayoutProps = scene.layoutProps;
 
         // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
         const layoutProps: NightfallLayoutProps = {
@@ -254,16 +183,17 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <LayoutComponent {...layoutProps} />
+            <NightfallSceneTransition
+              durationInFrames={durationFrames}
+              sceneIndex={index}
+              sceneCount={data.scenes.length}
+              layoutType={scene.layout}
+            >
+              <LayoutComponent {...layoutProps} />
+            </NightfallSceneTransition>
 
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
-            )}
-
-            {index < data.scenes.length - 1 && (
-              <Sequence from={Math.max(0, durationFrames - 15)} durationInFrames={15}>
-                <NightfallTransition />
-              </Sequence>
             )}
           </Sequence>
         );

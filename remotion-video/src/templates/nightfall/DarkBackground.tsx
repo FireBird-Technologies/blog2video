@@ -1,9 +1,10 @@
 import { AbsoluteFill, useCurrentFrame, interpolate } from "remotion";
+import { NightfallStarfield } from "./NightfallStarfield";
 
 const BASE_BG = "#0A0A1A";
 
 /** Dark gradient mesh background for nightfall. Optional slow drift. */
-export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string }> = ({ drift = true, bgColor }) => {
+export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string; seed?: number }> = ({ drift = true, bgColor, seed = 0 }) => {
   const bg = bgColor || BASE_BG;
   const frame = useCurrentFrame();
   const t = drift ? (frame / 300) % 1 : 0;
@@ -23,6 +24,8 @@ export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string }> = (
         `,
         filter: "blur(0px)", // gradients are soft by design
       }}
-    />
+    >
+      <NightfallStarfield intensity={0.35} seed={seed} showShootingStars={false} />
+    </AbsoluteFill>
   );
 };

@@ -10,30 +10,9 @@ export type NightfallLayoutType =
   | "split_glass"
   | "chapter_break"
   | "glass_image"
-  | "data_visualization"
+  | "nightfall_data_visualization"
+  | "nightfall_ticker"
   | "ending_socials";
-
-// Chart data types
-export interface BarChartData {
-  labels: string[];
-  values: number[];
-  colors?: string[];
-}
-
-export interface LineChartData {
-  labels: string[];
-  datasets: Array<{
-    label: string;
-    values: number[];
-    color?: string;
-  }>;
-}
-
-export interface PieChartData {
-  labels: string[];
-  values: number[];
-  colors?: string[];
-}
 
 export interface NightfallLayoutProps {
   title: string;
@@ -58,10 +37,19 @@ export interface NightfallLayoutProps {
   rightDescription?: string;
   chapterNumber?: number;
   subtitle?: string;
-  // data visualization charts
-  barChart?: BarChartData;
-  lineChart?: LineChartData;
-  pieChart?: PieChartData;
+  // nightfall_data_visualization
+  chartTable?: { headers: string[]; rows: string[][] };
+  chartType?: string;
+  chartSummary?: string;
+  yAxisLabel?: string;
+  chartYAxisTicks?: string[];
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+  // nightfall_ticker
+  tickerTable?: { headers: string[]; rows: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
