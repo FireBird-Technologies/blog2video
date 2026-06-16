@@ -3851,14 +3851,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </button>
             <button
               type="button"
-              onClick={() => setVoicePanelTab("bgm")}
-              className={`whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                voicePanelTab === "bgm"
+              onClick={() => {
+                if (!isPro) {
+                  setShowUpgrade(true);
+                  return;
+                }
+                setVoicePanelTab("bgm");
+              }}
+              className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                voicePanelTab === "bgm" && isPro
                   ? "bg-white text-purple-600 shadow-sm"
                   : "text-gray-400 hover:text-gray-600"
               }`}
             >
               Music
+              <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
+                Premium
+              </span>
             </button>
             <button
               type="button"
@@ -4000,8 +4009,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         )}
       </div>
 
-      {/* ─── Background Music tab content (optional) ─────── */}
-      {voicePanelTab === "bgm" && bgmTracks.length > 0 && (
+      {/* ─── Music tab content (Premium; optional) ─────── */}
+      {voicePanelTab === "bgm" && isPro && bgmTracks.length > 0 && (
         <div className="space-y-2">
           <p className="text-[11px] text-gray-400 mb-1">Ambient music behind your narration — optional.</p>
 
