@@ -233,6 +233,57 @@ const defaultExample = (kind: ChartKind): ChartTable => {
   };
 };
 
+/**
+ * Economist `chart_line` / `chart_bar` / `data_table` example datasets. Unlike
+ * the other built-ins, Economist's `data_table` is a tabular chart layout (it
+ * stores its rows in `chartTable`, not `tickerTable`), so all three layouts are
+ * registered as chart layouts and seed via this helper. Lifted from
+ * SceneEditModal so the modal seeder and the preview-defaults merge share ONE
+ * source of sample rows. `kind` is "line" | "bar" | "table".
+ */
+export function getEconomistChartExampleTable(
+  kind: "line" | "bar" | "table",
+): ChartTable {
+  if (kind === "line") {
+    return {
+      headers: ["Year", "Advanced economies", "Emerging markets"],
+      rows: [
+        ["2019", "1.8", "4.5"],
+        ["2020", "-4.4", "-2.1"],
+        ["2021", "5.4", "6.9"],
+        ["2022", "2.7", "4.0"],
+        ["2023", "1.6", "4.1"],
+        ["2024", "1.7", "4.2"],
+      ],
+    };
+  }
+  if (kind === "bar") {
+    return {
+      headers: ["Sector", "Share of GDP (%)"],
+      rows: [
+        ["Services", "64"],
+        ["Manufacturing", "18"],
+        ["Construction", "7"],
+        ["Agriculture", "6"],
+        ["Mining", "5"],
+      ],
+    };
+  }
+  return {
+    headers: ["Economy", "GDP ($trn)", "Growth (%)", "Inflation (%)"],
+    rows: [
+      ["United States", "27.4", "2.5", "3.1"],
+      ["China", "17.8", "5.0", "0.2"],
+      ["Germany", "4.5", "-0.1", "5.9"],
+      ["Japan", "4.2", "1.9", "3.3"],
+      ["India", "3.9", "7.6", "5.4"],
+    ],
+  };
+}
+
+const economistExample = (kind: ChartKind): ChartTable =>
+  getEconomistChartExampleTable(kind === "bar" ? "bar" : "line");
+
 const nightfallExample = (kind: ChartKind): ChartTable => {
   if (kind === "bar") {
     return {
@@ -355,6 +406,15 @@ const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
     tickerLayoutId: "nightfall_ticker",
     layoutKind: layoutKindFromSuffix,
     exampleTable: nightfallExample,
+  },
+  economist: {
+    // All three layouts store rows in `chartTable` (data_table is a tabular
+    // chart, not a separate ticker scene), so they're all chart layouts and the
+    // template has no ticker layout ("" never matches a real layout id).
+    chartLayoutIds: ["chart_line", "chart_bar", "data_table"],
+    tickerLayoutId: "",
+    layoutKind: (layoutId: string) => (layoutId === "chart_bar" ? "bar" : undefined),
+    exampleTable: economistExample,
   },
 };
 
