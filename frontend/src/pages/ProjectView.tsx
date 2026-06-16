@@ -893,6 +893,7 @@ export default function ProjectView() {
   const [localUploadTargetSceneId, setLocalUploadTargetSceneId] = useState<number | null>(null);
   const [assigningExistingImage, setAssigningExistingImage] = useState(false);
   const [imageGenModalSceneId, setImageGenModalSceneId] = useState<number | null>(null);
+  const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
   const [generatedImageSceneId, setGeneratedImageSceneId] = useState<number | null>(null);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
@@ -2872,19 +2873,17 @@ export default function ProjectView() {
   const handleKeepGeneratedSceneImage = (sceneId: number) => {
     if (!generatedImageBase64) return;
     const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    // Close preview modal immediately so the spinner shows in the scene row
+    setGeneratedImageSceneId(null);
+    setGeneratedImageBase64(null);
+    setGeneratedPrompt(null);
     setGenerateImageError(null);
+    setGenerateErrorSceneId(null);
     fetch(dataUrl)
       .then((r) => r.blob())
       .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
       .then((file) =>
         handleAddSceneImage(sceneId, file)
-          .then(() => {
-            setGeneratedImageBase64(null);
-            setGeneratedPrompt(null);
-            setGenerateImageError(null);
-            setGenerateErrorSceneId(null);
-            setGeneratedImageSceneId(null);
-          })
           .catch(() => setGenerateImageError("Failed to use generated image"))
       )
       .catch(() => setGenerateImageError("Failed to use generated image"));
@@ -5370,6 +5369,11 @@ export default function ProjectView() {
                                               </button>
                                             </div>
                                           ))}
+                                          {generatingImageSceneId === scene.id && (
+                                            <div className="flex items-center justify-center w-20 h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0">
+                                              <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                            </div>
+                                          )}
                                           <button
                                             type="button"
                                             onClick={() => handleGenerateSceneImageClick(scene.id)}
@@ -5388,12 +5392,12 @@ export default function ProjectView() {
                                             onClick={() => handleOpenImageSourceChooser(scene.id)}
                                             disabled={uploadingSceneId === scene.id}
                                             className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
-                                              uploadingSceneId === scene.id && generatedImageSceneId !== scene.id
+                                              uploadingSceneId === scene.id
                                                 ? "border-purple-300 bg-purple-50/50 cursor-wait"
                                                 : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50"
                                             }`}
                                           >
-                                            {uploadingSceneId === scene.id && generatedImageSceneId !== scene.id ? (
+                                            {uploadingSceneId === scene.id ? (
                                               <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
                                             ) : (
                                               <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5692,7 +5696,17 @@ export default function ProjectView() {
                       isPro={isPro}
                       onClose={() => setImageGenModalSceneId(null)}
                       onUpgrade={() => setShowAiImageUpgradeModal(true)}
+                      onGenerateStart={() => {
+                        setGeneratingImageSceneId(imageGenModalSceneId);
+                        setImageGenModalSceneId(null);
+                      }}
+                      onGenerateError={(message) => {
+                        setGeneratingImageSceneId(null);
+                        setGenerateImageError(message);
+                        setGenerateErrorSceneId(imageGenModalSceneId);
+                      }}
                       onImageReady={(imageBase64, refinedPrompt) => {
+                        setGeneratingImageSceneId(null);
                         handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
                         setImageGenModalSceneId(null);
                       }}
@@ -5742,11 +5756,6 @@ export default function ProjectView() {
                           alt="AI generated"
                           className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
                         />
-                        {uploadingSceneId === generatedImageSceneId && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 rounded-lg">
-                            <span className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>,

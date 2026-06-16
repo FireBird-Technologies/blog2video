@@ -45,6 +45,8 @@ const Navbar = () => {
             B2V
           </div>
           <span className="text-lg font-semibold text-gray-900">Blog2Video</span>
+          <span className="text-gray-300 text-sm font-light ml-1">|</span>
+          <span className="text-sm text-gray-500 font-medium">Dashboard</span>
         </Link>
         <div className="flex items-center gap-4">
 
