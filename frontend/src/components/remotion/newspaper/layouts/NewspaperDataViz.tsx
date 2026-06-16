@@ -89,8 +89,8 @@ export const NewspaperDataViz: React.FC<BlogLayoutProps> = ({
   const DEFAULT_BAR_COLORS = [INK, SERIES_2, SERIES_3] as const;
   const axisInk = textColor;
 
-  const titleSize = titleFontSize ?? (p ? 69 : 55);
-  const descSize = descriptionFontSize ?? (p ? 33 : 26);
+  const titleSize = titleFontSize ?? (p ? 67 : 52);
+  const descSize = descriptionFontSize ?? (p ? 29 : 21);
   const chartTickSize = Math.round(descSize * 0.82);
   const chartAxisLabelSize = Math.round(descSize * 0.7);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);

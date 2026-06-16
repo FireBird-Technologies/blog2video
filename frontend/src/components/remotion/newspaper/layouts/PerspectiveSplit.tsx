@@ -30,8 +30,8 @@ export const PerspectiveSplit: React.FC<BlogLayoutProps> = ({
   const rightLabel = stats?.[1]?.label ?? "PERSPECTIVE B";
   const rightStat = stats?.[1]?.value ?? "";
 
-  const titleSize = titleFontSize ?? (p ? 58 : 40);
-  const descSize = descriptionFontSize ?? (p ? 25 : 18);
+  const titleSize = titleFontSize ?? (p ? 58 : 38);
+  const descSize = descriptionFontSize ?? (p ? 25 : 17);
 
   // Shard entrance wipe: two panels slide in from left/right
   const shardProgress = interpolate(frame, [0, 35], [0, 1], { extrapolateRight: "clamp" });
