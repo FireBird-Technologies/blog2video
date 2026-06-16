@@ -98,9 +98,9 @@ export default function SurveyForm() {
         Quick Survey
       </h2>
       <p className="text-xs text-gray-400 mb-5">
-        Submit the survey to avail a{" "}
+        Submit the survey to avail {" "}
         <span className="font-semibold text-purple-600">20% discount</span> on your
-        subscription.
+        subscription to any plan.
       </p>
 
       <div className="space-y-4">
