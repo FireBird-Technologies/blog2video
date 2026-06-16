@@ -22,6 +22,7 @@ interface Props {
   disabled?: boolean;
   variant?: Variant;
   features?: string[];
+  excludedFeatures?: string[];
   customButton?: React.ReactNode;
 }
 
@@ -30,6 +31,9 @@ const DEFAULT_FEATURES = [
   "AI script generation",
   "ElevenLabs voiceover",
   "Render & download MP4",
+];
+
+const DEFAULT_EXCLUDED_FEATURES = [
   "Unlimited AI edit & image generation",
   "Custom video templates",
   "Premium voiceover + cloning",
@@ -48,12 +52,26 @@ function CheckMark() {
   );
 }
 
+function XMark() {
+  return (
+    <svg
+      className="w-3.5 h-3.5 text-gray-300 flex-shrink-0 mt-0.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
 export default function PerVideoSliderCard({
   onBuy,
   loading = false,
   disabled = false,
   variant = "compact",
   features = DEFAULT_FEATURES,
+  excludedFeatures = DEFAULT_EXCLUDED_FEATURES,
   customButton,
 }: Props) {
   const [qty, setQty] = useState(1);
@@ -248,6 +266,12 @@ export default function PerVideoSliderCard({
         {features.map((f) => (
           <li key={f} className="flex items-start gap-2">
             <CheckMark />
+            {f}
+          </li>
+        ))}
+        {excludedFeatures.map((f) => (
+          <li key={f} className="flex items-start gap-2 text-gray-400">
+            <XMark />
             {f}
           </li>
         ))}
