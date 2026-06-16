@@ -97,7 +97,7 @@ export const Stickman2DataViz: React.FC<SceneLayoutProps> = ({
   const axisInk = textColor;
 
   const titleSize = titleFontSize ?? (p ? 88 : 72);
-  const descSize = descriptionFontSize ?? (p ? 45 : 37);
+  const descSize = descriptionFontSize ?? (p ? 45 : 32);
   const chartTickSize = Math.round(descSize * 0.84);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
   const VALUE_LABEL_FS = Math.round(descSize * 0.58);

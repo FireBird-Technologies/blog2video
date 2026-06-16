@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
-import { StarField } from "./scenePrimitives";
+import { StarField, neonTitleTubeStyle } from "./scenePrimitives";
 import { rgbaFromHex } from "./blackswanAccent";
 
 const DISPLAY_FONT = "'Righteous', cursive";
@@ -79,7 +79,6 @@ export const BlackswanTickerTable: React.FC<BlackswanLayoutProps> = ({
   const tableWidthCap = colCount <= 2 ? (p ? "72%" : "56%") : colCount === 3 ? (p ? "88%" : "72%") : colCount === 4 ? (p ? "96%" : "86%") : "100%";
 
   const titleOp = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
-  const ruleW = interpolate(frame, [4, 22], [0, 100], { extrapolateRight: "clamp" });
   const headerOp = interpolate(frame, [4, 20], [0, 1], { extrapolateRight: "clamp" });
   const footnoteOp = interpolate(frame, [20 + rowCount * 8, 20 + rowCount * 8 + 16], [0, 1], { extrapolateRight: "clamp" });
 
@@ -97,7 +96,7 @@ export const BlackswanTickerTable: React.FC<BlackswanLayoutProps> = ({
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "8% 7%" : "5% 7%", gap: 0, zIndex: 10 }}>
         {/* Title block */}
         <div style={{ opacity: titleOp, flexShrink: 0, marginBottom: Math.round(height * 0.022), alignSelf: fewCols ? "center" : "stretch", textAlign: fewCols ? "center" : "left", width: tableWidthCap, maxWidth: "100%" }}>
-          <div style={{ fontFamily: font, fontWeight: 700, fontSize: titleSize, lineHeight: 1.05, color: textColor, textShadow: `0 0 24px ${accentColor}55` }}>
+          <div style={{ fontFamily: font, fontWeight: 700, fontSize: titleSize, lineHeight: 1.05, ...neonTitleTubeStyle(accentColor, { bgColor }) }}>
             {title}
           </div>
           {tickerTitle && (
@@ -105,7 +104,6 @@ export const BlackswanTickerTable: React.FC<BlackswanLayoutProps> = ({
               {tickerTitle}
             </div>
           )}
-          <div style={{ height: 1, background: accentColor, width: `${ruleW}%`, marginTop: 10, boxShadow: `0 0 10px ${accentColor}88` }} />
         </div>
 
         {/* Table */}

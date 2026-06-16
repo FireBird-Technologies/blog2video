@@ -87,7 +87,7 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
   const axisInk = COLORS.MUTED;
 
   const titleSize = titleFontSize ?? (p ? 89 : 57);
-  const descSize = descriptionFontSize ?? (p ? 32 : 29);
+  const descSize = descriptionFontSize ?? (p ? 32 : 28);
   const chartTickSize = Math.round(descSize * 0.8);
   const chartAxisLabelSize = Math.round(descSize * 0.68);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
