@@ -2157,23 +2157,23 @@ export function SceneEditModalDemo({
           <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
             Editing mode
           </h4>
-          <div className="flex gap-2">
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
             <button
               type="button"
-              className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                 editMode === "manual"
-                  ? "border-purple-500 bg-purple-50 text-purple-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
               }`}
             >
               Manual editing
             </button>
             <button
               type="button"
-              className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                 editMode === "ai"
-                  ? "border-purple-500 bg-purple-50 text-purple-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
               }`}
             >
               AI-Assisted editing
@@ -3787,14 +3787,14 @@ export default function SceneEditModal({
             <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
               Editing mode
             </h4>
-            <div className="flex gap-2">
+            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
               <button
                 type="button"
                 onClick={() => setEditMode("manual")}
-                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                   editMode === "manual"
-                    ? "border-purple-500 bg-purple-50 text-purple-700"
-                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 Manual editing
@@ -3802,10 +3802,10 @@ export default function SceneEditModal({
               <button
                 type="button"
                 onClick={() => setEditMode("ai")}
-                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                   editMode === "ai"
-                    ? "border-purple-500 bg-purple-50 text-purple-700"
-                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 AI-Assisted editing
