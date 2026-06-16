@@ -46,6 +46,7 @@ class UserOut(BaseModel):
     video_limit: int
     can_create_video: bool
     preferred_voice_emotion: str | None = None
+    survey_submitted: bool = False
 
     class Config:
         from_attributes = True
@@ -228,6 +229,7 @@ def get_me(user: User = Depends(get_current_user)):
         video_limit=user.video_limit,
         can_create_video=user.can_create_video,
         preferred_voice_emotion=user.preferred_voice_emotion,
+        survey_submitted=user.survey_submitted,
     )
 
 

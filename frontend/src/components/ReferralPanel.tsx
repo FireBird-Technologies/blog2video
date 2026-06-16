@@ -3,6 +3,7 @@ import { getAffiliateStats, sendAffiliateInvites, AffiliateStats } from "../api/
 
 export default function ReferralPanel() {
   const [stats, setStats] = useState<AffiliateStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [copied, setCopied] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [pendingEmails, setPendingEmails] = useState<string[]>([]);
@@ -16,6 +17,8 @@ export default function ReferralPanel() {
       setStats(res.data);
     } catch {
       // silently ignore — non-critical
+    } finally {
+      setLoadingStats(false);
     }
   }, []);
 
@@ -109,6 +112,7 @@ export default function ReferralPanel() {
       setEmailInput("");
       setPendingEmails([]);
       setError(null);
+      setTimeout(() => setSendResult(null), 3000);
       await loadStats();
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Failed to send invites. Try again.");
@@ -120,26 +124,33 @@ export default function ReferralPanel() {
   const signupsCount = stats?.signups_count ?? 0;
   const maxSignups = stats?.max_signups ?? 10;
   const bonusEarned = stats?.bonus_earned ?? 0;
-  const bonusPerSignup = stats?.bonus_per_signup ?? 3;
+  const bonusPerSignup = stats?.bonus_per_signup ?? 5;
   const maxReferralReached = signupsCount >= maxSignups;
 
   return (
     <section className="glass-card p-6">
-      <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">
-        Refer Friends
-      </h2>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
+          Refer Friends
+        </h2>
+        <div className="flex items-baseline gap-1.5 shrink-0">
+          {loadingStats ? (
+            <div className="h-5 w-8 bg-gray-100 rounded animate-pulse flex items-center justify-center gap-1.5">
+              <span className="w-[5px] h-[5px] bg-gray-400 rounded-full animate-pulse" />
+              <span className="w-[5px] h-[5px] bg-gray-400 rounded-full animate-pulse delay-100" />
+              <span className="w-[5px] h-[5px] bg-gray-400 rounded-full animate-pulse delay-200" />
+            </div>
+          ) : (
+            <span className="text-lg font-bold text-gray-900 leading-none">{bonusEarned}</span>
+          )}
+          <span className="text-[11px] text-gray-500">bonus videos earned</span>
+        </div>
+      </div>
       <p className="text-xs text-gray-400 mb-5">
         Share your link. For every friend who signs up, you both get{" "}
         <span className="font-semibold text-purple-600">+{bonusPerSignup} free videos</span>.
       </p>
 
-      {/* Stats row */}
-      <div className="flex gap-6 mb-5">
-        <div>
-          <p className="text-2xl font-bold text-gray-900">{bonusEarned}</p>
-          <p className="text-xs text-gray-500 mt-0.5">Bonus videos earned</p>
-        </div>
-      </div>
       {maxReferralReached && (
         <p className="text-xs text-green-600 mb-5">
           You have availed max referral bonuses.
@@ -149,24 +160,32 @@ export default function ReferralPanel() {
       {/* Referral link */}
       <div className="mb-5">
         <p className="text-xs font-medium text-gray-500 mb-1.5">Your referral link</p>
-        <div className="flex items-center gap-2">
-          <input
-            readOnly
-            value={stats?.link ?? "Loading…"}
-            className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 truncate"
-          />
-          <button
-            onClick={handleCopy}
-            className="shrink-0 text-xs font-medium px-3 py-2 rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 transition-colors"
-          >
-            {copied ? "Copied!" : "Copy"}
-          </button>
-        </div>
+        {loadingStats ? (
+          <div className="h-[34px] bg-gray-100 rounded-lg animate-pulse flex items-center justify-center gap-1.5">
+            <span className="w-[5px] h-[5px] bg-gray-400 rounded-full animate-pulse" />
+            <span className="w-[5px] h-[5px] bg-gray-400 rounded-full animate-pulse delay-100" />
+            <span className="w-[5px] h-[5px] bg-gray-400 rounded-full animate-pulse delay-200" />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={stats?.link ?? ""}
+              className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 truncate"
+            />
+            <button
+              onClick={handleCopy}
+              className="shrink-0 text-xs font-medium px-3 py-2 rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 transition-colors"
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Email invite */}
       <div>
-        <p className="text-xs font-medium text-gray-500 mb-1.5">Send invite emails</p>
+        <p className="text-xs font-medium text-gray-500 mb-1.5">Send invite emails to claim your bonus</p>
         {pendingEmails.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
             {pendingEmails.map((email) => (
@@ -209,10 +228,15 @@ export default function ReferralPanel() {
             {sending ? "Sending…" : "Send"}
           </button>
         </div>
+        {pendingEmails.length > 0 && !sendResult && (
+          <p className="text-xs text-yellow-600 mt-1.5">
+            Click the Send button to send invite emails.
+          </p>
+        )}
         {error && <p className="text-xs text-red-500 mt-1.5">{error}</p>}
         {sendResult && (
           <p className="text-xs text-green-600 mt-1.5">
-            {sendResult.sent > 0 && `${sendResult.sent} invite${sendResult.sent !== 1 ? "s" : ""} sent.`}
+            {sendResult.sent > 0 && "Once your friends signup, you both will receive bonuses."}
             {sendResult.failed > 0 && ` ${sendResult.failed} failed.`}
           </p>
         )}

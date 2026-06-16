@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
+import { classifyUrlScrapability } from "../utils/urlScrapability";
 import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import {
   primeBlogUrlFormStep2Prefetch,
@@ -1484,18 +1485,25 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     : [];
   const hasBulkFileExt = bulkFileExtRows.some(Boolean);
 
+  // ─── Non-scrapable link detection ────────────────────────────
+  const urlScrape = mode === "url" ? classifyUrlScrapability(urls[0] ?? "") : "ok";
+  const bulkScrapeRows = mode === "bulk"
+    ? bulkRows.map((r) => classifyUrlScrapability(r.url))
+    : [];
+  const hasBulkBlocked = bulkScrapeRows.some((s) => s === "blocked");
+
   // ─── Navigation ──────────────────────────────────────────────
   // Step order: 1 = Project (URL/Upload/Bulk), 2 = Template, 3 = Voice
   const canGoNext1 =
     mode === "url"
-      ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0]) && !urlFileExt
+      ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0]) && !urlFileExt && urlScrape !== "blocked"
       : mode === "upload"
         ? docFiles.length > 0
         : bulkRows.some((r) => r.url.trim()) &&
           bulkRows.every(
             (r) =>
               !r.url.trim() || (!hasSpacesInMiddle(r.url) && containsDot(r.url))
-          ) && !hasBulkFileExt;
+          ) && !hasBulkFileExt && !hasBulkBlocked;
 
   const goNext = () => {
     if (step === 1 && canGoNext1) {
@@ -2074,7 +2082,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   : `URL ${i + 1} (optional)`
               }
               className={`w-full px-4 py-2.5 bg-white/80 border rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all mb-2 ${
-                i === 0 && urlError && urls[0]?.trim()
+                i === 0 && urls[0]?.trim() && (urlError || urlScrape === "blocked")
                   ? "border-red-400"
                   : "border-gray-200/60"
               }`}
@@ -2094,6 +2102,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               <p className="text-[11px] text-purple-700 leading-relaxed">
                 <span className="font-semibold">{urlFileExt.toUpperCase()} files</span> can't be processed as a URL. Please use the{" "}
                 <span className="font-semibold">Upload</span> tab above to upload this file directly.
+              </p>
+            </div>
+          )}
+          {urlScrape === "blocked" && urls[0]?.trim() && (
+            <p className="text-xs text-red-500 mt-1">
+              This site can't be scraped, please use a different link.
+            </p>
+          )}
+          {urlScrape === "warn" && urls[0]?.trim() && (
+            <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200/60">
+              <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <p className="text-[11px] text-amber-600 leading-relaxed">
+                This link might not be scrapable — try a different one if you have it.
               </p>
             </div>
           )}
