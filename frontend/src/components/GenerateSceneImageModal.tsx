@@ -10,6 +10,8 @@ export interface GenerateSceneImageModalProps {
   isPro: boolean;
   onUpgrade: () => void;
   onImageReady: (imageBase64: string, refinedPrompt: string) => void;
+  onGenerateStart?: () => void;
+  onGenerateError?: (message: string) => void;
 }
 
 export default function GenerateSceneImageModal({
@@ -20,6 +22,8 @@ export default function GenerateSceneImageModal({
   isPro,
   onUpgrade,
   onImageReady,
+  onGenerateStart,
+  onGenerateError,
 }: GenerateSceneImageModalProps) {
   const [imageDescription, setImageDescription] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -51,6 +55,7 @@ export default function GenerateSceneImageModal({
       onUpgrade();
       return;
     }
+    onGenerateStart?.();
     setGenerating(true);
     setError(null);
     try {
@@ -73,7 +78,9 @@ export default function GenerateSceneImageModal({
           ? (err as { response?: { data?: { detail?: string } } }).response?.data
               ?.detail
           : "Image generation failed";
-      setError(String(msg || "Image generation failed"));
+      const errorMessage = String(msg || "Image generation failed");
+      setError(errorMessage);
+      onGenerateError?.(errorMessage);
     } finally {
       setGenerating(false);
     }
