@@ -93,7 +93,7 @@ export const BlackswanDataViz: React.FC<BlackswanLayoutProps> = ({
   const PANEL_BORDER = rgbaFromHex(accentColor, 0.32);
 
   const titleSize = titleFontSize ?? (p ? 80 : 72);
-  const descSize = descriptionFontSize ?? (p ? 48 : 39);
+  const descSize = descriptionFontSize ?? (p ? 44 : 32);
   const chartTickSize = Math.round(descSize * 0.82);
   const chartAxisLabelSize = Math.round(descSize * 0.7);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
