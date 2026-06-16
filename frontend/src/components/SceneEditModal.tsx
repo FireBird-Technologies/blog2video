@@ -40,6 +40,7 @@ import {
   builtinChartKindForLayout,
   builtinDataVizExampleTable,
   builtinTickerExampleTable,
+  getEconomistChartExampleTable,
 } from "./sceneEditBuiltinDataViz";
 import * as XLSX from "xlsx";
 
@@ -760,52 +761,6 @@ function getFJResearchMarketAnnotationExampleTable(
       ["30–40", "18"],
       ["40–50", "10"],
       ["50–60", "4"],
-    ],
-  };
-}
-
-/**
- * Economist `chart_line` / `chart_bar` / `data_table` example datasets. Mirrors
- * the laduc/fj seeders so the studio editor renders shape-appropriate data the
- * moment a user switches a scene into an Economist data layout or opens an empty
- * one (col 1 = X labels / row labels; remaining cols = numeric series).
- */
-function getEconomistChartExampleTable(
-  kind: "line" | "bar" | "table",
-): { headers: string[]; rows: string[][] } {
-  if (kind === "line") {
-    return {
-      headers: ["Year", "Advanced economies", "Emerging markets"],
-      rows: [
-        ["2019", "1.8", "4.5"],
-        ["2020", "-4.4", "-2.1"],
-        ["2021", "5.4", "6.9"],
-        ["2022", "2.7", "4.0"],
-        ["2023", "1.6", "4.1"],
-        ["2024", "1.7", "4.2"],
-      ],
-    };
-  }
-  if (kind === "bar") {
-    return {
-      headers: ["Sector", "Share of GDP (%)"],
-      rows: [
-        ["Services", "64"],
-        ["Manufacturing", "18"],
-        ["Construction", "7"],
-        ["Agriculture", "6"],
-        ["Mining", "5"],
-      ],
-    };
-  }
-  return {
-    headers: ["Economy", "GDP ($trn)", "Growth (%)", "Inflation (%)"],
-    rows: [
-      ["United States", "27.4", "2.5", "3.1"],
-      ["China", "17.8", "5.0", "0.2"],
-      ["Germany", "4.5", "-0.1", "5.9"],
-      ["Japan", "4.2", "1.9", "3.3"],
-      ["India", "3.9", "7.6", "5.4"],
     ],
   };
 }
@@ -2202,23 +2157,23 @@ export function SceneEditModalDemo({
           <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
             Editing mode
           </h4>
-          <div className="flex gap-2">
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
             <button
               type="button"
-              className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                 editMode === "manual"
-                  ? "border-purple-500 bg-purple-50 text-purple-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
               }`}
             >
               Manual editing
             </button>
             <button
               type="button"
-              className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                 editMode === "ai"
-                  ? "border-purple-500 bg-purple-50 text-purple-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
               }`}
             >
               AI-Assisted editing
@@ -3832,14 +3787,14 @@ export default function SceneEditModal({
             <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
               Editing mode
             </h4>
-            <div className="flex gap-2">
+            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
               <button
                 type="button"
                 onClick={() => setEditMode("manual")}
-                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                   editMode === "manual"
-                    ? "border-purple-500 bg-purple-50 text-purple-700"
-                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 Manual editing
@@ -3847,10 +3802,10 @@ export default function SceneEditModal({
               <button
                 type="button"
                 onClick={() => setEditMode("ai")}
-                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                   editMode === "ai"
-                    ? "border-purple-500 bg-purple-50 text-purple-700"
-                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 AI-Assisted editing

@@ -82,7 +82,7 @@ export const blogPosts: BlogPost[] = [
         heading: "6. Referral program and bulk pricing",
         paragraphs: [
           "We wanted to make it easy to share Blog2Video with people who'd love it.",
-          "Referrals: share your link. When someone signs up through it, they get three free videos — and so do you. No strings, no clawbacks.",
+          "Referrals: share your link. When someone signs up through it, they get five free videos — and so do you. No strings, no clawbacks.",
           "Bulk pricing scales with volume: 1–9 videos at $4 each, 10–29 at $3 each, and 30+ at $2.80 each. The more you make, the less you pay per video.",
         ],
       },

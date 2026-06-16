@@ -19,6 +19,7 @@ from app.models.project_voice_change_job import ProjectVoiceChangeJob
 from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.models.referral import Referral, ReferralSignup, ReferralInvite
+from app.models.survey import SurveyResponse
 from app.models.crafted_template import CraftedTemplate
 from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
 from app.models.support_conversation import (
@@ -40,7 +41,7 @@ __all__ = [
     "ProjectEditHistory", "SceneEditHistory", "Review", "TemplateVersion",
     "ProjectTemplateChangeJob", "ProjectRegenerateScriptJob", "ProjectVoiceChangeJob",
     "UpdateEmail", "UpdateEmailSend",
-    "Referral", "ReferralSignup", "ReferralInvite", "CraftedTemplate", "CraftedTemplateEntitlement",
+    "Referral", "ReferralSignup", "ReferralInvite", "SurveyResponse", "CraftedTemplate", "CraftedTemplateEntitlement",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "MCPClient", "MCPAuthCode",
