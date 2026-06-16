@@ -212,6 +212,7 @@ def google_login(
             video_limit=user.video_limit,
             can_create_video=user.can_create_video,
             preferred_voice_emotion=user.preferred_voice_emotion,
+            survey_submitted=user.survey_submitted,
         ),
     )
 
