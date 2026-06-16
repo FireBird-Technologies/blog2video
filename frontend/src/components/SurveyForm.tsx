@@ -54,6 +54,11 @@ export default function SurveyForm() {
     }
   };
 
+  const autoResize = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
   const handleCopy = () => {
     if (!promoCode) return;
     navigator.clipboard.writeText(promoCode).then(() => {
@@ -122,9 +127,12 @@ export default function SurveyForm() {
           </p>
           <textarea
             value={targetAudience}
-            onChange={(e) => setTargetAudience(e.target.value)}
-            rows={3}
-            className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none"
+            onChange={(e) => {
+              setTargetAudience(e.target.value);
+              autoResize(e.target);
+            }}
+            rows={1}
+            className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none overflow-hidden"
           />
         </div>
 
@@ -135,9 +143,12 @@ export default function SurveyForm() {
           </p>
           <textarea
             value={useCase}
-            onChange={(e) => setUseCase(e.target.value)}
-            rows={3}
-            className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none"
+            onChange={(e) => {
+              setUseCase(e.target.value);
+              autoResize(e.target);
+            }}
+            rows={1}
+            className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none overflow-hidden"
           />
         </div>
 
@@ -147,9 +158,12 @@ export default function SurveyForm() {
           </p>
           <textarea
             value={desiredFeature}
-            onChange={(e) => setDesiredFeature(e.target.value)}
-            rows={3}
-            className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none"
+            onChange={(e) => {
+              setDesiredFeature(e.target.value);
+              autoResize(e.target);
+            }}
+            rows={1}
+            className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none overflow-hidden"
           />
         </div>
 
