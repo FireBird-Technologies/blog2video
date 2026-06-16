@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
     STRIPE_3VID_MONTHLY_COUPON_ID: str = ""  # 15% off Pro monthly, once-per-customer (out-of-videos offer)
     STRIPE_3VID_ANNUAL_COUPON_ID: str = ""   # 25% off Pro annual, once-per-customer (out-of-videos offer)
+    SURVEY_PROMO_CODE: str = ""  # Shared Stripe promotion code (20% off) revealed on survey completion
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"

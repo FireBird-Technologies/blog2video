@@ -64,6 +64,11 @@ class User(Base):
     regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     referrals = relationship("Referral", foreign_keys="Referral.referrer_id", cascade="all, delete-orphan", passive_deletes=True)
+    survey_response = relationship("SurveyResponse", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
+
+    @property
+    def survey_submitted(self) -> bool:
+        return self.survey_response is not None
 
     @property
     def video_limit(self) -> int:

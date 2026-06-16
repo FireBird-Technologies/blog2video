@@ -96,6 +96,7 @@ export interface UserInfo {
   video_limit: number;
   can_create_video: boolean;
   preferred_voice_emotion: string | null;
+  survey_submitted: boolean;
 }
 
 export interface AuthResponse {
@@ -319,6 +320,7 @@ export interface PlanInfo {
 export interface PublicConfig {
   google_client_id: string;
   stripe_publishable_key: string;
+  survey_promo_code: string;
 }
 
 // ─── Auth API ─────────────────────────────────────────────
@@ -340,6 +342,17 @@ export interface AffiliateStats {
   max_signups: number;
   bonus_per_signup: number;
 }
+
+export interface SurveyPayload {
+  rating?: string;
+  use_case?: string;
+  target_audience?: string;
+  desired_feature?: string;
+  heard_from?: string;
+}
+
+export const submitSurvey = (payload: SurveyPayload) =>
+  api.post<{ submitted: boolean; promo_code: string | null }>("/affiliate/survey", payload);
 
 export const getMe = () => api.get<UserInfo>("/auth/me");
 
