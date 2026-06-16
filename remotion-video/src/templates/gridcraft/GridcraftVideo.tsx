@@ -15,6 +15,7 @@ import {
 import { resolveFontFamily } from "../../fonts/registry";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { Blobs } from "./components/Blobs";
 import { COLORS } from "./utils/styles";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
@@ -46,6 +47,8 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -384,6 +387,9 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         </AbsoluteFill>
       )}
 
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
+      )}
     </AbsoluteFill>
   );
 };

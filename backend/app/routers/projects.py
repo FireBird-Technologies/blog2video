@@ -821,6 +821,8 @@ def create_project(
         video_length=_normalize_video_length(getattr(data, "video_length", None)),
         playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
         content_language=normalize_preferred_language_code(data.content_language),
+        bgm_track_id=getattr(data, "bgm_track_id", None) or None,
+        bgm_volume=getattr(data, "bgm_volume", None) or 0.10,
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -854,7 +856,7 @@ def update_project(
     for field, value in raw_data.items():
         if field not in fields_set:
             continue
-        if field == "font_family":
+        if field in ("font_family", "bgm_track_id"):
             update_data[field] = value  # allow nulling or changing
         elif field == "content_language":
             update_data[field] = normalize_preferred_language_code(value) if value is not None else None
@@ -2582,6 +2584,8 @@ def create_projects_bulk(
             video_length=_normalize_video_length(getattr(data, "video_length", None)),
             playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
             content_language=normalize_preferred_language_code(data.content_language),
+            bgm_track_id=getattr(data, "bgm_track_id", None) or None,
+            bgm_volume=getattr(data, "bgm_volume", None) or 0.10,
             status=ProjectStatus.CREATED,
         )
         db.add(project)
@@ -2630,6 +2634,8 @@ def create_project_from_upload(
     video_style: Optional[str] = Form("explainer"),
     video_length: Optional[str] = Form("auto"),
     content_language: Optional[str] = Form(None),
+    bgm_track_id: Optional[str] = Form(None),
+    bgm_volume: Optional[float] = Form(0.10),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -2706,6 +2712,8 @@ def create_project_from_upload(
         video_length=_normalize_video_length(video_length),
         playback_speed=_normalize_playback_speed(None),
         content_language=normalize_preferred_language_code(content_language),
+        bgm_track_id=bgm_track_id or None,
+        bgm_volume=bgm_volume if bgm_volume is not None else 0.10,
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -3147,6 +3155,7 @@ MANUAL_TRACKED_FIELDS = {
     "remotion_code",
     "narration_text",
     "extra_hold_seconds",
+    "bgm_volume",
 }
 
 
