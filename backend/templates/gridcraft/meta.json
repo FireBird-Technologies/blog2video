@@ -536,7 +536,7 @@
         },
         "descriptionFontSize": {
           "portrait": 32,
-          "landscape": 29
+          "landscape": 28
         },
         "chartType": "line",
         "chartSummary": "Values climb steadily across the set before leveling near the top.",
