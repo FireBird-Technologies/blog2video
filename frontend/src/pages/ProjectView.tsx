@@ -6162,7 +6162,8 @@ export default function ProjectView() {
             </div>
           </div>
 
-          {/* Background Music */}
+          {/* Background Music — Premium only (Standard/Pro) */}
+          {isPro && (
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Music</h2>
             <p className="text-xs text-gray-400 mb-5">
@@ -6287,6 +6288,7 @@ export default function ProjectView() {
               </div>
             </div>
           </div>
+          )}
 
         </div>
       )}
@@ -6492,8 +6494,8 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
-                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below. */}
-                {bgmTracks.length > 0 && (
+                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below. Premium only. */}
+                {isPro && bgmTracks.length > 0 && (
                   <div className="glass-card p-5">
                     <div className="flex items-center justify-between mb-3">
                       <h2 className="text-base font-medium text-gray-900">Music</h2>
@@ -6642,7 +6644,7 @@ export default function ProjectView() {
                       scene={scene}
                       projectId={projectId}
                       audioAssets={audioAssets}
-                      hasBgm={!!project.bgm_track_id}
+                      hasBgm={isPro && !!project.bgm_track_id}
                       bgmTrackUrl={project.bgm_track_url ?? null}
                       projectBgmVolume={project.bgm_volume ?? 0.10}
                       onBgmSaved={loadProject}
