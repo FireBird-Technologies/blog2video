@@ -3498,6 +3498,7 @@ export default function ProjectView() {
   };
 
   return (
+    <>
     <div className="space-y-6">
       <UpgradePlanModal
         open={showUpgrade}
@@ -5166,6 +5167,11 @@ export default function ProjectView() {
                                               key={asset.id}
                                               className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
                                             >
+                                              {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && (
+                                                <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
+                                                  <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                                </div>
+                                              )}
                                               {(() => {
                                                 let focusX = 50;
                                                 let focusY = 50;
@@ -5225,7 +5231,7 @@ export default function ProjectView() {
                                               </button>
                                             </div>
                                           ))}
-                                          {generatingImageSceneId === scene.id && (
+                                          {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && !(sceneImageAssetsMap[idx] || []).length && !(isCustomTpl && ctOgImage) && (
                                             <div className="flex items-center justify-center w-20 h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0">
                                               <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                                             </div>
@@ -5247,21 +5253,19 @@ export default function ProjectView() {
                                             type="button"
                                             onClick={() => handleOpenImageSourceChooser(scene.id)}
                                             disabled={uploadingSceneId === scene.id}
-                                            className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
-                                              uploadingSceneId === scene.id
-                                                ? "border-purple-300 bg-purple-50/50 cursor-wait"
-                                                : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50"
-                                            }`}
+                                            className="flex items-center justify-center w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors"
                                           >
-                                            {uploadingSceneId === scene.id ? (
-                                              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                                            ) : (
-                                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                              </svg>
-                                            )}
+                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
                                           </button>
                                         </div>
+                                        {generatingImageSceneId === scene.id && (
+                                          <p className="text-xs text-purple-500 mt-1.5 flex items-center gap-1.5">
+                                            <span className="w-3 h-3 border border-purple-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                            Generating image…
+                                          </p>
+                                        )}
                                         {(generateImageError && (generateErrorSceneId === scene.id || generatedImageSceneId === scene.id)) && (
                                           <p className="text-xs text-red-600 mt-1.5">{generateImageError}</p>
                                         )}
@@ -6193,5 +6197,35 @@ export default function ProjectView() {
 
       </div>
     </div>
+
+    {/* Image generation toast — top-right, no backdrop, always visible */}
+
+    {generatingImageSceneId !== null && ReactDOM.createPortal(
+      <div className="fixed top-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl bg-white text-gray-900 min-w-[260px] border border-purple-100 ring-1 ring-purple-200">
+        <div className="w-5 h-5 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin flex-shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-purple-700 leading-tight">Generating image…</p>
+          <p className="text-xs text-gray-400 mt-0.5">This may take a moment</p>
+        </div>
+      </div>,
+      document.body,
+    )}
+
+    {generateImageError && generateErrorSceneId !== null && ReactDOM.createPortal(
+      <div className="fixed top-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl bg-white text-gray-900 min-w-[260px] border border-red-100 ring-1 ring-red-200">
+        <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">!</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-red-600 leading-tight">Image generation failed</p>
+          <p className="text-xs text-gray-400 mt-0.5 truncate">{generateImageError}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => { setGenerateImageError(null); setGenerateErrorSceneId(null); }}
+          className="text-gray-300 hover:text-gray-600 text-xl leading-none flex-shrink-0 ml-1"
+        >×</button>
+      </div>,
+      document.body,
+    )}
+    </>
   );
 }
