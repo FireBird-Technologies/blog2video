@@ -588,6 +588,7 @@ def public_config():
     return {
         "google_client_id": settings.GOOGLE_CLIENT_ID,
         "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
+        "survey_promo_code": settings.SURVEY_PROMO_CODE,
     }
 
 

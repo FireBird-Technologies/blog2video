@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { classifyUrlScrapability } from "../utils/urlScrapability";
 
 type BulkRow = { url: string };
 type AspectRatio = "landscape" | "portrait";
@@ -23,11 +24,20 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
   onRemoveRow,
 }) => {
   const [errors, setErrors] = useState<(string | null)[]>([]);
+  const [warns, setWarns] = useState<boolean[]>([]);
 
   const setErrorForIndex = (index: number, message: string | null) => {
     setErrors((prev) => {
       const next = [...prev];
       next[index] = message;
+      return next;
+    });
+  };
+
+  const setWarnForIndex = (index: number, warn: boolean) => {
+    setWarns((prev) => {
+      const next = [...prev];
+      next[index] = warn;
       return next;
     });
   };
@@ -40,6 +50,9 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
     }
     if (!trimmed.includes(".")) {
       return "Enter a valid link (e.g. example.com, https://example.com).";
+    }
+    if (classifyUrlScrapability(trimmed) === "blocked") {
+      return "This site can't be scraped, please use a different link.";
     }
     return null;
   };
@@ -68,10 +81,12 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
                   onChange={(e) => {
                     onChangeUrl(i, e.target.value);
                     setErrorForIndex(i, null);
+                    setWarnForIndex(i, false);
                   }}
                   onBlur={(e) => {
                     const msg = validateUrl(e.target.value);
                     setErrorForIndex(i, msg);
+                    setWarnForIndex(i, classifyUrlScrapability(e.target.value) === "warn");
                   }}
                   placeholder={`URL ${i + 1}`}
                   className={`w-full px-3 py-2 bg-white/80 border rounded-lg text-sm placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 ${
@@ -81,6 +96,11 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
                 {errors[i] && (
                   <p className="text-xs text-red-500 mt-1">
                     {errors[i]}
+                  </p>
+                )}
+                {!errors[i] && warns[i] && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    This link might not be scrapable — try a different one if you have it.
                   </p>
                 )}
               </div>
