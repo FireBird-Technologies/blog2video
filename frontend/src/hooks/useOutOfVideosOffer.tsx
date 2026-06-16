@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "./useAuth";
 
-const WINDOW_MS = 5 * 60 * 1000;
+const WINDOW_MS = 30 * 1000;
 const STORAGE_PREFIX = "b2v_out_of_videos_offer_started_at_";
 
 function storageKey(userId: number | undefined): string | null {
