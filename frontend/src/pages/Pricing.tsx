@@ -328,7 +328,6 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
-                "Custom video templates",
               ].map((f) => (
                 <li
                   key={f}
@@ -338,7 +337,7 @@ export default function Pricing() {
                   {f}
                 </li>
               ))}
-              {["Unlimited AI edit & image generation", "Premium voiceover + cloning"].map((f) => (
+              {["Unlimited AI edit & image generation", "Custom video templates", "Premium voiceover + cloning"].map((f) => (
                 <li
                   key={f}
                   className="flex items-start gap-2.5 text-sm text-gray-300"
@@ -379,9 +378,6 @@ export default function Pricing() {
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Render & download MP4",
-                "Unlimited AI edit & image generation",
-                "Custom video templates",
-                "Premium voiceover + cloning",
               ]}
             />
           ) : (
@@ -393,9 +389,6 @@ export default function Pricing() {
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Render & download MP4",
-                "Unlimited AI edit & image generation",
-                "Custom video templates",
-                "Premium voiceover + cloning",
               ]}
               customButton={
                 <div className="flex justify-center">
