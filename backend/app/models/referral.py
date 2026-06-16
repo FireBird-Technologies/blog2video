@@ -4,8 +4,8 @@ from sqlalchemy import String, DateTime, Boolean, Integer, ForeignKey, UniqueCon
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
-REFERRAL_BONUS_VIDEOS = 3
-REFERRAL_MAX_SIGNUPS = 10
+REFERRAL_BONUS_VIDEOS = 5
+REFERRAL_MAX_SIGNUPS = 3
 
 
 class Referral(Base):
