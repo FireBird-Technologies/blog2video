@@ -26,7 +26,6 @@ export default function GenerateSceneImageModal({
   onGenerateError,
 }: GenerateSceneImageModalProps) {
   const [imageDescription, setImageDescription] = useState("");
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const placeholderHint = useMemo(() => {
@@ -40,7 +39,6 @@ export default function GenerateSceneImageModal({
     if (!open) return;
     setImageDescription("");
     setError(null);
-    setGenerating(false);
   }, [open, scene.id]);
 
   if (!open) return null;
@@ -55,15 +53,16 @@ export default function GenerateSceneImageModal({
       onUpgrade();
       return;
     }
+
+    // Close modal immediately so the user can see the project behind the toast
+    onClose();
     onGenerateStart?.();
-    setGenerating(true);
-    setError(null);
+
     try {
       const res = await generateSceneImage(project.id, scene.id, {
         image_description: desc,
       });
       onImageReady(res.data.image_base64, res.data.refined_prompt);
-      onClose();
     } catch (err: unknown) {
       const status =
         err && typeof err === "object" && "response" in err
@@ -78,11 +77,7 @@ export default function GenerateSceneImageModal({
           ? (err as { response?: { data?: { detail?: string } } }).response?.data
               ?.detail
           : "Image generation failed";
-      const errorMessage = String(msg || "Image generation failed");
-      setError(errorMessage);
-      onGenerateError?.(errorMessage);
-    } finally {
-      setGenerating(false);
+      onGenerateError?.(String(msg || "Image generation failed"));
     }
   };
 
@@ -90,7 +85,7 @@ export default function GenerateSceneImageModal({
     <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={generating ? undefined : onClose}
+        onClick={onClose}
         aria-hidden
       />
       <div
@@ -123,7 +118,6 @@ export default function GenerateSceneImageModal({
               placeholder={placeholderHint}
               rows={4}
               autoFocus
-              disabled={generating}
               className="w-full px-3 py-2 text-sm text-gray-800 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y leading-relaxed"
             />
             <p className="text-xs text-gray-500 mt-2">
@@ -143,18 +137,17 @@ export default function GenerateSceneImageModal({
           <button
             type="button"
             onClick={onClose}
-            disabled={generating}
-            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={generating || imageDescription.trim().length < 3}
+            disabled={imageDescription.trim().length < 3}
             className="flex-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {generating ? "Generating…" : "Generate"}
+            Generate
           </button>
         </div>
       </div>

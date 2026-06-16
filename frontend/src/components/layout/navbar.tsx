@@ -39,14 +39,13 @@ const Navbar = () => {
         <Link
           to="/dashboard?show_form=0"
           onClick={goToDashboard}
-          className="flex items-center gap-2.5 cursor-pointer"
+          className="group flex items-center gap-2.5 cursor-pointer"
         >
           <div className="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-[11px]">
             B2V
           </div>
           <span className="text-lg font-semibold text-gray-900">Blog2Video</span>
-          <span className="text-gray-300 text-sm font-light ml-1">|</span>
-          <span className="text-sm text-gray-500 font-medium">Dashboard</span>
+          <span className="text-xs text-gray-400 group-hover:text-purple-600 transition-colors">Dashboard</span>
         </Link>
         <div className="flex items-center gap-4">
 
@@ -72,7 +71,7 @@ const Navbar = () => {
             to="/mcp-connector"
             className="hidden sm:relative sm:inline-flex items-center mr-2 text-xs text-gray-400 hover:text-purple-600 transition-colors"
           >
-            Connect to AI
+            Connect with AI
             <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
               <span style={{ display: 'inline-block', transition: 'opacity 0.3s, transform 0.3s', opacity: fade ? 1 : 0, transform: fade ? 'translateY(0)' : 'translateY(-4px)' }}>
                 {AI_NAMES[aiIdx]}
@@ -126,7 +125,7 @@ const Navbar = () => {
                     <span className="ml-auto text-[9px] font-semibold bg-purple-600 text-white px-1.5 rounded-full">3 free videos</span>
                   </Link>
                   <Link to="/mcp-connector" onClick={() => setMenuOpen(false)} className="flex items-center px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
-                    Connect to AI
+                    Connect with AI
                     <span className="ml-auto text-[9px] font-semibold bg-purple-600 text-white px-1.5 rounded-full whitespace-nowrap">
                       <span style={{ display: 'inline-block', transition: 'opacity 0.3s, transform 0.3s', opacity: fade ? 1 : 0, transform: fade ? 'translateY(0)' : 'translateY(-4px)' }}>
                         {AI_NAMES[aiIdx]}
