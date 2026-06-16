@@ -117,6 +117,7 @@ export interface Scene {
   voiceover_path: string | null;
   duration_seconds: number;
   extra_hold_seconds?: number | null;
+  bgm_volume?: number | null;
   preferred_layout?: string | null;
   created_at: string;
 }
@@ -163,6 +164,9 @@ export interface Project {
   video_style?: VideoStyleId;
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
   playback_speed?: number;
+  bgm_track_id?: string | null;
+  bgm_volume?: number;
+  bgm_track_url?: string | null;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_image_box_aspect_ratios?: {
@@ -931,6 +935,15 @@ export interface VoicePreview {
 export const getVoicePreviews = () =>
   api.get<Record<string, VoicePreview>>("/voices/previews");
 
+export interface BgmTrack {
+  track_id: string;
+  display_name: string;
+  mood: string;
+  r2_url: string;
+}
+
+export const getBgmTracks = () => api.get<BgmTrack[]>("/background-music/tracks");
+
 export const createProject = (
   blog_url: string,
   name?: string,
@@ -948,7 +961,9 @@ export const createProject = (
   video_style?: VideoStyleId,
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
   content_language?: string | null,
-  voice_emotion?: string
+  voice_emotion?: string,
+  bgm_track_id?: string | null,
+  bgm_volume?: number
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -968,6 +983,8 @@ export const createProject = (
     video_length,
     content_language,
     voice_emotion,
+    bgm_track_id,
+    bgm_volume,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -1035,6 +1052,8 @@ export const createProjectFromDocs = (
     video_style?: VideoStyleId;
     video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
     content_language?: string | null;
+    bgm_track_id?: string | null;
+    bgm_volume?: number;
   } = {}
 ) => {
   const formData = new FormData();
@@ -1060,6 +1079,10 @@ export const createProjectFromDocs = (
   if (config.video_style) formData.append("video_style", config.video_style);
   if (config.video_length !== undefined && config.video_length !== null) {
     formData.append("video_length", config.video_length);
+  }
+  if (config.bgm_track_id) formData.append("bgm_track_id", config.bgm_track_id);
+  if (config.bgm_volume !== undefined && config.bgm_volume !== null) {
+    formData.append("bgm_volume", String(config.bgm_volume));
   }
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -1172,6 +1195,8 @@ export const updateProject = (
     font_family?: string | null;
     aspect_ratio?: string;
     playback_speed?: number;
+    bgm_track_id?: string | null;
+    bgm_volume?: number;
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 

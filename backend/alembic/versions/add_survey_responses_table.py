@@ -1,7 +1,7 @@
 """Add survey_responses table
 
 Revision ID: add_survey_responses
-Revises: add_voice_regenerating_status
+Revises: add_bgm_volume_to_scenes
 Create Date: 2026-06-16
 """
 from typing import Sequence, Union
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = "add_survey_responses"
-down_revision: str = "add_voice_regenerating_status"
+down_revision: str = "add_bgm_volume_to_scenes"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

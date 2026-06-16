@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 from typing import Optional
 
 MIN_PLAYBACK_SPEED = 0.5
@@ -29,6 +29,15 @@ class ProjectCreate(BaseModel):
     video_length: Optional[str] = "auto"  # auto | short (4-5) | medium (12-15) | detailed (23-30) | more_detailed (35-40)
     playback_speed: Optional[float] = 1.0
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
+    bgm_track_id: Optional[str] = None
+    bgm_volume: Optional[float] = 0.10
+
+    @field_validator("bgm_volume")
+    @classmethod
+    def validate_create_bgm_volume(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return 0.10
+        return round(max(0.0, min(1.0, float(v))), 2)
 
     @field_validator("playback_speed")
     @classmethod
@@ -50,6 +59,15 @@ class ProjectUpdate(BaseModel):
     video_length: Optional[str] = None
     aspect_ratio: Optional[str] = None  # "landscape" | "portrait"
     playback_speed: Optional[float] = None
+    bgm_track_id: Optional[str] = None
+    bgm_volume: Optional[float] = None
+
+    @field_validator("bgm_volume")
+    @classmethod
+    def validate_bgm_volume(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        return round(max(0.0, min(1.0, float(v))), 2)
 
     @field_validator("aspect_ratio")
     @classmethod
@@ -131,6 +149,7 @@ class SceneOut(BaseModel):
     voiceover_path: Optional[str] = None
     duration_seconds: float
     extra_hold_seconds: Optional[float] = None
+    bgm_volume: Optional[float] = None
     created_at: datetime
 
     class Config:
@@ -267,6 +286,9 @@ class ProjectOut(BaseModel):
     video_style: str = "explainer"
     video_length: str = "auto"
     playback_speed: float = 1.0
+    bgm_track_id: Optional[str] = None
+    bgm_volume: float = 0.10
+    bgm_track_url: Optional[str] = None
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
@@ -288,6 +310,13 @@ class ProjectOut(BaseModel):
             p = float(v)
             return max(50.0, min(200.0, p))
         return 100.0
+
+    @model_validator(mode="after")
+    def populate_bgm_track_url(self) -> "ProjectOut":
+        if self.bgm_track_id and not self.bgm_track_url:
+            from app.services.background_music import get_track_r2_url
+            self.bgm_track_url = get_track_r2_url(self.bgm_track_id)
+        return self
 
     class Config:
         from_attributes = True
@@ -314,6 +343,8 @@ class BulkProjectItem(BaseModel):
     video_length: Optional[str] = "auto"
     playback_speed: Optional[float] = 1.0
     voice_emotion: Optional[str] = None
+    bgm_track_id: Optional[str] = None
+    bgm_volume: Optional[float] = 0.10
 
     @field_validator("playback_speed")
     @classmethod
@@ -372,6 +403,14 @@ class SceneUpdate(BaseModel):
     remotion_code: Optional[str] = None
     duration_seconds: Optional[float] = None
     extra_hold_seconds: Optional[float] = None
+    bgm_volume: Optional[float] = None
+
+    @field_validator("bgm_volume")
+    @classmethod
+    def validate_scene_bgm_volume(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        return round(max(0.0, min(1.0, float(v))), 2)
 
 
 # ─── Scene Editing ──────────────────────────────────────────

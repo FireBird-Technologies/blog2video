@@ -6,7 +6,7 @@ import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
 import { classifyUrlScrapability } from "../utils/urlScrapability";
-import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
+import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import {
   primeBlogUrlFormStep2Prefetch,
   fetchBlogUrlFormBuiltinTemplatesDeduped,
@@ -191,7 +191,9 @@ interface Props {
     videoStyle?: VideoStyleId,
     videoLength?: "short" | "medium" | "detailed" | "more_detailed",
     contentLanguage?: string | null,
-    voiceEmotion?: string
+    voiceEmotion?: string,
+    bgmTrackId?: string | null,
+    bgmVolume?: number
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
@@ -896,6 +898,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   useEffect(() => () => stopVoicePreview(), [stopVoicePreview]);
   // Whether the "Advanced Options" tab (voice tuning sliders) is expanded. Paid-only.
   const [showAdvancedOptions, setShowAdvancedOptions] = useState<boolean>(false);
+  // Active tab in the Step 3 voice/music panel: voice | bgm | advanced (paid).
+  const [voicePanelTab, setVoicePanelTab] = useState<"voice" | "bgm" | "advanced">("voice");
   // Master switch for the expressive v3 path. Off → standard v2 voice. Only when ON is the voice
   // tuning sent (which is what routes the project through eleven_v3 + [excited] + emotive narration).
   // Defaults ON for users who previously enabled it (a saved preference exists) — it stays enabled
@@ -915,6 +919,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const customVoiceIdRef = useRef(customVoiceId);
   voiceGenderRef.current = voiceGender;
   customVoiceIdRef.current = customVoiceId;
+
+  // Background music
+  const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
+  const [selectedBgmTrackId, setSelectedBgmTrackId] = useState<string | null>(null);
+  const [selectedBgmVolume, setSelectedBgmVolume] = useState<number>(0.10);
+  const [bgmPlayingId, setBgmPlayingId] = useState<string | null>(null);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
@@ -1157,6 +1168,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     getVoicePreviews()
       .then((r) => {
         if (mounted) setVoicePreviews(r.data);
+      })
+      .catch(() => {});
+    getBgmTracks()
+      .then((r) => {
+        if (mounted) setBgmTracks(r.data);
       })
       .catch(() => {});
     setMyVoicesLoading(true);
@@ -1606,6 +1622,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (enteredAt != null && Date.now() - enteredAt < 400) return;
     step3EnteredAtRef.current = null;
     audioRef.current?.pause();
+    bgmAudioRef.current?.pause();
 
     if (mode === "bulk" && onSubmitBulk) {
       const valid = bulkRows
@@ -1771,7 +1788,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         contentLanguage === "auto" ? null : contentLanguage,
         isPro && inferredGender !== "none"
           ? serializeVoiceTuning(voiceStability, voiceSpeed, voiceEmotion, voiceStyle, expressiveEnabled)
-          : undefined
+          : undefined,
+        selectedBgmTrackId,
+        selectedBgmVolume
       );
       setDocFiles([]);
       setName("");
@@ -1811,7 +1830,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           contentLanguage === "auto" ? null : contentLanguage,
           isPro && inferredGender !== "none"
           ? serializeVoiceTuning(voiceStability, voiceSpeed, voiceEmotion, voiceStyle, expressiveEnabled)
-          : undefined
+          : undefined,
+          selectedBgmTrackId,
+          selectedBgmVolume
         );
       }
       setUrls([""]);
@@ -3830,17 +3851,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       </label>
 
       {/* Voices from user's saved list + premium teasers for free users */}
-      <div className={voiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
+      <div>
         <div className="flex items-center justify-between mb-3">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            {showAdvancedOptions && isPro ? "Advanced Options" : "Voice — Select and Play to Preview"}
+            {voicePanelTab === "advanced" && isPro
+              ? "Advanced Options"
+              : voicePanelTab === "bgm"
+                ? "Music — Play to preview"
+                : "Voice — Play to preview"}
           </label>
-          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl shrink-0">
             <button
               type="button"
-              onClick={() => setShowAdvancedOptions(false)}
-              className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                !(showAdvancedOptions && isPro)
+              onClick={() => setVoicePanelTab("voice")}
+              className={`whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                voicePanelTab === "voice"
                   ? "bg-white text-purple-600 shadow-sm"
                   : "text-gray-400 hover:text-gray-600"
               }`}
@@ -3849,15 +3874,26 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </button>
             <button
               type="button"
+              onClick={() => setVoicePanelTab("bgm")}
+              className={`whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                voicePanelTab === "bgm"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Music
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 if (!isPro) {
                   setShowUpgrade(true);
                   return;
                 }
-                setShowAdvancedOptions(true);
+                setVoicePanelTab("advanced");
               }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                showAdvancedOptions && isPro
+              className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                voicePanelTab === "advanced" && isPro
                   ? "bg-white text-purple-600 shadow-sm"
                   : "text-gray-400 hover:text-gray-600"
               }`}
@@ -3869,8 +3905,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </button>
           </div>
         </div>
-        {!(showAdvancedOptions && isPro) && (
-        <div className="space-y-2 max-h-[320px] overflow-y-auto">
+        {voicePanelTab === "voice" && (
+        <div className={`space-y-2 max-h-[320px] overflow-y-auto ${voiceGender === "none" ? "opacity-60 pointer-events-none" : ""}`}>
           <CraftYourVoiceCard
             isPro={isPro}
             onClick={openStep3CustomVoiceCreator}
@@ -3965,7 +4001,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           )}
         </div>
         )}
-        {!(showAdvancedOptions && isPro) && !myVoicesLoading && myVoicesList.length === 0 && (
+        {voicePanelTab === "voice" && !myVoicesLoading && myVoicesList.length === 0 && (
           <p className="text-[11px] text-gray-500 mt-2">
             No voices saved. Add voices in the Voices tab to use them here.{" "}
             {!isPro && (
@@ -3976,7 +4012,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </p>
         )}
         {/* Advanced Options tab content — voice tuning sliders (paid) */}
-        {showAdvancedOptions && isPro && voiceGender !== "none" && (
+        {voicePanelTab === "advanced" && isPro && voiceGender !== "none" && (
           <AdvancedVoiceOptions
             value={{ enabled: expressiveEnabled, stability: voiceStability, speed: voiceSpeed, emotion: voiceEmotion, style: voiceStyle }}
             onChange={(t) => { setExpressiveEnabled(t.enabled); setVoiceStability(t.stability); setVoiceSpeed(t.speed); setVoiceEmotion(t.emotion); setVoiceStyle(t.style); }}
@@ -3986,6 +4022,138 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           />
         )}
       </div>
+
+      {/* ─── Background Music tab content (optional) ─────── */}
+      {voicePanelTab === "bgm" && bgmTracks.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[11px] text-gray-400 mb-1">Ambient music behind your narration — optional.</p>
+
+          {/* Volume — shown once a track is picked; applies to the whole project */}
+          {selectedBgmTrackId && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-medium text-gray-600">Music volume</span>
+                <span className="text-[11px] text-gray-400 tabular-nums">{Math.round(selectedBgmVolume * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={Math.round(selectedBgmVolume * 100)}
+                onChange={(e) => {
+                  const v = Number(e.target.value) / 100;
+                  setSelectedBgmVolume(v);
+                  if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+                }}
+                className="w-full accent-purple-600 cursor-pointer"
+              />
+              <p className="text-[10px] text-gray-400 mt-0.5">Sets the volume for the whole video. After it's generated, you can fine-tune the music volume per scene in the <span className="font-medium text-gray-500">Audio</span> tab.</p>
+            </div>
+          )}
+
+          <div className="space-y-1.5 max-h-[320px] overflow-y-auto">
+            {/* None option */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedBgmTrackId(null);
+                bgmAudioRef.current?.pause();
+                setBgmPlayingId(null);
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                !selectedBgmTrackId
+                  ? "border-purple-400 bg-purple-50/60"
+                  : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-sm font-medium text-gray-700">None</span>
+                <p className="text-[11px] text-gray-400">No background music</p>
+              </div>
+              {!selectedBgmTrackId && (
+                <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+            </button>
+
+            {bgmTracks.map((track) => {
+              const isSelected = selectedBgmTrackId === track.track_id;
+              const isPlaying = bgmPlayingId === track.track_id;
+              return (
+                <div
+                  key={track.track_id}
+                  onClick={() => setSelectedBgmTrackId(isSelected ? null : track.track_id)}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-purple-400 bg-purple-50/60"
+                      : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
+                  }`}
+                >
+                  {/* Play/pause button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isPlaying) {
+                        bgmAudioRef.current?.pause();
+                        setBgmPlayingId(null);
+                      } else {
+                        if (bgmAudioRef.current) {
+                          bgmAudioRef.current.pause();
+                        }
+                        const audio = new Audio(track.r2_url);
+                        audio.volume = Math.max(0, Math.min(1, selectedBgmVolume));
+                        audio.onended = () => setBgmPlayingId(null);
+                        audio.play().catch(() => {});
+                        bgmAudioRef.current = audio;
+                        setBgmPlayingId(track.track_id);
+                      }
+                    }}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                      isPlaying
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-200 text-gray-500 hover:bg-gray-300"
+                    }`}
+                  >
+                    {isPlaying ? (
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <rect x="6" y="4" width="4" height="16" rx="1" />
+                        <rect x="14" y="4" width="4" height="16" rx="1" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium text-gray-700">{track.display_name}</span>
+                    <p className="text-[11px] text-gray-400">{track.mood}</p>
+                  </div>
+
+                  {isSelected && (
+                    <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button
@@ -4263,7 +4431,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               <button
                 type="button"
                 onClick={() => setShowAdvancedOptions(false)}
-                className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                className={`whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
                   !(showAdvancedOptions && isPro)
                     ? "bg-white text-purple-600 shadow-sm"
                     : "text-gray-400 hover:text-gray-600"
