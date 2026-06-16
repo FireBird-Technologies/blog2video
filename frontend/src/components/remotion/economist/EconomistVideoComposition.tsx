@@ -6,6 +6,7 @@ import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { ECONOMIST_LAYOUT_REGISTRY } from "./layouts";
 import type { EconomistLayoutType, EconomistLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { EconomistChrome } from "./components/EconomistChrome";
 import { pickEconomistTransition } from "./transitions";
@@ -32,6 +33,8 @@ export interface EconomistVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
@@ -105,6 +108,8 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
   playbackSpeed,
@@ -235,6 +240,10 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
       )}
     </AbsoluteFill>
   );

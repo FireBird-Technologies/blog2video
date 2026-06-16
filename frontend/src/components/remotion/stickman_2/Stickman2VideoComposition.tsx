@@ -1,6 +1,7 @@
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { STICKMAN_2_LAYOUT_REGISTRY as LAYOUT_REGISTRY, Stickman2LayoutType, SceneLayoutProps } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
 
 export interface Stickman2SceneInput {
   id: number;
@@ -24,6 +25,8 @@ export interface Stickman2VideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
 }
@@ -37,6 +40,8 @@ export const Stickman2VideoComposition: React.FC<Stickman2VideoCompositionProps>
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
 }) => {
@@ -95,6 +100,10 @@ export const Stickman2VideoComposition: React.FC<Stickman2VideoCompositionProps>
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
       )}
     </AbsoluteFill>
   );
