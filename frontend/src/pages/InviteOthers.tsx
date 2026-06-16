@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import ReferralPanel from "../components/ReferralPanel";
+import SurveyForm from "../components/SurveyForm";
 
 export default function InviteOthers() {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ export default function InviteOthers() {
       </div>
 
       <ReferralPanel />
+
+      <SurveyForm />
     </div>
   );
 }

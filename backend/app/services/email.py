@@ -627,14 +627,19 @@ class EmailService:
 </html>"""
 
     def send_referral_invite_email(self, to_email: str, referrer_name: str, referral_link: str) -> None:
+        from app.models.referral import REFERRAL_BONUS_VIDEOS
+        from app.models.user import FREE_TIER_INCLUDED_VIDEOS
+
         first_name = (referrer_name or "").split()[0] if referrer_name else "A friend"
-        subject = f"{first_name} invited you to Blog2Video — get 3 free extra videos"
+        bonus = REFERRAL_BONUS_VIDEOS
+        total = FREE_TIER_INCLUDED_VIDEOS + REFERRAL_BONUS_VIDEOS
+        subject = f"{first_name} invited you to Blog2Video — get {bonus} free extra videos"
 
         text_content = (
             f"{first_name} invited you to Blog2Video!\n\n"
             f"Blog2Video is an AI tool that turns blog posts into polished videos in minutes.\n\n"
-            f"Sign up through their invite link and get 3 bonus videos on top of your free plan "
-            f"(6 total, no credit card required).\n\n"
+            f"Sign up through their invite link and get {bonus} bonus videos on top of your free plan "
+            f"({total} total, no credit card required).\n\n"
             f"Get started: {referral_link}\n\n"
             f"Team Blog2Video\n"
         )
@@ -642,8 +647,8 @@ class EmailService:
             f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
             f"{html.escape(first_name)} invited you to Blog2Video!\n\n"
             f"Blog2Video is an AI tool that turns blog posts into polished videos in minutes.\n\n"
-            f"Sign up through their invite link and get 3 bonus videos on top of your free plan "
-            f"(6 total, no credit card required).\n\n"
+            f"Sign up through their invite link and get {bonus} bonus videos on top of your free plan "
+            f"({total} total, no credit card required).\n\n"
             f"Get started: {referral_link}\n\n"
             f"Team Blog2Video"
             f"</pre>"
