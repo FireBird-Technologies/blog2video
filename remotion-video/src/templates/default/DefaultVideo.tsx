@@ -12,6 +12,7 @@ import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import { TransitionWipe } from "../../components/Transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -41,6 +42,8 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -284,6 +287,10 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         />
       )}
 
+      {/* Background music */}
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
+      )}
     </AbsoluteFill>
   );
 };
