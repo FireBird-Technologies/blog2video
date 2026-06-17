@@ -1423,6 +1423,16 @@ def _handle_checkout_completed(session: dict, db: Session):
     checkout_type = metadata.get("type", "pro_subscription")
     session_id = session.get("id")
 
+    # Idempotency: Stripe delivers webhooks at-least-once. If we've already created a
+    # Subscription row for this checkout session, this is a redelivery — do not re-grant.
+    if session_id:
+        already = db.query(Subscription).filter_by(
+            stripe_checkout_session_id=session_id
+        ).first()
+        if already:
+            logger.info("[BILLING] Duplicate checkout webhook for session %s — skipping", session_id)
+            return
+
     if checkout_type == "per_video":
         # One-time per-video payment
         project_id = metadata.get("project_id")
@@ -1801,13 +1811,11 @@ def _handle_dispute_created(dispute: dict, db: Session):
     if not user:
         return
 
-    # Downgrade to free plan during dispute
-    free_plan = db.query(SubscriptionPlan).filter_by(name="free").first()
-    if free_plan:
-        user.plan = "free"
-        user.video_limit = free_plan.video_limit
-        db.commit()
-        print(f"[BILLING] User {user.id} downgraded to free due to dispute")
+    # Downgrade to free plan during dispute. video_limit derives from plan via a
+    # read-only property, so we only need to set the plan tier.
+    user.plan = PlanTier.FREE
+    db.commit()
+    print(f"[BILLING] User {user.id} downgraded to free due to dispute")
 
 
 def _handle_charge_refunded(charge: dict, db: Session):
