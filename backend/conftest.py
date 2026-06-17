@@ -45,6 +45,13 @@ for _var in (
 ):
     os.environ[_var] = ""
 
+# The support bot builds a module-level OpenAI client at import time
+# (app/support/llm_client.py), and the OpenAI SDK constructor raises if its key
+# is empty. So this one credential must be a NON-empty *fake* — non-authenticating
+# like the blanks above (the kill_network fixture still blocks any real call), but
+# present so `import app.main` succeeds in CI where no real key exists.
+os.environ["OPEN_ROUTER_KEY"] = "test-openrouter-key-not-real"
+
 import pytest  # noqa: E402  (import after env setup is intentional)
 from sqlalchemy import event  # noqa: E402
 
