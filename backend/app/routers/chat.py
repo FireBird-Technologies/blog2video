@@ -140,6 +140,14 @@ def get_chat_history(
     db: Session = Depends(get_db),
 ):
     """Get the chat history for a project."""
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.user_id == user.id)
+        .first()
+    )
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     messages = (
         db.query(ChatMessage)
         .filter(ChatMessage.project_id == project_id)
