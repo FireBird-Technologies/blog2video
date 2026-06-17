@@ -1,0 +1,30 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = ["alembic", ".pycache_tmp"]
+
+[tool.ruff.lint]
+# Permissive starting set: real correctness issues (pyflakes) only.
+# Expand to E/I/UP/B in a follow-up once the existing code is cleaned up,
+# so the first CI run does not drown in legacy style churn.
+select = ["F"]
+# F401 unused-import is noisy on __init__ re-export modules; keep the rest of F.
+ignore = ["F403", "F405"]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-export hubs intentionally import names they don't use locally.
+"app/models/__init__.py" = ["F401"]
+"app/routers/__init__.py" = ["F401"]
+"app/__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v -ra --tb=short --strict-markers"
+markers = [
+    "smoke: happy-path + auth-gate breadth tests",
+    "ownership: cross-user isolation / tenant-leak sweep",
+    "gates: paywall / quota / rate-limit gating",
+    "webhooks: stripe webhook dispatch",
+    "depth: deep correctness (money-math, pipeline glue, record/replay)",
+]
