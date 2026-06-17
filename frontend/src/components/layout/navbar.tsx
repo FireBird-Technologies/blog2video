@@ -62,7 +62,7 @@ const Navbar = () => {
             </svg>
             Share B2V
             <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
-              Get 5 free videos
+              Get 15 free videos
             </span>
           </Link>
 
