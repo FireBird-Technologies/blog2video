@@ -91,20 +91,6 @@ def test_garbage_token__returns_401(client, path):
     assert resp.status_code == 401
 
 
-# ─── KNOWN BUG: chat history lacks an ownership check ────────────────────────
-# GET /api/projects/{project_id}/chat/history (app/routers/chat.py) requires
-# auth but filters ChatMessage by project_id only — it never verifies the
-# project belongs to the caller. Any authenticated user can therefore read any
-# project's chat history by guessing the id. This test encodes the CORRECT
-# expected behavior (cross-user -> 404). It is marked xfail(strict=True) so:
-#   - the suite stays green while the bug exists (documented, not hidden), and
-#   - the moment the route is fixed, this test xPASSes and strict mode flips it
-#     to a FAILURE, forcing us to remove the xfail and lock in the fix.
-@pytest.mark.xfail(
-    strict=True,
-    reason="KNOWN BUG: chat/history has no ownership check (tenant leak); "
-    "remove this xfail when app/routers/chat.py filters by the caller's project.",
-)
 def test_cross_user_chat_history__should_return_404(
     client, db_session, owned_project, other_user, auth
 ):
