@@ -4642,7 +4642,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "What is the best free blog-to-video tool?",
         answer:
-          "Blog2Video offers three free videos with no watermark. Lumen5 has a free tier limited to 5 videos at 720p with a watermark. Fliki offers 5 free minutes per month. Most other tools either have no free tier or restrict free usage to trials. For technical content, Blog2Video's free tier provides the highest-fidelity output.",
+          "Blog2Video offers two free videos with no watermark. Lumen5 has a free tier limited to 5 videos at 720p with a watermark. Fliki offers 5 free minutes per month. Most other tools either have no free tier or restrict free usage to trials. For technical content, Blog2Video's free tier provides the highest-fidelity output.",
       },
       {
         question: "Can Blog2Video handle code blocks and diagrams?",
@@ -6133,7 +6133,7 @@ export const blogPosts: BlogPost[] = [
           "Templates available in 2026: Nightfall, Spotlight, Whiteboard, Gridcraft, Matrix, Newspaper, Bloomberg Terminal, Chronicle, Geometric Explainer, Mosaic, Newscast, and Blackswan — 12 in total with 60+ layouts across them. Exports include MP4 video, PNG slides (for LinkedIn carousels), PDF decks, and PowerPoint. Every video also gets a shareable URL and an iframe embed code.",
         ],
         bullets: [
-          "Free: 3 videos, no watermark, no credit card required.",
+          "Free: 2 videos, no watermark, no credit card required.",
           "Pay-as-you-go: $4/video (1–9), $3/video (10–30), $2.80/video (31–200).",
           "Standard: $35/month ($28/month billed annually) — 30 videos/month.",
           "Pro: $60/month ($48/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
@@ -6311,7 +6311,7 @@ export const blogPosts: BlogPost[] = [
           "Multi-format export (MP4 + PDF + PPT + PNG) — Blog2Video ✓, others MP4-primary",
           "Iframe and URL embed — Blog2Video ✓, VEED ✓, Flixier ✓, others ✗",
           "Flat subscription pricing (no credits or minutes) — Blog2Video ✓, others use credit or minute caps",
-          "Free tier without watermark — Blog2Video ✓ (3 videos), Synthesia ✓ (10 min/mo), others watermarked or trial-only",
+          "Free tier without watermark — Blog2Video ✓ (2 videos), Synthesia ✓ (10 min/mo), others watermarked or trial-only",
           "Multilingual voiceover (2,000+ voices) — Fliki ✓, HeyGen ✓, Synthesia ✓, Predis.ai ✓, Blog2Video via ElevenLabs integration",
           "Social media scheduling — Predis.ai ✓, others ✗",
         ],
@@ -6322,7 +6322,7 @@ export const blogPosts: BlogPost[] = [
           "Entry-point pricing for each tool (cheapest paid plan, billed monthly unless noted), and what the mid-tier looks like for comparison.",
         ],
         bullets: [
-          "Blog2Video: Free (3 videos, no watermark) → $4/video pay-as-you-go → Standard $35/mo (30 videos) → Pro $60/mo (100 videos + unlimited AI)",
+          "Blog2Video: Free (2 videos, no watermark) → $4/video pay-as-you-go → Standard $35/mo (30 videos) → Pro $60/mo (100 videos + unlimited AI)",
           "Lumen5: Free (watermarked, 5 videos, 720p) → paid from ~$19/mo",
           "Pictory: 14-day trial → Starter $29/mo ($25 annual, 200 min, 100 AI credits) → Professional $59/mo ($35 annual) → Team $199/mo ($119 annual)",
           "InVideo AI: Free (watermarked, 10 exports/week) → Plus $25/mo ($20 annual, 50 videos, 1080p) → Max $60/mo ($48 annual, 120 videos, 4K)",
@@ -6376,7 +6376,7 @@ export const blogPosts: BlogPost[] = [
       {
         heading: "Start with the free tier — then decide",
         paragraphs: [
-          "Blog2Video gives you three videos free with no watermark and no credit card required. If your content is technical, educational, or structured — use one of the free slots on a real post and compare the output side by side with a Lumen5 or Pictory export of the same article. The difference is most visible with content that has headings, bullets, and more than two distinct sections.",
+          "Blog2Video gives you two videos free with no watermark and no credit card required. If your content is technical, educational, or structured — use one of the free slots on a real post and compare the output side by side with a Lumen5 or Pictory export of the same article. The difference is most visible with content that has headings, bullets, and more than two distinct sections.",
           "Every tool on this list has a free entry point of some kind. Synthesia gives 10 free minutes per month. HeyGen gives three one-minute videos. InVideo AI has a watermarked free plan. Descript's free tier covers editing but not video generation. Use the free tiers before committing to any paid plan — the right tool for your workflow will be obvious after one real test.",
         ],
         ctaPath: "/blog-to-video",
@@ -6407,7 +6407,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "Does any blog-to-video tool offer a free plan without a watermark?",
         answer:
-          "Blog2Video gives three videos free with no watermark and no credit card. Most other tools either watermark the free tier (Lumen5, InVideo AI, Fliki, Flixier) or have no permanent free tier (Predis.ai's 7-day trial, VideoGen). Synthesia's free Basic plan includes 10 minutes per month without a watermark but limits you to 9 avatars.",
+          "Blog2Video gives two videos free with no watermark and no credit card. Most other tools either watermark the free tier (Lumen5, InVideo AI, Fliki, Flixier) or have no permanent free tier (Predis.ai's 7-day trial, VideoGen). Synthesia's free Basic plan includes 10 minutes per month without a watermark but limits you to 9 avatars.",
       },
       {
         question: "What is the best blog-to-video tool for SEO content teams?",

@@ -82,7 +82,7 @@ def test_voice_preview__without_token__returns_401(client):
 # ─── POST /api/projects — quota gate ────────────────────────────────────────
 
 def test_create_project__at_video_limit__returns_403(client, db_session, free_user, auth):
-    # Max out the free quota (video_limit == 3 for FREE).
+    # Max out the free quota (video_limit == 2 for FREE).
     free_user.videos_used_this_period = free_user.video_limit
     db_session.commit()
 

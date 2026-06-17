@@ -44,7 +44,7 @@ def _add_credits(db, user, qty, *, expired=False, status=SubscriptionStatus.COMP
 
 # ─── A1. The absorption engine — _recalculate_video_limit_bonus ─────────────
 # Reproduces the worked Examples A/B/C from the function's docstring, then adds
-# edge cases. Absorption order: base(3) -> free_grants -> referral -> paid.
+# edge cases. Absorption order: base(2) -> free_grants -> referral -> paid.
 
 def _run_recalc(db, user, *, old_bonus, referral, used, paid):
     if paid:
@@ -63,18 +63,18 @@ def test_recalc_example_a__free_then_referral_absorption(db_session, paid_user):
     _run_recalc(db_session, paid_user, old_bonus=4, referral=6, used=8, paid=2)
     assert paid_user.video_limit_bonus == 2       # paid credits carry over
     assert paid_user.referral_video_bonus == 6    # referral persists
-    assert paid_user.videos_used_this_period == 3  # 3 referral consumed, 0 paid
+    assert paid_user.videos_used_this_period == 4  # 4 referral consumed, 0 paid
 
 
 def test_recalc_example_b__referral_fully_consumed(db_session, paid_user):
     _run_recalc(db_session, paid_user, old_bonus=4, referral=6, used=11, paid=2)
-    assert paid_user.videos_used_this_period == 6
+    assert paid_user.videos_used_this_period == 7
     assert paid_user.referral_video_bonus == 6
 
 
 def test_recalc_example_c__paid_consumed_no_referral(db_session, paid_user):
     _run_recalc(db_session, paid_user, old_bonus=4, referral=0, used=6, paid=2)
-    assert paid_user.videos_used_this_period == 1
+    assert paid_user.videos_used_this_period == 2
     assert paid_user.referral_video_bonus == 0
     assert paid_user.video_limit_bonus == 2
 
@@ -87,12 +87,12 @@ def test_recalc__zero_usage__nothing_consumed(db_session, paid_user):
 
 
 def test_recalc__usage_beyond_free_carries_forward_in_full(db_session, paid_user):
-    # Only base(3)+free(0) usage is forgiven on upgrade; everything above carries
+    # Only base(2)+free(0) usage is forgiven on upgrade; everything above carries
     # forward. paid_consumed is NOT capped at owned credits — it reflects real
     # videos the user already consumed.
     _run_recalc(db_session, paid_user, old_bonus=2, referral=3, used=50, paid=2)
-    # free_grants=0; absorbed=min(50,3)=3; remaining=47; ref_consumed=3; paid_consumed=44
-    assert paid_user.videos_used_this_period == 47  # 50 used minus 3 base absorbed
+    # free_grants=0; absorbed=min(50,2)=2; remaining=48; ref_consumed=3; paid_consumed=45
+    assert paid_user.videos_used_this_period == 48  # 50 used minus 2 base absorbed
 
 
 # ─── A2. Credit counting — _count_active_per_video_credits ──────────────────
@@ -125,7 +125,7 @@ def test_count_credits__excludes_non_completed(db_session, paid_user):
 # ─── A3. Limit / gate properties — User ─────────────────────────────────────
 
 @pytest.mark.parametrize("plan,base", [
-    (PlanTier.FREE, 3), (PlanTier.STANDARD, 30), (PlanTier.PRO, 100),
+    (PlanTier.FREE, 2), (PlanTier.STANDARD, 30), (PlanTier.PRO, 100),
 ])
 def test_video_limit__base_per_tier(db_session, plan, base):
     user = User(email=f"{plan.value}@t.local", name="U", google_id=f"g-{plan.value}",
