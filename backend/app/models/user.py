@@ -12,7 +12,7 @@ class PlanTier(str, enum.Enum):
 
 
 # Included videos for plan FREE (before video_limit_bonus). Used for limits and delete-account capping.
-FREE_TIER_INCLUDED_VIDEOS = 3
+FREE_TIER_INCLUDED_VIDEOS = 2
 
 
 class User(Base):

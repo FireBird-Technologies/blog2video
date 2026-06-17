@@ -791,7 +791,7 @@ export default function Landing() {
               Get Started →
             </button>
           </form>
-          <p className="text-xs text-gray-400 mt-3">3 videos free — no credit card required</p>
+          <p className="text-xs text-gray-400 mt-3">2 videos free — no credit card required</p>
         </div>
       </section>
 
@@ -1140,7 +1140,7 @@ export default function Landing() {
             Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first 3 videos are free. Then from $2.80/video pay-as-you-go, $35/month,
+            Your first 2 videos are free. Then from $2.80/video pay-as-you-go, $35/month,
             $60/month with unlimited AI edit & image generation,
             or custom plans for enterprise teams.
           </p>
@@ -1149,7 +1149,7 @@ export default function Landing() {
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
-              <p className="text-xs text-gray-400 mt-1">3 videos free</p>
+              <p className="text-xs text-gray-400 mt-1">2 videos free</p>
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
@@ -1205,7 +1205,7 @@ export default function Landing() {
                 text="continue_with"
                 width="300"
               />
-              <p className="text-xs text-gray-400">3 videos free — no credit card required</p>
+              <p className="text-xs text-gray-400">2 videos free — no credit card required</p>
             </div>
           </div>
         </div>
