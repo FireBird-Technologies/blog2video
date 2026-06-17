@@ -1,0 +1,54 @@
+name: Backend Tests
+
+# Tier A + depth suite — fast regression floor for the FastAPI backend.
+# Runs ruff (on the test code) + pytest on every PR into develop that touches the
+# backend. Make this a REQUIRED status check on develop (repo Settings → Branches)
+# so a route that 500s or drops its auth/ownership guard cannot merge.
+
+on:
+  pull_request:
+    branches: [develop]
+    paths: ["backend/**", ".github/workflows/backend-tests.yml"]
+  push:
+    branches: [develop]
+    paths: ["backend/**", ".github/workflows/backend-tests.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Cache the entire built virtualenv, keyed on the requirements hash. On a
+      # cache hit (requirements unchanged) the venv — including the slow
+      # git-built litellm — is restored in seconds and the install step is
+      # skipped. Only a change to requirements.txt triggers a fresh build.
+      - name: Cache virtualenv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: backend/.venv
+          key: venv-${{ runner.os }}-py3.11-${{ hashFiles('backend/requirements.txt') }}
+
+      - name: Create venv + install dependencies (on cache miss)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+
+      # Lint only the test code for now (the existing app/ has ~64 legacy ruff
+      # findings tracked as a separate cleanup). Expand to `ruff check .` later.
+      - name: Ruff (test suite)
+        run: .venv/bin/ruff check tests conftest.py
+
+      - name: Pytest (full backend suite)
+        run: .venv/bin/pytest
