@@ -41,7 +41,7 @@ def test_get_billing_plans__plan_out_shape(client):
                   "includes_studio", "includes_chat_editor", "sort_order"):
         assert field in plan
     assert plan["price_cents"] == 0
-    assert plan["video_limit"] == 3
+    assert plan["video_limit"] == 2
 
 
 # ─── POST /api/contact/enterprise ───────────────────────────────────────────
