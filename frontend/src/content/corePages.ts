@@ -231,7 +231,7 @@ export const coreCommercialPages: MarketingPage[] = [
       {
         question: "Is Blog2Video free to use?",
         answer:
-          "Yes. Blog2Video offers three free videos when you sign up — no credit card required. Paid plans start from $2.80 per video at volume, or you can use individual credits at $4 per video. See the pricing page for current tiers.",
+          "Yes. Blog2Video offers two free videos when you sign up — no credit card required. Paid plans start from $2.80 per video at volume, or you can use individual credits at $4 per video. See the pricing page for current tiers.",
       },
       {
         question: "How long does it take to turn a blog post into a video?",

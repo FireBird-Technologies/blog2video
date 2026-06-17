@@ -65,7 +65,7 @@ What to do: Try rendering again. If it keeps failing, open each scene and check 
 
 Error: "Video limit reached. Re-render counts as a video. Upgrade your plan or buy more credits to continue."
 Why it happens: You have used all your available video renders for the current period. Re-rendering an existing project counts as a new video.
-What to do: Upgrade to a Pro or Standard plan, or buy additional video credits from the pricing page. Free users get 3 videos total.
+What to do: Upgrade to a Pro or Standard plan, or buy additional video credits from the pricing page. Free users get 2 videos total.
 
 Error: "You can't render this video because its custom template has been deleted."
 Why it happens: The project was created using a custom template that no longer exists in your account. Rendering requires the template to be present.

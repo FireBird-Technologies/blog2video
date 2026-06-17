@@ -41,7 +41,7 @@ export const COMMON_PAID_FEATURES = [
 ] as const;
 
 export const FREE_FEATURES_INCLUDED = [
-  "3 videos free",
+  "2 videos free",
   "AI script generation",
   "ElevenLabs voiceover",
   "Remotion video preview",
@@ -81,8 +81,8 @@ export const pricingPlans: PricingPlan[] = [
     monthlyPrice: 0,
     annualMonthlyPrice: null,
     annualTotalPrice: null,
-    videoLimit: 3,
-    videoLimitLabel: "3 videos free (lifetime)",
+    videoLimit: 2,
+    videoLimitLabel: "2 videos free (lifetime)",
     featuresIncluded: [...FREE_FEATURES_INCLUDED],
     featuresExcluded: [...FREE_FEATURES_EXCLUDED],
     notes: ["No credit card required"],
@@ -184,11 +184,11 @@ export const pricingFaq: FaqItem[] = [
   },
   {
     question: "How much does Blog2Video cost?",
-    answer: `Free plan: $0 (3 videos). Pay per video: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}–$${PER_VIDEO_BULK_PRICE.toFixed(2)}/video. Standard: $${STANDARD_MONTHLY_PRICE}/mo (or $${STANDARD_ANNUAL_MONTHLY_PRICE}/mo annually). Pro: $${PRO_MONTHLY_PRICE}/mo (or $${PRO_ANNUAL_MONTHLY_PRICE}/mo annually). Enterprise: custom pricing.`,
+    answer: `Free plan: $0 (2 videos). Pay per video: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}–$${PER_VIDEO_BULK_PRICE.toFixed(2)}/video. Standard: $${STANDARD_MONTHLY_PRICE}/mo (or $${STANDARD_ANNUAL_MONTHLY_PRICE}/mo annually). Pro: $${PRO_MONTHLY_PRICE}/mo (or $${PRO_ANNUAL_MONTHLY_PRICE}/mo annually). Enterprise: custom pricing.`,
   },
   {
     question: "What is included in the free plan?",
-    answer: `The free plan includes 3 videos, AI script generation, ElevenLabs voiceover, Remotion video preview, render & download MP4, and custom video templates. Unlimited AI edit & image generation and premium voiceover + cloning require a paid plan.`,
+    answer: `The free plan includes 2 videos, AI script generation, ElevenLabs voiceover, Remotion video preview, render & download MP4, and custom video templates. Unlimited AI edit & image generation and premium voiceover + cloning require a paid plan.`,
   },
   {
     question: "How do I upgrade my plan?",
