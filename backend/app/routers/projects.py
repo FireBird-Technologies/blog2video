@@ -4101,11 +4101,14 @@ async def regenerate_scene(
             field_name="remotion_code",
             old_value=old_remotion_code,
             new_value=scene.remotion_code,
-            is_ai_assisted=False,
+            is_ai_assisted=True,
             user_instruction=f"Variant switch to {normalized_layout}",
         )
+        # A layout change counts as an AI-assisted edit even though no LLM call is made.
+        if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+            project.ai_assisted_editing_count += 1
         db.commit()
-        print(f"[REGENERATE] Variant switch → {normalized_layout} (no AI call)")
+        print(f"[REGENERATE] Variant switch → {normalized_layout} (counts as AI edit)")
 
         # Rebuild workspace and return
         scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
@@ -4156,11 +4159,14 @@ async def regenerate_scene(
             field_name="remotion_code",
             old_value=old_remotion_code,
             new_value=scene.remotion_code,
-            is_ai_assisted=False,
+            is_ai_assisted=True,
             user_instruction=f"Layout switch to {normalized_layout}",
         )
+        # A layout change counts as an AI-assisted edit even though no LLM call is made.
+        if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+            project.ai_assisted_editing_count += 1
         db.commit()
-        print(f"[REGENERATE] Layout switch → {normalized_layout} (no AI call)")
+        print(f"[REGENERATE] Layout switch → {normalized_layout} (counts as AI edit)")
 
         scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
         rebuild_workspace(project, scenes, db)
