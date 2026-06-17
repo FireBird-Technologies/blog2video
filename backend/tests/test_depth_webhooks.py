@@ -48,12 +48,6 @@ def test_checkout_completed__grants_per_video_credits(db_session, free_user):
     assert rows[0].quantity == 3
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="KNOWN BUG: _handle_checkout_completed is not idempotent — a duplicate "
-    "checkout.session.completed (same session id) grants credits twice. Add a guard "
-    "on stripe_checkout_session_id (or the Stripe event id) before granting.",
-)
 def test_checkout_completed__duplicate_delivery__grants_once(db_session, free_user):
     session = _credit_session(free_user, qty=2, session_id="cs_dup_1")
     _handle_checkout_completed(session, db_session)
@@ -155,13 +149,6 @@ def test_payment_action_required__marks_requires_action(db_session):
 
 # ═══ dispute (chargeback) — SHOULD downgrade (known bug) ════════════════════
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="KNOWN BUG: _handle_dispute_created looks up the free plan by name='free' "
-    "but the seeded name is 'Free' (returns None), so the downgrade block never runs "
-    "— a chargeback does NOT downgrade the user. (It also assigns to User.video_limit, "
-    "a read-only property.)",
-)
 def test_dispute_created__downgrades_user_to_free(db_session, monkeypatch):
     user, sub = _user_with_sub(db_session)
     monkeypatch.setattr(
