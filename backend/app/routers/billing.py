@@ -185,7 +185,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
 class CheckoutRequest(BaseModel):
     plan: str = "pro"  # "pro" or "standard"
     billing_cycle: str = "monthly"  # "monthly" or "annual"
-    apply_third_video_offer: bool = False  # Out-of-videos offer (15% monthly / 25% annual Pro)
+    apply_third_video_offer: bool = False  # Out-of-videos offer (15% monthly / 25% annual Standard)
 
 
 @router.post("/checkout", response_model=CheckoutResponse)
@@ -241,11 +241,11 @@ def create_checkout_session(
             raise HTTPException(status_code=409, detail="Offer only available to free-plan users")
         if user.can_create_video:
             raise HTTPException(status_code=409, detail="Offer only available when you have no remaining videos")
-        if body.plan != "pro":
-            raise HTTPException(status_code=400, detail="Offer only applies to Pro plan")
+        if body.plan != "standard":
+            raise HTTPException(status_code=400, detail="Offer only applies to Standard plan")
         coupon_id = (
-            settings.STRIPE_3VID_ANNUAL_COUPON_ID if body.billing_cycle == "annual"
-            else settings.STRIPE_3VID_MONTHLY_COUPON_ID
+            settings.STRIPE_STANDARD_ANNUAL_COUPON_ID if body.billing_cycle == "annual"
+            else settings.STRIPE_STANDARD_MONTHLY_COUPON_ID
         )
         if not coupon_id:
             raise HTTPException(status_code=400, detail="Offer coupon is not configured")
