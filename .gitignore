@@ -61,3 +61,6 @@ Thumbs.db
 backend/.env
 frontend/.env
 
+
+# Test virtualenv (Tier A QA suite)
+backend/.venv-test/
