@@ -72,7 +72,7 @@ export interface EconomistLayoutProps {
   sectionLabel?: string;
   /** Issue dateline / folio (e.g. "MAY 23RD–29TH 2026"). */
   dateline?: string;
-  /** Byline (e.g. "By our finance correspondent"). */
+  /** Byline. Optional manual override; auto-generation never sets one (no fabricated authorship). */
   byline?: string;
   /** Source attribution line (charts, tables, KPI panels). */
   source?: string;
