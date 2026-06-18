@@ -12,7 +12,7 @@ import stripe
 from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user
-from app.models.user import User, PlanTier
+from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS
 from app.models.project import Project
 from app.models.subscription import (
     Subscription, SubscriptionStatus, SubscriptionPlan,
@@ -125,7 +125,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     """
     Called when a user subscribes to a Pro/Standard plan, or when a plan renews.
 
-    Absorption order: base(3) → free_grants → referral_video_bonus → paid_credits.
+    Absorption order: base(2) → free_grants → referral_video_bonus → paid_credits.
     Base and free-grant usage disappears on upgrade. Referral and paid usage carries
     into the new period's videos_used_this_period so the user doesn't get phantom headroom.
     referral_video_bonus persists (reduced by what was consumed) — it is NOT wiped on upgrade.
@@ -135,7 +135,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     videos_used    = user.videos_used_this_period or 0
     paid_credits   = _count_active_per_video_credits(user.id, db)
 
-    # Usage absorption order: base(3) → free_grants → referral → paid
+    # Usage absorption order: base(2) → free_grants → referral → paid
     #
     # free_grants: portion of old video_limit_bonus that came from free promo grants
     #   (total old_bonus minus the paid per-video credits within it)
@@ -145,24 +145,24 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     # paid_consumed: what's left, charged against paid credits (carries into new period)
     # new_videos_used: referral_consumed + paid_consumed (base/free usage disappears)
     #
-    # Example A — free user: base=3, referral=6, free_grants=2, paid=2, used=8
+    # Example A — free user: base=2, referral=6, free_grants=2, paid=2, used=8
     #   free_grants  = old_bonus(4) - paid_credits(2) = 2
-    #   absorbed     = min(8, 3+2) = 5       (3 base + 2 free grants absorbed)
-    #   remaining    = 8 - 5 = 3
-    #   ref_consumed = min(6, 3) = 3         (3 of the 6 referral videos consumed)
-    #   paid_consumed= max(0, 3-3) = 0
-    #   new_used     = 3+0 = 3,  referral_video_bonus = 6
-    #   → new limit = plan + 2 paid + 6 referral = plan+8, used=3, remaining=plan+5
+    #   absorbed     = min(8, 2+2) = 4       (2 base + 2 free grants absorbed)
+    #   remaining    = 8 - 4 = 4
+    #   ref_consumed = min(6, 4) = 4         (4 of the 6 referral videos consumed)
+    #   paid_consumed= max(0, 4-4) = 0
+    #   new_used     = 4+0 = 4,  referral_video_bonus = 6
+    #   → new limit = plan + 2 paid + 6 referral = plan+8, used=4, remaining=plan+4
     #
-    # Example B — base=3, referral=6, free_grants=2, paid=2, used=11
-    #   absorbed=5, remaining=6, ref_consumed=min(6,6)=6, paid_consumed=0
-    #   new_used=6, referral_video_bonus=6
+    # Example B — base=2, referral=6, free_grants=2, paid=2, used=11
+    #   absorbed=4, remaining=7, ref_consumed=min(6,7)=6, paid_consumed=1
+    #   new_used=7, referral_video_bonus=6
     #
-    # Example C — base=3, referral=0, free_grants=2, paid=2, used=6
-    #   absorbed=5, remaining=1, ref_consumed=0, paid_consumed=1
-    #   new_used=1, referral_video_bonus=0
+    # Example C — base=2, referral=0, free_grants=2, paid=2, used=6
+    #   absorbed=4, remaining=2, ref_consumed=0, paid_consumed=2
+    #   new_used=2, referral_video_bonus=0
     free_grants      = max(0, old_bonus - paid_credits)
-    absorbed         = min(videos_used, 3 + free_grants)   # 3 = FREE_TIER_INCLUDED_VIDEOS
+    absorbed         = min(videos_used, FREE_TIER_INCLUDED_VIDEOS + free_grants)
     remaining        = max(0, videos_used - absorbed)
     referral_consumed = min(referral_bonus, remaining)
     paid_consumed    = max(0, remaining - referral_consumed)
@@ -185,7 +185,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
 class CheckoutRequest(BaseModel):
     plan: str = "pro"  # "pro" or "standard"
     billing_cycle: str = "monthly"  # "monthly" or "annual"
-    apply_third_video_offer: bool = False  # Out-of-videos offer (15% monthly / 25% annual Pro)
+    apply_third_video_offer: bool = False  # Out-of-videos offer (15% monthly / 25% annual Standard)
 
 
 @router.post("/checkout", response_model=CheckoutResponse)
@@ -241,11 +241,11 @@ def create_checkout_session(
             raise HTTPException(status_code=409, detail="Offer only available to free-plan users")
         if user.can_create_video:
             raise HTTPException(status_code=409, detail="Offer only available when you have no remaining videos")
-        if body.plan != "pro":
-            raise HTTPException(status_code=400, detail="Offer only applies to Pro plan")
+        if body.plan != "standard":
+            raise HTTPException(status_code=400, detail="Offer only applies to Standard plan")
         coupon_id = (
-            settings.STRIPE_3VID_ANNUAL_COUPON_ID if body.billing_cycle == "annual"
-            else settings.STRIPE_3VID_MONTHLY_COUPON_ID
+            settings.STRIPE_STANDARD_ANNUAL_COUPON_ID if body.billing_cycle == "annual"
+            else settings.STRIPE_STANDARD_MONTHLY_COUPON_ID
         )
         if not coupon_id:
             raise HTTPException(status_code=400, detail="Offer coupon is not configured")
@@ -1423,6 +1423,16 @@ def _handle_checkout_completed(session: dict, db: Session):
     checkout_type = metadata.get("type", "pro_subscription")
     session_id = session.get("id")
 
+    # Idempotency: Stripe delivers webhooks at-least-once. If we've already created a
+    # Subscription row for this checkout session, this is a redelivery — do not re-grant.
+    if session_id:
+        already = db.query(Subscription).filter_by(
+            stripe_checkout_session_id=session_id
+        ).first()
+        if already:
+            logger.info("[BILLING] Duplicate checkout webhook for session %s — skipping", session_id)
+            return
+
     if checkout_type == "per_video":
         # One-time per-video payment
         project_id = metadata.get("project_id")
@@ -1568,7 +1578,13 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
         if status in ("canceled", "unpaid", "past_due"):
+            was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
             user.plan = PlanTier.FREE
+            # Downgrading a paid user to FREE must not hand them fresh free quota they
+            # already consumed pre-upgrade. Cap usage at the included free count so the
+            # free tier shows 0 remaining (mirrors the delete-account flow in auth.py).
+            if was_paid and (user.videos_used_this_period or 0) < FREE_TIER_INCLUDED_VIDEOS:
+                user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
         # For active/trialing, set plan from existing Subscription record so we don't overwrite Standard with Pro
 
         # Update the Subscription record
@@ -1642,8 +1658,13 @@ def _handle_subscription_deleted(subscription_data: dict, db: Session):
 
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
+        was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
         user.plan = PlanTier.FREE
         user.stripe_subscription_id = None
+        # Don't let a downgraded paid user regain already-consumed free quota; cap usage
+        # at the included free count (mirrors the delete-account flow in auth.py).
+        if was_paid and (user.videos_used_this_period or 0) < FREE_TIER_INCLUDED_VIDEOS:
+            user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
 
         # Mark the Subscription record as canceled
         sub = db.query(Subscription).filter_by(
@@ -1790,13 +1811,11 @@ def _handle_dispute_created(dispute: dict, db: Session):
     if not user:
         return
 
-    # Downgrade to free plan during dispute
-    free_plan = db.query(SubscriptionPlan).filter_by(name="free").first()
-    if free_plan:
-        user.plan = "free"
-        user.video_limit = free_plan.video_limit
-        db.commit()
-        print(f"[BILLING] User {user.id} downgraded to free due to dispute")
+    # Downgrade to free plan during dispute. video_limit derives from plan via a
+    # read-only property, so we only need to set the plan tier.
+    user.plan = PlanTier.FREE
+    db.commit()
+    print(f"[BILLING] User {user.id} downgraded to free due to dispute")
 
 
 def _handle_charge_refunded(charge: dict, db: Session):

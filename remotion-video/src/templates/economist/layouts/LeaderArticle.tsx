@@ -44,6 +44,11 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   const body = (narration || "").trim();
   const dropCap = (illuminatedLetter || body.charAt(0) || "").toUpperCase();
   const rest = body.slice(1);
+  // Thin-content mode: a terse lead (one or two short sentences) would otherwise
+  // leave the column near-empty. Scale the body up so it reads as a deliberate
+  // lead statement and fills the centred block rather than floating as a sliver.
+  const isThin = body.length < 240;
+  const leadBodySize = isThin ? Math.round(bodySize * 1.34) : bodySize;
 
   const kickerReveal = redactionReveal(frame, 0, 14);
   const titleOp = interpolate(frame, [6, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -168,10 +173,10 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
     <div
       style={{
         fontFamily: ECONOMIST_SERIF_FONT,
-        fontSize: bodySize,
-        lineHeight: 1.6,
+        fontSize: leadBodySize,
+        lineHeight: isThin ? 1.5 : 1.6,
         color: textColor,
-        textAlign: "justify",
+        textAlign: isThin ? "left" : "justify",
         opacity: bodyOp,
         columnCount: bodyCols,
         columnGap: 56,
@@ -183,7 +188,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
             float: "left",
             fontFamily: ECONOMIST_SERIF_FONT,
             fontWeight: 900,
-            fontSize: bodySize * 3.2,
+            fontSize: leadBodySize * 3.2,
             lineHeight: 0.82,
             padding: "6px 14px 0 0",
             color: accentColor,
@@ -217,9 +222,12 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
           {header}
           {/* Full-width rule draws across under the headline band. */}
           <div style={{ height: 2, background: textColor, opacity: titleOp, margin: "30px 0 32px", ...ruleDraw(frame, 18, 18) }} />
-          <div style={{ flex: 1, display: "flex", gap: 56 }}>
+          {/* Centre the body + key-points block in the space below the headline so
+              a short article sits in the middle of the page rather than clinging
+              to the top and leaving a large empty void beneath it. */}
+          <div style={{ flex: 1, display: "flex", gap: 56, alignItems: "center" }}>
             <div style={{ flex: keyPointsEl ? 2 : 1 }}>{bodyEl}</div>
-            {keyPointsEl && <div style={{ flex: 1, alignSelf: "flex-start", paddingTop: 4 }}>{keyPointsEl}</div>}
+            {keyPointsEl && <div style={{ flex: 1, alignSelf: "center" }}>{keyPointsEl}</div>}
           </div>
           {/* Closing engraved end-mark (SVG). */}
           <div style={{ marginTop: 24, opacity: bodyOp }}>

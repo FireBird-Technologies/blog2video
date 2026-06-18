@@ -62,7 +62,7 @@ const Navbar = () => {
             </svg>
             Share B2V
             <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
-              Get 5 free videos
+              Get 15 free videos
             </span>
           </Link>
 
@@ -122,7 +122,7 @@ const Navbar = () => {
                       <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
                     </svg>
                     Share B2V
-                    <span className="ml-auto text-[9px] font-semibold bg-purple-600 text-white px-1.5 rounded-full">3 free videos</span>
+                    <span className="ml-auto text-[9px] font-semibold bg-purple-600 text-white px-1.5 rounded-full">5 free videos</span>
                   </Link>
                   <Link to="/mcp-connector" onClick={() => setMenuOpen(false)} className="flex items-center px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
                     Connect with AI
