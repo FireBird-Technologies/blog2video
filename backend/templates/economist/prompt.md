@@ -41,7 +41,7 @@ Core rules:
 
 ## leader_article
 
-**Visual:** Section kicker on a red rule, a bold serif headline, a drop-cap justified body, an optional byline, and an optional inset photo on the right.
+**Visual:** Section kicker on a red rule, a bold serif headline, a drop-cap justified body, and an optional inset photo on the right.
 
 **Best for:** The workhorse — any explanatory prose beat. The default and fallback layout.
 
@@ -49,7 +49,6 @@ Core rules:
 - `sectionLabel` — short uppercase kicker (e.g. `"BRIEFING"`, `"FINANCE"`, `"LEADERS"`).
 - `standfirst` — **REQUIRED.** A single-line italic deck (≤16 words) stating the article's sub-thesis — the one sentence a reader would skim. Always emit one, grounded in the source.
 - `keyPoints` — **REQUIRED.** An array of **2–3** short takeaway points (≤8 words each), drawn from the source, in the Economist voice. These fill the page so a thin beat never reads as empty paper. Never pad with filler — if the source is thin, distil what is there.
-- `byline` — optional (e.g. `"By our finance correspondent"`).
 - `illuminatedLetter` — optional drop-cap override (defaults to the first letter of `narration`).
 - `title` (global) — the headline. `narration` (global) — the article body (2–5 sentences).
 
@@ -57,7 +56,7 @@ Core rules:
 ```json
 { "layout": "leader_article", "title": "The central bank's hardest year",
   "narration": "After two years of forceful tightening, the Federal Reserve faces its most delicate task yet...",
-  "layout_props_json": { "sectionLabel": "BRIEFING", "byline": "By our finance correspondent",
+  "layout_props_json": { "sectionLabel": "BRIEFING",
     "standfirst": "Cut too soon and inflation returns; wait too long and growth buckles.",
     "keyPoints": ["Hiring has cooled sharply", "Core inflation near target", "Policy still most restrictive since 2007"] } }
 ```
