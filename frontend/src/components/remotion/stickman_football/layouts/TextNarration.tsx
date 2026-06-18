@@ -29,7 +29,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
   const tSec = frame / fps;
 
   const titlePx = titleFontSize ?? (p ? 92 : 62);
-  const narrationPx = descriptionFontSize ?? (p ? 36 : 35);
+  const narrationPx = descriptionFontSize ?? (p ? 44 : 40);
   const ff = fontFamily ?? "'Patrick Hand', system-ui, sans-serif";
 
   const enter = interpolate(frame, [0, 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
