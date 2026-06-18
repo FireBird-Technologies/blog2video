@@ -76,6 +76,7 @@ import VerifyScriptModal from "../components/VerifyScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
+import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
 import VoiceOperationModal from "../components/VoiceOperationModal";
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
@@ -5843,19 +5844,12 @@ export default function ProjectView() {
                 <p className="text-xs text-gray-400 mb-3">Ambient music behind voiceover narration.</p>
                 <div className="glass-card p-4 flex flex-col gap-4">
                   <div className="flex items-center gap-3">
-                    <select
-                      value={bgmTrackDraft ?? ""}
-                      onChange={(e) => setBgmTrackDraft(e.target.value || null)}
-                      aria-label="Background music track"
-                      className="flex-1 min-w-0 px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none"
-                    >
-                      <option value="">None</option>
-                      {bgmTracks.map((t) => (
-                        <option key={t.track_id} value={t.track_id}>
-                          {t.display_name} — {t.mood}
-                        </option>
-                      ))}
-                    </select>
+                    <BgmTrackDropdown
+                      tracks={bgmTracks}
+                      value={bgmTrackDraft}
+                      onChange={setBgmTrackDraft}
+                      className="flex-1 min-w-0"
+                    />
                     {bgmTrackDraft && (() => {
                       const track = bgmTracks.find((t) => t.track_id === bgmTrackDraft);
                       if (!track) return null;
@@ -6515,18 +6509,12 @@ export default function ProjectView() {
                     <div className="flex flex-col sm:flex-row sm:items-end gap-3">
                       <div className="flex-1">
                         <label className="text-[11px] text-gray-500 mb-1 block">Track</label>
-                        <select
-                          value={bgmTrackDraft ?? ""}
-                          onChange={(e) => setBgmTrackDraft(e.target.value || null)}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none"
-                        >
-                          <option value="">None</option>
-                          {bgmTracks.map((t) => (
-                            <option key={t.track_id} value={t.track_id}>
-                              {t.display_name} — {t.mood}
-                            </option>
-                          ))}
-                        </select>
+                        <BgmTrackDropdown
+                          tracks={bgmTracks}
+                          value={bgmTrackDraft}
+                          onChange={setBgmTrackDraft}
+                          triggerSize="md"
+                        />
                       </div>
                       {bgmTrackDraft && (
                         <div className="flex-1">

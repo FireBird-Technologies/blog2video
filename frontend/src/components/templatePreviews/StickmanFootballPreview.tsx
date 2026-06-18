@@ -145,21 +145,39 @@ const STICKMAN_FOOTBALL_PREVIEW_SCENES: DemoScene[] = [
 export default function StickmanFootballPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const playerRef = useRef<PlayerRef>(null);
-  const activeScene = STICKMAN_FOOTBALL_PREVIEW_SCENES[activeSceneIndex];
   const fps = 30;
-  // Hold the scene fully visible for the display window plus a steady buffer; the
-  // scene-switch effect fires before the window loops so the exit fade is never seen.
-  const durationInFrames = Math.round((activeScene.durationSeconds + 2) * fps);
-  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 100);
   const config = getTemplateConfig("stickman_football");
   const Composition = config.component as React.ComponentType<any>;
   const { accent: accentColor, bg: bgColor, text: textColor } = config.defaultColors;
 
+  // Play the WHOLE timeline continuously (scene 1 → 2 → … → loop), exactly like the
+  // real video, instead of mounting one isolated scene per Player window. The dots
+  // just seek to a scene's start; auto-advance is driven by playback, not a timer.
+  const sceneFrames = useMemo(
+    () =>
+      STICKMAN_FOOTBALL_PREVIEW_SCENES.map((s) =>
+        Math.max(1, Math.round((Number(s.durationSeconds) || 5) * fps)),
+      ),
+    [fps],
+  );
+  const sceneStartFrames = useMemo(() => {
+    const starts: number[] = [];
+    let acc = 0;
+    for (const f of sceneFrames) {
+      starts.push(acc);
+      acc += f;
+    }
+    return starts;
+  }, [sceneFrames]);
+  const durationInFrames = useMemo(
+    () => Math.max(1, sceneFrames.reduce((a, b) => a + b, 0)),
+    [sceneFrames],
+  );
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 100);
+
   const inputProps = useMemo(
     () => ({
-      // Inflate the scene length handed to the composition so its built-in
-      // exit fade is pushed past the preview window (no flicker / dip).
-      scenes: [{ ...activeScene, durationSeconds: activeScene.durationSeconds + 3 }],
+      scenes: STICKMAN_FOOTBALL_PREVIEW_SCENES,
       accentColor,
       bgColor,
       textColor,
@@ -169,7 +187,7 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
       logoSize: 0,
       aspectRatio: "landscape",
     }),
-    [activeScene, accentColor, bgColor, textColor],
+    [accentColor, bgColor, textColor],
   );
 
   useEffect(() => {
@@ -188,16 +206,37 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
     };
     pl.addEventListener("frameupdate", onFrame);
     return () => pl.removeEventListener("frameupdate", onFrame);
-  }, [thumbnailMode, thumbnailFrame, activeSceneIndex]);
+  }, [thumbnailMode, thumbnailFrame]);
 
+  // Keep the active-dot highlight in sync with which scene is currently playing.
   useEffect(() => {
     if (thumbnailMode) return;
-    const ms = Math.max(500, Math.round(activeScene.durationSeconds * 1000));
-    const t = setTimeout(() => {
-      setActiveSceneIndex((i) => (i + 1) % STICKMAN_FOOTBALL_PREVIEW_SCENES.length);
-    }, ms);
-    return () => clearTimeout(t);
-  }, [activeSceneIndex, activeScene.durationSeconds, thumbnailMode]);
+    const pl = playerRef.current;
+    if (!pl) return;
+    const onFrame = () => {
+      const f = pl.getCurrentFrame();
+      let idx = 0;
+      for (let i = sceneStartFrames.length - 1; i >= 0; i--) {
+        if (f >= sceneStartFrames[i]) {
+          idx = i;
+          break;
+        }
+      }
+      setActiveSceneIndex((prev) => (prev === idx ? prev : idx));
+    };
+    pl.addEventListener("frameupdate", onFrame);
+    return () => pl.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, sceneStartFrames]);
+
+  // Clicking a dot seeks the continuous timeline to that scene's start.
+  const seekToScene = (index: number) => {
+    setActiveSceneIndex(index);
+    const pl = playerRef.current;
+    if (pl) {
+      pl.seekTo(sceneStartFrames[index] ?? 0);
+      if (!thumbnailMode) pl.play();
+    }
+  };
 
   return (
     <div className="w-full">
@@ -224,7 +263,7 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
             return (
               <button
                 key={scene.id}
-                onClick={() => setActiveSceneIndex(index)}
+                onClick={() => seekToScene(index)}
                 disabled={thumbnailMode}
                 className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
                 style={isActive ? { background: accentColor } : undefined}
