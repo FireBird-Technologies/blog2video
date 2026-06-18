@@ -534,8 +534,15 @@ import {{
   MetricRow,
   RevealText,
   HighlightPhrase,
+  CodeBlock,
   KenBurnsImage,
   Decor,
+  CenteredFocal,
+  AsymmetricSplit,
+  FullBleedHero,
+  OffsetCardStack,
+  SideRail,
+  IntroStage,
   CustomChart,
   cardStyle,
   derivePalette,
@@ -1171,8 +1178,12 @@ def write_remotion_data(
                     logger.info("[REMOTION] Using crafted bundled logo: %s", crafted_logo_file)
             ct_og_image = custom_data.get("og_image", "")
             if ct_og_image:
-                for sd in scene_data:
-                    if not sd.get("images"):
+                # Only the intro/hero scene falls back to the template og image. Content
+                # scenes that have no real image must report hasImage=false so the
+                # generated scene renders its full-width (no-image) branch instead of a
+                # split layout with an empty/irrelevant panel.
+                for idx, sd in enumerate(scene_data):
+                    if idx == 0 and not sd.get("images"):
                         sd["ogImageUrl"] = ct_og_image
         if custom_data and custom_data.get("theme"):
             data["theme"] = custom_data["theme"]
@@ -1233,7 +1244,7 @@ def write_remotion_data(
                         pass
 
                 # Priority: override > db_type > position-based
-                if override_type in ("intro", "content", "outro"):
+                if override_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
                     sd["sceneType"] = override_type
                 elif db_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
                     sd["sceneType"] = db_type

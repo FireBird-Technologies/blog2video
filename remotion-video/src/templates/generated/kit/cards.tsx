@@ -21,10 +21,23 @@ export interface StatItem {
   suffix?: string;
 }
 
-/** Brand-aware card surface. variant chooses the treatment. */
+/**
+ * Brand-aware card surface. `variant` chooses the treatment — it maps directly
+ * to the brand signature's `surfaceStyle` so a fintech (glass), an editorial
+ * (flat-hairline) and a luxury brand (embossed) get visibly different panels.
+ */
+export type SurfaceVariant =
+  | "panel"
+  | "glass"
+  | "outline"
+  | "flat-hairline"
+  | "embossed"
+  | "soft"
+  | "flat";
+
 export function cardStyle(
   palette: KitPalette,
-  variant: "panel" | "glass" | "outline" = "panel",
+  variant: SurfaceVariant = "panel",
   radius = 18,
 ): React.CSSProperties {
   if (variant === "glass") {
@@ -42,6 +55,32 @@ export function cardStyle(
       background: "transparent",
       border: `1.5px solid ${palette.border}`,
       borderRadius: radius,
+    };
+  }
+  if (variant === "flat-hairline" || variant === "flat") {
+    // Editorial: no fill, a single hairline edge, sharp corners.
+    return {
+      background: "transparent",
+      border: `1px solid ${withAlpha(palette.text, 0.16)}`,
+      borderRadius: variant === "flat" ? 4 : 0,
+    };
+  }
+  if (variant === "embossed") {
+    // Luxury: soft raised surface with a top sheen + low shadow.
+    return {
+      background: palette.panel,
+      border: `1px solid ${withAlpha(palette.text, 0.1)}`,
+      borderRadius: radius,
+      boxShadow: `inset 0 1px 0 ${withAlpha("#FFFFFF", palette.isDark ? 0.08 : 0.5)}, 0 10px 30px rgba(0,0,0,0.18)`,
+    };
+  }
+  if (variant === "soft") {
+    // Lifestyle: pillowy rounded surface, gentle shadow, no hard border.
+    return {
+      background: palette.panel,
+      border: "none",
+      borderRadius: Math.max(radius, 24),
+      boxShadow: "0 12px 34px rgba(0,0,0,0.12)",
     };
   }
   return {

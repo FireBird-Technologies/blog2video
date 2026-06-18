@@ -27,9 +27,13 @@ import * as Kit from "../components/remotion/generated/kit";
 // import list in the backend's _wrap_generated_code so preview === render.
 const KIT_EXPORTS = [
   "SceneFrame", "useKit", "CountUpValue", "StatCard", "StatGrid", "MetricRow",
-  "RevealText", "HighlightPhrase", "KenBurnsImage", "Decor", "CustomChart",
+  "RevealText", "HighlightPhrase", "CodeBlock", "KenBurnsImage", "Decor", "CustomChart",
   "CustomTable", "cardStyle", "derivePalette", "withAlpha", "staggerEntrance",
   "headlinePop", "panelRise", "masterOpacity", "countUpString",
+  // Layout skeletons (intra-video structural variety)
+  "CenteredFocal", "AsymmetricSplit", "FullBleedHero", "OffsetCardStack", "SideRail",
+  // Intro scaffold (bookend richness)
+  "IntroStage",
 ] as const;
 
 export interface SceneProps {

@@ -198,12 +198,17 @@ def _compute_bg2(bg_hex: str) -> str:
         return bg_hex  # Fallback: same color (effectively no gradient)
 
 
-# Transition-style pools by motion energy (must match the GeneratedTransition
-# registry styles in remotion-video/.../generated/GeneratedTransition.tsx).
+# Transition-style pools by motion energy. Family keys MUST exist in the
+# pickGeneratedTransition pool in
+# remotion-video/.../generated/generatedTransitions.ts (mirrored in frontend).
+# Each energy keeps a distinct personality so motionEnergy is a real inter-brand
+# lever: calm = quiet fades/washes, smooth = polished pushes/sweeps, energetic =
+# punchy whips/flips. The pool rotates each move's DIRECTION by index, so even a
+# short family yields varied left/right/up/down handoffs.
 _TRANSITION_FAMILY_BY_ENERGY = {
-    "calm": ["fade", "ink_wash"],
-    "smooth": ["fade", "accent_wash", "ink_wash"],
-    "energetic": ["whip_blur", "accent_wash", "rule_sweep"],
+    "calm": ["fade", "ink_wash", "cover_wipe"],
+    "smooth": ["fade", "accent_wash", "ink_wash", "push_slide", "clock_sweep"],
+    "energetic": ["whip_blur", "accent_wash", "rule_sweep", "page_flip", "push_slide"],
 }
 _DECOR_BY_ELEMENT = {
     "gradients": "orbs",
@@ -213,14 +218,159 @@ _DECOR_BY_ELEMENT = {
 }
 _INTENSITY_BY_DENSITY = {"compact": 0.3, "balanced": 0.45, "spacious": 0.6}
 
+# ── Brand-signature engine (v3) ────────────────────────────────────────────
+# The load-bearing answer to "won't every scraped brand look like a recolored
+# copy?": identity is carried mostly by decor + surface + type + motion, NOT
+# geometry. We deterministically map each brand's category/style to a SIGNATURE
+# bundle across those axes, so two different sites (e.g. fintech vs editorial)
+# provably diverge. The kit exposes the matching decor systems / surface
+# variants / reveal personalities; code generation is told the signature so the
+# AI threads it into each scene. decorSystem values MUST exist in kit/Decor.tsx;
+# surfaceStyle in kit/cards.tsx cardStyle(); typeTreatment guides the prompt.
+#
+# surfaceStyle values MUST be kit/cards.tsx SurfaceVariant (panel/glass/outline/
+# flat-hairline/embossed/soft/flat); typeTreatment values MUST be keys of the
+# `_type_hint` map in code_generator. `surface`/`type` are POOLS (not scalars) so
+# two brands in the SAME bucket still diverge on those axes — otherwise every
+# fintech would share surface+type and read as a recolor of the last one.
+_SIGNATURE_BUCKETS: dict[str, dict] = {
+    "data": {
+        "keywords": ("fintech", "finance", "data", "tech", "saas", "dashboard", "market", "crypto", "stock", "developer", "platform", "analytics", "software"),
+        "decor": ["mesh", "ticker", "grid"],
+        "surface": ["glass", "outline", "panel"],
+        "type": ["tight-sans", "clean-sans"],
+    },
+    "editorial": {
+        "keywords": ("editorial", "news", "magazine", "journal", "media", "blog", "publication", "press", "story", "report"),
+        "decor": ["hairlines", "concentric", "rules"],
+        "surface": ["flat-hairline", "flat", "outline"],
+        "type": ["editorial-serif", "clean-sans"],
+    },
+    "luxury": {
+        "keywords": ("luxury", "fashion", "beauty", "jewel", "premium", "couture", "boutique", "elegant", "spa"),
+        "decor": ["wash", "vignette", "concentric"],
+        "surface": ["embossed", "soft", "panel"],
+        "type": ["display-serif", "editorial-serif"],
+    },
+    "lifestyle": {
+        "keywords": ("food", "travel", "lifestyle", "wellness", "health", "creative", "restaurant", "recipe", "fitness wellness", "home"),
+        "decor": ["orbs", "dots", "wash"],
+        "surface": ["soft", "panel", "embossed"],
+        "type": ["rounded-sans", "clean-sans"],
+    },
+    "bold": {
+        "keywords": ("sports", "gaming", "game", "music", "entertainment", "fitness", "esports", "athletic", "energy"),
+        "decor": ["starfield", "rules", "mesh"],
+        "surface": ["outline", "glass", "panel"],
+        "type": ["display-bold", "tight-sans"],
+    },
+    "default": {
+        "keywords": (),
+        "decor": ["rules", "dots", "grid"],
+        "surface": ["flat", "panel", "outline"],
+        "type": ["clean-sans", "tight-sans"],
+    },
+}
 
-def _derive_motion_energy(animation_preset: str) -> str:
+
+# Per-bucket SIGNATURE ARTIFACT motion treatments. The brand's `decorSystem`
+# motif is its recurring artifact; this is HOW that motif animates — picked per
+# brand so two brands sharing a motif still move it differently. Evocative motion
+# words the codegen model interprets into spring/interpolate beats on the motif.
+# Woven through every scene where it fits (hero take in intro, echoes in content,
+# callback in outro) — this is what gives a custom template a nightfall/bloomberg-
+# style signature beat without a per-brand hand-built component.
+_ARTIFACT_MOTION_BY_BUCKET = {
+    "data": ["sweep", "build", "tick"],
+    "editorial": ["draw-in", "rule-slide"],
+    "luxury": ["drift", "bloom"],
+    "lifestyle": ["float", "bloom"],
+    "bold": ["streak", "slam", "pulse"],
+    "default": ["sweep", "drift"],
+}
+
+
+def _classify_brand_bucket(style: str, category: str) -> str:
+    """Pick the signature bucket whose keywords best match the brand text."""
+    hay = f"{style} {category}".lower()
+    best, best_hits = "default", 0
+    for name, spec in _SIGNATURE_BUCKETS.items():
+        if name == "default":
+            continue
+        hits = sum(1 for kw in spec["keywords"] if kw in hay)
+        if hits > best_hits:
+            best, best_hits = name, hits
+    return best
+
+
+def _stable_pick(options: list, seed: str):
+    """Deterministically choose one option from a stable hash of `seed`.
+
+    Lets two brands in the SAME bucket still diverge (mesh vs ticker) while
+    staying stable across regenerations of the same brand.
+    """
+    if not options:
+        return None
+    import hashlib
+
+    h = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16)
+    return options[h % len(options)]
+
+
+def _derive_brand_signature(theme: dict, energy: str, motion: dict) -> dict:
+    """Deterministic per-brand signature bundle. See _SIGNATURE_BUCKETS."""
+    style = (theme.get("style") or "").lower()
+    category = (theme.get("category") or "").lower()
+    bucket = _classify_brand_bucket(style, category)
+    spec = _SIGNATURE_BUCKETS[bucket]
+    seed = f"{theme.get('category', '')}|{theme.get('style', '')}|{theme.get('name', '')}"
+    # Independent seed suffixes so decor/surface/type vary on separate axes —
+    # two same-bucket brands shouldn't move in lockstep across all three.
+    decor_system = _stable_pick(spec["decor"], seed)
+    surface_style = _stable_pick(spec["surface"], seed + "|surface")
+    type_treatment = _stable_pick(spec["type"], seed + "|type")
+    artifact_motion = _stable_pick(
+        _ARTIFACT_MOTION_BY_BUCKET.get(bucket, _ARTIFACT_MOTION_BY_BUCKET["default"]),
+        seed + "|artifactMotion",
+    )
+    return {
+        "bucket": bucket,
+        "decorSystem": decor_system,
+        "surfaceStyle": surface_style,
+        "typeTreatment": type_treatment,
+        "artifactMotion": artifact_motion,
+        "motionEnergy": energy,
+        "transitionFamily": list(motion.get("transitionFamily") or []),
+    }
+
+
+# Each signature bucket has a default motion energy so the inter-brand motion
+# axis actually MOVES. Keyword matching alone collapsed nearly every brand to
+# "calm" (any "fade"/"soft"/"editorial" in the preset triggered it), making all
+# brands share the quietest transition family — a recolor in motion terms.
+_ENERGY_BY_BUCKET = {
+    "data": "smooth",
+    "editorial": "calm",
+    "luxury": "calm",
+    "lifestyle": "smooth",
+    "bold": "energetic",
+    "default": "smooth",
+}
+
+
+def _derive_motion_energy(animation_preset: str, bucket: str = "default") -> str:
+    """Motion energy = the brand bucket's default, overridden ONLY by an
+    unambiguous explicit cue in the preset. The bucket is the prior so two
+    different brands diverge (data→smooth vs editorial→calm vs bold→energetic);
+    the preset can still pull it to an extreme when the wording is clearly high-
+    or low-energy, but vague words like "fade"/"editorial" no longer force calm.
+    """
     a = (animation_preset or "").lower()
-    if any(k in a for k in ("calm", "slow", "gentle", "measured", "editorial", "zen", "soft", "fade")):
-        return "calm"
-    if any(k in a for k in ("bounc", "punch", "energetic", "fast", "snappy", "high", "pop", "kinetic", "dynamic")):
+    if any(k in a for k in ("bounc", "punch", "energetic", "snappy", "kinetic", "explosive", "high-energy", "high energy")):
         return "energetic"
-    return "smooth"
+    if any(k in a for k in ("slow", "gentle", "measured", "stately", "serene", "minimal")):
+        return "calm"
+    return _ENERGY_BY_BUCKET.get(bucket, "smooth")
 
 
 def _derive_extended_theme_fields(theme: dict) -> None:
@@ -239,7 +389,10 @@ def _derive_extended_theme_fields(theme: dict) -> None:
     decoratives = layout.get("decorativeElements", []) or []
     density = (patterns.get("spacing", {}) or {}).get("density", "balanced")
 
-    energy = _derive_motion_energy(theme.get("animationPreset", ""))
+    # Classify the brand bucket first so motion energy can use it as a prior
+    # (otherwise every brand collapses to "calm" — see _derive_motion_energy).
+    bucket = _classify_brand_bucket(style, category)
+    energy = _derive_motion_energy(theme.get("animationPreset", ""), bucket)
     easing = {"calm": "easeInOutCubic", "smooth": "easeOutQuint", "energetic": "easeOutBack"}[energy]
 
     # motion
@@ -262,12 +415,21 @@ def _derive_extended_theme_fields(theme: dict) -> None:
     charts.setdefault("gridStyle", "horizontal" if is_editorial else "none" if is_minimal else "dashed")
     theme["charts"] = charts
 
-    # decor
+    # signature — the deterministic per-brand identity bundle (v3). Computed
+    # before decor so the brand's signature decor system drives the backdrop
+    # (richer + brand-distinct) instead of the old element-only mapping.
+    signature = theme.get("signature")
+    if not isinstance(signature, dict):
+        signature = _derive_brand_signature(theme, energy, motion)
+        theme["signature"] = signature
+
+    # decor — prefer the signature decor system; fall back to the element-based
+    # mapping only if the signature somehow yielded nothing.
     decor = theme.get("decor")
     if not isinstance(decor, dict):
         decor = {}
-    system = next((_DECOR_BY_ELEMENT[d] for d in decoratives if d in _DECOR_BY_ELEMENT), "none")
-    decor.setdefault("system", system)
+    element_system = next((_DECOR_BY_ELEMENT[d] for d in decoratives if d in _DECOR_BY_ELEMENT), "none")
+    decor.setdefault("system", signature.get("decorSystem") or element_system)
     decor.setdefault("intensity", _INTENSITY_BY_DENSITY.get(density, 0.45))
     theme["decor"] = decor
 
@@ -381,6 +543,13 @@ class ThemeExtractor:
             f"[F7-DEBUG] [THEME] Extended: motion={_motion.get('energy')}/{_motion.get('transitionFamily')}, "
             f"decor={theme.get('decor', {}).get('system')}@{theme.get('decor', {}).get('intensity')}, "
             f"charts={theme.get('charts', {}).get('style')}, sceneBias={theme.get('sceneBias')}"
+        )
+        _sig = theme.get("signature", {}) or {}
+        print(
+            f"[F7-DEBUG] [V3][SIGNATURE] bucket={_sig.get('bucket')} | "
+            f"decorSystem={_sig.get('decorSystem')} | surfaceStyle={_sig.get('surfaceStyle')} | "
+            f"typeTreatment={_sig.get('typeTreatment')} | artifactMotion={_sig.get('artifactMotion')} | "
+            f"motionEnergy={_sig.get('motionEnergy')} | transitionFamily={_sig.get('transitionFamily')}"
         )
 
         colors = theme.get("colors", {})

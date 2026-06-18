@@ -4,7 +4,7 @@ import {
   updateCustomTemplate,
   type CustomTemplateItem,
 } from "../api/client";
-import CustomPreview from "./templatePreviews/CustomPreview";
+import CustomPreview, { buildCustomSceneLabels } from "./templatePreviews/CustomPreview";
 
 interface Props {
   template: CustomTemplateItem;
@@ -20,7 +20,17 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gradientOpen, setGradientOpen] = useState(false);
+  const [liveScene, setLiveScene] = useState(0);
   const gradientRef = useRef<HTMLDivElement>(null);
+
+  // Ordered scene names for the strip shown above the template name. Highlights the
+  // scene currently on-screen in the live preview (driven by CustomPreview).
+  const sceneLabels = buildCustomSceneLabels({
+    introCode: template.intro_code || undefined,
+    outroCode: template.outro_code || undefined,
+    contentCodes: template.content_codes || undefined,
+    contentArchetypeIds: template.content_archetype_ids || undefined,
+  });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -79,8 +89,34 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
 
           {/* Live preview */}
           <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-            <CustomPreview theme={theme} name={name || undefined} introCode={template.intro_code || undefined} outroCode={template.outro_code || undefined} contentCodes={template.content_codes || undefined} contentArchetypeIds={template.content_archetype_ids || undefined} previewImageUrl={template.preview_image_url} logoUrls={template.logo_urls} ogImage={template.og_image} />
+            <CustomPreview theme={theme} name={name || undefined} introCode={template.intro_code || undefined} outroCode={template.outro_code || undefined} contentCodes={template.content_codes || undefined} contentArchetypeIds={template.content_archetype_ids || undefined} previewImageUrl={template.preview_image_url} logoUrls={template.logo_urls} ogImage={template.og_image} onLiveSceneChange={setLiveScene} />
           </div>
+
+          {/* Scene name — a single centered pill showing the scene currently on
+              screen in the preview; it smoothly swaps as the scene changes. */}
+          {sceneLabels.length > 1 && (() => {
+            const total = sceneLabels.length;
+            const current = Math.min(liveScene, total - 1);
+            return (
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-[11px] font-medium text-gray-400 tabular-nums">
+                  {current + 1} / {total}
+                </span>
+                <style>{`@keyframes scenePillIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}`}</style>
+                <span
+                  key={current}
+                  className="text-[11px] font-semibold rounded-full px-3 py-1 whitespace-nowrap"
+                  style={{
+                    color: "#fff",
+                    background: accentColor,
+                    animation: "scenePillIn 0.3s ease-out",
+                  }}
+                >
+                  {sceneLabels[current]}
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Name */}
           <div>

@@ -13,7 +13,7 @@
  * The contentVariantIndex field on each scene (from data.json) assigns which
  * content variant to use. Scenes cycle through variants for visual variety.
  */
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
@@ -23,6 +23,7 @@ import {
   delayRender,
   continueRender,
 } from "remotion";
+import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { resolveFontFamily } from "../../fonts/registry";
@@ -37,7 +38,7 @@ import OutroScene from "./SceneOutro";
 // In the repo this file exports an empty array; at render time it's overwritten
 // with imports of SceneContent0, SceneContent1, etc.
 import { CONTENT_VARIANTS } from "./contentRegistry";
-import { GeneratedTransition } from "./GeneratedTransition";
+import { pickGeneratedTransition } from "./generatedTransitions";
 import { GeneratedCtaOverlay } from "./GeneratedCtaOverlay";
 // Dedicated, deterministic data-viz scenes (chart + table) — rendered from a
 // bound table rather than AI code, so custom templates always get a reliable,
@@ -230,13 +231,44 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     brandColors.bg2 = data.bg2Color;
   }
 
-  let currentFrame = 0;
   const totalScenes = data.scenes.length;
   const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+  const isPortrait = (data.aspectRatio as string) === "portrait";
+  const canvasW = isPortrait ? 1080 : 1920;
+  const canvasH = isPortrait ? 1920 : 1080;
 
   console.log(
     `[GeneratedVideo] Rendering ${totalScenes} scenes with ${CONTENT_VARIANTS.length} content variants`,
   );
+
+  // Per-scene durations (audio-aligned) + the transition consumed AFTER each
+  // non-last scene. By setting each non-last TransitionSeries.Sequence to
+  // sceneFrames + transitionFrames, the overlap the transition consumes is
+  // exactly the added hold — so BOTH the total duration and the audio start
+  // frames stay identical to a plain back-to-back render (zero audio-sync
+  // drift, and calculateGeneratedMetadata needs no change). The transitions
+  // are real two-scene moves (incoming + outgoing overlap) keyed to the brand's
+  // motion personality — see generatedTransitions.ts.
+  const sceneFrames = data.scenes.map((scene) =>
+    getSceneDurationFrames(scene.durationSeconds, FPS, playbackSpeed),
+  );
+  const transitions = data.scenes.map((_, i) =>
+    i < totalScenes - 1
+      ? pickGeneratedTransition(i, data.transitionFamily, canvasW, canvasH)
+      : null,
+  );
+  const sequenceFrames = sceneFrames.map((f, i) =>
+    transitions[i] ? f + transitions[i]!.frames : f,
+  );
+  // Audio start frames === plain back-to-back schedule (see note above).
+  const sceneStartFrames: number[] = [];
+  {
+    let running = 0;
+    for (let i = 0; i < totalScenes; i++) {
+      sceneStartFrames[i] = running;
+      running += sceneFrames[i];
+    }
+  }
 
   return (
     <AbsoluteFill
@@ -245,113 +277,115 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-      {data.scenes.map((scene, index) => {
-        const durationFrames = getSceneDurationFrames(
-          scene.durationSeconds,
-          FPS,
-          playbackSpeed,
-        );
-        const startFrame = currentFrame;
-        currentFrame += durationFrames;
+      <TransitionSeries>
+        {data.scenes.map((scene, index) => {
+          const SceneComp = getSceneComponent(scene, index, totalScenes);
+          const imageUrl =
+            scene.images.length > 0
+              ? staticFile(scene.images[0])
+              : (scene.ogImageUrl || undefined);
+          const focusX = Number(scene.layoutProps?.imageFocusX ?? 50);
+          const focusY = Number(scene.layoutProps?.imageFocusY ?? 50);
+          const imageZoom = Math.max(0.1, Number(scene.layoutProps?.imageZoom ?? 1));
+          const imageObjectPosition = `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`;
 
-        const SceneComp = getSceneComponent(scene, index, totalScenes);
-        const imageUrl =
-          scene.images.length > 0
-            ? staticFile(scene.images[0])
-            : (scene.ogImageUrl || undefined);
-        const focusX = Number(scene.layoutProps?.imageFocusX ?? 50);
-        const focusY = Number(scene.layoutProps?.imageFocusY ?? 50);
-        const imageZoom = Math.max(0.1, Number(scene.layoutProps?.imageZoom ?? 1));
-        const imageObjectPosition = `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`;
+          // Spread structured content (bullets, metrics, quotes, etc.) onto scene props
+          const sc = (scene.structuredContent || {}) as Record<string, unknown>;
+          const sceneProps: GeneratedSceneProps = {
+            displayText: scene.displayText || scene.narration || scene.title,
+            narrationText: scene.narrationText || scene.narration || "",
+            imageUrl,
+            imageObjectPosition,
+            imageZoom,
+            sceneIndex: index,
+            totalScenes,
+            logoUrl: (data.logo || data.brandLogo) ? staticFile((data.logo || data.brandLogo)!) : undefined,
+            brandImages: data.brandImages?.map((f) => staticFile(f)),
+            brandColors,
+            aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
+            contentType: sc.contentType as GeneratedSceneProps["contentType"],
+            bullets: sc.bullets as string[] | undefined,
+            metrics: sc.metrics as GeneratedSceneProps["metrics"],
+            codeLines: sc.codeLines as string[] | undefined,
+            codeLanguage: sc.codeLanguage as string | undefined,
+            quote: sc.quote as string | undefined,
+            quoteAuthor: sc.quoteAuthor as string | undefined,
+            comparisonLeft: sc.comparisonLeft as GeneratedSceneProps["comparisonLeft"],
+            comparisonRight: sc.comparisonRight as GeneratedSceneProps["comparisonRight"],
+            timelineItems: sc.timelineItems as GeneratedSceneProps["timelineItems"],
+            steps: sc.steps as string[] | undefined,
+            // Prefer the editable layoutProps location (what SceneEditModal writes)
+            // and fall back to structuredContent from the content extractor.
+            chartTable: (scene.layoutProps?.chartTable ?? sc.chartTable) as GeneratedSceneProps["chartTable"],
+            chartType: (scene.layoutProps?.chartType ?? sc.chartType) as string | undefined,
+            chartSummary: (scene.layoutProps?.chartSummary ?? sc.chartSummary) as string | undefined,
+            titleFontSize: scene.layoutConfig?.titleFontSize as number | undefined,
+            descriptionFontSize: scene.layoutConfig?.descriptionFontSize as number | undefined,
+            headingFont,
+            bodyFont,
+          };
 
-        // Spread structured content (bullets, metrics, quotes, etc.) onto scene props
-        const sc = (scene.structuredContent || {}) as Record<string, unknown>;
-        const sceneProps: GeneratedSceneProps = {
-          displayText: scene.displayText || scene.narration || scene.title,
-          narrationText: scene.narrationText || scene.narration || "",
-          imageUrl,
-          imageObjectPosition,
-  imageZoom,
-          sceneIndex: index,
-          totalScenes,
-          logoUrl: (data.logo || data.brandLogo) ? staticFile((data.logo || data.brandLogo)!) : undefined,
-          brandImages: data.brandImages?.map((f) => staticFile(f)),
-          brandColors,
-          aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
-          contentType: sc.contentType as GeneratedSceneProps["contentType"],
-          bullets: sc.bullets as string[] | undefined,
-          metrics: sc.metrics as GeneratedSceneProps["metrics"],
-          codeLines: sc.codeLines as string[] | undefined,
-          codeLanguage: sc.codeLanguage as string | undefined,
-          quote: sc.quote as string | undefined,
-          quoteAuthor: sc.quoteAuthor as string | undefined,
-          comparisonLeft: sc.comparisonLeft as GeneratedSceneProps["comparisonLeft"],
-          comparisonRight: sc.comparisonRight as GeneratedSceneProps["comparisonRight"],
-          timelineItems: sc.timelineItems as GeneratedSceneProps["timelineItems"],
-          steps: sc.steps as string[] | undefined,
-          // Prefer the editable layoutProps location (what SceneEditModal writes)
-          // and fall back to structuredContent from the content extractor.
-          chartTable: (scene.layoutProps?.chartTable ?? sc.chartTable) as GeneratedSceneProps["chartTable"],
-          chartType: (scene.layoutProps?.chartType ?? sc.chartType) as string | undefined,
-          chartSummary: (scene.layoutProps?.chartSummary ?? sc.chartSummary) as string | undefined,
-          titleFontSize: scene.layoutConfig?.titleFontSize as number | undefined,
-          descriptionFontSize: scene.layoutConfig?.descriptionFontSize as number | undefined,
-          headingFont,
-          bodyFont,
-        };
+          const visual = scene.ctaProps ? (
+            <GeneratedCtaOverlay
+              ctaProps={scene.ctaProps}
+              brandColors={brandColors}
+              aspectRatio={(data.aspectRatio as "landscape" | "portrait") || "landscape"}
+              headingFont={headingFont}
+              bodyFont={bodyFont}
+              title={sceneProps.displayText}
+              logoUrl={sceneProps.logoUrl}
+            />
+          ) : (
+            <AbsoluteFill
+              style={{
+                ["--img-pos" as string]: imageObjectPosition,
+                ["--img-zoom" as string]: String(imageZoom),
+              }}
+            >
+              <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
+              <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
+                <SceneComp {...sceneProps} />
+              </div>
+            </AbsoluteFill>
+          );
 
-        const transitionDuration = 15;
-        const transitionFrom = Math.max(0, durationFrames - transitionDuration);
+          const sequence = (
+            <TransitionSeries.Sequence
+              key={`seq-${scene.id}-${index}`}
+              durationInFrames={sequenceFrames[index]}
+            >
+              {visual}
+            </TransitionSeries.Sequence>
+          );
 
-        return (
-          <Sequence
-            key={scene.id}
-            from={startFrame}
-            durationInFrames={durationFrames}
-            name={scene.title}
-          >
-            {scene.ctaProps ? (
-              <GeneratedCtaOverlay
-                ctaProps={scene.ctaProps}
-                brandColors={brandColors}
-                aspectRatio={(data.aspectRatio as "landscape" | "portrait") || "landscape"}
-                headingFont={headingFont}
-                bodyFont={bodyFont}
-                title={sceneProps.displayText}
-                logoUrl={sceneProps.logoUrl}
+          const t = transitions[index];
+          if (!t) return sequence;
+          return (
+            <Fragment key={`scene-${scene.id}-${index}`}>
+              {sequence}
+              <TransitionSeries.Transition
+                presentation={t.presentation}
+                timing={linearTiming({ durationInFrames: t.frames })}
               />
-            ) : (
-              <AbsoluteFill
-                style={{
-                  ["--img-pos" as string]: imageObjectPosition,
-                  ["--img-zoom" as string]: String(imageZoom),
-                }}
-              >
-                <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
-                <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
-                  <SceneComp {...sceneProps} />
-                </div>
-              </AbsoluteFill>
-            )}
-            {scene.voiceoverFile && (
-              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
-            )}
+            </Fragment>
+          );
+        })}
+      </TransitionSeries>
 
-            {/* Brand-aware transition overlay between scenes — style varies
-                deterministically per scene index (optionally constrained by the
-                brand's transition family from the theme's motion personality). */}
-            {index < totalScenes - 1 && transitionDuration > 0 && (
-              <Sequence from={transitionFrom} durationInFrames={transitionDuration}>
-                <GeneratedTransition
-                  brandColors={brandColors}
-                  index={index}
-                  family={data.transitionFamily}
-                />
-              </Sequence>
-            )}
+      {/* Voiceover lives on a parallel absolute timeline (NOT inside the
+          TransitionSeries) so the transition overlap never warps audio sync —
+          sceneStartFrames is the plain back-to-back schedule. */}
+      {data.scenes.map((scene, index) =>
+        scene.voiceoverFile ? (
+          <Sequence
+            key={`audio-${scene.id}-${index}`}
+            from={sceneStartFrames[index]}
+            durationInFrames={sceneFrames[index]}
+          >
+            <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
           </Sequence>
-        );
-      })}
+        ) : null,
+      )}
 
       {data.logo && (
         <LogoOverlay

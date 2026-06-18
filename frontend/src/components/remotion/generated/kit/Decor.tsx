@@ -21,7 +21,13 @@ export type DecorSystem =
   | "orbs"
   | "starfield"
   | "rules"
-  | "vignette";
+  | "vignette"
+  // v3 signature systems — give each brand a distinct atmosphere, not a recolor.
+  | "hairlines" // editorial: evenly-spaced thin rules
+  | "mesh" // tech/SaaS: soft blurred colour mesh
+  | "ticker" // fintech: baseline tick marks
+  | "concentric" // editorial/luxury: concentric rings
+  | "wash"; // luxury/lifestyle: large soft diagonal accent wash
 
 export interface DecorProps {
   system?: DecorSystem;
@@ -87,7 +93,70 @@ export const Decor: React.FC<DecorProps> = ({ system = "none", intensity = 0.5, 
     );
   }
 
-  // SVG-based: orbs / starfield
+  if (system === "hairlines") {
+    // Editorial: a stack of evenly-spaced thin rules — quiet, structured.
+    const lines = 7;
+    return (
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        {Array.from({ length: lines }).map((_, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: "8%",
+              right: "8%",
+              top: `${(100 / (lines + 1)) * (i + 1)}%`,
+              height: 1,
+              background: withAlpha(palette.text, 0.07 * (0.6 + k)),
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (system === "ticker") {
+    // Fintech: a baseline of tick marks — terminal/market feel. Static (no
+    // per-frame motion) to avoid headless-render flicker.
+    const ticks = 48;
+    return (
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: "12%", height: 1, background: withAlpha(c, 0.22 * k) }} />
+        {Array.from({ length: ticks }).map((_, i) => {
+          const tall = i % 6 === 0;
+          return (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                bottom: "12%",
+                left: `${(100 / ticks) * i}%`,
+                width: 1,
+                height: tall ? 14 : 7,
+                background: withAlpha(c, (tall ? 0.3 : 0.16) * k),
+              }}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (system === "wash") {
+    // Luxury/lifestyle: a large soft diagonal accent wash.
+    return (
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background: `linear-gradient(125deg, ${withAlpha(c, 0.14 * k)} 0%, transparent 42%, transparent 60%, ${withAlpha(c, 0.08 * k)} 100%)`,
+        }}
+      />
+    );
+  }
+
+  // SVG-based: orbs / starfield / mesh / concentric
   return (
     <svg
       width={width}
@@ -113,6 +182,37 @@ export const Decor: React.FC<DecorProps> = ({ system = "none", intensity = 0.5, 
             0.4 + 0.4 * Math.sin((frame / fps) * ((2 * Math.PI) / period) + seeded(i, 13) * 6);
           return (
             <circle key={i} cx={x} cy={y} r={r} fill={withAlpha(palette.text, twinkle * k)} />
+          );
+        })}
+      {system === "mesh" && (
+        <g>
+          <defs>
+            <radialGradient id="kit-mesh-a" cx="22%" cy="28%" r="55%">
+              <stop offset="0%" stopColor={withAlpha(c, 0.16 * k)} />
+              <stop offset="100%" stopColor={withAlpha(c, 0)} />
+            </radialGradient>
+            <radialGradient id="kit-mesh-b" cx="80%" cy="72%" r="55%">
+              <stop offset="0%" stopColor={withAlpha(palette.text, 0.1 * k)} />
+              <stop offset="100%" stopColor={withAlpha(palette.text, 0)} />
+            </radialGradient>
+          </defs>
+          <rect x={0} y={0} width={width} height={height} fill="url(#kit-mesh-a)" />
+          <rect x={0} y={0} width={width} height={height} fill="url(#kit-mesh-b)" />
+        </g>
+      )}
+      {system === "concentric" &&
+        Array.from({ length: 5 }).map((_, i) => {
+          const r = (Math.min(width, height) * 0.12) * (i + 1);
+          return (
+            <circle
+              key={i}
+              cx={width / 2}
+              cy={height * 0.5}
+              r={r}
+              fill="none"
+              stroke={withAlpha(c, 0.1 * k)}
+              strokeWidth={1}
+            />
           );
         })}
     </svg>
