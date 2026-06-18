@@ -146,6 +146,7 @@ class SceneOut(BaseModel):
     visual_description: str
     remotion_code: Optional[str] = None
     preferred_layout: Optional[str] = None
+    scene_type: Optional[str] = None
     voiceover_path: Optional[str] = None
     duration_seconds: float
     extra_hold_seconds: Optional[float] = None

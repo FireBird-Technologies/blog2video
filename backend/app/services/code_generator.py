@@ -37,11 +37,28 @@ class DecideBrandSceneTypes(dspy.Signature):
       Must use values from: "bullets", "steps", "metrics", "code",
       "quote", "comparison", "timeline", "plain"
       (These are the content types the classification system outputs — other values won't match.)
+      Do NOT use "dataviz" — charts and tables are rendered by dedicated, separate
+      scenes that are always added automatically. Never create a content scene for
+      charts/graphs/tables.
     - "description": one-line purpose
 
     Structural requirements:
     - Exactly 1 scene with scene_type="intro" and exactly 1 with scene_type="outro"
     - The rest are scene_type="content"
+
+    Variety (THIS IS WHAT MAKES VIDEOS NOT LOOK REPETITIVE):
+    - Produce 5–8 DISTINCT content scene types. Each MUST have a DIFFERENT best_for
+      signature — never two scenes with the same best_for. Spread across the range;
+      do NOT let "bullets" and "metrics" dominate.
+    - Aim to cover, when the brand suits them: one bullets/steps scene, one metrics
+      scene, one quote/testimonial scene, one comparison scene, one timeline scene,
+      and one or two plain-narrative + image scenes. Pick the 5–8 that best fit THIS
+      brand's personality and category — a finance brand leans metrics/comparison/
+      timeline; an editorial brand leans quote/timeline/plain; a product brand leans
+      steps/comparison/bullets.
+    - Each "description" should hint at a DISTINCT visual treatment (e.g. "asymmetric
+      split hero", "offset stat stack", "full-bleed quote", "side-rail timeline") so
+      the downstream scene generator gives each scene its own composition.
     """
 
     brand_context: str = dspy.InputField(desc="Brand name, category, personality, visual patterns")
@@ -190,6 +207,25 @@ class GenerateSceneCode(dspy.Signature):
     - Parallax: different layers move at different speeds for depth
     - Spring configs: fast={damping:22,stiffness:140,mass:1.2}, bouncy={damping:14,stiffness:220,mass:1.1}, smooth={damping:20,stiffness:70}
 
+    Quality bar — reference templates (EMULATE THE CRAFT, DO NOT COPY):
+    Our hand-built templates set the bar. Study the *craft* below and bring the
+    same level of polish to THIS brand — but NEVER copy their colors, fonts,
+    layouts, motifs or identity. Adapt everything to the brand_context theme.
+    - Hierarchy & typography (Bloomberg/Economist): sizes scale off one base —
+      headline ≈ 2× body, big numerals ≈ 3× body; labels are small-caps, uppercase,
+      letter-spaced (~0.12em), in a muted color. One clear focal element per scene.
+    - Numbers (Chronicle/Stickman/Nightfall): big numerals count up from 0,
+      tabular figures, prefix/suffix preserved ($, %, +), the primary stat
+      highlighted in the accent with a grow-in underline or marker.
+    - Motion rhythm (Newscast/Nightfall): nothing pops all at once — entrances
+      stagger, scenes fade in and out cleanly (enter*exit), one signature beat per
+      scene (a headline pop OR a panel rise — not five competing animations).
+    - Restraint (all): generous negative space, ONE decorative system at low
+      intensity (a faint grid OR orbs OR a rule — never several), hairline borders,
+      a single accent. Polished = calm and confident, not busy.
+    Prefer the craft-kit components (they already encode these patterns) over
+    re-deriving them by hand.
+
     Available APIs (pre-injected as globals, do NOT import):
     - React, React.createElement, React.useState, React.useMemo
     - useCurrentFrame(), useVideoConfig() → { fps, width, height, durationInFrames }
@@ -198,18 +234,109 @@ class GenerateSceneCode(dspy.Signature):
     - Easing: Easing.bezier(x1,y1,x2,y2), Easing.inOut(Easing.ease)
     - AbsoluteFill, Sequence, Img, random(seed)
 
+    Craft kit (pre-injected globals — OPTIONAL building blocks, do NOT import):
+    These are tested, brand-themed helpers. Use the ones that FIT this scene's
+    content — they are never mandatory and must NOT all be crammed into one scene.
+    A plain narrative scene needs none of them; reach for one only when the
+    content calls for it. They automatically pick up the brand palette/fonts, so
+    prefer them over hand-rolling the equivalent (especially charts).
+    - <SceneFrame brandColors={props.brandColors} aspectRatio={props.aspectRatio}
+        fonts={{heading: props.headingFont, body: props.bodyFont}} eyebrow? footer?
+        edge? noFade?>...</SceneFrame>
+        Optional scaffolding: brand background (auto solid/gradient), padding,
+        clean fade in/out, optional chrome. If you use it, put your scene content
+        inside; kit components below then auto-read the brand palette via context.
+        You may also build your own layout WITHOUT SceneFrame — then pass colors
+        explicitly. Both are fine.
+    - <CustomChart chartTable={props.chartTable} chartType={props.chartType} /> —
+        themed line/bar/histogram. Charts and tables are normally their OWN dedicated
+        scenes (added automatically), so a content scene rarely needs this. Render it
+        ONLY when props.chartTable is actually present; NEVER hand-roll a chart and
+        NEVER invent chart data.
+    - <StatGrid items={props.metrics} /> / <MetricRow items={props.metrics} /> /
+        <StatCard item={...} primary /> — animated count-up stat displays. Use when
+        props.metrics is present.
+    - <CountUpValue value="$1.2M" /> — single animated number (prefix/suffix/decimals preserved).
+    - <RevealText text={...} mode="word|char|line|fade" /> — staggered text reveal.
+    - <HighlightPhrase text={...} phrase={...} /> — accent underline on a key phrase.
+    - <KenBurnsImage src={props.imageUrl} objectPosition={props.imageObjectPosition}
+        zoom={props.imageZoom} scrim="bottom" /> — image with slow push + reveal,
+        honoring the user's focus/zoom. (Satisfies the image-rendering requirement.)
+    - <Decor system="dots|grid|orbs|starfield|rules|vignette" intensity={0.4} /> —
+        restrained, optional background atmosphere keyed to the brand.
+    - Helpers: useKit() → {{palette, type, isPortrait, fonts}}; derivePalette(colors);
+        withAlpha(hex, a); staggerEntrance(frame, i); headlinePop(frame, fps);
+        panelRise(frame, fps); countUpString(value, frame); cardStyle(palette, variant).
+
+    Content-type → kit recipe (STRONGLY PREFERRED — compose these, don't improvise):
+    Look at scene_purpose.best_for and the props that are actually present, then reach
+    for the matching kit composition. This is how scenes reach built-in craft level —
+    a hand-rolled equivalent will look improvised. Pick the FIRST recipe whose data is present.
+    - "metrics" (props.metrics present): <StatGrid items={props.metrics} /> (3+ stats)
+      or <MetricRow items={props.metrics} /> (1-2 stats); each value via CountUpValue.
+      Highlight the primary stat with StatCard ... primary.
+    - "quote" (props.quote present): <RevealText text={props.quote} mode="line" /> with
+      <HighlightPhrase> on the key phrase; attribute props.quoteAuthor below in muted small-caps.
+    - "comparison" (props.comparisonLeft/Right present): two columns, each a StatCard or
+      cardStyle panel; stagger the two sides; a thin accent divider between them.
+    - "timeline"/"steps" (props.timelineItems/steps present): stacked MetricRow-style rows,
+      one per item, staggered with staggerEntrance(frame, i); a growing accent rule connecting them.
+    - "bullets" (props.bullets present): staggered rows (NOT one paragraph), each in a
+      cardStyle panel or with an accent marker; use RevealText per row if short.
+    - "plain"/narrative: <RevealText text={props.displayText} mode="word|line" /> as the
+      focal element, optional KenBurnsImage when props.imageUrl present. Needs few/no kit pieces.
+    Always wrap in <SceneFrame> (or pass brand colors explicitly) so the kit reads the palette.
+    Do NOT cram multiple recipes into one scene — ONE focal composition per scene.
+
+    Scene-type craft (intro/outro — raise these to the SAME bar as content scenes):
+    - INTRO (scene_type == "intro"): the brand-reveal opener. Make props.displayText the
+      hero — a bold animated title reveal (<RevealText mode="word"/"char"/>, or a
+      scale(0.9→1) + translateY(24→0) + opacity spring entrance). Feature props.logoUrl as a
+      real brand mark, not just a corner watermark: animate it in (scale 0.8→1 spring, or a
+      clip/slit reveal) above/beside the title. Exactly ONE signature entrance beat. If
+      props.imageUrl is present, use <KenBurnsImage scrim="bottom"/> as a hero backdrop behind
+      the title. Calm and confident: one focal headline, generous negative space, optional
+      low-intensity <Decor>. Do NOT render bullet/metric/step lists in the intro.
+      Branch on isPortrait: portrait stacks logo→title vertically and centered; landscape may
+      offset the title or place logo+title side by side.
+    - OUTRO (scene_type == "outro"): a calm closing recap — restate the brand
+      (props.displayText) plus one short takeaway with a clean title reveal and a gentle exit.
+      A dynamic CTA + social row is composited automatically ON TOP of the outro at render
+      time, so do NOT hand-roll social icons, website buttons, or "Subscribe/Follow" CTAs —
+      just provide the brand recap beneath where those will sit.
+
+    Per-scene visual composition (content scenes — MAKE EACH SCENE LOOK DIFFERENT):
+    You are generating scene_index of total_scenes. Consecutive content scenes MUST NOT share
+    the same layout skeleton — repeated centered-card layouts are the #1 reason custom videos
+    feel repetitive. Pick a DISTINCT composition for THIS scene and do not reuse the previous
+    scene's choice. Rotate through these archetypes, using (scene_index % 5) as a starting
+    suggestion, then adapt to the content shape:
+      (0) centered focal — one big headline/stat dead-center, decor radiating around it
+      (1) asymmetric split — content weighted to one third, image/decor filling the other two
+      (2) full-bleed hero — edge-to-edge <KenBurnsImage> with an overlaid text block + scrim
+      (3) offset card stack — staggered cards/rows down one side, eyebrow + accent rule opposite
+      (4) side rail — a vertical accent rail / eyebrow column on one edge, content beside it
+    Vary the focal placement, the negative space, and which edge the accent/eyebrow lives on so
+    neighbouring scenes read as clearly different designs — not recolored copies. Always honor
+    the four hasImage×isPortrait cases above within whichever composition you choose.
+    Every content scene must have: a clear focal hierarchy (ONE dominant element); exactly ONE
+    signature motion beat (a headline pop OR a panel rise OR a count-up — not five competing
+    animations); at least TWO distinct animation techniques (e.g. staggered entrance + a timed
+    exit fade); and a restrained <Decor> keyed to the brand when it suits the composition.
+
     Component Props:
     { displayText, narrationText, imageUrl?, imageObjectPosition?: string, imageZoom?: number,
       sceneIndex, totalScenes,
-      logoUrl?, brandImages?, brandColors: { primary, secondary, accent, background, text },
+      logoUrl?, brandImages?, brandColors: { primary, secondary, accent, background, text, bg2? },
       aspectRatio: "landscape" | "portrait",
       titleFontSize?: number, descriptionFontSize?: number,
       headingFont?: string, bodyFont?: string,
-      contentType?: "plain"|"bullets"|"metrics"|"code"|"quote"|"comparison"|"timeline"|"steps",
+      contentType?: "plain"|"bullets"|"metrics"|"code"|"quote"|"comparison"|"timeline"|"steps"|"dataviz",
       bullets?: string[], metrics?: {value,label,suffix?}[], codeLines?: string[],
       codeLanguage?: string, quote?: string, quoteAuthor?: string,
       comparisonLeft?: {label,description}, comparisonRight?: {label,description},
-      timelineItems?: {label,description}[], steps?: string[] }
+      timelineItems?: {label,description}[], steps?: string[],
+      chartTable?: { headers?: string[], rows?: (string|number)[][] }, chartType?: string, chartSummary?: string }
 
     Resolution: 1920x1080 (landscape) / 1080x1920 (portrait), 30fps, 90-150 frames.
     """
@@ -326,6 +453,56 @@ def _scene_reward(args, pred) -> float:
             score -= 0.4
             print(f"[F7-DEBUG] [REFINE] -0.4: bullets scene missing props.bullets reference or .map()")
 
+    # Soft kit-adoption nudge: when a content type has a tested kit recipe, prefer
+    # composing the kit over hand-rolling (the recipe table in GenerateSceneCode).
+    # Penalty drops a clean scene below threshold (0.75) so Refine retries for kit
+    # usage; if the model keeps hand-rolling, Refine still returns the best attempt,
+    # so kit stays effectively optional (costs at most one extra attempt).
+    if "best_for" in scene_purpose:
+        _kit_recipes = {
+            "metrics": r'\b(StatGrid|MetricRow|StatCard|CountUpValue)\b',
+            "quote": r'\b(RevealText|HighlightPhrase)\b',
+            "comparison": r'\b(StatCard|MetricRow|cardStyle)\b',
+            "timeline": r'\b(MetricRow|staggerEntrance|StatCard)\b',
+        }
+        for _ctype, _pattern in _kit_recipes.items():
+            if _ctype in scene_purpose and not re.search(_pattern, code):
+                score -= 0.3
+                print(f"[F7-DEBUG] [REFINE] -0.3: {_ctype} scene hand-rolled (no matching kit component)")
+                break  # one nudge per scene — don't stack across content types
+
+    # Scene-type craft nudge (intro): the brand-reveal opener should present the
+    # title via the kit's staggered text reveal rather than a flat fade. Soft —
+    # drops below threshold so Refine tries once more; never mandatory. (The outro
+    # is composited with the CTA overlay at render time, so it gets no nudge here.)
+    if scene_type == "intro" and not re.search(r'\b(RevealText|HighlightPhrase)\b', code):
+        score -= 0.3
+        print(f"[F7-DEBUG] [REFINE] -0.3: intro without a kit text reveal (RevealText/HighlightPhrase)")
+
+    # D2 richness floor (content scenes): a scene with almost no motion AND no
+    # atmosphere reads as a static centered card — the exact look we're moving away
+    # from. Count distinct animation techniques; if fewer than 2 AND no <Decor>,
+    # nudge below threshold so Refine retries for a livelier composition. Conservative
+    # by design (most real scenes use spring + interpolate already), so it only bites
+    # genuinely bare scenes and stays optional (best attempt is returned regardless).
+    if scene_type == "content":
+        _anim_signals = sum(
+            bool(re.search(_p, code))
+            for _p in (
+                r'\bspring\s*\(',
+                r'\binterpolate\s*\(',
+                r'\bRevealText\b',
+                r'\bstaggerEntrance\b',
+                r'\bheadlinePop\b',
+                r'\bpanelRise\b',
+                r'\bCountUpValue\b',
+            )
+        )
+        _has_decor = bool(re.search(r'<Decor\b', code))
+        if _anim_signals < 2 and not _has_decor:
+            score -= 0.3
+            print(f"[F7-DEBUG] [REFINE] -0.3: content scene looks static (add motion variety / <Decor>)")
+
     line_count = code.count("\n") + 1
     print(f"[F7-DEBUG] [REFINE] Validation PASSED — score={score:.2f} | {line_count}L")
     return max(score, 0.0)
@@ -410,6 +587,42 @@ def _build_brand_context(
     else:
         ctx += f"Background: solid color {colors.get('bg')} — use SOLID backgrounds only, NO gradients\n"
 
+    # Craft-kit decor system. Prefer the explicit theme.decor field (set by the
+    # theme extractor); fall back to deriving from decorative elements.
+    decor = theme.get("decor") or {}
+    if decor.get("system"):
+        _decor = decor["system"]
+        _intensity = decor.get("intensity", 0.45)
+    else:
+        _decor_map = {
+            "gradients": "orbs",
+            "background-shapes": "orbs",
+            "dots": "dots",
+            "accent-lines": "rules",
+        }
+        _decoratives = (patterns.get("layout", {}) or {}).get("decorativeElements", []) or []
+        _decor = next((_decor_map[d] for d in _decoratives if d in _decor_map), "none")
+        _intensity = 0.45
+    ctx += f"Suggested decor system (optional): {_decor} at intensity {_intensity}\n"
+
+    # Motion energy: prefer explicit theme.motion.energy, else the free-form preset.
+    motion = theme.get("motion") or {}
+    if motion.get("energy"):
+        ctx += (
+            f"Motion energy: {motion['energy']} (easing {motion.get('easing', 'easeOutQuint')}) — "
+            "keep ONE signature beat per scene; stagger entrances; never animate everything at once.\n"
+        )
+    elif animation:
+        ctx += (
+            f"Motion energy: interpret '{animation}' — keep ONE signature beat per "
+            "scene; stagger entrances; do not animate everything at once.\n"
+        )
+
+    # Preferred content archetypes for this brand (scene-type variety hint).
+    scene_bias = theme.get("sceneBias")
+    if isinstance(scene_bias, list) and scene_bias:
+        ctx += f"Preferred scene types for this brand: {', '.join(str(s) for s in scene_bias)}\n"
+
     if source_url:
         ctx += f"Website: {source_url}\n"
     if category:
@@ -477,6 +690,25 @@ def _decide_brand_scene_types(brand_context: str) -> list[dict]:
             content_types = [s for s in validated if s["scene_type"] == "content"]
             if not content_types:
                 raise ValueError("AI returned no content scene types")
+
+            # Enforce archetype non-repetition: two content scenes with the same
+            # best_for signature resolve to near-identical layouts, which is the #1
+            # reason custom videos feel repetitive. Keep the first of each signature.
+            deduped, seen = [], set()
+            for s in content_types:
+                sig = tuple(sorted(str(b).lower() for b in (s.get("best_for") or []))) or (s["id"],)
+                if sig in seen:
+                    print(f"[F7-DEBUG] [SCENE-TYPES] Dropped duplicate archetype {s['id']!r} (best_for={s.get('best_for')})")
+                    continue
+                seen.add(sig)
+                deduped.append(s)
+            if len(deduped) < len(content_types):
+                non_content = [s for s in validated if s["scene_type"] != "content"]
+                validated = (
+                    [s for s in non_content if s["scene_type"] == "intro"]
+                    + deduped
+                    + [s for s in non_content if s["scene_type"] == "outro"]
+                )
 
             elapsed = time.time() - t0
             print(
@@ -693,6 +925,17 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         f"1 intro + {num_content} content archetypes + 1 outro"
     )
 
+    # Composition archetypes the per-scene directive in GenerateSceneCode rotates
+    # through — surfaced in scene_purpose so each content scene is explicitly told
+    # which distinct layout skeleton to lean toward (defeats centered-card repetition).
+    _COMPOSITIONS = [
+        "centered focal",
+        "asymmetric split",
+        "full-bleed hero image",
+        "offset card stack",
+        "side rail",
+    ]
+
     # Step 3: Generate ALL scenes in parallel
     tasks = [
         _generate_single_scene(
@@ -701,13 +944,18 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             scene_type="intro",
             scene_index=0,
             total_scenes=total_scenes,
-            scene_purpose=f"{intro_archetype['id']}: {intro_archetype['description']}",
+            scene_purpose=(
+                f"{intro_archetype['id']}: {intro_archetype['description']} "
+                "| brand-reveal opener: lead with an animated brand-name title + a real "
+                "logo reveal and ONE signature entrance beat (no bullet/metric lists)"
+            ),
         ),
     ]
     for i, arch in enumerate(content_archetypes):
         best_for_hint = (
             f" | best_for={arch['best_for']}" if arch.get("best_for") else ""
         )
+        _comp = _COMPOSITIONS[(i + 1) % len(_COMPOSITIONS)]
         tasks.append(
             _generate_single_scene(
                 brand_context=brand_context,
@@ -715,7 +963,11 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
                 scene_type="content",
                 scene_index=i + 1,
                 total_scenes=total_scenes,
-                scene_purpose=f"{arch['id']}: {arch['description']}{best_for_hint}",
+                scene_purpose=(
+                    f"{arch['id']}: {arch['description']}{best_for_hint} "
+                    f"| content scene {i + 1} of {num_content}: use a '{_comp}' composition, "
+                    "visually DISTINCT from its neighbours (do not reuse a centered card)"
+                ),
             ),
         )
     tasks.append(
@@ -725,7 +977,11 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             scene_type="outro",
             scene_index=total_scenes - 1,
             total_scenes=total_scenes,
-            scene_purpose=f"{outro_archetype['id']}: {outro_archetype['description']}",
+            scene_purpose=(
+                f"{outro_archetype['id']}: {outro_archetype['description']} "
+                "| closing brand recap (a CTA + socials row is overlaid automatically — "
+                "do not hand-roll social icons or CTA buttons)"
+            ),
         ),
     )
 

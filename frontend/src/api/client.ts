@@ -119,6 +119,8 @@ export interface Scene {
   extra_hold_seconds?: number | null;
   bgm_volume?: number | null;
   preferred_layout?: string | null;
+  /** "intro"|"content"|"outro"|"dataviz_chart"|"dataviz_table" (custom templates). */
+  scene_type?: string | null;
   created_at: string;
 }
 
@@ -1506,6 +1508,9 @@ export const getChatHistory = (id: number) =>
 
 // ─── Custom Templates API (Pro only) ─────────────────────
 
+/** Scene-exit transition styles (must match GeneratedTransition registry). */
+export type TransitionStyle = "fade" | "accent_wash" | "rule_sweep" | "ink_wash" | "whip_blur";
+
 export interface CustomTemplateTheme {
   colors: { accent: string; bg: string; text: string; surface: string; muted: string; bg2?: string };
   fonts: { heading: string; body: string; mono: string };
@@ -1519,6 +1524,25 @@ export interface CustomTemplateTheme {
     images: { treatment: string; overlay: string; captionStyle: string };
     layout: { direction: string; decorativeElements: string[] };
   };
+  /** Motion personality — drives kit animation timing + scene-exit transitions. */
+  motion?: {
+    energy?: "calm" | "smooth" | "energetic";
+    easing?: string;
+    transitionFamily?: TransitionStyle[];
+  };
+  /** Data-viz styling cues for the craft kit's CustomChart. */
+  charts?: {
+    style?: "clean" | "precise" | "editorial";
+    gridStyle?: "dashed" | "horizontal" | "none";
+    palette?: string[];
+  };
+  /** Background decoration system for the kit's <Decor>. */
+  decor?: {
+    system?: "none" | "dots" | "grid" | "orbs" | "starfield" | "rules" | "vignette";
+    intensity?: number;
+  };
+  /** Preferred content archetypes for this brand (scene-type variety hint). */
+  sceneBias?: string[];
 }
 
 export interface CustomTemplateItem {

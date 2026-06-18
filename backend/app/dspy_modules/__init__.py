@@ -66,9 +66,9 @@ _DEFAULT_MODEL = (
     else "openrouter/qwen/qwen3-max"
 )
 
-# Scene descriptor LLM: Claude Haiku via Anthropic in production, Qwen 3 30B A3B (fast MoE, parallel-friendly) via OpenRouter (Alibaba-hosted) locally
+# Scene descriptor LLM: Claude Sonnet 4.6 via Anthropic in production, Qwen 3 30B A3B (fast MoE, parallel-friendly) via OpenRouter (Alibaba-hosted) locally
 _SCENE_MODEL = (
-    "anthropic/claude-haiku-4-5-20251001"
+    "anthropic/claude-sonnet-4-6"
     if _IS_PRODUCTION
     else "openrouter/qwen/qwen3-30b-a3b-instruct-2507"
 )
@@ -191,7 +191,7 @@ def get_custom_lm() -> dspy.LM:
 
 
 def get_scene_lm() -> dspy.LM:
-    """Scene descriptor LM — Claude Haiku via Anthropic in production, Qwen3 30B A3B (fast MoE) via OpenRouter locally."""
+    """Scene descriptor LM — Claude Sonnet 4.6 via Anthropic in production, Qwen3 30B A3B (fast MoE) via OpenRouter locally."""
     global _scene_lm
     if _scene_lm is not None:
         return _scene_lm

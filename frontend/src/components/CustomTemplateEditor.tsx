@@ -59,7 +59,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Edit Template</h2>
@@ -209,6 +209,27 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
                 <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
                   {theme.patterns.layout?.direction || "centered"}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* Motion / decor / charts + scene mix (read-only craft signals) */}
+          {(theme.motion?.energy || theme.decor?.system || theme.charts?.style || (theme.sceneBias?.length ?? 0) > 0) && (
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+                Motion &amp; Scenes
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  theme.motion?.energy ? `${theme.motion.energy} motion` : null,
+                  theme.decor?.system && theme.decor.system !== "none" ? `${theme.decor.system} decor` : null,
+                  theme.charts?.style ? `${theme.charts.style} charts` : null,
+                ].filter(Boolean).map((tag) => (
+                  <span key={tag as string} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-50 text-indigo-600 capitalize">{tag}</span>
+                ))}
+                {theme.sceneBias?.map((s) => (
+                  <span key={s} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 text-emerald-700 capitalize">{s}</span>
+                ))}
               </div>
             </div>
           )}

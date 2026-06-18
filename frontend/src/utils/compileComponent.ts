@@ -21,6 +21,16 @@ import * as Recharts from "recharts";
 import * as RemotionTransitions from "@remotion/transitions";
 import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
+import * as Kit from "../components/remotion/generated/kit";
+
+// Craft-kit exports injected into JIT-compiled AI scene code, mirroring the
+// import list in the backend's _wrap_generated_code so preview === render.
+const KIT_EXPORTS = [
+  "SceneFrame", "useKit", "CountUpValue", "StatCard", "StatGrid", "MetricRow",
+  "RevealText", "HighlightPhrase", "KenBurnsImage", "Decor", "CustomChart",
+  "CustomTable", "cardStyle", "derivePalette", "withAlpha", "staggerEntrance",
+  "headlinePop", "panelRise", "masterOpacity", "countUpString",
+] as const;
 
 export interface SceneProps {
   displayText: string;
@@ -41,7 +51,7 @@ export interface SceneProps {
   };
   aspectRatio: "landscape" | "portrait";
   /** Structured content fields — populated when blog content contains lists, stats, quotes, etc. */
-  contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps";
+  contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps" | "dataviz";
   bullets?: string[];
   metrics?: { value: string; label: string; suffix?: string }[];
   codeLines?: string[];
@@ -52,6 +62,10 @@ export interface SceneProps {
   comparisonRight?: { label: string; description: string };
   timelineItems?: { label: string; description: string }[];
   steps?: string[];
+  /** Data-viz fields — used by the dedicated kit chart/table scenes (DataChartScene/DataTableScene). */
+  chartTable?: { headers?: string[]; rows?: (string | number)[][] };
+  chartType?: string;
+  chartSummary?: string;
   titleFontSize?: number;
   descriptionFontSize?: number;
   headingFont?: string;
@@ -121,7 +135,7 @@ export async function compileComponentCode(
       return interpolate(frame, safe, outputRange, options);
     };
 
-    // Create factory function that receives Remotion APIs as parameters
+    // Create factory function that receives Remotion APIs + craft kit as parameters
     // eslint-disable-next-line no-new-func
     const factory = new Function(
       "React",
@@ -134,6 +148,7 @@ export async function compileComponentCode(
       "Sequence",
       "Img",
       "random",
+      ...KIT_EXPORTS,
       result.code + "\nreturn SceneComponent;"
     );
 
@@ -147,7 +162,8 @@ export async function compileComponentCode(
       AbsoluteFill,
       Sequence,
       Img,
-      random
+      random,
+      ...KIT_EXPORTS.map((name) => (Kit as Record<string, unknown>)[name])
     );
 
     if (typeof SceneComponent !== "function") {

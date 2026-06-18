@@ -523,6 +523,30 @@ import {{
 }} from "remotion";
 import type {{ GeneratedSceneProps }} from "./types";
 
+// Craft kit — OPTIONAL, brand-themed building blocks the generated scene may
+// compose when the content fits (never forced). See generated/kit/.
+import {{
+  SceneFrame,
+  useKit,
+  CountUpValue,
+  StatCard,
+  StatGrid,
+  MetricRow,
+  RevealText,
+  HighlightPhrase,
+  KenBurnsImage,
+  Decor,
+  CustomChart,
+  cardStyle,
+  derivePalette,
+  withAlpha,
+  staggerEntrance,
+  headlinePop,
+  panelRise,
+  masterOpacity,
+  countUpString,
+}} from "./kit";
+
 // Safe wrapper — ensures inputRange is strictly monotonic even when dynamic values resolve equal
 const interpolate: typeof _interpolate = (frame, inputRange, outputRange, options?) => {{
   const safe = (inputRange as number[]).map((v: number, i: number) =>
@@ -1164,6 +1188,19 @@ def write_remotion_data(
                 "background": project.bg_color or theme_colors.get("bg", "#FFFFFF"),
                 "text": project.text_color or theme_colors.get("text", "#1A1A2E"),
             }
+            # Background style as a render prop: the optional gradient endpoint
+            # (bg2) flows through so the kit's SceneFrame renders solid-vs-gradient
+            # at render time — toggling Background Style no longer needs a regen.
+            # Suppressed when the user has set a custom project bg (solid override).
+            bg2 = theme_colors.get("bg2")
+            if bg2 and not project.bg_color:
+                data["brandColors"]["bg2"] = bg2
+                data["bg2Color"] = bg2
+            # Transition family from the theme's motion personality (optional).
+            motion = custom_data["theme"].get("motion") or {}
+            tfam = motion.get("transitionFamily")
+            if isinstance(tfam, list) and tfam:
+                data["transitionFamily"] = tfam
             # Tag each scene with a sceneType for GeneratedVideo (custom only).
             total = len(scene_data)
             content_codes = custom_data.get("content_codes") or []
@@ -1198,7 +1235,7 @@ def write_remotion_data(
                 # Priority: override > db_type > position-based
                 if override_type in ("intro", "content", "outro"):
                     sd["sceneType"] = override_type
-                elif db_type in ("intro", "content", "outro"):
+                elif db_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
                     sd["sceneType"] = db_type
                 elif idx == 0:
                     sd["sceneType"] = "intro"
