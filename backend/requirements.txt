@@ -66,3 +66,9 @@ resend==2.29.0
 # Support bot retrieval
 rank-bm25>=0.2.2
 PyYAML>=6.0
+
+# ─── Test & lint tooling (Tier A QA suite) ───────────────────────────────
+# Pinned to exact versions so local + CI runs are reproducible.
+pytest==9.0.2
+pytest-asyncio==1.4.0
+ruff==0.15.17

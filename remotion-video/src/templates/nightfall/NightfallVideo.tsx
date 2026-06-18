@@ -12,6 +12,7 @@ import { resolveFontFamily } from "../../fonts/registry";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { NightfallSceneTransition } from "./NightfallSceneTransition";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -41,6 +42,8 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -209,6 +212,9 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         />
       )}
 
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
+      )}
     </AbsoluteFill>
   );
 };

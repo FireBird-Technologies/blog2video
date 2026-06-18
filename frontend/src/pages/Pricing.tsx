@@ -323,12 +323,11 @@ export default function Pricing() {
             </div>
             <ul className="space-y-3 mb-8 flex-1">
               {[
-                "3 videos free",
+                "2 videos free",
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
-                "Custom video templates",
               ].map((f) => (
                 <li
                   key={f}
@@ -338,7 +337,7 @@ export default function Pricing() {
                   {f}
                 </li>
               ))}
-              {["Unlimited AI edit & image generation", "Premium voiceover + cloning"].map((f) => (
+              {["Unlimited AI edit & image generation", "Custom video templates", "Premium voiceover + cloning"].map((f) => (
                 <li
                   key={f}
                   className="flex items-start gap-2.5 text-sm text-gray-300"
@@ -379,9 +378,6 @@ export default function Pricing() {
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Render & download MP4",
-                "Unlimited AI edit & image generation",
-                "Custom video templates",
-                "Premium voiceover + cloning",
               ]}
             />
           ) : (
@@ -393,9 +389,6 @@ export default function Pricing() {
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Render & download MP4",
-                "Unlimited AI edit & image generation",
-                "Custom video templates",
-                "Premium voiceover + cloning",
               ]}
               customButton={
                 <div className="flex justify-center">
@@ -668,16 +661,18 @@ export default function Pricing() {
             </thead>
             <tbody>
               {[
-                { feature: "Price", free: "$0", perVideo: "$3/video", standard: isAnnual ? `$${STANDARD_ANNUAL_MONTHLY_PRICE}/mo` : `$${STANDARD_MONTHLY_PRICE}/mo`, pro: isAnnual ? `$${PRO_ANNUAL_MONTHLY_PRICE}/mo` : `$${PRO_MONTHLY_PRICE}/mo`, customized: "Custom" },
-                { feature: "Videos", free: "3 free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
+                { feature: "Price", free: "$0", perVideo: "$2.80–$4/video", standard: isAnnual ? `$${STANDARD_ANNUAL_MONTHLY_PRICE}/mo` : `$${STANDARD_MONTHLY_PRICE}/mo`, pro: isAnnual ? `$${PRO_ANNUAL_MONTHLY_PRICE}/mo` : `$${PRO_MONTHLY_PRICE}/mo`, customized: "Custom" },
+                { feature: "Videos", free: "2 free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
                 { feature: "AI script generation", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Voice selection (4 options)", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Video preview", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Render & download MP4", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Unlimited AI edit & image generation", free: false, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Custom video templates", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Premium voiceover + cloning", free: false, perVideo: true, standard: true, pro: true, customized: true },
+                { feature: "Unlimited AI edit & image generation", free: false, perVideo: false, standard: true, pro: true, customized: true },
+                { feature: "Custom video templates", free: false, perVideo: false, standard: true, pro: true, customized: true },
+                { feature: "Premium voiceover + cloning", free: false, perVideo: false, standard: true, pro: true, customized: true },
+                { feature: "Music Addition", free: false, perVideo: false, standard: true, pro: true, customized: true },
+                { feature: "Advanced voiceover settings", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Priority support", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "On-prem deployment", free: false, perVideo: false, standard: false, pro: false, customized: true },
               ].map((row, i) => (

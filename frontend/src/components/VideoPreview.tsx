@@ -30,6 +30,7 @@ import {
 } from "../utils/compileComponent";
 import { LogoOverlay } from "./remotion/LogoOverlay";
 import { CtaOverlay } from "./remotion/CtaOverlay";
+import { BackgroundMusic } from "./remotion/BackgroundMusic";
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -197,6 +198,17 @@ const StableCustomComposition: React.FC<any> = ({
           />
         </AbsoluteFill>
       )}
+
+      {project.bgm_track_url && (
+        <BackgroundMusic
+          src={project.bgm_track_url}
+          volume={project.bgm_volume ?? 0.10}
+          scenes={(project.scenes ?? []).map((s: { duration_seconds?: number; extra_hold_seconds?: number | null; bgm_volume?: number | null }) => ({
+            durationSeconds: (Number(s.duration_seconds) || 5) + (Number(s.extra_hold_seconds) || 0),
+            bgmVolume: s.bgm_volume ?? null,
+          }))}
+        />
+      )}
     </AbsoluteFill>
   );
 };
@@ -241,6 +253,7 @@ interface SceneInput {
   structuredContent?: Record<string, unknown>;
   ctaProps?: Record<string, unknown>;
   durationSeconds: number;
+  bgmVolume?: number | null;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -1115,6 +1128,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           layout,
           effectiveLayoutPropSchema ?? undefined,
           project.aspect_ratio || "landscape",
+          templateId,
         );
       }
 
@@ -1129,6 +1143,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         ...(structuredContent ? { structuredContent } : {}),
         ...(ctaProps ? { ctaProps } : {}),
         durationSeconds: (Number(scene.duration_seconds) || 5) + (Number(scene.extra_hold_seconds) || 0),
+        bgmVolume: scene.bgm_volume ?? null,
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
       };
@@ -1276,6 +1291,8 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
     logoSize: logoSizeOverride ?? (typeof project.logo_size === "number" ? project.logo_size : 100),
     aspectRatio: project.aspect_ratio || "landscape",
+    bgmUrl: project.bgm_track_url || null,
+    bgmVolume: project.bgm_volume ?? 0.10,
     ...(resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {}),
     ...(project.custom_theme ? { theme: project.custom_theme } : {}),
   };

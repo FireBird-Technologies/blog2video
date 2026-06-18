@@ -12,7 +12,13 @@ from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
-from app.models.referral import Referral, ReferralInvite, REFERRAL_BONUS_VIDEOS, REFERRAL_MAX_SIGNUPS
+from app.models.referral import (
+    Referral,
+    ReferralInvite,
+    REFERRAL_BONUS_VIDEOS,
+    REFERRAL_MAX_SIGNUPS,
+)
+from app.models.survey import SurveyResponse
 from app.services.email import EmailService
 
 router = APIRouter(prefix="/api/affiliate", tags=["affiliate"])
@@ -34,6 +40,19 @@ class InviteRequest(BaseModel):
 class InviteResponse(BaseModel):
     sent: int
     failed: int
+
+
+class SurveyRequest(BaseModel):
+    rating: str | None = None
+    use_case: str | None = None
+    target_audience: str | None = None
+    desired_feature: str | None = None
+    heard_from: str | None = None
+
+
+class SurveyResponseResult(BaseModel):
+    submitted: bool
+    promo_code: str | None = None
 
 
 def _build_referral_code(user: User) -> str:
@@ -96,6 +115,33 @@ def get_affiliate_stats(
         signups_count=signups_count,
         bonus_earned=bonus_earned,
     )
+
+
+@router.post("/survey", response_model=SurveyResponseResult)
+def submit_survey(
+    body: SurveyRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    existing = db.query(SurveyResponse).filter_by(user_id=user.id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Survey already submitted")
+
+    try:
+        db.add(SurveyResponse(
+            user_id=user.id,
+            rating=(body.rating or None),
+            use_case=(body.use_case or None),
+            target_audience=(body.target_audience or None),
+            desired_feature=(body.desired_feature or None),
+            heard_from=(body.heard_from or None),
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Survey already submitted")
+
+    return SurveyResponseResult(submitted=True, promo_code=settings.SURVEY_PROMO_CODE or None)
 
 
 @router.post("/invite", response_model=InviteResponse)

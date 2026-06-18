@@ -409,12 +409,12 @@
       "label": "Data Visualisation",
       "defaults": {
         "titleFontSize": {
-          "portrait": 69,
-          "landscape": 55
+          "portrait": 67,
+          "landscape": 52
         },
         "descriptionFontSize": {
-          "portrait": 33,
-          "landscape": 26
+          "portrait": 29,
+          "landscape": 21
         },
         "chartType": "line",
         "chartSummary": "Readings rise through the period before settling back from the peak.",
@@ -735,11 +735,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 58,
-          "landscape": 40
+          "landscape": 38
         },
         "descriptionFontSize": {
           "portrait": 25,
-          "landscape": 18
+          "landscape": 17
         },
         "leftThought": "This policy creates opportunity and drives long-term economic growth for everyone.",
         "rightThought": "The costs are too high and the benefits too uncertain to justify moving forward now.",
