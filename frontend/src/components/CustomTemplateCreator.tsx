@@ -511,6 +511,34 @@ export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }:
                     </div>
                   </>
                 )}
+
+                {/* Motion / decor / charts — first-class craft signals derived from the brand */}
+                {(theme.motion?.energy || theme.decor?.system || theme.charts?.style) && (
+                  <>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Motion &amp; Style</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        theme.motion?.energy ? `${theme.motion.energy} motion` : null,
+                        theme.decor?.system && theme.decor.system !== "none" ? `${theme.decor.system} decor` : null,
+                        theme.charts?.style ? `${theme.charts.style} charts` : null,
+                      ].filter(Boolean).map((tag) => (
+                        <span key={tag as string} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-50 text-indigo-600 capitalize">{tag}</span>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Scene mix — preferred content archetypes for this brand */}
+                {theme.sceneBias && theme.sceneBias.length > 0 && (
+                  <>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Scene Mix</span>
+                    <div className="flex flex-wrap gap-2">
+                      {theme.sceneBias.map((s) => (
+                        <span key={s} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 text-emerald-700 capitalize">{s}</span>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Actions */}

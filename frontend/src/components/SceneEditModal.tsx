@@ -1883,6 +1883,29 @@ const CUSTOM_CONTENT_FIELDS: Record<string, FieldDef[]> = {
   steps: [{ key: "steps", label: "Steps", type: "string_array", maxItems: 8 }],
 };
 
+// Editable fields for the custom-template dedicated data-viz scenes (chart +
+// table). Keyed off scene.scene_type rather than template id so they work for
+// any custom_<id> template — parity with the built-in data-viz editor.
+const CUSTOM_DATAVIZ_FIELDS: Record<"chart" | "table", FieldDef[]> = {
+  chart: [
+    { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    {
+      key: "chartType",
+      label: "Chart Type",
+      type: "select",
+      default: "line",
+      options: [
+        { label: "Line", value: "line" },
+        { label: "Bar", value: "bar" },
+        { label: "Histogram", value: "histogram" },
+      ],
+    },
+  ],
+  table: [
+    { key: "chartTable", label: "Table data (col 1: row labels; cols 2+: values; max 20 rows)", type: "chart_table" },
+  ],
+};
+
 function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
   if (!layoutId) return undefined;
   const t = (template || "default").toLowerCase();
@@ -2450,7 +2473,15 @@ export default function SceneEditModal({
   // FJ Market Brief is a crafted template — project.template carries the public id.
   const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
 
+  // Custom templates get 2 dedicated, editable data-viz scenes (chart + table).
+  const dataVizKind: "chart" | "table" | null =
+    scene.scene_type === "dataviz_chart" ? "chart"
+    : scene.scene_type === "dataviz_table" ? "table"
+    : null;
+
   const currentLayoutId = (() => {
+    // Dedicated data-viz scenes route by scene_type, not descriptor layout.
+    if (dataVizKind) return dataVizKind === "chart" ? "custom_chart" : "custom_table";
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
@@ -3034,6 +3065,21 @@ export default function SceneEditModal({
           }
           // Custom templates use layoutConfig — skip layoutProps editing
           if (isCustomTemplate) {
+            // Exception: dedicated data-viz scenes persist their edited chart data
+            // into layoutProps (the location GeneratedVideo's kit scenes read).
+            if (dataVizKind) {
+              const dvTable = normalizeChartTableValue(
+                (editableLayoutProps as Record<string, unknown>).chartTable,
+              );
+              const prevLp = (desc.layoutProps as Record<string, unknown>) || {};
+              desc.layoutProps = {
+                ...prevLp,
+                chartTable: dvTable,
+                ...(dataVizKind === "chart" && editableLayoutProps.chartType
+                  ? { chartType: editableLayoutProps.chartType }
+                  : {}),
+              };
+            }
             // Ensure layoutConfig exists for custom templates
             if (!desc.layoutConfig) desc.layoutConfig = {};
             const config = desc.layoutConfig as Record<string, unknown>;
@@ -4082,6 +4128,7 @@ export default function SceneEditModal({
                       )
                     : undefined;
                 const rawLayoutFields =
+                  (dataVizKind ? CUSTOM_DATAVIZ_FIELDS[dataVizKind] : undefined) ??
                   craftedFields ??
                   schemaBackedFields ??
                   builtinDataVizSchemaFields ??

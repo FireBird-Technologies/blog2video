@@ -32,7 +32,10 @@ USER_THEME_SCRAPE_NOT_CONFIGURED = (
     "Theme extraction isn't available on this server. Please contact support."
 )
 
-_MAX_HTML_CHARS = 15_000
+# HTML budget sent to the theme LM. Sized so the prepended CSS block (up to
+# _MAX_CSS_CHARS, where colors/fonts live) does NOT crowd out the HTML structure
+# the model needs to infer visual patterns (cards, decor, layout). ~10K CSS + ~18K HTML.
+_MAX_HTML_CHARS = 28_000
 _MAX_MARKDOWN_CHARS = 2_000
 _MAX_CSS_CHARS = 10_000
 
@@ -236,7 +239,11 @@ def _extract_css_content(html: str, base_url: str = "") -> str:
                 break
             try:
                 resp = _requests.get(css_url, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
-                if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("text/css"):
+                # Accept by content-type OR by .css URL — some CDNs serve CSS with a
+                # generic/missing content-type, which previously dropped real stylesheets.
+                ctype = resp.headers.get("content-type", "")
+                looks_css = ctype.startswith("text/css") or "css" in ctype or css_url.split("?")[0].endswith(".css")
+                if resp.status_code == 200 and looks_css:
                     remaining = _MAX_CSS_CHARS - total
                     text = resp.text[:remaining].strip()
                     if text:
@@ -260,7 +267,7 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
 
     t_scrape_start = time.time()
     try:
-        doc = app.scrape(url, formats=["html", "markdown"])
+        doc = app.scrape(url, formats=["html", "rawHtml", "markdown"])
     except Exception as e:
         logger.warning(
             "Firecrawl scrape failed for %s: %s",
@@ -272,6 +279,12 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
 
     html_content = (getattr(doc, "html", None) or "").strip()
     markdown_text = (getattr(doc, "markdown", None) or "").strip()
+    # rawHtml is the FULL original HTML (incl. <head> + <link rel=stylesheet>),
+    # whereas Firecrawl's cleaned `html` drops the head — so external stylesheets
+    # (where most brand colors/fonts live) are only discoverable via rawHtml.
+    raw_html = (getattr(doc, "raw_html", None) or getattr(doc, "rawHtml", None) or "").strip()
+    # Prefer rawHtml for CSS + logo discovery; fall back to cleaned html.
+    style_source_html = raw_html or html_content
     metadata = getattr(doc, "metadata", None) or {}
     if not isinstance(metadata, dict):
         metadata = metadata.__dict__ if hasattr(metadata, "__dict__") else {}
@@ -287,15 +300,16 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
         or ""
     )
 
-    # Extract CSS from full HTML (inline + external stylesheets) and prepend to truncated HTML
-    css_content = _extract_css_content(html_content, base_url=url)
+    # Extract CSS from the fullest HTML available (inline + external stylesheets)
+    # and prepend to truncated HTML so the AI sees real brand colors/fonts.
+    css_content = _extract_css_content(style_source_html, base_url=url)
     html_with_css = (f"<style>{css_content}</style>\n" + html_content) if css_content else html_content
 
-    # Extract logos from HTML (with og:image and favicon fallbacks)
-    logo_urls = _extract_logo_urls(html_content, url, og_image=og_image)
+    # Extract logos from the fullest HTML (with og:image and favicon fallbacks)
+    logo_urls = _extract_logo_urls(style_source_html, url, og_image=og_image)
 
     t_scrape_total = time.time() - t_scrape_start
-    print(f"[F7-DEBUG] [SCRAPE] Done in {t_scrape_total:.1f}s — HTML={len(html_content)} chars, CSS={len(css_content)} chars, logos={len(logo_urls)}")
+    print(f"[F7-DEBUG] [SCRAPE] Done in {t_scrape_total:.1f}s — HTML={len(html_content)} chars, rawHTML={len(raw_html)} chars, CSS={len(css_content)} chars, logos={len(logo_urls)}")
 
     return ScrapedThemeData(
         url=url,

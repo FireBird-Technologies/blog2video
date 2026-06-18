@@ -138,7 +138,7 @@ class ExtractThemeFromContent(dspy.Signature):
     """
 
     url: str = dspy.InputField(desc="The source URL being analyzed")
-    html_content: str = dspy.InputField(desc="First 40K chars of rendered HTML with inline styles and CSS")
+    html_content: str = dspy.InputField(desc="Rendered HTML with extracted CSS prepended (inline styles + external stylesheets)")
     markdown_content: str = dspy.InputField(desc="First 5K chars of page content as markdown")
     page_title: str = dspy.InputField(desc="Page title from metadata")
     page_description: str = dspy.InputField(desc="Meta description from metadata")
@@ -196,6 +196,92 @@ def _compute_bg2(bg_hex: str) -> str:
         return "#{:02x}{:02x}{:02x}".format(int(r2 * 255), int(g2 * 255), int(b2 * 255))
     except Exception:
         return bg_hex  # Fallback: same color (effectively no gradient)
+
+
+# Transition-style pools by motion energy (must match the GeneratedTransition
+# registry styles in remotion-video/.../generated/GeneratedTransition.tsx).
+_TRANSITION_FAMILY_BY_ENERGY = {
+    "calm": ["fade", "ink_wash"],
+    "smooth": ["fade", "accent_wash", "ink_wash"],
+    "energetic": ["whip_blur", "accent_wash", "rule_sweep"],
+}
+_DECOR_BY_ELEMENT = {
+    "gradients": "orbs",
+    "background-shapes": "orbs",
+    "dots": "dots",
+    "accent-lines": "rules",
+}
+_INTENSITY_BY_DENSITY = {"compact": 0.3, "balanced": 0.45, "spacious": 0.6}
+
+
+def _derive_motion_energy(animation_preset: str) -> str:
+    a = (animation_preset or "").lower()
+    if any(k in a for k in ("calm", "slow", "gentle", "measured", "editorial", "zen", "soft", "fade")):
+        return "calm"
+    if any(k in a for k in ("bounc", "punch", "energetic", "fast", "snappy", "high", "pop", "kinetic", "dynamic")):
+        return "energetic"
+    return "smooth"
+
+
+def _derive_extended_theme_fields(theme: dict) -> None:
+    """Populate first-class motion / charts / decor / sceneBias fields on the theme.
+
+    Deterministic — derived from the already-extracted style/animation/category/
+    patterns so the fields always exist, stay coherent, and are user-editable.
+    These are consumed by the craft kit at render time (transitionFamily, decor)
+    and by code generation (sceneBias). Never overwrites values already present
+    (e.g. user edits). Mutates `theme` in place.
+    """
+    style = (theme.get("style") or "").lower()
+    category = (theme.get("category") or "").lower()
+    patterns = theme.get("patterns", {}) or {}
+    layout = patterns.get("layout", {}) or {}
+    decoratives = layout.get("decorativeElements", []) or []
+    density = (patterns.get("spacing", {}) or {}).get("density", "balanced")
+
+    energy = _derive_motion_energy(theme.get("animationPreset", ""))
+    easing = {"calm": "easeInOutCubic", "smooth": "easeOutQuint", "energetic": "easeOutBack"}[energy]
+
+    # motion
+    motion = theme.get("motion")
+    if not isinstance(motion, dict):
+        motion = {}
+    motion.setdefault("energy", energy)
+    motion.setdefault("easing", easing)
+    motion.setdefault("transitionFamily", list(_TRANSITION_FAMILY_BY_ENERGY[energy]))
+    theme["motion"] = motion
+
+    # charts
+    is_data = any(k in (style + " " + category) for k in ("finance", "data", "tech", "saas", "dashboard", "market", "crypto", "stock"))
+    is_editorial = any(k in (style + " " + category) for k in ("editorial", "news", "magazine", "journal"))
+    is_minimal = any(k in style for k in ("minimal", "zen", "clean"))
+    charts = theme.get("charts")
+    if not isinstance(charts, dict):
+        charts = {}
+    charts.setdefault("style", "precise" if is_data else "editorial" if is_editorial else "clean")
+    charts.setdefault("gridStyle", "horizontal" if is_editorial else "none" if is_minimal else "dashed")
+    theme["charts"] = charts
+
+    # decor
+    decor = theme.get("decor")
+    if not isinstance(decor, dict):
+        decor = {}
+    system = next((_DECOR_BY_ELEMENT[d] for d in decoratives if d in _DECOR_BY_ELEMENT), "none")
+    decor.setdefault("system", system)
+    decor.setdefault("intensity", _INTENSITY_BY_DENSITY.get(density, 0.45))
+    theme["decor"] = decor
+
+    # sceneBias — preferred content archetypes for this brand
+    if not theme.get("sceneBias"):
+        if is_data:
+            bias = ["metrics", "comparison", "timeline", "bullets"]
+        elif is_editorial:
+            bias = ["quote", "timeline", "bullets", "image"]
+        elif any(k in (style + " " + category) for k in ("food", "lifestyle", "fashion", "travel", "creative")):
+            bias = ["image", "bullets", "quote", "steps"]
+        else:
+            bias = ["bullets", "metrics", "quote", "image"]
+        theme["sceneBias"] = bias
 
 
 class ThemeExtractor:
@@ -286,6 +372,16 @@ class ThemeExtractor:
             bg2 = _compute_bg2(bg_hex)
             theme["colors"]["bg2"] = bg2
             print(f"[F7-DEBUG] [GRADIENT-DECISION] bg={theme['colors'].get('bg')} → bg2={bg2}")
+
+        # Derive first-class motion / charts / decor / sceneBias fields from the
+        # extracted signals so the craft kit + codegen get explicit brand cues.
+        _derive_extended_theme_fields(theme)
+        _motion = theme.get("motion", {})
+        print(
+            f"[F7-DEBUG] [THEME] Extended: motion={_motion.get('energy')}/{_motion.get('transitionFamily')}, "
+            f"decor={theme.get('decor', {}).get('system')}@{theme.get('decor', {}).get('intensity')}, "
+            f"charts={theme.get('charts', {}).get('style')}, sceneBias={theme.get('sceneBias')}"
+        )
 
         colors = theme.get("colors", {})
         fonts = theme.get("fonts", {})

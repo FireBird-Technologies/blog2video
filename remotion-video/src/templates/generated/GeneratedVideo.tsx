@@ -39,6 +39,10 @@ import OutroScene from "./SceneOutro";
 import { CONTENT_VARIANTS } from "./contentRegistry";
 import { GeneratedTransition } from "./GeneratedTransition";
 import { GeneratedCtaOverlay } from "./GeneratedCtaOverlay";
+// Dedicated, deterministic data-viz scenes (chart + table) — rendered from a
+// bound table rather than AI code, so custom templates always get a reliable,
+// editable chart/table pair like the built-in templates.
+import { DataChartScene, DataTableScene } from "./kit";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -101,6 +105,9 @@ function getSceneComponent(
 
   if (sceneType === "intro") return IntroScene;
   if (sceneType === "outro") return OutroScene;
+  // Dedicated data-viz scenes render via the kit (deterministic, not AI code).
+  if (sceneType === "dataviz_chart") return DataChartScene;
+  if (sceneType === "dataviz_table") return DataTableScene;
 
   // Content scene — pick variant by contentVariantIndex (cycling through available variants)
   if (CONTENT_VARIANTS.length > 0) {
@@ -217,6 +224,11 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     background: data.bgColor || "#FFFFFF",
     text: data.textColor || "#1A1A2E",
   };
+  // Thread the optional gradient endpoint so the kit (SceneFrame) can render a
+  // solid-vs-gradient background at render time without regenerating code.
+  if (data.bg2Color && !brandColors.bg2) {
+    brandColors.bg2 = data.bg2Color;
+  }
 
   let currentFrame = 0;
   const totalScenes = data.scenes.length;
@@ -277,6 +289,11 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           comparisonRight: sc.comparisonRight as GeneratedSceneProps["comparisonRight"],
           timelineItems: sc.timelineItems as GeneratedSceneProps["timelineItems"],
           steps: sc.steps as string[] | undefined,
+          // Prefer the editable layoutProps location (what SceneEditModal writes)
+          // and fall back to structuredContent from the content extractor.
+          chartTable: (scene.layoutProps?.chartTable ?? sc.chartTable) as GeneratedSceneProps["chartTable"],
+          chartType: (scene.layoutProps?.chartType ?? sc.chartType) as string | undefined,
+          chartSummary: (scene.layoutProps?.chartSummary ?? sc.chartSummary) as string | undefined,
           titleFontSize: scene.layoutConfig?.titleFontSize as number | undefined,
           descriptionFontSize: scene.layoutConfig?.descriptionFontSize as number | undefined,
           headingFont,
@@ -320,10 +337,16 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
             )}
 
-            {/* Brand-aware transition overlay between scenes */}
+            {/* Brand-aware transition overlay between scenes — style varies
+                deterministically per scene index (optionally constrained by the
+                brand's transition family from the theme's motion personality). */}
             {index < totalScenes - 1 && transitionDuration > 0 && (
               <Sequence from={transitionFrom} durationInFrames={transitionDuration}>
-                <GeneratedTransition brandColors={brandColors} />
+                <GeneratedTransition
+                  brandColors={brandColors}
+                  index={index}
+                  family={data.transitionFamily}
+                />
               </Sequence>
             )}
           </Sequence>

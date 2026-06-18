@@ -31,6 +31,9 @@ import {
 import { LogoOverlay } from "./remotion/LogoOverlay";
 import { CtaOverlay } from "./remotion/CtaOverlay";
 import { BackgroundMusic } from "./remotion/BackgroundMusic";
+// Dedicated data-viz scenes (custom templates) — same kit components the render
+// uses, so preview matches the final video.
+import { DataChartScene, DataTableScene } from "./remotion/generated/kit";
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -69,6 +72,12 @@ const StableCustomComposition: React.FC<any> = ({
     const scene = project.scenes[i];
     let sceneType = "content";
     let variantIdx = 0;
+
+    // Dedicated data-viz scenes route by scene_type (set on the DB scene).
+    if (scene?.scene_type === "dataviz_chart" || scene?.scene_type === "dataviz_table") {
+      sceneAssignments.push({ type: scene.scene_type, variantKey: scene.scene_type });
+      continue;
+    }
 
     if (scene?.remotion_code) {
       try {
@@ -114,10 +123,13 @@ const StableCustomComposition: React.FC<any> = ({
     <AbsoluteFill style={{ fontFamily: resolvedFontFamily || undefined }}>
       {scenes.map((s: any, i: number) => {
         const assignment = sceneAssignments[i];
-        const SceneComp =
-          compiledScenes[assignment.variantKey] ||
-          compiledScenes["intro"] ||
-          Object.values(compiledScenes)[0];
+        const isDataViz =
+          assignment.type === "dataviz_chart" || assignment.type === "dataviz_table";
+        const SceneComp: React.ComponentType<Record<string, unknown>> = isDataViz
+          ? ((assignment.type === "dataviz_chart" ? DataChartScene : DataTableScene) as unknown as React.ComponentType<Record<string, unknown>>)
+          : ((compiledScenes[assignment.variantKey] ||
+             compiledScenes["intro"] ||
+             Object.values(compiledScenes)[0]) as unknown as React.ComponentType<Record<string, unknown>>);
 
         if (!SceneComp) return null;
 
@@ -178,7 +190,17 @@ const StableCustomComposition: React.FC<any> = ({
               >
                 <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
                 <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
-                  <SceneComp {...sceneProps} />
+                  {isDataViz ? (
+                    <SceneComp
+                      {...(sceneProps as unknown as Record<string, unknown>)}
+                      displayText={s.title || sceneProps.displayText}
+                      chartTable={(s.layoutProps as Record<string, unknown>)?.chartTable}
+                      chartType={(s.layoutProps as Record<string, unknown>)?.chartType}
+                      chartSummary={(s.layoutProps as Record<string, unknown>)?.chartSummary}
+                    />
+                  ) : (
+                    <SceneComp {...sceneProps} />
+                  )}
                 </div>
               </AbsoluteFill>
             )}
