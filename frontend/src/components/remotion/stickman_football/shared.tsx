@@ -137,13 +137,15 @@ export const PlayerStickman: React.FC<{
   armPose?: "default" | "despair" | "celebrate" | "gkReach" | "gkHold";
   armPoseAmt?: number;    // 0..1 blend into armPose
   armIdle?: number;       // 0..1 subtle pre-kick hand sway (keeper)
+  armSwing?: number;      // signed fore/aft hand swing (px) for active dribbling/balance
+  headTilt?: number;      // extra head/neck nod (deg): + nods forward in faceDir, − pulls back
   kneelAmt?: number;      // 0..1 sink to both knees on the ground
   // Forward walk gait (modelled on the whiteboard DrawnTitle figure): thigh swings
   // about the hip and the knee only ever bends backward, so the foot lifts cleanly.
   // `amt` blends the walk in over the kick/stand pose, `cycle` advances the stride,
   // `moveDir` is the direction of travel (+1 right, −1 left).
   walk?: { amt: number; cycle: number; moveDir: number };
-}> = ({ x, groundY, faceDir, kickLeg, plantBend, torsoBias, tSec, thighLen, shinLen, torsoLen, headR, headLen, stroke, sw, variant, faceOpacity = 1, armPose = "default", armPoseAmt = 1, armIdle = 0, kneelAmt = 0, walk }) => {
+}> = ({ x, groundY, faceDir, kickLeg, plantBend, torsoBias, tSec, thighLen, shinLen, torsoLen, headR, headLen, stroke, sw, variant, faceOpacity = 1, armPose = "default", armPoseAmt = 1, armIdle = 0, armSwing = 0, headTilt = 0, kneelAmt = 0, walk }) => {
   const dir = faceDir;
   const footY = groundY;
   const kickFwd = Math.max(0, kickLeg);
@@ -163,10 +165,14 @@ export const PlayerStickman: React.FC<{
   const shoulderX = x + Math.sin(torsoRad) * torsoLen;
   const shoulderY = hipY - Math.cos(torsoRad) * torsoLen + breath * (1 - kneel * 0.4);
   const neckExtend = headR * 0.45;
-  const headX = shoulderX + Math.sin(torsoRad) * (headLen + neckExtend);
-  const headY = shoulderY - Math.cos(torsoRad) * (headLen + neckExtend);
-  const neckEndX = headX - Math.sin(torsoRad) * headR * 0.72;
-  const neckEndY = headY + Math.cos(torsoRad) * headR * 0.72;
+  // The head/neck can nod independently of the torso (e.g. winding back then snapping
+  // forward for a header). `headTilt` adds to the torso lean for the head segment only,
+  // pivoting about the shoulder, with +headTilt nodding forward in the facing direction.
+  const headRad = torsoRad + (dir * headTilt * Math.PI) / 180;
+  const headX = shoulderX + Math.sin(headRad) * (headLen + neckExtend);
+  const headY = shoulderY - Math.cos(headRad) * (headLen + neckExtend);
+  const neckEndX = headX - Math.sin(headRad) * headR * 0.72;
+  const neckEndY = headY + Math.cos(headRad) * headR * 0.72;
 
   const plantFootX0 = x - dir * 22;
   let plantKneeX = (x + plantFootX0) / 2 - dir * 3 + dir * plantBend * 9;
@@ -353,6 +359,16 @@ export const PlayerStickman: React.FC<{
       lArm.hy += Math.abs(walkArmSwing) * 0.3;
       rArm.hx -= walkArmSwing * move;
       rArm.hy += Math.abs(walkArmSwing) * 0.3;
+    }
+    if (armSwing !== 0) {
+      // Active balance swing (dribbling/heading): arms pump in opposition, the leading
+      // hand also lifts a little as it comes forward. Elbows follow the hands slightly.
+      lArm.hx += armSwing * dir;
+      lArm.ex += armSwing * dir * 0.5;
+      lArm.hy -= Math.max(0, armSwing * dir) * 0.35;
+      rArm.hx -= armSwing * dir;
+      rArm.ex -= armSwing * dir * 0.5;
+      rArm.hy -= Math.max(0, -armSwing * dir) * 0.35;
     }
   }
 

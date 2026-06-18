@@ -21,6 +21,103 @@ const HAND_FONT = "'Patrick Hand', system-ui, sans-serif";
 const MAX_CHART_ROWS = 10;
 const GRID_INK = "rgba(17,17,17,0.14)";
 
+// ── Hand-drawn (sketchy) geometry helpers ────────────────────────────────────
+// All wobble is DETERMINISTIC (seeded by position), never frame-random, so the
+// strokes stay rock-steady across a headless render instead of shimmering.
+const handRand = (seed: number): number => {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x); // 0..1
+};
+// Signed jitter in [-amp, amp] from an integer-ish seed.
+const jitter = (seed: number, amp: number): number => (handRand(seed) - 0.5) * 2 * amp;
+
+// A wobbly line from (x1,y1)→(x2,y2): a quadratic curve whose control point is
+// nudged perpendicular to the line, so a straight edge looks freehand.
+const handLine = (x1: number, y1: number, x2: number, y2: number, seed: number, amp = 2): string => {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len; // unit normal
+  const ny = dx / len;
+  const off = jitter(seed, amp);
+  const mx = (x1 + x2) / 2 + nx * off;
+  const my = (y1 + y2) / 2 + ny * off;
+  return `M ${x1.toFixed(1)} ${y1.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+};
+
+// A hand-sketched bar/column: corners jittered, edges bow a touch, and — crucially —
+// the TOP is drawn as a freehand ROUNDED cap (asymmetric, slightly off so it looks
+// drawn without a ruler) rather than a flat ruled edge.
+const handRectPath = (x: number, y: number, w: number, h: number, seed: number, amp = 1.6): string => {
+  if (h <= 0 || w <= 0) return "";
+  const j = (k: number) => jitter(seed + k, amp);
+  // How rounded the top is: ~25% of the bar width, capped so thin/short bars stay sane.
+  const r = Math.min(w * 0.28, h * 0.6, 16) + handRand(seed + 20) * 4;
+  // Side ends just below where the rounded top begins.
+  const x0 = x + j(1), y0 = y + r + j(2);            // top-left (start of left→top arc)
+  const x1 = x + w + j(3), y1 = y + r + j(4);        // top-right (end of top→right arc)
+  const x2 = x + w + j(5), y2 = y + h + j(6);        // bottom-right
+  const x3 = x + j(7), y3 = y + h + j(8);            // bottom-left
+  // Top apex: a single freehand crest, nudged off-centre and up a hair (over-drawn).
+  const apexX = x + w * (0.46 + handRand(seed + 30) * 0.12); // off-centre crest
+  const apexY = y - handRand(seed + 31) * (amp + 1.5);       // slightly above the box top
+  const rightB = j(10), botB = j(11), leftB = j(12);
+  return (
+    // start at top-left side
+    `M ${x0.toFixed(1)} ${y0.toFixed(1)} ` +
+    // freehand rounded top: left corner up over the crest and down to the right corner
+    `C ${(x0 + j(13)).toFixed(1)} ${(y - r * 0.5 + j(14)).toFixed(1)} ` +
+      `${(apexX - w * 0.18).toFixed(1)} ${apexY.toFixed(1)} ` +
+      `${apexX.toFixed(1)} ${apexY.toFixed(1)} ` +
+    `C ${(apexX + w * 0.18).toFixed(1)} ${apexY.toFixed(1)} ` +
+      `${(x1 + j(15)).toFixed(1)} ${(y - r * 0.5 + j(16)).toFixed(1)} ` +
+      `${x1.toFixed(1)} ${y1.toFixed(1)} ` +
+    // right side (bowed)
+    `Q ${((x1 + x2) / 2 + rightB).toFixed(1)} ${((y1 + y2) / 2).toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)} ` +
+    // bottom (bowed)
+    `Q ${((x2 + x3) / 2).toFixed(1)} ${((y2 + y3) / 2 + botB).toFixed(1)} ${x3.toFixed(1)} ${y3.toFixed(1)} ` +
+    // left side (bowed) back to start
+    `Q ${((x3 + x0) / 2 + leftB).toFixed(1)} ${((y3 + y0) / 2).toFixed(1)} ${x0.toFixed(1)} ${y0.toFixed(1)} Z`
+  );
+};
+
+// A wavy multi-point path (for the line series). Each straight segment between two
+// data points is broken into several sub-steps that undulate side-to-side along the
+// segment (alternating perpendicular offsets), so the join between two points reads
+// like a hand-drawn wiggle rather than a ruled straight line. The data points
+// themselves are hit exactly.
+const handPath = (pts: { x: number; y: number }[], seed: number, amp = 2.2): string => {
+  if (pts.length === 0) return "";
+  if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  const WIGGLES = 3; // undulations per segment
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len; // perpendicular unit
+    const ny = dx / len;
+    // Walk the segment in small quadratic steps, pushing the control points to
+    // alternating sides of the line so it snakes between the two data points.
+    for (let s = 1; s <= WIGGLES; s++) {
+      const t0 = (s - 1) / WIGGLES;
+      const t1 = s / WIGGLES;
+      const tm = (t0 + t1) / 2;
+      const ex = a.x + dx * t1;
+      const ey = a.y + dy * t1;
+      // Alternate the bump side each step; vary the amount a little per position.
+      const dir = s % 2 === 0 ? -1 : 1;
+      const mag = amp * (0.7 + handRand(seed + i * 9.1 + s * 3.7) * 0.6);
+      const cx = a.x + dx * tm + nx * dir * mag;
+      const cy = a.y + dy * tm + ny * dir * mag;
+      d += ` Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+    }
+  }
+  return d;
+};
+
 export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
   const {
     title,
@@ -201,19 +298,19 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
           const h = (Math.abs(raw) / axisTop) * plotH * prog;
           const x = histogram ? gx + si * (bw + 3) : gx + si * (bw + 4);
           const y = margin.top + plotH - h;
+          const seed = (i + 1) * 53.1 + (si + 1) * 17.7;
+          const d = handRectPath(x, y, bw, h, seed, histogram ? 1.3 : 1.6);
           elements.push(
-            <rect
+            <path
               key={`b-${i}-${si}`}
-              x={x}
-              y={y}
-              width={bw}
-              height={h}
-              rx={histogram ? 2 : 4}
+              d={d}
               fill={barColors[si]}
-              fillOpacity={histogram ? 0.85 : 0.88}
+              fillOpacity={histogram ? 0.82 : 0.85}
               stroke={text}
-              strokeWidth={histogram ? 1.8 : 1.2}
-              strokeOpacity={histogram ? 0.55 : 0.35}
+              strokeWidth={histogram ? 2 : 2.2}
+              strokeOpacity={histogram ? 0.7 : 0.6}
+              strokeLinejoin="round"
+              strokeLinecap="round"
             />,
           );
         });
@@ -223,19 +320,19 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
         const raw = getValue(i);
         const prog = clampBar(i);
         const h = (Math.abs(raw) / axisTop) * plotH * prog;
+        const seed = (i + 1) * 53.1 + 7.3;
+        const d = handRectPath(gx, margin.top + plotH - h, innerW, h, seed, histogram ? 1.3 : 1.8);
         elements.push(
-          <rect
+          <path
             key={`b-${i}`}
-            x={gx}
-            y={margin.top + plotH - h}
-            width={innerW}
-            height={h}
-            rx={histogram ? 2 : 5}
+            d={d}
             fill={barColors[0]}
-            fillOpacity={histogram ? 0.85 : 0.9}
+            fillOpacity={histogram ? 0.82 : 0.88}
             stroke={text}
-            strokeWidth={histogram ? 1.8 : 1.4}
-            strokeOpacity={histogram ? 0.55 : 0.35}
+            strokeWidth={histogram ? 2 : 2.4}
+            strokeOpacity={histogram ? 0.7 : 0.6}
+            strokeLinejoin="round"
+            strokeLinecap="round"
           />,
         );
       }
@@ -283,33 +380,38 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
     const elements: React.ReactNode[] = [];
 
     chartInputs.lineSeries.slice(0, 3).forEach((series, si) => {
-      const pts = series.values.map((v, i) => {
-        const x = margin.left + (n > 1 ? i * stepX : plotW / 2);
-        const y = toPlotY(Math.max(0, v));
-        return `${x},${y}`;
-      });
-      const pathD = pts.length > 1 ? `M ${pts.join(" L ")}` : "";
-      const visibleLen = pts.length > 1 ? plotW * 1.4 * lineReveal : 0;
+      const pts = series.values.map((v, i) => ({
+        x: margin.left + (n > 1 ? i * stepX : plotW / 2),
+        y: toPlotY(Math.max(0, v)),
+      }));
+      // Hand-drawn wavy line through the data points (seeded so it never shimmers).
+      const handD = handPath(pts, (si + 1) * 91.3, si === 0 ? 3.2 : 2.6);
+      const dashTotal = plotW * 2.0; // generous over-estimate of the wavy path length
+      const visibleLen = pts.length > 1 ? dashTotal * lineReveal : 0;
       elements.push(
-        <polyline
+        <path
           key={`line-${si}`}
-          points={pts.join(" ")}
+          d={handD}
           fill="none"
           stroke={barColors[si]}
-          strokeWidth={si === 0 ? 4 : 3}
+          strokeWidth={si === 0 ? 4.5 : 3.2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeDasharray={plotW * 1.4}
-          strokeDashoffset={plotW * 1.4 - visibleLen}
+          strokeDasharray={dashTotal}
+          strokeDashoffset={dashTotal - visibleLen}
           opacity={si === 0 ? 1 : 0.55 + si * 0.15}
         />,
       );
       if (si === 0 && pts.length > 1) {
-        const areaPts = `${pts[0]} L ${pts.slice(1).join(" L ")} L ${margin.left + plotW},${margin.top + plotH} L ${margin.left},${margin.top + plotH} Z`;
+        // Filled area under the hand-drawn line (reuse the exact same wavy top edge).
+        const areaD =
+          handPath(pts, (si + 1) * 91.3, 3.2) +
+          ` L ${(margin.left + plotW).toFixed(1)} ${(margin.top + plotH).toFixed(1)}` +
+          ` L ${margin.left.toFixed(1)} ${(margin.top + plotH).toFixed(1)} Z`;
         elements.push(
           <path
             key="area-0"
-            d={`M ${areaPts}`}
+            d={areaD}
             fill={barColors[0]}
             fillOpacity={0.12 * lineReveal}
             stroke="none"
@@ -321,7 +423,7 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
         const x = margin.left + (n > 1 ? i * stepX : plotW / 2);
         const y = toPlotY(Math.max(0, v));
         elements.push(
-          <circle key={`dot-${si}-${i}`} cx={x} cy={y} r={4} fill="#FFFFFF" stroke={barColors[si]} strokeWidth={2} />,
+          <circle key={`dot-${si}-${i}`} cx={x + jitter(si * 31 + i * 13 + 1, 0.8)} cy={y + jitter(si * 31 + i * 13 + 2, 0.8)} r={4.2} fill="#FFFFFF" stroke={barColors[si]} strokeWidth={2.4} />,
         );
         if (n <= 8) {
           elements.push(
@@ -377,7 +479,14 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
           const node = (
             <g key={`leg-${i}`} transform={`translate(${x}, ${legendRowTop})`}>
               {entry.kind === "series" && (
-                <rect x={0} y={0} width={legendSwatch} height={legendSwatch} rx={3} fill={entry.color} />
+                <path
+                  d={handRectPath(0, 0, legendSwatch, legendSwatch, 500 + i * 13, 1.1)}
+                  fill={entry.color}
+                  stroke={text}
+                  strokeWidth={1.2}
+                  strokeOpacity={0.45}
+                  strokeLinejoin="round"
+                />
               )}
               <text
                 x={entry.kind === "series" ? legendSwatch + 10 : 0}
@@ -404,7 +513,7 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
         const y = toPlotY(t);
         return (
           <g key={`yt-${i}`}>
-            <line x1={yAxisLineX} y1={y} x2={yAxisLineX + plotW} y2={y} stroke={GRID_INK} strokeWidth={1.5} strokeDasharray="5 6" />
+            <path d={handLine(yAxisLineX, y, yAxisLineX + plotW, y, 200 + i * 9, 1.6)} fill="none" stroke={GRID_INK} strokeWidth={1.5} strokeDasharray="5 6" strokeLinecap="round" />
             <text x={yTickLabelX} y={y + 5} textAnchor="end" fill={text} fontSize={tickPx - 1} fontFamily={font} opacity={0.75}>
               {formatAxisTick(t)}
             </text>
@@ -416,20 +525,22 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
           const groupW = plotW / Math.max(barRows.length, 1);
           const x = yAxisLineX + i * groupW;
           return (
-            <line
+            <path
               key={`hv-${i}`}
-              x1={x}
-              y1={margin.top}
-              x2={x}
-              y2={margin.top + plotH}
+              d={handLine(x, margin.top, x, margin.top + plotH, 300 + i * 11, 1.4)}
+              fill="none"
               stroke={GRID_INK}
               strokeWidth={1}
               strokeOpacity={0.45}
+              strokeLinecap="round"
             />
           );
         })}
-      <line x1={yAxisLineX} y1={margin.top + plotH} x2={yAxisLineX + plotW} y2={margin.top + plotH} stroke={text} strokeWidth={2.2} strokeOpacity={0.55} />
-      <line x1={yAxisLineX} y1={margin.top} x2={yAxisLineX} y2={margin.top + plotH} stroke={text} strokeWidth={2.2} strokeOpacity={0.55} />
+      {/* Hand-drawn axes (double-stroked for a sketched look). */}
+      <path d={handLine(yAxisLineX, margin.top + plotH, yAxisLineX + plotW, margin.top + plotH, 401, 2)} fill="none" stroke={text} strokeWidth={2.4} strokeOpacity={0.6} strokeLinecap="round" />
+      <path d={handLine(yAxisLineX, margin.top + plotH, yAxisLineX + plotW, margin.top + plotH, 402, 1.4)} fill="none" stroke={text} strokeWidth={1.4} strokeOpacity={0.35} strokeLinecap="round" />
+      <path d={handLine(yAxisLineX, margin.top, yAxisLineX, margin.top + plotH, 403, 2)} fill="none" stroke={text} strokeWidth={2.4} strokeOpacity={0.6} strokeLinecap="round" />
+      <path d={handLine(yAxisLineX, margin.top, yAxisLineX, margin.top + plotH, 404, 1.4)} fill="none" stroke={text} strokeWidth={1.4} strokeOpacity={0.35} strokeLinecap="round" />
       {resolvedChartType === "line" ? renderLine() : isHistogram ? renderHistogram() : renderBars()}
       {renderLegend()}
     </svg>
