@@ -22,6 +22,7 @@ import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition
 import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
 import { EconomistVideoComposition } from "./economist/EconomistVideoComposition";
 import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
+import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -37,6 +38,7 @@ import {
   RemotionChronicleVideoComposition,
   RemotionEconomistVideoComposition,
   RemotionStickman2VideoComposition,
+  RemotionStickmanFootballVideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -288,6 +290,20 @@ const STICKMAN_2_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+const STICKMAN_FOOTBALL_LAYOUTS = new Set([
+  "kickoff_title",
+  "passing_play",
+  "freekick_setup",
+  "goal_moment",
+  "match_stats",
+  "injury_break",
+  "ball_control",
+  "text_narration",
+  "ending_socials",
+  "football_data_viz",
+  "football_ticker",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -471,6 +487,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  stickman_football: {
+    component: StickmanFootballVideoComposition as React.ComponentType<any>,
+    heroLayout: "kickoff_title",
+    fallbackLayout: "passing_play",
+    validLayouts: STICKMAN_FOOTBALL_LAYOUTS,
+    defaultColors: {
+      accent: "#869358",
+      bg: "#FFFFFF",
+      text: "#111111",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -525,6 +554,8 @@ export function getTemplateConfig(
                               ? RemotionEconomistVideoComposition
                               : id === "stickman_2"
                                 ? RemotionStickman2VideoComposition
+                                : id === "stickman_football"
+                                  ? RemotionStickmanFootballVideoComposition
                     : null;
 
     if (overrideComponent) {
