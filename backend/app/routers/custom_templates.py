@@ -10,7 +10,7 @@ import threading
 from datetime import date
 from pydantic import BaseModel, Field
 import logging
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -73,6 +73,11 @@ def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
 
 class ExtractThemeRequest(BaseModel):
     url: str = Field(..., min_length=1, max_length=2048)
+
+
+class ExtractThemeFromPromptRequest(BaseModel):
+    prompt: str = Field(..., min_length=15, max_length=5000)
+    name: str | None = Field(None, max_length=255)
 
 
 class ExtractThemeResponse(BaseModel):
@@ -304,6 +309,87 @@ async def extract_theme(
         og_image=scraped.og_image or "",
         screenshot_url=scraped.screenshot_url or "",
     )
+
+
+def _brief_response(result: dict) -> ExtractThemeResponse:
+    """Map a ThemeExtractor brief result into the shared ExtractThemeResponse.
+    Prompt/doc inputs have no scraped logo/og-image — those are added post-creation."""
+    return ExtractThemeResponse(
+        extractable=result["extractable"],
+        reason=result["reason"],
+        theme=result.get("theme"),
+        template_name=result.get("template_name", ""),
+        logo_urls=[],
+        og_image="",
+        screenshot_url="",
+    )
+
+
+@router.post("/extract-theme-from-prompt", response_model=ExtractThemeResponse)
+async def extract_theme_from_prompt(
+    data: ExtractThemeFromPromptRequest,
+    user: User = Depends(get_current_user),
+):
+    """Build a visual theme from a free-text prompt describing the desired template."""
+    from app.dspy_modules.theme_extractor import ThemeExtractor
+
+    _check_ai_rate_limit(user.id)
+
+    t0 = time.time()
+    extractor = ThemeExtractor()
+    result = await extractor.extract_theme_from_brief(data.prompt, (data.name or "").strip())
+    dt = time.time() - t0
+
+    theme = result.get("theme")
+    if theme:
+        c = theme.get("colors", {})
+        print(
+            f"[F7-DEBUG] [EXTRACT-PROMPT] AI={dt:.1f}s | accent={c.get('accent')}, "
+            f"bg={c.get('bg')}, style='{theme.get('style')}', category='{theme.get('category')}'"
+        )
+    else:
+        print(f"[F7-DEBUG] [EXTRACT-PROMPT] AI={dt:.1f}s | FAILED: {result.get('reason', '')[:150]}")
+
+    return _brief_response(result)
+
+
+@router.post("/extract-theme-from-doc", response_model=ExtractThemeResponse)
+async def extract_theme_from_doc(
+    file: UploadFile = File(...),
+    name: str = Form(""),
+    user: User = Depends(get_current_user),
+):
+    """Build a visual theme from an uploaded brand/design document (PDF, DOCX, MD, TXT)."""
+    from app.dspy_modules.theme_extractor import ThemeExtractor
+    from app.services.doc_extractor import extract_text_from_upload
+
+    _check_ai_rate_limit(user.id)
+
+    # Size guard (Starlette exposes .size for spooled uploads).
+    if getattr(file, "size", None) and file.size > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="That file's too large. Please keep it under 10 MB.")
+
+    # extract_text_from_upload raises HTTPException(400) on empty/corrupt/binary input.
+    brief_text = extract_text_from_upload(file)
+    if len(brief_text) > 30_000:
+        brief_text = brief_text[:30_000]
+
+    t0 = time.time()
+    extractor = ThemeExtractor()
+    result = await extractor.extract_theme_from_brief(brief_text, (name or "").strip())
+    dt = time.time() - t0
+
+    theme = result.get("theme")
+    if theme:
+        c = theme.get("colors", {})
+        print(
+            f"[F7-DEBUG] [EXTRACT-DOC] '{file.filename}' chars={len(brief_text)} AI={dt:.1f}s | "
+            f"accent={c.get('accent')}, style='{theme.get('style')}', category='{theme.get('category')}'"
+        )
+    else:
+        print(f"[F7-DEBUG] [EXTRACT-DOC] '{file.filename}' AI={dt:.1f}s | FAILED: {result.get('reason', '')[:150]}")
+
+    return _brief_response(result)
 
 
 @router.post("")

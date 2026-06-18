@@ -1615,6 +1615,20 @@ export const deleteCustomTemplate = (id: number, force = false) =>
 export const extractTheme = (url: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
 
+export const extractThemeFromPrompt = (prompt: string, name?: string) =>
+  api.post<ExtractThemeResponse>("/custom-templates/extract-theme-from-prompt", { prompt, name });
+
+export const extractThemeFromDoc = (file: File, name?: string) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (name) formData.append("name", name);
+  return api.post<ExtractThemeResponse>(
+    "/custom-templates/extract-theme-from-doc",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
 export const generateTemplateCode = (templateId: number) =>
   api.post<{ detail: string; template_id: number }>(`/custom-templates/${templateId}/generate-code`);
 
