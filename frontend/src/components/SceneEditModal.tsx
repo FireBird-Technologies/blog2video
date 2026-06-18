@@ -2919,6 +2919,7 @@ export default function SceneEditModal({
         | Record<string, { defaults?: Record<string, unknown> }>
         | undefined,
       project.aspect_ratio || "landscape",
+      normalizedTemplateId,
     );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
