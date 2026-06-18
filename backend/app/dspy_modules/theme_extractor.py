@@ -163,6 +163,106 @@ class ExtractThemeFromContent(dspy.Signature):
     )
 
 
+class ExtractThemeFromBrief(dspy.Signature):
+    """
+    You are an expert web designer, brand strategist, and visual identity analyst.
+    The user is describing the brand/template they want — either as a free-text prompt
+    OR as the text of a brand/design document they uploaded. Turn that brief into a
+    cohesive visual theme.
+
+    ═══ HOW TO READ THE BRIEF ═══
+    - HONOR every explicit instruction: if they name colors, fonts, an industry, a
+      reference brand, or a mood, use them directly.
+    - INFER everything they left unsaid from the signals they DID give (industry,
+      audience, vibe words, reference brands). Casual or slang wording ("make it pop",
+      "gen-z neon", "classy fintech") is valid input — interpret it, don't reject it.
+    - A brief is intentional input. Set extractable=false ONLY when there is genuinely
+      NO usable brand signal — empty text, gibberish, or content unrelated to designing
+      a brand/template (e.g. a random essay, a tax form). When in doubt, extract.
+
+    ═══ CRITICAL: NO DEFAULTS ═══
+    Make an intelligent, deliberate choice for EVERY field. Never fall back to
+    generic/bland values. A restaurant, a news outlet, a fintech startup, a fashion
+    brand all DEMAND different visual treatments.
+
+    ═══ STYLE (free-form) ═══
+    A specific description of the visual identity — e.g. "warm rustic", "dark cyberpunk",
+    "clean editorial", "glass morphism SaaS", "bold sports", "zen minimal". Invent one
+    that fits THIS brief; not limited to any preset list.
+
+    ═══ ANIMATION FEEL (free-form) ═══
+    Motion energy matching the brand — e.g. "calm editorial fade", "bouncy playful spring",
+    "sharp snappy slide", "energetic scale-pop". Not limited to any preset list.
+
+    ═══ COLORS ═══
+    - accent: primary brand/CTA color   - bg: main background   - text: primary text
+    - surface: secondary bg (cards) — must visibly contrast with bg   - muted: subtle text
+    Use any colors the brief states; otherwise INFER from the stated industry/mood.
+    (Restaurant → warm oranges/reds. Finance → deep blues/greens. Creative → vibrant accent.)
+
+    ═══ FONTS ═══
+    Use fonts the brief names; otherwise choose to MATCH the brand's personality:
+    - Editorial/news → serif headings (Playfair Display, Merriweather, Lora)
+    - Tech/modern → geometric sans (Inter, Space Grotesk, DM Sans)
+    - Creative/lifestyle → distinctive headings (Outfit, Sora, Cabinet Grotesk)
+    - Corporate → professional (Roboto, Open Sans, Source Sans Pro)
+    - Food/lifestyle → warm/friendly (Nunito, Quicksand, Poppins)
+    - Sports → strong/impactful (Oswald, Bebas Neue, Anton)
+    NEVER use the same font for all 3 slots unless the brief explicitly asks for one family.
+
+    ═══ VISUAL PATTERNS ═══
+    Cards — corners: "rounded"|"sharp"|"pill"; shadowDepth: "none"|"subtle"|"medium"|"heavy";
+      borderStyle: "none"|"thin"|"accent"|"gradient".
+    Spacing — density: "compact"|"balanced"|"spacious"; gridGap: 8-12 / 14-20 / 22-32.
+    Images — treatment: "rounded"|"full-bleed"|"framed"|"circle"; overlay: "none"|"gradient"|
+      "dark-scrim"|"color-wash"; captionStyle: "below"|"overlay"|"hidden".
+    Layout — direction: "centered"|"left-aligned"|"asymmetric"; decorativeElements: MUST
+      include at least ONE of "gradients" (only if the brand bg itself is a gradient),
+      "accent-lines", "background-shapes", "dots". Combine 1-3. NEVER return ["none"].
+
+    ═══ EXAMPLES (input-agnostic — same target shape) ═══
+    "dark fintech, warm accents, Stripe-ish but friendlier":
+      style: "warm glass fintech", animation: "smooth polished slide"
+      colors: warm accent (#F59E0B), deep bg (#0B1220), light text
+      fonts: heading=Space Grotesk, body=Inter, mono=JetBrains Mono
+      patterns: rounded corners, medium shadows, gradient/accent-lines
+    "cozy neighbourhood bakery, hand-made feel":
+      style: "warm rustic", animation: "bouncy playful spring"
+      colors: warm accent (#E85D2C), cream bg (#FFF8F0), dark text
+      fonts: heading=Playfair Display, body=Nunito, mono=Fira Code
+      patterns: pill corners, medium shadows, spacious density
+
+    ═══ OUTPUT FORMAT ═══
+    - extractable: true if the brief carries enough signal to design a coherent theme
+    - reason: brief explanation of the personality read and key design choices
+    - theme_json: VALID JSON matching the schema (only when extractable=true)
+    - patterns_json: VALID JSON with visual patterns (only when extractable=true)
+    - template_name: the brand name if the brief states one, else a short fitting name
+    """
+
+    brief: str = dspy.InputField(desc="The user's free-text prompt OR the extracted text of an uploaded brand/design document")
+    name_hint: str = dspy.InputField(desc="Optional desired template name supplied by the user (may be empty)")
+
+    reasoning: str = dspy.OutputField(
+        desc="Step-by-step: (1) personality read — industry, audience, energy, feeling, (2) colors stated or inferred, (3) fonts stated or chosen for personality, (4) style rationale, (5) animation rationale, (6) pattern choices and why they fit this brief"
+    )
+    extractable: bool = dspy.OutputField(
+        desc="true if the brief carries enough signal to design a coherent theme; false only for empty/gibberish/unrelated content"
+    )
+    reason: str = dspy.OutputField(
+        desc="Brief explanation: the personality read from the brief and key design choices made"
+    )
+    theme_json: str = dspy.OutputField(
+        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex","surface":"#hex","muted":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
+    )
+    patterns_json: str = dspy.OutputField(
+        desc='Valid JSON with visual design patterns. Schema: {"cards":{"corners":"string","shadowDepth":"string","borderStyle":"string"},"spacing":{"density":"string","gridGap":number},"images":{"treatment":"string","overlay":"string","captionStyle":"string"},"layout":{"direction":"string","decorativeElements":["string"]}}. decorativeElements MUST have at least one value. Return "{}" if not extractable.'
+    )
+    template_name: str = dspy.OutputField(
+        desc='The brand name if the brief states one, else a short fitting name for the template. Return "" if not extractable.'
+    )
+
+
 
 
 def _decide_gradient(theme: dict) -> bool:
@@ -453,6 +553,8 @@ class ThemeExtractor:
         ensure_dspy_configured()
         self._predictor = dspy.ChainOfThought(ExtractThemeFromContent)
         self.predictor = dspy.asyncify(self._predictor)
+        self._brief_predictor = dspy.ChainOfThought(ExtractThemeFromBrief)
+        self.brief_predictor = dspy.asyncify(self._brief_predictor)
 
     async def extract_theme(self, scraped: ScrapedThemeData) -> dict:
         """
@@ -487,6 +589,56 @@ class ThemeExtractor:
                 "template_name": "",
             }
 
+        return self._finalize(result, scraped.url)
+
+    async def extract_theme_from_brief(self, brief: str, name_hint: str = "") -> dict:
+        """
+        Extract a theme from a free-text prompt or extracted document text.
+
+        Produces the SAME shape as extract_theme() — colors/fonts/patterns plus the
+        derived motion/charts/decor/signature fields — so the entire downstream
+        pipeline (BrandKit, build_custom_prompt, code generation, preview) is unchanged.
+
+        Returns:
+            {"extractable": bool, "reason": str, "theme": dict | None, "template_name": str}
+        """
+        theme_lm = get_theme_lm()
+
+        try:
+            with dspy.context(lm=theme_lm):
+                result = await self.brief_predictor(
+                    brief=brief,
+                    name_hint=name_hint or "",
+                )
+        except Exception as e:
+            logger.warning("Theme LM (brief) call failed: %s", e, exc_info=True)
+            return {
+                "extractable": False,
+                "reason": USER_THEME_AI_ERROR,
+                "theme": None,
+                "template_name": "",
+            }
+
+        return self._finalize(
+            result,
+            "brief",
+            template_name_fallback=name_hint,
+            not_extractable_reason=(
+                "We couldn't build a theme from that. Try adding more detail about the "
+                "brand, its industry, and the look and feel you want."
+            ),
+        )
+
+    def _finalize(
+        self,
+        result,
+        label: str,
+        template_name_fallback: str = "",
+        not_extractable_reason: str = USER_THEME_NOT_EXTRACTABLE,
+    ) -> dict:
+        """Shared tail for both extract paths: validate `extractable`, parse + validate
+        the theme/patterns JSON, decide gradient, and derive extended fields.
+        `label` is used only for logging (a URL or 'brief')."""
         extractable = result.extractable
         if isinstance(extractable, str):
             extractable = extractable.lower().strip() in ("true", "yes", "1")
@@ -496,12 +648,12 @@ class ThemeExtractor:
             if raw_reason:
                 logger.info(
                     "Theme not extractable for %s (model reason): %s",
-                    scraped.url,
+                    label,
                     raw_reason[:500],
                 )
             return {
                 "extractable": False,
-                "reason": USER_THEME_NOT_EXTRACTABLE,
+                "reason": not_extractable_reason,
                 "theme": None,
                 "template_name": "",
             }
@@ -511,7 +663,7 @@ class ThemeExtractor:
         if theme is None:
             logger.warning(
                 "Failed to parse theme JSON for %s (theme_json len=%s, patterns len=%s)",
-                scraped.url,
+                label,
                 len(result.theme_json or ""),
                 len(result.patterns_json or ""),
             )
@@ -562,11 +714,12 @@ class ThemeExtractor:
             f"category='{theme.get('category')}', gradient={colors.get('bg2') is not None}"
         )
 
+        template_name = (result.template_name or "").strip() or (template_name_fallback or "").strip() or "Custom Theme"
         return {
             "extractable": True,
             "reason": result.reason or "Theme extracted successfully",
             "theme": theme,
-            "template_name": (result.template_name or "").strip() or "Custom Theme",
+            "template_name": template_name,
         }
 
     @staticmethod
