@@ -61,6 +61,22 @@ export {
 // Text reveals
 export { RevealText, HighlightPhrase, type RevealTextProps } from "./text";
 
+// Code panel (the "code" archetype — safe, renders only props.codeLines)
+export { CodeBlock, type CodeBlockProps } from "./CodeBlock";
+
+// Layout skeletons — structure-only composition scaffolds (intra-video variety)
+export {
+  CenteredFocal,
+  AsymmetricSplit,
+  FullBleedHero,
+  OffsetCardStack,
+  SideRail,
+  type LayoutBaseProps,
+} from "./Layouts";
+
+// Intro scaffold — signature brand-reveal opener (bookend richness)
+export { IntroStage, type IntroStageProps } from "./IntroStage";
+
 // Image treatment
 export { KenBurnsImage, type KenBurnsImageProps } from "./KenBurnsImage";
 

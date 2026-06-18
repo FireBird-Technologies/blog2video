@@ -2474,13 +2474,22 @@ export default function SceneEditModal({
   const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
 
   // Custom templates get 2 dedicated, editable data-viz scenes (chart + table).
+  // A content scene can also be converted to data-viz via the layout dropdown, in
+  // which case scene_type stays "content" but the descriptor carries a
+  // sceneTypeOverride of dataviz_chart/dataviz_table.
+  const sceneTypeOverride: string | null = (() => {
+    if (!isCustomTemplate || !scene.remotion_code) return null;
+    try {
+      return JSON.parse(scene.remotion_code).sceneTypeOverride ?? null;
+    } catch { return null; }
+  })();
   const dataVizKind: "chart" | "table" | null =
-    scene.scene_type === "dataviz_chart" ? "chart"
-    : scene.scene_type === "dataviz_table" ? "table"
+    scene.scene_type === "dataviz_chart" || sceneTypeOverride === "dataviz_chart" ? "chart"
+    : scene.scene_type === "dataviz_table" || sceneTypeOverride === "dataviz_table" ? "table"
     : null;
 
   const currentLayoutId = (() => {
-    // Dedicated data-viz scenes route by scene_type, not descriptor layout.
+    // Dedicated/converted data-viz scenes route by scene type, not descriptor layout.
     if (dataVizKind) return dataVizKind === "chart" ? "custom_chart" : "custom_table";
     try {
       if (scene.remotion_code) {

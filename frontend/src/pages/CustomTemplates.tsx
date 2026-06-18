@@ -18,6 +18,19 @@ import CustomPreviewLandscape from "../components/templatePreviews/CustomPreview
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
 
+// A template stuck "generating" longer than this (no code, not flagged failed) is
+// treated as errored — generation crashed / connection was lost and the backend
+// never marked it failed, so it would otherwise spin forever. Real generation
+// finishes in ~2 min; 8 min is a safe ceiling that won't false-flag a live run.
+const STUCK_GENERATION_MS = 8 * 60 * 1000;
+
+function isStuckGenerating(tpl: CustomTemplateItem): boolean {
+  if (tpl.intro_code || tpl.generation_failed) return false;
+  const ts = Date.parse(tpl.updated_at || tpl.created_at);
+  if (Number.isNaN(ts)) return false;
+  return Date.now() - ts > STUCK_GENERATION_MS;
+}
+
 export default function CustomTemplates() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -310,7 +323,11 @@ export default function CustomTemplates() {
           </div>
         ) : activeTemplatesTab === "custom" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.map((tpl) => (
+            {templates.map((tpl) => {
+              // A crashed/stalled generation never gets flagged by the backend, so
+              // treat a long-stuck one as failed → surfaces the Retry/Delete UI.
+              const effectiveFailed = tpl.generation_failed || isStuckGenerating(tpl);
+              return (
               <div key={tpl.id} className="glass-card overflow-hidden group">
                 {/* Template preview */}
                 <div className="relative overflow-hidden rounded-t-xl min-h-[120px] aspect-video">
@@ -331,13 +348,13 @@ export default function CustomTemplates() {
                       className="w-full h-full flex flex-col items-center justify-center gap-3"
                       style={{ background: tpl.theme.colors.bg, aspectRatio: "16/9" }}
                     >
-                      {tpl.generation_failed && regeneratingId !== tpl.id ? (
+                      {effectiveFailed && regeneratingId !== tpl.id ? (
                         <>
                           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: tpl.theme.colors.muted }}>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                           </svg>
                           <span className="text-xs font-medium" style={{ color: tpl.theme.colors.muted }}>
-                            Generation failed
+                            {tpl.generation_failed ? "Generation failed" : "Generation stalled — try again or delete"}
                           </span>
                         </>
                       ) : (
@@ -379,7 +396,7 @@ export default function CustomTemplates() {
 
                   {/* Actions */}
                   {!tpl.intro_code ? (
-                    tpl.generation_failed ? (
+                    effectiveFailed ? (
                       regeneratingId === tpl.id ? (
                         <div className="flex items-center gap-2 text-xs text-purple-500">
                           <div className="w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
@@ -445,7 +462,8 @@ export default function CustomTemplates() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : craftedTemplatesLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

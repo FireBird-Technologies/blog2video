@@ -14,8 +14,12 @@ import { progressAt, easeOutQuint, clamp01 } from "./motion";
 
 export interface RevealTextProps {
   text: string;
-  /** Reveal granularity. */
-  mode?: "word" | "char" | "line" | "fade";
+  /**
+   * Reveal granularity / personality. `fade` is a plain opacity rise; `word`/
+   * `char`/`line` are the smooth (calm) personality; `blur` is the snappy
+   * (energetic) personality — pick by the brand signature's motionEnergy.
+   */
+  mode?: "word" | "char" | "line" | "fade" | "blur";
   start?: number;
   /** Frames per unit (word/char/line). Auto-scaled if omitted. */
   stepFrames?: number;
@@ -39,6 +43,34 @@ export const RevealText: React.FC<RevealTextProps> = ({
   if (mode === "fade") {
     const op = easeOutQuint(progressAt(frame, start, 18));
     return <Tag style={{ opacity: op, ...style }}>{content}</Tag>;
+  }
+
+  // Snappy energetic personality: words punch in from blur + slight scale.
+  if (mode === "blur") {
+    const words = content.split(/(\s+)/);
+    const step = stepFrames ?? 3;
+    return (
+      <Tag style={style}>
+        {words.map((u, i) => {
+          if (/^\s+$/.test(u)) return <React.Fragment key={i}>{u}</React.Fragment>;
+          const t = easeOutQuint(progressAt(frame, start + i * step, 9));
+          return (
+            <span
+              key={i}
+              style={{
+                display: "inline-block",
+                opacity: t,
+                filter: `blur(${(1 - t) * 6}px)`,
+                transform: `scale(${0.86 + t * 0.14})`,
+                willChange: "opacity, filter, transform",
+              }}
+            >
+              {u}
+            </span>
+          );
+        })}
+      </Tag>
+    );
   }
 
   const units =
