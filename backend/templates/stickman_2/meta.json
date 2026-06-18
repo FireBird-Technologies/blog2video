@@ -469,7 +469,7 @@
         },
         "descriptionFontSize": {
           "portrait": 45,
-          "landscape": 37
+          "landscape": 32
         },
         "chartType": "line",
         "chartSummary": "The line climbs through the night before dipping back toward dawn.",

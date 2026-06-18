@@ -26,7 +26,7 @@ interface EconomistMastheadProps {
 }
 
 export const EconomistMasthead: React.FC<EconomistMastheadProps> = ({
-  wordmark = "The Economist",
+  wordmark = "",
   width,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = "#FFFFFF",
@@ -34,6 +34,9 @@ export const EconomistMasthead: React.FC<EconomistMastheadProps> = ({
   sweep,
   style,
 }) => {
+  // No brand wordmark → hide the flag entirely rather than print the homage
+  // ("The Economist") or an empty red box.
+  if (!wordmark.trim()) return null;
   const words = wordmark.trim().split(/\s+/).filter(Boolean);
   const twoLine = !singleLine && words.length > 1;
   const line1 = twoLine ? words[0] : "";

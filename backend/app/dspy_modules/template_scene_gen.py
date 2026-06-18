@@ -778,6 +778,18 @@ class TemplateSceneGenerator:
     # Economist data layouts and the chart shape each one expects.
     _ECONOMIST_DATA_LAYOUTS = {"chart_line", "chart_bar", "data_table"}
 
+    def _economist_prose_fallback_props(self, narration: str) -> dict:
+        """Props for a data layout that degrades to the prose fallback.
+
+        When a chart/table/KPI scene has no real scraped data we reroute it to
+        the template's prose fallback (``leader_article``). Run the leader_article
+        backfill so the rerouted scene gets a standfirst + key points distilled
+        from the narration instead of rendering as empty paper.
+        """
+        if self._fallback_layout == "leader_article":
+            return self._economist_backfill_leader_article({}, narration)
+        return {}
+
     @staticmethod
     def _economist_current_dateline() -> str:
         """Today's date as an Economist-style weekly issue range, uppercase.
@@ -819,6 +831,13 @@ class TemplateSceneGenerator:
         import re
 
         out = dict(props or {})
+
+        # Drop the byline entirely. The prompt/meta example ("By our finance
+        # correspondent") was being copied verbatim onto every article, stamping
+        # a fabricated, topic-mismatched correspondent (e.g. a finance byline on a
+        # fiction-craft piece). We never invent authorship, so no byline renders.
+        out.pop("byline", None)
+
         body = (narration or "").strip()
         if not body:
             return out
@@ -906,7 +925,7 @@ class TemplateSceneGenerator:
                     scene_index,
                     self._fallback_layout,
                 )
-                return self._fallback_layout, {}
+                return self._fallback_layout, self._economist_prose_fallback_props(narration)
             return layout, props
 
         if layout not in self._ECONOMIST_DATA_LAYOUTS:
@@ -931,17 +950,22 @@ class TemplateSceneGenerator:
 
         planned_table = planned.get("chartTable") if isinstance(planned, dict) else None
         if not (isinstance(planned_table, dict) and (planned_table.get("rows") or [])):
-            # No real table for this scene — a data layout would have to fabricate
-            # figures, which the Economist prompt forbids. Fall back to prose.
+            # No real scraped table is bound to this scene. Data-grounding is
+            # inviolable, so a chart only ever renders from a scraped table
+            # (which always arrives here via `planned`). We deliberately do NOT
+            # trust an LLM-emitted `chartTable` in `out`, nor seed meta.json
+            # sample data — both produced bar/line charts full of fabricated
+            # figures on sources that had no tabular data at all. Fall back to
+            # prose rather than inventing numbers.
             logger.info(
-                "[SCENE_GEN] Scene %s: economist '%s' has no scraped table, falling back to '%s'",
+                "[SCENE_GEN] Scene %s: economist '%s' has no real scraped table, falling back to '%s' (never fabricating chart data)",
                 scene_index,
                 layout,
                 self._fallback_layout,
             )
-            return self._fallback_layout, {}
+            return self._fallback_layout, self._economist_prose_fallback_props(narration)
 
-        # Bind the real data deterministically.
+        # Bind the chosen data deterministically.
         out["chartTable"] = planned_table
         out = assign_chart_axis_captions(out)
 
@@ -1154,8 +1178,28 @@ class TemplateSceneGenerator:
         "core inflation", "unemployment", "budget deficit", "gdp growth",
     })
 
+    # Economist masthead sample wordmarks. "The Brief" is the meta.json sample
+    # value and "The Economist" is the style homage the prompt forbids. When the
+    # LLM emits either it is echoing the example rather than a brand the user
+    # chose — drop it so the masthead flag hides (per prompt.md) instead of
+    # printing a fabricated publication name on the cover + ending_socials.
+    _ECONOMIST_SAMPLE_WORDMARKS = frozenset({
+        "the brief", "the economist",
+    })
+
     def _strip_example_stats(self, layout: str, props: dict) -> dict:
         """Remove stats that are clearly copied from prompt examples rather than from the article."""
+        if (
+            self.template_id == "economist"
+            and isinstance(props.get("wordmark"), str)
+            and props["wordmark"].strip().lower() in self._ECONOMIST_SAMPLE_WORDMARKS
+        ):
+            logger.info(
+                "[SCENE_GEN] Stripped placeholder economist wordmark %r on '%s'",
+                props.get("wordmark"),
+                layout,
+            )
+            props = {k: v for k, v in props.items() if k != "wordmark"}
         if layout == "key_indicators" and self.template_id == "economist":
             indicators = props.get("indicators")
             if isinstance(indicators, list) and indicators:

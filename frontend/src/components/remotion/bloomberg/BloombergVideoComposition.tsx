@@ -2,6 +2,7 @@ import { AbsoluteFill, Audio, Sequence, interpolate, spring, useCurrentFrame, us
 import { BLOOMBERG_LAYOUT_REGISTRY } from "./layouts";
 import type { BloombergLayoutProps, BloombergLayoutType } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { BLOOMBERG_COLORS, derivePalette } from "./constants";
 
@@ -38,6 +39,8 @@ export interface BloombergVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
@@ -301,6 +304,8 @@ export const BloombergVideoComposition: React.FC<
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
   playbackSpeed,
@@ -400,6 +405,10 @@ export const BloombergVideoComposition: React.FC<
           size={logoSize ?? 100}
           aspectRatio={ratio}
         />
+      )}
+
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
       )}
     </AbsoluteFill>
   );

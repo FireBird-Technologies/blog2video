@@ -551,12 +551,12 @@
       "label": "Data Visualisation",
       "defaults": {
         "titleFontSize": {
-          "portrait": 78,
-          "landscape": 57
+          "portrait": 63,
+          "landscape": 48
         },
         "descriptionFontSize": {
           "portrait": 33,
-          "landscape": 27
+          "landscape": 22
         },
         "chartType": "line",
         "chartSummary": "The trend climbs steadily before easing off near the end.",

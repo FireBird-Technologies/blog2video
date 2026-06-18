@@ -55,8 +55,11 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $28/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
     STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
-    STRIPE_3VID_MONTHLY_COUPON_ID: str = ""  # 15% off Pro monthly, once-per-customer (out-of-videos offer)
-    STRIPE_3VID_ANNUAL_COUPON_ID: str = ""   # 25% off Pro annual, once-per-customer (out-of-videos offer)
+    STRIPE_3VID_MONTHLY_COUPON_ID: str = ""  # Legacy out-of-videos monthly coupon (kept in env, no longer used)
+    STRIPE_3VID_ANNUAL_COUPON_ID: str = ""   # Legacy out-of-videos annual coupon (kept in env, no longer used)
+    STRIPE_STANDARD_MONTHLY_COUPON_ID: str = ""  # 15% off Standard monthly, once-per-customer (out-of-videos offer)
+    STRIPE_STANDARD_ANNUAL_COUPON_ID: str = ""   # 20% off Standard annual, once-per-customer (out-of-videos offer)
+    SURVEY_PROMO_CODE: str = ""  # Shared Stripe promotion code (20% off) revealed on survey completion
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"

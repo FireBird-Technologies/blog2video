@@ -284,7 +284,9 @@ export default function Dashboard() {
     videoStyle?: VideoStyleId,
     videoLength?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
     contentLanguage?: string | null,
-    voiceEmotion?: string
+    voiceEmotion?: string,
+    bgmTrackId?: string | null,
+    bgmVolume?: number
   ) => {
     setCreating(true);
     try {
@@ -309,6 +311,8 @@ export default function Dashboard() {
           video_style: videoStyle,
           video_length: videoLength,
           content_language: contentLanguage,
+          bgm_track_id: bgmTrackId,
+          bgm_volume: bgmVolume,
         });
       } else {
         // URL flow
@@ -329,7 +333,9 @@ export default function Dashboard() {
           videoStyle,
           videoLength,
           contentLanguage,
-          voiceEmotion
+          voiceEmotion,
+          bgmTrackId,
+          bgmVolume
         );
       }
 

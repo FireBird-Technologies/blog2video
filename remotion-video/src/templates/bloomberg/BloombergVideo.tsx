@@ -16,6 +16,7 @@ import { BLOOMBERG_LAYOUT_REGISTRY } from "./layouts";
 import type { BloombergLayoutProps, BloombergLayoutType } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { BLOOMBERG_COLORS, derivePalette } from "./constants";
 
@@ -265,6 +266,8 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -458,6 +461,10 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           size={data.logoSize || "default"}
           aspectRatio={ratio}
         />
+      )}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
       )}
     </AbsoluteFill>
   );

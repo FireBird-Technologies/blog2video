@@ -47,6 +47,8 @@ import {
   type TemplateMeta,
   type CraftedTemplateItem,
   type CustomTemplateItem,
+  getBgmTracks,
+  type BgmTrack,
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -305,19 +307,80 @@ function resolveVoiceoverUrl(
 }
 
 // ─── Audio Player Row ────────────────────────────────────────
+// Ensures only one background-music preview plays at a time across every
+// AudioRow and the project-level Music card. Calling it stops the previous one.
+let activeBgmPreviewStop: (() => void) | null = null;
+
 function AudioRow({
   scene,
   projectId,
   audioAssets,
+  hasBgm,
+  bgmTrackUrl,
+  projectBgmVolume,
+  onBgmSaved,
 }: {
   scene: Scene;
   projectId: number;
   audioAssets: import("../api/client").Asset[];
+  hasBgm: boolean;
+  bgmTrackUrl: string | null;
+  projectBgmVolume: number;
+  onBgmSaved?: () => void;
 }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Per-scene background-music volume. null override → falls back to project default.
+  const savedBgmVol = scene.bgm_volume ?? projectBgmVolume;
+  const [bgmVol, setBgmVol] = useState<number>(savedBgmVol);
+  const [lastNonZeroBgm, setLastNonZeroBgm] = useState<number>(savedBgmVol > 0 ? savedBgmVol : (projectBgmVolume || 0.10));
+  const [savingBgm, setSavingBgm] = useState(false);
+  const [bgmPreviewPlaying, setBgmPreviewPlaying] = useState(false);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+  const bgmDirty = Math.round(bgmVol * 100) !== Math.round(savedBgmVol * 100);
+
+  useEffect(() => {
+    setBgmVol(scene.bgm_volume ?? projectBgmVolume);
+  }, [scene.bgm_volume, projectBgmVolume]);
+
+  // Stop music preview on unmount.
+  useEffect(() => {
+    return () => { bgmAudioRef.current?.pause(); };
+  }, []);
+
+  const toggleBgmPreview = () => {
+    if (bgmPreviewPlaying) {
+      bgmAudioRef.current?.pause();
+      setBgmPreviewPlaying(false);
+      activeBgmPreviewStop = null;
+      return;
+    }
+    if (!bgmTrackUrl) return;
+    activeBgmPreviewStop?.(); // stop any other preview (scene or project card)
+    bgmAudioRef.current?.pause();
+    const audio = new Audio(bgmTrackUrl);
+    audio.loop = true;
+    audio.volume = Math.max(0, Math.min(1, bgmVol));
+    audio.play().catch(() => {});
+    bgmAudioRef.current = audio;
+    setBgmPreviewPlaying(true);
+    activeBgmPreviewStop = () => { audio.pause(); setBgmPreviewPlaying(false); };
+  };
+
+  const saveBgmVolume = async () => {
+    setSavingBgm(true);
+    try {
+      await updateScene(projectId, scene.id, { bgm_volume: Math.round(bgmVol * 100) / 100 });
+      onBgmSaved?.();
+    } catch {
+      // keep slider value; surfaced by parent error handling on reload
+    } finally {
+      setSavingBgm(false);
+    }
+  };
 
   // Extract audio filename; use latest asset by id (regenerated scene = new asset) and cache-bust URL
   const audioFilename = extractAudioFilename(scene.voiceover_path) || `scene_${scene.order}.mp3`;
@@ -377,7 +440,8 @@ function AudioRow({
   const pct = duration > 0 ? (progress / duration) * 100 : 0;
 
   return (
-    <div className="glass-card p-4 flex items-center gap-4">
+    <div className="glass-card p-4">
+      <div className="flex items-center gap-4">
       {/* Scene number */}
       <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
         <span className="text-xs font-semibold text-purple-600">
@@ -428,6 +492,7 @@ function AudioRow({
             style={{ width: `${pct}%` }}
           />
         </div>
+
       </div>
 
       {/* Status indicator */}
@@ -438,6 +503,70 @@ function AudioRow({
           <span className="w-2 h-2 rounded-full bg-gray-200 block" />
         )}
       </div>
+      </div>
+
+      {/* Background music — per-scene volume. Preview live, Save when changed. */}
+      {hasBgm && bgmTrackUrl && (
+        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={toggleBgmPreview}
+            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors bg-purple-50 text-purple-600 hover:bg-purple-100"
+            title="Preview background music at this scene's volume"
+          >
+            {bgmPreviewPlaying ? (
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+            ) : (
+              <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+            )}
+          </button>
+          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider flex-shrink-0 w-10">Music</span>
+          <button
+            type="button"
+            onClick={() => {
+              const v = bgmVol === 0 ? (lastNonZeroBgm || projectBgmVolume || 0.10) : 0;
+              if (bgmVol > 0) setLastNonZeroBgm(bgmVol);
+              setBgmVol(v);
+              if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+            }}
+            className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors ${bgmVol === 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            title={bgmVol === 0 ? "Unmute music for this scene" : "Mute music for this scene"}
+          >
+            {bgmVol === 0 ? (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" d="M17 9l4 4m0-4l-4 4" /></svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+            )}
+            {bgmVol === 0 ? "Unmute" : "Mute"}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round(bgmVol * 100)}
+            onChange={(e) => {
+              const v = Number(e.target.value) / 100;
+              setBgmVol(v);
+              if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+            }}
+            className="flex-1 accent-purple-600 cursor-pointer"
+          />
+          <span className="text-[10px] tabular-nums text-gray-500 w-9 text-right flex-shrink-0">{Math.round(bgmVol * 100)}%</span>
+          {bgmDirty ? (
+            <button
+              type="button"
+              onClick={saveBgmVolume}
+              disabled={savingBgm}
+              className="px-3 py-1 rounded-lg text-[11px] font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 flex-shrink-0"
+            >
+              {savingBgm ? "Saving…" : "Save"}
+            </button>
+          ) : (
+            <span className="inline-block w-[46px] flex-shrink-0" />
+          )}
+        </div>
+      )}
 
       {/* Hidden audio element */}
       {audioUrl && (
@@ -504,6 +633,14 @@ export default function ProjectView() {
   const [showFontDropdown, setShowFontDropdown] = useState(false);
   const [playbackSpeedDraft, setPlaybackSpeedDraft] = useState<number>(1);
   const [savingPlaybackSpeed, setSavingPlaybackSpeed] = useState(false);
+  // Background music
+  const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
+  const [bgmTrackDraft, setBgmTrackDraft] = useState<string | null>(null);
+  const [bgmVolumeDraft, setBgmVolumeDraft] = useState<number>(0.10);
+  const [lastNonZeroProjectBgm, setLastNonZeroProjectBgm] = useState<number>(0.10);
+  const [savingBgm, setSavingBgm] = useState(false);
+  const [bgmPlayingId, setBgmPlayingId] = useState<string | null>(null);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
   const savingPlaybackSpeedRef = useRef(false);
   const pendingPlaybackSpeedRef = useRef<number | null>(null);
   const fontDropdownRef = useRef<HTMLDivElement>(null);
@@ -571,6 +708,8 @@ export default function ProjectView() {
       setSettingsFontId(project.font_family ?? null);
       const current = Number(project.playback_speed ?? 1);
       setPlaybackSpeedDraft(Math.min(2.5, Math.max(0.5, Number.isFinite(current) ? current : 1)));
+      setBgmTrackDraft(project.bgm_track_id ?? null);
+      setBgmVolumeDraft(project.bgm_volume ?? 0.10);
       // Seed global typography sliders from the first scene that has stored values.
       // This avoids the slider defaulting to 60 when e.g. mosaic_metric scenes have 131.
       if (project.scenes && project.scenes.length > 0) {
@@ -600,6 +739,11 @@ export default function ProjectView() {
       setLogoOpacity(project.logo_opacity ?? 0.9);
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity]);
+
+  // Fetch BGM tracks once
+  useEffect(() => {
+    getBgmTracks().then((r) => setBgmTracks(r.data)).catch(() => {});
+  }, []);
 
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
@@ -749,6 +893,7 @@ export default function ProjectView() {
   const [localUploadTargetSceneId, setLocalUploadTargetSceneId] = useState<number | null>(null);
   const [assigningExistingImage, setAssigningExistingImage] = useState(false);
   const [imageGenModalSceneId, setImageGenModalSceneId] = useState<number | null>(null);
+  const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
   const [generatedImageSceneId, setGeneratedImageSceneId] = useState<number | null>(null);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
@@ -2368,7 +2513,7 @@ export default function ProjectView() {
     },
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
-    ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
+    ...(project.voice_gender !== "none" || project.bgm_track_id ? [{ id: "audio" as Tab, label: "Audio" }] : []),
     { id: "settings", label: "Settings" },
   ];
 
@@ -2728,19 +2873,17 @@ export default function ProjectView() {
   const handleKeepGeneratedSceneImage = (sceneId: number) => {
     if (!generatedImageBase64) return;
     const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    // Close preview modal immediately so the spinner shows in the scene row
+    setGeneratedImageSceneId(null);
+    setGeneratedImageBase64(null);
+    setGeneratedPrompt(null);
     setGenerateImageError(null);
+    setGenerateErrorSceneId(null);
     fetch(dataUrl)
       .then((r) => r.blob())
       .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
       .then((file) =>
         handleAddSceneImage(sceneId, file)
-          .then(() => {
-            setGeneratedImageBase64(null);
-            setGeneratedPrompt(null);
-            setGenerateImageError(null);
-            setGenerateErrorSceneId(null);
-            setGeneratedImageSceneId(null);
-          })
           .catch(() => setGenerateImageError("Failed to use generated image"))
       )
       .catch(() => setGenerateImageError("Failed to use generated image"));
@@ -3499,6 +3642,7 @@ export default function ProjectView() {
   };
 
   return (
+    <>
     <div className="space-y-6">
       <UpgradePlanModal
         open={showUpgrade}
@@ -5167,6 +5311,11 @@ export default function ProjectView() {
                                               key={asset.id}
                                               className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
                                             >
+                                              {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && (
+                                                <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
+                                                  <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                                </div>
+                                              )}
                                               {(() => {
                                                 let focusX = 50;
                                                 let focusY = 50;
@@ -5226,6 +5375,11 @@ export default function ProjectView() {
                                               </button>
                                             </div>
                                           ))}
+                                          {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && !(sceneImageAssetsMap[idx] || []).length && !(isCustomTpl && ctOgImage) && (
+                                            <div className="flex items-center justify-center w-20 h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0">
+                                              <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                            </div>
+                                          )}
                                           <button
                                             type="button"
                                             onClick={() => handleGenerateSceneImageClick(scene.id)}
@@ -5243,21 +5397,19 @@ export default function ProjectView() {
                                             type="button"
                                             onClick={() => handleOpenImageSourceChooser(scene.id)}
                                             disabled={uploadingSceneId === scene.id}
-                                            className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
-                                              uploadingSceneId === scene.id && generatedImageSceneId !== scene.id
-                                                ? "border-purple-300 bg-purple-50/50 cursor-wait"
-                                                : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50"
-                                            }`}
+                                            className="flex items-center justify-center w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors"
                                           >
-                                            {uploadingSceneId === scene.id && generatedImageSceneId !== scene.id ? (
-                                              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                                            ) : (
-                                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                              </svg>
-                                            )}
+                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
                                           </button>
                                         </div>
+                                        {generatingImageSceneId === scene.id && (
+                                          <p className="text-xs text-purple-500 mt-1.5 flex items-center gap-1.5">
+                                            <span className="w-3 h-3 border border-purple-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                            Generating image…
+                                          </p>
+                                        )}
                                         {(generateImageError && (generateErrorSceneId === scene.id || generatedImageSceneId === scene.id)) && (
                                           <p className="text-xs text-red-600 mt-1.5">{generateImageError}</p>
                                         )}
@@ -5548,7 +5700,17 @@ export default function ProjectView() {
                       isPro={isPro}
                       onClose={() => setImageGenModalSceneId(null)}
                       onUpgrade={() => setShowAiImageUpgradeModal(true)}
+                      onGenerateStart={() => {
+                        setGeneratingImageSceneId(imageGenModalSceneId);
+                        setImageGenModalSceneId(null);
+                      }}
+                      onGenerateError={(message) => {
+                        setGeneratingImageSceneId(null);
+                        setGenerateImageError(message);
+                        setGenerateErrorSceneId(imageGenModalSceneId);
+                      }}
                       onImageReady={(imageBase64, refinedPrompt) => {
+                        setGeneratingImageSceneId(null);
                         handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
                         setImageGenModalSceneId(null);
                       }}
@@ -5598,11 +5760,6 @@ export default function ProjectView() {
                           alt="AI generated"
                           className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
                         />
-                        {uploadingSceneId === generatedImageSceneId && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 rounded-lg">
-                            <span className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>,
@@ -5940,6 +6097,212 @@ export default function ProjectView() {
             </>
           )}
 
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
+            <p className="text-xs text-gray-400 mb-5">
+              Applies to preview and final rendered video (including voiceover).
+            </p>
+            <div className="glass-card p-6 flex flex-col gap-4">
+              <div className="flex flex-wrap gap-2">
+                {PLAYBACK_SPEED_OPTIONS.map((speed) => {
+                  const active = playbackSpeedDraft === speed;
+                  return (
+                    <button
+                      key={speed}
+                      type="button"
+                      onClick={() => setPlaybackSpeedDraft(speed)}
+                      className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                        active
+                          ? "bg-purple-50 text-purple-700 border-purple-300"
+                          : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      {speed}x
+                    </button>
+                  );
+                })}
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                  <span>Custom speed</span>
+                  <span className="text-purple-600 font-semibold tabular-nums">
+                    {playbackSpeedDraft.toFixed(1)}x
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={2.5}
+                  step={0.1}
+                  value={playbackSpeedDraft}
+                  onChange={(e) => setPlaybackSpeedDraft(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                />
+              </div>
+              {project.r2_video_url && project.playback_speed !== playbackSpeedDraft ? (
+                <p className="text-[11px] text-amber-600">
+                  Changing speed makes the current downloaded MP4 outdated. Save this and re-render to update it.
+                </p>
+              ) : null}
+              <div className="flex justify-end mt-auto">
+                <button
+                  type="button"
+                  disabled={savingPlaybackSpeed}
+                  onClick={async () => {
+                    setSavingPlaybackSpeed(true);
+                    try {
+                      const normalized = Math.min(2.5, Math.max(0.5, Math.round(playbackSpeedDraft * 10) / 10));
+                      await updateProject(project.id, { playback_speed: normalized });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to save playback speed."));
+                    } finally {
+                      setSavingPlaybackSpeed(false);
+                    }
+                  }}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingPlaybackSpeed ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save speed"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Background Music — Premium only (Standard/Pro) */}
+          {isPro && (
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Music</h2>
+            <p className="text-xs text-gray-400 mb-5">
+              Ambient music behind voiceover narration.
+            </p>
+            <div className="glass-card p-6 flex flex-col gap-4">
+              <div>
+                <label className="text-xs text-gray-500 mb-2 block">Track</label>
+                <select
+                  value={bgmTrackDraft ?? ""}
+                  onChange={(e) => setBgmTrackDraft(e.target.value || null)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none"
+                >
+                  <option value="">None</option>
+                  {bgmTracks.map((t) => (
+                    <option key={t.track_id} value={t.track_id}>
+                      {t.display_name} — {t.mood}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Preview */}
+              {bgmTrackDraft && (() => {
+                const track = bgmTracks.find((t) => t.track_id === bgmTrackDraft);
+                if (!track) return null;
+                const isPlaying = bgmPlayingId === track.track_id;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isPlaying) {
+                        bgmAudioRef.current?.pause();
+                        setBgmPlayingId(null);
+                      } else {
+                        bgmAudioRef.current?.pause();
+                        const audio = new Audio(track.r2_url);
+                        audio.volume = Math.max(0, Math.min(1, bgmVolumeDraft));
+                        audio.onended = () => setBgmPlayingId(null);
+                        audio.play().catch(() => {});
+                        bgmAudioRef.current = audio;
+                        setBgmPlayingId(track.track_id);
+                      }
+                    }}
+                    className="flex items-center gap-2 text-xs text-purple-600 hover:text-purple-700 transition-colors"
+                  >
+                    {isPlaying ? (
+                      <>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <rect x="6" y="4" width="4" height="16" rx="1" />
+                          <rect x="14" y="4" width="4" height="16" rx="1" />
+                        </svg>
+                        Pause preview
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                        Preview track
+                      </>
+                    )}
+                  </button>
+                );
+              })()}
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-medium text-gray-600">Volume</span>
+                  <span className="text-[11px] text-gray-400 tabular-nums">{Math.round(bgmVolumeDraft * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round(bgmVolumeDraft * 100)}
+                  onChange={(e) => {
+                    const v = Number(e.target.value) / 100;
+                    setBgmVolumeDraft(v);
+                    if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+                  }}
+                  className="w-full accent-purple-600 cursor-pointer"
+                />
+              </div>
+
+              {project.r2_video_url && (project.bgm_track_id !== bgmTrackDraft || project.bgm_volume !== bgmVolumeDraft) ? (
+                <p className="text-[11px] text-amber-600">
+                  Changing BGM makes the current MP4 outdated. Save and re-render to update.
+                </p>
+              ) : null}
+
+              <div className="flex justify-end mt-auto">
+                <button
+                  type="button"
+                  disabled={savingBgm}
+                  onClick={async () => {
+                    setSavingBgm(true);
+                    try {
+                      await updateProject(project.id, {
+                        bgm_track_id: bgmTrackDraft,
+                        bgm_volume: Math.round(bgmVolumeDraft * 100) / 100,
+                      });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to save background music."));
+                    } finally {
+                      setSavingBgm(false);
+                    }
+                  }}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingBgm ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save music"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+          )}
+
         </div>
       )}
 
@@ -6144,18 +6507,138 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
+                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below. Premium only. */}
+                {isPro && bgmTracks.length > 0 && (
+                  <div className="glass-card p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="text-base font-medium text-gray-900">Music</h2>
+                      <span className="text-[11px] text-gray-400">Project default — fine-tune per scene below</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                      <div className="flex-1">
+                        <label className="text-[11px] text-gray-500 mb-1 block">Track</label>
+                        <select
+                          value={bgmTrackDraft ?? ""}
+                          onChange={(e) => setBgmTrackDraft(e.target.value || null)}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none"
+                        >
+                          <option value="">None</option>
+                          {bgmTracks.map((t) => (
+                            <option key={t.track_id} value={t.track_id}>
+                              {t.display_name} — {t.mood}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {bgmTrackDraft && (
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-medium text-gray-600">Volume</span>
+                            <span className="text-[11px] text-gray-400 tabular-nums">{Math.round(bgmVolumeDraft * 100)}%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const track = bgmTracks.find((t) => t.track_id === bgmTrackDraft);
+                                if (!track) return;
+                                if (bgmPlayingId === track.track_id) {
+                                  bgmAudioRef.current?.pause();
+                                  setBgmPlayingId(null);
+                                  activeBgmPreviewStop = null;
+                                } else {
+                                  activeBgmPreviewStop?.(); // stop any other preview (scene rows)
+                                  bgmAudioRef.current?.pause();
+                                  const audio = new Audio(track.r2_url);
+                                  audio.loop = true;
+                                  audio.volume = Math.max(0, Math.min(1, bgmVolumeDraft));
+                                  audio.onended = () => setBgmPlayingId(null);
+                                  audio.play().catch(() => {});
+                                  bgmAudioRef.current = audio;
+                                  setBgmPlayingId(track.track_id);
+                                  activeBgmPreviewStop = () => { audio.pause(); setBgmPlayingId(null); };
+                                }
+                              }}
+                              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-purple-50 text-purple-600 hover:bg-purple-100"
+                              title="Preview track"
+                            >
+                              {bgmPlayingId === bgmTrackDraft ? (
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+                              ) : (
+                                <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const v = bgmVolumeDraft === 0 ? (lastNonZeroProjectBgm || 0.10) : 0;
+                                if (bgmVolumeDraft > 0) setLastNonZeroProjectBgm(bgmVolumeDraft);
+                                setBgmVolumeDraft(v);
+                                if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+                              }}
+                              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors ${bgmVolumeDraft === 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                              title={bgmVolumeDraft === 0 ? "Unmute music for all scenes" : "Mute music for all scenes"}
+                            >
+                              {bgmVolumeDraft === 0 ? (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" d="M17 9l4 4m0-4l-4 4" /></svg>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                              )}
+                              {bgmVolumeDraft === 0 ? "Unmute" : "Mute"}
+                            </button>
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={Math.round(bgmVolumeDraft * 100)}
+                              onChange={(e) => {
+                                const v = Number(e.target.value) / 100;
+                                setBgmVolumeDraft(v);
+                                if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+                              }}
+                              className="flex-1 accent-purple-600 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        disabled={savingBgm}
+                        onClick={async () => {
+                          setSavingBgm(true);
+                          try {
+                            await updateProject(project.id, {
+                              bgm_track_id: bgmTrackDraft,
+                              bgm_volume: Math.round(bgmVolumeDraft * 100) / 100,
+                            });
+                            await loadProject();
+                          } catch (err) {
+                            showError(getErrorMessage(err, "Failed to save background music."));
+                          } finally {
+                            setSavingBgm(false);
+                          }
+                        }}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white text-xs font-semibold rounded-xl transition-colors flex-shrink-0"
+                      >
+                        {savingBgm ? "Saving…" : "Save music"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-4">
                     <h2 className="text-base font-medium text-gray-900">
-                      Voiceovers
+                      {project.voice_gender !== "none" ? "Voiceovers" : "Scenes"}
                     </h2>
                     <span className="text-xs text-gray-400">
-                      {audioScenes.length} / {project.scenes.length} scenes
-                      {totalAudioDuration > 0 &&
-                        ` -- ${Math.round(totalAudioDuration)}s total`}
+                      {project.voice_gender !== "none"
+                        ? `${audioScenes.length} / ${project.scenes.length} scenes${totalAudioDuration > 0 ? ` -- ${Math.round(totalAudioDuration)}s total` : ""}`
+                        : "No voiceover — text-only video"}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                  <div className={`flex items-center gap-2 text-[11px] text-gray-400 ${project.voice_gender === "none" ? "hidden" : ""}`}>
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-green-400" />
                       Ready
@@ -6174,6 +6657,10 @@ export default function ProjectView() {
                       scene={scene}
                       projectId={projectId}
                       audioAssets={audioAssets}
+                      hasBgm={isPro && !!project.bgm_track_id}
+                      bgmTrackUrl={project.bgm_track_url ?? null}
+                      projectBgmVolume={project.bgm_volume ?? 0.10}
+                      onBgmSaved={loadProject}
                     />
                   ))}
                 </div>
@@ -6184,5 +6671,35 @@ export default function ProjectView() {
 
       </div>
     </div>
+
+    {/* Image generation toast — top-right, no backdrop, always visible */}
+
+    {generatingImageSceneId !== null && ReactDOM.createPortal(
+      <div className="fixed top-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl bg-white text-gray-900 min-w-[260px] border border-purple-100 ring-1 ring-purple-200">
+        <div className="w-5 h-5 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin flex-shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-purple-700 leading-tight">Generating image…</p>
+          <p className="text-xs text-gray-400 mt-0.5">This may take a moment</p>
+        </div>
+      </div>,
+      document.body,
+    )}
+
+    {generateImageError && generateErrorSceneId !== null && ReactDOM.createPortal(
+      <div className="fixed top-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl bg-white text-gray-900 min-w-[260px] border border-red-100 ring-1 ring-red-200">
+        <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">!</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-red-600 leading-tight">Image generation failed</p>
+          <p className="text-xs text-gray-400 mt-0.5 truncate">{generateImageError}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => { setGenerateImageError(null); setGenerateErrorSceneId(null); }}
+          className="text-gray-300 hover:text-gray-600 text-xl leading-none flex-shrink-0 ml-1"
+        >×</button>
+      </div>,
+      document.body,
+    )}
+    </>
   );
 }

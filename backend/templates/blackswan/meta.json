@@ -413,8 +413,8 @@
           "landscape": 72
         },
         "descriptionFontSize": {
-          "portrait": 48,
-          "landscape": 39
+          "portrait": 44,
+          "landscape": 32
         },
         "chartType": "line",
         "chartSummary": "The curve rises through the window before easing off the high.",

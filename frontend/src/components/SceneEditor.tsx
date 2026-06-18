@@ -210,17 +210,17 @@ export default function SceneEditor({
     <div className="space-y-4">
       {/* Header with mode toggle and usage */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
           <button
             onClick={() => {
               setEditMode("none");
               setReorderMode(false);
               setEditingSceneId(null);
             }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
               editMode === "none"
-                ? "bg-purple-100 text-purple-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-white text-purple-600 shadow-sm"
+                : "text-gray-400 hover:text-gray-600"
             }`}
           >
             View
@@ -230,10 +230,10 @@ export default function SceneEditor({
               setEditMode("manual");
               setReorderMode(false);
             }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
               editMode === "manual"
-                ? "bg-purple-100 text-purple-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-white text-purple-600 shadow-sm"
+                : "text-gray-400 hover:text-gray-600"
             }`}
           >
             Manual Edit
@@ -243,10 +243,10 @@ export default function SceneEditor({
               setEditMode("ai");
               setReorderMode(false);
             }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
               editMode === "ai"
-                ? "bg-purple-100 text-purple-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-white text-purple-600 shadow-sm"
+                : "text-gray-400 hover:text-gray-600"
             }`}
           >
             AI Edit
