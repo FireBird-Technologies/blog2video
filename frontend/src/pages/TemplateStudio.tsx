@@ -37,7 +37,7 @@ import {
 } from "../api/client";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../components/remotion/playbackSpeed";
-import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
+import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
 import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layouts";
 
 const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
@@ -1062,6 +1062,7 @@ export default function TemplateStudio() {
   const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
   const [imageAdjustSrc, setImageAdjustSrc]   = useState<string | null>(null);
   const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
@@ -1274,6 +1275,7 @@ export default function TemplateStudio() {
       templateCfg.baseHeight,
     );
     setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(isImageBoxCircular(selectedLayout));
     setImageAdjustFocusX(imageFocusX);
     setImageAdjustFocusY(imageFocusY);
     setImageAdjustZoom(
@@ -3213,8 +3215,9 @@ export default function TemplateStudio() {
                       aspectRatio: imageAdjustAspectRatio,
                       maxHeight: "70vh",
                       maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                      ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
                     }}
-                    className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                    className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
                       isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
                     }`}
                   >
