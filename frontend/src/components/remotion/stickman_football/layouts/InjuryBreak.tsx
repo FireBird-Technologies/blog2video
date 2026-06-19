@@ -71,12 +71,20 @@ export const InjuryBreak: React.FC<SceneLayoutProps> = (props) => {
     return lines * fontSize * lineHeight;
   };
 
-  // In portrait, push scene groups upward when bottom text becomes large.
-  const portraitTitleH = title ? estimateWrappedTextHeight(title, W * 0.88, titlePx, 1.05) : 0;
-  const portraitNarrH = narration ? estimateWrappedTextHeight(narration, W * 0.96, descPx, 1.4) : 0;
-  const portraitTextNeed = portraitTitleH + (title && narration ? 14 : 0) + portraitNarrH + 36;
-  const portraitBaseBand = H * 0.18;
-  const portraitLift = p ? Math.min(H * 0.14, Math.max(0, portraitTextNeed - portraitBaseBand)) : 0;
+  // Portrait: shift scene content upward when title/narration outgrows the bottom grass band.
+  const botGroundYDefault = H * 0.86;
+  const topGroundYDefault = H * 0.42;
+  const bottomGrassDefaultH = H - botGroundYDefault;
+  const narrMaxW = W * 0.96;
+  const portraitTitleH = title ? estimateWrappedTextHeight(title, narrMaxW, titlePx, 1.05) : 0;
+  const portraitNarrH = narration ? estimateWrappedTextHeight(narration, narrMaxW, descPx, 1.4) : 0;
+  const narrBlockH = portraitTitleH + (title && narration ? 14 : 0) + portraitNarrH;
+  const grassPad = H * 0.045;
+  const requiredGrassH = narrBlockH + grassPad * 2;
+  const portraitLiftRaw = p ? Math.max(0, requiredGrassH - bottomGrassDefaultH) : 0;
+  const minTopGroundY = H * 0.28;
+  const maxPortraitLift = p ? Math.min(H * 0.28, topGroundYDefault - minTopGroundY) : 0;
+  const portraitLift = p ? Math.min(maxPortraitLift, portraitLiftRaw) : 0;
 
   // ── Reveal timings ──
   const leftFigFade = seg(150, 500, easeOutCubic);
@@ -252,10 +260,12 @@ export const InjuryBreak: React.FC<SceneLayoutProps> = (props) => {
   // Landscape: one ground line near the bottom (shared). Portrait: two halves,
   // each with its own ground line.
   const lsGroundY = H * 0.7;
-  const topGroundY = H * 0.42 - portraitLift * 0.35;   // portrait: left group sits in the top half
-  const botGroundY = H * 0.86 - portraitLift;          // portrait: right group sits in the bottom half
-  const portraitTopLabelY = Math.max(28, 60 - portraitLift * 0.24);
-  const portraitBottomLabelY = Math.max(H * 0.36, H * 0.5 + 24 - portraitLift * 0.58);
+  const topGroundY = p ? topGroundYDefault - portraitLift * 0.55 : lsGroundY;
+  const botGroundY = p ? botGroundYDefault - portraitLift : lsGroundY;
+  const portraitTopLabelY = p ? Math.max(20, 60 - portraitLift * 0.5) : 70;
+  const portraitBottomLabelY = p
+    ? Math.max(H * 0.30, H * 0.5 + 24 - portraitLift * 0.82)
+    : 70;
 
   const labelBlock = (
     label: string,

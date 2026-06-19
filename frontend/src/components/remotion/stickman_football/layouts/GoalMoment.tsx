@@ -115,8 +115,8 @@ export const GoalMoment: React.FC<SceneLayoutProps> = (props) => {
   const gkThighLen = 30 * GK_FIG;
   const gkShinLen = 30 * GK_FIG;
 
-  const titlePx = titleFontSize ?? (p ? 92 : 66);
-  const descPx = descriptionFontSize ?? (p ? 52 : 35);
+  const titlePx = titleFontSize ?? (p ? 80 : 66);
+  const descPx = descriptionFontSize ?? (p ? 50 : 35);
   const fieldTextMaxW = W * 0.85;
   const fieldTextGap = Math.max(descPx * 0.45, titlePx * 0.12);
   const textBottomPad = H * 0.035;

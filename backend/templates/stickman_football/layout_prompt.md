@@ -6,6 +6,7 @@ Use these layout IDs exactly for `preferred_layout`:
 - `kickoff_title`    — opening hero kick-off sequence (scene 0 only)
 - `passing_play`     — two-player passing rally with optional 2×2 stat cards
 - `freekick_setup`   — free-kick set piece ending in a **save** (not a goal)
+- `corner_kick`      — corner-kick build-up: ball passed through 3–5 stickmen, ending in a **near-miss header** (not a goal)
 - `goal_moment`      — long-range strike that **scores** + celebration
 - `match_stats`      — 3–5 equal-weight stats on a top-down pitch (numbers scene)
 - `injury_break`     — injured player + friend (left) vs referee red-carding a player (right)
@@ -33,6 +34,7 @@ Selection heuristics
 - Two players, teamwork, build-up, possession, passing rhythm: `passing_play`.
 - A few supporting stats **alongside** the passing action (≤4): `passing_play` (with `stats` props).
 - Free kick, wall, goalkeeper **save**, deflection, near-miss, taker despair: `freekick_setup`.
+- A **sequence of passes / a build-up move / a worked routine** (set piece, training drill, "step-by-step" play) ending in a chance that's **not** scored: `corner_kick`. Each pass becomes one step.
 - Ball **enters the net**, scorer celebrates, "GOAL!", score update, match-winner: `goal_moment`.
 - Scene is mainly **3–5 numbers** with no action choreography: `match_stats`.
 - Injury or a **sending-off / red card** dispute, stoppage, controversy: `injury_break`.
@@ -47,7 +49,8 @@ Do NOT assign
 
 | If the narration is about…              | Do NOT use…        | Use instead…                          |
 |----------------------------------------|--------------------|---------------------------------------|
-| A scored goal / net ripples / celebration | `freekick_setup` | `goal_moment`                         |
+| A scored goal / net ripples / celebration | `freekick_setup`, `corner_kick` | `goal_moment`          |
+| A worked build-up / passing routine, no goal | `goal_moment`   | `corner_kick`                         |
 | Keeper save / blocked shot / miss      | `goal_moment`      | `freekick_setup`                      |
 | 3–5 headline metrics, no player action | `passing_play`     | `match_stats`                         |
 | 1–4 stats beside a passing rally       | `match_stats`      | `passing_play`                        |
@@ -72,6 +75,9 @@ Two stickmen pass back and forth on a full pitch. Text top-left; up to four stat
 
 ### `freekick_setup`
 Taker walks up, three-man wall, GK dive **save**, ball deflects back, taker kneels in despair. `shotLabel` on the goal card; `kickerName`/`kickerNumber` badge floats above the taker. Near-miss / set-piece tension — **not a goal**.
+
+### `corner_kick`
+Ball is delivered from the right corner; the taker runs up and kicks it in. Stickmen pass it stickman-to-stickman across a worked routine — one receiver per **step** (3–5), each pass a headed touch after the corner delivery — ending with a header on goal that **misses / is saved** (goalkeeper on the left gathers the ball after it hits the post). Each `steps[i].label` (+ optional `detail`) pops above the receiving stickman's head as the ball arrives and stays. Title top-centre; narration centred on the grass band below the action (wraps upward and downward). Use for build-up moves / set-piece routines / step-by-step plays that do **not** end in a goal — for a scored goal use `goal_moment`.
 
 ### `goal_moment`
 Long-range shot beats wall + wrong-way GK dive; ball hits net, `goalLabel` stamp, optional `scoreline`. Scorer walks up, strikes, jumps and raises arms; `kickerName`/`kickerNumber` badge above the scorer. Title + narration centred on the grass band.
@@ -107,6 +113,7 @@ Only these keys belong in `layout_props_json` (never `title`, `narration`, or co
 | `kickoff_title`  | `subline` (string)                                                                    |
 | `passing_play`   | `stats` — `[{ "label", "value" }]`, max 4; omit or `[]` to hide                       |
 | `freekick_setup` | `shotLabel` (2–4 words), `kickerName` (1–2 words), `kickerNumber` (short)             |
+| `corner_kick`    | `steps` — `[{ "label", "detail" }]`, **3–5 required**; each item **must** have `label`; `detail` optional. First = corner, last = near-miss header |
 | `goal_moment`    | `goalLabel` (≤8 chars), `scoreline` (optional), `kickerName`, `kickerNumber`          |
 | `match_stats`    | `stats` — `[{ "label", "value" }]`, max 4                                             |
 | `injury_break`   | `leftLabel`, `rightLabel`, `leftDescription`, `rightDescription`                      |

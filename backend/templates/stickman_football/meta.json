@@ -27,6 +27,7 @@
     "text_narration",
     "football_data_viz",
     "football_ticker",
+    "corner_kick",
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -138,6 +139,79 @@
         }
       ]
     },
+    "corner_kick": {
+      "label": "Corner Kick",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 95,
+          "landscape": 82
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "steps": [
+          {
+            "label": "Corner",
+            "detail": "Inswinger"
+          },
+          {
+            "label": "Flick on",
+            "detail": "Near post"
+          },
+          {
+            "label": "Lay off",
+            "detail": "Edge of box"
+          },
+          {
+            "label": "Header",
+            "detail": "Just wide"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "steps",
+          "label": "Steps",
+          "type": "object_array",
+          "description": "Ordered build-up steps; each step is one pass shown above the receiving stickman's head as the ball travels right-to-left toward goal. The first step is the corner delivery and the last is a header on goal that misses / is saved. Each item has `label` (short, e.g. 'Flick on') and optional `detail` (e.g. 'Near post'). 3–5 items.",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label",
+              "type": "string",
+              "description": "Short step name shown on the step card (1–3 words), e.g. 'Flick on'."
+            },
+            {
+              "key": "detail",
+              "label": "Detail",
+              "type": "string",
+              "description": "Optional tactical hint beneath the label (1–4 words), e.g. 'Near post'. Leave empty to hide."
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 5
+        }
+      ]
+    },
     "freekick_setup": {
       "label": "Free Kick Setup",
       "defaults": {
@@ -196,11 +270,11 @@
       "label": "Goal Moment",
       "defaults": {
         "titleFontSize": {
-          "portrait": 92,
+          "portrait": 80,
           "landscape": 66
         },
         "descriptionFontSize": {
-          "portrait": 52,
+          "portrait": 50,
           "landscape": 35
         },
         "goalLabel": "GOAL!",
@@ -923,6 +997,7 @@
     "text_narration",
     "ending_socials",
     "football_data_viz",
-    "football_ticker"
+    "football_ticker",
+    "corner_kick"
   ]
 }

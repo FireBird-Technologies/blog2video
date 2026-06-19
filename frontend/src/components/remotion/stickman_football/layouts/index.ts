@@ -9,6 +9,7 @@ import { TextNarration } from "./TextNarration";
 import { EndingSocials } from "./EndingSocials";
 import { FootballDataViz } from "./FootballDataViz";
 import { FootballTicker } from "./FootballTicker";
+import { CornerKick } from "./CornerKick";
 import type { StickmanFootballLayoutType, SceneLayoutProps } from "../types";
 
 export type { StickmanFootballLayoutType, SceneLayoutProps };
@@ -25,4 +26,5 @@ export const STICKMAN_FOOTBALL_LAYOUT_REGISTRY: Record<StickmanFootballLayoutTyp
   ending_socials: EndingSocials,
   football_data_viz: FootballDataViz,
   football_ticker: FootballTicker,
+  corner_kick: CornerKick,
 };

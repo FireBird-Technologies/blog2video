@@ -1,7 +1,7 @@
 import type { SocialsMap, SocialsRow } from "../SocialIcons";
 
 export type StickmanFootballLayoutType =
-  | "kickoff_title" | "passing_play" | "freekick_setup" | "goal_moment" | "match_stats" | "injury_break" | "ball_control" | "text_narration" | "ending_socials" | "football_data_viz" | "football_ticker";
+  | "kickoff_title" | "passing_play" | "freekick_setup" | "goal_moment" | "match_stats" | "injury_break" | "ball_control" | "text_narration" | "ending_socials" | "football_data_viz" | "football_ticker" | "corner_kick";
 
 export interface SceneLayoutProps {
   title: string;
@@ -33,6 +33,9 @@ export interface SceneLayoutProps {
   kickerName?: string;
   kickerNumber?: string;
   stats?: Array<{ label?: string; value?: string }>;
+  // corner_kick: ordered build-up steps (3–5 required). Each step is one pass;
+  // `label` is required (1–3 words), `detail` is optional (1–4 words).
+  steps?: Array<{ label?: string; detail?: string }>;
   leftLabel?: string;
   rightLabel?: string;
   leftDescription?: string;
