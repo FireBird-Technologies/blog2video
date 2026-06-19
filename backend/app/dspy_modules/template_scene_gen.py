@@ -821,12 +821,14 @@ class TemplateSceneGenerator:
     def _economist_backfill_leader_article(props: dict, narration: str) -> dict:
         """Ensure a leader_article never renders as near-empty paper.
 
-        The prompt asks the LLM to always emit a ``standfirst`` deck and 2–3
-        ``keyPoints``, but a thin source (or a terse model) can still omit them.
-        Backfill ONLY what is missing, distilled from the narration the model
-        already produced — we never fabricate figures or claims, honouring the
-        template's data-grounding rule. If there is no narration to draw from we
-        leave the field unset rather than invent one.
+        The on-screen ``body`` paragraph is the main copy and is independent of
+        the short spoken ``narration``. The prompt asks the model to emit
+        ``body``, a ``standfirst`` deck and 2–3 ``keyPoints``, but a thin source
+        (or a terse model) can still omit them. Backfill ONLY what is missing,
+        distilled from the richest copy available (the body, else the narration)
+        — we never fabricate figures or claims, honouring the template's
+        data-grounding rule. If there is nothing to draw from we leave the field
+        unset rather than invent one.
         """
         import re
 
@@ -838,12 +840,22 @@ class TemplateSceneGenerator:
         # fiction-craft piece). We never invent authorship, so no byline renders.
         out.pop("byline", None)
 
-        body = (narration or "").strip()
-        if not body:
+        # The on-screen body is the main copy; fall back to the narration when
+        # the model omitted it (e.g. a data scene rerouted to this prose
+        # fallback) so the page still fills rather than rendering empty.
+        body_text = str(out.get("body") or "").strip()
+        if not body_text:
+            body_text = (narration or "").strip()
+            if body_text:
+                out["body"] = body_text
+
+        # Derive the deck + points from the richest copy we have (the body).
+        source = body_text or (narration or "").strip()
+        if not source:
             return out
 
         # Sentence split (keep it simple/deterministic — no NLP dependency).
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", body) if s.strip()]
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", source) if s.strip()]
 
         # Standfirst: the first sentence, trimmed to ≤16 words, if absent.
         if not str(out.get("standfirst") or "").strip() and sentences:
