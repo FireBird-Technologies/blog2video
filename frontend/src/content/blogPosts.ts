@@ -6793,6 +6793,167 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+  // ── Pricing: minutes-per-month comparison ──────────────────────────────────
+  {
+    slug: "video-minutes-per-month-pricing-comparison-2026",
+    title: "$35 vs $29: How Many Minutes of Video Do You Actually Get? (2026 Pricing Breakdown)",
+    description:
+      "Most AI video tools publish a monthly price but not the number that decides if it works for you: total video minutes per month. We converted six tools' 2026 pricing pages into that one number — the gap is bigger than the sticker prices suggest.",
+    category: "Comparison",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Side-by-side bar comparison showing total video minutes available per month across Blog2Video, HeyGen, Synthesia, Pictory, and InVideo AI plans at similar price points.",
+    publishedAt: "2026-06-20",
+    readTime: "7 min read",
+    heroEyebrow: "Pricing Breakdown",
+    heroTitle: "$35 a month buys 240 minutes of video on Blog2Video. On HeyGen, the same money buys about 30.",
+    heroDescription:
+      "Every AI video tool advertises a price. Almost none advertise the number that actually decides whether that price works for your publishing schedule: total video minutes per month. We converted six 2026 pricing pages into that one comparable unit.",
+    primaryKeyword: "blog to video pricing comparison minutes per month",
+    keywordVariant: "heygen vs blog2video pricing",
+    relatedPaths: [
+      "/pricing",
+      "/blog-to-video",
+      "/blogs/blog2video-vs-heygen",
+      "/blogs/blog2video-ultimate-competitor-comparison-2026",
+    ],
+    sections: [
+      {
+        heading: "The number that matters more than the sticker price",
+        paragraphs: [
+          "Every AI video tool publishes a monthly price. Almost none of them publish the number that actually determines whether that price works for you: how many minutes of finished video you can produce before the plan runs out.",
+          "We pulled the published June 2026 pricing pages for five of the most-compared blog-to-video and AI avatar tools and converted every plan into the same unit — total video minutes available per month at that price. The gap between tools priced within a few dollars of each other is bigger than the sticker prices suggest.",
+        ],
+      },
+      {
+        heading: "Blog2Video: flat plans, no credit math",
+        paragraphs: [
+          "Blog2Video's subscription plans are priced by video count, not by minute or credit. A video runs as long as the source article needs — typically 5 to 8 minutes for the Detailed preset most explainer content uses — and there's no separate meter running underneath the plan once you're inside your monthly video count.",
+          "At the Detailed preset's upper bound of roughly 8 minutes per video, that works out to up to 240 minutes a month on Standard and up to 800 minutes a month on Pro. Scaling from Standard to Pro costs 71% more per month and buys 233% more video.",
+        ],
+        bullets: [
+          "Standard — $35/mo ($28/mo billed annually): 30 videos/month, up to ~240 minutes total",
+          "Pro — $60/mo ($48/mo billed annually): 100 videos/month, up to ~800 minutes total",
+          "No credits, no per-minute add-on charges, no separate AI-feature cap layered on top",
+        ],
+      },
+      {
+        heading: "HeyGen: the same $29–$49 buys about a tenth of the video",
+        paragraphs: [
+          "HeyGen's Creator plan is priced close to Blog2Video Standard — $29/month versus $35/month. But HeyGen doesn't sell video minutes directly. It sells credits, and its premium avatar rendering burns through them fast.",
+          "Creator includes 200 monthly credits, and HeyGen's Avatar IV avatars cost about 20 credits per minute of rendered video. That caps Creator at roughly 30 minutes of avatar video a month, even though the plan is marketed around unlimited video count. Pro, at $49/month, raises the pool to 1,000 credits — about 50 minutes of the same avatar video. Scaling from Creator to Pro costs 69% more per month for 67% more video.",
+        ],
+        bullets: [
+          "Creator — $29/mo ($24/mo annual): ~200 credits ≈ 30 minutes of avatar video/month",
+          "Pro — $49/mo: ~1,000 credits ≈ 50 minutes of avatar video/month",
+          "Business — $149/mo: ~1,500 credits, 60-minute cap per individual render",
+        ],
+      },
+      {
+        heading: "It isn't just HeyGen — most avatar and stock-footage tools meter by the minute or credit",
+        paragraphs: [
+          "Synthesia and InVideo AI use the same structure as HeyGen: a published price, and a separate minute or credit allowance underneath it that determines what the price actually buys.",
+        ],
+        bullets: [
+          "Synthesia Starter — $29/mo ($18/mo annual): 10 minutes/month",
+          "Synthesia Creator — $89/mo ($64/mo annual): 30 minutes/month",
+          "InVideo AI Plus — $25/mo ($20/mo annual): ~50 AI-generation minutes/month",
+          "InVideo AI Max — $60/mo ($48/mo annual): ~200 AI-generation minutes/month",
+        ],
+      },
+      {
+        heading: "The one competitor that's actually close: Pictory",
+        paragraphs: [
+          "Pictory's headline minute allowance is the exception in this comparison. Starter, at $29/month ($25 billed annually), advertises 200 video minutes a month — in the same range as Blog2Video on paper — and Professional at $59/month advertises 600.",
+          "The catch is that Pictory runs two caps at once: the minute allowance sits on top of a separate, much smaller pool of AI credits (100 on Starter), and AI-heavy operations like voice generation and auto-summarization draw from that smaller pool first. In practice, most Pictory users hit the credit ceiling well before they use the full minute allowance. Blog2Video's video count is the only cap on its plans — there's no second meter running underneath it.",
+        ],
+        bullets: [
+          "Pictory Starter — $29/mo ($25/mo annual): 200 video minutes, gated by a separate 100-credit AI allowance",
+          "Pictory Professional — $59/mo ($35/mo annual): 600 video minutes, same dual-cap structure",
+        ],
+      },
+      {
+        heading: "What it costs per minute",
+        paragraphs: [
+          "Converting every plan to a price-per-minute makes the comparison concrete — and shows where the real gaps are, not just the headline numbers.",
+        ],
+        bullets: [
+          "Blog2Video Standard: $35 ÷ 240 min ≈ $0.15/minute",
+          "Blog2Video Pro: $60 ÷ 800 min ≈ $0.08/minute",
+          "HeyGen Creator: $29 ÷ 30 min ≈ $0.97/minute",
+          "HeyGen Pro: $49 ÷ 50 min ≈ $0.98/minute",
+          "Synthesia Starter: $29 ÷ 10 min ≈ $2.90/minute",
+          "InVideo AI Plus: $25 ÷ 50 min ≈ $0.50/minute",
+          "Pictory Starter (nominal, before its credit cap typically binds): $29 ÷ 200 min ≈ $0.15/minute",
+        ],
+      },
+      {
+        heading: "Why the gap exists",
+        paragraphs: [
+          "This isn't because templated video generation is magic — avatar rendering is genuinely more expensive to produce per minute than templated scene rendering. Lip sync, voice cloning, and photorealistic presenter rendering all cost more compute per minute of output, so avatar-first platforms like HeyGen and Synthesia have to price and ration by the minute to stay viable.",
+          "That's a reasonable tradeoff if a human presenter or video translation is actually part of what you need. But if your source content is already a written article doing the explanatory work, you're paying avatar-rendering prices for a problem you don't have.",
+        ],
+      },
+      {
+        heading: "What this looks like on a real publishing schedule",
+        paragraphs: [
+          "A team publishing one article-to-video conversion a week at 6 minutes each uses 24 minutes a month — comfortably inside any of these plans. Push to twice a week at the same length and you're at 48 minutes a month, which already exceeds HeyGen Creator's ~30-minute cap and forces an upgrade to Pro. Blog2Video Standard's 240-minute allowance has room for that same team to publish daily and still have headroom left over.",
+          "The pattern holds at higher volume too: a content team producing 30 videos a month at the Detailed preset's 8-minute ceiling fits entirely inside Blog2Video Standard. The equivalent video minutes on HeyGen would require its $149/month Business plan.",
+        ],
+        ctaPath: "/pricing",
+        ctaLabel: "See Blog2Video plans and pricing",
+      },
+    ],
+    faq: [
+      {
+        question: "How much video can I actually make on Blog2Video's $35/month plan?",
+        answer:
+          "Up to 240 minutes — 30 videos a month, each as long as the source article needs (typically 5 to 8 minutes for a Detailed-preset explainer). There's no separate credit pool layered on top of the video count.",
+      },
+      {
+        question: "Why does HeyGen cost about the same as Blog2Video but produce so much less video?",
+        answer:
+          "HeyGen's Creator plan sells credits, not minutes, and its premium Avatar IV rendering burns about 20 credits per minute. At $29/month and 200 credits, that caps out around 30 minutes of avatar video even though the plan markets unlimited video count. Blog2Video's plans are priced by video count with no credit conversion.",
+      },
+      {
+        question: "Is any competitor's pricing actually comparable to Blog2Video's?",
+        answer:
+          "Pictory's headline minute allowance — 200 minutes on its $29/month Starter plan — is the closest on paper. But Pictory runs a second, smaller credit pool underneath that minute cap, and AI-heavy features draw from it first, so most users hit that ceiling before using the full 200 minutes. Blog2Video has one cap: video count.",
+      },
+      {
+        question: "Why do avatar tools like HeyGen and Synthesia cap minutes so aggressively?",
+        answer:
+          "Avatar rendering — lip sync, voice cloning, photorealistic presenters — is computationally expensive per minute of output, so those platforms have to price and ration by the minute. Blog2Video and Pictory generate templated or animated scenes instead of rendering a presenter, which is why their limits are based on video count rather than raw render minutes.",
+      },
+      {
+        question: "Which tool should I use if I need an AI avatar instead of a templated explainer?",
+        answer:
+          "HeyGen and Synthesia are stronger choices when a presenter or avatar is part of the format — sales videos, training, localized spokesperson content. Blog2Video is built for the opposite case: turning an already-written article into a structured, narrated video without an avatar.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "$35 vs $29: how many minutes of video do you actually get?",
+        angle: "Capture pricing-comparison and 'X vs Y pricing' search intent with a concrete, sourced minutes-per-dollar number.",
+      },
+      {
+        channel: "substack",
+        title: "The pricing page number nobody publishes: minutes per month",
+        angle: "Lead with the per-minute cost table — let readers do their own math against their publishing schedule.",
+      },
+      {
+        channel: "medium",
+        title: "I converted six AI video pricing pages into one number. Here's what it showed.",
+        angle: "Methodology-first framing — show the conversion work, then the table, then the conclusion.",
+      },
+      {
+        channel: "video",
+        title: "How many minutes of video does $29 actually buy you?",
+        angle: "Visualize the per-minute cost bars side by side for a fast, shareable comparison clip.",
+      },
+    ],
+  },
   {
     slug: "bloghub-product-hunt-for-blogs",
     title: "Introducing BlogHub: The Discovery Platform Built for Blogs and Publications",
