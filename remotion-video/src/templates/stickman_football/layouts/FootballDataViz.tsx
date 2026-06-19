@@ -209,17 +209,20 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
     resolvedChartType === "histogram"
       ? chartInputs.histogramRows
       : chartInputs.barRows;
+  // Treat missing/non-numeric cells (NaN) as 0 — `?? 0` only catches null/undefined,
+  // so a single NaN would otherwise collapse axisTop to 1 and blow up every bar.
+  const finiteAbs = (v: number | undefined) => (Number.isFinite(v) ? Math.abs(v as number) : 0);
   const barDataMax = Math.max(
     0,
     ...(hasComparisonBars
       ? chartInputs.labels.flatMap((_, i) =>
-          chartInputs.lineSeries.slice(0, 3).map((s) => Math.abs(s.values[i] ?? 0)),
+          chartInputs.lineSeries.slice(0, 3).map((s) => finiteAbs(s.values[i])),
         )
-      : barRows.map((r) => Math.abs(r.value))),
+      : barRows.map((r) => finiteAbs(r.value))),
   );
   const lineMax = Math.max(
     0,
-    ...chartInputs.lineSeries.flatMap((s) => s.values.map((v) => Math.abs(v))),
+    ...chartInputs.lineSeries.flatMap((s) => s.values.map((v) => finiteAbs(v))),
   );
   const axisTop = getAxisUpperBound(
     resolvedChartType === "line" ? lineMax : barDataMax,
@@ -260,7 +263,54 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
   const absoluteMinCardH = H * 0.12;
   const cardH = Math.max(absoluteMinCardH, availableCardH);
   const portraitNarrTop = cardInsetY + cardH + cardNarrGap;
-  const margin = { top: 44, right: 28, bottom: p ? 56 : 48, left: 76 };
+
+  // Legend (markers/labels) occupies a reserved top row; size it before the
+  // chart margin so the plot area can start below it.
+  type LegendEntry = { kind: "label"; text: string } | { kind: "series"; text: string; color: string };
+  const legendEntries: LegendEntry[] = [];
+  if (xAxisLegendLabel) legendEntries.push({ kind: "label", text: `X: ${xAxisLegendLabel}` });
+  if (yAxisLegendLabel) legendEntries.push({ kind: "label", text: `Y: ${yAxisLegendLabel}` });
+  if (hasComparisonBars) {
+    chartInputs.lineSeries.slice(0, 3).forEach((s, i) => {
+      if (s.label) legendEntries.push({ kind: "series", text: s.label, color: barColors[i] });
+    });
+  }
+  const legendFont = tickPx - 2;
+  const legendPadY = 10;
+  const legendSwatch = 14;
+  const legendEntryGap = 22;
+  const legendLineH = legendSwatch + 10;
+  const legendRowGap = 22; // vertical padding between stacked legend rows (portrait)
+  const legendGroupGap = 64; // horizontal gap between the labels group and the swatches group (landscape one-row)
+  const legendLabelGap = 14; // tighter gap between the X and Y axis labels within the labels group
+  const legendTextW = (s: string) => Math.max(28, s.length * legendFont * 0.56);
+  const legendItemWidths = legendEntries.map((e) =>
+    e.kind === "label" ? legendTextW(e.text) : legendSwatch + 10 + legendTextW(e.text),
+  );
+
+  // Lay the legend out into rows. Landscape keeps everything on one row; portrait
+  // splits it semantically — the X/Y axis labels on one row, the color swatches on
+  // the next — so the markers read cleanly in the taller aspect.
+  const marginLeft = 76;
+  const marginRight = 28;
+  const legendRows: number[][] = [];
+  if (legendEntries.length > 0) {
+    if (p) {
+      const labelIdxs = legendEntries.map((_, i) => i).filter((i) => legendEntries[i].kind === "label");
+      const seriesIdxs = legendEntries.map((_, i) => i).filter((i) => legendEntries[i].kind === "series");
+      if (labelIdxs.length > 0) legendRows.push(labelIdxs);
+      if (seriesIdxs.length > 0) legendRows.push(seriesIdxs);
+    } else {
+      legendRows.push(legendEntries.map((_, i) => i));
+    }
+  }
+  const legendRowCount = legendRows.length;
+  const legendBandH =
+    legendRowCount > 0
+      ? legendRowCount * legendLineH + Math.max(0, legendRowCount - 1) * legendRowGap + legendPadY * 2 + 8
+      : 0;
+
+  const margin = { top: 10 + legendBandH, right: marginRight, bottom: p ? 56 : 48, left: marginLeft };
   const yAxisLineX = margin.left;
   const yTickLabelX = yAxisLineX - 14;
   const plotW = cardW - margin.left - margin.right;
@@ -445,63 +495,65 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
     return elements;
   };
 
-  type LegendEntry = { kind: "label"; text: string } | { kind: "series"; text: string; color: string };
-  const legendEntries: LegendEntry[] = [];
-  if (xAxisLegendLabel) legendEntries.push({ kind: "label", text: `X: ${xAxisLegendLabel}` });
-  if (yAxisLegendLabel) legendEntries.push({ kind: "label", text: `Y: ${yAxisLegendLabel}` });
-  if (hasComparisonBars) {
-    chartInputs.lineSeries.slice(0, 3).forEach((s, i) => {
-      if (s.label) legendEntries.push({ kind: "series", text: s.label, color: barColors[i] });
-    });
-  }
-  const legendFont = tickPx - 2;
-  const legendEntryGap = 22;
-  const legendPadY = 10;
-  const legendSwatch = 14;
-  const legendTextW = (s: string) => Math.max(28, s.length * legendFont * 0.56);
-  const legendItemWidths = legendEntries.map((e) =>
-    e.kind === "label" ? legendTextW(e.text) : legendSwatch + 10 + legendTextW(e.text),
-  );
-  const legendTotalW =
-    legendItemWidths.reduce((sum, w) => sum + w, 0) + legendEntryGap * Math.max(0, legendEntries.length - 1);
-  const legendRowH = legendSwatch + legendPadY * 2;
-  const legendTopY = margin.top - legendRowH - 2;
-  const legendStartX = margin.left + plotW - legendTotalW;
+  // Anchor the legend inside the reserved top band (the plot starts below it).
+  const legendTopY = 8;
   const legendRowTop = legendTopY + legendPadY;
+  const legendRightEdge = margin.left + plotW;
 
   const renderLegend = () => {
-    if (legendEntries.length === 0) return null;
-    let x = legendStartX;
+    if (legendRows.length === 0) return null;
     return (
       <g>
-        {legendEntries.map((entry, i) => {
-          const itemW = legendItemWidths[i];
-          const node = (
-            <g key={`leg-${i}`} transform={`translate(${x}, ${legendRowTop})`}>
-              {entry.kind === "series" && (
-                <path
-                  d={handRectPath(0, 0, legendSwatch, legendSwatch, 500 + i * 13, 1.1)}
-                  fill={entry.color}
-                  stroke={text}
-                  strokeWidth={1.2}
-                  strokeOpacity={0.45}
-                  strokeLinejoin="round"
-                />
-              )}
-              <text
-                x={entry.kind === "series" ? legendSwatch + 10 : 0}
-                y={legendSwatch * 0.82}
-                fill={text}
-                fontSize={legendFont}
-                fontFamily={font}
-                opacity={entry.kind === "label" ? 0.78 : 1}
-              >
-                {entry.text}
-              </text>
-            </g>
-          );
-          x += itemW + legendEntryGap;
-          return node;
+        {legendRows.map((row, r) => {
+          const y = legendRowTop + r * (legendLineH + legendRowGap);
+          // Place items flush to the right edge, walking leftward so each item's
+          // right boundary lands exactly where it should regardless of width estimates.
+          let xRight = legendRightEdge;
+          const reversed = [...row].reverse();
+          return reversed.map((idx, j) => {
+            const entry = legendEntries[idx];
+            const itemW = legendItemWidths[idx];
+            const x = xRight - itemW;
+            // Pick the gap to the next item (to the left): the X/Y labels sit tight
+            // together, the labels group sits far from the swatches group, and any
+            // other adjacency uses the default gap.
+            const nextIdx = reversed[j + 1];
+            const nextKind = nextIdx != null ? legendEntries[nextIdx].kind : null;
+            const gap =
+              nextKind == null
+                ? 0
+                : nextKind !== entry.kind
+                  ? legendGroupGap
+                  : entry.kind === "label"
+                    ? legendLabelGap
+                    : legendEntryGap;
+            xRight = x - gap;
+            return (
+              <g key={`leg-${idx}`} transform={`translate(${x}, ${y})`}>
+                {entry.kind === "series" && (
+                  <path
+                    d={handRectPath(0, 0, legendSwatch, legendSwatch, 500 + idx * 13, 1.1)}
+                    fill={entry.color}
+                    stroke={text}
+                    strokeWidth={1.2}
+                    strokeOpacity={0.45}
+                    strokeLinejoin="round"
+                  />
+                )}
+                <text
+                  x={itemW}
+                  textAnchor="end"
+                  y={legendSwatch * 0.82}
+                  fill={text}
+                  fontSize={legendFont}
+                  fontFamily={font}
+                  opacity={entry.kind === "label" ? 0.78 : 1}
+                >
+                  {entry.text}
+                </text>
+              </g>
+            );
+          });
         })}
       </g>
     );

@@ -282,17 +282,35 @@ export function deriveFromTable(chartTable: ChartTableShape | undefined): Partia
     }
   });
 
+  // Raw (untrimmed of per-row) cell strings per column, to judge whether a column
+  // is genuinely numeric vs. a unit/text column whose cells only yield stray digits.
+  const rawColCells: string[][] = Array.from({ length: colCount }, () => []);
+  rows.forEach((row) => {
+    if (!Array.isArray(row) || row.length < 2) return;
+    for (let c = 0; c < colCount; c++) {
+      if (c === labelColIdx) continue;
+      rawColCells[c].push(String((row as Array<string | number>)[c] ?? "").trim());
+    }
+  });
+
   const seriesWithMeta = numericCols
     .map((values, idx) => ({
       colIdx: idx,
       label: String(headers[idx] ?? "").trim(),
       values: values.map((v) => (Number.isFinite(v) ? v : Number.NaN)),
     }))
-    .filter((s) =>
-      s.colIdx !== labelColIdx &&
-      !(rankLikeCol0 && s.colIdx === 0) &&
-      s.values.some((v) => Number.isFinite(v)),
-    );
+    .filter((s) => {
+      if (s.colIdx === labelColIdx) return false;
+      if (rankLikeCol0 && s.colIdx === 0) return false;
+      // A real metric column is predominantly *strictly* numeric. Reject unit/text
+      // columns (e.g. "BBL/D/1K", "Thousand Barrels Per Day") whose cells only yield
+      // stray digits via the lenient fallback — otherwise they become a phantom
+      // series and a single NaN collapses the axis.
+      const cells = rawColCells[s.colIdx].filter((c) => c.length > 0);
+      if (cells.length === 0) return false;
+      const strictNumeric = cells.filter((c) => STRICT_NUMERIC_RE.test(c)).length;
+      return strictNumeric >= Math.ceil(cells.length * 0.6);
+    });
 
   const validSeries = seriesWithMeta
     .map(({ colIdx, label, values }) => ({
