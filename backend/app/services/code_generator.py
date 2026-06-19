@@ -60,9 +60,23 @@ class DecideBrandSceneTypes(dspy.Signature):
     - Each "description" should hint at a DISTINCT visual treatment (e.g. "asymmetric
       split hero", "offset stat stack", "full-bleed quote", "side-rail timeline") so
       the downstream scene generator gives each scene its own composition.
+
+    Honoring the user's brief:
+    - If user_brief is non-empty and names specific scenes, content types, or an
+      ordering (e.g. "add a customer testimonial scene", "make one a code demo",
+      "start with a comparison"), HONOR those requests: include scene types that
+      cover them and respect any requested ordering, then fill the remaining slots
+      with brand-appropriate DISTINCT archetypes. Map requests to the allowed
+      best_for values (a testimonial → "quote"; a code walkthrough → "code"; etc.).
+    - If user_brief is empty, decide purely from the brand identity.
+    - Never let the brief push you below the structural requirements (still exactly
+      1 intro + 1 outro) or create a dedicated chart/table content scene.
     """
 
     brand_context: str = dspy.InputField(desc="Brand name, category, personality, visual patterns")
+    user_brief: str = dspy.InputField(
+        desc="The user's free-text prompt / uploaded-doc text describing the desired template (may be empty). Honor explicit scene requests stated here."
+    )
     scene_types_json: str = dspy.OutputField(
         desc='JSON array of scene type objects: [{"id": "...", "scene_type": "...", "best_for": [...], "description": "..."}]'
     )
@@ -249,8 +263,9 @@ class GenerateSceneCode(dspy.Signature):
         <StatCard item={...} primary /> — animated count-up stat displays. Use when
         props.metrics is present.
     - <CountUpValue value="$1.2M" /> — single animated number (prefix/suffix/decimals preserved).
-    - <RevealText text={...} mode="word|char|line|fade|blur" /> — staggered text reveal
-        (mode="blur" is the snappy/energetic personality; word/line are smooth/calm).
+    - <RevealText text={...} mode="word|char|line|fade|blur|typewriter" /> — staggered text
+        reveal (mode="blur" is the snappy/energetic personality; word/line are smooth/calm;
+        typewriter types characters in with a blinking cursor — editorial/terminal feel).
     - <HighlightPhrase text={...} phrase={...} /> — accent underline on a key phrase.
     - <CodeBlock lines={props.codeLines} language={props.codeLanguage} /> — themed, SAFE
         code panel. Renders ONLY the given lines; use it for "code" scenes instead of
@@ -261,6 +276,13 @@ class GenerateSceneCode(dspy.Signature):
     - <Decor system="dots|grid|orbs|starfield|rules|vignette|hairlines|mesh|ticker|concentric|wash"
         intensity={0.4} /> — restrained background atmosphere. Prefer THIS brand's signature
         decor system (named in the BRAND SIGNATURE block) so the template reads as its own persona.
+    - <SignatureArtifact motion="<this brand's artifactMotion>" intensity={0.5} /> — the brand's
+        recurring ANIMATED motif (its fingerprint): a drawn-in corner frame, drifting streak field,
+        kinetic ticker, big ghost glyph, pulse ring or accent sweep, picked from the artifactMotion
+        word. Use ONE per scene to carry the brand thread — PROMINENT in the intro, a restrained
+        ECHO (lower intensity) in content, a quiet callback in the outro. (Individual pieces are also
+        available directly: CornerFrame, StreakField, KineticTicker, BigGlyphBackdrop, PulseRing,
+        AccentSweep — but SignatureArtifact is the brand-correct default.)
     - Helpers: useKit() → {{palette, type, isPortrait, fonts}}; derivePalette(colors);
         withAlpha(hex, a); staggerEntrance(frame, i); headlinePop(frame, fps);
         panelRise(frame, fps); countUpString(value, frame); cardStyle(palette, variant).
@@ -304,8 +326,9 @@ class GenerateSceneCode(dspy.Signature):
       (You may hand-roll the opener instead, but it must hit the same bar: a real logo reveal, a
       bold title reveal, exactly ONE signature entrance beat.) Calm and confident: one focal
       headline, generous negative space. Give the brand's SIGNATURE ARTIFACT (see IDENTITY KIT)
-      its most PROMINENT, animated take here — this is the hero moment that sets the brand's
-      visual fingerprint for the whole video. Do NOT render bullet/metric/step lists in the intro.
+      its most PROMINENT, animated take here — drop <SignatureArtifact motion="<artifactMotion>"
+      intensity={0.7} /> as the hero moment that sets the brand's visual fingerprint for the whole
+      video. Do NOT render bullet/metric/step lists in the intro.
       Branch on isPortrait: portrait stacks logo→title vertically and centered; landscape may
       offset the title or place logo+title side by side.
     - OUTRO (scene_type == "outro"): a calm closing recap — restate the brand
@@ -517,6 +540,8 @@ def _scene_reward(args, pred) -> float:
                 r'\bheadlinePop\b',
                 r'\bpanelRise\b',
                 r'\bCountUpValue\b',
+                # Signature artifacts are animated motifs — count them as motion.
+                r'\b(SignatureArtifact|CornerFrame|StreakField|KineticTicker|BigGlyphBackdrop|PulseRing|AccentSweep)\b',
             )
         )
         _has_decor = bool(re.search(r'<Decor\b', code))
@@ -539,6 +564,7 @@ def _scene_reward(args, pred) -> float:
             or re.search(r'<KenBurnsImage\b', code)       # full-bleed hero image
             or re.search(r'cardStyle\s*\(', code)         # brand surface panel
             or re.search(r'linear-gradient', code)        # scrim / gradient backdrop
+            or re.search(r'\b(SignatureArtifact|StreakField|KineticTicker|BigGlyphBackdrop|PulseRing|AccentSweep|CornerFrame)\b', code)  # signature artifact atmosphere
         )
         if not _has_backdrop:
             score -= 0.2
@@ -657,6 +683,7 @@ def _build_brand_context(
         _type = signature.get("typeTreatment", "clean-sans")
         _sig_decor = signature.get("decorSystem", _decor)
         _artifact_motion = signature.get("artifactMotion", "drift")
+        _artifact_set = signature.get("artifactSet") or [_artifact_motion]
         _type_hint = {
             "tight-sans": "tight, modern sans — sentence case, low letter-spacing, heavy weights",
             "editorial-serif": "high-contrast serif headings with an ALL-CAPS sans kicker, wide tracking",
@@ -669,12 +696,14 @@ def _build_brand_context(
             "BRAND IDENTITY KIT — the unique persona for this template:\n"
             f"  • Type (KEEP CONSISTENT every scene — this is the brand thread): {_type_hint}\n"
             f"  • Motion energy (KEEP CONSISTENT): see the Motion energy line below\n"
-            f"  • SIGNATURE ARTIFACT (this brand's recurring motif — its visual fingerprint): the "
-            f"<Decor system=\"{_sig_decor}\" /> motif, animated with a \"{_artifact_motion}\" treatment "
-            f"(interpret the motion word into a spring/interpolate beat on the motif). Weave it through "
-            f"scenes where it fits: a PROMINENT, animated take as the hero moment in the INTRO; restrained "
-            f"ECHOES in content scenes (low intensity ~{_intensity}, varied placement, never identical); a "
-            f"quiet CALLBACK in the OUTRO. This recurring artifact is what makes the template read as ONE brand.\n"
+            f"  • SIGNATURE ARTIFACT FAMILY (this brand's fingerprint): {_artifact_set} — a related "
+            f"family of animated motifs via <SignatureArtifact motion=\"...\" />. Each scene's "
+            f"scene_purpose names the EXACT motion + intensity to use for that scene, so VARY the "
+            f"artifact across scenes (don't repeat one motif everywhere): the intro gets a BOLD hero "
+            f"take, content scenes restrained ECHOES placed differently each time, the outro a quiet "
+            f"callback with a DIFFERENT motif than the intro. (The matching <Decor system=\"{_sig_decor}\" /> "
+            f"is a quiet static companion.) This rotating-but-related family is what makes the template "
+            f"read as ONE brand while keeping every scene visually distinct.\n"
             f"  • Surface lean (DEFAULT, not mandatory): panels tend toward cardStyle(palette, \"{_surface}\") — switch treatment when a scene calls for it\n"
             f"  • Reveal: RevealText mode=\"blur\" for energetic brands, \"word\"/\"line\" for calm/smooth\n"
         )
@@ -714,8 +743,63 @@ def _build_brand_context(
 # ─── Brand scene type decision ──────────────────────────────────
 
 
-def _decide_brand_scene_types(brand_context: str) -> list[dict]:
+def _extract_json_array(raw: str):
+    """Parse a JSON array from an LLM string, tolerating common slop.
+
+    Handles: ```json fences, prose before/after the array, and trailing text
+    after the closing bracket (the `Extra data: line N` failure). Strategy:
+    strip fences, then if a plain json.loads fails, slice from the first '[' to
+    its matching ']' (bracket-depth aware, skipping brackets inside strings) and
+    parse that. Raises json.JSONDecodeError if no valid array is found.
+    """
+    s = (raw or "").strip()
+    # Strip a leading ```/```json fence and a trailing ``` fence.
+    if s.startswith("```"):
+        nl = s.find("\n")
+        if nl != -1:
+            s = s[nl + 1 :]
+        if s.rstrip().endswith("```"):
+            s = s.rstrip()[:-3]
+    s = s.strip()
+
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+
+    # Find the first top-level [...] block, ignoring brackets inside strings.
+    start = s.find("[")
+    if start == -1:
+        raise json.JSONDecodeError("no JSON array found", s, 0)
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, len(s)):
+        ch = s[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                return json.loads(s[start : i + 1])
+    raise json.JSONDecodeError("unterminated JSON array", s, start)
+
+
+def _decide_brand_scene_types(brand_context: str, user_brief: str = "") -> list[dict]:
     """Ask the AI to decide scene types tailored to this brand.
+
+    `user_brief` is the user's raw prompt / uploaded-doc text (empty for URL-scraped
+    templates); when present, explicit scene requests in it are honored.
 
     Retries once on failure. Raises RuntimeError if both attempts fail.
     Returns list of dicts: [{"id": "...", "scene_type": "...", "best_for": [...], "description": "..."}]
@@ -728,17 +812,29 @@ def _decide_brand_scene_types(brand_context: str) -> list[dict]:
     for attempt in range(2):
         t0 = time.time()
         try:
-            with dspy.context(lm=codegen_lm):
-                result = module(brand_context=brand_context)
+            # On the RETRY, run with the LM cache disabled so we don't re-fetch the
+            # same malformed response (which fails identically in ~0s and would also
+            # poison every later template with the same inputs). Guarded with
+            # getattr/try so it degrades safely if the dspy/LM version differs.
+            prev_cache = getattr(codegen_lm, "cache", None)
+            if attempt and prev_cache is not None:
+                try:
+                    codegen_lm.cache = False
+                except Exception:  # noqa: BLE001
+                    pass
+            try:
+                with dspy.context(lm=codegen_lm):
+                    result = module(brand_context=brand_context, user_brief=user_brief or "")
+            finally:
+                if attempt and prev_cache is not None:
+                    try:
+                        codegen_lm.cache = prev_cache
+                    except Exception:  # noqa: BLE001
+                        pass
 
-            raw = (result.scene_types_json or "").strip()
-            if raw.startswith("```"):
-                lines = raw.split("\n")[1:]
-                if lines and lines[-1].strip() == "```":
-                    lines = lines[:-1]
-                raw = "\n".join(lines)
-
-            scene_types = json.loads(raw)
+            # Tolerant parse — the model sometimes appends prose / a second fence
+            # after the array ("Extra data: line N"), so extract the array itself.
+            scene_types = _extract_json_array(result.scene_types_json or "")
 
             if not isinstance(scene_types, list) or len(scene_types) < 3:
                 raise ValueError(f"Expected list of 3+ scene types, got {type(scene_types).__name__} with {len(scene_types) if isinstance(scene_types, list) else 0} items")
@@ -952,6 +1048,56 @@ async def _generate_single_scene(
     )
 
 
+# ─── Per-scene brief hints ──────────────────────────────────────
+
+
+def _scene_hint_for(brief: str, archetype: dict) -> str:
+    """Pull the sentence(s) of the user's brief that are relevant to THIS scene.
+
+    Cheap + deterministic (no extra LLM call): split the brief into sentences and
+    keep the ones that mention this archetype's content kind (best_for) or its id
+    words. Returns a short directive to append to scene_purpose, or "" when nothing
+    in the brief targets this scene. The full brief still steered the scene-type
+    decision upstream; this just surfaces the specific art direction to the scene
+    that should carry it.
+    """
+    if not brief:
+        return ""
+
+    # Keywords per content kind → catch the user naming it in plain language.
+    kind_words = {
+        "quote": ("quote", "testimonial", "review", "customer", "client", "praise"),
+        "code": ("code", "snippet", "demo", "walkthrough", "terminal", "developer", "api"),
+        "metrics": ("metric", "stat", "number", "kpi", "figure", "growth", "result"),
+        "comparison": ("comparison", "compare", "versus", " vs ", "before", "after", "pros", "cons"),
+        "timeline": ("timeline", "history", "roadmap", "milestone", "journey", "step-by-step"),
+        "steps": ("step", "how to", "process", "guide", "tutorial", "instructions"),
+        "bullets": ("bullet", "feature", "list", "points", "highlights"),
+        "plain": ("intro", "overview", "summary", "story", "narrative"),
+    }
+
+    best_for = archetype.get("best_for") or []
+    targets = set()
+    for bf in best_for:
+        targets.update(kind_words.get(str(bf).lower(), ()))
+    # Also match the id words (e.g. "customer_testimonial" → "customer", "testimonial").
+    targets.update(w for w in str(archetype.get("id", "")).lower().split("_") if len(w) > 3)
+    if not targets:
+        return ""
+
+    sentences = re.split(r"(?<=[.!?\n])\s+", brief)
+    matched = [
+        s.strip()
+        for s in sentences
+        if s.strip() and any(t in s.lower() for t in targets)
+    ]
+    if not matched:
+        return ""
+    # Keep it short — at most ~240 chars of the most relevant direction.
+    hint = " ".join(matched)[:240].strip()
+    return f" | USER REQUEST for this scene (honor it): {hint}"
+
+
 # ─── Main generation entry point ────────────────────────────────
 
 
@@ -1004,9 +1150,15 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         f"[F7-DEBUG] [CODEGEN] LLM model={codegen_lm.model!r} max_tokens={_tok}"
     )
 
-    # Step 1: AI decides scene types for this brand
+    # Step 1: AI decides scene types for this brand. The raw brief (prompt / doc
+    # text, empty for URL-scraped templates) lets the user request specific scenes.
+    user_brief = (theme.get("brief") or "").strip() if isinstance(theme, dict) else ""
+    if user_brief:
+        print(f"[F7-DEBUG] [V3][BRIEF] honoring user brief ({len(user_brief)} chars) in scene decisions")
     loop = asyncio.get_event_loop()
-    all_scene_types = await loop.run_in_executor(None, _decide_brand_scene_types, brand_context)
+    all_scene_types = await loop.run_in_executor(
+        None, _decide_brand_scene_types, brand_context, user_brief
+    )
 
     intro_archetype = next(s for s in all_scene_types if s["scene_type"] == "intro")
     outro_archetype = next(s for s in all_scene_types if s["scene_type"] == "outro")
@@ -1046,6 +1198,23 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         _comp_order[_k], _comp_order[_j] = _comp_order[_j], _comp_order[_k]
     print(f"[F7-DEBUG] [V3][COMPOSITION] brand-seeded order: {_comp_order}")
 
+    # Per-scene SIGNATURE ARTIFACT rotation. Instead of every scene repeating the
+    # one artifactMotion (which read as same-y), rotate through the brand's small
+    # artifactSet (primary + up to 2 related from the same bucket). intro = the
+    # boldest/primary as a hero take; content scenes rotate the rest for variety;
+    # outro = a DIFFERENT member than the intro so the bookends don't look alike.
+    _sig = (theme.get("signature") or {})
+    _artifact_set = _sig.get("artifactSet") or [_sig.get("artifactMotion") or "drift"]
+    _intro_artifact = _artifact_set[0]
+    _outro_artifact = _artifact_set[-1] if len(_artifact_set) > 1 else _artifact_set[0]
+    # Content scenes rotate the non-primary members first (so they differ from the
+    # intro's hero artifact), falling back to the whole set if there's only one.
+    _content_pool = _artifact_set[1:] or _artifact_set
+    print(
+        f"[F7-DEBUG] [V3][ARTIFACT] set={_artifact_set} | intro={_intro_artifact} "
+        f"| content_pool={_content_pool} | outro={_outro_artifact}"
+    )
+
     # Step 3: Generate ALL scenes in parallel
     tasks = [
         _generate_single_scene(
@@ -1057,7 +1226,11 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             scene_purpose=(
                 f"{intro_archetype['id']}: {intro_archetype['description']} "
                 "| brand-reveal opener: lead with an animated brand-name title + a real "
-                "logo reveal and ONE signature entrance beat (no bullet/metric lists)"
+                "logo reveal and ONE signature entrance beat (no bullet/metric lists) "
+                f"| SIGNATURE ARTIFACT: give <SignatureArtifact motion=\"{_intro_artifact}\" "
+                "intensity={0.7} /> its BOLD hero take here — this is the loudest, most "
+                "energetic moment of the whole video; the title entrance should be the "
+                "video's biggest motion beat"
             ),
         ),
     ]
@@ -1066,11 +1239,14 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             f" | best_for={arch['best_for']}" if arch.get("best_for") else ""
         )
         _comp = _comp_order[i % len(_comp_order)]
+        _brief_hint = _scene_hint_for(user_brief, arch)
+        _scene_artifact = _content_pool[i % len(_content_pool)]
         # ── V3 verification: each content scene gets a distinct, brand-seeded
         # composition directive (the model authors the geometry itself).
         print(
             f"[F7-DEBUG] [V3][COMPOSITION] content scene {i + 1}/{num_content} "
-            f"(archetype={arch['id']!r}) -> composition={_comp!r}"
+            f"(archetype={arch['id']!r}) -> composition={_comp!r} artifact={_scene_artifact!r}"
+            f"{' [+brief-hint]' if _brief_hint else ''}"
         )
         tasks.append(
             _generate_single_scene(
@@ -1082,7 +1258,11 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
                 scene_purpose=(
                     f"{arch['id']}: {arch['description']}{best_for_hint} "
                     f"| content scene {i + 1} of {num_content}: use a '{_comp}' composition, "
-                    "visually DISTINCT from its neighbours (do not reuse a centered card)"
+                    "visually DISTINCT from its neighbours (do not reuse a centered card) "
+                    f"| SIGNATURE ARTIFACT: echo the brand with <SignatureArtifact "
+                    f"motion=\"{_scene_artifact}\" intensity={{0.4}} /> — a restrained ECHO "
+                    "(not the intro's hero take), placed differently than neighbouring scenes"
+                    f"{_brief_hint}"
                 ),
             ),
         )
@@ -1096,7 +1276,13 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             scene_purpose=(
                 f"{outro_archetype['id']}: {outro_archetype['description']} "
                 "| closing brand recap (a CTA + socials row is overlaid automatically — "
-                "do not hand-roll social icons or CTA buttons)"
+                "do not hand-roll social icons or CTA buttons) "
+                "| DELIBERATELY DIFFERENT FROM THE INTRO: where the intro was loud, big and "
+                "energetic, the outro is calm and settled — a different alignment/composition "
+                "and a gentler entrance (NOT the same centered title treatment as the intro) "
+                f"| SIGNATURE ARTIFACT: a QUIET callback with <SignatureArtifact "
+                f"motion=\"{_outro_artifact}\" intensity={{0.35}} /> — a different motif than "
+                "the intro's hero artifact so the bookends don't look identical"
             ),
         ),
     )

@@ -28,6 +28,13 @@ import { wipe, type WipeDirection } from "@remotion/transitions/wipe";
 import { flip, type FlipDirection } from "@remotion/transitions/flip";
 import { iris } from "@remotion/transitions/iris";
 import { clockWipe } from "@remotion/transitions/clock-wipe";
+import {
+  pagePush,
+  whipBlur,
+  accentBar,
+  pageFold,
+  inkBleed as inkBleedPresentation,
+} from "./generatedTransitionPresentations";
 
 /**
  * Brand motion personalities → concrete moves. The first five are the original
@@ -44,18 +51,25 @@ export type GeneratedTransitionFamily =
   | "push_slide"
   | "cover_wipe"
   | "page_flip"
-  | "clock_sweep";
+  | "clock_sweep"
+  // richer custom presentations (palette-driven; ported from economist/chronicle)
+  | "parallax_push"
+  | "whip_pan"
+  | "accent_bar"
+  | "page_fold"
+  | "ink_bleed";
 
 // Full rotation used when a brand has no explicit family — gives any template a
 // rich, economist-style mix out of the box.
 const DEFAULT_FAMILY: GeneratedTransitionFamily[] = [
-  "push_slide",
+  "parallax_push",
+  "accent_bar",
+  "page_fold",
   "rule_sweep",
-  "page_flip",
-  "ink_wash",
-  "cover_wipe",
+  "ink_bleed",
   "clock_sweep",
-  "whip_blur",
+  "whip_pan",
+  "page_flip",
   "fade",
 ];
 
@@ -89,8 +103,28 @@ function presentationFor(
   w: number,
   h: number,
   index: number,
+  accent: string,
 ): GeneratedTransitionChoice {
+  const LR: ("left" | "right")[] = ["right", "left"];
   switch (fam) {
+    case "parallax_push":
+      // Parallax depth push — outgoing recedes/dims, incoming rides in faster.
+      return { presentation: cast(pagePush({ direction: pick(LR, index), distance: w })), frames: 26 };
+    case "whip_pan":
+      // Fast motion-blur whip — the punchiest handoff (bold/energetic brands).
+      return { presentation: cast(whipBlur({ direction: pick(LR, index) })), frames: 16 };
+    case "accent_bar":
+      // Solid brand-accent bar sweeps across, covering the cut (branded wipe).
+      return { presentation: cast(accentBar({ direction: pick(LR, index), color: accent })), frames: 28 };
+    case "page_fold":
+      // 3-D half-page fold hinged at centre (editorial / premium).
+      return {
+        presentation: cast(pageFold({ direction: index % 2 === 0 ? "forward" : "backward", panel: accent })),
+        frames: 34,
+      };
+    case "ink_bleed":
+      // Radial ink wash grows then recedes, revealing the incoming scene.
+      return { presentation: cast(inkBleedPresentation({ color: accent })), frames: 30 };
     case "accent_wash":
     case "push_slide":
       // Push — incoming scene slides in over the outgoing one (direction varies).
@@ -133,11 +167,14 @@ export const pickGeneratedTransition = (
   family?: GeneratedTransitionFamily[] | string[],
   w = 1920,
   h = 1080,
+  /** Brand accent — used by the colour-driven moves (accent_bar / page_fold /
+   *  ink_bleed). Falls back to a neutral grey so the file is usable without it. */
+  accent = "#888888",
 ): GeneratedTransitionChoice => {
   const pool =
     family && family.length
       ? (family as GeneratedTransitionFamily[])
       : DEFAULT_FAMILY;
   const fam = pool[Math.abs(index) % pool.length];
-  return presentationFor(fam, w, h, index);
+  return presentationFor(fam, w, h, index, accent);
 };

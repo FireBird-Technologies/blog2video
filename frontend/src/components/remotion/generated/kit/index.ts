@@ -32,6 +32,8 @@ export {
   easeOutBack,
   clamp01,
   progressAt,
+  drawProgress,
+  seededRand,
   masterOpacity,
   staggerEntrance,
   headlinePop,
@@ -82,6 +84,23 @@ export { KenBurnsImage, type KenBurnsImageProps } from "./KenBurnsImage";
 
 // Decoration
 export { Decor, type DecorProps, type DecorSystem } from "./Decor";
+
+// Signature artifacts — the brand's recurring animated motif (fingerprint)
+export {
+  SignatureArtifact,
+  CornerFrame,
+  StreakField,
+  KineticTicker,
+  BigGlyphBackdrop,
+  PulseRing,
+  AccentSweep,
+  DiagonalShards,
+  HalftoneField,
+  StarburstBadge,
+  LightDust,
+  OrbitRings,
+  type ArtifactMotion,
+} from "./Artifacts";
 
 // Charts (data-viz)
 export { CustomChart, autoChartSummary, type CustomChartProps } from "./CustomChart";

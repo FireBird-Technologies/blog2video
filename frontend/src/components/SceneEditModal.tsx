@@ -766,6 +766,64 @@ function getFJResearchMarketAnnotationExampleTable(
 }
 
 /**
+ * Custom-template example datasets per chart type — the generic counterpart to
+ * the built-ins' themed examples. The "line" shape mirrors the backend
+ * `_CUSTOM_DATAVIZ_SEED` (pipeline.py) so it matches the renderer's fallback;
+ * "bar" uses category labels and "histogram" uses bucket ranges so the preview
+ * reads correctly for the chosen shape. Used when the user changes the chart
+ * type on a custom data-viz scene that has no real data yet.
+ */
+function getCustomDataVizExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "bar") {
+    return {
+      headers: ["Category", "Revenue", "Growth %"],
+      rows: [
+        ["Product A", "120", "8"],
+        ["Product B", "145", "12"],
+        ["Product C", "170", "17"],
+        ["Product D", "210", "24"],
+      ],
+    };
+  }
+  if (chartType === "histogram") {
+    return {
+      headers: ["Range", "Count"],
+      rows: [
+        ["0 - 50", "4"],
+        ["50 - 100", "9"],
+        ["100 - 150", "15"],
+        ["150 - 200", "11"],
+        ["200 - 250", "6"],
+      ],
+    };
+  }
+  // line — mirrors backend _CUSTOM_DATAVIZ_SEED
+  return {
+    headers: ["Quarter", "Revenue", "Growth %"],
+    rows: [
+      ["Q1", "120", "8"],
+      ["Q2", "145", "12"],
+      ["Q3", "170", "17"],
+      ["Q4", "210", "24"],
+    ],
+  };
+}
+
+/** True when `table` matches one of the custom example datasets (i.e. it is
+ * seeded placeholder data, not something the user typed). Used to decide whether
+ * a chart-type change may safely swap the table for a shape-appropriate example. */
+function isCustomDataVizExampleTable(table: { headers: string[]; rows: string[][] }): boolean {
+  const sig = (t: { headers: string[]; rows: string[][] }) =>
+    JSON.stringify([t.headers, t.rows]);
+  const current = sig(table);
+  return (["line", "bar", "histogram"] as const).some(
+    (k) => sig(getCustomDataVizExampleTable(k)) === current,
+  );
+}
+
+/**
  * Mirrors `mergeMarketAnnotationChartDefaults()` in
  * [VideoPreview.tsx](./VideoPreview.tsx) — fills `chartTable` (and
  * `chartType`) from `meta.json` `layout_prop_schema[layout].defaults`
@@ -4517,6 +4575,10 @@ export default function SceneEditModal({
                         const isBuiltinChartTypeField =
                           field.key === "chartType" &&
                           isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId);
+                        const isCustomChartTypeField =
+                          isCustomTemplate &&
+                          currentLayoutId === "custom_chart" &&
+                          field.key === "chartType";
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4555,6 +4617,31 @@ export default function SceneEditModal({
                                       [field.key]: nextChartType,
                                       chartTable: example,
                                     }));
+                                    return;
+                                  }
+                                }
+                                if (isCustomChartTypeField) {
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    // Only swap in a shape-appropriate example when the current
+                                    // table is empty or still a known seed/example — never clobber
+                                    // real data the user typed or imported.
+                                    setEditableLayoutProps((prev) => {
+                                      const existing = normalizeChartTableValue(prev.chartTable);
+                                      const isSeed =
+                                        !chartTableHasData(existing) || isCustomDataVizExampleTable(existing);
+                                      if (!isSeed) {
+                                        return { ...prev, [field.key]: nextChartType };
+                                      }
+                                      return {
+                                        ...prev,
+                                        [field.key]: nextChartType,
+                                        chartTable: getCustomDataVizExampleTable(concrete),
+                                      };
+                                    });
                                     return;
                                   }
                                 }

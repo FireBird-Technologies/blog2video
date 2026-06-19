@@ -140,7 +140,7 @@ const StableCustomComposition: React.FC<any> = ({
   // sync are unchanged. See generatedTransitions.ts.
   const transitions = scenes.map((_: unknown, i: number) =>
     i < totalScenes - 1
-      ? pickGeneratedTransition(i, transitionFamily, canvasW, canvasH)
+      ? pickGeneratedTransition(i, transitionFamily, canvasW, canvasH, brandColors.accent)
       : null,
   );
 

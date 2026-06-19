@@ -544,6 +544,18 @@ import {{
   SideRail,
   IntroStage,
   CustomChart,
+  SignatureArtifact,
+  CornerFrame,
+  StreakField,
+  KineticTicker,
+  BigGlyphBackdrop,
+  PulseRing,
+  AccentSweep,
+  DiagonalShards,
+  HalftoneField,
+  StarburstBadge,
+  LightDust,
+  OrbitRings,
   cardStyle,
   derivePalette,
   withAlpha,
@@ -552,6 +564,8 @@ import {{
   panelRise,
   masterOpacity,
   countUpString,
+  drawProgress,
+  seededRand,
 }} from "./kit";
 
 // Safe wrapper — ensures inputRange is strictly monotonic even when dynamic values resolve equal

@@ -17,9 +17,11 @@ export interface RevealTextProps {
   /**
    * Reveal granularity / personality. `fade` is a plain opacity rise; `word`/
    * `char`/`line` are the smooth (calm) personality; `blur` is the snappy
-   * (energetic) personality — pick by the brand signature's motionEnergy.
+   * (energetic) personality; `typewriter` types characters in with a blinking
+   * cursor (editorial / terminal feel) — pick by the brand signature's
+   * motionEnergy.
    */
-  mode?: "word" | "char" | "line" | "fade" | "blur";
+  mode?: "word" | "char" | "line" | "fade" | "blur" | "typewriter";
   start?: number;
   /** Frames per unit (word/char/line). Auto-scaled if omitted. */
   stepFrames?: number;
@@ -43,6 +45,23 @@ export const RevealText: React.FC<RevealTextProps> = ({
   if (mode === "fade") {
     const op = easeOutQuint(progressAt(frame, start, 18));
     return <Tag style={{ opacity: op, ...style }}>{content}</Tag>;
+  }
+
+  // Typewriter: reveal characters sequentially with a frame-driven blinking
+  // cursor (deterministic — no Date/timers). Default ~1.4 frames per char.
+  if (mode === "typewriter") {
+    const step = stepFrames ?? 1.4;
+    const shown = clamp01(progressAt(frame, start, Math.max(1, content.length * step)));
+    const n = Math.floor(content.length * shown);
+    const typing = n < content.length;
+    // Blink every ~30 frames (15 on / 15 off). Solid while still typing.
+    const cursorOn = typing || Math.floor(frame / 15) % 2 === 0;
+    return (
+      <Tag style={style}>
+        {content.slice(0, n)}
+        <span style={{ opacity: cursorOn ? 1 : 0 }}>▍</span>
+      </Tag>
+    );
   }
 
   // Snappy energetic personality: words punch in from blur + slight scale.

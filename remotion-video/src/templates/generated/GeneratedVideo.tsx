@@ -148,20 +148,55 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       .then((d: GeneratedVideoData) => {
         setData(d);
 
-        // Try project-level font first
-        const resolvedProjectFont = resolveFontFamily(d.fontFamily ?? null);
-        if (resolvedProjectFont) {
-          Promise.all([
-            document.fonts.load(`400 16px ${resolvedProjectFont}`),
-            document.fonts.load(`700 16px ${resolvedProjectFont}`),
-          ])
+        // Wait for EVERY font the scenes actually paint with before releasing the
+        // render — not just the project font. The intro leads with the large
+        // heading font, so if it isn't loaded the title paints in the fallback and
+        // then swaps when the real font arrives → intro flicker on render. Gather
+        // the project font + the theme heading/body fonts (each at 400 & 700) and
+        // await them all, then document.fonts.ready, before continueRender.
+        //
+        // headingFont/bodyFont can be a RAW theme string from the AI extractor
+        // (e.g. "Playfair Display"), so sanitize each to a single bare family
+        // (strip any CSS fallback list / quotes) — document.fonts.load() throws
+        // on an unparseable font shorthand, and an unguarded throw here would fall
+        // to the outer .catch() and replace the whole video with fallback data.
+        const cleanFamily = (f: string): string =>
+          f.split(",")[0].replace(/['"]/g, "").trim();
+        const families = Array.from(
+          new Set(
+            [
+              resolveFontFamily(d.fontFamily ?? null),
+              resolveFontFamily(d.headingFont ?? null) || d.headingFont,
+              resolveFontFamily(d.bodyFont ?? null) || d.bodyFont,
+            ]
+              .filter((f): f is string => !!f && !!f.trim())
+              .map(cleanFamily)
+              .filter(Boolean),
+          ),
+        );
+
+        if (families.length > 0) {
+          // Each load is individually guarded so one bad family name can neither
+          // throw synchronously nor reject the whole batch.
+          const safeLoad = (spec: string) => {
+            try {
+              return document.fonts.load(spec).catch(() => undefined);
+            } catch {
+              return Promise.resolve(undefined);
+            }
+          };
+          const loads = families.flatMap((f) => [
+            safeLoad(`400 16px "${f}"`),
+            safeLoad(`700 16px "${f}"`),
+          ]);
+          Promise.all(loads)
             .then(() => document.fonts.ready)
             .then(() => finishFontLoad())
             .catch(() => finishFontLoad());
           return;
         }
 
-        // No custom font — just finish
+        // No custom fonts — just finish
         finishFontLoad();
       })
       .catch(() => {
@@ -254,7 +289,7 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   );
   const transitions = data.scenes.map((_, i) =>
     i < totalScenes - 1
-      ? pickGeneratedTransition(i, data.transitionFamily, canvasW, canvasH)
+      ? pickGeneratedTransition(i, data.transitionFamily, canvasW, canvasH, brandColors.accent)
       : null,
   );
   const sequenceFrames = sceneFrames.map((f, i) =>
