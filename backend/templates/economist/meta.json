@@ -88,18 +88,15 @@
       "label": "Leader Article",
       "scene_defaults": {
         "title": "Why central banks are quietly changing course",
-        "narration": "After two years of holding the line, the world's big central banks are inching toward looser policy. The data have finally bent their way: hiring has cooled, manufacturing has stalled and core inflation has drifted within touching distance of target. Yet the mood among policymakers is wary rather than triumphant. Cut too soon, and a second wave of price rises could undo three years of painful tightening; wait too long, and the real economy may buckle under rates that are, in inflation-adjusted terms, the most restrictive since 2007. The decision is finely balanced, and the consequences will be felt far beyond the trading floor."
+        "narration": "The world's big central banks are inching toward looser policy — and the decision is finely balanced."
       },
       "defaults": {
         "titleFontSize": {
           "portrait": 68,
           "landscape": 82
         },
-        "descriptionFontSize": {
-          "portrait": 32,
-          "landscape": 30
-        },
         "sectionLabel": "BRIEFING",
+        "body": "After two years of holding the line, the world's big central banks are inching toward looser policy. The data have finally bent their way: hiring has cooled, manufacturing has stalled and core inflation has drifted within touching distance of target. Yet the mood among policymakers is wary rather than triumphant. Cut too soon, and a second wave of price rises could undo three years of painful tightening; wait too long, and the real economy may buckle under rates that are, in inflation-adjusted terms, the most restrictive since 2007.",
         "standfirst": "Cut too soon and inflation returns; wait too long and growth buckles.",
         "keyPoints": [
           "Hiring has cooled sharply",
@@ -118,8 +115,14 @@
           "step": 1
         },
         {
+          "key": "body",
+          "label": "Body (on-screen paragraph)",
+          "type": "text",
+          "placeholder": "The full article paragraph shown on screen (4–7 sentences). Separate from the spoken voiceover."
+        },
+        {
           "key": "descriptionFontSize",
-          "label": "Body Size",
+          "label": "Body Size (auto)",
           "type": "number",
           "responsive": true,
           "min": 14,
@@ -143,18 +146,6 @@
           "label": "Key Points (2-3)",
           "type": "string_array",
           "maxItems": 3
-        },
-        {
-          "key": "byline",
-          "label": "Byline",
-          "type": "string",
-          "placeholder": "By our correspondent"
-        },
-        {
-          "key": "illuminatedLetter",
-          "label": "Drop Cap Override",
-          "type": "string",
-          "placeholder": "Auto"
         }
       ]
     },
