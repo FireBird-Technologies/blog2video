@@ -1,0 +1,11 @@
+{
+  "projectName": "Atlas Review", "accentColor": "#D71921", "bgColor": "#FFFFFF", "textColor": "#15110E", "aspectRatio": "landscape",
+  "scenes": [
+    { "id": 1, "order": 0, "title": "The Quiet Revolution", "narration": "Inside the studios reshaping how we live.", "layout": "magazine_cover", "layoutProps": { "subtitle": "A report", "issueLabel": "ISSUE 47" }, "durationSeconds": 3, "voiceoverFile": null, "images": [] },
+    { "id": 2, "order": 1, "title": "The Shape of Things", "narration": "Design is how it works, and how it makes the reader feel as the story turns across the page.", "layout": "text_narration", "layoutProps": { "sectionLabel": "ANALYSIS" }, "durationSeconds": 3, "voiceoverFile": null, "images": [] },
+    { "id": 3, "order": 2, "title": "A Working Theory", "narration": "Every margin is a decision. Every rule, a held breath between one idea and the next one.", "layout": "text_narration", "layoutProps": { "sectionLabel": "ESSAY" }, "durationSeconds": 3, "voiceoverFile": null, "images": [] },
+    { "id": 4, "order": 3, "title": "In Conversation", "narration": "We sat down with the team.", "layout": "interview_qa", "layoutProps": { "leftSpeaker": "Mara", "rightSpeaker": "Editor", "leftQuote": "It starts with the grid.", "rightQuote": "And ends with the reader." }, "durationSeconds": 3, "voiceoverFile": null, "images": [] },
+    { "id": 5, "order": 4, "title": "Before and After", "narration": "The redesign in two views.", "layout": "comparison_spread", "layoutProps": { "leftHeader": "BEFORE", "rightHeader": "AFTER", "leftContent": "Static columns.", "rightContent": "Living type." }, "durationSeconds": 3, "voiceoverFile": null, "images": [] },
+    { "id": 6, "order": 5, "title": "The Last Word", "narration": "Print endures because it asks for attention.", "layout": "text_narration", "layoutProps": { "sectionLabel": "CODA" }, "durationSeconds": 3, "voiceoverFile": null, "images": [] }
+  ]
+}

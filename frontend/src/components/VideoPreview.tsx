@@ -23,6 +23,8 @@ import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templa
 import { resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
 import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
+import { pickMagazineTransition } from "./remotion/magazine/transitions";
+import type { MagazineLayoutType } from "./remotion/magazine/types";
 import {
   compileComponentCode,
   compileModuleGraphEntry,
@@ -1168,6 +1170,31 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       }));
       return computeChronicleVideoTotalFrames(chronicleScenes, 1);
     }
+    if (templateId === "magazine") {
+      // Magazine uses TransitionSeries with EXTRA_HOLD=42 per non-last scene.
+      // Must mirror the arithmetic in MagazineVideoComposition exactly so the
+      // Player duration matches the actual rendered content length.
+      const EXTRA_HOLD = 42;
+      const n = scenes.length;
+      if (n === 0) return FPS * 5;
+      const isPortrait = project.aspect_ratio === "portrait";
+      const w = isPortrait ? 1080 : 1920;
+      const accentColor = project.accent_color || "#D71921";
+      const perScene = scenes.map((s) =>
+        Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS)),
+      );
+      const seqFrames = perScene.map((f, i) =>
+        i === n - 1 ? f : f + EXTRA_HOLD,
+      );
+      let total = seqFrames.reduce((a, b) => a + b, 0);
+      for (let i = 0; i < n - 1; i++) {
+        const from = (scenes[i].layout || "feature_spread") as MagazineLayoutType;
+        const to = (scenes[i + 1].layout || "feature_spread") as MagazineLayoutType;
+        const rawFrames = pickMagazineTransition(i, from, to, w, accentColor).frames;
+        total -= Math.max(1, Math.min(rawFrames, Math.floor(seqFrames[i] / 2), Math.floor(seqFrames[i + 1] / 2)));
+      }
+      return Math.max(total, FPS * 5);
+    }
     const sceneFrames = project.scenes.map((s) => {
       const base = Number(s.duration_seconds) || 5;
       const extra = Number(s.extra_hold_seconds) || 0;
@@ -1175,7 +1202,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     });
     const sum = sceneFrames.reduce((a, b) => a + b, 0);
     return Math.max(sum, FPS * 5);
-  }, [project.scenes, templateId, scenes]);
+  }, [project.scenes, project.aspect_ratio, project.accent_color, templateId, scenes]);
 
   // `initialFrame` (used by PPT/scene export) is computed from a raw frame sum,
   // but templates with TransitionSeries overlap (FJ Market Brief, Chronicle)
@@ -1281,6 +1308,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
 
   const inputProps = {
     scenes,
+    projectName: project.name,
     accentColor: project.accent_color || colors.accent,
     bgColor: project.bg_color || colors.bg,
     textColor: project.text_color || colors.text,
