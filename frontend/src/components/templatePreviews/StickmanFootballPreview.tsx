@@ -52,6 +52,22 @@ const STICKMAN_FOOTBALL_PREVIEW_SCENES: DemoScene[] = [
   {
     id: 4,
     order: 4,
+    title: "Worked Corner Routine",
+    narration: "Short corner, flick on, lay off — the header flashes just wide.",
+    layout: "corner_kick",
+    layoutProps: {
+      steps: [
+        { label: "Corner", detail: "Inswinger" },
+        { label: "Flick on", detail: "Near post" },
+        { label: "Lay off", detail: "Edge of box" },
+        { label: "Header", detail: "Just wide" },
+      ],
+    },
+    durationSeconds: 7,
+  },
+  {
+    id: 5,
+    order: 5,
     title: "What A Goal!",
     narration: "Top corner — the keeper had no chance.",
     layout: "goal_moment",
@@ -59,8 +75,8 @@ const STICKMAN_FOOTBALL_PREVIEW_SCENES: DemoScene[] = [
     durationSeconds: 7,
   },
   {
-    id: 5,
-    order: 5,
+    id: 6,
+    order: 6,
     title: "By The Numbers",
     narration: "",
     layout: "match_stats",
@@ -75,8 +91,8 @@ const STICKMAN_FOOTBALL_PREVIEW_SCENES: DemoScene[] = [
     durationSeconds: 7,
   },
   {
-    id: 6,
-    order: 6,
+    id: 7,
+    order: 7,
     title: "Season Trend",
     narration: "Shots on target climb through the second half.",
     layout: "football_data_viz",
@@ -101,8 +117,8 @@ const STICKMAN_FOOTBALL_PREVIEW_SCENES: DemoScene[] = [
     durationSeconds: 7,
   },
   {
-    id: 7,
-    order: 7,
+    id: 8,
+    order: 8,
     title: "League Table",
     narration: "The standings at a glance.",
     layout: "football_ticker",
@@ -124,8 +140,8 @@ const STICKMAN_FOOTBALL_PREVIEW_SCENES: DemoScene[] = [
     durationSeconds: 7,
   },
   {
-    id: 8,
-    order: 8,
+    id: 9,
+    order: 9,
     title: "Champions!",
     narration: "Catch every match — follow the team.",
     layout: "ending_socials",

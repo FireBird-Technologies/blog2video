@@ -1759,6 +1759,20 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
         placeholder: "e.g. #9",
       },
     ],
+    corner_kick: [
+      {
+        key: "steps",
+        label: "Steps",
+        type: "object_array",
+        description: "Ordered build-up steps (3–5). Each step is one pass; label is required, detail is optional.",
+        subFields: [
+          { key: "label", label: "Label", placeholder: "e.g. Flick on" },
+          { key: "detail", label: "Detail", placeholder: "e.g. Near post" },
+        ],
+        minItems: 3,
+        maxItems: 5,
+      },
+    ],
     goal_moment: [
       {
         key: "goalLabel",

@@ -302,6 +302,7 @@ const STICKMAN_FOOTBALL_LAYOUTS = new Set([
   "ending_socials",
   "football_data_viz",
   "football_ticker",
+  "corner_kick",
 ]);
 
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {

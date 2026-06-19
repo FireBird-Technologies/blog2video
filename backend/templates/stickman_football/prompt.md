@@ -7,8 +7,8 @@ Core rules:
 - Every layout must use only the prop names defined in this catalog; unknown keys are ignored downstream.
 - **Do not** put `title`, `narration`, `accentColor`, `bgColor`, `textColor`, `titleFontSize`, `descriptionFontSize`, `sceneDurationInFrames`, or `aspectRatio` in `layout_props_json`. Those are global scene fields or UI defaults from `meta.json`.
 - **Only** output layout-specific keys listed under each layout's **Props** section.
-- **Output EVERY prop listed under the chosen layout's Props section — all of them are COMPULSORY.** Never omit a defined prop. For **text/caption props** (e.g. `subline`, `shotLabel`, `kickerName`, `kickerNumber`, `goalLabel`, `eyebrow`, `skillCaption`, `leftLabel`/`rightLabel`/`leftDescription`/`rightDescription`, `ctaButtonText`) always provide a sensible value paraphrased from the source (or the catalog default if the source is silent) — never leave them blank.
-- The only props you may omit are **data-bearing collections** that the source genuinely doesn't support: `stats`, `socials`, `handles`, `ctas`, `scoreline`. Do not invent statistics, scores, or social handles that aren't grounded in the source; prefer omission over fabrication for those.
+- **Output EVERY prop listed under the chosen layout's Props section — all of them are COMPULSORY.** Never omit a defined prop. For **text/caption props** (e.g. `subline`, `shotLabel`, `kickerName`, `kickerNumber`, `goalLabel`, `eyebrow`, `skillCaption`, `leftLabel`/`rightLabel`/`leftDescription`/`rightDescription`, `ctaButtonText`, and each `steps[].label` in `corner_kick`) always provide a sensible value paraphrased from the source (or the catalog default if the source is silent) — never leave them blank.
+- The only props you may omit are **data-bearing collections** that the source genuinely doesn't support: `stats`, `socials`, `handles`, `ctas`, `scoreline`. Do not invent statistics, scores, or social handles that aren't grounded in the source; prefer omission over fabrication for those. **`steps` is NOT omittable** — when the layout is `corner_kick`, you **must always** output a `steps` array with **3–5** items.
 
 ---
 
@@ -56,6 +56,35 @@ Core rules:
 **When to Use:** When the narration describes a free kick, wall setup, or goalkeeper save — not a scored goal (use `goal_moment` for that).
 
 **Notes:** `shotLabel` and the kicker badge do not reflow; keep `shotLabel` and `kickerName` brief.
+
+---
+
+## corner_kick
+
+**Visual:** Ball sits at the right corner flag; the corner taker runs up and delivers it with a foot kick. The ball is then passed stickman-to-stickman across a worked routine — one receiving stickman per **step** (3–5 total), each headed pass moving right-to-left toward the goal on the left. A goalkeeper guards the goal; the final header strikes the post, the ball drops, and the keeper bends down to gather it. Each `steps[i].label` (and optional `detail`) pops above the receiving stickman's head when the ball arrives and stays visible. Title top-centre; narration centred on the grass band below the action line (expands up and down as it wraps).
+
+**Best for:** Worked corner routines, build-up moves, set-piece breakdowns, or any step-by-step passing sequence that ends in a near-miss or save — not a goal.
+
+**Props:**
+- `steps` — **object_array**, **3–5** items. **REQUIRED — never omit this key.** The scene cannot render without it; `{}` or missing `steps` is invalid. Each item:
+  - `label` — **string**, short name for that pass/step (e.g. `"Corner"`, `"Flick on"`, `"Header"`). **1–3 words**. **Required on every item.**
+  - `detail` — **string**, optional tactical hint beneath the label (e.g. `"Near post"`, `"Just wide"`). **1–4 words**; omit or leave empty to hide.
+
+**Example `layout_props_json` (minimum valid output):**
+```json
+{
+  "steps": [
+    { "label": "Corner", "detail": "Inswinger" },
+    { "label": "Flick on", "detail": "Near post" },
+    { "label": "Lay off", "detail": "Edge of box" },
+    { "label": "Header", "detail": "Just wide" }
+  ]
+}
+```
+
+**When to Use:** When the narration describes a sequence of passes or a corner/set-piece routine that does **not** end in a goal — use `goal_moment` for a scored payoff. **Do not assign `corner_kick` unless you can populate `steps`.**
+
+**Notes:** The first step is always the corner delivery; the last step is the header on goal that misses or is saved. Every `steps` item must include a `label`; provide a `detail` when the source names a specific zone or outcome. If the source names fewer than 3 beats, **infer sensible intermediate steps** from the narration (e.g. `"Pass"`, `"Through ball"`, `"Build-up"`) so the array has **at least 3** items — never return an empty array or skip `steps`. Keep labels short so the step cards above each stickman's head do not overflow.
 
 ---
 
@@ -205,7 +234,7 @@ Core rules:
 # Scene Flow Rules
 
 - Scene **0** must use **`kickoff_title`** (hero).
-- **Middle:** prefer **`passing_play`** and **`text_narration`** as narrative workhorses; rotate in `freekick_setup` for set pieces, `ball_control` for individual skill, `match_stats` for several numbers at once, **`football_data_viz`** / **`football_ticker`** when the source has real chartable or tabular data, `injury_break` for setbacks, and `goal_moment` for a genuine payoff.
+- **Middle:** prefer **`passing_play`** and **`text_narration`** as narrative workhorses; rotate in `freekick_setup` for set pieces, **`corner_kick`** for worked build-up routines that miss, `ball_control` for individual skill, `match_stats` for several numbers at once, **`football_data_viz`** / **`football_ticker`** when the source has real chartable or tabular data, `injury_break` for setbacks, and `goal_moment` for a genuine payoff.
 - **`match_stats`** is for **3–5** metrics in tiles; **`passing_play`** `stats` is a small **2×2** supporting set alongside the action.
 - **`football_data_viz`** needs a **multi-row chart table** from the source; **`football_ticker`** needs a **real standings/list table** — never assign without source data.
 - **Closing:** use **`ending_socials`** as the final scene when CTA or social data is available; otherwise close with `goal_moment` or a strong `text_narration`.
@@ -223,6 +252,7 @@ Core rules:
 - **`kickoff_title`:** `subline` = short tagline paraphrased from the intro beat.
 - **`passing_play`:** Split real figures from the source into `stats` `{ label, value }`; never invent numbers. Use 0–4 items as justified.
 - **`freekick_setup`:** `shotLabel` = the shot type or outcome in 2–4 words (e.g. `"Near post"`, `"Wall blocks"`); `kickerName` / `kickerNumber` = the taker's name/number if named in the source, otherwise omit both.
+- **`corner_kick`:** **`steps` is mandatory** — always output **3–5** items; never `{}`, never omit the key, never `[]`. Split the narration into ordered build-up beats: first = corner delivery, last = header on goal that misses or is saved. Each item **must** have `label` (1–3 words, e.g. `"Flick on"`); add `detail` (1–4 words, e.g. `"Near post"`) when the source names a zone or outcome, otherwise omit `detail`. If the source only implies a routine without naming every touch, **synthesize plausible step labels** from context (e.g. `"Corner"` → `"Pass"` → `"Header"`) rather than leaving `steps` empty.
 - **`goal_moment`:** `goalLabel` = short stamp word; `scoreline` = real score string if stated in source, otherwise omit; `kickerName` / `kickerNumber` = the scorer's name/number if named in the source, otherwise omit both.
 - **`match_stats`:** Pull **3–5** real metrics into `stats`; each `value` short, each `label` 1–2 words.
 - **`injury_break`:** `leftLabel` / `rightLabel` = contrasting column titles; `leftDescription` = incident, `rightDescription` = outcome — one concise line each.
@@ -232,14 +262,14 @@ Core rules:
 - **`football_data_viz`:** Populate `chartTable` **only** from a real source table — headers in row 1 of the table, data rows below; set `chartType` to match the data shape; `chartSummary` = one factual trend sentence from the source; axis labels from column headers when sensible. **Never invent series or values.**
 - **`football_ticker`:** Populate `tickerTable` **only** from a real source table; `tickerTitle` = what the table represents; `tickerHighlightCol` = index of a +/- numeric column (e.g. goal difference) when present, else `-1`; `tickerFootnote` = source attribution if stated. **Never invent rows.**
 
-**Grounding:** If the source does not support a layout (e.g. no numbers for `match_stats`, no table for `football_data_viz`/`football_ticker`), choose a different layout or keep global `narration` factual without inventing figures.
+**Grounding:** If the source does not support a layout (e.g. no numbers for `match_stats`, no table for `football_data_viz`/`football_ticker`), choose a different layout or keep global `narration` factual without inventing figures. **Exception:** `corner_kick` always requires `steps` — if the source lacks explicit step names, derive them from the narration beat-by-beat or use generic build-up labels (`"Corner"`, `"Pass"`, `"Through ball"`, `"Header"`) so the array has 3–5 labelled items.
 
 ---
 
 # Variety Rules
 
 - Do **not** repeat the **same** layout in consecutive scenes.
-- Alternate action (`passing_play`, `ball_control`, `freekick_setup`), narration (`text_narration`), data (`match_stats`, `football_data_viz`, `football_ticker`, `passing_play` stats), and payoff (`goal_moment`) beats as content demands.
+- Alternate action (`passing_play`, `ball_control`, `freekick_setup`, `corner_kick`), narration (`text_narration`), data (`match_stats`, `football_data_viz`, `football_ticker`, `passing_play` stats), and payoff (`goal_moment`) beats as content demands.
 - Use **`goal_moment`** for genuine highlights only — sparingly, for impact.
 - End with **`ending_socials`** when CTA/social data exists; otherwise a memorable closing beat.
 - Across **6+** scenes, prefer **at least 4 distinct** layout IDs when content allows.

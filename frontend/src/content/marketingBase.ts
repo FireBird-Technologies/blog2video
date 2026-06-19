@@ -361,6 +361,7 @@ export const templateProfiles: TemplateProfile[] = [
       "passing_play",
       "ball_control",
       "freekick_setup",
+      "corner_kick",
       "goal_moment",
       "injury_break",
       "match_stats",
