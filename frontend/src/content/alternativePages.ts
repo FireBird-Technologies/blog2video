@@ -34,6 +34,7 @@ const seeds: AlternativeSeed[] = [
       "Blog2Video extracts content directly from a live URL — no copy-paste.",
       "ElevenLabs voice integration with per-voice preview before generation.",
       "Scene structure follows your article's actual headings, not a generic template.",
+      "Standard plan ($35/mo) covers up to ~240 minutes of video a month — flat video count, no minute or credit caps.",
     ],
     sections: [
       {
@@ -93,6 +94,7 @@ const seeds: AlternativeSeed[] = [
       "No stock footage library needed — templates drive the visual language.",
       "Blog2Video uses the full article structure, not just highlighted sentences.",
       "ElevenLabs narration sounds natural and stays close to the original writing.",
+      "Pictory's 200-minute Starter allowance is gated by a separate AI-credit pool — Blog2Video's 240-minute Standard plan has just one cap: video count.",
     ],
     sections: [
       {
@@ -144,6 +146,7 @@ const seeds: AlternativeSeed[] = [
       "Blog2Video requires no manual scene building — the article structure does it.",
       "Full automation from URL to video in under three minutes.",
       "No subscription to a stock media library required.",
+      "InVideo AI Plus caps out around 50 AI-generation minutes a month at $25/mo — Blog2Video Standard covers up to ~240 minutes at $35/mo.",
     ],
     sections: [
       {
@@ -190,6 +193,7 @@ const seeds: AlternativeSeed[] = [
       "No recording equipment or existing footage required.",
       "Start from a URL or document — no raw video file needed.",
       "Better for teams that produce content writing-first.",
+      "Descript meters by transcription hours, not finished video minutes — Blog2Video's flat per-video plans skip that conversion entirely.",
     ],
     sections: [
       {
@@ -235,6 +239,7 @@ const seeds: AlternativeSeed[] = [
       "No stock library browsing or slide-by-slide adjustment.",
       "Article headings drive scene structure automatically.",
       "ElevenLabs voice integration with preview before generation.",
+      "No published total-minutes cap on Lumen5's paid plans to compare against — Blog2Video Standard gives a clear, flat ~240 minutes a month for $35.",
     ],
     sections: [
       {
@@ -281,6 +286,7 @@ const seeds: AlternativeSeed[] = [
       "No stock footage — templates make your content the visual.",
       "Scene structure follows your article headings, not AI-picked highlights.",
       "ElevenLabs voices sound more natural than standard TTS options.",
+      "Pictory's minute allowance sits on top of a separate AI-credit cap that usually binds first — Blog2Video's video count is the only limit on its plans.",
     ],
     sections: [
       {
@@ -327,6 +333,7 @@ const seeds: AlternativeSeed[] = [
       "Built around blog posts, articles, PDFs, and docs rather than presenter-first scripts.",
       "Scene structure follows the source content instead of asking you to rewrite everything for an avatar.",
       "Better fit for explainer videos where the writing itself carries the value.",
+      "At a near-identical price, HeyGen's Creator plan caps out around 30 minutes of avatar video a month — Blog2Video Standard covers up to ~240 minutes.",
     ],
     sections: [
       {
@@ -655,6 +662,7 @@ const seeds: AlternativeSeed[] = [
       "URL-in workflow built for blog posts, articles, and structured written content.",
       "Less manual scene rebuilding than general editor-first workflows.",
       "Better fit for repeatable article-to-video production at scale.",
+      "VEED's export caps are per-video-length, not total monthly minutes — Blog2Video Standard gives a flat, predictable ~240 minutes a month for $35.",
     ],
     sections: [
       {
