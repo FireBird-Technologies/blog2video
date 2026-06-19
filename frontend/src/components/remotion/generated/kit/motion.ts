@@ -36,6 +36,26 @@ export function progressAt(frame: number, start: number, dur: number): number {
   return clamp01((frame - start) / dur);
 }
 
+/**
+ * Eased 0→1 progress for stroke-dashoffset "draw-in" effects (SVG path / line
+ * draw). Same window math as progressAt, eased with easeOutQuint so the stroke
+ * decelerates as it completes. Multiply a dash length by `(1 - drawProgress(...))`
+ * for strokeDashoffset.
+ */
+export function drawProgress(frame: number, start: number, dur: number): number {
+  return easeOutQuint(progressAt(frame, start, dur));
+}
+
+/**
+ * Deterministic pseudo-random in [0..1) from an integer index + salt. Shared by
+ * the seeded decor/artifact components so renders never flicker (no Math.random
+ * at render time). Same hash used in Decor.tsx.
+ */
+export function seededRand(i: number, salt = 1): number {
+  const v = Math.sin(i * 127.1 * salt + 311.7) * 43758.5453;
+  return v - Math.floor(v);
+}
+
 // ─── Scene-level enter/exit ───────────────────────────────────
 
 /**

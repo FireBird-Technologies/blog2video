@@ -132,7 +132,7 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
           // alternation breaks, so an empty AbsoluteFill holds the slot.
           const t = isLast
             ? null
-            : pickGeneratedTransition(idx, transitionFamily, PREVIEW_CANVAS_W, PREVIEW_CANVAS_H);
+            : pickGeneratedTransition(idx, transitionFamily, PREVIEW_CANVAS_W, PREVIEW_CANVAS_H, brandColors?.accent);
           const sequence = (
             <TransitionSeries.Sequence
               key={`seq-${idx}`}

@@ -217,6 +217,15 @@ def _validate_theme(theme: dict) -> dict:
     if not isinstance(theme.get("borderRadius"), (int, float)):
         theme["borderRadius"] = 12
 
+    # `brief` carries the user's free-text prompt / uploaded-doc text so scene
+    # generation can honor explicit requests ("add a testimonial scene"). It is
+    # client-supplied here, so clamp it; drop non-string values entirely.
+    brief = theme.get("brief")
+    if isinstance(brief, str) and brief.strip():
+        theme["brief"] = brief.strip()[:30_000]
+    else:
+        theme.pop("brief", None)
+
     # Validate patterns if present (fill defaults for missing sub-fields)
     patterns = theme.get("patterns")
     if patterns is not None:
@@ -342,6 +351,9 @@ async def extract_theme_from_prompt(
 
     theme = result.get("theme")
     if theme:
+        # Preserve the raw prompt so scene generation can honor explicit scene
+        # requests (e.g. "add a testimonial scene"). Persists on the theme JSON.
+        theme["brief"] = data.prompt.strip()[:30_000]
         c = theme.get("colors", {})
         print(
             f"[F7-DEBUG] [EXTRACT-PROMPT] AI={dt:.1f}s | accent={c.get('accent')}, "
@@ -381,6 +393,9 @@ async def extract_theme_from_doc(
 
     theme = result.get("theme")
     if theme:
+        # Preserve the uploaded doc text so scene generation can honor explicit
+        # scene requests stated in the brand/design document.
+        theme["brief"] = brief_text.strip()[:30_000]
         c = theme.get("colors", {})
         print(
             f"[F7-DEBUG] [EXTRACT-DOC] '{file.filename}' chars={len(brief_text)} AI={dt:.1f}s | "

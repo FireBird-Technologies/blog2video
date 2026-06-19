@@ -1509,7 +1509,22 @@ export const getChatHistory = (id: number) =>
 // ─── Custom Templates API (Pro only) ─────────────────────
 
 /** Scene-exit transition styles (must match GeneratedTransition registry). */
-export type TransitionStyle = "fade" | "accent_wash" | "rule_sweep" | "ink_wash" | "whip_blur";
+export type TransitionStyle =
+  | "fade"
+  | "accent_wash"
+  | "rule_sweep"
+  | "ink_wash"
+  | "whip_blur"
+  | "push_slide"
+  | "cover_wipe"
+  | "page_flip"
+  | "clock_sweep"
+  // richer custom presentations (palette-driven; ported from economist/chronicle)
+  | "parallax_push"
+  | "whip_pan"
+  | "accent_bar"
+  | "page_fold"
+  | "ink_bleed";
 
 export interface CustomTemplateTheme {
   colors: { accent: string; bg: string; text: string; surface: string; muted: string; bg2?: string };
@@ -1543,6 +1558,12 @@ export interface CustomTemplateTheme {
   };
   /** Preferred content archetypes for this brand (scene-type variety hint). */
   sceneBias?: string[];
+  /**
+   * The user's raw prompt / uploaded-doc text (prompt & doc creation paths only).
+   * Round-trips extract → create → DB so scene generation can honor explicit
+   * scene requests ("add a testimonial scene"). Absent for URL-scraped themes.
+   */
+  brief?: string;
 }
 
 export interface CustomTemplateItem {

@@ -299,16 +299,17 @@ def _compute_bg2(bg_hex: str) -> str:
 
 
 # Transition-style pools by motion energy. Family keys MUST exist in the
-# pickGeneratedTransition pool in
-# remotion-video/.../generated/generatedTransitions.ts (mirrored in frontend).
+# pickGeneratedTransition pool in generatedTransitions.ts (mirrored in frontend).
 # Each energy keeps a distinct personality so motionEnergy is a real inter-brand
-# lever: calm = quiet fades/washes, smooth = polished pushes/sweeps, energetic =
-# punchy whips/flips. The pool rotates each move's DIRECTION by index, so even a
-# short family yields varied left/right/up/down handoffs.
+# lever: calm = quiet fades/washes/folds, smooth = polished pushes/bars, energetic
+# = punchy whips/flips. Each pool now mixes the stock @remotion moves with the
+# richer palette-driven custom presentations (parallax_push / whip_pan / accent_bar
+# / page_fold / ink_bleed) so each energy gets a distinct, varied rhythm; the pool
+# also rotates each move's DIRECTION by index for varied handoffs.
 _TRANSITION_FAMILY_BY_ENERGY = {
-    "calm": ["fade", "ink_wash", "cover_wipe"],
-    "smooth": ["fade", "accent_wash", "ink_wash", "push_slide", "clock_sweep"],
-    "energetic": ["whip_blur", "accent_wash", "rule_sweep", "page_flip", "push_slide"],
+    "calm": ["fade", "ink_bleed", "page_fold", "cover_wipe", "ink_wash"],
+    "smooth": ["parallax_push", "fade", "accent_bar", "page_fold", "clock_sweep", "ink_bleed"],
+    "energetic": ["whip_pan", "accent_bar", "rule_sweep", "page_flip", "parallax_push", "whip_blur"],
 }
 _DECOR_BY_ELEMENT = {
     "gradients": "orbs",
@@ -380,13 +381,22 @@ _SIGNATURE_BUCKETS: dict[str, dict] = {
 # Woven through every scene where it fits (hero take in intro, echoes in content,
 # callback in outro) — this is what gives a custom template a nightfall/bloomberg-
 # style signature beat without a per-brand hand-built component.
+# Widened pools (each motion is rendered by a distinct kit artifact via the
+# SignatureArtifact dispatcher). More options per bucket → two same-bucket brands
+# collide on the headline artifact far less often. Every value here MUST exist as
+# a case in kit/Artifacts.tsx SignatureArtifact, or it falls through to the
+# default StreakField.
+# Order matters: the FIRST entries are the bolder / more legible artifacts, so the
+# deterministic pick favours something visible over the faintest motif. streak /
+# drift / dust are the subtlest (low-opacity background shimmer) — kept in the
+# pools for variety but demoted so a loud brand doesn't land on an invisible motif.
 _ARTIFACT_MOTION_BY_BUCKET = {
-    "data": ["sweep", "build", "tick"],
-    "editorial": ["draw-in", "rule-slide"],
-    "luxury": ["drift", "bloom"],
-    "lifestyle": ["float", "bloom"],
-    "bold": ["streak", "slam", "pulse"],
-    "default": ["sweep", "drift"],
+    "data": ["sweep", "build", "tick", "orbit", "halftone"],
+    "editorial": ["draw-in", "rule-slide", "orbit", "halftone", "dust"],
+    "luxury": ["bloom", "orbit", "halftone", "drift", "dust"],
+    "lifestyle": ["bloom", "halftone", "sweep", "float", "dust"],
+    "bold": ["shards", "slam", "pulse", "spin", "stamp", "streak"],
+    "default": ["sweep", "shards", "orbit", "halftone", "drift"],
 }
 
 
@@ -417,28 +427,53 @@ def _stable_pick(options: list, seed: str):
     return options[h % len(options)]
 
 
+def _stable_order(options: list, seed: str) -> list:
+    """Deterministic brand-seeded ordering of `options` (Fisher–Yates from a stable
+    hash). Two different brands get different orders; the same brand is stable."""
+    import hashlib
+
+    out = list(options)
+    rng = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16)
+    for k in range(len(out) - 1, 0, -1):
+        rng, j = divmod(rng, k + 1)
+        out[k], out[j] = out[j], out[k]
+    return out
+
+
 def _derive_brand_signature(theme: dict, energy: str, motion: dict) -> dict:
     """Deterministic per-brand signature bundle. See _SIGNATURE_BUCKETS."""
     style = (theme.get("style") or "").lower()
     category = (theme.get("category") or "").lower()
     bucket = _classify_brand_bucket(style, category)
     spec = _SIGNATURE_BUCKETS[bucket]
-    seed = f"{theme.get('category', '')}|{theme.get('style', '')}|{theme.get('name', '')}"
+    # Fold the accent colour into the seed so two same-bucket brands with the same
+    # name/category/style but different palettes still diverge on the signature
+    # picks (more inter-brand entropy, still deterministic per brand).
+    accent = (theme.get("colors", {}) or {}).get("accent", "")
+    seed = f"{theme.get('category', '')}|{theme.get('style', '')}|{theme.get('name', '')}|{accent}"
     # Independent seed suffixes so decor/surface/type vary on separate axes —
     # two same-bucket brands shouldn't move in lockstep across all three.
     decor_system = _stable_pick(spec["decor"], seed)
     surface_style = _stable_pick(spec["surface"], seed + "|surface")
     type_treatment = _stable_pick(spec["type"], seed + "|type")
-    artifact_motion = _stable_pick(
-        _ARTIFACT_MOTION_BY_BUCKET.get(bucket, _ARTIFACT_MOTION_BY_BUCKET["default"]),
-        seed + "|artifactMotion",
-    )
+    pool = _ARTIFACT_MOTION_BY_BUCKET.get(bucket, _ARTIFACT_MOTION_BY_BUCKET["default"])
+    artifact_motion = _stable_pick(pool, seed + "|artifactMotion")
+    # A small per-brand artifact SET (the primary pick + up to 2 more from the same
+    # bucket, brand-seeded order) so scenes can ROTATE through a related family
+    # instead of repeating one motif everywhere — variety within a coherent brand.
+    artifact_set = [artifact_motion]
+    for cand in _stable_order(pool, seed + "|artifactSet"):
+        if cand not in artifact_set:
+            artifact_set.append(cand)
+        if len(artifact_set) >= 3:
+            break
     return {
         "bucket": bucket,
         "decorSystem": decor_system,
         "surfaceStyle": surface_style,
         "typeTreatment": type_treatment,
         "artifactMotion": artifact_motion,
+        "artifactSet": artifact_set,
         "motionEnergy": energy,
         "transitionFamily": list(motion.get("transitionFamily") or []),
     }
@@ -701,6 +736,7 @@ class ThemeExtractor:
             f"[F7-DEBUG] [V3][SIGNATURE] bucket={_sig.get('bucket')} | "
             f"decorSystem={_sig.get('decorSystem')} | surfaceStyle={_sig.get('surfaceStyle')} | "
             f"typeTreatment={_sig.get('typeTreatment')} | artifactMotion={_sig.get('artifactMotion')} | "
+            f"artifactSet={_sig.get('artifactSet')} | "
             f"motionEnergy={_sig.get('motionEnergy')} | transitionFamily={_sig.get('transitionFamily')}"
         )
 
