@@ -91,7 +91,7 @@ import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
-import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
+import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
 import type { PlayerRef } from "@remotion/player";
 import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sceneSlideExport";
 import { getSceneExportGlobalFrame, SCENE_EXPORT_TIMELINE_FRACTION } from "../utils/sceneFrameSchedule";
@@ -869,6 +869,7 @@ export default function ProjectView() {
   const [imageAdjustSceneId, setImageAdjustSceneId] = useState<number | null>(null);
   const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
   const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
   const [isAdjustDragging, setIsAdjustDragging] = useState(false);
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
@@ -2752,6 +2753,7 @@ export default function ProjectView() {
 
     // Compute the correct aspect ratio for the modal preview
     let ar: string;
+    let circular = false;
     if (project?.template?.startsWith("custom_") && project) {
       ar = resolveCustomImageBoxAr(scene, project);
     } else {
@@ -2771,8 +2773,10 @@ export default function ProjectView() {
         templateCfg.baseWidth,
         templateCfg.baseHeight,
       );
+      circular = isImageBoxCircular(layoutId);
     }
     setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(circular);
 
     setImageAdjustSceneId(scene.id);
     setImageAdjustSrc(src);
@@ -5597,8 +5601,9 @@ export default function ProjectView() {
                             aspectRatio: imageAdjustAspectRatio,
                             maxHeight: "70vh",
                             maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                            ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
                           }}
-                          className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                          className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
                             isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
                           }`}
                         >

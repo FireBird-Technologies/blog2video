@@ -489,7 +489,21 @@ export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
           <div style={{ width: p ? 420 : 560, height: p ? 420 : 560, borderRadius: "50%", overflow: "hidden", position: "relative" }}>
             <Img
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition ?? "50% 50%", transform: `scale(${imageZoom ?? 1})`, transformOrigin: "center center" }}
+              style={(() => {
+                // Match the adjust-modal preview (and the shared ZoomCropImg): anchor
+                // the zoom at the chosen focus point, and fall back to contain+centre
+                // when zoomed out (<1) so the framing the user sets is what renders.
+                const pos = imageObjectPosition ?? "50% 50%";
+                const z = imageZoom ?? 1;
+                const out = z < 1;
+                return {
+                  width: "100%", height: "100%",
+                  objectFit: out ? "contain" : "cover",
+                  objectPosition: out ? "center" : pos,
+                  transform: `scale(${z})`,
+                  transformOrigin: out ? "center center" : pos,
+                };
+              })()}
             />
             <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(ellipse at center, transparent 40%, rgba(255,255,255,0.85) 100%)" }} />
           </div>

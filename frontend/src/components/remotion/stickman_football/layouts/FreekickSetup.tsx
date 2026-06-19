@@ -394,14 +394,21 @@ export const FreekickSetup: React.FC<SceneLayoutProps> = (props) => {
           >
             <Img
               src={moodImageUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: imageObjectPosition ?? "50% 50%",
-                transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: "center center",
-              }}
+              style={(() => {
+                // Match the adjust-modal preview / shared ZoomCropImg: anchor the zoom
+                // at the focus point, fall back to contain+centre when zoomed out.
+                const pos = imageObjectPosition ?? "50% 50%";
+                const z = imageZoom ?? 1;
+                const out = z < 1;
+                return {
+                  width: "100%",
+                  height: "100%",
+                  objectFit: out ? "contain" : "cover",
+                  objectPosition: out ? "center" : pos,
+                  transform: `scale(${z})`,
+                  transformOrigin: out ? "center center" : pos,
+                };
+              })()}
             />
             <div
               style={{
