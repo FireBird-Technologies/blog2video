@@ -2638,6 +2638,27 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
+        heading: "Control over script, music, and emotional tone",
+        paragraphs: [
+          "NotebookLM gives you almost no control over its output. You cannot edit the script it narrates, choose music, or adjust how the AI hosts sound — you get one fixed conversational style and that is the only option.",
+          "Blog2Video generates a first draft automatically, but you can take over at any point. Edit the script scene by scene before you render. Add a background music track and set its volume against the narration. On paid plans, you also get direct control over the ElevenLabs voice tuning — emotion, delivery speed, and tonal exaggeration — so a product walkthrough can sound calm and authoritative while a recap video sounds energetic.",
+          "This level of control is layered, not all-or-nothing: the free plan covers script edits, voice selection, and music so you can ship a finished video without paying anything. The fine-grained emotional tone controls are part of the paid plans, for teams that want to direct narration the way they would direct a voice actor.",
+        ],
+        bullets: [
+          "Per-scene script editing before you render",
+          "Background music library with adjustable volume",
+          "Emotion, delivery speed, and tonal exaggeration controls (paid plans)",
+        ],
+      },
+      {
+        heading: "Built so non-technical teams can run it, not just developers",
+        paragraphs: [
+          "NotebookLM's interface is a research tool — notebooks, sources, a chat panel. It assumes you are comfortable navigating a fairly technical workspace.",
+          "Blog2Video's interface is built for marketers, founders, and content teams who have never opened a video editor. Switching templates, changing the aspect ratio between landscape and portrait, swapping the voiceover, or rewriting a line of script are all single clicks in a visual picker — nothing requires touching a timeline or a code-style configuration screen.",
+          "That matters because the person who needs the video is often not the person who is technical. A non-technical marketer can take a finished draft, swap the template to match a new campaign, switch to portrait for Reels, and re-render without asking anyone for help.",
+        ],
+      },
+      {
         heading: "One flow for every post: three steps, every time",
         paragraphs: [
           "NotebookLM requires you to upload documents, set up a notebook, wait for processing, and then interact with the interface to get what you need. It is a research session, not a production pipeline.",
@@ -2662,6 +2683,19 @@ export const blogPosts: BlogPost[] = [
           "Suitable for agencies managing multiple client blogs",
           "API access planned: trigger generation from your own tools",
           "One person can cover the video layer across an entire editorial calendar",
+        ],
+      },
+      {
+        heading: "Where NotebookLM still wins",
+        paragraphs: [
+          "Neither tool is strictly better — they are built for different jobs, and NotebookLM is genuinely the better choice for some of them.",
+          "If you need to drop in dozens of sources — PDFs, Drive docs, websites, audio — and ask questions across all of them with citations back to the original text, that is NotebookLM's core strength, and Blog2Video does not attempt it. NotebookLM also generates mind maps and study guides for working through dense material, which has no equivalent in Blog2Video.",
+          "NotebookLM is also free and lives natively inside Google Drive and Workspace, so if your sources are already there and your goal is personal or team comprehension rather than publishing a branded video, it is the lower-friction choice.",
+        ],
+        bullets: [
+          "Multi-document research with cited Q&A across many sources",
+          "Mind maps and study guides for learning dense material",
+          "Free, with native Google Drive/Workspace integration",
         ],
       },
     ],
@@ -2690,6 +2724,21 @@ export const blogPosts: BlogPost[] = [
         question: "Is Blog2Video useful if I only publish occasionally?",
         answer:
           "Yes. The three-step flow is fast enough that occasional publishers can add video to every post without it becoming a project. You do not need to commit to a high publishing cadence to get value from it.",
+      },
+      {
+        question: "Can I control the script, music, and emotional tone of the narration?",
+        answer:
+          "Yes. You can edit the generated script scene by scene, choose a background music track and set its volume, and select the voice on every plan. Fine-grained emotion, delivery speed, and tonal exaggeration controls for the voiceover are available on paid plans.",
+      },
+      {
+        question: "Do I need technical or video editing skills to use Blog2Video?",
+        answer:
+          "No. Templates, aspect ratio, voiceover, and script edits are all changed through a visual picker — there is no timeline or video editor to learn. The interface is built for marketers and content teams, not just developers.",
+      },
+      {
+        question: "Is NotebookLM ever the better choice over Blog2Video?",
+        answer:
+          "Yes, for a different job. NotebookLM is better when you need to research across many sources with cited Q&A, generate mind maps for studying, or work for free natively inside Google Drive. Blog2Video is better when the goal is a finished, branded, publishable video.",
       },
     ],
     distributionPlan: [
