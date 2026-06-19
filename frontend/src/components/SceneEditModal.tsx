@@ -298,6 +298,21 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     mosaic_phrases: { title: [90, 62], desc: [40, 26] },
     mosaic_close: { title: [104, 72], desc: [52, 34] },
   },
+  magazine: {
+    magazine_cover: { title: [68, 88], desc: [28, 36] },
+    feature_spread: { title: [48, 64], desc: [20, 26] },
+    editorial_quote: { title: [56, 72], desc: [18, 24] },
+    photo_essay: { title: [52, 68], desc: [16, 20] },
+    by_the_numbers: { title: [56, 72], desc: [20, 26] },
+    interview_qa: { title: [40, 52], desc: [16, 20] },
+    comparison_spread: { title: [44, 58], desc: [18, 24] },
+    magazine_data_visualization: { title: [56, 52], desc: [28, 26] },
+    timeline_journey: { title: [40, 52], desc: [16, 20] },
+    expert_spotlight: { title: [48, 64], desc: [20, 26] },
+    text_narration: { title: [34, 44], desc: [20, 23] },
+    ending_socials: { title: [88, 72], desc: [35, 27] },
+    magazine_ticker: { title: [52, 42], desc: [28, 22] },
+  },
   custom: {
     // Custom template arrangements (font sizes are approximate)
     "full-center": { title: [36, 48], desc: [18, 22] },
@@ -1856,6 +1871,51 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "unit", label: "Value Unit", type: "string", placeholder: "$bn" },
       { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
     ],
+  },
+  magazine: {
+    magazine_cover: [
+      { key: "subtitle", label: "Subtitle / tagline", type: "string", placeholder: "e.g. The Future of Design" },
+      { key: "issueLabel", label: "Issue identifier", type: "string", placeholder: "e.g. ISSUE 47 | JUNE 2026" },
+    ],
+    feature_spread: [
+      { key: "sectionLabel", label: "Section label", type: "string", placeholder: "e.g. FEATURE" },
+    ],
+    editorial_quote: [
+      { key: "attribution", label: "Attribution", type: "string", placeholder: "e.g. — Jane Smith, CEO" },
+    ],
+    photo_essay: [
+      { key: "caption", label: "Photo caption", type: "string", placeholder: "Italic caption text" },
+    ],
+    by_the_numbers: [
+      { key: "stats", label: "Key figures", type: "object_array", subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }], maxItems: 4 },
+    ],
+    interview_qa: [
+      { key: "leftSpeaker", label: "Left speaker", type: "string", placeholder: "e.g. Dr. Jane Smith" },
+      { key: "rightSpeaker", label: "Right speaker", type: "string", placeholder: "e.g. Prof. John Doe" },
+      { key: "leftQuote", label: "Left speaker's statement", type: "text" },
+      { key: "rightQuote", label: "Right speaker's response", type: "text" },
+    ],
+    comparison_spread: [
+      { key: "leftHeader", label: "Left column header", type: "string", placeholder: "e.g. BEFORE" },
+      { key: "rightHeader", label: "Right column header", type: "string", placeholder: "e.g. AFTER" },
+      { key: "leftContent", label: "Left column body", type: "text" },
+      { key: "rightContent", label: "Right column body", type: "text" },
+    ],
+    magazine_data_visualization: [
+      { key: "chartTable", label: "Chart data", type: "chart_table" },
+      { key: "chartType", label: "Chart type", type: "select", default: "auto", options: [{ value: "auto", label: "Auto" }, { value: "line", label: "Line" }, { value: "bar", label: "Bar" }, { value: "histogram", label: "Histogram" }] },
+      { key: "chartSummary", label: "Insight summary", type: "string", placeholder: "Short takeaway beside the chart" },
+    ],
+    timeline_journey: [
+      { key: "milestones", label: "Milestones", type: "object_array", subFields: [{ key: "date", label: "Date" }, { key: "label", label: "Event" }], maxItems: 6 },
+    ],
+    expert_spotlight: [
+      { key: "expertName", label: "Expert name", type: "string", placeholder: "e.g. Dr. Jane Smith" },
+      { key: "expertRole", label: "Role / organisation", type: "string", placeholder: "e.g. Senior Policy Analyst" },
+      { key: "credential", label: "Credential badge", type: "string", placeholder: "e.g. 20yr in Policy" },
+    ],
+    closing_page: [],
+    ending_socials: [],
   },
 };
 

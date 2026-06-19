@@ -1,0 +1,760 @@
+{
+  "id": "magazine",
+  "name": "Magazine",
+  "new_template": true,
+  "description": "An authentic print-editorial magazine template: cream paper, serif headlines and book-serif body, a single red accent, hairline rules, page folios and a masthead. Purely typographic — no photographs. Folios, kicker labels, pull quotes, Q&A blocks and crisp infographic ledgers for features, interviews and brand content.",
+  "genres": [
+    "Business",
+    "Lifestyle",
+    "Technology",
+    "Culture"
+  ],
+  "preview_colors": {
+    "accent": "#D71921",
+    "bg": "#FFFFFF",
+    "text": "#111111"
+  },
+  "composition_id": "MagazineVideo",
+  "hero_layout": "magazine_cover",
+  "fallback_layout": "feature_spread",
+  "valid_layouts": [
+    "magazine_cover",
+    "feature_spread",
+    "editorial_quote",
+    "photo_essay",
+    "by_the_numbers",
+    "interview_qa",
+    "comparison_spread",
+    "magazine_data_visualization",
+    "timeline_journey",
+    "expert_spotlight",
+    "text_narration",
+    "ending_socials",
+    "magazine_ticker"
+  ],
+  "layout_prop_schema": {
+    "magazine_cover": {
+      "label": "Magazine Cover",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "string",
+          "description": "Byline or tagline displayed under the title, e.g. 'The Future of Design'"
+        },
+        {
+          "key": "issueLabel",
+          "label": "Issuelabel",
+          "type": "string",
+          "description": "Top-left issue identifier, e.g. 'ISSUE 47 | JUNE 2026'"
+        }
+      ]
+    },
+    "feature_spread": {
+      "label": "Feature Spread",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "sectionLabel": "FEATURE"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "sectionLabel",
+          "label": "Sectionlabel",
+          "type": "string",
+          "description": "Red small-caps section tag displayed above the headline, e.g. 'FEATURE'"
+        }
+      ]
+    },
+    "editorial_quote": {
+      "label": "Editorial Pull Quote",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string",
+          "description": "Quote source displayed below the quote, e.g. '— Jane Smith, CEO'"
+        }
+      ]
+    },
+    "photo_essay": {
+      "label": "Photo Essay",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "type": "string",
+          "description": "Italic caption text displayed in the caption bar below the headline"
+        }
+      ]
+    },
+    "by_the_numbers": {
+      "label": "By the Numbers",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "stats": []
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Stats",
+          "type": "object_array",
+          "description": "Array of stat items, each with `value` (string, e.g. '4.2B') and `label` (string, e.g. 'Users Worldwide'), maximum 4 items",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ],
+          "maxItems": 10
+        }
+      ]
+    },
+    "interview_qa": {
+      "label": "Interview Q&A",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftSpeaker",
+          "label": "Leftspeaker",
+          "type": "string",
+          "description": "Left panel speaker name"
+        },
+        {
+          "key": "rightSpeaker",
+          "label": "Rightspeaker",
+          "type": "string",
+          "description": "Right panel speaker name"
+        },
+        {
+          "key": "leftQuote",
+          "label": "Leftquote",
+          "type": "text",
+          "description": "Left speaker's statement or answer"
+        },
+        {
+          "key": "rightQuote",
+          "label": "Rightquote",
+          "type": "text",
+          "description": "Right speaker's statement or answer"
+        }
+      ]
+    },
+    "comparison_spread": {
+      "label": "Comparison Spread",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "leftHeader": "BEFORE",
+        "rightHeader": "AFTER"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftHeader",
+          "label": "Leftheader",
+          "type": "string",
+          "description": "Left column header label, e.g. 'BEFORE'"
+        },
+        {
+          "key": "rightHeader",
+          "label": "Rightheader",
+          "type": "string",
+          "description": "Right column header label, e.g. 'AFTER'"
+        },
+        {
+          "key": "leftContent",
+          "label": "Leftcontent",
+          "type": "text",
+          "description": "Left column body text"
+        },
+        {
+          "key": "rightContent",
+          "label": "Rightcontent",
+          "type": "text",
+          "description": "Right column body text"
+        }
+      ]
+    },
+    "magazine_data_visualization": {
+      "label": "Data Visualisation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 56,
+          "landscape": 52
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 26
+        },
+        "chartType": "line",
+        "chartSummary": "Readership climbed steadily across the period before levelling off near the high.",
+        "chartTable": {
+          "headers": [
+            "Quarter",
+            "Readers",
+            "Subscribers"
+          ],
+          "rows": [
+            ["Q1", "298", "72"],
+            ["Q2", "308", "68"],
+            ["Q3", "315", "61"],
+            ["Q4", "324", "55"],
+            ["Q5", "318", "59"]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Quarter",
+        "yAxisLabel": "Thousands",
+        "barPrimaryColor": "#D71921",
+        "barSecondaryColor": "#111111"
+      },
+      "scene_defaults": {
+        "title": "The story in the numbers",
+        "narration": "The figures tell their own story across the period.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            { "label": "Auto (infer from data)", "value": "auto" },
+            { "label": "Line", "value": "line" },
+            { "label": "Bar", "value": "bar" },
+            { "label": "Histogram", "value": "histogram" }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "timeline_journey": {
+      "label": "Timeline Journey",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "milestones": []
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "milestones",
+          "label": "Milestones",
+          "type": "object_array",
+          "description": "Array of milestone items, each with `date` (string, e.g. '2021') and `label` (string, e.g. 'Company Founded'), maximum 6 items",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ],
+          "maxItems": 10
+        }
+      ]
+    },
+    "expert_spotlight": {
+      "label": "Expert Spotlight",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "expertName",
+          "label": "Expertname",
+          "type": "string",
+          "description": "Expert's full name"
+        },
+        {
+          "key": "expertRole",
+          "label": "Expertrole",
+          "type": "string",
+          "description": "Expert's role or organisation"
+        },
+        {
+          "key": "credential",
+          "label": "Credential",
+          "type": "string",
+          "description": "Credential badge text, e.g. '20yr in Policy'"
+        }
+      ]
+    },
+    "text_narration": {
+      "label": "Text Narration",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "sectionLabel",
+          "label": "Sectionlabel",
+          "type": "string",
+          "description": "Red small-caps section tag displayed above the headline, e.g. 'ANALYSIS'"
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Closing Page",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "ctaButtonText": "Read More",
+        "showWebsiteButton": true
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "description": "CTA button label text, e.g. 'Read More' or 'Visit Site'"
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "description": "URL shown below the CTA button, e.g. 'https://example.com'"
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show CTA Button",
+          "type": "boolean",
+          "description": "Toggle to show or hide the CTA button"
+        },
+        {
+          "key": "ctas",
+          "label": "CTA Cards",
+          "type": "object_array",
+          "description": "Up to 3 CTA cards. Each card has a button label and optional URL. Overrides the single ctaButtonText / websiteLink fields.",
+          "subFields": [
+            { "key": "ctaButtonText", "label": "Button Text" },
+            { "key": "websiteLink", "label": "Website URL" }
+          ],
+          "maxItems": 3
+        }
+      ]
+    },
+    "magazine_ticker": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 52,
+          "landscape": 42
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 22
+        },
+        "tickerTitle": "Q1 2026 Performance",
+        "tickerFootnote": "Source: editorial research",
+        "tickerHighlightCol": 5,
+        "tickerTable": {
+          "headers": ["Name", "Shares", "Price", "Cost", "Value", "% Chg"],
+          "rows": [
+            ["House A", "25", "$20", "$500", "$600", "+20%"],
+            ["House B", "20", "$30", "$600", "$500", "-16.7%"],
+            ["House C", "30", "$90", "$2,700", "$3,000", "+11.1%"],
+            ["House D", "50", "$100", "$5,000", "$10,000", "+100%"],
+            ["House E", "100", "$20", "$2,000", "$1,000", "-50%"]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "By the Numbers",
+        "narration": "The figures at a glance.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Cell Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table sub-headline",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: numeric or text values. Max 20 rows, max 6 columns.",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based) for gain/loss coloring, e.g. 5 for the 6th column. Set to -1 to disable.",
+          "type": "number"
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Footnote / source attribution",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "magazine_cover",
+    "editorial_quote",
+    "by_the_numbers",
+    "interview_qa",
+    "comparison_spread",
+    "magazine_data_visualization",
+    "timeline_journey",
+    "text_narration",
+    "ending_socials",
+    "magazine_ticker"
+  ]
+}

@@ -22,6 +22,7 @@ import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition
 import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
 import { EconomistVideoComposition } from "./economist/EconomistVideoComposition";
 import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
+import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -37,6 +38,7 @@ import {
   RemotionChronicleVideoComposition,
   RemotionEconomistVideoComposition,
   RemotionStickman2VideoComposition,
+  RemotionMagazineVideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -288,6 +290,22 @@ const STICKMAN_2_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+const MAGAZINE_LAYOUTS = new Set([
+  "magazine_cover",
+  "feature_spread",
+  "editorial_quote",
+  "photo_essay",
+  "by_the_numbers",
+  "interview_qa",
+  "comparison_spread",
+  "magazine_data_visualization",
+  "timeline_journey",
+  "expert_spotlight",
+  "text_narration",
+  "ending_socials",
+  "magazine_ticker",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -471,6 +489,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  magazine: {
+    component: MagazineVideoComposition as React.ComponentType<any>,
+    heroLayout: "magazine_cover",
+    fallbackLayout: "feature_spread",
+    validLayouts: MAGAZINE_LAYOUTS,
+    defaultColors: {
+      accent: "#E63946",
+      bg: "#FDFCFB",
+      text: "#1A1A1A",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -525,6 +556,8 @@ export function getTemplateConfig(
                               ? RemotionEconomistVideoComposition
                               : id === "stickman_2"
                                 ? RemotionStickman2VideoComposition
+                                : id === "magazine"
+                                  ? RemotionMagazineVideoComposition
                     : null;
 
     if (overrideComponent) {

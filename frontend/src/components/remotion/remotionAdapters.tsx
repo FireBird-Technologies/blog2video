@@ -49,6 +49,12 @@ import {
   type NewspaperLayoutType as RemotionNewspaperLayoutType,
   type BlogLayoutProps as RemotionNewspaperLayoutProps,
 } from "@remotion-video/templates/newspaper/layouts";
+import {
+  MAGAZINE_LAYOUT_REGISTRY as REMOTION_MAGAZINE_LAYOUT_REGISTRY,
+  type MagazineLayoutType as RemotionMagazineLayoutType,
+  type SceneLayoutProps as RemotionMagazineLayoutProps,
+} from "@remotion-video/templates/magazine/layouts";
+import { pickMagazineTransition as pickRemotionMagazineTransition } from "@remotion-video/templates/magazine/transitions";
 
 import {
   NEWSCAST_LAYOUT_REGISTRY as REMOTION_NEWSCAST_LAYOUT_REGISTRY,
@@ -1980,6 +1986,180 @@ export const RemotionStickman2VideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+          </Sequence>
+        );
+      })}
+
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+// ─── Magazine ───────────────────────────────────────────────────────────────────
+
+export interface RemotionMagazineSceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: RemotionMagazineLayoutType;
+  layoutProps: Record<string, unknown>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+}
+
+export interface RemotionMagazineVideoCompositionProps {
+  scenes: RemotionMagazineSceneInput[];
+  projectName?: string;
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  logoSize?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+}
+
+export const RemotionMagazineVideoComposition: React.FC<
+  RemotionMagazineVideoCompositionProps
+> = ({
+  scenes,
+  projectName,
+  accentColor,
+  bgColor,
+  textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  logoSize,
+  aspectRatio,
+  fontFamily,
+}) => {
+  const FPS = 30;
+  const EXTRA_HOLD = 42;
+  const isPortrait = aspectRatio === "portrait";
+  const canvasW = isPortrait ? 1080 : 1920;
+
+  const resolveLayout = (raw: string): RemotionMagazineLayoutType =>
+    (raw as RemotionMagazineLayoutType) in REMOTION_MAGAZINE_LAYOUT_REGISTRY
+      ? (raw as RemotionMagazineLayoutType)
+      : "feature_spread";
+
+  const resolvedScenes = scenes.map((scene) => {
+    const layoutKey = resolveLayout(String(scene.layout));
+    const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
+    return { scene, layoutKey, durationFrames };
+  });
+
+  const sequenceFrames = resolvedScenes.map((s, i, arr) =>
+    i === arr.length - 1 ? s.durationFrames : s.durationFrames + EXTRA_HOLD,
+  );
+
+  let runningFrame = 0;
+  const sceneStartFrames: number[] = [];
+  resolvedScenes.forEach((s, i) => {
+    sceneStartFrames[i] = runningFrame;
+    runningFrame += sequenceFrames[i];
+    if (i < resolvedScenes.length - 1) {
+      const nextLayout = resolvedScenes[i + 1].layoutKey;
+      const rawFrames = pickRemotionMagazineTransition(i, s.layoutKey, nextLayout, canvasW, accentColor).frames;
+      const safeFrames = Math.max(1, Math.min(rawFrames, Math.floor(sequenceFrames[i] / 2), Math.floor(sequenceFrames[i + 1] / 2)));
+      runningFrame -= safeFrames;
+    }
+  });
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#FFFFFF", fontFamily }}>
+      <TransitionSeries>
+        {resolvedScenes.map((s, index) => {
+          const { scene, layoutKey } = s;
+          const seqFrames = sequenceFrames[index];
+          const LayoutComponent =
+            REMOTION_MAGAZINE_LAYOUT_REGISTRY[layoutKey] ??
+            REMOTION_MAGAZINE_LAYOUT_REGISTRY.feature_spread;
+
+          const rawProps = (scene.layoutProps as Record<string, unknown>) ?? {};
+          const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
+          const focusY = Math.max(0, Math.min(100, Number(rawProps.imageFocusY ?? 50)));
+
+          const layoutProps: RemotionMagazineLayoutProps = {
+            ...(rawProps as Partial<RemotionMagazineLayoutProps>),
+            title: scene.title,
+            narration: scene.narration,
+            imageUrl: scene.imageUrl,
+            imageObjectPosition: `${focusX}% ${focusY}%`,
+            imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
+            accentColor: accentColor || "#D71921",
+            bgColor: bgColor || "#FFFFFF",
+            textColor: textColor || "#111111",
+            aspectRatio,
+            sceneDurationInFrames: s.durationFrames,
+            fontFamily,
+            pageNumber: index + 1 < 10 ? `0${index + 1}` : String(index + 1),
+            brandName: projectName,
+          };
+
+          const sequence = (
+            <TransitionSeries.Sequence
+              key={`seq-${scene.id}-${index}`}
+              durationInFrames={seqFrames}
+            >
+              <LayoutComponent {...layoutProps} />
+            </TransitionSeries.Sequence>
+          );
+
+          if (index === resolvedScenes.length - 1) {
+            return sequence;
+          }
+
+          const nextLayout = resolvedScenes[index + 1].layoutKey;
+          const choice = pickRemotionMagazineTransition(
+            index,
+            layoutKey,
+            nextLayout,
+            canvasW,
+            accentColor || "#D71921",
+          );
+          // Clamp so the transition never exceeds either adjacent sequence length.
+          // Remotion throws a hard error if it does.
+          const safeFrames = Math.max(1, Math.min(
+            choice.frames,
+            Math.floor(seqFrames / 2),
+            Math.floor(sequenceFrames[index + 1] / 2),
+          ));
+
+          return (
+            <React.Fragment key={`scene-${scene.id}-${index}`}>
+              {sequence}
+              <TransitionSeries.Transition
+                presentation={choice.presentation}
+                timing={linearTiming({ durationInFrames: safeFrames })}
+              />
+            </React.Fragment>
+          );
+        })}
+      </TransitionSeries>
+
+      {resolvedScenes.map((s, index) => {
+        if (!s.scene.voiceoverUrl) return null;
+        return (
+          <Sequence
+            key={`audio-${s.scene.id}-${index}`}
+            from={sceneStartFrames[index]}
+            durationInFrames={s.durationFrames}
+          >
+            <Audio src={s.scene.voiceoverUrl} />
           </Sequence>
         );
       })}

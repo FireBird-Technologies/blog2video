@@ -59,6 +59,10 @@ import {
   Stickman2Video,
   calculateStickman2Metadata,
 } from "./templates/stickman_2/Stickman2Video";
+import {
+  MagazineVideo,
+  calculateMagazineMetadata,
+} from "./templates/magazine/MagazineVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -247,6 +251,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateStickman2Metadata}
+      />
+      <Composition
+        id="MagazineVideo"
+        component={MagazineVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateMagazineMetadata}
       />
     </>
   );
