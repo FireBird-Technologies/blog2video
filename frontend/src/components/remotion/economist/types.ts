@@ -89,6 +89,11 @@ export interface EconomistLayoutProps {
   // ── leader_article ─────────────────────────────────────────────────────────
   /** Drop-cap override; defaults to the first letter of the body. */
   illuminatedLetter?: string;
+  /** On-screen article body paragraph (≈4–7 sentences), grounded in the source.
+   * Independent of `narration` (the short spoken voiceover) so the page fills
+   * with real article copy without lengthening the audio. Falls back to
+   * `narration` when absent. */
+  body?: string;
   /** Short takeaway points (2–3) shown as a ruled list so a thin article beat
    * still fills the page. `standfirst` (below) doubles as the deck line here. */
   keyPoints?: string[];
