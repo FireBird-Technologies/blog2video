@@ -577,7 +577,7 @@ export const blogPosts: BlogPost[] = [
     heroDescription:
       "If a URL already explains something clearly, AI should help turn that page into a slide deck you can actually download and reuse.",
     primaryKeyword: "link to powerpoint",
-    keywordVariant: "url to powerpoint with ai",
+    keywordVariant: "link into ppt",
     relatedPaths: [
       "/url-to-video",
       "/pptx-to-video",
@@ -649,6 +649,11 @@ export const blogPosts: BlogPost[] = [
         question: "Is this better than manually copying a page into slides?",
         answer:
           "Yes. Manual copy-paste usually produces bloated decks. A structured workflow is better because it turns the page into presentation units instead of simply transferring webpage text onto slides.",
+      },
+      {
+        question: "Can I turn a link into a PPT, not just a PowerPoint file?",
+        answer:
+          "Yes — PPT and PowerPoint refer to the same .pptx format here. Paste the URL into Blog2Video, generate the scenes, and export the result as a .pptx deck you can open in PowerPoint, Google Slides, or Keynote.",
       },
     ],
     distributionPlan: [
@@ -4493,6 +4498,103 @@ export const blogPosts: BlogPost[] = [
       { channel: "substack", title: "Documentation workflow note", angle: "Explain why structured docs adapt well to video." },
       { channel: "medium", title: "Most document-to-video workflows lose clarity", angle: "Lead with the structure-preservation framing." },
       { channel: "video", title: "DOCX-to-video walkthrough", angle: "Show a document becoming a step-by-step explainer." },
+    ],
+  },
+  {
+    slug: "how-to-convert-pdf-to-video",
+    title: "How To Convert a PDF Into a Video",
+    description:
+      "A step-by-step PDF-to-video workflow for turning whitepapers, lesson notes, research summaries, and guides into narrated explainer videos.",
+    category: "How-to",
+    heroImage: "/blog/blog-cover-pdf-educators.png",
+    heroImageAlt:
+      "Editorial illustration of a PDF document being converted into a structured narrated explainer video.",
+    publishedAt: "2026-06-21",
+    readTime: "7 min read",
+    heroEyebrow: "Document how-to",
+    heroTitle: "Turn a PDF into a video by keeping its structure, not just its text",
+    heroDescription:
+      "Most PDF-to-video tools either read the file page by page as a slideshow or summarize it into a generic avatar script. Neither approach keeps the original document's logic. Here is a workflow that does.",
+    primaryKeyword: "how to convert pdf to video",
+    keywordVariant: "how to make a pdf into a video",
+    relatedPaths: [
+      "/pdf-to-video",
+      "/for-educators",
+      "/for-researchers",
+      "/blogs/pdf-to-video-fastest-workflow-for-educators",
+    ],
+    sections: [
+      {
+        heading: "Start with a PDF that already has a teaching arc",
+        paragraphs: [
+          "PDF-to-video works best when the source document already explains something in order: a whitepaper, a lesson handout, a research summary, a guide, or a report with headings and sections. If the PDF is just a scanned form or a dense, unstructured dump of text, the video will inherit that confusion.",
+          "Documents with headings, bullet lists, diagrams, and worked examples convert especially well because that structure becomes the scene outline almost directly.",
+        ],
+      },
+      {
+        heading: "Don't treat every page as one video frame",
+        paragraphs: [
+          "The weakest version of PDF-to-video is a literal slideshow: render each page as a frame, add narration, done. That ignores the fact that PDF pages are a print layout decision, not a video pacing decision — a dense page might need three scenes, and three short pages might collapse into one.",
+          "A stronger workflow reads the PDF's actual structure — headings, sections, and supporting content — and maps that structure to scenes, independent of where the original page breaks fell.",
+        ],
+        bullets: [
+          "Use headings and subheadings as scene boundaries, not page boundaries.",
+          "Let dense sections (data tables, multi-step processes) split into multiple scenes.",
+          "Carry diagrams and charts into the video as visuals instead of narrating around them.",
+        ],
+      },
+      {
+        heading: "Keep the narration grounded in the document",
+        paragraphs: [
+          "A PDF-to-video conversion should sound like a narrated version of the document, not a generic AI summary that happens to share a topic with it. That distinction matters most for research papers, technical guides, and lesson material where precision is the point.",
+          "If the conversion strips out specific numbers, caveats, or examples in favor of a smoother-sounding script, it has solved the wrong problem.",
+        ],
+      },
+      {
+        heading: "Pick a template that matches the document's purpose",
+        paragraphs: [
+          "A whitepaper, a lesson PDF, and a research summary do not need the same visual treatment. Whiteboard-style templates suit teaching material and step-by-step explanations. Cleaner editorial templates suit whitepapers and research summaries where credibility matters more than pacing energy.",
+        ],
+      },
+      {
+        heading: "How Blog2Video handles this",
+        paragraphs: [
+          "1. Upload your PDF — Blog2Video reads the full document structure, including headings, paragraphs, lists, and images, and maps it into a scene outline.",
+          "2. Choose a template — Whiteboard is the strongest default for lesson notes and teaching material; pick a cleaner editorial template for whitepapers and research summaries.",
+          "3. Generate and review — Each scene follows a section of the original PDF. Edit any scene in the AI editor, then export as MP4, or as PNG, PDF, or PowerPoint slides if you want a deck alongside the video.",
+        ],
+        component: "document-education",
+        ctaPath: "/pdf-to-video",
+        ctaLabel: "Convert a PDF to video",
+      },
+    ],
+    faq: [
+      {
+        question: "How do I make a PDF into a video?",
+        answer:
+          "Upload the PDF into Blog2Video. It reads the document's headings, paragraphs, and images, maps them into a scene-by-scene outline, adds narration, and generates a video you can edit before exporting as MP4.",
+      },
+      {
+        question: "Will the video just be my PDF pages turned into a slideshow?",
+        answer:
+          "No. Instead of rendering each page as one frame, Blog2Video maps the document's actual section structure to scenes, so dense pages can split into multiple scenes and short pages can combine — the pacing follows the content, not the original page breaks.",
+      },
+      {
+        question: "Does this work for research papers and whitepapers, not just lesson PDFs?",
+        answer:
+          "Yes. The same structure-preserving approach works for whitepapers, research summaries, reports, and guides — anything with headings and a logical sequence of ideas.",
+      },
+      {
+        question: "Can I get something other than an MP4 out of the same PDF?",
+        answer:
+          "Yes. The same generated scenes can be exported as PNG slides, a PDF deck, or a PowerPoint file, so one PDF upload can produce a video and a slide deck without a second production pass.",
+      },
+    ],
+    distributionPlan: [
+      { channel: "site", title: "Canonical PDF-to-video how-to", angle: "Capture 'how to convert pdf to video' and 'how to make a pdf into a video' search intent." },
+      { channel: "substack", title: "PDF-to-video workflow note", angle: "Explain why page-by-page slideshow conversion loses the document's logic." },
+      { channel: "medium", title: "Why most PDF-to-video tools get the pacing wrong", angle: "Lead with the structure-vs-page-breaks framing." },
+      { channel: "video", title: "PDF-to-video walkthrough", angle: "Show a dense PDF page splitting into multiple well-paced scenes." },
     ],
   },
   {
