@@ -670,4 +670,77 @@ export const coreCommercialPages: MarketingPage[] = [
       "/blogs/blog-to-youtube-shorts-strategy",
     ],
   }),
+  createPage({
+    path: "/linkedin-carousel-generator",
+    title: "LinkedIn Carousel Generator From Articles, PDFs, and Blog Posts",
+    description:
+      "Turn an existing article, blog post, or PDF into LinkedIn carousel slides — download as PNG, PDF, or PowerPoint without starting from a blank canvas.",
+    eyebrow: "Social workflow",
+    heroTitle: "A LinkedIn carousel generator that starts with content you already wrote",
+    heroDescription:
+      "Most carousel tools start from a blank canvas, a single idea, or a generic hook-list-CTA template. Blog2Video starts from your article's actual structure and turns it into downloadable carousel slides.",
+    category: "commercial",
+    primaryKeyword: "linkedin carousel generator",
+    keywordVariant: "ai carousel generator from blog post",
+    proofPoints: [
+      "Generates carousel-ready scenes directly from an article URL, PDF, or document — no blank-canvas design work.",
+      "Export the same scene set as PNG slides, a PDF deck, or an editable PowerPoint file.",
+      "Scene structure follows your article's actual headings, not a generic hook-and-bullets carousel formula.",
+    ],
+    sections: [
+      {
+        title: "Why most carousel generators start in the wrong place",
+        body: [
+          "Most LinkedIn carousel tools ask you to paste a single idea, a tweet, or a topic and generate a generic hook-and-bullets sequence. That works for quick takes, but it throws away structure you've already built if the source material is a real article or research note.",
+          "Blog2Video reads the source article's headings, sections, and examples and maps each one to a scene, so the carousel mirrors the actual argument instead of a templated format.",
+        ],
+      },
+      {
+        title: "From article to carousel in three steps",
+        body: [
+          "1. Paste the article URL, PDF, or document into Blog2Video.",
+          "2. Review the generated scenes — each one maps to a section of the source content, and you can edit any scene before exporting.",
+          "3. Export the scene set as PNG slides for direct LinkedIn upload, a PDF deck, or a PowerPoint file for further editing.",
+        ],
+      },
+      {
+        title: "One generation, multiple distribution formats",
+        body: [
+          "The same generation run that produces a narrated video also produces the carousel. A single article can become a YouTube video, a LinkedIn carousel, and a PDF handout without separate production passes for each format.",
+          "If the source content is from an early-stage blog or publication still building an audience, pairing carousel distribution with a free listing on BlogHub adds a second discovery channel — a community-ranked, SEO-optimized profile page and backlinks for the publication itself.",
+        ],
+      },
+    ],
+    recommendedTemplate: "geometric-explainer",
+    recommendedTemplateReason:
+      "Geometric Explainer's clean panel-based layouts translate directly into carousel slides without feeling like a repurposed video frame.",
+    faq: [
+      {
+        question: "Can Blog2Video actually generate a LinkedIn carousel, not just a video?",
+        answer:
+          "Yes. Once an article, PDF, or document is generated into scenes, you can export that same scene set as PNG slides, a PDF deck, or a PowerPoint file — all formats LinkedIn's carousel upload accepts.",
+      },
+      {
+        question: "Do I need a video first to get a carousel?",
+        answer:
+          "No. Generating the scenes is the shared first step for both outputs. You can export straight to PNG, PDF, or PowerPoint without rendering or publishing a video.",
+      },
+      {
+        question: "How is this different from a generic AI carousel generator?",
+        answer:
+          "Generic carousel generators usually start from a single prompt or idea and produce a templated hook-list-CTA sequence. Blog2Video starts from your actual article structure, so the carousel follows your real argument and examples instead of a generic format.",
+      },
+      {
+        question: "What if I want to edit slides before exporting?",
+        answer:
+          "You can edit any scene's text, layout, or image after generation and before export, so the final PNG, PDF, or PowerPoint reflects your changes.",
+      },
+    ],
+    relatedPaths: [
+      "/blog-to-video",
+      "/tools/quote-card-generator",
+      "/blogs/ai-linkedin-carousel-generator-from-existing-content",
+      "/for-technical-bloggers",
+    ],
+  }),
 ];

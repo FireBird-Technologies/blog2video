@@ -236,21 +236,21 @@ export const tools: ToolDefinition[] = [
   {
     slug: "headline-analyzer",
     path: "/tools/headline-analyzer",
-    title: "Headline Analyzer",
+    title: "Headline & Title Analyzer",
     description:
-      "Score headlines for clarity, specificity, length, curiosity, audience fit, and platform match across blog, Medium, Substack, and YouTube contexts.",
+      "Score headlines and titles for clarity, specificity, length, curiosity, audience fit, and platform match — including a dedicated YouTube title mode for thumbnail and search-friendly titles.",
     eyebrow: "Analyzer",
-    heroTitle: "Score your headline and get rewrite suggestions you can actually use.",
+    heroTitle: "Score your title or headline and get rewrite suggestions you can actually use.",
     heroDescription:
-      "See where a title is strong, where it is vague, and how to improve it for blogs, Medium, Substack, or YouTube without relying on black-box scoring.",
+      "See where a title is strong, where it is vague, and how to improve it for blogs, Medium, Substack, or YouTube — including a YouTube title checker mode — without relying on black-box scoring.",
     category: "analyzer",
     icon: "HA",
-    primaryKeyword: "headline analyzer",
-    keywordVariant: "headline score tool",
-    badges: ["Deterministic scoring", "Rewrite suggestions", "Platform modes"],
+    primaryKeyword: "title analyzer",
+    keywordVariant: "youtube title checker",
+    badges: ["Deterministic scoring", "Rewrite suggestions", "YouTube title mode"],
     proofPoints: [
       "The score is broken into transparent factors instead of hidden behind a single number.",
-      "Platform modes help the feedback match blog, newsletter, Medium, or YouTube goals.",
+      "Platform modes help the feedback match blog, newsletter, Medium, or YouTube title goals.",
       "Rewrite suggestions are based on the signals the analyzer found, not generic filler.",
     ],
     sections: [
@@ -262,9 +262,16 @@ export const tools: ToolDefinition[] = [
         ],
       },
       {
+        title: "Using it as a YouTube title checker",
+        body: [
+          "Switch to YouTube mode and the analyzer weighs the things that matter for video specifically: front-loaded keywords, a clear benefit or curiosity gap, and length. YouTube truncates titles past roughly 60 characters in search and suggested results, so the checker flags titles that will get cut off before the most important words.",
+          "This is the same scoring used for blog and newsletter titles, just re-weighted for how viewers scan a YouTube results page instead of how readers scan an inbox or feed.",
+        ],
+      },
+      {
         title: "What the score is for",
         body: [
-          "The point is not to chase a vanity score. It is to quickly see whether a headline is too vague, too long, too flat, or missing a concrete audience or benefit signal.",
+          "The point is not to chase a vanity score. It is to quickly see whether a title is too vague, too long, too flat, or missing a concrete audience or benefit signal — whether it is destined for a blog post or a YouTube upload.",
         ],
       },
     ],
@@ -275,9 +282,19 @@ export const tools: ToolDefinition[] = [
           "No. The scoring is deterministic and rules-based so you can understand what the tool is rewarding or penalizing.",
       },
       {
-        question: "Can it help with newsletter or YouTube titles too?",
+        question: "Is this also a YouTube title checker?",
         answer:
-          "Yes. The mode switch changes how the headline is evaluated and what kind of rewrite suggestions are prioritized.",
+          "Yes. Switching to YouTube mode re-weights the score toward what matters for video titles — keyword front-loading, length before truncation, and curiosity — instead of blog or newsletter conventions.",
+      },
+      {
+        question: "Can it help with newsletter titles too?",
+        answer:
+          "Yes. The mode switch changes how the title is evaluated and what kind of rewrite suggestions are prioritized for blog, Medium, Substack, or YouTube contexts.",
+      },
+      {
+        question: "If I score a video title here, can I publish the video too?",
+        answer:
+          "If the title is for a blog post you're turning into video, paste the same article into Blog2Video to generate the narrated video once the title scores well. If the underlying blog or publication is still building an audience, a free profile on BlogHub adds a second discovery channel alongside the video itself.",
       },
     ],
     relatedPaths: [
