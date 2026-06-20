@@ -40,7 +40,8 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
   const exit = interpolate(frame, [dur - 16, dur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const sceneOpacity = enter * exit;
 
-  const easeOut = (t: number) => 1 - Math.pow(1 - t, 2);
+  // Cubic ease-out: gentler tail-off than quadratic, so the ball/limbs settle more softly.
+  const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
   // ── Sizing (match KickoffTitle: bigger in portrait) ──
   const ballR = 30;
@@ -64,7 +65,7 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
   // Both players WALK in from off-screen to their corner, then stand and pass.
   // The gait (thigh swing + backward knee bend) is driven inside PlayerStickman via
   // the `walk` prop, matched to the whiteboard DrawnTitle figure.
-  const walkFrames = Math.round(fps * 1.4);
+  const walkFrames = Math.round(fps * 1.4 * 1.4);
   const runEnd = walkFrames;
   const leftStartX = -90;
   const rightStartX = W + 90;
@@ -76,7 +77,8 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
   const rightRunning = frame < runEnd + 4;
 
   // Stride phase for the walk (slows to a stop as each player settles at the corner).
-  const gaitCycle = frame * 0.42;
+  // Slower cadence than before to match the calmer, smoother overall pace.
+  const gaitCycle = frame * 0.31;
   // Blend the walk gait out over the last stretch so they plant cleanly before passing.
   const leftWalkAmt = 1 - interpolate(leftWalkT, [0.82, 1], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const rightWalkAmt = 1 - interpolate(rightWalkT, [0.82, 1], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -85,12 +87,17 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
 
   // ── Opening: ball kicked in from off-screen right while players run on ───────
   // Parabolic pass → left player chest trap → foot control → then pass cycles.
-  const INCOMING = Math.round(fps * 1.35);
-  const INCOMING_CHEST = Math.round(fps * 0.45);
-  const INCOMING_FOOT = Math.round(fps * 0.5);
+  const INCOMING = Math.round(fps * 1.35 * 1.4);
+  const INCOMING_CHEST = Math.round(fps * 0.45 * 1.4);
+  const INCOMING_FOOT = Math.round(fps * 0.5 * 1.4);
   const playStart = INCOMING + INCOMING_CHEST + INCOMING_FOOT;
 
-  const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+  // Smootherstep ease-in-out (5th-order): zero velocity AND acceleration at both ends,
+  // so the run-up between dribble touches accelerates and decelerates more gently.
+  const easeInOut = (t: number) => {
+    const c = Math.max(0, Math.min(1, t));
+    return c * c * c * (c * (c * 6 - 15) + 10);
+  };
 
   // ── Dribble model ────────────────────────────────────────────────────────────
   // A dribble is the player TRAVELLING with the ball: on each touch the foot pokes the
@@ -142,14 +149,19 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
   //   FLICK    – scoop the ball up off the toes into the air
   //   HEADER   – nod the rising ball forward, sending it toward the receiver
   const sinceStart = Math.max(0, frame - playStart);
-  const DRIBBLE = fps * 0.95;   // ~3 pushing touches, ball runs ahead each time
-  const STEPOVER = fps * 0.6;   // feet dance around the ball
-  const FLICK = fps * 0.4;      // toe-scoop lifts the ball up
-  const HEADER = fps * 0.55;    // ball arcs to the receiver off the head
+  // Global slow-down: stretches every phase by the same factor so the SEQUENCE of
+  // motion steps is unchanged — the whole play just runs at a calmer pace.
+  const SLOW = 1.4;
+  const DRIBBLE = fps * 0.95 * SLOW;   // ~3 pushing touches, ball runs ahead each time
+  // Minimal dribble: trim the stationary stepover so the feet don't look "stuck"
+  // dancing in place — just a brief settling beat before the flick.
+  const STEPOVER = fps * 0.22 * SLOW;  // brief settle (was a long in-place foot dance)
+  const FLICK = fps * 0.4 * SLOW;      // toe-scoop lifts the ball up
+  const HEADER = fps * 0.55 * SLOW;    // ball arcs to the receiver off the head
   const CONTROL = DRIBBLE + STEPOVER + FLICK;
   const PASS = HEADER;          // the "pass" is now a header
-  const CHEST = fps * 0.45;
-  const FOOTCTL = fps * 0.5;    // settle at foot, one dribble, hold
+  const CHEST = fps * 0.45 * SLOW;
+  const FOOTCTL = fps * 0.28 * SLOW;   // quick settle at foot, then hold (was a longer shuffle)
   const CYCLE = CONTROL + PASS + CHEST + FOOTCTL;
 
   // Dribble: number of touches, total ground the player+ball cover together, and how
@@ -269,19 +281,20 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
       const settle = interpolate(t, [0, 0.25], [DRIBBLE_LEAD, DRIBBLE_LEAD * 0.5], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
       ballX = dribbleFootX + senderDir * settle;
       ballY = footBallY;
-      const sweeps = 2;
+      // Minimal: one single foot-roll over the ball (no repeated in-place dance).
+      const sweeps = 1;
       const sLocal = (t * sweeps) % 1;
-      const arc = Math.sin(sLocal * Math.PI);                 // foot lifts & circles
-      const around = Math.sin(sLocal * Math.PI * 2) * 0.35;   // out then back across the ball
+      const arc = Math.sin(sLocal * Math.PI);                 // one foot lift & settle
+      const around = Math.sin(sLocal * Math.PI * 2) * 0.2;    // slight roll across the ball
       senderKick = {
-        kickLeg: arc * 0.6 + around,        // foot rolls around the ball, no real kick
-        plantBend: 0.14 + arc * 0.16,
-        torsoBias: -senderDir * (4 + arc * 5),
+        kickLeg: arc * 0.45 + around,       // foot rolls over the ball, no real kick
+        plantBend: 0.14 + arc * 0.14,
+        torsoBias: -senderDir * (4 + arc * 4),
       };
-      // Body weaves side-to-side over the ball (feint) without leaving it.
-      senderSwayX = Math.sin(t * Math.PI * sweeps * 2) * (p ? 16 : 20);
-      // Arms counter-balance the feint (swing opposite to the body weave).
-      senderArmSwing = -Math.sin(t * Math.PI * sweeps * 2) * (p ? 14 : 18);
+      // Gentle weight-shift over the ball (much smaller than a full feint).
+      senderSwayX = Math.sin(t * Math.PI) * (p ? 8 : 10);
+      // Arms counter-balance the small shift.
+      senderArmSwing = -Math.sin(t * Math.PI) * (p ? 7 : 9);
     } else {
       // (3) FLICK — toe-scoop: the foot rolls under the ball and pops it UP off the toes,
       // straight up to head height so the player can head it from where it stands.
@@ -314,7 +327,7 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
     // onto the forehead, then snaps forward hard at contact to head the ball away.
     const HEAD_BACK = -22;   // deg the head is cocked back at full wind-up
     const HEAD_FWD = 30;     // deg the head snaps forward through contact
-    const contact = 0.4;     // fraction of the header phase spent winding up before contact
+    const contact = 0.15;    // short wind-up: head it almost immediately after the lift
     if (t < contact) {
       // Wind-up: ball settles toward the forehead; head cocks all the way back.
       const k = t / contact;
