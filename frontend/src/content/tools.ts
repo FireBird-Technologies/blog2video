@@ -380,10 +380,30 @@ export const tools: ToolDefinition[] = [
     ],
     sections: [
       {
+        title: "What is Remotion?",
+        body: [
+          "Remotion is a framework for creating videos programmatically using React. Instead of dragging clips on a timeline, you write components that render frame-by-frame, which makes it possible to generate video from data — JSON, an API response, or in Blog2Video's case, a parsed article.",
+          "Remotion's own site offers starter templates (Hello World, Next.js, TikTok, 3D, Audiogram) that scaffold a blank project. The templates on this page are different: they are complete, pre-built compositions for blog-to-video content specifically, not blank starters you build up from scratch.",
+        ],
+      },
+      {
         title: "What these templates include",
         body: [
           "Each ZIP is a complete standalone Remotion project: TypeScript compositions, all layout components, shared utilities, sample data, and everything needed to run npx remotion studio out of the box.",
           "These are the exact compositions used by Blog2Video's production pipeline — cinematic dark, bold kinetic typography, editorial bento grids, cyberpunk terminal, and structured explainer styles.",
+        ],
+      },
+      {
+        title: "The 5 templates and what each is best for",
+        body: [
+          "Each template targets a different content style. Pick based on the kind of article you're converting, not just visual preference.",
+        ],
+        bullets: [
+          "Geometric Explainer — clean, structured layouts for tutorials, walkthroughs, and technical onboarding where clarity matters more than flair.",
+          "Nightfall — premium dark cinematic look with glass-morphism cards, built for founder stories, product launches, and thought-leadership clips.",
+          "Spotlight — bold kinetic typography for promotional content, keynote-style clips, and short-form hooks that need to grab attention fast.",
+          "Matrix — cyberpunk terminal aesthetic for developer tutorials, AI/ML explainers, and cybersecurity content aimed at technical audiences.",
+          "Gridcraft — warm editorial bento grids for comparisons, benchmarks, listicles, and data-heavy content with lists or metrics.",
         ],
       },
       {
@@ -418,6 +438,16 @@ export const tools: ToolDefinition[] = [
         question: "Can Blog2Video build a custom template for my brand?",
         answer:
           "Yes. Blog2Video Pro includes access to custom template creation tailored to your brand identity, color palette, and content style. See the pricing page for details.",
+      },
+      {
+        question: "How is this different from the official Remotion starter templates?",
+        answer:
+          "Remotion's own templates (Hello World, Next.js, TikTok, 3D) are blank scaffolds you build a composition on top of. These five are finished, content-ready blog-to-video compositions — the same ones Blog2Video uses in production — so you start from a working video, not an empty project.",
+      },
+      {
+        question: "Do I need to know Remotion already to use these?",
+        answer:
+          "Basic React and TypeScript knowledge is enough to swap data and tweak styling. If you've never used Remotion, running npx remotion studio after unzipping shows the composition live and is the fastest way to learn by example.",
       },
     ],
     relatedPaths: [

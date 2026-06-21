@@ -1,5 +1,5 @@
 import { createFaq, createPage, templateBySlug } from "./marketingBase";
-import type { MarketingPage } from "./seoTypes";
+import type { FaqItem, MarketingPage } from "./seoTypes";
 
 type AlternativeSeed = {
   path: string;
@@ -15,6 +15,7 @@ type AlternativeSeed = {
   sections: { title: string; body: string[]; bullets?: string[] }[];
   relatedPaths: string[];
   demoWidget?: boolean;
+  faq?: FaqItem[];
 };
 
 const seeds: AlternativeSeed[] = [
@@ -262,12 +263,47 @@ const seeds: AlternativeSeed[] = [
           "If you write posts that rely on precision, structure, and specific examples, Blog2Video's article-driven approach preserves that. Lumen5's stock-footage approach tends to flatten the specificity of technical content.",
         ],
       },
+      {
+        title: "Lumen5 pricing vs Blog2Video pricing",
+        body: [
+          "Lumen5's paid plans start around $19/month (Starter) and scale to $79/month (Professional) before reaching the tier that removes the watermark and unlocks 1080p export, with total monthly video minutes capped rather than counted per finished video.",
+          "Blog2Video's Standard plan is $35/month for roughly 240 minutes of finished video, counted as a flat per-video allowance rather than a minute meter you have to budget against — and there is no separate AI-credit cap layered on top, which is the limit that usually binds first on AI-video tools priced like Lumen5.",
+        ],
+        bullets: [
+          "Lumen5 free plan: heavy watermark, 720p export, limited media library",
+          "Lumen5 paid tiers: $19–$79/mo, minute-metered, watermark removed at higher tiers",
+          "Blog2Video Standard: $35/mo, ~240 minutes/month, no watermark, no separate credit cap",
+          "Both offer a free starting tier — Blog2Video's free videos are full-quality, not watermarked previews",
+        ],
+      },
     ],
     relatedPaths: [
       "/blog2video-vs-lumen5",
       "/blog-to-video",
       "/for-technical-bloggers",
       "/pictory-alternative",
+    ],
+    faq: [
+      {
+        question: "Is there a free alternative to Lumen5?",
+        answer:
+          "Blog2Video offers free starting videos with no watermark, which makes it a practical free entry point for testing a Lumen5 alternative before committing to a paid plan. Lumen5's own free tier keeps a visible watermark and caps export at 720p.",
+      },
+      {
+        question: "How much does Lumen5 cost compared to Blog2Video?",
+        answer:
+          "Lumen5's paid plans run from about $19/month to $79/month depending on resolution and watermark removal, metered by total minutes. Blog2Video's Standard plan is $35/month for around 240 minutes of video, with no separate AI-credit cap layered on top of the minute allowance.",
+      },
+      {
+        question: "What is the best Lumen5 alternative for technical or blog content?",
+        answer:
+          "For writing-first content — technical guides, SEO articles, documentation, and newsletters — Blog2Video is built specifically around preserving article structure. Lumen5 is better suited to marketing teams who want a large stock-media library for short promotional clips.",
+      },
+      {
+        question: "Can I switch from Lumen5 to Blog2Video without losing my content?",
+        answer:
+          "Yes. Blog2Video doesn't import Lumen5 projects directly, but since it generates videos from your live blog URL or document rather than a slide editor, you can regenerate any article you've already published in a few minutes without rebuilding scenes by hand.",
+      },
     ],
   },
   {
@@ -700,10 +736,12 @@ export const alternativePages: MarketingPage[] = seeds.map((seed) =>
     ...seed,
     category: "alternative",
     recommendedTemplateReason: templateBySlug[seed.recommendedTemplate].differentiator,
-    faq: createFaq(
-      seed.primaryKeyword,
-      "Teams looking to switch from or compare another blog-to-video tool",
-      "Blog2Video is strongest when the original content already has structure and depth — it preserves that structure in the output rather than replacing it with generic stock media."
-    ),
+    faq:
+      seed.faq ??
+      createFaq(
+        seed.primaryKeyword,
+        "Teams looking to switch from or compare another blog-to-video tool",
+        "Blog2Video is strongest when the original content already has structure and depth — it preserves that structure in the output rather than replacing it with generic stock media."
+      ),
   })
 );
