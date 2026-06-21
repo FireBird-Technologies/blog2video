@@ -2965,8 +2965,36 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/blog-to-video",
         ctaLabel: "Try the blog to video converter free",
       },
+      {
+        heading: "The manual approach, if you're not ready for a tool",
+        paragraphs: [
+          "You can do this without dedicated software. Paste the article into an AI chat tool and ask it to condense the piece into a spoken-style script that keeps the original argument and examples. Then record a voiceover yourself or generate one with a separate text-to-speech tool, source or screenshot the visuals the article already references, and assemble everything in a general-purpose video editor.",
+          "This works, but every step — scripting, voice, visuals, assembly — is a separate manual task with its own learning curve. It's a reasonable way to test whether blog-to-video is worth doing at all before adopting a dedicated tool that automates all four steps from a single URL.",
+        ],
+      },
     ],
-    faq: faq("blog post to video", "repurposing one article into multiple formats"),
+    faq: [
+      {
+        question: "How long does it take to turn a blog post into a video?",
+        answer:
+          "Manually — scripting, recording or generating a voiceover, sourcing visuals, and editing — typically takes 30-60+ minutes per post depending on length. With Blog2Video, pasting the URL and generating a first draft takes under 3 minutes; review and refinement adds a few minutes more.",
+      },
+      {
+        question: "Is there a free way to turn a blog post into a video?",
+        answer:
+          "Yes. The fully manual route (AI-assisted scripting plus a free TTS voice and a free editor) costs nothing but your time. Blog2Video also offers free starting videos with no watermark if you'd rather automate the process.",
+      },
+      {
+        question: "What's the best tool to convert a blog post into a video?",
+        answer:
+          "It depends on your source content. Avatar-first tools like HeyGen and Synthesia are built for presenter-led scripts. Stock-footage tools like Lumen5 and Pictory work well for marketing content. Blog2Video is built specifically for preserving the structure of technical and long-form writing without a rewrite step.",
+      },
+      {
+        question: "Does the video need to match the blog post exactly?",
+        answer:
+          "No, and it shouldn't. Video needs tighter pacing than text — open with the core point, compress transitional copy, and let each section resolve one idea. The goal is to preserve the argument and examples, not narrate the post word for word.",
+      },
+    ],
     distributionPlan: [
       { channel: "site", title: "Canonical workflow article", angle: "Own the search intent on the site first." },
       { channel: "substack", title: "Behind-the-scenes creator note", angle: "Explain why the article made a strong video candidate." },

@@ -68,6 +68,7 @@ export const coreCommercialPages: MarketingPage[] = [
     relatedPaths: [
       "/blog-to-video",
       "/ai-blog-to-video",
+      "/blog-to-video-generator",
       "/blog-to-youtube-video",
       "/blogs/how-to-turn-a-blog-post-into-a-video",
     ],
@@ -140,6 +141,79 @@ export const coreCommercialPages: MarketingPage[] = [
       "/blog-to-video",
       "/for-medium-writers",
       "/blogs/best-ai-tools-to-convert-articles-into-videos",
+    ],
+  }),
+  createPage({
+    path: "/blog-to-video-generator",
+    title: "Blog to Video Generator | Paste a URL, Get a Narrated Video | Blog2Video",
+    description:
+      "A blog to video generator that works from a URL: paste your article link, choose a template, voice, and length, and generate a finished narrated video in minutes.",
+    eyebrow: "Commercial workflow",
+    heroTitle: "The Blog to Video Generator That Starts From Your Article, Not a Blank Prompt",
+    heroDescription:
+      "Paste your article link, choose a template, voice, and length, and Blog2Video generates a structured, narrated video — built from the post you already wrote, not a stock-footage script.",
+    category: "commercial",
+    primaryKeyword: "blog to video generator",
+    keywordVariant: "blog post video generator",
+    badges: ["URL-first generator", "No editing required", "Free starting videos"],
+    proofPoints: [
+      "Paste a public blog URL — the generator reads the article and builds scenes from its actual structure.",
+      "Choose a template, an ElevenLabs voice, and a target length before generating.",
+      "No stock-footage matching step like Lumen5 or Pictory — animated templates carry the visuals.",
+      "Free starting videos with no watermark, so you can test the generator before paying.",
+    ],
+    sections: [
+      {
+        title: "How the generator works",
+        body: [
+          "Most blog-to-video generators — InVideo AI, VEED, Synthesia, HeyGen — follow the same basic shape: paste a link, pick a few settings, generate. Where they differ is what happens after you paste the link. Many extract a handful of highlights and pair them with stock footage or an avatar script, which works for short marketing recaps but loses detail on technical or in-depth posts.",
+          "Blog2Video's generator reads the full article structure — headings, sections, examples — and maps it directly to scenes rather than compressing it into a highlight reel. The settings you choose (template, voice, length) shape the output; the article itself supplies the content.",
+        ],
+        bullets: [
+          "Step 1: Paste the article URL.",
+          "Step 2: Pick a template, voice, and target length.",
+          "Step 3: Review the generated scenes and narration.",
+          "Step 4: Render and export for YouTube, LinkedIn, Shorts, or embedding.",
+        ],
+      },
+      {
+        title: "How it compares to other blog-to-video generators",
+        body: [
+          "Lumen5 and Pictory generate by matching stock footage to extracted sentences, which means manual curation when the match is wrong. HeyGen and Synthesia generate avatar-led videos, which means writing or adapting a presenter script before generation can start. Blog2Video's generator skips both: no stock library to browse, no avatar script to write.",
+          "That makes it a better fit when the article itself — the structure, the examples, the argument — is what you want the video to preserve, rather than a generic visual layer on top of a summary.",
+        ],
+      },
+    ],
+    recommendedTemplate: "gridcraft",
+    recommendedTemplateReason:
+      "Gridcraft is a strong default for generator output because it renders structured articles — lists, comparisons, steps — without flattening them into generic stock visuals.",
+    faq: [
+      {
+        question: "Is there a free blog to video generator?",
+        answer:
+          "Blog2Video offers free starting videos with no watermark, so you can generate a full video from a real article before deciding on a paid plan.",
+      },
+      {
+        question: "What is the best blog to video generator?",
+        answer:
+          "It depends on the source content. For marketing recaps where stock footage fits naturally, Lumen5 or Pictory work well. For technical posts, guides, or newsletters where structure and detail matter, Blog2Video's generator is built specifically to preserve that.",
+      },
+      {
+        question: "Does the generator work from just a URL, or do I need to upload a file?",
+        answer:
+          "A public URL is enough — the generator fetches and parses the article directly. You can also upload a document if the content isn't published at a public URL.",
+      },
+      {
+        question: "Can I edit the video after the generator finishes?",
+        answer:
+          "Yes. The generator produces a full first draft with scenes, narration, and visuals already in place, and you can adjust individual scenes, swap the voice, or change the template before rendering the final export.",
+      },
+    ],
+    relatedPaths: [
+      "/blog-to-video",
+      "/blog-to-video-ai",
+      "/ai-blog-to-video",
+      "/lumen5-alternative",
     ],
   }),
   createPage({
