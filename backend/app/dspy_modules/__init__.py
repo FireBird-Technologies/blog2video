@@ -120,13 +120,24 @@ class _ProviderLoggingLM(dspy.LM):
         return result
 
 
-def _make_anthropic_lm(model: str, temperature: float, max_tokens: int) -> dspy.LM:
+def _make_anthropic_lm(
+    model: str, temperature: float, max_tokens: int, api_key: str | None = None
+) -> dspy.LM:
     return dspy.LM(
         model,
-        api_key=settings.ANTHROPIC_API_KEY,
+        api_key=(api_key or settings.ANTHROPIC_API_KEY),
         temperature=temperature,
         max_tokens=max_tokens,
     )
+
+
+def _custom_anthropic_key() -> str:
+    """Key for custom-template AI work (codegen + theme extraction).
+
+    Prefers CUSTOM_ANTHROPIC_API_KEY so custom templates can bill / rate-limit
+    separately; falls back to ANTHROPIC_API_KEY when unset.
+    """
+    return (settings.CUSTOM_ANTHROPIC_API_KEY or "").strip() or settings.ANTHROPIC_API_KEY
 
 
 def _make_openrouter_lm(model: str, temperature: float, max_tokens: int) -> dspy.LM:
@@ -186,7 +197,12 @@ def get_custom_lm() -> dspy.LM:
     with _codegen_lm_lock:
         if _codegen_lm is not None:
             return _codegen_lm
-        _codegen_lm = _make_anthropic_lm("anthropic/claude-sonnet-4-6", temperature=0.7, max_tokens=12000)
+        _codegen_lm = _make_anthropic_lm(
+            "anthropic/claude-sonnet-4-6",
+            temperature=0.7,
+            max_tokens=12000,
+            api_key=_custom_anthropic_key(),
+        )
         return _codegen_lm
 
 
@@ -209,6 +225,12 @@ def get_theme_lm() -> dspy.LM:
     with _theme_lm_lock:
         if _theme_lm is not None:
             return _theme_lm
-        
-        _theme_lm = _make_default_lm(_DEFAULT_MODEL, temperature=0.3, max_tokens=2048)
+        # Theme extraction is custom-template work, so route it through the
+        # custom key in production. Local/dev keeps OpenRouter (via _make_default_lm).
+        if _IS_PRODUCTION:
+            _theme_lm = _make_anthropic_lm(
+                _DEFAULT_MODEL, temperature=0.3, max_tokens=2048, api_key=_custom_anthropic_key()
+            )
+        else:
+            _theme_lm = _make_default_lm(_DEFAULT_MODEL, temperature=0.3, max_tokens=2048)
         return _theme_lm

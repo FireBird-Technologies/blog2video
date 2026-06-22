@@ -95,6 +95,9 @@ export interface UserInfo {
   videos_used_this_period: number;
   video_limit: number;
   can_create_video: boolean;
+  custom_templates_created: number;
+  custom_template_limit: number;
+  can_create_custom_template: boolean;
   preferred_voice_emotion: string | null;
   survey_submitted: boolean;
 }
@@ -409,6 +412,9 @@ export const createPerVideoCheckout = (
     quantity,
   });
 };
+
+export const createCustomTemplateCheckout = () =>
+  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {});
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");
@@ -1584,6 +1590,18 @@ export interface CustomTemplateItem {
   logo_urls?: string[];
   og_image?: string;
   generation_failed: boolean;
+  my_rating?: number | null;
+  my_rating_comment?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateRating {
+  id: number;
+  user_id: number;
+  custom_template_id: number;
+  rating: number;
+  suggestion: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1692,6 +1710,11 @@ export const rollbackTemplateVersion = (templateId: number, versionId: number) =
   api.post<CustomTemplateItem>(
     `/custom-templates/${templateId}/versions/${versionId}/rollback`
   );
+
+export const submitTemplateRating = (
+  templateId: number,
+  data: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }
+) => api.post<TemplateRating>(`/custom-templates/${templateId}/rating`, data);
 
 // ─── ElevenLabs voices (default / available) ─────────────────
 

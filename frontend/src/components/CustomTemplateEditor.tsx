@@ -2,17 +2,21 @@ import { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
 import {
   updateCustomTemplate,
+  submitTemplateRating,
   type CustomTemplateItem,
 } from "../api/client";
 import CustomPreview, { buildCustomSceneLabels } from "./templatePreviews/CustomPreview";
+import TemplateStarRating from "./TemplateStarRating";
 
 interface Props {
   template: CustomTemplateItem;
   onSaved: (template: CustomTemplateItem) => void;
   onCancel: () => void;
+  /** Update the parent's template in-place (e.g. after a rating) WITHOUT closing the modal. */
+  onTemplatePatch?: (template: CustomTemplateItem) => void;
 }
 
-export default function CustomTemplateEditor({ template, onSaved, onCancel }: Props) {
+export default function CustomTemplateEditor({ template, onSaved, onCancel, onTemplatePatch }: Props) {
   const [name, setName] = useState(template.name);
   const [accentColor, setAccentColor] = useState(template.theme.colors.accent);
   const [useGradient, setUseGradient] = useState(template.theme.colors.bg2 != null);
@@ -21,7 +25,32 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
   const [error, setError] = useState<string | null>(null);
   const [gradientOpen, setGradientOpen] = useState(false);
   const [liveScene, setLiveScene] = useState(0);
+  const [myRating, setMyRating] = useState<number | null>(template.my_rating ?? null);
+  const [myRatingComment, setMyRatingComment] = useState<string | null>(
+    template.my_rating_comment ?? null
+  );
+  const [ratingSaving, setRatingSaving] = useState(false);
   const gradientRef = useRef<HTMLDivElement>(null);
+
+  const handleRate = async (rating: 1 | 2 | 3 | 4 | 5, comment?: string) => {
+    const prevRating = myRating;
+    const prevComment = myRatingComment;
+    const nextComment = comment ?? prevComment ?? null;
+    setMyRating(rating);
+    setMyRatingComment(nextComment);
+    setRatingSaving(true);
+    try {
+      await submitTemplateRating(template.id, { rating, suggestion: comment });
+      // Reflect the new rating on the parent's card without closing the modal.
+      onTemplatePatch?.({ ...template, my_rating: rating, my_rating_comment: nextComment });
+    } catch (err) {
+      console.error("Failed to rate template:", err);
+      setMyRating(prevRating);
+      setMyRatingComment(prevComment);
+    } finally {
+      setRatingSaving(false);
+    }
+  };
 
   // Ordered scene names for the strip shown above the template name. Highlights the
   // scene currently on-screen in the live preview (driven by CustomPreview).
@@ -117,6 +146,19 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
               </div>
             );
           })()}
+
+          {/* Rating — above the name, with optional feedback (mirrors the video review) */}
+          <div>
+            <TemplateStarRating
+              value={myRating}
+              comment={myRatingComment}
+              onRate={handleRate}
+              disabled={ratingSaving}
+              size={22}
+              showLabel
+              allowComment
+            />
+          </div>
 
           {/* Name */}
           <div>
@@ -226,8 +268,9 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
           </div> */}
 
 
-          {/* Visual patterns (read-only) */}
-          {theme.patterns && (
+          {/* Visual patterns (read-only) — hidden: the corner/spacing/image/alignment
+              chips confused users without giving them anything actionable. */}
+          {/* {theme.patterns && (
             <div>
               <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
                 Visual Patterns
@@ -247,7 +290,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
                 </span>
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Motion / decor / charts + scene mix (read-only craft signals) */}
           {(theme.motion?.energy || theme.decor?.system || theme.charts?.style || (theme.sceneBias?.length ?? 0) > 0) && (

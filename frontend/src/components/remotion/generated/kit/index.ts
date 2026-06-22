@@ -63,6 +63,9 @@ export {
 // Text reveals
 export { RevealText, HighlightPhrase, type RevealTextProps } from "./text";
 
+// Auto-fit text — deterministic overflow-safe headline/numeral block
+export { FitText, type FitTextProps } from "./FitText";
+
 // Code panel (the "code" archetype — safe, renders only props.codeLines)
 export { CodeBlock, type CodeBlockProps } from "./CodeBlock";
 

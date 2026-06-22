@@ -27,6 +27,11 @@ import PerVideoSliderCard from "../components/PerVideoSliderCard";
 import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
 import PlanCardCTA from "../components/PlanCardCTA";
 import { isPaidSlug, type CurrentSlug } from "../lib/planSwitch";
+import {
+  FREE_CUSTOM_TEMPLATE_COUNT,
+  STANDARD_CUSTOM_TEMPLATE_COUNT,
+  PRO_CUSTOM_TEMPLATE_COUNT,
+} from "../content/pricingContent";
 
 export default function Subscription() {
   const { user, refreshUser, logout } = useAuth();
@@ -644,7 +649,7 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+              <li className="flex items-start gap-2"><CheckMark />{FREE_CUSTOM_TEMPLATE_COUNT} custom video template</li>
               <li className="flex items-start gap-2 text-gray-300"><CrossMark />Unlimited AI edit & image generation</li>
               <li className="flex items-start gap-2 text-gray-300"><CrossMark />Premium voiceover + cloning</li>
             </ul>
@@ -709,7 +714,7 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+              <li className="flex items-start gap-2"><CheckMark />{STANDARD_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
@@ -768,7 +773,7 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+              <li className="flex items-start gap-2"><CheckMark />{PRO_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>

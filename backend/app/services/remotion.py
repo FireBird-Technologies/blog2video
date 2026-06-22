@@ -534,6 +534,7 @@ import {{
   MetricRow,
   RevealText,
   HighlightPhrase,
+  FitText,
   CodeBlock,
   KenBurnsImage,
   Decor,
