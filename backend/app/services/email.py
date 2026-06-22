@@ -191,7 +191,9 @@ class EmailService:
     # ── Shared HTML builder ───────────────────────────────────
 
     @staticmethod
-    def _build_html(headline: str, body_paragraph: str, cta_label: str, cta_url: str, unsubscribe_url: str = "") -> str:
+    def _build_html(headline: str, body_paragraph: str, cta_label: str, cta_url: str, unsubscribe_url: str = "", center: bool = False) -> str:
+        body_align = "center" if center else "left"
+        cta_align = "center" if center else "left"
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -214,12 +216,18 @@ class EmailService:
           </tr>
           <tr>
             <td style="padding:40px 40px 32px;">
-              <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;">{headline}</p>
-              <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.65;">{body_paragraph}</p>
-              <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+              <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;text-align:{body_align};">{headline}</p>
+              <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.65;text-align:{body_align};">{body_paragraph}</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
                 <tr>
-                  <td style="background:#9333EA;border-radius:6px;">
-                    <a href="{cta_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">{cta_label}</a>
+                  <td align="{cta_align}">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="background:#9333EA;border-radius:6px;">
+                          <a href="{cta_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">{cta_label}</a>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -382,6 +390,135 @@ class EmailService:
         self.provider.send_email(
             to=user_email, subject=subject, html_content=html, text_content=text,
             from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+
+    @staticmethod
+    def _coupon_code_chip(coupon_code: str) -> str:
+        """Dashed-border code chip used in win-back coupon emails."""
+        return (
+            f"<span style=\"display:inline-block;padding:12px 20px;border:2px dashed #9333EA;"
+            f"border-radius:8px;font-size:20px;font-weight:700;letter-spacing:1px;color:#9333EA;\">"
+            f"{coupon_code}</span>"
+        )
+
+    def _send_coupon_email(
+        self,
+        *,
+        user_email: str,
+        subject: str,
+        headline: str,
+        intro_html: str,
+        intro_text: str,
+        cta_label: str,
+        coupon_code: str,
+        valid_hours: int,
+    ) -> None:
+        """Shared sender for the two win-back coupon emails (abandoned / per-video)."""
+        pricing_url = f"{getattr(settings, 'FRONTEND_URL', 'https://blog2video.app').rstrip('/')}/pricing"
+        unsubscribe_url = self._make_unsubscribe_url(user_email)
+        html = self._build_html(
+            headline=headline,
+            body_paragraph=(
+                f"{intro_html}"
+                f"<br/><br/>"
+                f"Apply this code at checkout:<br/><br/>"
+                f"{self._coupon_code_chip(coupon_code)}"
+                f"<br/><br/>"
+                f"Hurry — this code is only valid for the next "
+                f"<strong style=\"color:#111827;\">{valid_hours} hours</strong>."
+            ),
+            cta_label=cta_label,
+            cta_url=pricing_url,
+            unsubscribe_url=unsubscribe_url,
+            center=True,
+        )
+        text = (
+            f"{intro_text}\n\n"
+            f"Apply this code at checkout:\n\n"
+            f"    {coupon_code}\n\n"
+            f"Hurry — this code is only valid for the next {valid_hours} hours.\n\n"
+            f"Choose a plan: {pricing_url}\n\n"
+            f"— The Blog2Video Team\n\n"
+            f"---\n"
+            f"To unsubscribe from these emails, visit: {unsubscribe_url}\n"
+        )
+        self.provider.send_email(
+            to=user_email, subject=subject, html_content=html, text_content=text,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+    def send_abandoned_checkout_coupon_email(
+        self,
+        user_email: str,
+        user_name: str,
+        coupon_code: str = "SUB25",
+        discount_percent: int = 25,
+        valid_hours: int = 48,
+    ) -> None:
+        """
+        Win-back email for a user who reached checkout but bought nothing.
+        Sent ~10 min after checkout if they did not subscribe.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        self._send_coupon_email(
+            user_email=user_email,
+            subject=f"Still thinking it over? Here's {discount_percent}% off",
+            headline=f"Hi {first_name}, here's {discount_percent}% off any plan",
+            intro_html=(
+                f"You were one step away from turning your blog posts into "
+                f"studio-quality videos. To help you get started, here's "
+                f"<strong style=\"color:#111827;\">{discount_percent}% off</strong> any "
+                f"Blog2Video subscription plan."
+            ),
+            intro_text=(
+                f"Hi {first_name},\n\n"
+                f"You were one step away from turning your blog posts into "
+                f"studio-quality videos. To help you get started, here's "
+                f"{discount_percent}% off any Blog2Video subscription plan."
+            ),
+            cta_label=f"Claim {discount_percent}% off",
+            coupon_code=coupon_code,
+            valid_hours=valid_hours,
+        )
+
+    def send_per_video_upsell_coupon_email(
+        self,
+        user_email: str,
+        user_name: str,
+        coupon_code: str = "SUB25",
+        discount_percent: int = 25,
+        valid_hours: int = 48,
+    ) -> None:
+        """
+        Win-back email for a user who bought a single video. Nudges them toward a
+        subscription with a limited-time discount. Sent ~10 min after checkout.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        self._send_coupon_email(
+            user_email=user_email,
+            subject=f"Thanks for your video — here's {discount_percent}% off a plan",
+            headline=f"Hi {first_name}, thanks for creating with Blog2Video!",
+            intro_html=(
+                f"We hope you love the video you just made. If you're planning to "
+                f"make more, a subscription unlocks <strong style=\"color:#111827;\">extra "
+                f"features</strong> like <strong style=\"color:#111827;\">custom video "
+                f"templates</strong> and <strong style=\"color:#111827;\">premium voiceover "
+                f"with voice cloning</strong> — and works out far cheaper than buying one "
+                f"video at a time. As a thank-you, here's "
+                f"<strong style=\"color:#111827;\">{discount_percent}% off</strong> any plan."
+            ),
+            intro_text=(
+                f"Hi {first_name},\n\n"
+                f"We hope you love the video you just made. If you're planning to make "
+                f"more, a subscription unlocks extra features like custom video templates "
+                f"and premium voiceover with voice cloning — and works out far cheaper "
+                f"than buying one video at a time. As a thank-you, here's "
+                f"{discount_percent}% off any plan."
+            ),
+            cta_label=f"Upgrade & save {discount_percent}%",
+            coupon_code=coupon_code,
+            valid_hours=valid_hours,
         )
 
 

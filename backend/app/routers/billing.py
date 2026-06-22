@@ -2,6 +2,7 @@
 Stripe billing router: checkout sessions, customer portal, webhooks.
 Supports both Pro subscription ($60/mo) and per-video purchase ($3).
 """
+import threading
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 import stripe
 
 from app.config import settings
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS
 from app.models.project import Project
@@ -18,6 +19,7 @@ from app.models.subscription import (
     Subscription, SubscriptionStatus, SubscriptionPlan,
 )
 from app.observability.logging import get_logger
+from app.services.email import email_service
 from app.services.per_video_pricing import (
     per_unit_cents as per_video_unit_cents,
     MIN_QUANTITY as PER_VIDEO_MIN_QTY,
@@ -31,6 +33,89 @@ logger = get_logger(__name__)
 MAX_RETENTION_OFFER_SHOWS = 2
 
 
+# ─── Post-checkout win-back coupon ────────────────────────
+# ~10 min after a user reaches checkout, email them a discount code unless they
+# ended up on a paid subscription. Per-video buyers stay on the free plan, so a
+# single `plan in (PRO, STANDARD)` check covers the whole rule. The timer lives
+# on the backend (the SPA unloads when redirecting to Stripe); the frontend
+# decides via localStorage whether to schedule it at all (suppresses same-day
+# repeats). Deliberately in-memory/temporary — a process restart drops pending
+# timers, which is acceptable for a win-back nudge.
+_pending_coupon_users: set[int] = set()  # in-window safety net against double-clicks
+_pending_coupon_lock = threading.Lock()
+
+
+def _schedule_coupon_followup(user_id: int) -> None:
+    # Checkout endpoints are sync (run in a threadpool worker), so there is no
+    # running event loop here — use a one-shot daemon Timer instead of asyncio.
+    with _pending_coupon_lock:
+        if user_id in _pending_coupon_users:
+            return
+        _pending_coupon_users.add(user_id)
+    delay = settings.COUPON_FOLLOWUP_DELAY_SECONDS
+    # Capture when the visit started, to scope per-video detection to this checkout.
+    timer = threading.Timer(
+        delay,
+        _send_coupon_if_not_subscribed,
+        args=(user_id, datetime.utcnow()),
+    )
+    timer.daemon = True
+    timer.start()
+    logger.info(
+        "[COUPON] timer STARTED for user %s — will check in %ss", user_id, delay,
+    )
+
+
+def _send_coupon_if_not_subscribed(user_id: int, scheduled_at: datetime) -> None:
+    logger.info("[COUPON] timer FIRED for user %s (scheduled at %s)", user_id, scheduled_at)
+    outcome = "unknown"
+    try:
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user or not user.email or user.email_unsubscribed:
+                outcome = "skipped (no user / no email / unsubscribed)"
+                return
+            if user.plan in (PlanTier.PRO, PlanTier.STANDARD):
+                outcome = f"skipped (subscribed: {user.plan.value})"
+                return  # converted to a paid subscription → no email
+
+            # Did a per-video purchase land during this checkout visit?
+            bought_single = (
+                db.query(Subscription)
+                .join(SubscriptionPlan, Subscription.plan_id == SubscriptionPlan.id)
+                .filter(
+                    Subscription.user_id == user_id,
+                    SubscriptionPlan.slug == "per_video",
+                    Subscription.status == SubscriptionStatus.COMPLETED,
+                    Subscription.created_at >= scheduled_at,
+                )
+                .first()
+                is not None
+            )
+            coupon_kwargs = dict(
+                user_email=user.email,
+                user_name=user.name or "",
+                coupon_code=settings.COUPON_FOLLOWUP_CODE,
+                discount_percent=settings.COUPON_FOLLOWUP_DISCOUNT_PERCENT,
+                valid_hours=settings.COUPON_FOLLOWUP_VALID_HOURS,
+            )
+            if bought_single:
+                email_service.send_per_video_upsell_coupon_email(**coupon_kwargs)
+                outcome = f"sent per-video upsell email to {user.email}"
+            else:
+                email_service.send_abandoned_checkout_coupon_email(**coupon_kwargs)
+                outcome = f"sent abandoned-checkout email to {user.email}"
+        finally:
+            db.close()
+    except Exception as exc:
+        outcome = f"FAILED: {exc}"
+        logger.error("[COUPON] follow-up failed for user %s: %s", user_id, exc)
+    finally:
+        _pending_coupon_users.discard(user_id)
+        logger.info("[COUPON] timer ENDED for user %s — %s", user_id, outcome)
+
+
 class CheckoutResponse(BaseModel):
     checkout_url: str
 
@@ -38,6 +123,9 @@ class CheckoutResponse(BaseModel):
 class PerVideoCheckoutRequest(BaseModel):
     project_id: int | None = None  # Optional: if None, buys a video credit
     quantity: int = 1  # Number of video credits to purchase (ignored when project_id set)
+    # Whether to schedule the post-checkout win-back coupon email. The frontend
+    # sets this to False to suppress repeats within the same browser/day.
+    schedule_coupon_followup: bool = True
 
 
 class PortalResponse(BaseModel):
@@ -186,6 +274,9 @@ class CheckoutRequest(BaseModel):
     plan: str = "pro"  # "pro" or "standard"
     billing_cycle: str = "monthly"  # "monthly" or "annual"
     apply_third_video_offer: bool = False  # Out-of-videos offer (15% monthly / 25% annual Standard)
+    # Whether to schedule the post-checkout win-back coupon email. The frontend
+    # sets this to False to suppress repeats within the same browser/day.
+    schedule_coupon_followup: bool = True
 
 
 @router.post("/checkout", response_model=CheckoutResponse)
@@ -278,6 +369,9 @@ def create_checkout_session(
 
     session = stripe.checkout.Session.create(**session_kwargs)
 
+    if body.schedule_coupon_followup:
+        _schedule_coupon_followup(user.id)
+
     return CheckoutResponse(checkout_url=session.url)
 
 
@@ -360,6 +454,9 @@ def create_per_video_checkout(
         cancel_url=cancel_url,
         metadata=meta,
     )
+
+    if body.schedule_coupon_followup:
+        _schedule_coupon_followup(user.id)
 
     return CheckoutResponse(checkout_url=session.url)
 
