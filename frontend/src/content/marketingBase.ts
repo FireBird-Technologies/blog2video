@@ -128,7 +128,7 @@ export const templateProfiles: TemplateProfile[] = [
     name: "Newscast",
     description:
       "A broadcast news package with desk-style glass panels, ticker, lower third, and crimson-navy visuals.",
-    bestFor: "Briefings, updates, explainers, and stories that should feel like television news — not print.",
+    bestFor: "Briefings, updates, explainers, stories that should feel like television news rather than print, and student or classroom newscasts.",
     differentiator:
       "Puts your article into a live-broadcast frame: globe, chrome, and on-air typography without stock b-roll.",
     styleFit: "Best for summaries, fact-first updates, and editorial storytelling with a TV desk rhythm.",
@@ -146,18 +146,20 @@ export const templateProfiles: TemplateProfile[] = [
       "ending_socials",
     ],
     longDescription:
-      "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from Newscast Opening and Anchor Narrative to Live Metrics Board, Briefing Code Panel, Headline Insight, Side-by-Side Brief, Segment Break, and Field Image Focus — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows.",
+      "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from Newscast Opening and Anchor Narrative to Live Metrics Board, Briefing Code Panel, Headline Insight, Side-by-Side Brief, Segment Break, and Field Image Focus — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows. It also works well as a student newscast template: paste a class summary, book report, or current-events assignment into Blog2Video and it generates a narrated, broadcast-style video automatically, without needing a camera, classroom set, or assigned anchor roles.",
     idealFor: [
       "Weekly briefings and industry roundups",
       "Policy and regulatory explainers",
       "Crisis or fast-moving story updates",
       "Data-backed segments with charts and metrics",
       "Editorial voiceovers that need a serious broadcast tone",
+      "Student newscasts, classroom current-events projects, and school news segments",
     ],
     exampleTopics: [
       "Markets close higher after central bank signals",
       "Five takeaways from the climate summit",
       "What the new rules mean for your sector",
+      "This week in our classroom: a student current-events newscast",
     ],
   },
   {
@@ -422,6 +424,40 @@ export const templateProfiles: TemplateProfile[] = [
       "A quiet reflection on why we build at night",
       "The story behind a single big idea",
       "Lessons learned, told under the stars",
+    ],
+  },
+  {
+    slug: "custom",
+    name: "Custom Templates",
+    description:
+      "A fully branded template generated from your own website — your exact colors, fonts, and style applied to every scene.",
+    bestFor: "Brand, marketing, and product teams that need every video to look on-brand without manual design work.",
+    differentiator:
+      "Paste any URL and Blog2Video extracts your brand — colors, typography, and style — into a custom video template, so the output looks like your design team made it instead of a generic stock theme.",
+    styleFit: "Best for teams that need pixel-perfect brand consistency across every video they publish.",
+    layouts: [
+      "brand_intro",
+      "key_point",
+      "feature_grid",
+      "data_highlight",
+      "quote_callout",
+      "comparison",
+      "step_flow",
+      "outro_cta",
+    ],
+    longDescription:
+      "Custom Templates turn your brand into a reusable video system. Drop in a website URL and Blog2Video reads its design language — accent and surface colors, heading and body fonts, border radius, and animation style — then generates a bespoke template that applies that identity to every scene. Instead of restyling each piece of content by hand, you get branded intros, content scenes, data highlights, pull quotes, and outros that already match your guidelines. The result is video that looks like your design team produced it, generated automatically from your articles and kept consistent across product, marketing, and education channels.",
+    idealFor: [
+      "Brand and marketing teams enforcing visual consistency",
+      "Agencies producing on-brand video for multiple clients",
+      "Product teams turning docs and changelogs into branded clips",
+      "Companies repurposing a blog archive without re-designing each video",
+      "Anyone who wants their exact colors and fonts in every scene",
+    ],
+    exampleTopics: [
+      "Turn your latest product announcement into an on-brand explainer",
+      "Repurpose your blog archive with your brand on every frame",
+      "Generate a branded video series straight from your website",
     ],
   },
 ];

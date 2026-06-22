@@ -81,7 +81,7 @@ export interface BlogSection {
 }
 
 export interface DistributionAsset {
-  channel: "site" | "substack" | "medium" | "video";
+  channel: "site" | "substack" | "medium" | "video" | "twitter";
   title: string;
   angle: string;
 }
