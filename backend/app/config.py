@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_ANNUAL_COUPON_ID: str = ""   # 20% off Standard annual, once-per-customer (out-of-videos offer)
     SURVEY_PROMO_CODE: str = ""  # Shared Stripe promotion code (20% off) revealed on survey completion
 
+    # Post-checkout win-back coupon (abandoned / per-video → email a discount code)
+    COUPON_FOLLOWUP_CODE: str = "SUB25"  # Promo code shown in the win-back email (must exist in Stripe)
+    COUPON_FOLLOWUP_DISCOUNT_PERCENT: int = 25  # Discount % advertised in the email copy
+    COUPON_FOLLOWUP_VALID_HOURS: int = 48  # "valid for the next N hours" messaging in the email
+    COUPON_FOLLOWUP_DELAY_SECONDS: int = 600  # How long after checkout to run the send/skip check
+
     # JWT
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
