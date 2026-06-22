@@ -10,7 +10,7 @@ import threading
 from datetime import date
 from pydantic import BaseModel, Field
 import logging
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -19,7 +19,9 @@ from app.config import settings
 from app.auth import get_current_user
 from app.models.user import User
 from app.models.custom_template import CustomTemplate
+from app.models.template_rating import TemplateRating
 from app.models.project import Project
+from app.schemas.schemas import TemplateRatingSubmit, TemplateRatingOut
 from app.services.custom_prompt_builder import build_custom_prompt
 
 logger = logging.getLogger(__name__)
@@ -44,6 +46,27 @@ def _check_ai_rate_limit(user_id: int) -> None:
             detail=f"AI generation limit reached ({AI_DAILY_LIMIT}/day). Try again tomorrow.",
         )
     _ai_call_counts[user_id] = (date_str, count + 1)
+
+
+def _check_custom_template_quota(user: User) -> None:
+    """Raise 403 when the user has hit their custom-template creation limit.
+
+    The limit is a lifetime counter (``custom_templates_created``) vs the effective
+    limit (plan base + purchased ``custom_template_bonus``). Deleting a template does
+    NOT free a slot. The 403 detail is an object so the frontend can show the upgrade
+    modal — callers/handlers must read ``detail.code``, not render it as a string.
+    """
+    if (user.custom_templates_created or 0) >= user.custom_template_limit:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "custom_template_limit",
+                "message": "You've reached your custom-template creation limit.",
+                "created": user.custom_templates_created or 0,
+                "limit": user.custom_template_limit,
+                "plan": user.plan.value,
+            },
+        )
 
 
 def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
@@ -73,6 +96,11 @@ def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
 
 class ExtractThemeRequest(BaseModel):
     url: str = Field(..., min_length=1, max_length=2048)
+
+
+class ExtractThemeFromPromptRequest(BaseModel):
+    prompt: str = Field(..., min_length=15, max_length=5000)
+    name: str | None = Field(None, max_length=255)
 
 
 class ExtractThemeResponse(BaseModel):
@@ -134,8 +162,27 @@ def _get_user_template(template_id: int, user_id: int, db: Session) -> CustomTem
     return tpl
 
 
-def _serialize_template(tpl: CustomTemplate) -> dict:
-    """Serialize a CustomTemplate to API response dict."""
+def _get_my_rating(template_id: int, user_id: int, db: Session) -> tuple[int | None, str | None]:
+    """Return the user's (rating, comment) for a template, or (None, None) if unrated."""
+    row = (
+        db.query(TemplateRating.rating, TemplateRating.suggestion)
+        .filter(
+            TemplateRating.user_id == user_id,
+            TemplateRating.custom_template_id == template_id,
+        )
+        .first()
+    )
+    return (row[0], row[1]) if row else (None, None)
+
+
+def _serialize_template(
+    tpl: CustomTemplate, my_rating: int | None = None, my_rating_comment: str | None = None
+) -> dict:
+    """Serialize a CustomTemplate to API response dict.
+
+    ``my_rating`` / ``my_rating_comment`` are the current user's 1-5 star rating
+    and optional feedback for this template (or None).
+    """
     theme = json.loads(tpl.theme) if isinstance(tpl.theme, str) else tpl.theme
     colors = theme.get("colors", {})
 
@@ -182,6 +229,8 @@ def _serialize_template(tpl: CustomTemplate) -> dict:
         "logo_urls": logo_urls,
         "og_image": og_image,
         "generation_failed": bool(tpl.generation_failed),
+        "my_rating": my_rating,
+        "my_rating_comment": my_rating_comment,
         "created_at": tpl.created_at.isoformat() if tpl.created_at else "",
         "updated_at": tpl.updated_at.isoformat() if tpl.updated_at else "",
     }
@@ -211,6 +260,15 @@ def _validate_theme(theme: dict) -> dict:
 
     if not isinstance(theme.get("borderRadius"), (int, float)):
         theme["borderRadius"] = 12
+
+    # `brief` carries the user's free-text prompt / uploaded-doc text so scene
+    # generation can honor explicit requests ("add a testimonial scene"). It is
+    # client-supplied here, so clamp it; drop non-string values entirely.
+    brief = theme.get("brief")
+    if isinstance(brief, str) and brief.strip():
+        theme["brief"] = brief.strip()[:30_000]
+    else:
+        theme.pop("brief", None)
 
     # Validate patterns if present (fill defaults for missing sub-fields)
     patterns = theme.get("patterns")
@@ -306,6 +364,93 @@ async def extract_theme(
     )
 
 
+def _brief_response(result: dict) -> ExtractThemeResponse:
+    """Map a ThemeExtractor brief result into the shared ExtractThemeResponse.
+    Prompt/doc inputs have no scraped logo/og-image — those are added post-creation."""
+    return ExtractThemeResponse(
+        extractable=result["extractable"],
+        reason=result["reason"],
+        theme=result.get("theme"),
+        template_name=result.get("template_name", ""),
+        logo_urls=[],
+        og_image="",
+        screenshot_url="",
+    )
+
+
+@router.post("/extract-theme-from-prompt", response_model=ExtractThemeResponse)
+async def extract_theme_from_prompt(
+    data: ExtractThemeFromPromptRequest,
+    user: User = Depends(get_current_user),
+):
+    """Build a visual theme from a free-text prompt describing the desired template."""
+    from app.dspy_modules.theme_extractor import ThemeExtractor
+
+    _check_ai_rate_limit(user.id)
+
+    t0 = time.time()
+    extractor = ThemeExtractor()
+    result = await extractor.extract_theme_from_brief(data.prompt, (data.name or "").strip())
+    dt = time.time() - t0
+
+    theme = result.get("theme")
+    if theme:
+        # Preserve the raw prompt so scene generation can honor explicit scene
+        # requests (e.g. "add a testimonial scene"). Persists on the theme JSON.
+        theme["brief"] = data.prompt.strip()[:30_000]
+        c = theme.get("colors", {})
+        print(
+            f"[F7-DEBUG] [EXTRACT-PROMPT] AI={dt:.1f}s | accent={c.get('accent')}, "
+            f"bg={c.get('bg')}, style='{theme.get('style')}', category='{theme.get('category')}'"
+        )
+    else:
+        print(f"[F7-DEBUG] [EXTRACT-PROMPT] AI={dt:.1f}s | FAILED: {result.get('reason', '')[:150]}")
+
+    return _brief_response(result)
+
+
+@router.post("/extract-theme-from-doc", response_model=ExtractThemeResponse)
+async def extract_theme_from_doc(
+    file: UploadFile = File(...),
+    name: str = Form(""),
+    user: User = Depends(get_current_user),
+):
+    """Build a visual theme from an uploaded brand/design document (PDF, DOCX, MD, TXT)."""
+    from app.dspy_modules.theme_extractor import ThemeExtractor
+    from app.services.doc_extractor import extract_text_from_upload
+
+    _check_ai_rate_limit(user.id)
+
+    # Size guard (Starlette exposes .size for spooled uploads).
+    if getattr(file, "size", None) and file.size > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="That file's too large. Please keep it under 10 MB.")
+
+    # extract_text_from_upload raises HTTPException(400) on empty/corrupt/binary input.
+    brief_text = extract_text_from_upload(file)
+    if len(brief_text) > 30_000:
+        brief_text = brief_text[:30_000]
+
+    t0 = time.time()
+    extractor = ThemeExtractor()
+    result = await extractor.extract_theme_from_brief(brief_text, (name or "").strip())
+    dt = time.time() - t0
+
+    theme = result.get("theme")
+    if theme:
+        # Preserve the uploaded doc text so scene generation can honor explicit
+        # scene requests stated in the brand/design document.
+        theme["brief"] = brief_text.strip()[:30_000]
+        c = theme.get("colors", {})
+        print(
+            f"[F7-DEBUG] [EXTRACT-DOC] '{file.filename}' chars={len(brief_text)} AI={dt:.1f}s | "
+            f"accent={c.get('accent')}, style='{theme.get('style')}', category='{theme.get('category')}'"
+        )
+    else:
+        print(f"[F7-DEBUG] [EXTRACT-DOC] '{file.filename}' AI={dt:.1f}s | FAILED: {result.get('reason', '')[:150]}")
+
+    return _brief_response(result)
+
+
 @router.post("")
 def create_custom_template(
     data: CreateCustomTemplateRequest,
@@ -314,6 +459,9 @@ def create_custom_template(
 ):
     """Create a new custom template from an extracted/edited theme."""
     from app.models.brand_kit import BrandKit
+
+    # Enforce the per-plan creation quota before doing any work.
+    _check_custom_template_quota(user)
 
     theme = _validate_theme(data.theme)
     category = theme.get("category", "blog")
@@ -351,6 +499,10 @@ def create_custom_template(
         brand_kit_id=brand_kit.id,
     )
     db.add(tpl)
+    # Consume one lifetime slot. Same commit as the template insert → atomic, and
+    # only runs on a successful create (validation/brand-kit failures raise earlier).
+    user.custom_templates_created = (user.custom_templates_created or 0) + 1
+    db.add(user)
     db.commit()
     db.refresh(tpl)
 
@@ -371,7 +523,25 @@ def list_custom_templates(
         .order_by(CustomTemplate.created_at.desc())
         .all()
     )
-    return [_serialize_template(t) for t in templates]
+    # Batch-load this user's ratings so each card can show its current star value + comment.
+    ratings = (
+        db.query(
+            TemplateRating.custom_template_id,
+            TemplateRating.rating,
+            TemplateRating.suggestion,
+        )
+        .filter(TemplateRating.user_id == user.id)
+        .all()
+    )
+    rating_by_template = {tid: (r, s) for tid, r, s in ratings}
+    return [
+        _serialize_template(
+            t,
+            my_rating=rating_by_template.get(t.id, (None, None))[0],
+            my_rating_comment=rating_by_template.get(t.id, (None, None))[1],
+        )
+        for t in templates
+    ]
 
 
 @router.get("/{template_id}")
@@ -382,7 +552,40 @@ def get_custom_template(
 ):
     """Get a single custom template by ID."""
     tpl = _get_user_template(template_id, user.id, db)
-    return _serialize_template(tpl)
+    my_rating, my_comment = _get_my_rating(template_id, user.id, db)
+    return _serialize_template(tpl, my_rating=my_rating, my_rating_comment=my_comment)
+
+
+@router.post("/{template_id}/rating", response_model=TemplateRatingOut)
+def rate_custom_template(
+    template_id: int,
+    payload: TemplateRatingSubmit,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upsert the current user's 1-5 star rating for a custom template."""
+    # Ownership / existence check (raises 404 if not the user's template).
+    _get_user_template(template_id, user.id, db)
+
+    rating = (
+        db.query(TemplateRating)
+        .filter(
+            TemplateRating.user_id == user.id,
+            TemplateRating.custom_template_id == template_id,
+        )
+        .first()
+    )
+    if rating is None:
+        rating = TemplateRating(user_id=user.id, custom_template_id=template_id)
+        db.add(rating)
+
+    rating.rating = payload.rating
+    rating.suggestion = payload.suggestion
+
+    db.commit()
+    db.refresh(rating)
+
+    return TemplateRatingOut.model_validate(rating)
 
 
 @router.put("/{template_id}")
@@ -583,10 +786,10 @@ async def generate_code(
 ):
     """Launch AI code generation in the background. Returns 202 immediately."""
     _check_ai_rate_limit(user.id)
-    if not (settings.ANTHROPIC_API_KEY or "").strip():
+    if not ((settings.CUSTOM_ANTHROPIC_API_KEY or settings.ANTHROPIC_API_KEY or "").strip()):
         raise HTTPException(
             status_code=400,
-            detail="ANTHROPIC_API_KEY is required for AI template code generation.",
+            detail="CUSTOM_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY is required for AI template code generation.",
         )
     tpl = _get_user_template(template_id, user.id, db)
 
@@ -723,15 +926,20 @@ async def regenerate_code(
     from app.services.code_generator import generate_component_code
 
     _check_ai_rate_limit(user.id)
-    if not (settings.ANTHROPIC_API_KEY or "").strip():
+    if not ((settings.CUSTOM_ANTHROPIC_API_KEY or settings.ANTHROPIC_API_KEY or "").strip()):
         raise HTTPException(
             status_code=400,
-            detail="ANTHROPIC_API_KEY is required for AI template code generation.",
+            detail="CUSTOM_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY is required for AI template code generation.",
         )
     tpl = _get_user_template(template_id, user.id, db)
 
     if not tpl.intro_code:
         raise HTTPException(status_code=400, detail="No code to regenerate — run generate-code first.")
+
+    # Regenerating a SUCCEEDED template (intro_code present) is a fresh design and
+    # counts against the quota. A FAILED template has no intro_code and reaches this
+    # endpoint only via the 400 above — its free retry goes through generate-code.
+    _check_custom_template_quota(user)
 
     # Snapshot current state before overwriting
     _save_version(tpl, "Before regeneration", db)
