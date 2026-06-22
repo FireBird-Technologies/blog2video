@@ -261,6 +261,7 @@ def _get_custom_meta(template_id: str, db: Session | None = None, user_id: int |
         data["theme"],
         data["name"],
         content_codes_count=len(content_codes),
+        content_archetype_ids=data.get("content_archetype_ids"),
     )
 
 

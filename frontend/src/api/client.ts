@@ -95,6 +95,9 @@ export interface UserInfo {
   videos_used_this_period: number;
   video_limit: number;
   can_create_video: boolean;
+  custom_templates_created: number;
+  custom_template_limit: number;
+  can_create_custom_template: boolean;
   preferred_voice_emotion: string | null;
   survey_submitted: boolean;
 }
@@ -119,6 +122,8 @@ export interface Scene {
   extra_hold_seconds?: number | null;
   bgm_volume?: number | null;
   preferred_layout?: string | null;
+  /** "intro"|"content"|"outro"|"dataviz_chart"|"dataviz_table" (custom templates). */
+  scene_type?: string | null;
   created_at: string;
 }
 
@@ -407,6 +412,9 @@ export const createPerVideoCheckout = (
     quantity,
   });
 };
+
+export const createCustomTemplateCheckout = () =>
+  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {});
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");
@@ -1506,6 +1514,24 @@ export const getChatHistory = (id: number) =>
 
 // ─── Custom Templates API (Pro only) ─────────────────────
 
+/** Scene-exit transition styles (must match GeneratedTransition registry). */
+export type TransitionStyle =
+  | "fade"
+  | "accent_wash"
+  | "rule_sweep"
+  | "ink_wash"
+  | "whip_blur"
+  | "push_slide"
+  | "cover_wipe"
+  | "page_flip"
+  | "clock_sweep"
+  // richer custom presentations (palette-driven; ported from economist/chronicle)
+  | "parallax_push"
+  | "whip_pan"
+  | "accent_bar"
+  | "page_fold"
+  | "ink_bleed";
+
 export interface CustomTemplateTheme {
   colors: { accent: string; bg: string; text: string; surface: string; muted: string; bg2?: string };
   fonts: { heading: string; body: string; mono: string };
@@ -1519,6 +1545,31 @@ export interface CustomTemplateTheme {
     images: { treatment: string; overlay: string; captionStyle: string };
     layout: { direction: string; decorativeElements: string[] };
   };
+  /** Motion personality — drives kit animation timing + scene-exit transitions. */
+  motion?: {
+    energy?: "calm" | "smooth" | "energetic";
+    easing?: string;
+    transitionFamily?: TransitionStyle[];
+  };
+  /** Data-viz styling cues for the craft kit's CustomChart. */
+  charts?: {
+    style?: "clean" | "precise" | "editorial";
+    gridStyle?: "dashed" | "horizontal" | "none";
+    palette?: string[];
+  };
+  /** Background decoration system for the kit's <Decor>. */
+  decor?: {
+    system?: "none" | "dots" | "grid" | "orbs" | "starfield" | "rules" | "vignette";
+    intensity?: number;
+  };
+  /** Preferred content archetypes for this brand (scene-type variety hint). */
+  sceneBias?: string[];
+  /**
+   * The user's raw prompt / uploaded-doc text (prompt & doc creation paths only).
+   * Round-trips extract → create → DB so scene generation can honor explicit
+   * scene requests ("add a testimonial scene"). Absent for URL-scraped themes.
+   */
+  brief?: string;
 }
 
 export interface CustomTemplateItem {
@@ -1539,6 +1590,18 @@ export interface CustomTemplateItem {
   logo_urls?: string[];
   og_image?: string;
   generation_failed: boolean;
+  my_rating?: number | null;
+  my_rating_comment?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateRating {
+  id: number;
+  user_id: number;
+  custom_template_id: number;
+  rating: number;
+  suggestion: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1591,6 +1654,20 @@ export const deleteCustomTemplate = (id: number, force = false) =>
 export const extractTheme = (url: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
 
+export const extractThemeFromPrompt = (prompt: string, name?: string) =>
+  api.post<ExtractThemeResponse>("/custom-templates/extract-theme-from-prompt", { prompt, name });
+
+export const extractThemeFromDoc = (file: File, name?: string) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (name) formData.append("name", name);
+  return api.post<ExtractThemeResponse>(
+    "/custom-templates/extract-theme-from-doc",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
 export const generateTemplateCode = (templateId: number) =>
   api.post<{ detail: string; template_id: number }>(`/custom-templates/${templateId}/generate-code`);
 
@@ -1633,6 +1710,11 @@ export const rollbackTemplateVersion = (templateId: number, versionId: number) =
   api.post<CustomTemplateItem>(
     `/custom-templates/${templateId}/versions/${versionId}/rollback`
   );
+
+export const submitTemplateRating = (
+  templateId: number,
+  data: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }
+) => api.post<TemplateRating>(`/custom-templates/${templateId}/rating`, data);
 
 // ─── ElevenLabs voices (default / available) ─────────────────
 

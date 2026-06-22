@@ -22,6 +22,11 @@ export const PRO_ANNUAL_TOTAL_PRICE = PRO_ANNUAL_MONTHLY_PRICE * 12; // 576
 export const PRO_COST_PER_VIDEO_MONTHLY = (PRO_MONTHLY_PRICE / 100).toFixed(2);   // "0.60"
 export const PRO_COST_PER_VIDEO_ANNUAL  = (PRO_ANNUAL_MONTHLY_PRICE / 100).toFixed(2); // "0.48"
 
+// ── Custom-template counts per plan ──────────────────────────────────────────
+export const FREE_CUSTOM_TEMPLATE_COUNT = 1;
+export const STANDARD_CUSTOM_TEMPLATE_COUNT = 5;
+export const PRO_CUSTOM_TEMPLATE_COUNT = 20;
+
 // ── Per-video tiers (re-exported for convenience) ────────────────────────────
 export const PER_VIDEO_CASUAL_PRICE  = CASUAL_PRICE_CENTS / 100;   // 4.00
 export const PER_VIDEO_PACK_PRICE    = PACK_PRICE_CENTS / 100;     // 3.00
@@ -31,12 +36,13 @@ export const PER_VIDEO_PACK_MAX      = PACK_ZONE_END;              // 30
 export const PER_VIDEO_BULK_MIN      = BULK_TIER_START_QTY;        // 31
 
 // ── Shared feature lists ─────────────────────────────────────────────────────
+// Shared across paid plans, minus the custom-template bullet — that count
+// differs per plan (Standard ≠ Pro), so each plan adds its own line below.
 export const COMMON_PAID_FEATURES = [
   "AI script generation",
   "ElevenLabs voiceover",
   "Render & download MP4",
   "Unlimited AI edit & image generation",
-  "Custom video templates",
   "Premium voiceover + cloning",
 ] as const;
 
@@ -46,7 +52,7 @@ export const FREE_FEATURES_INCLUDED = [
   "ElevenLabs voiceover",
   "Remotion video preview",
   "Render & download MP4",
-  "Custom video templates",
+  `${FREE_CUSTOM_TEMPLATE_COUNT} custom video template`,
 ] as const;
 
 export const FREE_FEATURES_EXCLUDED = [
@@ -63,6 +69,7 @@ export const SUBSCRIPTION_FEATURES = [
 export const ENTERPRISE_FEATURES = [
   "Custom video limits",
   ...COMMON_PAID_FEATURES,
+  "Custom video templates",
   "Remotion video preview",
   "Priority support",
   "Custom integrations",
@@ -96,7 +103,7 @@ export const pricingPlans: PricingPlan[] = [
     annualTotalPrice: null,
     videoLimit: null,
     videoLimitLabel: "Buy as many as you need",
-    featuresIncluded: ["No subscription needed", ...COMMON_PAID_FEATURES],
+    featuresIncluded: ["No subscription needed", ...COMMON_PAID_FEATURES, "Custom video templates"],
     featuresExcluded: [],
     notes: [
       `1–${PER_VIDEO_CASUAL_MAX} videos: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}/video`,
@@ -115,7 +122,11 @@ export const pricingPlans: PricingPlan[] = [
     annualTotalPrice: STANDARD_ANNUAL_TOTAL_PRICE,
     videoLimit: 30,
     videoLimitLabel: "30 videos per month",
-    featuresIncluded: ["30 videos per month", ...SUBSCRIPTION_FEATURES],
+    featuresIncluded: [
+      "30 videos per month",
+      `${STANDARD_CUSTOM_TEMPLATE_COUNT} custom video templates`,
+      ...SUBSCRIPTION_FEATURES,
+    ],
     featuresExcluded: [],
     notes: [
       `$${STANDARD_MONTHLY_PRICE}/mo monthly or $${STANDARD_ANNUAL_MONTHLY_PRICE}/mo billed annually ($${STANDARD_ANNUAL_TOTAL_PRICE}/year, save 20%)`,
@@ -130,7 +141,11 @@ export const pricingPlans: PricingPlan[] = [
     annualTotalPrice: PRO_ANNUAL_TOTAL_PRICE,
     videoLimit: 100,
     videoLimitLabel: "100 videos per month",
-    featuresIncluded: ["100 videos per month", ...SUBSCRIPTION_FEATURES],
+    featuresIncluded: [
+      "100 videos per month",
+      `${PRO_CUSTOM_TEMPLATE_COUNT} custom video templates`,
+      ...SUBSCRIPTION_FEATURES,
+    ],
     featuresExcluded: [],
     notes: [
       `$${PRO_MONTHLY_PRICE}/mo monthly or $${PRO_ANNUAL_MONTHLY_PRICE}/mo billed annually ($${PRO_ANNUAL_TOTAL_PRICE}/year, save 20%)`,

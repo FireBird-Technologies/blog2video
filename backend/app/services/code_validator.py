@@ -134,6 +134,21 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
 
     # Non-monotonic interpolate inputRange causes Remotion runtime crash
     for m in re.finditer(r'interpolate\s*\([^,]+,\s*\[([^\]]+)\]\s*,\s*\[([^\]]+)\]', code):
+        # interpolate inputRange/outputRange must be NUMBERS. String literals like
+        # ['0%','100%'] throw "outputRange must contain only numbers" at runtime —
+        # the float() parse below skips them via ValueError, so reject explicitly.
+        # (Variable/expression ranges like [start, end-4] are legal and are left for
+        # the float() parse to skip — only quoted literals are unconditionally wrong.)
+        if "'" in m.group(2) or '"' in m.group(2):
+            return False, (
+                "interpolate outputRange contains a string literal (must be numbers): "
+                f"[{m.group(2).strip()}]. Interpolate numeric values, then apply units in the "
+                "style — e.g. width: `${interpolate(p, [0,1], [0,100])}%` (NOT ['0%','100%'])"
+            )
+        if "'" in m.group(1) or '"' in m.group(1):
+            return False, (
+                f"interpolate inputRange contains a string literal (must be numbers): [{m.group(1).strip()}]"
+            )
         try:
             inputs = [float(v.strip()) for v in m.group(1).split(',') if v.strip()]
             outputs = [float(v.strip()) for v in m.group(2).split(',') if v.strip()]
@@ -143,5 +158,37 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
                 return False, f"interpolate inputRange/outputRange length mismatch: {len(inputs)} vs {len(outputs)}"
         except ValueError:
             pass
+
+    # Self-referential destructure of pre-injected kit globals crashes with a TDZ
+    # "Cannot access 'X' before initialization": the model writes
+    #   const { staggerEntrance, panelRise } = { staggerEntrance, panelRise };
+    # where the RHS shorthand resolves to the const being declared (dead zone),
+    # not the global. The globals are already in scope — never redeclare them.
+    for m in re.finditer(r'(?:const|let|var)\s*\{([^}]+)\}\s*=\s*\{([^}]+)\}', code):
+        # LHS binding names: `a` -> a, `key: bind` -> bind, `a = default` -> a.
+        def _bind(n: str) -> str:
+            n = n.strip()
+            if ":" in n:
+                n = n.split(":", 1)[1]
+            return n.split("=")[0].strip()
+        lhs = {_bind(n) for n in m.group(1).split(",") if n.strip() and not n.strip().startswith("...")}
+        # Only RHS SHORTHAND props (bare identifier, no `:value`) reference a variable
+        # — those are what can resolve to the const being declared (the TDZ). Props
+        # with values like `{x: 1}` are literals and are safe.
+        rhs = set()
+        for p in m.group(2).split(","):
+            p = p.strip()
+            if not p or p.startswith("...") or ":" in p:
+                continue
+            p = p.split("=")[0].strip()
+            if re.match(r"^[A-Za-z_$][\w$]*$", p):
+                rhs.add(p)
+        clash = lhs & rhs
+        if clash:
+            return False, (
+                f"Self-referential destructure (TDZ crash): const {{ {', '.join(sorted(clash))} }} "
+                f"= {{ {', '.join(sorted(clash))} }}. Kit helpers are pre-injected globals already "
+                "in scope — use them directly, never redeclare them."
+            )
 
     return True, None

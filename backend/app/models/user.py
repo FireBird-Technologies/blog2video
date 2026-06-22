@@ -30,6 +30,8 @@ class User(Base):
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     videos_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
     video_limit_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # per-video credits purchased
+    custom_template_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # +1 custom-template slot per $5 purchase
+    custom_templates_created: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # lifetime counter, never decrements
     retention_offer_shown_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     retention_offer_suppressed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     period_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -58,6 +60,7 @@ class User(Base):
     saved_voices = relationship("SavedVoice", back_populates="user", cascade="all, delete-orphan")
     custom_voices = relationship("CustomVoice", back_populates="user", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="user", cascade="all, delete-orphan")
+    template_ratings = relationship("TemplateRating", back_populates="user", cascade="all, delete-orphan")
     brand_kits = relationship("BrandKit", back_populates="user", cascade="all, delete-orphan")
     crafted_template_entitlements = relationship("CraftedTemplateEntitlement", back_populates="user", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
@@ -84,6 +87,16 @@ class User(Base):
     @property
     def can_create_video(self) -> bool:
         return self.videos_used_this_period < self.video_limit
+
+    @property
+    def custom_template_limit(self) -> int:
+        """Max custom templates this user may create (plan base + purchased slots)."""
+        base = {PlanTier.FREE: 1, PlanTier.STANDARD: 5}.get(self.plan, 20)  # Pro = 20
+        return base + (self.custom_template_bonus or 0)
+
+    @property
+    def can_create_custom_template(self) -> bool:
+        return (self.custom_templates_created or 0) < self.custom_template_limit
 
 
     def sync_video_limit_bonus(self, db: Session) -> bool:
