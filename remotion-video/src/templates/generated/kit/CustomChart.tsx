@@ -115,6 +115,34 @@ export const CustomChart: React.FC<CustomChartProps> = ({
       fontFamily: font,
     });
 
+  // ── Custom Y ticks ──────────────────────────────────────────
+  // Hoisted above the early return so this hook is never called conditionally
+  // (rules-of-hooks). lineBounds/axisTop are inlined here since the render-only
+  // copies below run only after the `hasRealChart` guard.
+  const customYAxis = useMemo(() => {
+    const raw = (chartYAxisTicks ?? []).map((s) => String(s ?? "").trim()).filter(Boolean);
+    if (raw.length < 2) return null;
+    if (kind === "line") {
+      let lo = Infinity, hi = -Infinity;
+      for (const s of inputs.lineSeries)
+        for (const v of s.values)
+          if (Number.isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+      const lb = Number.isFinite(lo) && Number.isFinite(hi) ? { lo, hi } : { lo: 0, hi: 1 };
+      const span = lb.hi - lb.lo;
+      const pad = Math.max(span * 0.08, 1e-6);
+      const nums = raw.map(toNumber).filter((n): n is number => n !== null);
+      if (nums.length >= 2) {
+        const margin = Math.max(span * 0.5, 1);
+        if (Math.max(...nums) < lb.lo - margin || Math.min(...nums) > lb.hi + margin)
+          return null;
+      }
+      return buildYAxisTickOverride(raw, lb.lo - pad, lb.hi + pad, false);
+    }
+    const rowsForAxis = kind === "histogram" ? inputs.histogramRows : inputs.barRows;
+    const barMaxForAxis = Math.max(0, ...rowsForAxis.map((r) => Math.abs(r.value)));
+    return buildYAxisTickOverride(raw, 0, getAxisUpperBound(barMaxForAxis), true);
+  }, [chartYAxisTicks, kind, inputs]);
+
   if (!hasRealChart) return null;
 
   // ── Line ────────────────────────────────────────────────────
@@ -155,25 +183,6 @@ export const CustomChart: React.FC<CustomChartProps> = ({
   const axisTop = getAxisUpperBound(barMax);
   const barMaxSize = barCount >= 17 ? 26 : barCount >= 13 ? 38 : 58;
   const showBarLabels = barCount <= 24;
-
-  // ── Custom Y ticks ──────────────────────────────────────────
-  const customYAxis = useMemo(() => {
-    const raw = (chartYAxisTicks ?? []).map((s) => String(s ?? "").trim()).filter(Boolean);
-    if (raw.length < 2) return null;
-    if (kind === "line") {
-      const span = lineBounds.hi - lineBounds.lo;
-      const pad = Math.max(span * 0.08, 1e-6);
-      const nums = raw.map(toNumber).filter((n): n is number => n !== null);
-      if (nums.length >= 2) {
-        const margin = Math.max(span * 0.5, 1);
-        if (Math.max(...nums) < lineBounds.lo - margin || Math.min(...nums) > lineBounds.hi + margin)
-          return null;
-      }
-      return buildYAxisTickOverride(raw, lineBounds.lo - pad, lineBounds.hi + pad, false);
-    }
-    return buildYAxisTickOverride(raw, 0, axisTop, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartYAxisTicks, kind, lineBounds.lo, lineBounds.hi, axisTop]);
 
   const yTickStyle = { fill: axisInk, fontSize: Math.max(9, tickSize), fontWeight: 400, fontFamily: font };
   const yFmt = customYAxis?.tickFormatter ?? formatAxisTick;
