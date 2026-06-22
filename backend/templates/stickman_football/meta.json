@@ -1,0 +1,1003 @@
+{
+  "id": "stickman_football",
+  "name": "Stickman Football Match",
+  "new_template": true,
+  "description": "Ink-black stickman players animate across a chalk-drawn pitch with grass-green accents, snappy slide-ins, bouncy ball motion, and quick action wipes — playful and lively for any football story.",
+  "genres": [
+    "Sports",
+    "Entertainment",
+    "Education"
+  ],
+  "preview_colors": {
+    "accent": "#869358",
+    "bg": "#FFFFFF",
+    "text": "#111111"
+  },
+  "composition_id": "StickmanFootballVideo",
+  "hero_layout": "kickoff_title",
+  "fallback_layout": "passing_play",
+  "valid_layouts": [
+    "kickoff_title",
+    "passing_play",
+    "freekick_setup",
+    "match_stats",
+    "injury_break",
+    "goal_moment",
+    "ball_control",
+    "text_narration",
+    "football_data_viz",
+    "football_ticker",
+    "corner_kick",
+    "ending_socials"
+  ],
+  "layout_prop_schema": {
+    "kickoff_title": {
+      "label": "Kickoff Title",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 38
+        },
+        "subline": "Match Day — Highlights"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "subline",
+          "label": "Subline",
+          "type": "string",
+          "description": "Kickoff tagline displayed beneath the title, e.g. 'Match Day — Highlights'."
+        }
+      ]
+    },
+    "passing_play": {
+      "label": "Passing Play",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 78,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 50,
+          "landscape": 40
+        },
+        "stats": [
+          {
+            "label": "Possession",
+            "value": "62%"
+          },
+          {
+            "label": "Passes",
+            "value": "418"
+          },
+          {
+            "label": "Shots",
+            "value": "14"
+          },
+          {
+            "label": "Pass Accuracy",
+            "value": "89%"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Stats",
+          "type": "object_array",
+          "description": "Stat cards shown on a cardboard panel as a 2×2 grid (right side in landscape, below the text in portrait). Each item has `label` (string) and `value` (string); maximum 4.",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ],
+          "maxItems": 4
+        }
+      ]
+    },
+    "corner_kick": {
+      "label": "Corner Kick",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 95,
+          "landscape": 82
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "steps": [
+          {
+            "label": "Corner",
+            "detail": "Inswinger"
+          },
+          {
+            "label": "Flick on",
+            "detail": "Near post"
+          },
+          {
+            "label": "Lay off",
+            "detail": "Edge of box"
+          },
+          {
+            "label": "Header",
+            "detail": "Just wide"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "steps",
+          "label": "Steps",
+          "type": "object_array",
+          "description": "Ordered build-up steps; each step is one pass shown above the receiving stickman's head as the ball travels right-to-left toward goal. The first step is the corner delivery and the last is a header on goal that misses / is saved. Each item has `label` (short, e.g. 'Flick on') and optional `detail` (e.g. 'Near post'). 3–5 items.",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label",
+              "type": "string",
+              "description": "Short step name shown on the step card (1–3 words), e.g. 'Flick on'."
+            },
+            {
+              "key": "detail",
+              "label": "Detail",
+              "type": "string",
+              "description": "Optional tactical hint beneath the label (1–4 words), e.g. 'Near post'. Leave empty to hide."
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 5
+        }
+      ]
+    },
+    "freekick_setup": {
+      "label": "Free Kick Setup",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 90,
+          "landscape": 75
+        },
+        "descriptionFontSize": {
+          "portrait": 48,
+          "landscape": 40
+        },
+        "shotLabel": "Top corner",
+        "kickerName": "Striker",
+        "kickerNumber": "#9"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "shotLabel",
+          "label": "Shotlabel",
+          "type": "string",
+          "description": "Short caption displayed along the shot path, e.g. 'Top corner'."
+        },
+        {
+          "key": "kickerName",
+          "label": "Kicker Name",
+          "type": "string",
+          "description": "Short name shown on a badge above the taker's head, e.g. 'Striker' or a player surname. 1–2 words."
+        },
+        {
+          "key": "kickerNumber",
+          "label": "Kicker Number",
+          "type": "string",
+          "description": "Short tag beneath the name badge above the taker's head, e.g. '#9' or a position. Keep very short."
+        }
+      ]
+    },
+    "goal_moment": {
+      "label": "Goal Moment",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 80,
+          "landscape": 66
+        },
+        "descriptionFontSize": {
+          "portrait": 50,
+          "landscape": 35
+        },
+        "goalLabel": "GOAL!",
+        "scoreline": "2 – 1",
+        "kickerName": "Striker",
+        "kickerNumber": "#9"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "goalLabel",
+          "label": "Goallabel",
+          "type": "string",
+          "description": "Celebratory stamp shown above the goal when the ball scores, e.g. 'GOAL!'."
+        },
+        {
+          "key": "scoreline",
+          "label": "Scoreline",
+          "type": "string",
+          "description": "Optional score displayed beneath the goal stamp, e.g. '2 – 1'."
+        },
+        {
+          "key": "kickerName",
+          "label": "Kicker Name",
+          "type": "string",
+          "description": "Short name shown on a badge above the scorer's head, e.g. 'Striker' or a player surname. 1–2 words."
+        },
+        {
+          "key": "kickerNumber",
+          "label": "Kicker Number",
+          "type": "string",
+          "description": "Short tag beneath the name badge above the scorer's head, e.g. '#9' or a position. Keep very short."
+        }
+      ]
+    },
+    "match_stats": {
+      "label": "Match Stats",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 103,
+          "landscape": 70
+        },
+        "descriptionFontSize": {
+          "portrait": 60,
+          "landscape": 44
+        },
+        "stats": [
+          {
+            "label": "Goals",
+            "value": "3"
+          },
+          {
+            "label": "Shots on Target",
+            "value": "8"
+          },
+          {
+            "label": "Possession",
+            "value": "57%"
+          },
+          {
+            "label": "Corners",
+            "value": "6"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Stats",
+          "type": "object_array",
+          "description": "Array of stat items each with `label` (string) and `value` (string) fields; maximum 5 items.",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ],
+          "maxItems": 10
+        }
+      ]
+    },
+    "injury_break": {
+      "label": "Injury Break",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 62,
+          "landscape": 57
+        },
+        "descriptionFontSize": {
+          "portrait": 44,
+          "landscape": 34
+        },
+        "leftLabel": "What happened",
+        "rightLabel": "The outcome",
+        "leftDescription": "A late challenge left the striker down on the pitch.",
+        "rightDescription": "Subbed off as a precaution — back in training next week."
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftLabel",
+          "label": "Leftlabel",
+          "type": "string",
+          "description": "Bold heading for the left column, e.g. 'What happened'."
+        },
+        {
+          "key": "rightLabel",
+          "label": "Rightlabel",
+          "type": "string",
+          "description": "Bold heading for the right column, e.g. 'The outcome'."
+        },
+        {
+          "key": "leftDescription",
+          "label": "Leftdescription",
+          "type": "text",
+          "description": "Body copy for the left column."
+        },
+        {
+          "key": "rightDescription",
+          "label": "Rightdescription",
+          "type": "text",
+          "description": "Body copy for the right column."
+        }
+      ]
+    },
+    "ball_control": {
+      "label": "Ball Control",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "skillCaption": "First touch",
+        "stats": [
+          {
+            "label": "Touches",
+            "value": "1.2k"
+          },
+          {
+            "label": "Keepy-ups",
+            "value": "57"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "skillCaption",
+          "label": "Skillcaption",
+          "type": "string",
+          "description": "Short caption displayed in a pill badge beside the text, e.g. 'First touch'."
+        },
+        {
+          "key": "stats",
+          "label": "Stats",
+          "type": "object_array",
+          "description": "Up to 3 small stat chips shown on cardboard cards above the juggler's head. Each item has `label` (string) and `value` (string).",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ],
+          "maxItems": 3
+        }
+      ]
+    },
+    "text_narration": {
+      "label": "Text Narration",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 44,
+          "landscape": 40
+        },
+        "eyebrow": "Match Report",
+        "leftLabel": "Pundit One",
+        "rightLabel": "Pundit Two",
+        "leftDescription": "Solid at the back, but the midfield went missing in the second half.",
+        "rightDescription": "Clinical up front — that front three caused problems all night."
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "eyebrow",
+          "label": "Eyebrow",
+          "type": "string",
+          "description": "Small kicker label shown in the accent colour above the title, e.g. 'Match Report'."
+        },
+        {
+          "key": "leftLabel",
+          "label": "Left Reporter",
+          "type": "string",
+          "description": "Heading on the left reporter's cardboard sign, e.g. a pundit name. 1–2 words."
+        },
+        {
+          "key": "leftDescription",
+          "label": "Left Report",
+          "type": "text",
+          "description": "The report/verdict shown on the left reporter's cardboard sign — one short line."
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right Reporter",
+          "type": "string",
+          "description": "Heading on the right reporter's cardboard sign, e.g. a pundit name. 1–2 words."
+        },
+        {
+          "key": "rightDescription",
+          "label": "Right Report",
+          "type": "text",
+          "description": "The report/verdict shown on the right reporter's cardboard sign — one short line."
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Final Whistle & Socials",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 80,
+          "landscape": 70
+        },
+        "descriptionFontSize": {
+          "portrait": 40,
+          "landscape": 30
+        },
+        "handles": [],
+        "socials": [
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "true",
+            "label": "TikTok"
+          },
+          {
+            "platform": "facebook",
+            "enabled": "false",
+            "label": "Facebook"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "false",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          }
+        ],
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourteam.com",
+        "ctaButtonText": "Follow the team"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "handles",
+          "label": "Handles",
+          "type": "string_array",
+          "description": "Social media handles to display when no Social Platforms are configured, e.g. ['@teamname', '@channel']."
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website CTA Button",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourteam.com",
+          "description": "Optional website URL shown beneath the CTA label."
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "placeholder": "Follow the team",
+          "description": "Call-to-action label shown on the pill button above the website link."
+        },
+        {
+          "key": "ctas",
+          "label": "Call-to-Action Buttons",
+          "type": "object_array",
+          "maxItems": 3,
+          "description": "Up to 3 CTAs, each with a label, website link, and visibility. Overrides the single CTA fields above when provided.",
+          "subFields": [
+            {
+              "key": "ctaButtonText",
+              "label": "CTA Button Text"
+            },
+            {
+              "key": "websiteLink",
+              "label": "Website Link"
+            },
+            {
+              "key": "showWebsiteButton",
+              "label": "Show (true/false)"
+            }
+          ]
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        }
+      ]
+    },
+    "football_data_viz": {
+      "label": "Football Data Viz",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 66,
+          "landscape": 64
+        },
+        "descriptionFontSize": {
+          "portrait": 41,
+          "landscape": 36
+        },
+        "chartType": "line",
+        "chartSummary": "Shots on target climb through the second half before easing off.",
+        "chartTable": {
+          "headers": [
+            "Matchday",
+            "Shots",
+            "On Target"
+          ],
+          "rows": [
+            [
+              "MD 1",
+              "11",
+              "4"
+            ],
+            [
+              "MD 2",
+              "14",
+              "6"
+            ],
+            [
+              "MD 3",
+              "16",
+              "7"
+            ],
+            [
+              "MD 4",
+              "13",
+              "5"
+            ],
+            [
+              "MD 5",
+              "18",
+              "9"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Matchday",
+        "yAxisLabel": "Shots",
+        "barPrimaryColor": "#2E7D32",
+        "barSecondaryColor": "#C0563B",
+        "barTertiaryColor": "#E0B000"
+      },
+      "scene_defaults": {
+        "title": "Season trend",
+        "narration": "Here's how the numbers stack up across the campaign.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beneath the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        },
+        {
+          "key": "barTertiaryColor",
+          "label": "Series color 3",
+          "type": "color"
+        }
+      ]
+    },
+    "football_ticker": {
+      "label": "Football Ticker",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 68,
+          "landscape": 71
+        },
+        "descriptionFontSize": {
+          "portrait": 38,
+          "landscape": 36
+        },
+        "tickerTitle": "League table",
+        "tickerFootnote": "Source: matchday data",
+        "tickerHighlightCol": 3,
+        "tickerTable": {
+          "headers": [
+            "Team",
+            "P",
+            "GD",
+            "Pts"
+          ],
+          "rows": [
+            [
+              "City FC",
+              "28",
+              "+24",
+              "64"
+            ],
+            [
+              "United",
+              "28",
+              "+18",
+              "58"
+            ],
+            [
+              "Rovers",
+              "28",
+              "+9",
+              "49"
+            ],
+            [
+              "Athletic",
+              "28",
+              "-2",
+              "41"
+            ],
+            [
+              "Wanderers",
+              "28",
+              "-11",
+              "32"
+            ]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "Table snapshot",
+        "narration": "The standings at a glance.",
+        "durationSeconds": 6
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table subtitle",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: values (max 20 rows, 6 cols)",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based, -1 to disable)",
+          "type": "number",
+          "min": -1,
+          "max": 5,
+          "step": 1
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Source / Footnote",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "passing_play",
+    "match_stats",
+    "injury_break",
+    "ball_control",
+    "text_narration",
+    "ending_socials",
+    "football_data_viz",
+    "football_ticker",
+    "corner_kick"
+  ]
+}

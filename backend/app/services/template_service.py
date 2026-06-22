@@ -48,6 +48,7 @@ CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "blackswan": ("data_visualisation", _NO_TICKER_SENTINEL),
     "gridcraft": ("data_visualisation", _NO_TICKER_SENTINEL),
     "stickman_2": ("data_visualisation", _NO_TICKER_SENTINEL),
+    "stickman_football": ("football_data_viz", "football_ticker"),
 }
 
 # Chart/ticker base layout ids derived from the map. One *_data chart layout per

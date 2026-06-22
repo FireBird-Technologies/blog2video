@@ -73,6 +73,7 @@ export const footerGroups = [
       "/pdf-to-video",
       "/blog-to-youtube-video",
       "/blog-to-shorts",
+      "/linkedin-carousel-generator",
     ],
   },
   {

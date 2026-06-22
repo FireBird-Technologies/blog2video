@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { computeEconomistVideoTotalFrames } from "../components/remotion/economist/EconomistVideoComposition";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -1506,6 +1507,446 @@ const SCENE_SETS: Record<string, SceneSet> = {
       },
     ],
   },
+
+  "preview-economist": {
+    template: "economist",
+    scenes: [
+      {
+        id: 1, order: 1, title: "The Week's Cover", durationSeconds: 7,
+        narration: "Cover Reveal opens the issue with the masthead, dateline, and a stack of teaser headlines — the unmistakable look of a printed weekly.",
+        layout: "cover_reveal",
+        layoutProps: {
+          wordmark: "The Economist",
+          dateline: "MAY 23RD–29TH 2026",
+          teasers: ["We calculate the MAGA tax", "NATO: time for Plan B", "Are economists amoral?"],
+        },
+      },
+      {
+        id: 2, order: 2, title: "The Leader", durationSeconds: 8,
+        narration: "Leader Article is the workhorse page: a section kicker on a rule, a bold headline, and body copy that flows into columns alongside an optional inset image.",
+        layout: "leader_article",
+        layoutProps: {
+          sectionLabel: "LEADERS",
+          title: "The case for patience",
+          body: "Policymakers are under pressure to act quickly, but the data argue for a steadier hand. The risks of moving too soon outweigh the costs of waiting another quarter for the picture to clear.",
+        },
+      },
+      {
+        id: 3, order: 3, title: "Section Divider", durationSeconds: 6,
+        narration: "Section Divider stamps in a new chapter of the issue with a rotating square mark and a sweeping rule — a clean visual break between segments.",
+        layout: "section_divider",
+        layoutProps: { title: "Finance & economics" },
+      },
+      {
+        id: 4, order: 4, title: "End Of A Losing Streak", durationSeconds: 8,
+        narration: "Chart Line renders trends in the signature red house style, with labelled series and a cited source line.",
+        layout: "chart_line",
+        layoutProps: {
+          sectionLabel: "FINANCE",
+          panelNumber: "2",
+          emphasizeZero: false,
+          highlightSeries: ["Preferred", "Satisfied"],
+          seriesColors: ["#F0746E", "#E3120B"],
+          labelMode: "inline",
+          source: "Source: Latinobarómetro",
+          chartTable: {
+            headers: ["Year", "Preferred", "Satisfied"],
+            rows: [
+              ["1995", 52, 30],
+              ["2000", 48, 25],
+              ["05", 53, 31],
+              ["10", 55, 38],
+              ["15", 46, 28],
+              ["20", 44, 18],
+              ["24", 47, 29],
+            ],
+          },
+        },
+      },
+      {
+        id: 5, order: 5, title: "Growth By Region", durationSeconds: 7,
+        narration: "Chart Bar grows bars in sequence with a header and source line — ideal for comparisons across categories.",
+        layout: "chart_bar",
+        layoutProps: {
+          sectionLabel: "ECONOMIC DATA",
+          panelNumber: "3",
+          source: "Source: National statistics",
+          chartTable: {
+            headers: ["Region", "GDP growth"],
+            rows: [
+              ["Asia", 4.6],
+              ["Americas", 2.1],
+              ["Europe", 1.4],
+              ["Africa", 3.3],
+              ["M. East", 2.8],
+            ],
+          },
+        },
+      },
+      {
+        id: 6, order: 6, title: "The Numbers In Full", durationSeconds: 7,
+        narration: "Data Table lays out structured figures in a clean ruled grid — the print-style table for dense, exact data.",
+        layout: "data_table",
+        layoutProps: {
+          sectionLabel: "INDICATORS",
+          title: "Selected economies",
+          source: "Source: The Economist",
+          chartTable: {
+            headers: ["Country", "GDP", "Inflation", "Unemp."],
+            rows: [
+              ["United States", "+2.1%", "2.4%", "4.1%"],
+              ["Euro area", "+1.4%", "2.2%", "6.4%"],
+              ["Japan", "+0.9%", "2.8%", "2.5%"],
+              ["China", "+4.6%", "0.6%", "5.1%"],
+            ],
+          },
+        },
+      },
+      {
+        id: 7, order: 7, title: "Should The Fed Cut Rates?", durationSeconds: 9,
+        narration: "Pros & Cons sets the arguments for and against side by side, framing a debate the way a Leaders page would.",
+        layout: "pros_cons",
+        layoutProps: {
+          sectionLabel: "LEADERS",
+          intro: "The central bank faces its most delicate decision in years. Here are the arguments for and against easing now.",
+          pros: [
+            { lead: "GROWTH IS COOLING", body: "Hiring has slowed and manufacturing output has contracted." },
+            { lead: "INFLATION NEAR TARGET", body: "Core PCE has drifted to 2.4%, near the 2% goal." },
+          ],
+          cons: [
+            { lead: "SERVICES STAY HOT", body: "Wage growth in services keeps underlying inflation sticky." },
+            { lead: "CREDIBILITY AT STAKE", body: "Cutting too soon risks a second wave of inflation." },
+          ],
+        },
+      },
+      {
+        id: 8, order: 8, title: "By The Numbers", durationSeconds: 7,
+        narration: "Key Indicators surfaces the headline figures of the story with deltas — the economy in four numbers.",
+        layout: "key_indicators",
+        layoutProps: {
+          sectionLabel: "ECONOMIC DATA",
+          indicators: [
+            { value: "2.4%", label: "Core inflation", delta: "-0.3pp" },
+            { value: "4.1%", label: "Unemployment", delta: "+0.2pp" },
+            { value: "$1.9trn", label: "Budget deficit", delta: "+5.4%" },
+            { value: "2.1%", label: "GDP growth", delta: "+0.1pp" },
+          ],
+        },
+      },
+      {
+        id: 9, order: 9, title: "The Pull Quote", durationSeconds: 7,
+        narration: "Leader Quote assembles a large serif pull-quote word by word, with an attribution swept in beneath — the defining line of the piece.",
+        layout: "leader_quote",
+        layoutProps: {
+          sectionLabel: "LEADERS",
+          quote: "The hardest decisions are the ones where waiting is itself a choice.",
+          attribution: "— The Economist",
+        },
+      },
+      {
+        id: 10, order: 10, title: "Feature Image", durationSeconds: 7,
+        narration: "Image Feature pairs a full-bleed photo with a section kicker and a bold white headline — the visual centrepiece of a feature.",
+        layout: "image_feature",
+        layoutProps: {
+          sectionLabel: "FEATURE",
+          title: "The new map of global trade",
+        },
+      },
+      {
+        id: 11, order: 11, title: "Read On", durationSeconds: 7,
+        narration: "Ending Socials closes the issue with a call to action and the publication's social handles.",
+        layout: "ending_socials",
+        layoutProps: {
+          ctaButtonText: "Read more at",
+          websiteLink: "https://yourpublication.com",
+          socials: [
+            { platform: "instagram", enabled: "true", label: "Instagram" },
+            { platform: "youtube", enabled: "true", label: "YouTube" },
+            { platform: "linkedin", enabled: "true", label: "LinkedIn" },
+          ],
+        },
+      },
+    ],
+  },
+
+  "preview-stickman-football": {
+    template: "stickman_football",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Match Day Highlights", durationSeconds: 6,
+        narration: "Kickoff Title opens the template with hand-drawn stickman players taking the field under match-day lights, setting an energetic, playful tone from the first whistle.",
+        layout: "kickoff_title",
+        layoutProps: { subline: "Match Day — Highlights" },
+      },
+      {
+        id: 2, order: 2, title: "Building From The Back", durationSeconds: 7,
+        narration: "Passing Play animates a crisp one-two between stickman players, with stat cards tracking possession and accuracy as the move develops.",
+        layout: "passing_play",
+        layoutProps: {
+          stats: [
+            { label: "Possession", value: "62%" },
+            { label: "Passes", value: "418" },
+            { label: "Shots", value: "14" },
+            { label: "Pass Accuracy", value: "89%" },
+          ],
+        },
+      },
+      {
+        id: 3, order: 3, title: "Close Control", durationSeconds: 7,
+        narration: "Ball Control showcases a stickman keeping the ball glued to their feet, with a caption and skill stats highlighting the technique on display.",
+        layout: "ball_control",
+        layoutProps: {
+          skillCaption: "First Touch",
+          stats: [
+            { label: "Take-ons", value: "7" },
+            { label: "Success", value: "85%" },
+            { label: "Touches", value: "63" },
+          ],
+        },
+      },
+      {
+        id: 4, order: 4, title: "Free Kick Drama", durationSeconds: 7,
+        narration: "Freekick Setup lines up the wall and the kicker, building tension before the shot whips toward the top corner.",
+        layout: "freekick_setup",
+        layoutProps: { shotLabel: "Top corner", kickerName: "Striker", kickerNumber: "#9" },
+      },
+      {
+        id: 5, order: 5, title: "What A Goal!", durationSeconds: 7,
+        narration: "Goal Moment celebrates the finish with a scoreline reveal and the stickman striker wheeling away in celebration.",
+        layout: "goal_moment",
+        layoutProps: { goalLabel: "GOAL!", scoreline: "2 – 1", kickerName: "Striker", kickerNumber: "#9" },
+      },
+      {
+        id: 6, order: 6, title: "Stoppage In Play", durationSeconds: 7,
+        narration: "Injury Break pauses the action to contrast two beats of the story side by side — what happened, and what it means for the match.",
+        layout: "injury_break",
+        layoutProps: {
+          leftLabel: "What happened",
+          leftDescription: "A heavy challenge stops play just before the break.",
+          rightLabel: "The outcome",
+          rightDescription: "The player walks it off and the game restarts on a free kick.",
+        },
+      },
+      {
+        id: 7, order: 7, title: "By The Numbers", durationSeconds: 7,
+        narration: "Match Stats lays out the key figures of the game on cardboard-style cards over the pitch.",
+        layout: "match_stats",
+        layoutProps: {
+          stats: [
+            { label: "Goals", value: "3" },
+            { label: "Shots on Target", value: "8" },
+            { label: "Possession", value: "57%" },
+            { label: "Corners", value: "6" },
+          ],
+        },
+      },
+      {
+        id: 8, order: 8, title: "Season Trend", durationSeconds: 7,
+        narration: "Football Data Viz renders the season's numbers as a hand-drawn line chart, tracking shots on target as form climbs through the campaign.",
+        layout: "football_data_viz",
+        layoutProps: {
+          chartType: "line",
+          chartSummary: "On-target shots peak after matchday three.",
+          subtitle: "Matchday",
+          yAxisLabel: "Shots",
+          chartTable: {
+            headers: ["Matchday", "Shots", "On Target"],
+            rows: [
+              ["MD 1", "11", "4"],
+              ["MD 2", "14", "6"],
+              ["MD 3", "16", "7"],
+              ["MD 4", "13", "5"],
+              ["MD 5", "18", "9"],
+            ],
+          },
+          barPrimaryColor: "#869358",
+          barSecondaryColor: "#C0563B",
+        },
+      },
+      {
+        id: 9, order: 9, title: "League Table", durationSeconds: 7,
+        narration: "Football Ticker presents the standings at a glance, with the points column highlighted like a live broadcast graphic.",
+        layout: "football_ticker",
+        layoutProps: {
+          tickerTitle: "Premier League",
+          tickerFootnote: "Source: matchday data",
+          tickerHighlightCol: 2,
+          tickerTable: {
+            headers: ["Team", "P", "GD", "Pts"],
+            rows: [
+              ["City FC", "28", "+24", "64"],
+              ["United", "28", "+18", "58"],
+              ["Rovers", "28", "+9", "49"],
+              ["Athletic", "28", "-2", "41"],
+              ["Wanderers", "28", "-11", "32"],
+            ],
+          },
+        },
+      },
+      {
+        id: 10, order: 10, title: "Pundits' Verdict", durationSeconds: 7,
+        narration: "Text Narration sets two stickman pundits side by side, each holding a board with their take on the match.",
+        layout: "text_narration",
+        layoutProps: {
+          leftLabel: "Pundit One",
+          leftDescription: "The midfield press won them the game.",
+          rightLabel: "Pundit Two",
+          rightDescription: "Clinical finishing made all the difference today.",
+        },
+      },
+      {
+        id: 11, order: 11, title: "Follow The Team", durationSeconds: 7,
+        narration: "Ending Socials closes out the match-day package with a call to action and the team's social handles.",
+        layout: "ending_socials",
+        layoutProps: {
+          ctaButtonText: "Follow the team",
+          websiteLink: "https://yourteam.com",
+          socials: [
+            { platform: "instagram", enabled: "true", label: "Instagram" },
+            { platform: "youtube", enabled: "true", label: "YouTube" },
+            { platform: "tiktok", enabled: "true", label: "TikTok" },
+          ],
+        },
+      },
+    ],
+  },
+
+  "preview-stickman-2": {
+    template: "stickman_2",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Stick Man After Dark", durationSeconds: 6,
+        narration: "Chalk Title opens the template with a glowing hand-drawn headline on a starlit black sky, setting a calm, cinematic mood.",
+        layout: "chalk_title",
+        layoutProps: {},
+      },
+      {
+        id: 2, order: 2, title: "A Walk Under The Stars", durationSeconds: 7,
+        narration: "Night Walk follows a stickman strolling beneath the night sky, carrying the narration forward with quiet, reflective motion.",
+        layout: "night_walk",
+        layoutProps: { title: "A Walk Under the Stars" },
+      },
+      {
+        id: 3, order: 3, title: "Make A Wish", durationSeconds: 7,
+        narration: "Shooting Star streaks a glowing arc across the sky as the stickman looks up, a moment of wonder between beats of the story.",
+        layout: "shooting_star",
+        layoutProps: { title: "Make a Wish" },
+      },
+      {
+        id: 4, order: 4, title: "Two Minds, One Sky", durationSeconds: 7,
+        narration: "Lantern Dialogue places two stickman characters in conversation, their thoughts glowing in speech bubbles under lantern light.",
+        layout: "lantern_dialogue",
+        layoutProps: {
+          leftBubble: "Did you see that?",
+          rightBubble: "A shooting star!",
+          speakers: [{ label: "Sam" }, { label: "Max" }],
+        },
+      },
+      {
+        id: 5, order: 5, title: "By The Numbers", durationSeconds: 7,
+        narration: "Constellation Stats connects key figures into glowing star patterns, turning data into points of light in the night sky.",
+        layout: "constellation_stats",
+        layoutProps: {
+          stats: [
+            { label: "Stars", value: "150" },
+            { label: "Hours", value: "24" },
+            { label: "Phases", value: "8" },
+          ],
+        },
+      },
+      {
+        id: 6, order: 6, title: "Phases Of The Moon", durationSeconds: 7,
+        narration: "Moonphase Chart steps through a sequence of moon phases drawn in chalk, an evocative way to show progression over time.",
+        layout: "moonphase_chart",
+        layoutProps: {
+          title: "Phases of the Moon",
+          bars: [
+            { label: "New" },
+            { label: "Waxing" },
+            { label: "First Quarter" },
+            { label: "Full" },
+            { label: "Waning" },
+          ],
+        },
+      },
+      {
+        id: 7, order: 7, title: "Two Paths", durationSeconds: 7,
+        narration: "Shadow Comparison weighs two options against each other, each represented by a stickman silhouette and a glowing thought.",
+        layout: "shadow_comparison",
+        layoutProps: {
+          title: "Two Paths",
+          leftThought: "Stay the course and keep it simple.",
+          rightThought: "Take the risk and try something new.",
+        },
+      },
+      {
+        id: 8, order: 8, title: "Around The Fire", durationSeconds: 7,
+        narration: "Signal Fire Scene gathers the story around a glowing fire in the dark, a warm focal point for the narration.",
+        layout: "signal_fire_scene",
+        layoutProps: { title: "Around the Fire" },
+      },
+      {
+        id: 9, order: 9, title: "Counting Down", durationSeconds: 7,
+        narration: "Neon Countdown ticks down with glowing chalk numerals, building anticipation before a reveal.",
+        layout: "neon_countdown",
+        layoutProps: { startFrom: 5, label: "Counting Down" },
+      },
+      {
+        id: 10, order: 10, title: "Charting The Night", durationSeconds: 7,
+        narration: "Data Visualisation renders the numbers as a hand-drawn chalk chart, keeping the data on-brand with the night-sky aesthetic.",
+        layout: "data_visualisation",
+        layoutProps: {
+          chartType: "bar",
+          chartSummary: "Stargazing peaks in the late summer months.",
+          subtitle: "Month",
+          yAxisLabel: "Clear nights",
+          chartTable: {
+            headers: ["Month", "Clear nights"],
+            rows: [
+              ["Jun", "12"],
+              ["Jul", "18"],
+              ["Aug", "21"],
+              ["Sep", "15"],
+              ["Oct", "9"],
+            ],
+          },
+        },
+      },
+      {
+        id: 11, order: 11, title: "The Standings", durationSeconds: 7,
+        narration: "Ticker Table lays out rows of data in a chalk-drawn table, with one column highlighted for emphasis.",
+        layout: "ticker_table",
+        layoutProps: {
+          tickerTitle: "Night Sky Log",
+          tickerHighlightCol: 2,
+          tickerTable: {
+            headers: ["Constellation", "Stars", "Visible"],
+            rows: [
+              ["Orion", "7", "Winter"],
+              ["Lyra", "5", "Summer"],
+              ["Cygnus", "9", "Summer"],
+              ["Draco", "14", "All year"],
+            ],
+          },
+        },
+      },
+      {
+        id: 12, order: 12, title: "Follow Along", durationSeconds: 7,
+        narration: "Ending Socials closes the story under the stars with a call to action and social handles.",
+        layout: "ending_socials",
+        layoutProps: {
+          ctaButtonText: "Explore more on",
+          websiteLink: "https://yourwebsite.com",
+          socials: [
+            { platform: "instagram", enabled: "true", label: "Instagram" },
+            { platform: "youtube", enabled: "true", label: "YouTube" },
+            { platform: "linkedin", enabled: "true", label: "LinkedIn" },
+            { platform: "tiktok", enabled: "true", label: "TikTok" },
+          ],
+        },
+      },
+    ],
+  },
 };
 
 const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string }> = {
@@ -1521,6 +1962,9 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
   chronicle: { accent: "#B8860B", bg: "#F1E4C9", text: "#2A1810" },
   mosaic: { accent: "#C26240", bg: "#EAE4DA", text: "#2A2A28" },
   blackswan: { accent: "#00E5FF", bg: "#000000", text: "#DFFFFF" },
+  economist: { accent: "#E3120B", bg: "#F6F4EE", text: "#1A1A1A" },
+  stickman_football: { accent: "#869358", bg: "#FFFFFF", text: "#111111" },
+  stickman_2: { accent: "#FFFFFF", bg: "#000000", text: "#FFFFFF" },
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -1536,6 +1980,9 @@ const TEMPLATE_LABELS: Record<string, string> = {
   chronicle: "Chronicle",
   mosaic: "Mosaic",
   blackswan: "BlackSwan",
+  economist: "The Economist",
+  stickman_football: "Stickman Football",
+  stickman_2: "Stickman 2",
 };
 
 interface BlogDemoPlayerProps {
@@ -1563,8 +2010,13 @@ export default function BlogDemoPlayer({
 
   const totalFrames = useMemo(() => {
     const fps = 30;
+    // Economist renders via a TransitionSeries with per-scene holds/minimums, so its
+    // true length differs from a naive sum — use its own exact frame computation.
+    if (templateId === "economist") {
+      return computeEconomistVideoTotalFrames(scenes as any, 1);
+    }
     return scenes.reduce((sum, s) => sum + Math.round(s.durationSeconds * fps), 0) + 60;
-  }, [scenes]);
+  }, [scenes, templateId]);
 
   const inputProps: any = {
     scenes,

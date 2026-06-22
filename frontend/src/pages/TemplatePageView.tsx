@@ -14,6 +14,9 @@ import NotFoundPage from "./NotFoundPage";
 import { marketingPageSchema } from "../seo/schema";
 
 const BlogDemoPlayer = lazy(() => import("../help/BlogDemoPlayer"));
+const FirebirdCustomPreview = lazy(
+  () => import("../components/templatePreviews/FirebirdCustomPreview"),
+);
 
 export default function TemplatePageView() {
   const location = useLocation();
@@ -104,7 +107,7 @@ export default function TemplatePageView() {
         </section>
 
         {/* Live Preview */}
-        {templateProfile?.previewSceneKey && (
+        {templateProfile && (slug === "custom" || templateProfile.previewSceneKey) && (
           <section className="border-b border-gray-100 bg-gray-50/50">
             <div className="mx-auto max-w-5xl px-6 py-16">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600 text-center">
@@ -114,10 +117,16 @@ export default function TemplatePageView() {
                 See {templateProfile.name} in action
               </h2>
               <p className="text-sm text-gray-500 text-center mb-8 max-w-xl mx-auto">
-                This preview cycles through {templateProfile.name}'s layouts with real content to show how each scene type looks and feels.
+                {slug === "custom"
+                  ? `This is a real custom template generated from a brand's website — the same colors, fonts, and style applied to every scene.`
+                  : `This preview cycles through ${templateProfile.name}'s layouts with real content to show how each scene type looks and feels.`}
               </p>
               <Suspense fallback={<div className="aspect-video w-full rounded-2xl bg-gray-200 animate-pulse" />}>
-                <BlogDemoPlayer sceneKey={templateProfile.previewSceneKey} />
+                {slug === "custom" ? (
+                  <FirebirdCustomPreview />
+                ) : (
+                  <BlogDemoPlayer sceneKey={templateProfile.previewSceneKey!} />
+                )}
               </Suspense>
             </div>
           </section>

@@ -12,6 +12,7 @@ import {
   siteName,
   siteUrl,
 } from "../src/content/siteContent";
+import type { BlogPost, HelpPost, MarketingPage } from "../src/content/seoTypes";
 import {
   normalizeSchemaForJsonLd,
   SEO_JSON_LD_SCRIPT_ID,
@@ -46,6 +47,100 @@ function escapeHtml(value: string) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function renderBlogPostHtml(post: BlogPost): string {
+  const heroImg = post.heroImage
+    ? `<img src="${post.heroImage}" alt="${escapeHtml(post.heroImageAlt ?? "")}" />`
+    : "";
+  const sectionsHtml = post.sections
+    .map((s) => {
+      const paras = s.paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+      const bullets = s.bullets?.length
+        ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+        : "";
+      return `<section><h2>${escapeHtml(s.heading)}</h2>${paras}${bullets}</section>`;
+    })
+    .join("");
+  const faqHtml = post.faq.length
+    ? `<section><h2>Frequently Asked Questions</h2>${post.faq
+        .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
+        .join("")}</section>`
+    : "";
+  return `<main><article>${heroImg}<p>${escapeHtml(post.heroEyebrow)}</p><h1>${escapeHtml(post.heroTitle)}</h1><p>${escapeHtml(post.heroDescription)}</p><time datetime="${post.publishedAt}">${post.publishedAt}</time>${sectionsHtml}${faqHtml}</article></main>`;
+}
+
+function renderBlogIndexHtml(posts: BlogPost[]): string {
+  const sorted = [...posts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  const postsHtml = sorted
+    .map(
+      (post) =>
+        `<article><a href="/blogs/${post.slug}"><h2>${escapeHtml(post.title)}</h2></a><p>${escapeHtml(post.description)}</p><time datetime="${post.publishedAt}">${post.publishedAt}</time></article>`
+    )
+    .join("");
+  return `<main><h1>Blog</h1>${postsHtml}</main>`;
+}
+
+function renderHelpPostHtml(post: HelpPost): string {
+  const stepsHtml = post.steps
+    .map((s) => {
+      const body = s.body.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+      const bullets = s.bullets?.length
+        ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+        : "";
+      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}</section>`;
+    })
+    .join("");
+  const faqHtml = post.faq.length
+    ? `<section><h2>Frequently Asked Questions</h2>${post.faq
+        .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
+        .join("")}</section>`
+    : "";
+  return `<main><article><h1>${escapeHtml(post.heroTitle)}</h1><p>${escapeHtml(post.heroDescription)}</p>${stepsHtml}${faqHtml}</article></main>`;
+}
+
+function renderHelpIndexHtml(posts: HelpPost[]): string {
+  const postsHtml = posts
+    .map(
+      (post) =>
+        `<article><a href="/help/${post.slug}"><h2>${escapeHtml(post.title)}</h2></a><p>${escapeHtml(post.description)}</p></article>`
+    )
+    .join("");
+  return `<main><h1>Help</h1>${postsHtml}</main>`;
+}
+
+function renderMarketingPageHtml(page: MarketingPage): string {
+  const sectionsHtml = page.sections
+    .map((s) => {
+      const body = s.body.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+      const bullets = s.bullets?.length
+        ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+        : "";
+      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}</section>`;
+    })
+    .join("");
+  const faqHtml = page.faq.length
+    ? `<section><h2>Frequently Asked Questions</h2>${page.faq
+        .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
+        .join("")}</section>`
+    : "";
+  return `<main><h1>${escapeHtml(page.heroTitle)}</h1><p>${escapeHtml(page.heroDescription)}</p>${sectionsHtml}${faqHtml}</main>`;
+}
+
+function getAppHtml(routePath: string): string {
+  if (routePath === "/blogs") return renderBlogIndexHtml(blogPosts);
+  if (routePath.startsWith("/blogs/")) {
+    const post = getBlogPost(routePath.replace("/blogs/", ""));
+    if (post) return renderBlogPostHtml(post);
+  }
+  if (routePath === "/help") return renderHelpIndexHtml(helpPosts);
+  if (routePath.startsWith("/help/")) {
+    const post = getHelpPost(routePath.replace("/help/", ""));
+    if (post) return renderHelpPostHtml(post);
+  }
+  const page = getMarketingPage(routePath);
+  if (page) return renderMarketingPageHtml(page);
+  return "";
 }
 
 function getSeoPayload(routePath: string): SeoPayload {
@@ -185,12 +280,8 @@ ${
 }
 
 function renderUrl(url: string) {
-  // Head-only prerender to avoid importing runtime UI modules that pull CSS/fontsource
-  // during Node execution (tsx can't evaluate CSS imports in this script context).
-  const appHtml = "";
-
+  const appHtml = getAppHtml(url);
   const head = buildHeadTags(url);
-
   return { appHtml, head };
 }
 

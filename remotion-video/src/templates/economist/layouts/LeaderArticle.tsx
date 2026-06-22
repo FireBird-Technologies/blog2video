@@ -1,248 +1,360 @@
 import React from "react";
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig, Img } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
-import { SectionKicker } from "../components/HairlineRule";
-import { EditorialDivider, ConcentricRings } from "../components/EconomistOrnaments";
+import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
-import { clamp01, letterpressStamp, redactionReveal, ruleDraw, slideFrom } from "./motion";
+import { clamp01, easeOutQuint, redactionReveal, ruleDraw, slideFrom } from "./motion";
 
 /**
- * LeaderArticle — the workhorse article page. Section kicker on a rule, a bold
- * serif headline, a drop-cap justified body, an optional byline, and an optional
- * inset image on the right (landscape). Long bodies flow into two columns when
- * there's no image.
+ * LeaderArticle — "The Essay Plate".
+ *
+ * A reversed-out editorial feature spread, deliberately unlike every other
+ * (all-paper) Economist scene. A bold full-height ink panel on the left carries
+ * the title, kicker and standfirst reversed out in paper-white; the paper side
+ * on the right gives the narration as one large kinetic lead statement that
+ * fills the page — no drop cap, no column box, no article furniture. Key points
+ * sit beneath as a clean ruled list. When an `imageUrl` is supplied the ink
+ * panel becomes a duotone photo plate under a dark wash, with the title reversed
+ * over it.
+ *
+ * Motion: the ink plate wipes in from the left, the kicker sweeps in under a
+ * redaction bar, the title rises out from behind its own top edge while the ink
+ * dries, a red rule draws under it, and on the paper side the lead reveals
+ * sentence-by-sentence (rising into place) followed by the key points.
+ *
+ * Portrait stacks the plate as a top band over the paper lead.
  */
 export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   title,
   narration,
-  sectionLabel = "BRIEFING",
-  byline,
+  body,
+  sectionLabel = "ESSAY",
+  dateline,
   standfirst,
   keyPoints,
-  illuminatedLetter,
   imageUrl,
   imageObjectPosition = "50% 50%",
   imageZoom = 1,
   accentColor = ECONOMIST_COLORS.accent,
-  textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
   descriptionFontSize,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { width } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
   const hasImage = Boolean(imageUrl);
 
-  const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
-  const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
-  const pad = isPortrait ? { x: 72, t: topInset, b: botInset } : { x: 100, t: topInset, b: botInset };
-  const titleSize = (titleFontSize ?? (isPortrait ? 84 : 82)) as number;
-  const bodySize = (descriptionFontSize ?? (isPortrait ? 40 : 30)) as number;
+  const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 18;
+  const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 16;
 
-  const body = (narration || "").trim();
-  const dropCap = (illuminatedLetter || body.charAt(0) || "").toUpperCase();
-  const rest = body.slice(1);
+  // Reversed-out palette for the ink/photo plate.
+  const PAPER = ECONOMIST_COLORS.paper;
+  const MUTED_ON_DARK = "#B9B4A8";
 
-  const kickerReveal = redactionReveal(frame, 0, 14);
-  const titleOp = interpolate(frame, [6, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  // Spring-based headline rise for a more editorial, weighty entrance — the ink
-  // "dries" (blur decays) as it settles.
-  const titleSpring = spring({ frame: frame - 6, fps, config: { damping: 16, mass: 0.7 } });
-  const titleY = interpolate(titleSpring, [0, 1], [26, 0]);
-  const titleBlur = 4 * (1 - clamp01((frame - 6) / 18));
-  const bodyOp = interpolate(frame, [20, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const deckOp = interpolate(frame, [16, 32], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const imgClip = interpolate(frame, [14, 38], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const kbScale = interpolate(frame, [0, 240], [1.04, 1.12], { extrapolateRight: "clamp" }) * imageZoom;
-  // Inset image develops from newsprint duotone to full colour.
-  const duoT = clamp01((frame - 14) / 50);
-  const imgFilter = `grayscale(${(1 - duoT).toFixed(3)}) contrast(${(1.08 - 0.08 * duoT).toFixed(3)})`;
-  // Drop cap pressed into the page, its press-shadow lifting as the ink dries.
-  const capStamp = letterpressStamp(frame, 18, 16, 1.6);
-  const capShadowA = 0.25 * (1 - clamp01((frame - 18) / 16));
+  // The on-screen body is the full article paragraph (independent of the short
+  // spoken `narration`); fall back to narration when no body was generated.
+  const lead = (body || narration || "").trim();
+  const titleSize = (titleFontSize ?? (isPortrait ? 66 : 74)) as number;
+  // The lead is the hero on the paper side; scale it by length so a terse beat
+  // reads as a big statement that fills the page and a long article still fits.
+  const leadLen = lead.length;
+  const isLongLead = leadLen > 320;
+  const baseLeadFs = (descriptionFontSize ?? 0) || 0;
+  const leadFs =
+    baseLeadFs > 0
+      ? baseLeadFs
+      : leadLen < 120
+        ? isPortrait
+          ? 50
+          : 54
+        : leadLen < 260
+          ? isPortrait
+            ? 42
+            : 44
+          : leadLen < 420
+            ? isPortrait
+              ? 35
+              : 37
+            : leadLen < 620
+              ? isPortrait
+                ? 30
+                : 32
+              : isPortrait
+                ? 26
+                : 28;
 
-  // Landscape, no image → a classic full-width leader opener: headline band on
-  // top, body flowing in two columns beneath. Stack when portrait or when an
-  // inset image takes the right half.
-  const splitOpener = !isPortrait && !hasImage;
-  // Two columns once there's enough copy to balance them; one otherwise. When a
-  // key-points sidebar takes the right column, keep the body single-column so it
-  // doesn't get squeezed into slivers.
-  const hasKeyPoints = (keyPoints ?? []).some((p) => (p || "").trim());
-  const bodyCols = splitOpener && !hasKeyPoints && body.length > 240 ? 2 : 1;
+  // ── timeline ────────────────────────────────────────────────────────────────
+  // The ink plate wipes in first; everything else is staggered behind it.
+  const plateRev = interpolate(frame, [0, 16], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const platePinch = `inset(0 ${(100 - plateRev).toFixed(2)}% 0 0)`;
+  const kickerReveal = redactionReveal(frame, 8, 14);
+  const titleMaskT = easeOutQuint(clamp01((frame - 10) / 24));
+  const titleOp = clamp01((frame - 10) / 12);
+  const titleBlur = 5 * (1 - clamp01((frame - 10) / 22));
+  const sfOp = interpolate(frame, [26, 42], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const folioOp = interpolate(frame, [34, 50], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const endOp = interpolate(frame, [58, 74], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // Photo plate develops from newsprint monochrome to colour.
+  const developT = clamp01((frame - 8) / 52);
+  const kbScale = interpolate(frame, [0, 260], [1.05, 1.13], { extrapolateRight: "clamp" }) * imageZoom;
 
-  const header = (
-    <>
-      <div style={{ position: "relative", marginBottom: 26 }}>
-        <SectionKicker label={sectionLabel} accentColor={accentColor} fontSize={isPortrait ? 26 : 19} withRule style={{ clipPath: kickerReveal.clipPath }} />
-        <span
+  // Sentence-by-sentence rise of the lead (distinct from LeaderQuote's word-by-
+  // word assembly). Each sentence rises into place with a small stagger.
+  const sentences = lead.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  const leadParts = sentences.length > 0 ? sentences : lead ? [lead] : [];
+  // Stagger shrinks as the article lengthens so the full body always lands by
+  // ~frame 80 regardless of sentence count (a short voiceover scene won't cut it).
+  const leadStep = Math.min(9, 44 / Math.max(1, leadParts.length));
+
+  const points = (keyPoints ?? []).filter((p) => (p || "").trim()).slice(0, 4);
+
+  const folio = [sectionLabel, dateline].map((s) => (s || "").trim()).filter(Boolean).join("   ·   ");
+
+  // ── the reversed-out plate (ink or photo) ───────────────────────────────────
+  const plate = (
+    <div
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        background: hasImage ? ECONOMIST_COLORS.ink : "#181818",
+        clipPath: platePinch,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: isPortrait ? "40px 56px" : "64px 56px",
+        ...(isPortrait
+          ? { width: "100%", height: "42%", flex: "0 0 auto" }
+          : { width: "42%", height: "100%", flex: "0 0 42%" }),
+      }}
+    >
+      {hasImage ? (
+        <>
+          <Img
+            src={imageUrl as string}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: imageObjectPosition,
+              transform: `scale(${kbScale.toFixed(4)})`,
+              filter: `grayscale(${(1 - developT).toFixed(3)}) contrast(1.04)`,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(115deg, rgba(20,20,20,0.92) 0%, rgba(20,20,20,0.78) 48%, rgba(20,20,20,0.55) 100%)",
+            }}
+          />
+        </>
+      ) : (
+        <EngravingTexture color={PAPER} opacity={0.05} gap={12} angle={-45} />
+      )}
+
+      {/* Top group: kicker + title + standfirst, reversed out. */}
+      <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", marginBottom: isPortrait ? 18 : 26, display: "inline-block" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 11, clipPath: kickerReveal.clipPath }}>
+            <span style={{ width: 13, height: 13, background: accentColor }} />
+            <span
+              style={{
+                fontFamily: ECONOMIST_SANS_FONT,
+                fontWeight: 800,
+                fontSize: isPortrait ? 22 : 19,
+                letterSpacing: 3,
+                textTransform: "uppercase",
+                color: MUTED_ON_DARK,
+              }}
+            >
+              {sectionLabel}
+            </span>
+          </div>
+          <span
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: `${kickerReveal.barLeftPct.toFixed(2)}%`,
+              width: `${kickerReveal.barWidthPct}%`,
+              background: accentColor,
+              opacity: kickerReveal.barOpacity,
+            }}
+          />
+        </div>
+
+        {/* Title rises out from behind its own top edge (masked). */}
+        <div style={{ overflow: "hidden" }}>
+          <div
+            style={{
+              fontFamily: ECONOMIST_SERIF_FONT,
+              fontWeight: 900,
+              fontSize: titleSize,
+              lineHeight: 1.04,
+              letterSpacing: -titleSize * 0.012,
+              color: PAPER,
+              opacity: titleOp,
+              transform: `translateY(${((1 - titleMaskT) * 102).toFixed(2)}%)`,
+              filter: titleBlur > 0.01 ? `blur(${titleBlur.toFixed(2)}px)` : "none",
+            }}
+          >
+            {title}
+          </div>
+        </div>
+
+        <div style={{ height: 4, width: 92, background: accentColor, margin: "22px 0 0", ...ruleDraw(frame, 24, 16) }} />
+
+        {standfirst && (
+          <div
+            style={{
+              fontFamily: ECONOMIST_SERIF_FONT,
+              fontStyle: "italic",
+              fontSize: isPortrait ? 26 : 24,
+              lineHeight: 1.42,
+              color: MUTED_ON_DARK,
+              opacity: sfOp,
+              marginTop: 22,
+              maxWidth: "94%",
+            }}
+          >
+            {standfirst}
+          </div>
+        )}
+      </div>
+
+      {/* Foot of the plate: running folio, pinned to the bottom edge. */}
+      {folio && !isPortrait && (
+        <div
           style={{
             position: "absolute",
-            top: 0,
-            bottom: 0,
-            left: `${kickerReveal.barLeftPct.toFixed(2)}%`,
-            width: `${kickerReveal.barWidthPct}%`,
-            background: accentColor,
-            opacity: kickerReveal.barOpacity,
+            left: 56,
+            bottom: 48,
+            fontFamily: ECONOMIST_SANS_FONT,
+            fontWeight: 700,
+            fontSize: 14,
+            letterSpacing: 1.6,
+            textTransform: "uppercase",
+            color: MUTED_ON_DARK,
+            opacity: folioOp,
           }}
-        />
-      </div>
+        >
+          {folio}
+        </div>
+      )}
+    </div>
+  );
+
+  // ── the paper side: kinetic lead + key points ───────────────────────────────
+  const paperSide = (
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
+        // Portrait anchors the body just under the plate band (so it doesn't
+        // strand in the lower middle); landscape centres it in the right column.
+        justifyContent: isPortrait ? "flex-start" : "center",
+        padding: isPortrait ? "52px 60px 8px" : `0 ${Math.round(width * 0.05)}px 0 64px`,
+      }}
+    >
+      {/* Lead statement — the hero, revealed sentence by sentence. */}
       <div
         style={{
           fontFamily: ECONOMIST_SERIF_FONT,
-          fontWeight: 900,
-          fontSize: titleSize,
-          lineHeight: 1.04,
-          letterSpacing: -titleSize * 0.012,
-          color: textColor,
-          opacity: titleOp,
-          transform: `translateY(${titleY}px)`,
-          filter: titleBlur > 0.01 ? `blur(${titleBlur.toFixed(2)}px)` : "none",
-          marginBottom: byline ? 16 : 0,
+          fontWeight: 500,
+          fontSize: leadFs,
+          lineHeight: isLongLead ? 1.44 : 1.3,
+          color: ECONOMIST_COLORS.ink,
         }}
       >
-        {title}
-      </div>
-      {byline && (
-        <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 24 : 18, letterSpacing: 1.2, textTransform: "uppercase", color: ECONOMIST_COLORS.muted, opacity: titleOp }}>
-          {byline}
-        </div>
-      )}
-      {/* Standfirst deck — an italic serif sub-thesis under the headline. Fills
-          the head and gives a thin article beat an extra editorial line. */}
-      {standfirst && (
-        <div
+        {/* A short red lead-in tick sits before the first line. */}
+        <span
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
-            fontStyle: "italic",
-            fontSize: bodySize * 1.08,
-            lineHeight: 1.4,
-            color: ECONOMIST_COLORS.muted,
-            opacity: deckOp,
-            marginTop: byline ? 14 : 18,
-            maxWidth: isPortrait ? "100%" : "92%",
+            display: "inline-block",
+            width: leadFs * 0.9,
+            height: 5,
+            background: accentColor,
+            verticalAlign: "middle",
+            marginRight: 18,
+            marginBottom: leadFs * 0.18,
+            transform: `scaleX(${easeOutQuint(clamp01((frame - 30) / 16)).toFixed(3)})`,
+            transformOrigin: "left center",
           }}
-        >
-          {standfirst}
-        </div>
-      )}
-    </>
-  );
-
-  // Key points — a compact ruled list (accent-red bullet squares) that fills the
-  // page when the body is thin. Each row reveals with a small stagger.
-  const points = (keyPoints ?? []).filter((p) => (p || "").trim()).slice(0, 4);
-  const keyPointsEl =
-    points.length > 0 ? (
-      <div>
-        <div style={{ height: 2, background: accentColor, width: 64, marginBottom: 18, ...ruleDraw(frame, 30, 14) }} />
-        {points.map((pt, i) => {
-          const start = 32 + i * 7;
-          const row = slideFrom(frame, start, -16);
+        />
+        {leadParts.map((s, i) => {
+          const delay = 32 + i * leadStep;
+          const t = easeOutQuint(clamp01((frame - delay) / 18));
           return (
-            <div
+            <span
               key={i}
               style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: 16,
-                padding: "9px 0",
-                borderTop: i === 0 ? "none" : `1px solid ${ECONOMIST_COLORS.rule}`,
-                opacity: row.opacity,
-                transform: row.transform,
+                opacity: clamp01((frame - delay) / 11),
+                // Each sentence rises a touch into place.
+                display: "inline",
+                ...(t < 1
+                  ? { filter: `blur(${(2.4 * (1 - t)).toFixed(2)}px)` }
+                  : {}),
               }}
             >
-              <span style={{ flexShrink: 0, width: 12, height: 12, marginTop: 6, background: accentColor, transform: "rotate(45deg)" }} />
-              <span style={{ fontFamily: ECONOMIST_SERIF_FONT, fontSize: bodySize * 0.92, lineHeight: 1.34, color: textColor }}>
-                {pt}
-              </span>
-            </div>
+              {s}{i < leadParts.length - 1 ? " " : ""}
+            </span>
           );
         })}
       </div>
-    ) : null;
 
-  const bodyEl = (
-    <div
-      style={{
-        fontFamily: ECONOMIST_SERIF_FONT,
-        fontSize: bodySize,
-        lineHeight: 1.6,
-        color: textColor,
-        textAlign: "justify",
-        opacity: bodyOp,
-        columnCount: bodyCols,
-        columnGap: 56,
-      }}
-    >
-      {dropCap && (
-        <span
-          style={{
-            float: "left",
-            fontFamily: ECONOMIST_SERIF_FONT,
-            fontWeight: 900,
-            fontSize: bodySize * 3.2,
-            lineHeight: 0.82,
-            padding: "6px 14px 0 0",
-            color: accentColor,
-            display: "inline-block",
-            opacity: capStamp.opacity,
-            transform: capStamp.transform,
-            transformOrigin: "left top",
-            filter: [
-              capStamp.filter !== "none" ? capStamp.filter : "",
-              capShadowA > 0.005 ? `drop-shadow(0 4px 8px rgba(0,0,0,${capShadowA.toFixed(3)}))` : "",
-            ]
-              .filter(Boolean)
-              .join(" ") || "none",
-          }}
-        >
-          {dropCap}
-        </span>
+      {/* Key points — a clean ruled list of takeaways. */}
+      {points.length > 0 && (
+        <div style={{ marginTop: isPortrait ? 34 : 44 }}>
+          <div style={{ height: 1, background: ECONOMIST_COLORS.rule, width: "100%", ...ruleDraw(frame, 44, 16) }} />
+          {points.map((pt, i) => {
+            const row = slideFrom(frame, 48 + i * 7, -16);
+            return (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 16,
+                  padding: isPortrait ? "12px 0" : "13px 0",
+                  borderBottom: `1px solid ${ECONOMIST_COLORS.rule}`,
+                  opacity: row.opacity,
+                  transform: row.transform,
+                }}
+              >
+                <span style={{ flexShrink: 0, width: 11, height: 11, marginTop: 4, background: accentColor, transform: "rotate(45deg)" }} />
+                <span style={{ fontFamily: ECONOMIST_SERIF_FONT, fontSize: isPortrait ? 27 : 25, lineHeight: 1.3, color: ECONOMIST_COLORS.ink }}>
+                  {pt}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       )}
-      {rest}
+
+      {points.length === 0 && (
+        <div style={{ marginTop: 40, opacity: endOp }}>
+          <EditorialDivider width={210} progress={endOp} accentColor={accentColor} height={16} />
+        </div>
+      )}
     </div>
   );
 
   return (
-    <AbsoluteFill style={{ padding: `${pad.t}px ${pad.x}px ${pad.b}px` }}>
-      {/* Signature concentric-ring motif fills the paper behind the article so a
-          thin beat never reads as empty (skipped when an inset photo is shown). */}
-      {!hasImage && <ConcentricRings cx={isPortrait ? 84 : 88} cy={isPortrait ? 18 : 22} opacity={0.45} />}
-      {splitOpener ? (
-        // Full-width leader opener: headline band on top, two-column body beneath.
-        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-          {header}
-          {/* Full-width rule draws across under the headline band. */}
-          <div style={{ height: 2, background: textColor, opacity: titleOp, margin: "30px 0 32px", ...ruleDraw(frame, 18, 18) }} />
-          <div style={{ flex: 1, display: "flex", gap: 56 }}>
-            <div style={{ flex: keyPointsEl ? 2 : 1 }}>{bodyEl}</div>
-            {keyPointsEl && <div style={{ flex: 1, alignSelf: "flex-start", paddingTop: 4 }}>{keyPointsEl}</div>}
-          </div>
-          {/* Closing engraved end-mark (SVG). */}
-          <div style={{ marginTop: 24, opacity: bodyOp }}>
-            <EditorialDivider width={220} progress={bodyOp} accentColor={accentColor} height={16} />
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: isPortrait ? 0 : 56, height: "100%", alignItems: "stretch" }}>
-          <div style={{ width: isPortrait ? "100%" : "58%", display: "flex", flexDirection: "column", justifyContent: isPortrait ? "flex-start" : "center", paddingTop: isPortrait ? height * 0.1 : 0 }}>
-            {header}
-            <div style={{ marginTop: 28 }}>{bodyEl}</div>
-            {keyPointsEl && <div style={{ marginTop: 30 }}>{keyPointsEl}</div>}
-          </div>
-          {hasImage && !isPortrait && (
-            <div style={{ width: "42%", alignSelf: "stretch", overflow: "hidden", clipPath: `inset(0 ${100 - imgClip}% 0 0)` }}>
-              <Img
-                src={imageUrl as string}
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition, transform: `scale(${kbScale})`, filter: imgFilter }}
-              />
-            </div>
-          )}
-        </div>
-      )}
+    <AbsoluteFill
+      style={{
+        padding: `${topInset}px 0 ${botInset}px 0`,
+        display: "flex",
+        flexDirection: isPortrait ? "column" : "row",
+      }}
+    >
+      {plate}
+      {paperSide}
     </AbsoluteFill>
   );
 };
