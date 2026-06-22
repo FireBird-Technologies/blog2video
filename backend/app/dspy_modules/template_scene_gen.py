@@ -1142,13 +1142,39 @@ class TemplateSceneGenerator:
             scenes_data[scene_idx]["preferred_layout"] = "terminal_dataviz"
 
     def _validate_props(self, layout: str, props: dict) -> dict:
-        """Validate props against layout schema in meta. If no schema, pass through."""
+        """Validate props against layout schema in meta. If no schema, pass through.
+
+        Also BACKFILLS missing TEXT props the layout defines (in meta `fields`)
+        from the layout's `defaults`, so every scene carries a complete set of
+        caption/label props and none render empty/undefined. Deliberately NOT
+        backfilled: responsive typography sliders (titleFontSize /
+        descriptionFontSize, handled elsewhere) and DATA-BEARING fields
+        (object_array / string_array such as stats, socials, handles, ctas) —
+        those must stay grounded in the source, never filled with example data.
+        """
         layout_meta = (self._meta or {}).get("layout_prop_schema", {}).get(layout, {})
         fields = layout_meta.get("fields", [])
         if not fields:
             return props
         # Build a quick type-lookup from the fields list
         field_types = {f["key"]: f.get("type", "string") for f in fields if isinstance(f, dict) and "key" in f}
+        # Backfill missing scalar text props only (string / text / select / number);
+        # skip responsive sliders and array/collection fields to avoid inventing data.
+        _BACKFILL_TYPES = {"string", "text", "select", "number"}
+        defaults = layout_meta.get("defaults", {}) or {}
+        props = dict(props or {})
+        for f in fields:
+            if not isinstance(f, dict) or "key" not in f:
+                continue
+            key = f["key"]
+            if f.get("responsive"):
+                continue  # font-size sliders are handled elsewhere
+            if f.get("type", "string") not in _BACKFILL_TYPES:
+                continue  # don't fabricate stats / socials / handles / ctas
+            if key in props and props[key] not in (None, ""):
+                continue  # model already provided it
+            if key in defaults and defaults[key] not in (None, ""):
+                props[key] = defaults[key]
         validated = {}
         for key, value in props.items():
             if key not in field_types:

@@ -34,6 +34,13 @@ export default defineConfig({
         find: "recharts",
         replacement: path.resolve(__dirname, "node_modules/recharts"),
       },
+      // @remotion/transitions (and subpaths like /fade, /slide) is only in
+      // frontend/node_modules; remotion-video source files can't resolve it
+      // from their own location without this alias.
+      {
+        find: /^@remotion\/transitions(\/.*)?$/,
+        replacement: path.resolve(__dirname, "node_modules/@remotion/transitions$1"),
+      },
     ],
   },
   server: {
