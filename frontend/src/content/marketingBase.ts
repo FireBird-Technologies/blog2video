@@ -80,7 +80,7 @@ export const templateProfiles: TemplateProfile[] = [
   },
   {
     slug: "whiteboard",
-    name: "Whiteboard",
+    name: "Stick Man",
     description:
       "A classroom-friendly visual system built for teaching, diagrams, and guided explanation.",
     bestFor: "Course content, tutorials, lesson plans, onboarding, and process walkthroughs.",
@@ -306,6 +306,122 @@ export const templateProfiles: TemplateProfile[] = [
       "The rise and fall of the Roman grain trade",
       "Ada Lovelace: the first programmer the world forgot",
       "How the Silk Road shaped the modern global economy",
+    ],
+  },
+  {
+    slug: "economist",
+    name: "The Economist",
+    description:
+      "A precise editorial template in the style of a printed weekly — red masthead, serif headlines, ruled charts, and data tables.",
+    bestFor: "Business and finance analysis, economic explainers, data-driven journalism, and policy briefings.",
+    differentiator:
+      "Renders your content as a genuine print-weekly spread — house-red accents, column layouts, and signature ruled charts — giving analytical writing instant editorial authority.",
+    styleFit: "Best for serious, data-forward analysis and editorial journalism.",
+    previewSceneKey: "preview-economist",
+    layouts: [
+      "cover_reveal",
+      "leader_article",
+      "section_divider",
+      "chart_line",
+      "chart_bar",
+      "data_table",
+      "pros_cons",
+      "key_indicators",
+      "leader_quote",
+      "image_feature",
+      "ending_socials",
+    ],
+    longDescription:
+      "The Economist template renders written analysis as a printed weekly newspaper, complete with a red masthead, serif headlines, multi-column body copy, and the publication's signature ruled charts. Layouts like Cover Reveal, Leader Article, Chart Line, Chart Bar, Data Table, Pros & Cons, and Key Indicators are purpose-built for business, finance, and economic content where precision and editorial authority matter. The result reads like a feature in a serious newspaper rather than a generic AI video — ideal for turning analytical writing and data-heavy reporting into video.",
+    idealFor: [
+      "Business and finance analysis",
+      "Economic and policy explainers",
+      "Data-driven journalism and reporting",
+      "Market and industry briefings",
+      "Editorial commentary and opinion pieces",
+    ],
+    exampleTopics: [
+      "Why central banks are split on cutting rates",
+      "The numbers behind the global trade slowdown",
+      "What the latest jobs report really tells us",
+    ],
+  },
+  {
+    slug: "stickman_football",
+    name: "Stickmen Football Match",
+    description:
+      "A playful hand-drawn football template with animated stickman players, a match-day pitch, and chalkboard-style charts and tickers.",
+    bestFor: "Sports recaps, match analysis, fan content, and any energetic, lighthearted explainer.",
+    differentiator:
+      "Brings your content to life with animated stickman footballers dribbling, passing, and scoring — a hand-drawn match-day world that no stock-footage tool can replicate.",
+    styleFit: "Best for sports storytelling, playful explainers, and content that should feel fun and kinetic.",
+    previewSceneKey: "preview-stickman-football",
+    layouts: [
+      "kickoff_title",
+      "passing_play",
+      "ball_control",
+      "freekick_setup",
+      "corner_kick",
+      "goal_moment",
+      "injury_break",
+      "match_stats",
+      "football_data_viz",
+      "football_ticker",
+      "text_narration",
+      "ending_socials",
+    ],
+    longDescription:
+      "Stickman Football turns written content into an animated match-day broadcast played out by hand-drawn stickman footballers. Players run on, trap long balls, dribble, set up free kicks, and celebrate goals across a green pitch, while chalkboard-style data visualizations, match-stat cards, and league tickers carry the numbers. Layouts like Kickoff Title, Passing Play, Goal Moment, Match Stats, and Football Data Viz make sports recaps, tactical breakdowns, and fan explainers feel energetic and alive without any footage, presenters, or production crew.",
+    idealFor: [
+      "Match recaps and weekend round-ups",
+      "Tactical breakdowns and player analysis",
+      "Sports newsletters and fan-channel content",
+      "League standings and stat-driven updates",
+      "Playful explainers that need a fun, kinetic tone",
+    ],
+    exampleTopics: [
+      "Five takeaways from the weekend's biggest match",
+      "How the underdogs pulled off the upset",
+      "The numbers behind this season's title race",
+    ],
+  },
+  {
+    slug: "stickman_2",
+    name: "Stickmen 2: Night Edition",
+    description:
+      "A moody hand-drawn chalk template with glowing stickman characters telling stories under a starlit night sky.",
+    bestFor: "Reflective storytelling, late-night explainers, creative narratives, and atmospheric content.",
+    differentiator:
+      "Sets your story against a glowing chalk-on-black night world — stickman characters, shooting stars, lanterns, and constellations — for an intimate, cinematic feel built entirely from hand-drawn animation.",
+    styleFit: "Best for narrative, reflective, and atmospheric content that benefits from a calm, cinematic mood.",
+    previewSceneKey: "preview-stickman-2",
+    layouts: [
+      "chalk_title",
+      "night_walk",
+      "shooting_star",
+      "lantern_dialogue",
+      "constellation_stats",
+      "moonphase_chart",
+      "shadow_comparison",
+      "signal_fire_scene",
+      "neon_countdown",
+      "data_visualisation",
+      "ticker_table",
+      "ending_socials",
+    ],
+    longDescription:
+      "Stickman 2 is a hand-drawn chalk template that stages your content as glowing white line-art on a deep night sky. Stickman characters walk beneath the stars, watch shooting stars streak overhead, trade lantern-lit dialogue, and gather around signal fires, while constellation stat boards, moon-phase charts, and chalk data visualizations carry the information. Layouts like Chalk Title, Night Walk, Lantern Dialogue, Shadow Comparison, and Neon Countdown give reflective stories, creative narratives, and atmospheric explainers an intimate, cinematic feel without any footage or production setup.",
+    idealFor: [
+      "Reflective and narrative-driven storytelling",
+      "Late-night or atmospheric explainers",
+      "Creative and personal-brand content",
+      "Calm, mood-first educational pieces",
+      "Stories that benefit from a cinematic, hand-drawn aesthetic",
+    ],
+    exampleTopics: [
+      "A quiet reflection on why we build at night",
+      "The story behind a single big idea",
+      "Lessons learned, told under the stars",
     ],
   },
 ];

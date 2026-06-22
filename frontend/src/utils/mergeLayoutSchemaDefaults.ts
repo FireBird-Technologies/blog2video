@@ -68,6 +68,18 @@ export function mergeLayoutSchemaDefaults(
     merged.chartTable = resolved.chartTable;
   }
 
+  const existingTickerTable = layoutProps.tickerTable;
+  const existingTickerTableHasRows =
+    existingTickerTable &&
+    typeof existingTickerTable === "object" &&
+    Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+    ((existingTickerTable as { rows: unknown[] }).rows.some((row) =>
+      Array.isArray(row) && row.some((cell) => String(cell ?? "").trim() !== ""),
+    ));
+  if (!existingTickerTableHasRows && resolved.tickerTable && typeof resolved.tickerTable === "object") {
+    merged.tickerTable = resolved.tickerTable;
+  }
+
   if (!("chartType" in layoutProps) && typeof resolved.chartType === "string") {
     merged.chartType = resolved.chartType;
   }

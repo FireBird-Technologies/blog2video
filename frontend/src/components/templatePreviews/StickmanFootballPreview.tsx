@@ -14,57 +14,143 @@ interface DemoScene {
   durationSeconds: number;
 }
 
-const STICKMAN2_PREVIEW_SCENES: DemoScene[] = [
+const STICKMAN_FOOTBALL_PREVIEW_SCENES: DemoScene[] = [
   {
     id: 1,
     order: 1,
-    title: "Stick Man After Dark",
-    narration: "Glowing chalk stories under the night sky.",
-    layout: "chalk_title",
-    layoutProps: {},
+    title: "Match Day Highlights",
+    narration: "The big one kicks off under the lights.",
+    layout: "kickoff_title",
+    layoutProps: { subline: "Match Day — Highlights" },
     durationSeconds: 6,
   },
   {
     id: 2,
     order: 2,
-    title: "Two Minds, One Sky",
-    narration: "",
-    layout: "lantern_dialogue",
+    title: "Building From The Back",
+    narration: "Crisp one-twos carve the midfield open.",
+    layout: "passing_play",
     layoutProps: {
-      leftBubble: "Did you see that?",
-      rightBubble: "A shooting star!",
-      speakers: [{ label: "Sam" }, { label: "Max" }],
+      stats: [
+        { label: "Possession", value: "62%" },
+        { label: "Passes", value: "418" },
+        { label: "Shots", value: "14" },
+        { label: "Pass Accuracy", value: "89%" },
+      ],
     },
     durationSeconds: 7,
   },
   {
     id: 3,
     order: 3,
-    title: "By the Numbers",
-    narration: "",
-    layout: "constellation_stats",
-    layoutProps: {
-      stats: [
-        { label: "Stars", value: "150" },
-        { label: "Hours", value: "24" },
-        { label: "Phases", value: "8" },
-      ],
-    },
+    title: "Free Kick Drama",
+    narration: "The wall sets, the keeper guesses, the shot is saved.",
+    layout: "freekick_setup",
+    layoutProps: { shotLabel: "Top corner", kickerName: "Striker", kickerNumber: "#9" },
     durationSeconds: 7,
   },
   {
     id: 4,
     order: 4,
-    title: "Follow Along",
-    narration: "Catch the next chapter under the stars.",
+    title: "Worked Corner Routine",
+    narration: "Short corner, flick on, lay off — the header flashes just wide.",
+    layout: "corner_kick",
+    layoutProps: {
+      steps: [
+        { label: "Corner", detail: "Inswinger" },
+        { label: "Flick on", detail: "Near post" },
+        { label: "Lay off", detail: "Edge of box" },
+        { label: "Header", detail: "Just wide" },
+      ],
+    },
+    durationSeconds: 7,
+  },
+  {
+    id: 5,
+    order: 5,
+    title: "What A Goal!",
+    narration: "Top corner — the keeper had no chance.",
+    layout: "goal_moment",
+    layoutProps: { goalLabel: "GOAL!", scoreline: "2 – 1", kickerName: "Striker", kickerNumber: "#9" },
+    durationSeconds: 7,
+  },
+  {
+    id: 6,
+    order: 6,
+    title: "By The Numbers",
+    narration: "",
+    layout: "match_stats",
+    layoutProps: {
+      stats: [
+        { label: "Goals", value: "3" },
+        { label: "Shots on Target", value: "8" },
+        { label: "Possession", value: "57%" },
+        { label: "Corners", value: "6" },
+      ],
+    },
+    durationSeconds: 7,
+  },
+  {
+    id: 7,
+    order: 7,
+    title: "Season Trend",
+    narration: "Shots on target climb through the second half.",
+    layout: "football_data_viz",
+    layoutProps: {
+      chartType: "line",
+      chartSummary: "On-target shots peak after matchday three.",
+      subtitle: "Matchday",
+      yAxisLabel: "Shots",
+      chartTable: {
+        headers: ["Matchday", "Shots", "On Target"],
+        rows: [
+          ["MD 1", "11", "4"],
+          ["MD 2", "14", "6"],
+          ["MD 3", "16", "7"],
+          ["MD 4", "13", "5"],
+          ["MD 5", "18", "9"],
+        ],
+      },
+      barPrimaryColor: "#2E7D32",
+      barSecondaryColor: "#C0563B",
+    },
+    durationSeconds: 7,
+  },
+  {
+    id: 8,
+    order: 8,
+    title: "League Table",
+    narration: "The standings at a glance.",
+    layout: "football_ticker",
+    layoutProps: {
+      tickerTitle: "Premier League",
+      tickerFootnote: "Source: matchday data",
+      tickerHighlightCol: 2,
+      tickerTable: {
+        headers: ["Team", "P", "GD", "Pts"],
+        rows: [
+          ["City FC", "28", "+24", "64"],
+          ["United", "28", "+18", "58"],
+          ["Rovers", "28", "+9", "49"],
+          ["Athletic", "28", "-2", "41"],
+          ["Wanderers", "28", "-11", "32"],
+        ],
+      },
+    },
+    durationSeconds: 7,
+  },
+  {
+    id: 9,
+    order: 9,
+    title: "Champions!",
+    narration: "Catch every match — follow the team.",
     layout: "ending_socials",
     layoutProps: {
-      ctaButtonText: "Explore more on",
-      websiteLink: "https://yourwebsite.com",
+      ctaButtonText: "Follow the team",
+      websiteLink: "https://yourteam.com",
       socials: [
         { platform: "instagram", enabled: "true", label: "Instagram" },
         { platform: "youtube", enabled: "true", label: "YouTube" },
-        { platform: "linkedin", enabled: "true", label: "LinkedIn" },
         { platform: "tiktok", enabled: "true", label: "TikTok" },
       ],
     },
@@ -72,24 +158,20 @@ const STICKMAN2_PREVIEW_SCENES: DemoScene[] = [
   },
 ];
 
-export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
+export default function StickmanFootballPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const playerRef = useRef<PlayerRef>(null);
   const fps = 30;
-  const config = getTemplateConfig("stickman_2");
+  const config = getTemplateConfig("stickman_football");
   const Composition = config.component as React.ComponentType<any>;
-
-  // Monochrome preview: white chalk strokes/text on a black night sky.
-  const accentColor = "#FFFFFF";
-  const bgColor = "#000000";
-  const textColor = "#FFFFFF";
+  const { accent: accentColor, bg: bgColor, text: textColor } = config.defaultColors;
 
   // Play the WHOLE timeline continuously (scene 1 → 2 → … → loop), exactly like the
   // real video, instead of mounting one isolated scene per Player window. The dots
   // just seek to a scene's start; auto-advance is driven by playback, not a timer.
   const sceneFrames = useMemo(
     () =>
-      STICKMAN2_PREVIEW_SCENES.map((s) =>
+      STICKMAN_FOOTBALL_PREVIEW_SCENES.map((s) =>
         Math.max(1, Math.round((Number(s.durationSeconds) || 5) * fps)),
       ),
     [fps],
@@ -111,7 +193,7 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
 
   const inputProps = useMemo(
     () => ({
-      scenes: STICKMAN2_PREVIEW_SCENES,
+      scenes: STICKMAN_FOOTBALL_PREVIEW_SCENES,
       accentColor,
       bgColor,
       textColor,
@@ -126,20 +208,20 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
 
   useEffect(() => {
     if (!thumbnailMode) return;
-    const p = playerRef.current;
-    if (!p) return;
+    const pl = playerRef.current;
+    if (!pl) return;
     let settled = false;
     const onFrame = () => {
       if (settled) return;
-      const current = p.getCurrentFrame();
+      const current = pl.getCurrentFrame();
       if (current >= thumbnailFrame) {
         settled = true;
-        p.pause();
-        p.seekTo(thumbnailFrame);
+        pl.pause();
+        pl.seekTo(thumbnailFrame);
       }
     };
-    p.addEventListener("frameupdate", onFrame);
-    return () => p.removeEventListener("frameupdate", onFrame);
+    pl.addEventListener("frameupdate", onFrame);
+    return () => pl.removeEventListener("frameupdate", onFrame);
   }, [thumbnailMode, thumbnailFrame]);
 
   // Keep the active-dot highlight in sync with which scene is currently playing.
@@ -192,7 +274,7 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
         />
 
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
-          {STICKMAN2_PREVIEW_SCENES.map((scene, index) => {
+          {STICKMAN_FOOTBALL_PREVIEW_SCENES.map((scene, index) => {
             const isActive = index === activeSceneIndex;
             return (
               <button
