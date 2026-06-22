@@ -426,6 +426,40 @@ export const templateProfiles: TemplateProfile[] = [
       "Lessons learned, told under the stars",
     ],
   },
+  {
+    slug: "custom",
+    name: "Custom Templates",
+    description:
+      "A fully branded template generated from your own website — your exact colors, fonts, and style applied to every scene.",
+    bestFor: "Brand, marketing, and product teams that need every video to look on-brand without manual design work.",
+    differentiator:
+      "Paste any URL and Blog2Video extracts your brand — colors, typography, and style — into a custom video template, so the output looks like your design team made it instead of a generic stock theme.",
+    styleFit: "Best for teams that need pixel-perfect brand consistency across every video they publish.",
+    layouts: [
+      "brand_intro",
+      "key_point",
+      "feature_grid",
+      "data_highlight",
+      "quote_callout",
+      "comparison",
+      "step_flow",
+      "outro_cta",
+    ],
+    longDescription:
+      "Custom Templates turn your brand into a reusable video system. Drop in a website URL and Blog2Video reads its design language — accent and surface colors, heading and body fonts, border radius, and animation style — then generates a bespoke template that applies that identity to every scene. Instead of restyling each piece of content by hand, you get branded intros, content scenes, data highlights, pull quotes, and outros that already match your guidelines. The result is video that looks like your design team produced it, generated automatically from your articles and kept consistent across product, marketing, and education channels.",
+    idealFor: [
+      "Brand and marketing teams enforcing visual consistency",
+      "Agencies producing on-brand video for multiple clients",
+      "Product teams turning docs and changelogs into branded clips",
+      "Companies repurposing a blog archive without re-designing each video",
+      "Anyone who wants their exact colors and fonts in every scene",
+    ],
+    exampleTopics: [
+      "Turn your latest product announcement into an on-brand explainer",
+      "Repurpose your blog archive with your brand on every frame",
+      "Generate a branded video series straight from your website",
+    ],
+  },
 ];
 
 export const templateBySlug = Object.fromEntries(
