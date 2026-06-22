@@ -13,7 +13,7 @@ export const resourcePages: MarketingPage[] = [
       "Use this checklist before publishing every repurposed blog video: keyword targeting, script structure, metadata, chapters, embeds, schema, thumbnails, and distribution links.",
     category: "resource",
     primaryKeyword: "video SEO checklist",
-    keywordVariant: "YouTube SEO checklist",
+    keywordVariant: "Google video SEO checklist",
     badges: ["Google video results", "YouTube metadata", "Repurposed blog videos"],
     proofPoints: [
       "Covers the full path from source article to published video, not just tags and titles.",
@@ -38,6 +38,8 @@ export const resourcePages: MarketingPage[] = [
           "Turn the first 30 seconds into a direct answer, not a slow introduction.",
           "Plan the thumbnail and title together so they make one clear promise.",
           "Use the original article headings as the first draft of the video structure.",
+          "Rename the video file itself to include the target keyword before uploading — search engines read the filename.",
+          "Target at least 5-8 minutes of substantive runtime where the topic supports it; longer, fully-watched videos tend to outrank short ones for the same query.",
         ],
       },
       {
@@ -46,11 +48,14 @@ export const resourcePages: MarketingPage[] = [
           "Metadata should make the video easy for viewers and search engines to understand. Avoid keyword stuffing. The title, description, chapters, and surrounding page copy should all reinforce the same topic.",
         ],
         bullets: [
-          "Put the primary keyword or close variant in the title naturally.",
-          "Write a description that summarizes the outcome, links to the canonical article, and includes useful resources.",
+          "Put the primary keyword or close variant in the title naturally, ideally within the first 5-12 words.",
+          "Write a description of at least 200 words that opens with the target keyword, summarizes the outcome, links to the canonical article, and includes useful resources.",
           "Add chapters with descriptive labels that match real sections of the video.",
           "Upload or generate a clean transcript so the topic is machine-readable.",
           "Use tags sparingly for variants, brand terms, and common misspellings.",
+          "Set the correct YouTube category so the platform groups the video with relevant content and surfaces it in related playlists.",
+          "Design the thumbnail to make a single visual promise that matches the title — thumbnail CTR is one of the strongest ranking signals you control directly.",
+          "Add end screens, cards, and a playlist placement so the video keeps earning watch time after it ends.",
         ],
       },
       {
@@ -99,8 +104,24 @@ export const resourcePages: MarketingPage[] = [
         answer:
           "No. Prioritize posts with proven traffic, high commercial intent, strong tutorials, visual explanations, or topics where YouTube also shows demand.",
       },
+      {
+        question: "Do YouTube tags still matter for SEO?",
+        answer:
+          "Tags carry far less weight than title, description, and the first 30 seconds of watch time, but a handful of accurate variant and misspelling tags still help YouTube disambiguate the topic. Don't rely on them as a primary ranking lever.",
+      },
+      {
+        question: "How long should an SEO-focused video be?",
+        answer:
+          "Long enough to fully answer the search intent and hold attention — for most repurposed blog content that's 5-8+ minutes. Favor completed watch time over hitting a specific length target.",
+      },
+      {
+        question: "Is this different from a YouTube SEO checklist?",
+        answer:
+          "Yes. This checklist covers the full path from source article to a published, embeddable video on Google and YouTube. For the platform-specific YouTube upload checklist — file names, categories, end screens, playlists — see the dedicated YouTube SEO checklist.",
+      },
     ],
     relatedPaths: [
+      "/youtube-seo-checklist",
       "/tools/content-repurposing-calculator",
       "/blog-to-youtube-video",
       "/distribution-flywheel",
@@ -114,6 +135,110 @@ export const resourcePages: MarketingPage[] = [
       primaryHref: "/",
       secondaryLabel: "Use the calculator",
       secondaryHref: "/tools/content-repurposing-calculator",
+    },
+  }),
+  createPage({
+    path: "/youtube-seo-checklist",
+    title: "YouTube SEO Checklist for Repurposed Blog Videos",
+    description:
+      "A platform-specific YouTube SEO checklist: target keyword, file naming, title, description, tags, category, thumbnail, end screens, and playlists.",
+    eyebrow: "Checklist",
+    heroTitle: "The YouTube SEO checklist for every video you upload",
+    heroDescription:
+      "Use this before you publish any blog-to-video upload: target keyword, file name, title and description format, tags, category, thumbnail, captions, end screens, and playlist placement.",
+    category: "resource",
+    primaryKeyword: "youtube seo checklist",
+    keywordVariant: "youtube video seo checklist",
+    badges: ["Upload-ready", "YouTube algorithm", "Repurposed blog videos"],
+    proofPoints: [
+      "Covers the platform-specific upload steps that a general video SEO checklist doesn't: file naming, category, end screens, playlists.",
+      "Built for repurposed blog content, not just standalone YouTube-first creators.",
+      "Pairs with the broader video SEO checklist for the full article-to-published-video path.",
+    ],
+    workflowSteps: [
+      "Pick one target keyword before you script or upload anything.",
+      "Name the video file with the target keyword before uploading.",
+      "Write the title, description, and tags around that same keyword.",
+      "Set the category, thumbnail, end screens, and playlist placement before publishing.",
+    ],
+    sections: [
+      {
+        title: "Before you upload",
+        body: [
+          "YouTube's algorithm starts reading signals before the video is even public. Get these right first so the rest of the checklist has something solid to build on.",
+        ],
+        bullets: [
+          "Choose one target keyword your audience actually searches for — check YouTube's autosuggest to confirm real demand.",
+          "Rename the video file to include the target keyword (e.g. blog-to-video-seo-checklist.mp4) before uploading.",
+          "Write or generate accurate captions and a full transcript — auto-captions help, but a clean transcript is more reliable for indexing.",
+          "Plan the thumbnail and title together so they make one clear, specific promise.",
+        ],
+      },
+      {
+        title: "Title, description, and tags",
+        body: [
+          "Metadata should read naturally for a human first. Search engines reward content that earns watch time, not just keyword density.",
+        ],
+        bullets: [
+          "Keep the title 5-12 words and include the target keyword once, without stuffing.",
+          "Open the description with the target keyword in the first sentence; aim for 200+ words total.",
+          "Link back to the canonical article and any related videos inside the description.",
+          "Add tags for close variants, brand terms, and common misspellings — a handful is enough, not a wall of tags.",
+        ],
+      },
+      {
+        title: "Category, thumbnail, and engagement signals",
+        body: [
+          "These are the platform-specific levers a generic video SEO checklist usually skips, and they materially affect how YouTube distributes the video after upload.",
+        ],
+        bullets: [
+          "Set the correct video category so YouTube groups it with relevant content and surfaces it in related playlists.",
+          "Design a thumbnail that makes one visual promise matching the title — thumbnail CTR directly affects how much YouTube continues to promote the video.",
+          "Add chapters with descriptive, keyword-relevant labels for any video over 3-4 minutes.",
+          "Add end screens and cards pointing to your next-best video, and place the video into a relevant playlist.",
+          "Target enough runtime to fully answer the topic — longer videos with strong retention tend to outrank shorter, thinner ones for the same query.",
+        ],
+      },
+    ],
+    recommendedTemplate: "spotlight",
+    recommendedTemplateReason:
+      "Spotlight's punchy pacing and clear hooks help repurposed blog videos hold attention long enough to satisfy YouTube's watch-time signals.",
+    faq: [
+      {
+        question: "What's the single most important item on a YouTube SEO checklist?",
+        answer:
+          "Picking one real target keyword before you script, upload, or title anything. Every other item — file name, title, description, tags, thumbnail — should reinforce that same keyword.",
+      },
+      {
+        question: "Does renaming the video file before upload actually matter?",
+        answer:
+          "Yes, though it's a minor signal compared to title and watch time. YouTube reads the file name as one more piece of context about the topic, so it's a low-effort step worth doing every time.",
+      },
+      {
+        question: "How is this different from a general video SEO checklist?",
+        answer:
+          "This one is scoped to the YouTube upload flow specifically — file names, categories, end screens, playlists. For the broader path from source article to published, embeddable video across Google and YouTube, see the video SEO checklist.",
+      },
+      {
+        question: "Do chapters and end screens really affect ranking?",
+        answer:
+          "Indirectly. Chapters help viewers find what they want faster, which improves watch time and reduces drop-off. End screens and playlists keep viewers on YouTube longer. Both feed the engagement signals YouTube's algorithm actually optimizes for.",
+      },
+    ],
+    relatedPaths: [
+      "/video-seo-checklist",
+      "/blog-to-youtube-video",
+      "/distribution-flywheel",
+      "/blogs/video-seo-ranking-traffic-blog2video",
+    ],
+    cta: {
+      title: "Generate the video, then run this checklist before you publish",
+      body:
+        "Paste a finished article into Blog2Video, generate a narrated video, then work through this checklist before it goes live on YouTube.",
+      primaryLabel: "Try Blog2Video free",
+      primaryHref: "/",
+      secondaryLabel: "See the video SEO checklist",
+      secondaryHref: "/video-seo-checklist",
     },
   }),
   createPage({
