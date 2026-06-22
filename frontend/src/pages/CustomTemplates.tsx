@@ -6,12 +6,15 @@ import {
   deleteCustomTemplate,
   regenerateTemplateCode,
   generateTemplateCode,
+  submitTemplateRating,
   type CustomTemplateItem,
 } from "../api/client";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useAuth } from "../hooks/useAuth";
 import { preloadBabel } from "../utils/compileComponent";
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
+import TemplateStarRating from "../components/TemplateStarRating";
+import CustomTemplateLimitModal from "../components/CustomTemplateLimitModal";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
@@ -53,9 +56,22 @@ export default function CustomTemplates() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const readyCraftedTemplates = craftedTemplates.filter((ct) => !!ct.theme);
+
+  // Gate the creator on the plan quota up front: if the user is already at their
+  // limit, open the upgrade modal immediately instead of letting them fill in the
+  // whole creator only to be blocked by the 403 at save time.
+  const openCreator = () => {
+    if (user && user.can_create_custom_template === false) {
+      setShowUpgrade(true);
+      return;
+    }
+    setCreatorKey((k) => k + 1);
+    setShowCreator(true);
+  };
 
   useEffect(() => {
     loadTemplates();
@@ -66,8 +82,7 @@ export default function CustomTemplates() {
   // BlogUrlForm navigates with ?tab=templates&openCustomCreator=1
   useEffect(() => {
     if (searchParams.get("openCustomCreator") !== "1") return;
-    setCreatorKey((k) => k + 1);
-    setShowCreator(true);
+    openCreator();
     const next = new URLSearchParams(searchParams);
     next.delete("openCustomCreator");
     next.delete("videoStyle");
@@ -127,6 +142,32 @@ export default function CustomTemplates() {
     setEditTarget(null);
   };
 
+  const handleRate = async (
+    tpl: CustomTemplateItem,
+    rating: 1 | 2 | 3 | 4 | 5,
+    comment?: string
+  ) => {
+    const prevRating = tpl.my_rating ?? null;
+    const prevComment = tpl.my_rating_comment ?? null;
+    const nextComment = comment ?? prevComment ?? null;
+    // Optimistic — paint the new value immediately, roll back if the call fails.
+    setTemplates((prev) =>
+      prev.map((t) =>
+        t.id === tpl.id ? { ...t, my_rating: rating, my_rating_comment: nextComment } : t
+      )
+    );
+    try {
+      await submitTemplateRating(tpl.id, { rating, suggestion: comment });
+    } catch (err) {
+      console.error("Failed to rate template:", err);
+      setTemplates((prev) =>
+        prev.map((t) =>
+          t.id === tpl.id ? { ...t, my_rating: prevRating, my_rating_comment: prevComment } : t
+        )
+      );
+    }
+  };
+
   const handleRegenerate = async (tpl: CustomTemplateItem) => {
     setRegeneratingId(tpl.id);
     try {
@@ -142,7 +183,10 @@ export default function CustomTemplates() {
     } catch (err: any) {
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
-      if (status === 429) {
+      if (status === 403 && detail?.code === "custom_template_limit") {
+        // Over limit on a re-design of a succeeded template → offer the $5 slot.
+        setShowUpgrade(true);
+      } else if (status === 429) {
         setRateLimitError(typeof detail === "string" ? detail : "Daily AI generation limit reached. Try again tomorrow.");
       } else {
         console.error("Failed to regenerate template code:", err);
@@ -205,10 +249,7 @@ export default function CustomTemplates() {
             colors, fonts, and style to build a video template that matches your brand.
           </p>
           <button
-            onClick={() => {
-              setCreatorKey((k) => k + 1);
-              setShowCreator(true);
-            }}
+            onClick={openCreator}
             className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors"
           >
             + Create Custom Template
@@ -230,6 +271,10 @@ export default function CustomTemplates() {
           <CustomTemplateCreator
             key={creatorKey}
             onCreated={handleCreated}
+            onLimitReached={() => {
+              setShowCreator(false);
+              setShowUpgrade(true);
+            }}
             onCancel={() => {
               setShowCreator(false);
             }}
@@ -267,10 +312,7 @@ export default function CustomTemplates() {
             <div className="flex items-center gap-4">
               {activeTemplatesTab === "custom" && (
                 <button
-                  onClick={() => {
-                    setCreatorKey((k) => k + 1);
-                    setShowCreator(true);
-                  }}
+                  onClick={openCreator}
                   className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
                 >
                   Create New +
@@ -434,30 +476,43 @@ export default function CustomTemplates() {
                       Regenerating...
                     </div>
                   ) : (
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleRegenerate(tpl)}
-                        className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
-                        title="Generate a completely new design for this brand"
-                      >
-                        Regenerate
-                      </button>
-                      <button
-                        onClick={() => setEditTarget(tpl)}
-                        className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDeleteTarget(tpl);
-                          setDeleteImpactCount(null);
-                          setDeleteError(null);
-                        }}
-                        className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        Delete
-                      </button>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity space-y-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleRegenerate(tpl)}
+                          className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+                          title="Generate a completely new design for this brand"
+                        >
+                          Regenerate
+                        </button>
+                        <button
+                          onClick={() => setEditTarget(tpl)}
+                          className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeleteTarget(tpl);
+                            setDeleteImpactCount(null);
+                            setDeleteError(null);
+                          }}
+                          className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                      {/* Rating — below the action buttons, with optional feedback */}
+                      <div className="pt-1 border-t border-gray-100">
+                        <TemplateStarRating
+                          value={tpl.my_rating}
+                          comment={tpl.my_rating_comment}
+                          onRate={(r, c) => handleRate(tpl, r, c)}
+                          size={18}
+                          showLabel
+                          allowComment
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -527,17 +582,30 @@ export default function CustomTemplates() {
         <CustomTemplateCreator
           key={creatorKey}
           onCreated={handleCreated}
+          onLimitReached={() => {
+            setShowCreator(false);
+            setShowUpgrade(true);
+          }}
           onCancel={() => {
             setShowCreator(false);
           }}
         />
       )}
 
+      {/* Custom-template quota upgrade modal — plan-tiered + $5 extra slot */}
+      <CustomTemplateLimitModal
+        open={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+      />
+
       {/* Editor modal */}
       {editTarget && (
         <CustomTemplateEditor
           template={editTarget}
           onSaved={handleSaved}
+          onTemplatePatch={(tpl) =>
+            setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? { ...t, ...tpl } : t)))
+          }
           onCancel={() => setEditTarget(null)}
         />
       )}

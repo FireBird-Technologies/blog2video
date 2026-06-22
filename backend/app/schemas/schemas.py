@@ -258,6 +258,32 @@ class ReviewSubmitResponse(BaseModel):
     review_state: ReviewStateOut
 
 
+class TemplateRatingOut(BaseModel):
+    id: int
+    user_id: int
+    custom_template_id: int
+    rating: int
+    suggestion: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TemplateRatingSubmit(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    suggestion: Optional[str] = None
+
+    @field_validator("suggestion")
+    @classmethod
+    def normalize_suggestion(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        trimmed = v.strip()
+        return trimmed or None
+
+
 class ProjectOut(BaseModel):
     id: int
     name: str

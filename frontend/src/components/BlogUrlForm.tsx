@@ -4861,8 +4861,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <UpgradePlanModal
           open={showCustomTemplateUpgrade}
           onClose={() => setShowCustomTemplateUpgrade(false)}
+          subscriptionsOnly
           title="Upgrade to use custom template"
-          subtitle="Your custom template is ready. Upgrade to Pro to use it when creating new videos."
+          subtitle="Custom templates are a Standard & Pro feature. Upgrade your plan to use this template in your videos."
         />
         <GetMoreTemplatesModal
           open={showGetMoreTemplates}
@@ -4907,8 +4908,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <UpgradePlanModal
           open={showCustomTemplateUpgrade}
           onClose={() => setShowCustomTemplateUpgrade(false)}
+          subscriptionsOnly
           title="Upgrade to use custom template"
-          subtitle="Your custom template is ready. Upgrade to Pro to use it when creating new videos."
+          subtitle="Custom templates are a Standard & Pro feature. Upgrade your plan to use this template in your videos."
         />
         <GetMoreTemplatesModal
           open={showGetMoreTemplates}

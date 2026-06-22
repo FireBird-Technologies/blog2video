@@ -35,6 +35,8 @@ export interface CustomTemplateCreatorDemoMode {
 interface Props {
   onCreated: (template: CustomTemplateItem) => void;
   onCancel: () => void;
+  /** Called when create is blocked by the plan quota (403) — parent shows the upgrade modal. */
+  onLimitReached?: () => void;
   /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
   demoMode?: CustomTemplateCreatorDemoMode;
 }
@@ -221,7 +223,7 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
   );
 }
 
-export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }: Props) {
+export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReached, demoMode }: Props) {
   const isDemo = !!demoMode;
   const [step, setStep] = useState<1 | 2>(demoMode?.step ?? 1);
   const [mode, setMode] = useState<CreateMode>("url");
@@ -352,7 +354,17 @@ export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }:
       setCreatedTemplate(res.data);
       handleGenerateCode(res.data);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Failed to save template.");
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      // Quota hit → let the parent open the upgrade modal instead of an error.
+      if (status === 403 && detail?.code === "custom_template_limit") {
+        setSaving(false);
+        onLimitReached?.();
+        return;
+      }
+      setError(
+        typeof detail === "string" ? detail : "Failed to save template."
+      );
       setSaving(false);
     }
   };
@@ -654,7 +666,9 @@ export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }:
                   {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.style}</span> */}
                   {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.animationPreset}</span> */}
                 </div>
-                {theme.patterns && (
+                {/* Visual Patterns — hidden: the corner/spacing/image/alignment chips
+                    were confusing to users without changing what they could act on. */}
+                {/* {theme.patterns && (
                   <>
                     <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Visual Patterns</span>
                     <div className="flex flex-wrap gap-2">
@@ -668,7 +682,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }:
                       ))}
                     </div>
                   </>
-                )}
+                )} */}
 
                 {/* Motion / decor / charts — first-class craft signals derived from the brand */}
                 {(theme.motion?.energy || theme.decor?.system || theme.charts?.style) && (

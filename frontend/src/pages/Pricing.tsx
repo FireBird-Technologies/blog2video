@@ -32,6 +32,9 @@ import {
   PRO_ANNUAL_TOTAL_PRICE,
   PRO_COST_PER_VIDEO_MONTHLY,
   PRO_COST_PER_VIDEO_ANNUAL,
+  FREE_CUSTOM_TEMPLATE_COUNT,
+  STANDARD_CUSTOM_TEMPLATE_COUNT,
+  PRO_CUSTOM_TEMPLATE_COUNT,
   pricingFaq,
 } from "../content/pricingContent";
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
@@ -328,6 +331,7 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
+                `${FREE_CUSTOM_TEMPLATE_COUNT} custom video template`,
               ].map((f) => (
                 <li
                   key={f}
@@ -337,7 +341,7 @@ export default function Pricing() {
                   {f}
                 </li>
               ))}
-              {["Unlimited AI edit & image generation", "Custom video templates", "Premium voiceover + cloning"].map((f) => (
+              {["Unlimited AI edit & image generation", "Premium voiceover + cloning"].map((f) => (
                 <li
                   key={f}
                   className="flex items-start gap-2.5 text-sm text-gray-300"
@@ -442,7 +446,7 @@ export default function Pricing() {
                 "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
-                "Custom video templates",
+                `${STANDARD_CUSTOM_TEMPLATE_COUNT} custom video templates`,
                 "Premium voiceover + cloning",
                 "Priority support",
               ].map((f) => (
@@ -534,7 +538,7 @@ export default function Pricing() {
                 "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
-                "Custom video templates",
+                `${PRO_CUSTOM_TEMPLATE_COUNT} custom video templates`,
                 "Premium voiceover + cloning",
                 "Priority support",
               ].map((f) => (
@@ -669,7 +673,7 @@ export default function Pricing() {
                 { feature: "Video preview", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Render & download MP4", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Unlimited AI edit & image generation", free: false, perVideo: false, standard: true, pro: true, customized: true },
-                { feature: "Custom video templates", free: false, perVideo: false, standard: true, pro: true, customized: true },
+                { feature: "Custom video templates", free: String(FREE_CUSTOM_TEMPLATE_COUNT), perVideo: "—", standard: String(STANDARD_CUSTOM_TEMPLATE_COUNT), pro: String(PRO_CUSTOM_TEMPLATE_COUNT), customized: "Custom" },
                 { feature: "Premium voiceover + cloning", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Music Addition", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Advanced voiceover settings", free: false, perVideo: false, standard: true, pro: true, customized: true },

@@ -42,3 +42,4 @@ class CustomTemplate(Base):
     user = relationship("User", back_populates="custom_templates")
     brand_kit = relationship("BrandKit", back_populates="custom_templates")
     versions = relationship("TemplateVersion", back_populates="template", cascade="all, delete-orphan", order_by="TemplateVersion.created_at.desc()")
+    ratings = relationship("TemplateRating", back_populates="custom_template", cascade="all, delete-orphan")

@@ -7,6 +7,9 @@ export interface UserInfo {
   videos_used_this_period: number;
   video_limit: number;
   can_create_video: boolean;
+  custom_templates_created: number;
+  custom_template_limit: number;
+  can_create_custom_template: boolean;
   preferred_voice_emotion: string | null;
 }
 

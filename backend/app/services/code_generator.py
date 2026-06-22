@@ -207,6 +207,28 @@ class GenerateSceneCode(dspy.Signature):
     - Bullet lists, card body text, quote body, metric labels: at least 30–36px so previews stay legible when scaled down in the UI.
     - Do NOT hardcode tiny font sizes (e.g. 12–18px) for primary readable content.
 
+    Overflow safety (MANDATORY — content must FIT the frame in BOTH orientations):
+    The polished built-in templates never let text or rows escape the frame, and neither may you.
+    overflow:'hidden' on the root only CLIPS spill — it does NOT make content fit. The frame is
+    1920×1080 (landscape) or a much narrower 1080×1920 (portrait); the SAME copy must fit both.
+    - Every flex CHILD that holds text MUST set `minWidth: 0`. Flex items default to min-width:auto,
+      which lets long words/titles push past the container instead of wrapping — this is the #1 cause
+      of text spilling off-frame. Add `minWidth: 0` to the text column of every split/row layout.
+    - Every block of running text MUST set `overflowWrap: 'break-word'` (and `wordBreak: 'break-word'`)
+      so a long unbroken word breaks instead of overflowing.
+    - The primary headline / displayText and any BIG numeral should use <FitText> (auto-shrinks to
+      fit, never overshoots) rather than a bare element with a fixed fontSize — portrait especially.
+    - CAP every list before mapping: `const items = (props.bullets ?? []).slice(0, isPortrait ? 4 : 5);`
+      (metrics/steps/timelineItems likewise — portrait fits FEWER rows). NEVER map an uncapped array;
+      a long list overshoots the bottom of the frame. The kit StatGrid/MetricRow already cap internally.
+    - Fixed-size decals (markers, dots, icons, the logo Img) MUST set `flexShrink: 0` so they don't get
+      squeezed; the flexible text beside them gets `flex: 1, minWidth: 0`.
+    - Bound any stacked-rows block with a sensible gap and, if many rows, `maxHeight: '100%'` + smaller
+      per-row sizing in portrait. When in doubt, fewer items at a larger size beats cramming everything.
+    - Portrait is NARROW: scale headings down (use isPortrait to pick a smaller fontSize, or rely on
+      <FitText>), stack instead of side-by-side, and reduce the item count. A landscape layout reused
+      verbatim in portrait WILL overshoot — that is the exact bug to avoid.
+
     Motion (feel alive WITHOUT becoming busy — ONE dominant beat + quiet support):
     - ONE signature beat per scene (a headline pop OR a panel rise OR a count-up — NOT five
       competing animations); everything else is quiet supporting motion.
@@ -267,6 +289,11 @@ class GenerateSceneCode(dspy.Signature):
         reveal (mode="blur" is the snappy/energetic personality; word/line are smooth/calm;
         typewriter types characters in with a blinking cursor — editorial/terminal feel).
     - <HighlightPhrase text={...} phrase={...} /> — accent underline on a key phrase.
+    - <FitText fontSize={props.titleFontSize ?? 75} minFontSize={48} maxLines={3}>{props.displayText}</FitText>
+        — auto-shrinking text that CANNOT overshoot its box (deterministic, render-safe). Use it for
+        the primary headline / displayText and for any big numeral, ESPECIALLY in portrait where the
+        canvas is narrow. It already applies minWidth:0 + overflowWrap, so wrap long titles in it
+        instead of a bare <div> with a fixed fontSize.
     - <CodeBlock lines={props.codeLines} language={props.codeLanguage} /> — themed, SAFE
         code panel. Renders ONLY the given lines; use it for "code" scenes instead of
         hand-rolling. NEVER invent code lines or touch process.env / runtime APIs.
@@ -569,6 +596,61 @@ def _scene_reward(args, pred) -> float:
         if not _has_backdrop:
             score -= 0.2
             print(f"[F7-DEBUG] [REFINE] -0.2: content scene has no deliberate backdrop (flat-slide risk)")
+
+    # ── Portrait quality nudge (CONTENT scenes only) ──────────────────────────
+    # The same component renders into a 1920×1080 landscape AND a 1080×1920
+    # portrait canvas. A content scene that declares isPortrait but never *branches*
+    # on it is really a landscape-only layout that can look squished/overshooting in
+    # portrait. Scoped to content (intro/outro are often a centred brand reveal that
+    # reads fine both ways — don't make them burn retries). Small penalty so a single
+    # miss alone won't drop a scene below threshold; it only bites when stacked with
+    # another real issue. Best attempt is always returned regardless.
+    if scene_type == "content":
+        _declares_portrait = bool(re.search(r'\bisPortrait\b', code))
+        # "Used" = appears in a ternary or an if/&& guard, not just the declaration line.
+        _branches_portrait = bool(
+            re.search(r'isPortrait\s*\?', code)               # ternary
+            or re.search(r'(?:if\s*\(|&&|\|\|)\s*[^)\n]*\bisPortrait\b', code)  # guard
+            or re.search(r'!\s*isPortrait\b', code)           # negated guard
+        )
+        if not _declares_portrait or not _branches_portrait:
+            score -= 0.15
+            print(f"[F7-DEBUG] [REFINE] -0.15: content scene does not branch layout on isPortrait (portrait may look off)")
+
+    # ── Overflow-safety nudge (ALL scene types) ───────────────────────────────
+    # overflow:'hidden' on the root only CLIPS spill — it doesn't make content fit.
+    # Metrics/steps/long headers overshoot the frame in BOTH orientations unless the
+    # scene uses the same structural guards the built-in templates use:
+    #   • minWidth:0 on flex children  (flex defaults to min-width:auto → children
+    #     overflow instead of wrapping — the #1 cause of text spilling)
+    #   • overflowWrap/wordBreak on text  (long words break instead of pushing out)
+    #   • FitText for headlines/numerals  (auto-shrinks to fit, never overshoots)
+    # Small penalty so it nudges without forcing a retry on its own — kit-built scenes
+    # (StatGrid/MetricRow/FitText) already satisfy this; only a fully hand-rolled scene
+    # with zero guards is flagged.
+    _has_overflow_guard = bool(
+        re.search(r'minWidth\s*:\s*0\b', code)
+        or re.search(r'overflowWrap', code)
+        or re.search(r'wordBreak', code)
+        or re.search(r'<FitText\b', code)
+    )
+    if not _has_overflow_guard:
+        score -= 0.15
+        print(f"[F7-DEBUG] [REFINE] -0.15: no overflow guard (minWidth:0 / overflowWrap / FitText) — text may overshoot")
+
+    # ── Uncapped list nudge (content scenes) ──────────────────────────────────
+    # Mapping straight over props.metrics/steps/bullets/timelineItems with no
+    # .slice(N) cap lets a long array push rows off the frame. The kit components
+    # cap internally, but hand-rolled maps don't — require an explicit cap, mirroring
+    # the built-ins (teasers.slice(0,5), keyPoints.slice(0,4), table rows capped).
+    if scene_type == "content":
+        _maps_list_prop = re.search(
+            r'props\.(metrics|steps|bullets|timelineItems)\b[\s\S]{0,160}?\.map\(', code
+        )
+        _has_slice = bool(re.search(r'\.slice\s*\(\s*0\s*,', code))
+        if _maps_list_prop and not _has_slice:
+            score -= 0.1
+            print(f"[F7-DEBUG] [REFINE] -0.1: list prop mapped without a .slice(0,N) cap (rows may overshoot)")
 
     line_count = code.count("\n") + 1
     print(f"[F7-DEBUG] [REFINE] Validation PASSED — score={score:.2f} | {line_count}L")

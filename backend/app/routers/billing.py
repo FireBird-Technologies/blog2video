@@ -364,6 +364,50 @@ def create_per_video_checkout(
     return CheckoutResponse(checkout_url=session.url)
 
 
+@router.post("/checkout-custom-template", response_model=CheckoutResponse)
+def create_custom_template_checkout(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a Stripe Checkout session for one extra custom-template slot ($5).
+
+    Grants +1 to ``user.custom_template_bonus`` on payment (lifetime, no expiry).
+    """
+    # Ensure the user has a Stripe customer
+    if not user.stripe_customer_id:
+        customer = stripe.Customer.create(
+            email=user.email,
+            name=user.name,
+            metadata={"user_id": str(user.id)},
+        )
+        user.stripe_customer_id = customer.id
+        db.commit()
+
+    success_url = f"{settings.FRONTEND_URL}/custom-templates?purchased=true&session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{settings.FRONTEND_URL}/custom-templates"
+
+    session = stripe.checkout.Session.create(
+        customer=user.stripe_customer_id,
+        mode="payment",
+        line_items=[
+            {
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": "blog2video — 1 custom template slot"},
+                    "unit_amount": 500,
+                },
+                "quantity": 1,
+            }
+        ],
+        allow_promotion_codes=True,
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={"user_id": str(user.id), "type": "custom_template"},
+    )
+
+    return CheckoutResponse(checkout_url=session.url)
+
+
 # ─── Change Plan (Upgrade / Downgrade for existing paid users) ────
 
 # Lexicographic rank — tier dominates cycle. Higher rank = more expensive commitment.
@@ -1510,6 +1554,34 @@ def _handle_checkout_completed(session: dict, db: Session):
                     user.video_limit_bonus,
                     extra={"user_id": int(user_id), "qty": qty},
                 )
+    elif checkout_type == "custom_template":
+        # One-time $5 purchase → +1 lifetime custom-template slot (never expires).
+        user_id = metadata.get("user_id")
+        plan = db.query(SubscriptionPlan).filter_by(slug="custom_template").first()
+        now = datetime.utcnow()
+        user = db.query(User).filter(User.id == int(user_id)).first() if user_id else None
+        if user:
+            user.custom_template_bonus = (user.custom_template_bonus or 0) + 1
+            if plan:
+                sub = Subscription(
+                    user_id=user.id,
+                    plan_id=plan.id,
+                    status=SubscriptionStatus.COMPLETED,
+                    stripe_checkout_session_id=session_id,
+                    amount_paid_cents=session.get("amount_total") or plan.price_cents,
+                    quantity=1,
+                    videos_used=0,
+                    current_period_start=now,
+                    current_period_end=None,  # lifetime — slot never expires
+                )
+                db.add(sub)
+            db.commit()
+            logger.info(
+                "[BILLING] Custom-template slot purchased: user=%s new_bonus=%s",
+                user_id,
+                user.custom_template_bonus,
+                extra={"user_id": int(user_id)},
+            )
     else:
         # ── Pro or Standard subscription checkout ───────────────────────────
         subscription_id = session.get("subscription")
