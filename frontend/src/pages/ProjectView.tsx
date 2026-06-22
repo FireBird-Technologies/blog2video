@@ -76,6 +76,7 @@ import VerifyScriptModal from "../components/VerifyScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
+import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
 import VoiceOperationModal from "../components/VoiceOperationModal";
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
@@ -90,7 +91,7 @@ import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
-import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
+import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
 import type { PlayerRef } from "@remotion/player";
 import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sceneSlideExport";
 import { getSceneExportGlobalFrame, SCENE_EXPORT_TIMELINE_FRACTION } from "../utils/sceneFrameSchedule";
@@ -868,6 +869,7 @@ export default function ProjectView() {
   const [imageAdjustSceneId, setImageAdjustSceneId] = useState<number | null>(null);
   const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
   const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
   const [isAdjustDragging, setIsAdjustDragging] = useState(false);
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
@@ -2751,6 +2753,7 @@ export default function ProjectView() {
 
     // Compute the correct aspect ratio for the modal preview
     let ar: string;
+    let circular = false;
     if (project?.template?.startsWith("custom_") && project) {
       ar = resolveCustomImageBoxAr(scene, project);
     } else {
@@ -2770,8 +2773,10 @@ export default function ProjectView() {
         templateCfg.baseWidth,
         templateCfg.baseHeight,
       );
+      circular = isImageBoxCircular(layoutId);
     }
     setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(circular);
 
     setImageAdjustSceneId(scene.id);
     setImageAdjustSrc(src);
@@ -5596,8 +5601,9 @@ export default function ProjectView() {
                             aspectRatio: imageAdjustAspectRatio,
                             maxHeight: "70vh",
                             maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                            ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
                           }}
-                          className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                          className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
                             isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
                           }`}
                         >
@@ -5836,7 +5842,195 @@ export default function ProjectView() {
                 onOperationStarted={(op) => setVoiceOpKickstart(op)}
               />
 
-              {/* 3. Colors + Font family (with voiceover present) */}
+              {/* 3. Music */}
+              {isPro && (
+              <div>
+                <h2 className="text-base font-medium text-gray-900 mb-1">Music</h2>
+                <p className="text-xs text-gray-400 mb-3">Ambient music behind voiceover narration.</p>
+                <div className="glass-card p-4 flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <BgmTrackDropdown
+                      tracks={bgmTracks}
+                      value={bgmTrackDraft}
+                      onChange={setBgmTrackDraft}
+                      className="flex-1 min-w-0"
+                    />
+                    {bgmTrackDraft && (() => {
+                      const track = bgmTracks.find((t) => t.track_id === bgmTrackDraft);
+                      if (!track) return null;
+                      const isPlaying = bgmPlayingId === track.track_id;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isPlaying) {
+                              bgmAudioRef.current?.pause();
+                              setBgmPlayingId(null);
+                            } else {
+                              bgmAudioRef.current?.pause();
+                              const audio = new Audio(track.r2_url);
+                              audio.volume = Math.max(0, Math.min(1, bgmVolumeDraft));
+                              audio.onended = () => setBgmPlayingId(null);
+                              audio.play().catch(() => {});
+                              bgmAudioRef.current = audio;
+                              setBgmPlayingId(track.track_id);
+                            }
+                          }}
+                          className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-purple-600 hover:text-purple-700 border border-purple-200 rounded-lg bg-purple-50/50 hover:bg-purple-50 transition-colors"
+                        >
+                          {isPlaying ? (
+                            <>
+                              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                <rect x="6" y="4" width="4" height="16" rx="1" />
+                                <rect x="14" y="4" width="4" height="16" rx="1" />
+                              </svg>
+                              Pause
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                              Preview
+                            </>
+                          )}
+                        </button>
+                      );
+                    })()}
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Volume</span>
+                      <span className="text-gray-400 tabular-nums">{Math.round(bgmVolumeDraft * 100)}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round(bgmVolumeDraft * 100)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value) / 100;
+                        setBgmVolumeDraft(v);
+                        if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+                      }}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
+                    />
+                  </div>
+
+                  {project.r2_video_url && (project.bgm_track_id !== bgmTrackDraft || project.bgm_volume !== bgmVolumeDraft) ? (
+                    <p className="text-[11px] text-amber-600 leading-snug">
+                      Save and re-render to update the MP4 after BGM changes.
+                    </p>
+                  ) : null}
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={savingBgm}
+                      onClick={async () => {
+                        setSavingBgm(true);
+                        try {
+                          await updateProject(project.id, {
+                            bgm_track_id: bgmTrackDraft,
+                            bgm_volume: Math.round(bgmVolumeDraft * 100) / 100,
+                          });
+                          await loadProject();
+                        } catch (err) {
+                          showError(getErrorMessage(err, "Failed to save background music."));
+                        } finally {
+                          setSavingBgm(false);
+                        }
+                      }}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      {savingBgm ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save music"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              )}
+
+              {/* 4. Font sizes (with voiceover present) */}
+              <div>
+                <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
+                <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
+                <div className="glass-card p-4 flex flex-col gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Title font size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={globalTitleSize}
+                      onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                      <span>Display text size</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={12}
+                      max={80}
+                      step={1}
+                      value={globalDescSize}
+                      onChange={(e) => setGlobalDescSize(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={savingGlobalTypography}
+                      onClick={async () => {
+                        setSavingGlobalTypography(true);
+                        try {
+                          await bulkUpdateSceneTypography(project.id, {
+                            title_font_size: globalTitleSize,
+                            description_font_size: globalDescSize,
+                          });
+                          await loadProject();
+                        } catch (err) {
+                          showError(getErrorMessage(err, "Failed to update typography."));
+                        } finally {
+                          setSavingGlobalTypography(false);
+                        }
+                      }}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      {savingGlobalTypography ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Applying…
+                        </>
+                      ) : (
+                        "Apply to all Scenes"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </>
+          )}
+
+          {/* 5. Colors & Font */}
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
             <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
@@ -6027,76 +6221,7 @@ export default function ProjectView() {
             </div>
           </div>
 
-              {/* 4. Font sizes (with voiceover present) */}
-              <div>
-                <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
-                <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
-                <div className="glass-card p-4 flex flex-col gap-2">
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                      <span>Title font size</span>
-                      <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
-                    </label>
-                    <input
-                      type="range"
-                      min={20}
-                      max={200}
-                      step={1}
-                      value={globalTitleSize}
-                      onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
-                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                      <span>Display text size</span>
-                      <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
-                    </label>
-                    <input
-                      type="range"
-                      min={12}
-                      max={80}
-                      step={1}
-                      value={globalDescSize}
-                      onChange={(e) => setGlobalDescSize(Number(e.target.value))}
-                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      disabled={savingGlobalTypography}
-                      onClick={async () => {
-                        setSavingGlobalTypography(true);
-                        try {
-                          await bulkUpdateSceneTypography(project.id, {
-                            title_font_size: globalTitleSize,
-                            description_font_size: globalDescSize,
-                          });
-                          await loadProject();
-                        } catch (err) {
-                          showError(getErrorMessage(err, "Failed to update typography."));
-                        } finally {
-                          setSavingGlobalTypography(false);
-                        }
-                      }}
-                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                    >
-                      {savingGlobalTypography ? (
-                        <>
-                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Applying…
-                        </>
-                      ) : (
-                        "Apply to all Scenes"
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
+          {/* 6. Playback Speed */}
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
             <p className="text-xs text-gray-400 mb-5">
@@ -6174,134 +6299,6 @@ export default function ProjectView() {
               </div>
             </div>
           </div>
-
-          {/* Background Music — Premium only (Standard/Pro) */}
-          {isPro && (
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Music</h2>
-            <p className="text-xs text-gray-400 mb-5">
-              Ambient music behind voiceover narration.
-            </p>
-            <div className="glass-card p-6 flex flex-col gap-4">
-              <div>
-                <label className="text-xs text-gray-500 mb-2 block">Track</label>
-                <select
-                  value={bgmTrackDraft ?? ""}
-                  onChange={(e) => setBgmTrackDraft(e.target.value || null)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none"
-                >
-                  <option value="">None</option>
-                  {bgmTracks.map((t) => (
-                    <option key={t.track_id} value={t.track_id}>
-                      {t.display_name} — {t.mood}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Preview */}
-              {bgmTrackDraft && (() => {
-                const track = bgmTracks.find((t) => t.track_id === bgmTrackDraft);
-                if (!track) return null;
-                const isPlaying = bgmPlayingId === track.track_id;
-                return (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isPlaying) {
-                        bgmAudioRef.current?.pause();
-                        setBgmPlayingId(null);
-                      } else {
-                        bgmAudioRef.current?.pause();
-                        const audio = new Audio(track.r2_url);
-                        audio.volume = Math.max(0, Math.min(1, bgmVolumeDraft));
-                        audio.onended = () => setBgmPlayingId(null);
-                        audio.play().catch(() => {});
-                        bgmAudioRef.current = audio;
-                        setBgmPlayingId(track.track_id);
-                      }
-                    }}
-                    className="flex items-center gap-2 text-xs text-purple-600 hover:text-purple-700 transition-colors"
-                  >
-                    {isPlaying ? (
-                      <>
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <rect x="6" y="4" width="4" height="16" rx="1" />
-                          <rect x="14" y="4" width="4" height="16" rx="1" />
-                        </svg>
-                        Pause preview
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                        Preview track
-                      </>
-                    )}
-                  </button>
-                );
-              })()}
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-medium text-gray-600">Volume</span>
-                  <span className="text-[11px] text-gray-400 tabular-nums">{Math.round(bgmVolumeDraft * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={Math.round(bgmVolumeDraft * 100)}
-                  onChange={(e) => {
-                    const v = Number(e.target.value) / 100;
-                    setBgmVolumeDraft(v);
-                    if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
-                  }}
-                  className="w-full accent-purple-600 cursor-pointer"
-                />
-              </div>
-
-              {project.r2_video_url && (project.bgm_track_id !== bgmTrackDraft || project.bgm_volume !== bgmVolumeDraft) ? (
-                <p className="text-[11px] text-amber-600">
-                  Changing BGM makes the current MP4 outdated. Save and re-render to update.
-                </p>
-              ) : null}
-
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={savingBgm}
-                  onClick={async () => {
-                    setSavingBgm(true);
-                    try {
-                      await updateProject(project.id, {
-                        bgm_track_id: bgmTrackDraft,
-                        bgm_volume: Math.round(bgmVolumeDraft * 100) / 100,
-                      });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to save background music."));
-                    } finally {
-                      setSavingBgm(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingBgm ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    "Save music"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-          )}
 
         </div>
       )}
@@ -6517,18 +6514,12 @@ export default function ProjectView() {
                     <div className="flex flex-col sm:flex-row sm:items-end gap-3">
                       <div className="flex-1">
                         <label className="text-[11px] text-gray-500 mb-1 block">Track</label>
-                        <select
-                          value={bgmTrackDraft ?? ""}
-                          onChange={(e) => setBgmTrackDraft(e.target.value || null)}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none"
-                        >
-                          <option value="">None</option>
-                          {bgmTracks.map((t) => (
-                            <option key={t.track_id} value={t.track_id}>
-                              {t.display_name} — {t.mood}
-                            </option>
-                          ))}
-                        </select>
+                        <BgmTrackDropdown
+                          tracks={bgmTracks}
+                          value={bgmTrackDraft}
+                          onChange={setBgmTrackDraft}
+                          triggerSize="md"
+                        />
                       </div>
                       {bgmTrackDraft && (
                         <div className="flex-1">

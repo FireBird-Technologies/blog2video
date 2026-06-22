@@ -37,7 +37,7 @@ import {
 } from "../api/client";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../components/remotion/playbackSpeed";
-import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
+import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
 import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layouts";
 
 const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
@@ -285,15 +285,6 @@ const IconChevronDown = ({ open }: { open: boolean }) => (
     <path d="M19 9l-7 7-7-7" />
   </svg>
 );
-const IconChevronCollapse = ({ open }: { open: boolean }) => (
-  <svg
-    width="13" height="13" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-    style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }}
-  >
-    <path d="M6 9l6 6 6-6" />
-  </svg>
-);
 
 // ─── Base input style ─────────────────────────────────────────────────────────
 const inputBase: React.CSSProperties = {
@@ -441,30 +432,6 @@ function StudioDropdown({
               </button>
             );
           })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Collapsible accordion ────────────────────────────────────────────────────
-function Collapsible({ label, defaultOpen = false, children }: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div style={{ border: `1px solid ${T.border}`, borderRadius: "10px", overflow: "hidden", marginBottom: "8px" }}>
-      <button type="button" onClick={() => setOpen((o) => !o)} style={{
-        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "8px 12px", background: open ? T.accentLight : T.surfaceAlt,
-        border: "none", cursor: "pointer", transition: "background 0.15s", fontFamily: FONT,
-      }}>
-        <span style={{ fontSize: "11px", fontWeight: 600, color: open ? T.accent : T.textSub, letterSpacing: "0.03em", fontFamily: FONT }}>
-          {label}
-        </span>
-        <span style={{ color: open ? T.accent : T.textMuted }}><IconChevronCollapse open={open} /></span>
-      </button>
-      {open && (
-        <div style={{ padding: "12px", borderTop: `1px solid ${T.border}`, background: T.surface }}>
-          {children}
         </div>
       )}
     </div>
@@ -784,6 +751,116 @@ function SceneSettingsModal({
   );
 }
 
+// ─── Layout Props Modal ───────────────────────────────────────────────────────
+function LayoutPropsModal({
+  open,
+  onClose,
+  schema,
+  regularFields,
+  layoutLabel,
+  layoutProps,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  schema?: LayoutPropSchema;
+  regularFields: LayoutPropSchema["fields"];
+  layoutLabel: string;
+  layoutProps: Record<string, unknown>;
+  onSave: (next: Record<string, unknown>) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, unknown>>(layoutProps);
+
+  useEffect(() => {
+    if (open) setDraft({ ...layoutProps });
+  }, [open, layoutProps]);
+
+  if (!open) return null;
+
+  const hasFields = Boolean(schema && (regularFields.length > 0 || (schema.fields?.length ?? 0) > 0));
+
+  const handleSave = () => {
+    onSave(draft);
+    onClose();
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(17,24,39,0.4)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        backdropFilter: "blur(3px)",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "520px", maxHeight: "88vh",
+          background: T.bg, borderRadius: "16px",
+          border: `1px solid ${T.border}`,
+          boxShadow: "0 24px 64px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08)",
+          display: "flex", flexDirection: "column", overflow: "hidden",
+          fontFamily: FONT,
+        }}
+      >
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "16px 20px", borderBottom: `1px solid ${T.border}`, flexShrink: 0,
+        }}>
+          <div>
+            <h2 style={{ fontSize: "14px", fontWeight: 600, color: T.text, margin: 0, fontFamily: FONT }}>Layout properties</h2>
+            <p style={{ fontSize: "11px", color: T.textMuted, margin: "2px 0 0", fontFamily: FONT }}>
+              {layoutLabel || "Current layout"} — edit props, then save to update the preview
+            </p>
+          </div>
+          <button type="button" onClick={onClose} style={{
+            padding: "6px", borderRadius: "8px",
+            border: `1px solid ${T.border}`, background: T.surfaceAlt,
+            color: T.textSub, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.15s",
+          }}>
+            <IconX />
+          </button>
+        </div>
+
+        <div style={{ overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
+          {hasFields ? (
+            regularFields.length > 0 ? (
+              <ManifestPropEditor
+                schema={{ ...schema!, fields: regularFields }}
+                value={draft}
+                onChange={setDraft}
+              />
+            ) : (
+              <ManifestPropEditor schema={schema!} value={draft} onChange={setDraft} />
+            )
+          ) : (
+            <p style={{ margin: 0, fontSize: "12px", color: T.textMuted, fontFamily: FONT, lineHeight: 1.5 }}>
+              No editable layout props for this scene.
+            </p>
+          )}
+        </div>
+
+        <div style={{
+          padding: "14px 20px", borderTop: `1px solid ${T.border}`, flexShrink: 0,
+          display: "flex", justifyContent: "flex-end", gap: "8px",
+        }}>
+          <button type="button" onClick={onClose} className="btn-ghost">
+            Cancel
+          </button>
+          <button type="button" onClick={handleSave} className="btn-primary" disabled={!hasFields}>
+            <IconSave />
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PropDefRow({
   prop,
   onChange,
@@ -980,10 +1057,12 @@ export default function TemplateStudio() {
   const [imageFetching, setImageFetching]     = useState(false);
   const [imageError, setImageError]           = useState<string>("");
   const [sceneModalOpen, setSceneModalOpen]   = useState(false);
+  const [propsModalOpen, setPropsModalOpen]   = useState(false);
 
   const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
   const [imageAdjustSrc, setImageAdjustSrc]   = useState<string | null>(null);
   const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
@@ -1196,6 +1275,7 @@ export default function TemplateStudio() {
       templateCfg.baseHeight,
     );
     setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(isImageBoxCircular(selectedLayout));
     setImageAdjustFocusX(imageFocusX);
     setImageAdjustFocusY(imageFocusY);
     setImageAdjustZoom(
@@ -1480,6 +1560,9 @@ export default function TemplateStudio() {
 
   const responsiveFields = schema?.fields.filter((f) => f.responsive) ?? [];
   const regularFields    = schema?.fields.filter((f) => !f.responsive) ?? [];
+  const hasEditableProps = Boolean(schema && (regularFields.length > 0 || responsiveFields.length === 0));
+  const currentLayoutLabel =
+    selectedTemplate?.layout_prop_schema?.[selectedLayout]?.label || humanize(selectedLayout);
 
   // Dropdown option arrays
   const templateOptions = templates.map((tpl) => ({
@@ -2229,23 +2312,6 @@ export default function TemplateStudio() {
                   </div>
                 )}
 
-                {/* Props — closed by default */}
-                {(regularFields.length > 0 || (responsiveFields.length === 0 && schema)) && (
-                  <div className="left-section">
-                    <SectionLabel icon={<IconSliders />}>Props</SectionLabel>
-                    <Collapsible label="Layout properties" defaultOpen={false}>
-                      {regularFields.length > 0 ? (
-                        <ManifestPropEditor
-                          schema={{ ...schema!, fields: regularFields }}
-                          value={layoutProps}
-                          onChange={setLayoutProps}
-                        />
-                      ) : schema ? (
-                        <ManifestPropEditor schema={schema} value={layoutProps} onChange={setLayoutProps} />
-                      ) : null}
-                    </Collapsible>
-                  </div>
-                )}
               </aside>
 
               {/* ══ CENTER: Preview ══ */}
@@ -2531,30 +2597,58 @@ export default function TemplateStudio() {
                   </div>
                 </div>
 
-                {/* Stats bar */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", alignItems: "stretch" }}>
-                  {[
-                    { label: "Template", value: selectedTemplate?.name || "—" },
-                    {
-                      label: "Layout",
-                      value:
-                        sequentialPreview
-                          ? `All (${layouts.length} layouts)`
-                          : humanize(selectedLayout) || "—",
-                    },
-                    {
-                      label: "Duration",
-                      value: sequentialPreview
-                        ? `${durationSeconds}s × ${layouts.length} · ${durationInFrames}f`
-                        : `${durationSeconds}s · ${durationInFrames}f`,
-                    },
-                    { label: "Canvas",   value: `${canvasW}×${canvasH}` },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="glass-card" style={{ padding: "9px 12px" }}>
-                      <div style={{ fontSize: "10px", color: T.textMuted, marginBottom: "3px", fontWeight: 500, fontFamily: FONT }}>{label}</div>
-                      <div style={{ fontSize: "12px", color: T.accent, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: FONT }}>{value}</div>
-                    </div>
-                  ))}
+                {/* Layout props — single-line bar */}
+                <div
+                  className="glass-card"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr auto",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "10px 14px",
+                    minHeight: "44px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: T.text,
+                      fontFamily: FONT,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Layout props
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: T.textMuted,
+                      fontFamily: FONT,
+                      textAlign: "center",
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {hasEditableProps
+                      ? "Open the props list to change them"
+                      : "No props for this layout"}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={!hasEditableProps}
+                    onClick={() => setPropsModalOpen(true)}
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                      width: "auto",
+                      minWidth: 0,
+                    }}
+                  >
+                    View props
+                  </button>
                 </div>
               </section>
 
@@ -3071,6 +3165,16 @@ export default function TemplateStudio() {
         onOpenImageAdjust={openTemplateImageAdjust}
       />
 
+      <LayoutPropsModal
+        open={propsModalOpen}
+        onClose={() => setPropsModalOpen(false)}
+        schema={schema}
+        regularFields={regularFields}
+        layoutLabel={currentLayoutLabel}
+        layoutProps={layoutProps}
+        onSave={setLayoutProps}
+      />
+
       {imageAdjustOpen && imageAdjustSrc &&
         ReactDOM.createPortal(
           <div className="fixed inset-0 z-[1100] flex items-center justify-center p-2 sm:p-4 min-h-0">
@@ -3111,8 +3215,9 @@ export default function TemplateStudio() {
                       aspectRatio: imageAdjustAspectRatio,
                       maxHeight: "70vh",
                       maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                      ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
                     }}
-                    className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                    className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
                       isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
                     }`}
                   >
