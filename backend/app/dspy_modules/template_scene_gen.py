@@ -778,30 +778,17 @@ class TemplateSceneGenerator:
     # Economist data layouts and the chart shape each one expects.
     _ECONOMIST_DATA_LAYOUTS = {"chart_line", "chart_bar", "data_table"}
 
-    def _economist_sample_chart_table(self, layout: str) -> dict | None:
-        """The meta.json sample `chartTable` default for an Economist data layout.
+    def _economist_prose_fallback_props(self, narration: str) -> dict:
+        """Props for a data layout that degrades to the prose fallback.
 
-        Used as the last-resort fallback so a chart/table scene always renders
-        SOMETHING rather than being silently rerouted to prose. Returns a
-        `{headers, rows}` dict (with rows) or None when unavailable.
+        When a chart/table/KPI scene has no real scraped data we reroute it to
+        the template's prose fallback (``leader_article``). Run the leader_article
+        backfill so the rerouted scene gets a standfirst + key points distilled
+        from the narration instead of rendering as empty paper.
         """
-        try:
-            default = (
-                (self._meta or {})
-                .get("layout_prop_schema", {})
-                .get(layout, {})
-                .get("defaults", {})
-                .get("chartTable")
-            )
-        except Exception:
-            return None
-        if isinstance(default, dict) and (default.get("rows") or []):
-            # Copy so downstream binding/reconciliation never mutates the shared meta.
-            return {
-                "headers": list(default.get("headers") or []),
-                "rows": [list(r) for r in (default.get("rows") or [])],
-            }
-        return None
+        if self._fallback_layout == "leader_article":
+            return self._economist_backfill_leader_article({}, narration)
+        return {}
 
     @staticmethod
     def _economist_current_dateline() -> str:
@@ -834,22 +821,41 @@ class TemplateSceneGenerator:
     def _economist_backfill_leader_article(props: dict, narration: str) -> dict:
         """Ensure a leader_article never renders as near-empty paper.
 
-        The prompt asks the LLM to always emit a ``standfirst`` deck and 2–3
-        ``keyPoints``, but a thin source (or a terse model) can still omit them.
-        Backfill ONLY what is missing, distilled from the narration the model
-        already produced — we never fabricate figures or claims, honouring the
-        template's data-grounding rule. If there is no narration to draw from we
-        leave the field unset rather than invent one.
+        The on-screen ``body`` paragraph is the main copy and is independent of
+        the short spoken ``narration``. The prompt asks the model to emit
+        ``body``, a ``standfirst`` deck and 2–3 ``keyPoints``, but a thin source
+        (or a terse model) can still omit them. Backfill ONLY what is missing,
+        distilled from the richest copy available (the body, else the narration)
+        — we never fabricate figures or claims, honouring the template's
+        data-grounding rule. If there is nothing to draw from we leave the field
+        unset rather than invent one.
         """
         import re
 
         out = dict(props or {})
-        body = (narration or "").strip()
-        if not body:
+
+        # Drop the byline entirely. The prompt/meta example ("By our finance
+        # correspondent") was being copied verbatim onto every article, stamping
+        # a fabricated, topic-mismatched correspondent (e.g. a finance byline on a
+        # fiction-craft piece). We never invent authorship, so no byline renders.
+        out.pop("byline", None)
+
+        # The on-screen body is the main copy; fall back to the narration when
+        # the model omitted it (e.g. a data scene rerouted to this prose
+        # fallback) so the page still fills rather than rendering empty.
+        body_text = str(out.get("body") or "").strip()
+        if not body_text:
+            body_text = (narration or "").strip()
+            if body_text:
+                out["body"] = body_text
+
+        # Derive the deck + points from the richest copy we have (the body).
+        source = body_text or (narration or "").strip()
+        if not source:
             return out
 
         # Sentence split (keep it simple/deterministic — no NLP dependency).
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", body) if s.strip()]
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", source) if s.strip()]
 
         # Standfirst: the first sentence, trimmed to ≤16 words, if absent.
         if not str(out.get("standfirst") or "").strip() and sentences:
@@ -931,7 +937,7 @@ class TemplateSceneGenerator:
                     scene_index,
                     self._fallback_layout,
                 )
-                return self._fallback_layout, {}
+                return self._fallback_layout, self._economist_prose_fallback_props(narration)
             return layout, props
 
         if layout not in self._ECONOMIST_DATA_LAYOUTS:
@@ -956,31 +962,20 @@ class TemplateSceneGenerator:
 
         planned_table = planned.get("chartTable") if isinstance(planned, dict) else None
         if not (isinstance(planned_table, dict) and (planned_table.get("rows") or [])):
-            # No real scraped table for this scene. Rather than silently dropping
-            # the chart to prose (which left the Economist tab blank), degrade
-            # gracefully like laduc/chronicle/nightfall: keep whatever chartTable
-            # the scene already carries, else seed the meta.json sample default so
-            # SOMETHING always renders. Only fall back to prose as a last resort.
-            existing = out.get("chartTable")
-            if isinstance(existing, dict) and (existing.get("rows") or []):
-                planned_table = existing
-            else:
-                sample = self._economist_sample_chart_table(layout)
-                if sample is not None:
-                    logger.info(
-                        "[SCENE_GEN] Scene %s: economist '%s' has no scraped table, seeding meta.json sample data",
-                        scene_index,
-                        layout,
-                    )
-                    planned_table = sample
-                else:
-                    logger.info(
-                        "[SCENE_GEN] Scene %s: economist '%s' has no table or sample, falling back to '%s'",
-                        scene_index,
-                        layout,
-                        self._fallback_layout,
-                    )
-                    return self._fallback_layout, {}
+            # No real scraped table is bound to this scene. Data-grounding is
+            # inviolable, so a chart only ever renders from a scraped table
+            # (which always arrives here via `planned`). We deliberately do NOT
+            # trust an LLM-emitted `chartTable` in `out`, nor seed meta.json
+            # sample data — both produced bar/line charts full of fabricated
+            # figures on sources that had no tabular data at all. Fall back to
+            # prose rather than inventing numbers.
+            logger.info(
+                "[SCENE_GEN] Scene %s: economist '%s' has no real scraped table, falling back to '%s' (never fabricating chart data)",
+                scene_index,
+                layout,
+                self._fallback_layout,
+            )
+            return self._fallback_layout, self._economist_prose_fallback_props(narration)
 
         # Bind the chosen data deterministically.
         out["chartTable"] = planned_table
@@ -1147,13 +1142,39 @@ class TemplateSceneGenerator:
             scenes_data[scene_idx]["preferred_layout"] = "terminal_dataviz"
 
     def _validate_props(self, layout: str, props: dict) -> dict:
-        """Validate props against layout schema in meta. If no schema, pass through."""
+        """Validate props against layout schema in meta. If no schema, pass through.
+
+        Also BACKFILLS missing TEXT props the layout defines (in meta `fields`)
+        from the layout's `defaults`, so every scene carries a complete set of
+        caption/label props and none render empty/undefined. Deliberately NOT
+        backfilled: responsive typography sliders (titleFontSize /
+        descriptionFontSize, handled elsewhere) and DATA-BEARING fields
+        (object_array / string_array such as stats, socials, handles, ctas) —
+        those must stay grounded in the source, never filled with example data.
+        """
         layout_meta = (self._meta or {}).get("layout_prop_schema", {}).get(layout, {})
         fields = layout_meta.get("fields", [])
         if not fields:
             return props
         # Build a quick type-lookup from the fields list
         field_types = {f["key"]: f.get("type", "string") for f in fields if isinstance(f, dict) and "key" in f}
+        # Backfill missing scalar text props only (string / text / select / number);
+        # skip responsive sliders and array/collection fields to avoid inventing data.
+        _BACKFILL_TYPES = {"string", "text", "select", "number"}
+        defaults = layout_meta.get("defaults", {}) or {}
+        props = dict(props or {})
+        for f in fields:
+            if not isinstance(f, dict) or "key" not in f:
+                continue
+            key = f["key"]
+            if f.get("responsive"):
+                continue  # font-size sliders are handled elsewhere
+            if f.get("type", "string") not in _BACKFILL_TYPES:
+                continue  # don't fabricate stats / socials / handles / ctas
+            if key in props and props[key] not in (None, ""):
+                continue  # model already provided it
+            if key in defaults and defaults[key] not in (None, ""):
+                props[key] = defaults[key]
         validated = {}
         for key, value in props.items():
             if key not in field_types:

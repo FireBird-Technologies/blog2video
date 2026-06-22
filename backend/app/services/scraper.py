@@ -149,8 +149,9 @@ def scrape_blog(project: Project, db: Session) -> Project:
             "The site may require JavaScript rendering, block scrapers, or the page may be empty."
         )
 
-    # Download images (only from the original blog page — no external sources)
-    _download_images(project.user_id, project.id, image_urls, db)
+    # Download images (only from the original blog page — no external sources).
+    # Pass the blog URL as a Referer so hotlink-protected hosts serve the image.
+    _download_images(project.user_id, project.id, image_urls, db, page_url=url)
 
     # Update project
     project.blog_content = append_tables_to_content(text, extracted_tables)
@@ -1099,8 +1100,47 @@ _IMAGE_HEADERS = {
 }
 
 
+def _fetch_image_with_referer(url: str, page_url: str | None):
+    """GET an image, sending a Referer so hotlink-protected CDNs don't 403.
+
+    Many image hosts (e.g. photos.travellerspoint.com) reject requests that lack
+    a Referer pointing back at the page that embeds them, returning a 403 HTML
+    error page instead of the image. We try the source page first, then the
+    image's own origin, then no Referer — returning the first response that
+    actually looks like an image.
+    """
+    img_origin = None
+    parsed = urlparse(url)
+    if parsed.scheme and parsed.netloc:
+        img_origin = f"{parsed.scheme}://{parsed.netloc}/"
+
+    # Ordered, de-duplicated list of Referer candidates (None = no Referer).
+    referers: list[str | None] = []
+    for ref in (page_url, img_origin, None):
+        if ref not in referers:
+            referers.append(ref)
+
+    last_response = None
+    for ref in referers:
+        headers = dict(_IMAGE_HEADERS)
+        if ref:
+            headers["Referer"] = ref
+        try:
+            response = requests.get(url, headers=headers, timeout=15, stream=True)
+        except Exception:
+            continue
+        last_response = response
+        ctype = (response.headers.get("Content-Type") or "").lower()
+        if response.status_code == 200 and "image" in ctype:
+            return response
+        # Not an image (e.g. 403 HTML hotlink block) — release and try next Referer.
+        response.close()
+    return last_response
+
+
 def _download_single_image(
     url: str, user_id: int, project_id: int, project_media_dir: str,
+    page_url: str | None = None,
 ) -> tuple[str, dict] | None:
     """Download one image, apply size/GIF filters, upload to R2.
 
@@ -1108,7 +1148,10 @@ def _download_single_image(
     Does NO database operations — the caller handles all DB writes.
     """
     try:
-        response = requests.get(url, headers=_IMAGE_HEADERS, timeout=15, stream=True)
+        response = _fetch_image_with_referer(url, page_url)
+        if response is None:
+            print(f"[SCRAPER] Failed to fetch image (no response): {url[:80]}")
+            return None
         response.raise_for_status()
 
         ctype = (response.headers.get("Content-Type") or "").lower()
@@ -1193,8 +1236,15 @@ def _download_single_image(
         return None
 
 
-def _download_images(user_id: int, project_id: int, image_urls: list[str], db: Session) -> list[str]:
-    """Download images concurrently, discard anything too small to be a real blog image."""
+def _download_images(
+    user_id: int, project_id: int, image_urls: list[str], db: Session,
+    page_url: str | None = None,
+) -> list[str]:
+    """Download images concurrently, discard anything too small to be a real blog image.
+
+    `page_url` is the source blog page; it is sent as a Referer so hotlink-protected
+    image hosts serve the image instead of a 403.
+    """
     project_media_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
     os.makedirs(project_media_dir, exist_ok=True)
 
@@ -1203,7 +1253,7 @@ def _download_images(user_id: int, project_id: int, image_urls: list[str], db: S
 
     with ThreadPoolExecutor(max_workers=5) as pool:
         futures = {
-            pool.submit(_download_single_image, url, user_id, project_id, project_media_dir): url
+            pool.submit(_download_single_image, url, user_id, project_id, project_media_dir, page_url): url
             for url in image_urls
         }
         for future in as_completed(futures):

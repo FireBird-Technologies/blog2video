@@ -34,7 +34,6 @@
       "layout": "leader_article",
       "layoutProps": {
         "sectionLabel": "BRIEFING",
-        "byline": "By our finance correspondent",
         "illuminatedLetter": "A"
       },
       "durationSeconds": 8,

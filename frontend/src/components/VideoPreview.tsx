@@ -1204,6 +1204,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           layout,
           effectiveLayoutPropSchema ?? undefined,
           project.aspect_ratio || "landscape",
+          templateId,
         );
       }
 

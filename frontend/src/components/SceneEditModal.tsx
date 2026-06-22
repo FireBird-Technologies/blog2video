@@ -295,8 +295,12 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     mosaic_punch: { title: [200, 130], desc: [34, 22] },
     mosaic_stream: { title: [76, 50], desc: [42, 28] },
     mosaic_metric: { title: [162, 106], desc: [34, 24] },
-    mosaic_phrases: { title: [90, 62], desc: [40, 26] },
+    mosaic_phrases: {  title: [90, 62], desc: [40, 26] },
     mosaic_close: { title: [104, 72], desc: [52, 34] },
+  },
+  stickman_football: {
+    football_data_viz: { title: [72, 64], desc: [38, 30] },
+    football_ticker: { title: [68, 60], desc: [34, 28] },
   },
   custom: {
     // Custom template arrangements (font sizes are approximate)
@@ -1771,6 +1775,132 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     ending_socials: [],
   },
+  /** Stickman Football Match — layout content keys per meta.json. ending_socials uses the dedicated CTA / socials block. */
+  stickman_football: {
+    kickoff_title: [
+      {
+        key: "subline",
+        label: "Subline",
+        type: "string",
+        placeholder: "e.g. Match Day — Highlights",
+      },
+    ],
+    passing_play: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 62%, 14, 3" },
+        ],
+        maxItems: 4,
+      },
+    ],
+    freekick_setup: [
+      {
+        key: "shotLabel",
+        label: "Shot caption",
+        type: "string",
+        placeholder: "e.g. Top corner",
+      },
+      {
+        key: "kickerName",
+        label: "Kicker name",
+        type: "string",
+        placeholder: "e.g. Striker",
+      },
+      {
+        key: "kickerNumber",
+        label: "Kicker number",
+        type: "string",
+        placeholder: "e.g. #9",
+      },
+    ],
+    corner_kick: [
+      {
+        key: "steps",
+        label: "Steps",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label", placeholder: "e.g. Flick on" },
+          { key: "detail", label: "Detail", placeholder: "e.g. Near post" },
+        ],
+        minItems: 3,
+        maxItems: 5,
+      },
+    ],
+    goal_moment: [
+      {
+        key: "goalLabel",
+        label: "Goal stamp",
+        type: "string",
+        placeholder: "e.g. GOAL!",
+      },
+      {
+        key: "scoreline",
+        label: "Scoreline",
+        type: "string",
+        placeholder: "e.g. 2 – 1",
+      },
+      {
+        key: "kickerName",
+        label: "Kicker name",
+        type: "string",
+        placeholder: "e.g. Striker",
+      },
+      {
+        key: "kickerNumber",
+        label: "Kicker number",
+        type: "string",
+        placeholder: "e.g. #9",
+      },
+    ],
+    match_stats: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 62%, 14, 3" },
+        ],
+        maxItems: 5,
+      },
+    ],
+    injury_break: [
+      { key: "leftLabel", label: "Left label", type: "string", placeholder: "e.g. What happened" },
+      { key: "rightLabel", label: "Right label", type: "string", placeholder: "e.g. The outcome" },
+      { key: "leftDescription", label: "Left description", type: "text" },
+      { key: "rightDescription", label: "Right description", type: "text" },
+    ],
+    ball_control: [
+      {
+        key: "skillCaption",
+        label: "Skill caption",
+        type: "string",
+        placeholder: "e.g. First touch",
+      },
+      {
+        key: "stats",
+        label: "Stats (above head)",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 57, 1.2k" },
+        ],
+        maxItems: 3,
+      },
+    ],
+    text_narration: [
+      { key: "eyebrow", label: "Eyebrow", type: "string", placeholder: "e.g. Match Report" },
+      { key: "leftLabel", label: "Left reporter", type: "string", placeholder: "e.g. Pundit One" },
+      { key: "leftDescription", label: "Left report", type: "text", placeholder: "Verdict on the cardboard sign" },
+      { key: "rightLabel", label: "Right reporter", type: "string", placeholder: "e.g. Pundit Two" },
+      { key: "rightDescription", label: "Right report", type: "text", placeholder: "Verdict on the cardboard sign" },
+    ],
+    ending_socials: [],
+  },
   /** LaDuc — overrides for layout IDs shared with other templates */
   laduc: {
     masthead: [
@@ -2859,6 +2989,27 @@ export default function SceneEditModal({
             lpCopy.chartTable = getEconomistChartExampleTable(kind);
           }
         }
+        // Built-in data-viz templates (matrix, stickman_football, …): seed themed
+        // example chart/ticker data when stored tables are empty.
+        if (layoutId && isBuiltinDataVizChartLayout(normalizedTemplateId, layoutId)) {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          if (!chartTableHasData(directChartTable)) {
+            const rawType = String(lpAny.chartType ?? "line").toLowerCase();
+            const kind: "line" | "bar" | "histogram" =
+              rawType === "bar" || rawType === "histogram" ? rawType : "line";
+            const example = builtinDataVizExampleTable(normalizedTemplateId, kind);
+            if (example) lpCopy.chartTable = example;
+          }
+        }
+        if (layoutId && isBuiltinTickerLayout(normalizedTemplateId, layoutId)) {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directTickerTable = normalizeChartTableValue(lpAny.tickerTable);
+          if (!chartTableHasData(directTickerTable)) {
+            const example = builtinTickerExampleTable(normalizedTemplateId);
+            if (example) lpCopy.tickerTable = example;
+          }
+        }
       } catch { /* ignore */ }
     }
     // For custom templates, CTA data lives in ctaProps, not layoutProps
@@ -2879,6 +3030,7 @@ export default function SceneEditModal({
         | Record<string, { defaults?: Record<string, unknown> }>
         | undefined,
       project.aspect_ratio || "landscape",
+      normalizedTemplateId,
     );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {

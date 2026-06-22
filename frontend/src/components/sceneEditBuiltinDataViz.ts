@@ -1,6 +1,6 @@
 /**
  * Shared data-visualization registry for BUILT-IN (bundled, non-`crafted_`)
- * templates — currently matrix / spotlight / chronicle.
+ * templates — currently matrix / spotlight / chronicle / stickman_football.
  *
  * These templates reuse laduc's chart contract (a single `chartTable` +
  * `chartType`, rendered line/bar/histogram by the shared `_shared/chartData`
@@ -321,6 +321,43 @@ const nightfallExample = (kind: ChartKind): ChartTable => {
   };
 };
 
+const stickmanFootballExample = (kind: ChartKind): ChartTable => {
+  if (kind === "bar") {
+    return {
+      headers: ["Team", "Shots", "On Target"],
+      rows: [
+        ["City FC", "18", "9"],
+        ["United", "14", "6"],
+        ["Rovers", "16", "7"],
+        ["Athletic", "13", "5"],
+        ["Wanderers", "11", "4"],
+      ],
+    };
+  }
+  if (kind === "histogram") {
+    return {
+      headers: ["Goals scored", "Matches"],
+      rows: [
+        ["0", "3"],
+        ["1", "8"],
+        ["2", "6"],
+        ["3", "4"],
+        ["4+", "2"],
+      ],
+    };
+  }
+  return {
+    headers: ["Matchday", "Shots", "On Target"],
+    rows: [
+      ["MD 1", "11", "4"],
+      ["MD 2", "14", "6"],
+      ["MD 3", "16", "7"],
+      ["MD 4", "13", "5"],
+      ["MD 5", "18", "9"],
+    ],
+  };
+};
+
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 /**
@@ -368,6 +405,16 @@ const TICKER_EXAMPLE_BY_TEMPLATE: Record<string, () => ChartTable> = {
   }),
   gridcraft: sharedTickerExample,
   stickman_2: sharedTickerExample,
+  stickman_football: () => ({
+    headers: ["Team", "P", "GD", "Pts"],
+    rows: [
+      ["City FC", "28", "+24", "64"],
+      ["United", "28", "+18", "58"],
+      ["Rovers", "28", "+9", "49"],
+      ["Athletic", "28", "-2", "41"],
+      ["Wanderers", "28", "-11", "32"],
+    ],
+  }),
 };
 
 const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
@@ -415,6 +462,12 @@ const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
     tickerLayoutId: "",
     layoutKind: (layoutId: string) => (layoutId === "chart_bar" ? "bar" : undefined),
     exampleTable: economistExample,
+  },
+  stickman_football: {
+    chartLayoutIds: ["football_data_viz"],
+    tickerLayoutId: "football_ticker",
+    layoutKind: () => undefined,
+    exampleTable: stickmanFootballExample,
   },
 };
 
