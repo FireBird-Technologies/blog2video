@@ -6692,5 +6692,6 @@ export default function ProjectView() {
       document.body,
     )}
     </>
-  );
+
+);
 }
