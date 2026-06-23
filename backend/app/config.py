@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_ANNUAL_COUPON_ID: str = ""   # 20% off Standard annual, once-per-customer (out-of-videos offer)
     SURVEY_PROMO_CODE: str = ""  # Shared Stripe promotion code (20% off) revealed on survey completion
 
+    # Post-checkout win-back coupon (abandoned / per-video → email a discount code)
+    COUPON_FOLLOWUP_CODE: str = "SUB25"  # Promo code shown in the win-back email (must exist in Stripe)
+    COUPON_FOLLOWUP_DISCOUNT_PERCENT: int = 25  # Discount % advertised in the email copy
+    COUPON_FOLLOWUP_VALID_HOURS: int = 48  # "valid for the next N hours" messaging in the email
+    # Checkout Session lifetime. On expiry Stripe fires checkout.session.expired,
+    # which drives the abandoned-checkout win-back email. Stripe allows 1800–86400
+    # (30 min – 24 h); values outside that range are clamped before use.
+    STRIPE_CHECKOUT_EXPIRES_SECONDS: int = 86400
+
     # JWT
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
