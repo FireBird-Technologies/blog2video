@@ -310,6 +310,30 @@ export default function CustomTemplates() {
               </span>
             </h2>
             <div className="flex items-center gap-4">
+              {activeTemplatesTab === "custom" && user && (() => {
+                const created = user.custom_templates_created ?? 0;
+                const limit = user.custom_template_limit ?? 1;
+                const pct = limit > 0 ? Math.min(100, Math.round((created / limit) * 100)) : 0;
+                return (
+                  <div
+                    className="hidden sm:flex items-center gap-2.5"
+                    title="Templates created count toward your limit for life — deleting one does not free a slot. Buy more slots to raise your limit."
+                  >
+                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                      <span className="font-semibold text-gray-700 tabular-nums">{created}</span>
+                      <span className="mx-0.5 text-gray-300">/</span>
+                      <span className="tabular-nums">{limit}</span>
+                      <span className="ml-1.5">Created</span>
+                    </span>
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-purple-600 to-purple-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
               {activeTemplatesTab === "custom" && (
                 <button
                   onClick={openCreator}
