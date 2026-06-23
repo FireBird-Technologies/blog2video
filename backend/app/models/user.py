@@ -39,6 +39,10 @@ class User(Base):
 
     email_unsubscribed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
 
+    # Last time we sent a post-checkout win-back coupon email; used to dedup
+    # the abandoned-checkout email when a user spawns several Stripe sessions.
+    last_coupon_email_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     # Lifetime referral counter — never reset on delete/reactivate so the cap cannot be bypassed
     referrals_given: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
