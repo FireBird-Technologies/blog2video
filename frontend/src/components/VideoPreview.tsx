@@ -32,6 +32,7 @@ import {
 import { LogoOverlay } from "./remotion/LogoOverlay";
 import { CtaOverlay } from "./remotion/CtaOverlay";
 import { BackgroundMusic } from "./remotion/BackgroundMusic";
+import { CaptionTrack } from "./remotion/CaptionTrack";
 // Brand exit-flourish between scenes — mirrors the headless render so the
 // "all scenes together" preview shows the SAME transitions the final video has.
 import { pickGeneratedTransition } from "./remotion/generated/generatedTransitions";
@@ -46,6 +47,8 @@ const StableCustomComposition: React.FC<any> = ({
   project,
   numContentVariants,
   resolvedFontFamily,
+  captionsEnabled,
+  captionPosition,
 }) => {
   if (!isCustom || !compiledScenes) return null;
 
@@ -259,6 +262,19 @@ const StableCustomComposition: React.FC<any> = ({
         s.voiceoverUrl ? (
           <Sequence key={`audio-${s.id}`} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
             <Audio src={s.voiceoverUrl} playbackRate={1} />
+            {captionsEnabled && (s.narrationText || s.narration) && (
+              <CaptionTrack
+                text={s.narrationText || s.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={resolvedFontFamily || undefined}
+                speechDurationFrames={
+                  s.speechDurationSeconds
+                    ? getSceneDurationFrames(s.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         ) : null,
       )}
@@ -1213,12 +1229,18 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         order: scene.order,
         title: scene.title,
         narration: onScreenText,
+        narrationText: scene.narration_text || "",
         layout,
         layoutProps,
         ...(layoutConfig ? { layoutConfig } : {}),
         ...(structuredContent ? { structuredContent } : {}),
         ...(ctaProps ? { ctaProps } : {}),
         durationSeconds: (Number(scene.duration_seconds) || 5) + (Number(scene.extra_hold_seconds) || 0),
+        // Spoken-audio window for caption timing: scene.duration_seconds = audio + ~1s pad,
+        // so speech ≈ duration - 1.0s. Only meaningful when a voiceover exists.
+        speechDurationSeconds: scene.voiceover_path
+          ? Math.max(0.5, (Number(scene.duration_seconds) || 5) - 1.0)
+          : 0,
         bgmVolume: scene.bgm_volume ?? null,
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
@@ -1369,6 +1391,12 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     aspectRatio: project.aspect_ratio || "landscape",
     bgmUrl: project.bgm_track_url || null,
     bgmVolume: project.bgm_volume ?? 0.10,
+    // Captions ride on the voiceover — never show them when there's no audio,
+    // even if the stored flag is stale.
+    captionsEnabled:
+      (project.captions_enabled ?? false) &&
+      (project.scenes || []).some((s) => !!s.voiceover_path),
+    captionPosition: project.caption_position ?? "bottom_center",
     ...(resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {}),
     ...(project.custom_theme ? { theme: project.custom_theme } : {}),
   };

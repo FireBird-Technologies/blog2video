@@ -172,6 +172,8 @@ export interface Project {
   bgm_track_id?: string | null;
   bgm_volume?: number;
   bgm_track_url?: string | null;
+  captions_enabled?: boolean;
+  caption_position?: "bottom_center" | "top_center";
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_image_box_aspect_ratios?: {
@@ -980,7 +982,9 @@ export const createProject = (
   content_language?: string | null,
   voice_emotion?: string,
   bgm_track_id?: string | null,
-  bgm_volume?: number
+  bgm_volume?: number,
+  captions_enabled?: boolean,
+  caption_position?: "bottom_center" | "top_center"
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -1002,6 +1006,8 @@ export const createProject = (
     voice_emotion,
     bgm_track_id,
     bgm_volume,
+    captions_enabled,
+    caption_position,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -1023,6 +1029,8 @@ export interface BulkProjectItem {
   custom_voice_id?: string;
   aspect_ratio?: string;
   content_language?: string | null;
+  captions_enabled?: boolean;
+  caption_position?: "bottom_center" | "top_center";
 }
 
 export interface BulkCreateResponse {
@@ -1214,6 +1222,8 @@ export const updateProject = (
     playback_speed?: number;
     bgm_track_id?: string | null;
     bgm_volume?: number;
+    captions_enabled?: boolean;
+    caption_position?: "bottom_center" | "top_center";
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 

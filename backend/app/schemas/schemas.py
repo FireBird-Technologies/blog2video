@@ -5,6 +5,17 @@ from typing import Optional
 MIN_PLAYBACK_SPEED = 0.5
 MAX_PLAYBACK_SPEED = 2.5
 
+VALID_CAPTION_POSITIONS = {"top_center", "bottom_center"}
+
+
+def _normalize_caption_position(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    n = (v or "").strip().lower()
+    if n not in VALID_CAPTION_POSITIONS:
+        raise ValueError("caption_position must be 'top_center' or 'bottom_center'")
+    return n
+
 
 # ─── Project ───────────────────────────────────────────────
 
@@ -31,6 +42,8 @@ class ProjectCreate(BaseModel):
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
     bgm_track_id: Optional[str] = None
     bgm_volume: Optional[float] = 0.10
+    captions_enabled: Optional[bool] = False
+    caption_position: Optional[str] = "bottom_center"  # bottom_center | top_center
 
     @field_validator("bgm_volume")
     @classmethod
@@ -38,6 +51,11 @@ class ProjectCreate(BaseModel):
         if v is None:
             return 0.10
         return round(max(0.0, min(1.0, float(v))), 2)
+
+    @field_validator("caption_position")
+    @classmethod
+    def validate_create_caption_position(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_caption_position(v)
 
     @field_validator("playback_speed")
     @classmethod
@@ -61,6 +79,8 @@ class ProjectUpdate(BaseModel):
     playback_speed: Optional[float] = None
     bgm_track_id: Optional[str] = None
     bgm_volume: Optional[float] = None
+    captions_enabled: Optional[bool] = None
+    caption_position: Optional[str] = None
 
     @field_validator("bgm_volume")
     @classmethod
@@ -68,6 +88,11 @@ class ProjectUpdate(BaseModel):
         if v is None:
             return None
         return round(max(0.0, min(1.0, float(v))), 2)
+
+    @field_validator("caption_position")
+    @classmethod
+    def validate_update_caption_position(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_caption_position(v)
 
     @field_validator("aspect_ratio")
     @classmethod
@@ -316,6 +341,8 @@ class ProjectOut(BaseModel):
     bgm_track_id: Optional[str] = None
     bgm_volume: float = 0.10
     bgm_track_url: Optional[str] = None
+    captions_enabled: bool = False
+    caption_position: str = "bottom_center"
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
@@ -372,6 +399,13 @@ class BulkProjectItem(BaseModel):
     voice_emotion: Optional[str] = None
     bgm_track_id: Optional[str] = None
     bgm_volume: Optional[float] = 0.10
+    captions_enabled: Optional[bool] = False
+    caption_position: Optional[str] = "bottom_center"
+
+    @field_validator("caption_position")
+    @classmethod
+    def validate_bulk_caption_position(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_caption_position(v)
 
     @field_validator("playback_speed")
     @classmethod
