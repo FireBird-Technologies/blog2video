@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import ReferralPanel from "../components/ReferralPanel";
+// Share B2V (referral) disabled
+// import ReferralPanel from "../components/ReferralPanel";
 import SurveyForm from "../components/SurveyForm";
 
 export default function InviteOthers() {
@@ -17,15 +18,16 @@ export default function InviteOthers() {
           </svg>
           Back to Dashboard
         </button>
-        <h1 className="text-2xl font-semibold text-gray-900">Survey & Referrals</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Survey</h1>
         <p className="text-sm text-gray-400 mt-1">
-          Share your feedback and invite friends to earn discounts and bonus videos.
+          Share your feedback to help us improve.
         </p>
       </div>
 
       <SurveyForm />
 
-      <ReferralPanel />
+      {/* Share B2V (referral) disabled */}
+      {/* <ReferralPanel /> */}
     </div>
   );
 }
