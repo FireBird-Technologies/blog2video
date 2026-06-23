@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $28/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
     CUSTOM_TEMPLATE_PRICE_ID: str = ""  # Price ID for $5 one-time custom-template slot
+    STANDARD_PLAN_LIFETIME_DEAL: str = ""  # Price ID for $1000 one-time Standard lifetime
+    PRO_PLAN_LIFETIME_DEAL: str = ""       # Price ID for $1600 one-time Pro lifetime
+    LIFETIME_DEAL_500: str = ""            # Price ID for $300 one-time 500-video credit pack (never expires)
     STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
     STRIPE_3VID_MONTHLY_COUPON_ID: str = ""  # Legacy out-of-videos monthly coupon (kept in env, no longer used)
     STRIPE_3VID_ANNUAL_COUPON_ID: str = ""   # Legacy out-of-videos annual coupon (kept in env, no longer used)

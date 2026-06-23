@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import String, Enum, DateTime, Integer, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 from app.database import Base
@@ -87,6 +87,61 @@ class User(Base):
     @property
     def can_create_video(self) -> bool:
         return self.videos_used_this_period < self.video_limit
+
+    def roll_video_period_if_due(self, db: Session) -> bool:
+        """Lazily reset the monthly video counter when Stripe won't.
+
+        The monthly video allotment (30 Standard / 100 Pro) is reset by Stripe's
+        ``invoice.paid`` webhook each billing period. That works for MONTHLY
+        subscribers, but two cases never get a monthly Stripe invoice and would
+        otherwise be stuck once they hit the cap:
+
+          • **Lifetime** buyers — one-time payment, no recurring subscription, so
+            Stripe never re-invoices them at all.
+          • **Annual** subscribers — Stripe issues ``invoice.paid`` only once a
+            YEAR, so the allotment would reset annually instead of monthly.
+
+        This opportunistic check (called at limit read/gate points) resets the
+        counter once 30 days have elapsed since ``period_start`` for exactly those
+        two cases. Monthly subscribers are left untouched so their Stripe-driven
+        reset is never double-handled. Returns True if a reset occurred.
+        """
+        if self.plan not in (PlanTier.STANDARD, PlanTier.PRO):
+            return False
+        if not self.period_start:
+            return False
+        # Cheap time gate first — a reset is only ever due once ~30 days pass.
+        if datetime.utcnow() - self.period_start < timedelta(days=30):
+            return False
+
+        # A recurring subscriber only needs the lazy reset if they're ANNUAL
+        # (monthly subscribers reset via Stripe's monthly invoice). Lifetime
+        # buyers have no stripe_subscription_id and always need it.
+        if self.stripe_subscription_id:
+            from app.models.subscription import (
+                Subscription,
+                SubscriptionStatus,
+                BillingInterval,
+            )
+
+            sub = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.stripe_subscription_id == self.stripe_subscription_id,
+                    Subscription.status == SubscriptionStatus.ACTIVE,
+                )
+                .first()
+            )
+            is_annual = bool(
+                sub and sub.plan and sub.plan.billing_interval == BillingInterval.ANNUAL
+            )
+            if not is_annual:
+                return False
+
+        self.videos_used_this_period = 0
+        self.period_start = datetime.utcnow()
+        db.commit()
+        return True
 
     @property
     def custom_template_limit(self) -> int:
