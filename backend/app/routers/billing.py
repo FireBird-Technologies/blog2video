@@ -1625,7 +1625,7 @@ def _handle_checkout_expired(session: dict, db: Session):
     """
     metadata = session.get("metadata", {})
     user_id = metadata.get("user_id")
-    recovery_url = (session.get("after_expiration") or {}).get("recovery", {}).get("url")
+    recovery_url = ((session.get("after_expiration") or {}).get("recovery") or {}).get("url")
     if not user_id:
         logger.info("[COUPON] expired session %s has no user_id metadata — skipping", session.get("id"))
         return
