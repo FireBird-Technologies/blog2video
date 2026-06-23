@@ -65,7 +65,10 @@ class Settings(BaseSettings):
     COUPON_FOLLOWUP_CODE: str = "SUB25"  # Promo code shown in the win-back email (must exist in Stripe)
     COUPON_FOLLOWUP_DISCOUNT_PERCENT: int = 25  # Discount % advertised in the email copy
     COUPON_FOLLOWUP_VALID_HOURS: int = 48  # "valid for the next N hours" messaging in the email
-    COUPON_FOLLOWUP_DELAY_SECONDS: int = 600  # How long after checkout to run the send/skip check
+    # Checkout Session lifetime. On expiry Stripe fires checkout.session.expired,
+    # which drives the abandoned-checkout win-back email. Stripe allows 1800–86400
+    # (30 min – 24 h); values outside that range are clamped before use.
+    STRIPE_CHECKOUT_EXPIRES_SECONDS: int = 86400
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"

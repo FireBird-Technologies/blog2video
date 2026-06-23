@@ -401,20 +401,26 @@ class EmailService:
         intro_text: str,
         coupon_code: str,
         valid_hours: int,
+        recovery_url: Optional[str] = None,
     ) -> None:
         """
         Shared sender for the two win-back coupon emails (abandoned / per-video).
         Plain, left-aligned email — no card, coloured header, code chip or bold
-        styling — just a clickable "Choose a plan" link and an Unsubscribe link.
+        styling — just a clickable CTA link and an Unsubscribe link.
+
+        If `recovery_url` is given (Stripe abandoned-cart recovery link), the CTA
+        resumes the original checkout; otherwise it falls back to the pricing page.
         """
         pricing_url = f"{getattr(settings, 'FRONTEND_URL', 'https://blog2video.app').rstrip('/')}/pricing"
+        cta_url = recovery_url or pricing_url
+        cta_label = "Complete your checkout" if recovery_url else "Choose a plan"
         unsubscribe_url = self._make_unsubscribe_url(user_email)
         text = (
             f"{intro_text}\n\n"
             f"Apply this code at checkout:\n\n"
             f"    {coupon_code}\n\n"
             f"Hurry — this code is only valid for the next {valid_hours} hours.\n\n"
-            f"Choose a plan: {pricing_url}\n\n"
+            f"{cta_label}: {cta_url}\n\n"
             f"— The Blog2Video Team\n\n"
             f"---\n"
             f"To unsubscribe from these emails, visit: {unsubscribe_url}\n"
@@ -423,7 +429,7 @@ class EmailService:
             "Apply this code at checkout:",
             coupon_code,
             f"Hurry — this code is only valid for the next {valid_hours} hours.",
-            f'<a href="{pricing_url}" style="color:#9333EA;">Choose a plan</a>',
+            f'<a href="{cta_url}" style="color:#9333EA;">{cta_label}</a>',
             "— The Blog2Video Team",
         ]
         body_html = "".join(
@@ -452,10 +458,12 @@ class EmailService:
         coupon_code: str = "SUB25",
         discount_percent: int = 25,
         valid_hours: int = 48,
+        recovery_url: Optional[str] = None,
     ) -> None:
         """
         Win-back email for a user who reached checkout but bought nothing.
-        Sent ~10 min after checkout if they did not subscribe.
+        Triggered by Stripe's checkout.session.expired webhook; `recovery_url` is
+        the Stripe abandoned-cart recovery link that resumes the original checkout.
         """
         first_name = user_name.split()[0] if user_name else "there"
         self._send_coupon_email(
@@ -469,6 +477,7 @@ class EmailService:
             ),
             coupon_code=coupon_code,
             valid_hours=valid_hours,
+            recovery_url=recovery_url,
         )
 
     def send_per_video_upsell_coupon_email(

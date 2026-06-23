@@ -2,7 +2,7 @@
 Stripe billing router: checkout sessions, customer portal, webhooks.
 Supports both Pro subscription ($60/mo) and per-video purchase ($3).
 """
-import threading
+import time
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 import stripe
 
 from app.config import settings
-from app.database import get_db, SessionLocal
+from app.database import get_db
 from app.auth import get_current_user
 from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS
 from app.models.project import Project
@@ -34,86 +34,26 @@ MAX_RETENTION_OFFER_SHOWS = 2
 
 
 # ─── Post-checkout win-back coupon ────────────────────────
-# ~10 min after a user reaches checkout, email them a discount code unless they
-# ended up on a paid subscription. Per-video buyers stay on the free plan, so a
-# single `plan in (PRO, STANDARD)` check covers the whole rule. The timer lives
-# on the backend (the SPA unloads when redirecting to Stripe); the frontend
-# decides via localStorage whether to schedule it at all (suppresses same-day
-# repeats). Deliberately in-memory/temporary — a process restart drops pending
-# timers, which is acceptable for a win-back nudge.
-_pending_coupon_users: set[int] = set()  # in-window safety net against double-clicks
-_pending_coupon_lock = threading.Lock()
+# Abandonment is detected by Stripe's checkout.session.expired webhook (see
+# _handle_checkout_expired). Every Checkout Session is created with a bounded
+# lifetime and after_expiration.recovery enabled, so an uncompleted session
+# expires and triggers a win-back email carrying a resume-cart recovery URL.
+# The per-video upsell email is sent on actual purchase (_handle_checkout_completed).
+
+# Stripe requires Checkout Session expiry between 30 min and 24 h.
+_CHECKOUT_EXPIRES_MIN = 1800
+_CHECKOUT_EXPIRES_MAX = 86400
 
 
-def _schedule_coupon_followup(user_id: int) -> None:
-    # Checkout endpoints are sync (run in a threadpool worker), so there is no
-    # running event loop here — use a one-shot daemon Timer instead of asyncio.
-    with _pending_coupon_lock:
-        if user_id in _pending_coupon_users:
-            return
-        _pending_coupon_users.add(user_id)
-    delay = settings.COUPON_FOLLOWUP_DELAY_SECONDS
-    # Capture when the visit started, to scope per-video detection to this checkout.
-    timer = threading.Timer(
-        delay,
-        _send_coupon_if_not_subscribed,
-        args=(user_id, datetime.utcnow()),
-    )
-    timer.daemon = True
-    timer.start()
-    logger.info(
-        "[COUPON] timer STARTED for user %s — will check in %ss", user_id, delay,
-    )
+def _checkout_after_expiration(*, allow_promotion_codes: bool) -> dict:
+    """after_expiration block enabling Stripe's abandoned-cart recovery URL."""
+    return {"recovery": {"enabled": True, "allow_promotion_codes": allow_promotion_codes}}
 
 
-def _send_coupon_if_not_subscribed(user_id: int, scheduled_at: datetime) -> None:
-    logger.info("[COUPON] timer FIRED for user %s (scheduled at %s)", user_id, scheduled_at)
-    outcome = "unknown"
-    try:
-        db = SessionLocal()
-        try:
-            user = db.query(User).filter(User.id == user_id).first()
-            if not user or not user.email or user.email_unsubscribed:
-                outcome = "skipped (no user / no email / unsubscribed)"
-                return
-            if user.plan in (PlanTier.PRO, PlanTier.STANDARD):
-                outcome = f"skipped (subscribed: {user.plan.value})"
-                return  # converted to a paid subscription → no email
-
-            # Did a per-video purchase land during this checkout visit?
-            bought_single = (
-                db.query(Subscription)
-                .join(SubscriptionPlan, Subscription.plan_id == SubscriptionPlan.id)
-                .filter(
-                    Subscription.user_id == user_id,
-                    SubscriptionPlan.slug == "per_video",
-                    Subscription.status == SubscriptionStatus.COMPLETED,
-                    Subscription.created_at >= scheduled_at,
-                )
-                .first()
-                is not None
-            )
-            coupon_kwargs = dict(
-                user_email=user.email,
-                user_name=user.name or "",
-                coupon_code=settings.COUPON_FOLLOWUP_CODE,
-                discount_percent=settings.COUPON_FOLLOWUP_DISCOUNT_PERCENT,
-                valid_hours=settings.COUPON_FOLLOWUP_VALID_HOURS,
-            )
-            if bought_single:
-                email_service.send_per_video_upsell_coupon_email(**coupon_kwargs)
-                outcome = f"sent per-video upsell email to {user.email}"
-            else:
-                email_service.send_abandoned_checkout_coupon_email(**coupon_kwargs)
-                outcome = f"sent abandoned-checkout email to {user.email}"
-        finally:
-            db.close()
-    except Exception as exc:
-        outcome = f"FAILED: {exc}"
-        logger.error("[COUPON] follow-up failed for user %s: %s", user_id, exc)
-    finally:
-        _pending_coupon_users.discard(user_id)
-        logger.info("[COUPON] timer ENDED for user %s — %s", user_id, outcome)
+def _checkout_expires_at() -> int:
+    """Absolute expiry timestamp for a new session, clamped to Stripe's valid range."""
+    secs = max(_CHECKOUT_EXPIRES_MIN, min(settings.STRIPE_CHECKOUT_EXPIRES_SECONDS, _CHECKOUT_EXPIRES_MAX))
+    return int(time.time()) + secs
 
 
 class CheckoutResponse(BaseModel):
@@ -367,10 +307,14 @@ def create_checkout_session(
     else:
         session_kwargs["allow_promotion_codes"] = True
 
-    session = stripe.checkout.Session.create(**session_kwargs)
+    # Bounded lifetime + recovery so an uncompleted session fires
+    # checkout.session.expired and yields a resume-cart recovery URL.
+    session_kwargs["expires_at"] = _checkout_expires_at()
+    session_kwargs["after_expiration"] = _checkout_after_expiration(
+        allow_promotion_codes=discounts is None
+    )
 
-    if body.schedule_coupon_followup:
-        _schedule_coupon_followup(user.id)
+    session = stripe.checkout.Session.create(**session_kwargs)
 
     return CheckoutResponse(checkout_url=session.url)
 
@@ -453,10 +397,11 @@ def create_per_video_checkout(
         success_url=success_url,
         cancel_url=cancel_url,
         metadata=meta,
+        # Bounded lifetime + recovery so an uncompleted session fires
+        # checkout.session.expired and yields a resume-cart recovery URL.
+        expires_at=_checkout_expires_at(),
+        after_expiration=_checkout_after_expiration(allow_promotion_codes=True),
     )
-
-    if body.schedule_coupon_followup:
-        _schedule_coupon_followup(user.id)
 
     return CheckoutResponse(checkout_url=session.url)
 
@@ -1490,6 +1435,8 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
     if event_type == "checkout.session.completed":
         _handle_checkout_completed(data, db)
+    elif event_type == "checkout.session.expired":
+        _handle_checkout_expired(data, db)
     elif event_type == "customer.subscription.updated":
         _handle_subscription_updated(data, db)
     elif event_type == "customer.subscription.deleted":
@@ -1513,6 +1460,69 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
 
 # ─── Webhook handlers ─────────────────────────────────────
+
+def _send_winback_coupon(db: Session, user: User, *, abandoned: bool, recovery_url: str | None = None) -> str:
+    """
+    Send a post-checkout win-back coupon to `user`, applying the shared eligibility
+    + dedup rules, and stamp `last_coupon_email_at`. Returns a short outcome string.
+
+    abandoned=True  → abandoned-checkout email (session expired, nothing bought).
+    abandoned=False → per-video upsell email (bought a single video).
+    """
+    if not user or not user.email or user.email_unsubscribed:
+        return "skipped (no user / no email / unsubscribed)"
+    if user.plan in (PlanTier.PRO, PlanTier.STANDARD):
+        return f"skipped (subscribed: {user.plan.value})"
+
+    # Throttle: one user can spawn several checkout sessions (each can expire), and
+    # Stripe redelivers webhooks. Allow repeat win-backs over time, but at most one
+    # per rolling 24h so the user isn't emailed multiple times the same day.
+    last = getattr(user, "last_coupon_email_at", None)
+    if last and datetime.utcnow() - last < timedelta(hours=24):
+        return f"skipped (coupon already sent at {last})"
+
+    coupon_kwargs = dict(
+        user_email=user.email,
+        user_name=user.name or "",
+        coupon_code=settings.COUPON_FOLLOWUP_CODE,
+        discount_percent=settings.COUPON_FOLLOWUP_DISCOUNT_PERCENT,
+        valid_hours=settings.COUPON_FOLLOWUP_VALID_HOURS,
+    )
+    if abandoned:
+        email_service.send_abandoned_checkout_coupon_email(recovery_url=recovery_url, **coupon_kwargs)
+        outcome = f"sent abandoned-checkout email to {user.email}"
+    else:
+        email_service.send_per_video_upsell_coupon_email(**coupon_kwargs)
+        outcome = f"sent per-video upsell email to {user.email}"
+
+    user.last_coupon_email_at = datetime.utcnow()
+    db.commit()
+    return outcome
+
+
+def _handle_checkout_expired(session: dict, db: Session):
+    """
+    Stripe's official abandoned-checkout signal: a Checkout Session reached its
+    expires_at without completing. Email a win-back coupon carrying the Stripe
+    recovery URL (resumes the original cart), unless the user already converted,
+    unsubscribed, or was emailed within the validity window.
+    """
+    metadata = session.get("metadata", {})
+    user_id = metadata.get("user_id")
+    recovery_url = (session.get("after_expiration") or {}).get("recovery", {}).get("url")
+    if not user_id:
+        logger.info("[COUPON] expired session %s has no user_id metadata — skipping", session.get("id"))
+        return
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    try:
+        outcome = _send_winback_coupon(db, user, abandoned=True, recovery_url=recovery_url)
+    except Exception as exc:
+        db.rollback()
+        logger.error("[COUPON] abandoned-checkout email failed for user %s: %s", user_id, exc, exc_info=True)
+        return
+    logger.info("[COUPON] checkout.session.expired user=%s — %s", user_id, outcome)
+
 
 def _handle_checkout_completed(session: dict, db: Session):
     customer_id = session.get("customer")
@@ -1607,6 +1617,17 @@ def _handle_checkout_completed(session: dict, db: Session):
                     user.video_limit_bonus,
                     extra={"user_id": int(user_id), "qty": qty},
                 )
+
+        # Nudge single-video buyers toward a subscription. Best-effort — a failed
+        # upsell email must never fail the purchase webhook.
+        if user_id:
+            try:
+                buyer = db.query(User).filter(User.id == int(user_id)).first()
+                outcome = _send_winback_coupon(db, buyer, abandoned=False)
+                logger.info("[COUPON] per-video upsell user=%s — %s", user_id, outcome)
+            except Exception as exc:
+                db.rollback()
+                logger.error("[COUPON] per-video upsell email failed for user %s: %s", user_id, exc, exc_info=True)
     else:
         # ── Pro or Standard subscription checkout ───────────────────────────
         subscription_id = session.get("subscription")
