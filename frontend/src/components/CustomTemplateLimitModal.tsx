@@ -232,8 +232,9 @@ export default function CustomTemplateLimitModal({
             >
               Maybe later
             </button>
+            {/* Share B2V disabled
             <a
-              href="/invite-others"
+              href="/survey"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700 hover:bg-purple-100 hover:border-purple-400 transition-all"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -241,7 +242,7 @@ export default function CustomTemplateLimitModal({
                 <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
               </svg>
               Share B2V to get 5 videos free
-            </a>
+            </a> */}
           </div>
         </div>
       </div>
