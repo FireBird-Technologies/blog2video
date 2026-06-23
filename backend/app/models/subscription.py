@@ -177,6 +177,19 @@ SEED_PLANS = [
         "sort_order": 1,
     },
     {
+        "slug": "custom_template",
+        "name": "Custom Template Slot",
+        "description": "One extra custom-template slot — one-time $5",
+        "price_cents": 500,
+        "billing_interval": BillingInterval.ONE_TIME,
+        "video_limit": 0,
+        "includes_studio": False,
+        "includes_chat_editor": False,
+        "includes_priority_support": False,
+        "stripe_price_id": None,  # Set from CUSTOM_TEMPLATE_PRICE_ID
+        "sort_order": 6,
+    },
+    {
         "slug": "standard_monthly",
         "name": "Standard Monthly",
         "description": "30 videos/month with all features",
@@ -228,6 +241,32 @@ SEED_PLANS = [
         "stripe_price_id": None,  # Set from STRIPE_PRO_ANNUAL_PRICE_ID if added
         "sort_order": 5,
     },
+    {
+        "slug": "standard_lifetime",
+        "name": "Standard Lifetime",
+        "description": "30 videos/month, forever — one-time $1000",
+        "price_cents": 100000,  # $1000 one-time
+        "billing_interval": BillingInterval.ONE_TIME,
+        "video_limit": 30,
+        "includes_studio": True,
+        "includes_chat_editor": True,
+        "includes_priority_support": True,
+        "stripe_price_id": None,  # Set from STANDARD_PLAN_LIFETIME_DEAL
+        "sort_order": 7,
+    },
+    {
+        "slug": "pro_lifetime",
+        "name": "Pro Lifetime",
+        "description": "100 videos/month, forever — one-time $1600",
+        "price_cents": 160000,  # $1600 one-time
+        "billing_interval": BillingInterval.ONE_TIME,
+        "video_limit": 100,
+        "includes_studio": True,
+        "includes_chat_editor": True,
+        "includes_priority_support": True,
+        "stripe_price_id": None,  # Set from PRO_PLAN_LIFETIME_DEAL
+        "sort_order": 8,
+    },
 ]
 
 
@@ -250,10 +289,13 @@ def seed_plans(db_session) -> None:
     # Map config price IDs to plan slugs (only use real Stripe IDs)
     _stripe_ids = {
         "per_video": settings.STRIPE_PER_VIDEO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PER_VIDEO_PRICE_ID) else None,
+        "custom_template": settings.CUSTOM_TEMPLATE_PRICE_ID if _is_real_stripe_id(getattr(settings, "CUSTOM_TEMPLATE_PRICE_ID", "")) else None,
         "standard_monthly": settings.STRIPE_STANDARD_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_STANDARD_PRICE_ID", "")) else None,
         "standard_annual": settings.STRIPE_STANDARD_ANNUAL_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_STANDARD_ANNUAL_PRICE_ID", "")) else None,
         "pro_monthly": settings.STRIPE_PRO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PRO_PRICE_ID) else None,
         "pro_annual": settings.STRIPE_PRO_ANNUAL_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_PRO_ANNUAL_PRICE_ID", "")) else None,
+        "standard_lifetime": settings.STANDARD_PLAN_LIFETIME_DEAL if _is_real_stripe_id(getattr(settings, "STANDARD_PLAN_LIFETIME_DEAL", "")) else None,
+        "pro_lifetime": settings.PRO_PLAN_LIFETIME_DEAL if _is_real_stripe_id(getattr(settings, "PRO_PLAN_LIFETIME_DEAL", "")) else None,
     }
 
     for seed in SEED_PLANS:

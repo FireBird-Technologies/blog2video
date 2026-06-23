@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Used only for Template Studio **template creation** (plan, normalize, layout
     # TSX, prompt.md). Other features keep using ANTHROPIC_API_KEY above.
     TEMPLATE_CREATION_ANTHROPIC_API_KEY: str = ""
+    # Custom-template AI generation (Remotion codegen + theme extraction). Falls
+    # back to ANTHROPIC_API_KEY when empty. Lets custom templates bill / rate-limit
+    # separately from the rest of the app.
+    CUSTOM_ANTHROPIC_API_KEY: str = ""
     ELEVENLABS_API_KEY: str = ""
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
     EXA_API_KEY: str = ""
@@ -54,6 +58,10 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $35/mo Standard plan (30 videos)
     STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $28/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
+    CUSTOM_TEMPLATE_PRICE_ID: str = ""  # Price ID for $5 one-time custom-template slot
+    STANDARD_PLAN_LIFETIME_DEAL: str = ""  # Price ID for $1000 one-time Standard lifetime
+    PRO_PLAN_LIFETIME_DEAL: str = ""       # Price ID for $1600 one-time Pro lifetime
+    LIFETIME_DEAL_500: str = ""            # Price ID for $300 one-time 500-video credit pack (never expires)
     STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
     STRIPE_3VID_MONTHLY_COUPON_ID: str = ""  # Legacy out-of-videos monthly coupon (kept in env, no longer used)
     STRIPE_3VID_ANNUAL_COUPON_ID: str = ""   # Legacy out-of-videos annual coupon (kept in env, no longer used)

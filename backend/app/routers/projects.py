@@ -773,6 +773,7 @@ def create_project(
     db: Session = Depends(get_db),
 ):
     """Create a new project from a blog URL. Counts against video limit."""
+    user.roll_video_period_if_due(db)
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -898,6 +899,7 @@ async def change_project_template_regenerate_layouts(
     db: Session = Depends(get_db),
 ):
     project = _get_user_project(project_id, user.id, db)
+    user.roll_video_period_if_due(db)
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -2230,6 +2232,7 @@ async def regenerate_script(
     if active_job:
         raise HTTPException(status_code=409, detail="A script regeneration job is already running for this project.")
 
+    user.roll_video_period_if_due(db)
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -2640,6 +2643,7 @@ def create_project_from_upload(
     db: Session = Depends(get_db),
 ):
     """Create a new project from uploaded documents (PDF, DOCX, PPTX, MD, TXT). Counts against video limit."""
+    user.roll_video_period_if_due(db)
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
@@ -4068,12 +4072,15 @@ async def regenerate_scene(
     has_description = bool(description and description.strip())
     needs_layout_regen = not keep_layout or has_description
 
-    # Detect variant switch for custom templates (intro/content_N/outro)
+    # Detect variant switch for custom templates (intro/content_N/outro/data-viz)
     # Pure variant switches skip the AI call entirely — instant layout change.
     is_variant_switch = False
     if is_custom_template(project.template) and normalized_layout:
         import re as _re
-        if normalized_layout in ("intro", "outro") or _re.match(r"content_\d+$", normalized_layout):
+        if (
+            normalized_layout in ("intro", "outro", "custom_chart", "custom_table")
+            or _re.match(r"content_\d+$", normalized_layout)
+        ):
             is_variant_switch = True
 
     if is_variant_switch and not has_description:
@@ -4085,6 +4092,29 @@ async def regenerate_scene(
         elif normalized_layout == "outro":
             descriptor["sceneTypeOverride"] = "outro"
             descriptor.pop("contentVariantIndex", None)
+        elif normalized_layout in ("custom_chart", "custom_table"):
+            # Convert the scene into a dedicated data-viz scene. The renderer routes
+            # by sceneType (see GeneratedVideo.getSceneComponent), so the override
+            # must carry the dataviz_* type. Seed a chartTable when none exists so it
+            # never renders blank.
+            descriptor["sceneTypeOverride"] = (
+                "dataviz_chart" if normalized_layout == "custom_chart" else "dataviz_table"
+            )
+            descriptor.pop("contentVariantIndex", None)
+            from app.routers.pipeline import _CUSTOM_DATAVIZ_SEED
+            lp = descriptor.get("layoutProps") if isinstance(descriptor.get("layoutProps"), dict) else {}
+            existing_table = lp.get("chartTable")
+            has_data = (
+                isinstance(existing_table, dict)
+                and isinstance(existing_table.get("rows"), list)
+                and len(existing_table["rows"]) > 0
+            )
+            if not has_data:
+                lp = dict(lp)
+                lp["chartTable"] = _CUSTOM_DATAVIZ_SEED
+                if normalized_layout == "custom_chart":
+                    lp.setdefault("chartType", "line")
+                descriptor["layoutProps"] = lp
         else:
             # content_N → extract N
             variant_idx = int(normalized_layout.split("_")[1])
@@ -4667,6 +4697,7 @@ async def change_project_voice(
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    user_row.roll_video_period_if_due(db)
     user_row.sync_video_limit_bonus(db)
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
