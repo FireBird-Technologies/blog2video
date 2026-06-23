@@ -17,6 +17,174 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "blog2video-going-to-the-moon-june-2026",
+    title: "Blog2Video Is Going to the Moon: Stickman Football, Rebuilt Templates, Background Music, and More",
+    description:
+      "Blog2Video's latest release ships Stickman Football for the World Cup, refurbished templates across the library, built-in background music, an upgraded Custom Template Generator, and limited lifetime access — while daily usage doubles every month.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-going-to-the-moon-june-2026.png",
+    heroImageAlt:
+      "Blog2Video going to the moon product update showing Stickman Football template, rebuilt library templates, background music controls, and the Custom Template Generator.",
+    publishedAt: "2026-06-23",
+    readTime: "6 min read",
+    heroEyebrow: "Product Update — June 2026",
+    heroTitle: "Blog2Video is going to the moon.",
+    heroDescription:
+      "We started with a simple idea: content in, video out. Today thousands of creators use Blog2Video every day — and this release adds Stickman Football, refurbished templates, background music, a stronger Custom Template Generator, and lifetime access for teams that want to buy once.",
+    primaryKeyword: "blog2video product update",
+    keywordVariant: "blog2video june 2026 updates",
+    relatedPaths: [
+      "/blog-to-video",
+      "/templates",
+      "/custom-branded-video-templates",
+      "/pricing",
+      "/blogs/blog2video-just-shipped-june-2026",
+    ],
+    sections: [
+      {
+        heading: "2,000 creators daily — and we're doubling every month",
+        paragraphs: [
+          "Blog2Video started as a shortcut from text to video. The numbers now tell a different story: 2,000 creators using the product every day, 2,500 videos created daily, 300,000 scenes rendered, and 4,000 edits in the studio.",
+          "This isn't a plateau. It's a launch trajectory — and we're doubling every month.",
+          "Every feature in this release was shaped by that growth: more visual range for sports and brand storytelling, less manual polish between draft and publish, and pricing that fits how serious creators actually want to pay.",
+        ],
+      },
+      {
+        heading: "Stickman Football — built for the World Cup",
+        paragraphs: [
+          "We're shipping a brand-new Stickman Football template, just in time for the World Cup.",
+          "Hand-drawn energy. A goal celebration. A dedicated stickman_football base built for sports storytelling — not a whiteboard remix. Animated stickman players dribble, pass, and score across a match-day pitch while chalkboard-style charts, match-stat cards, and league tickers carry the numbers.",
+          "Drop in your link, pick the template, and you're match-ready.",
+        ],
+        bullets: [
+          "Layouts for kickoff titles, passing plays, goal moments, match stats, and football data viz",
+          "Hand-drawn match-day motion — no stock footage or presenters required",
+          "Built for sports recaps, tactical breakdowns, and fan explainers",
+        ],
+        component: "preview-stickman-football",
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Stickman Football",
+      },
+      {
+        heading: "Every template, rebuilt",
+        paragraphs: [
+          "We didn't just add one new look. We refurbished every template you already love.",
+          "Smoother animations. New scenes. Sharper motion. Nightfall, Spotlight, Matrix, Gridcraft, Chronicle, Blackswan — all better than ever. Same templates you know. A noticeably better result.",
+          "If you've been using Blog2Video for a while, regenerate a recent project in any of those templates and compare. The difference is immediate.",
+        ],
+        bullets: [
+          "Smoother animations and sharper motion across the built-in library",
+          "New scene types and layout refinements in every major template",
+          "No workflow change — pick the template you already use and get a better render",
+        ],
+        ctaPath: "/templates",
+        ctaLabel: "Browse templates",
+      },
+      {
+        heading: "Background music, built in",
+        paragraphs: [
+          "Your videos deserve a soundtrack.",
+          "Blog2Video now includes background music built right into the workflow. Pick a vibe, and it auto-ducks under your voice so narration stays clear. Set a project default, then fine-tune volume per scene when a moment needs more or less energy.",
+          "No extra tools. No manual mixing. One click.",
+        ],
+        bullets: [
+          "Built-in music library inside the creation workflow",
+          "Automatic ducking so voiceover stays clear",
+          "Per-scene volume control when you want more precision",
+        ],
+      },
+      {
+        heading: "Custom Template Generator — describe it, get a studio-grade template",
+        paragraphs: [
+          "Describe what you want. Get a studio-grade template back.",
+          "Our upgraded Custom Template Generator delivers higher quality output, more variety on every run, and brand-aware motion and layout. Type a prompt like \"A bold neon template for a crypto market recap\" and watch fresh variations generate in seconds.",
+          "Less template fatigue. More \"that looks like my brand.\"",
+        ],
+        bullets: [
+          "Higher quality output with more variation on every generation",
+          "Brand-aware motion, layout, and typography from a text prompt",
+          "Fresh variations in seconds — iterate until the look matches your voice",
+        ],
+        ctaPath: "/help/how-to-create-a-custom-template",
+        ctaLabel: "Create a custom template",
+      },
+      {
+        heading: "Lifetime deals — we heard you",
+        paragraphs: [
+          "Not everyone wants a monthly subscription. We get it.",
+          "For a limited time, a small number of users can purchase lifetime access instead of paying month after month. No price games — just a straight answer to a real request: \"Let me buy once and keep creating.\"",
+          "If that's you, head to blog2video.app and look for lifetime access while seats last.",
+        ],
+        ctaPath: "/pricing",
+        ctaLabel: "See pricing and lifetime access",
+      },
+      {
+        heading: "To infinity — and try it now",
+        paragraphs: [
+          "Blog2Video is becoming something bigger: a platform where creators, agencies, and teams ship video at the speed of content.",
+          "We're not slowing down. We're not flattening the curve. We're going to the moon.",
+          "Create your next video in minutes. Explore the new Stickman Football template. Turn on background music. Try the Custom Template Generator. And if lifetime access fits how you work, grab it while it's available.",
+          "Made with love by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What is the Stickman Football template?",
+        answer:
+          "Stickman Football is a new Blog2Video template built for sports storytelling — hand-drawn stickman players on a match-day pitch, goal celebrations, chalkboard-style data viz, and layouts for recaps, tactical breakdowns, and fan explainers. It ships just in time for the World Cup.",
+      },
+      {
+        question: "Which templates were refurbished in this release?",
+        answer:
+          "Nightfall, Spotlight, Matrix, Gridcraft, Chronicle, and Blackswan were all rebuilt with smoother animations, new scenes, and sharper motion. Every major built-in template in the library received visual upgrades.",
+      },
+      {
+        question: "How does background music work in Blog2Video?",
+        answer:
+          "You can pick a background music track inside the project workflow. The music auto-ducks under narration so voiceover stays clear, and you can adjust volume per scene when you need finer control.",
+      },
+      {
+        question: "What changed in the Custom Template Generator?",
+        answer:
+          "The generator now produces higher quality templates with more variety on each run, plus brand-aware motion and layout. Describe the look you want in a prompt and Blog2Video generates fresh template variations in seconds.",
+      },
+      {
+        question: "Is lifetime access available on Blog2Video?",
+        answer:
+          "Yes, for a limited time. A small number of lifetime seats are available on blog2video.app for users who prefer a one-time purchase instead of a monthly subscription.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video Is Going to the Moon: Stickman Football, Rebuilt Templates, Background Music, and More",
+        angle:
+          "Product update post covering growth metrics, Stickman Football, refurbished templates, background music, Custom Template Generator upgrades, and limited lifetime access.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video is going to the moon — Stickman Football, rebuilt templates, and more",
+        angle:
+          "YouTube: https://youtu.be/1IGdB7bkesQ — walk through Stickman Football, template upgrades, background music ducking, custom template prompts, and lifetime pricing.",
+      },
+      {
+        channel: "substack",
+        title: "We're going to the moon — and we rebuilt everything along the way",
+        angle:
+          "Founder-voice reflection on doubling monthly usage, sports storytelling with Stickman Football, and why buy-once lifetime access matters for written-first creators.",
+      },
+      {
+        channel: "twitter",
+        title: "Blog2Video is going to the moon 🚀",
+        angle:
+          "Lead with 2,500 videos/day and doubling monthly growth, show Stickman Football clip, bullet the five shipped features, link to blog2video.app.",
+      },
+    ],
+  },
+  {
     slug: "new-template-finance-publication",
     title: "70% of Our Users Are Finance Publishers. Here's the Template We Built for Them.",
     description:
