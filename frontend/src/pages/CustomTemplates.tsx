@@ -48,7 +48,7 @@ function isStuckGenerating(tpl: CustomTemplateItem): boolean {
 export default function CustomTemplates() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { craftedTemplates, loading: craftedTemplatesFetching, initialized: craftedTemplatesInitialized } = useCraftedTemplates();
   // Keep the loader visible until the first R2 roundtrip resolves, even when
   // we paint from localStorage cache first — otherwise an empty cache flashes
@@ -152,6 +152,11 @@ export default function CustomTemplates() {
     // Drop the project-creation picker's cached template list so this new one
     // shows up there without needing a full page refresh.
     invalidateBlogUrlFormAvailabilityCache();
+    // Re-pull the user so the "X / Y Created" counter and the at-limit gating
+    // (can_create_custom_template) reflect the just-incremented server count —
+    // otherwise the counter stays stale and "Create New" reopens the creator
+    // instead of the upgrade modal.
+    void refreshUser();
   };
 
   const handleSaved = (tpl: CustomTemplateItem) => {
