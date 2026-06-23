@@ -10,7 +10,7 @@ import {
 } from "./types";
 
 export type PlanKey = "standard" | "pro";
-export type BillingCycle = "monthly" | "annual";
+export type BillingCycle = "monthly" | "annual" | "lifetime";
 
 // ─── Billing API ──────────────────────────────────────────
 
@@ -20,7 +20,7 @@ export const createCheckoutSession = (
   options:
     | {
         plan?: CheckoutPlan;
-        billing_cycle?: "monthly" | "annual";
+        billing_cycle?: BillingCycle;
         apply_third_video_offer?: boolean;
       }
     | "monthly"

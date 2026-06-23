@@ -773,6 +773,7 @@ def create_project(
     db: Session = Depends(get_db),
 ):
     """Create a new project from a blog URL. Counts against video limit."""
+    user.roll_video_period_if_due(db)
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -898,6 +899,7 @@ async def change_project_template_regenerate_layouts(
     db: Session = Depends(get_db),
 ):
     project = _get_user_project(project_id, user.id, db)
+    user.roll_video_period_if_due(db)
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -2230,6 +2232,7 @@ async def regenerate_script(
     if active_job:
         raise HTTPException(status_code=409, detail="A script regeneration job is already running for this project.")
 
+    user.roll_video_period_if_due(db)
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -2640,6 +2643,7 @@ def create_project_from_upload(
     db: Session = Depends(get_db),
 ):
     """Create a new project from uploaded documents (PDF, DOCX, PPTX, MD, TXT). Counts against video limit."""
+    user.roll_video_period_if_due(db)
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
@@ -4693,6 +4697,7 @@ async def change_project_voice(
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    user_row.roll_video_period_if_due(db)
     user_row.sync_video_limit_bonus(db)
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
