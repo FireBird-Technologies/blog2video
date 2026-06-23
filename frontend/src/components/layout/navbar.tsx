@@ -50,19 +50,19 @@ const Navbar = () => {
         <div className="flex items-center gap-4">
 
           <Link
-            to="/invite-others"
+            to="/survey"
             className="hidden sm:relative sm:inline-flex items-center gap-1.5 mr-6 text-xs text-gray-400 hover:text-purple-600 transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {/* <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 12 20 22 4 22 4 12" />
               <rect x="2" y="7" width="20" height="5" />
               <line x1="12" y1="22" x2="12" y2="7" />
               <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
               <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
-            </svg>
-            Share B2V
+            </svg> */}
+            Survey
             <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[9px] font-semibold leading-none px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
-              Get 15 free videos
+              Get 20% Discount
             </span>
           </Link>
 
@@ -116,13 +116,9 @@ const Navbar = () => {
               <>
                 <div className="fixed inset-0 z-40" aria-hidden onClick={() => setMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-2 py-1.5 w-64 bg-white rounded-xl border border-gray-200/80 shadow-lg z-50">
-                  <Link to="/invite-others" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" />
-                      <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
-                    </svg>
-                    Share B2V
-                    <span className="ml-auto text-[9px] font-semibold bg-purple-600 text-white px-1.5 rounded-full">5 free videos</span>
+                  <Link to="/survey" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700 transition-colors">
+                    Survey
+                    <span className="ml-auto text-[9px] font-semibold bg-purple-600 text-white px-1.5 rounded-full whitespace-nowrap">Get 20% Discount</span>
                   </Link>
                   <Link to="/mcp-connector" onClick={() => setMenuOpen(false)} className="flex items-center px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
                     Connect with AI
