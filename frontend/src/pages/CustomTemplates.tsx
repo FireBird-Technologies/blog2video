@@ -27,9 +27,19 @@ import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestM
 // finishes in ~2 min; 8 min is a safe ceiling that won't false-flag a live run.
 const STUCK_GENERATION_MS = 8 * 60 * 1000;
 
+// Backend emits naive UTC timestamps (datetime.utcnow().isoformat(), no tz suffix).
+// Date.parse() would read those as LOCAL time, so for any user in a positive UTC
+// offset a brand-new template reads as hours old and instantly trips the stuck
+// threshold below. Append 'Z' when no zone is present so it's parsed as UTC.
+function parseServerTimestamp(s: string): number {
+  if (!s) return NaN;
+  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  return Date.parse(hasTz ? s : s + "Z");
+}
+
 function isStuckGenerating(tpl: CustomTemplateItem): boolean {
   if (tpl.intro_code || tpl.generation_failed) return false;
-  const ts = Date.parse(tpl.updated_at || tpl.created_at);
+  const ts = parseServerTimestamp(tpl.updated_at || tpl.created_at);
   if (Number.isNaN(ts)) return false;
   return Date.now() - ts > STUCK_GENERATION_MS;
 }
