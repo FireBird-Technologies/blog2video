@@ -773,6 +773,7 @@ def create_project(
     db: Session = Depends(get_db),
 ):
     """Create a new project from a blog URL. Counts against video limit."""
+    user.roll_video_period_if_due(db)
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -785,11 +786,9 @@ def create_project(
 
     name = data.name or _name_from_url(data.blog_url)
     template_id = validate_template_id(data.template, db=db, user_id=user.id)
-    if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        raise HTTPException(
-            status_code=403,
-            detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
-        )
+    # Custom templates are usable on any plan (incl. Free). Access is gated solely by
+    # video credits (checked above via can_create_video) and the per-plan template-
+    # creation cap enforced at creation time — not by subscription tier.
     if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
         raise HTTPException(
             status_code=403,
@@ -898,6 +897,7 @@ async def change_project_template_regenerate_layouts(
     db: Session = Depends(get_db),
 ):
     project = _get_user_project(project_id, user.id, db)
+    user.roll_video_period_if_due(db)
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -907,11 +907,8 @@ async def change_project_template_regenerate_layouts(
     target_template = validate_template_id(body.template, db=db, user_id=user.id)
     if target_template == project.template:
         raise HTTPException(status_code=400, detail="Project is already using this template.")
-    if is_custom_template(target_template) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        raise HTTPException(
-            status_code=403,
-            detail="Custom templates require a Pro or Standard subscription.",
-        )
+    # Custom templates are usable on any plan (incl. Free) — gated by video credits and
+    # the template-creation cap, not subscription tier. See create_project.
     if is_crafted_template(target_template) and not validate_crafted_template_access(target_template, user.id, db):
         raise HTTPException(
             status_code=403,
@@ -2230,6 +2227,7 @@ async def regenerate_script(
     if active_job:
         raise HTTPException(status_code=409, detail="A script regeneration job is already running for this project.")
 
+    user.roll_video_period_if_due(db)
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -2509,14 +2507,8 @@ def create_projects_bulk(
             status_code=403,
             detail=f"Sorry, your video limit has been reached. Please upgrade your plan or buy more credits.",
         )
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        for data in items:
-            tid = getattr(data, "template", None) or ""
-            if tid and str(tid).strip().startswith("custom_"):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
-                )
+    # Custom templates are usable on any plan (incl. Free) — gated by video credits
+    # (checked above) and the template-creation cap, not subscription tier.
     logo_indices: list[int] = []
     if logo_indices_json:
         try:
@@ -2640,6 +2632,7 @@ def create_project_from_upload(
     db: Session = Depends(get_db),
 ):
     """Create a new project from uploaded documents (PDF, DOCX, PPTX, MD, TXT). Counts against video limit."""
+    user.roll_video_period_if_due(db)
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
@@ -2672,11 +2665,8 @@ def create_project_from_upload(
     # ── Create project ────────────────────────────────────
     project_name = name or _name_from_files(files)
     template_id = validate_template_id(template, db=db, user_id=user.id)
-    if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        raise HTTPException(
-            status_code=403,
-            detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
-        )
+    # Custom templates are usable on any plan (incl. Free) — gated by video credits and
+    # the template-creation cap, not subscription tier. See create_project.
     if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
         raise HTTPException(
             status_code=403,
@@ -4068,12 +4058,15 @@ async def regenerate_scene(
     has_description = bool(description and description.strip())
     needs_layout_regen = not keep_layout or has_description
 
-    # Detect variant switch for custom templates (intro/content_N/outro)
+    # Detect variant switch for custom templates (intro/content_N/outro/data-viz)
     # Pure variant switches skip the AI call entirely — instant layout change.
     is_variant_switch = False
     if is_custom_template(project.template) and normalized_layout:
         import re as _re
-        if normalized_layout in ("intro", "outro") or _re.match(r"content_\d+$", normalized_layout):
+        if (
+            normalized_layout in ("intro", "outro", "custom_chart", "custom_table")
+            or _re.match(r"content_\d+$", normalized_layout)
+        ):
             is_variant_switch = True
 
     if is_variant_switch and not has_description:
@@ -4085,6 +4078,29 @@ async def regenerate_scene(
         elif normalized_layout == "outro":
             descriptor["sceneTypeOverride"] = "outro"
             descriptor.pop("contentVariantIndex", None)
+        elif normalized_layout in ("custom_chart", "custom_table"):
+            # Convert the scene into a dedicated data-viz scene. The renderer routes
+            # by sceneType (see GeneratedVideo.getSceneComponent), so the override
+            # must carry the dataviz_* type. Seed a chartTable when none exists so it
+            # never renders blank.
+            descriptor["sceneTypeOverride"] = (
+                "dataviz_chart" if normalized_layout == "custom_chart" else "dataviz_table"
+            )
+            descriptor.pop("contentVariantIndex", None)
+            from app.routers.pipeline import _CUSTOM_DATAVIZ_SEED
+            lp = descriptor.get("layoutProps") if isinstance(descriptor.get("layoutProps"), dict) else {}
+            existing_table = lp.get("chartTable")
+            has_data = (
+                isinstance(existing_table, dict)
+                and isinstance(existing_table.get("rows"), list)
+                and len(existing_table["rows"]) > 0
+            )
+            if not has_data:
+                lp = dict(lp)
+                lp["chartTable"] = _CUSTOM_DATAVIZ_SEED
+                if normalized_layout == "custom_chart":
+                    lp.setdefault("chartType", "line")
+                descriptor["layoutProps"] = lp
         else:
             # content_N → extract N
             variant_idx = int(normalized_layout.split("_")[1])
@@ -4667,6 +4683,7 @@ async def change_project_voice(
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    user_row.roll_video_period_if_due(db)
     user_row.sync_video_limit_bonus(db)
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:

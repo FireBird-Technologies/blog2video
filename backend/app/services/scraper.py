@@ -502,30 +502,32 @@ def _scrape_with_requests(url: str) -> tuple[str, list[str], list[dict]]:
     Scraper using requests + BeautifulSoup.
     Hero/OG image is always first in the returned list.
     """
-    session = requests.Session()
-    session.headers.update(_BROWSER_HEADERS)
+    # `with` ensures the session (and its connection pool) is always closed,
+    # even on exceptions — otherwise every scrape leaks file descriptors.
+    with requests.Session() as session:
+        session.headers.update(_BROWSER_HEADERS)
 
-    response = session.get(url, timeout=30, allow_redirects=True)
-
-    # Retry once (some sites set cookies on first 403)
-    if response.status_code == 403:
         response = session.get(url, timeout=30, allow_redirects=True)
 
-    response.raise_for_status()
+        # Retry once (some sites set cookies on first 403)
+        if response.status_code == 403:
+            response = session.get(url, timeout=30, allow_redirects=True)
 
-    soup = BeautifulSoup(response.text, "lxml")
-    text = _extract_text(soup)
+        response.raise_for_status()
 
-    # Extract hero image (og:image) first, then remaining images
-    hero_url = _extract_og_image_from_soup(soup, url)
-    image_urls = _extract_image_urls(soup, url)
+        soup = BeautifulSoup(response.text, "lxml")
+        text = _extract_text(soup)
 
-    # Ensure hero image is first and deduplicated
-    if hero_url:
-        image_urls = [hero_url] + [u for u in image_urls if u != hero_url]
+        # Extract hero image (og:image) first, then remaining images
+        hero_url = _extract_og_image_from_soup(soup, url)
+        image_urls = _extract_image_urls(soup, url)
 
-    extracted_tables = extract_tables_from_html(response.text, source="requests_html")
-    return text, image_urls, extracted_tables
+        # Ensure hero image is first and deduplicated
+        if hero_url:
+            image_urls = [hero_url] + [u for u in image_urls if u != hero_url]
+
+        extracted_tables = extract_tables_from_html(response.text, source="requests_html")
+        return text, image_urls, extracted_tables
 
 
 def _extract_og_image(url: str) -> str | None:
@@ -1152,32 +1154,37 @@ def _download_single_image(
         if response is None:
             print(f"[SCRAPER] Failed to fetch image (no response): {url[:80]}")
             return None
-        response.raise_for_status()
+        # The response is a streaming connection; always close it (even on early
+        # return / exception) so the socket/file descriptor is released.
+        try:
+            response.raise_for_status()
 
-        ctype = (response.headers.get("Content-Type") or "").lower()
-        if ctype and "image" not in ctype:
-            print(f"[SCRAPER] Skipping non-image content-type ({ctype}): {url[:80]}")
-            return None
+            ctype = (response.headers.get("Content-Type") or "").lower()
+            if ctype and "image" not in ctype:
+                print(f"[SCRAPER] Skipping non-image content-type ({ctype}): {url[:80]}")
+                return None
 
-        ext = None
-        for ct_key, ct_ext in _CTYPE_TO_EXT.items():
-            if ct_key in ctype:
-                ext = ct_ext
-                break
+            ext = None
+            for ct_key, ct_ext in _CTYPE_TO_EXT.items():
+                if ct_key in ctype:
+                    ext = ct_ext
+                    break
 
-        if not ext:
-            parsed = urlparse(url)
-            ext = os.path.splitext(parsed.path)[1] or ".jpg"
-            if ext not in (".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"):
-                ext = ".jpg"
+            if not ext:
+                parsed = urlparse(url)
+                ext = os.path.splitext(parsed.path)[1] or ".jpg"
+                if ext not in (".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"):
+                    ext = ".jpg"
 
-        url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
-        filename = f"img_{url_hash}{ext}"
-        local_path = os.path.join(project_media_dir, filename)
+            url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
+            filename = f"img_{url_hash}{ext}"
+            local_path = os.path.join(project_media_dir, filename)
 
-        with open(local_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+            with open(local_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        finally:
+            response.close()
 
         # Discard tiny files — icons/badges, not blog images
         file_size = os.path.getsize(local_path)

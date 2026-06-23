@@ -770,6 +770,64 @@ function getFJResearchMarketAnnotationExampleTable(
 }
 
 /**
+ * Custom-template example datasets per chart type — the generic counterpart to
+ * the built-ins' themed examples. The "line" shape mirrors the backend
+ * `_CUSTOM_DATAVIZ_SEED` (pipeline.py) so it matches the renderer's fallback;
+ * "bar" uses category labels and "histogram" uses bucket ranges so the preview
+ * reads correctly for the chosen shape. Used when the user changes the chart
+ * type on a custom data-viz scene that has no real data yet.
+ */
+function getCustomDataVizExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "bar") {
+    return {
+      headers: ["Category", "Revenue", "Growth %"],
+      rows: [
+        ["Product A", "120", "8"],
+        ["Product B", "145", "12"],
+        ["Product C", "170", "17"],
+        ["Product D", "210", "24"],
+      ],
+    };
+  }
+  if (chartType === "histogram") {
+    return {
+      headers: ["Range", "Count"],
+      rows: [
+        ["0 - 50", "4"],
+        ["50 - 100", "9"],
+        ["100 - 150", "15"],
+        ["150 - 200", "11"],
+        ["200 - 250", "6"],
+      ],
+    };
+  }
+  // line — mirrors backend _CUSTOM_DATAVIZ_SEED
+  return {
+    headers: ["Quarter", "Revenue", "Growth %"],
+    rows: [
+      ["Q1", "120", "8"],
+      ["Q2", "145", "12"],
+      ["Q3", "170", "17"],
+      ["Q4", "210", "24"],
+    ],
+  };
+}
+
+/** True when `table` matches one of the custom example datasets (i.e. it is
+ * seeded placeholder data, not something the user typed). Used to decide whether
+ * a chart-type change may safely swap the table for a shape-appropriate example. */
+function isCustomDataVizExampleTable(table: { headers: string[]; rows: string[][] }): boolean {
+  const sig = (t: { headers: string[]; rows: string[][] }) =>
+    JSON.stringify([t.headers, t.rows]);
+  const current = sig(table);
+  return (["line", "bar", "histogram"] as const).some(
+    (k) => sig(getCustomDataVizExampleTable(k)) === current,
+  );
+}
+
+/**
  * Mirrors `mergeMarketAnnotationChartDefaults()` in
  * [VideoPreview.tsx](./VideoPreview.tsx) — fills `chartTable` (and
  * `chartType`) from `meta.json` `layout_prop_schema[layout].defaults`
@@ -2013,6 +2071,29 @@ const CUSTOM_CONTENT_FIELDS: Record<string, FieldDef[]> = {
   steps: [{ key: "steps", label: "Steps", type: "string_array", maxItems: 8 }],
 };
 
+// Editable fields for the custom-template dedicated data-viz scenes (chart +
+// table). Keyed off scene.scene_type rather than template id so they work for
+// any custom_<id> template — parity with the built-in data-viz editor.
+const CUSTOM_DATAVIZ_FIELDS: Record<"chart" | "table", FieldDef[]> = {
+  chart: [
+    { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    {
+      key: "chartType",
+      label: "Chart Type",
+      type: "select",
+      default: "line",
+      options: [
+        { label: "Line", value: "line" },
+        { label: "Bar", value: "bar" },
+        { label: "Histogram", value: "histogram" },
+      ],
+    },
+  ],
+  table: [
+    { key: "chartTable", label: "Table data (col 1: row labels; cols 2+: values; max 20 rows)", type: "chart_table" },
+  ],
+};
+
 function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
   if (!layoutId) return undefined;
   const t = (template || "default").toLowerCase();
@@ -2580,7 +2661,24 @@ export default function SceneEditModal({
   // FJ Market Brief is a crafted template — project.template carries the public id.
   const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
 
+  // Custom templates get 2 dedicated, editable data-viz scenes (chart + table).
+  // A content scene can also be converted to data-viz via the layout dropdown, in
+  // which case scene_type stays "content" but the descriptor carries a
+  // sceneTypeOverride of dataviz_chart/dataviz_table.
+  const sceneTypeOverride: string | null = (() => {
+    if (!isCustomTemplate || !scene.remotion_code) return null;
+    try {
+      return JSON.parse(scene.remotion_code).sceneTypeOverride ?? null;
+    } catch { return null; }
+  })();
+  const dataVizKind: "chart" | "table" | null =
+    scene.scene_type === "dataviz_chart" || sceneTypeOverride === "dataviz_chart" ? "chart"
+    : scene.scene_type === "dataviz_table" || sceneTypeOverride === "dataviz_table" ? "table"
+    : null;
+
   const currentLayoutId = (() => {
+    // Dedicated/converted data-viz scenes route by scene type, not descriptor layout.
+    if (dataVizKind) return dataVizKind === "chart" ? "custom_chart" : "custom_table";
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
@@ -3186,6 +3284,21 @@ export default function SceneEditModal({
           }
           // Custom templates use layoutConfig — skip layoutProps editing
           if (isCustomTemplate) {
+            // Exception: dedicated data-viz scenes persist their edited chart data
+            // into layoutProps (the location GeneratedVideo's kit scenes read).
+            if (dataVizKind) {
+              const dvTable = normalizeChartTableValue(
+                (editableLayoutProps as Record<string, unknown>).chartTable,
+              );
+              const prevLp = (desc.layoutProps as Record<string, unknown>) || {};
+              desc.layoutProps = {
+                ...prevLp,
+                chartTable: dvTable,
+                ...(dataVizKind === "chart" && editableLayoutProps.chartType
+                  ? { chartType: editableLayoutProps.chartType }
+                  : {}),
+              };
+            }
             // Ensure layoutConfig exists for custom templates
             if (!desc.layoutConfig) desc.layoutConfig = {};
             const config = desc.layoutConfig as Record<string, unknown>;
@@ -4234,6 +4347,7 @@ export default function SceneEditModal({
                       )
                     : undefined;
                 const rawLayoutFields =
+                  (dataVizKind ? CUSTOM_DATAVIZ_FIELDS[dataVizKind] : undefined) ??
                   craftedFields ??
                   schemaBackedFields ??
                   builtinDataVizSchemaFields ??
@@ -4613,6 +4727,10 @@ export default function SceneEditModal({
                         const isBuiltinChartTypeField =
                           field.key === "chartType" &&
                           isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId);
+                        const isCustomChartTypeField =
+                          isCustomTemplate &&
+                          currentLayoutId === "custom_chart" &&
+                          field.key === "chartType";
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4651,6 +4769,31 @@ export default function SceneEditModal({
                                       [field.key]: nextChartType,
                                       chartTable: example,
                                     }));
+                                    return;
+                                  }
+                                }
+                                if (isCustomChartTypeField) {
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    // Only swap in a shape-appropriate example when the current
+                                    // table is empty or still a known seed/example — never clobber
+                                    // real data the user typed or imported.
+                                    setEditableLayoutProps((prev) => {
+                                      const existing = normalizeChartTableValue(prev.chartTable);
+                                      const isSeed =
+                                        !chartTableHasData(existing) || isCustomDataVizExampleTable(existing);
+                                      if (!isSeed) {
+                                        return { ...prev, [field.key]: nextChartType };
+                                      }
+                                      return {
+                                        ...prev,
+                                        [field.key]: nextChartType,
+                                        chartTable: getCustomDataVizExampleTable(concrete),
+                                      };
+                                    });
                                     return;
                                   }
                                 }

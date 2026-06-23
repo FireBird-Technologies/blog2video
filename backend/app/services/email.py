@@ -191,7 +191,9 @@ class EmailService:
     # ── Shared HTML builder ───────────────────────────────────
 
     @staticmethod
-    def _build_html(headline: str, body_paragraph: str, cta_label: str, cta_url: str, unsubscribe_url: str = "") -> str:
+    def _build_html(headline: str, body_paragraph: str, cta_label: str, cta_url: str, unsubscribe_url: str = "", center: bool = False) -> str:
+        body_align = "center" if center else "left"
+        cta_align = "center" if center else "left"
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -214,12 +216,18 @@ class EmailService:
           </tr>
           <tr>
             <td style="padding:40px 40px 32px;">
-              <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;">{headline}</p>
-              <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.65;">{body_paragraph}</p>
-              <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+              <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;text-align:{body_align};">{headline}</p>
+              <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.65;text-align:{body_align};">{body_paragraph}</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
                 <tr>
-                  <td style="background:#9333EA;border-radius:6px;">
-                    <a href="{cta_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">{cta_label}</a>
+                  <td align="{cta_align}">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="background:#9333EA;border-radius:6px;">
+                          <a href="{cta_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">{cta_label}</a>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -382,6 +390,126 @@ class EmailService:
         self.provider.send_email(
             to=user_email, subject=subject, html_content=html, text_content=text,
             from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+
+    def _send_coupon_email(
+        self,
+        *,
+        user_email: str,
+        subject: str,
+        intro_text: str,
+        coupon_code: str,
+        valid_hours: int,
+        recovery_url: Optional[str] = None,
+    ) -> None:
+        """
+        Shared sender for the two win-back coupon emails (abandoned / per-video).
+        Plain, left-aligned email — no card, coloured header, code chip or bold
+        styling — just a clickable CTA link and an Unsubscribe link.
+
+        If `recovery_url` is given (Stripe abandoned-cart recovery link), the CTA
+        resumes the original checkout; otherwise it falls back to the pricing page.
+        """
+        pricing_url = f"{getattr(settings, 'FRONTEND_URL', 'https://blog2video.app').rstrip('/')}/pricing"
+        cta_url = recovery_url or pricing_url
+        cta_label = "Complete your checkout" if recovery_url else "Choose a plan"
+        # Promo codes are case-insensitive in Stripe; show them upper-cased so the
+        # code reads clearly in the email regardless of how it's configured.
+        coupon_code = coupon_code.upper()
+        unsubscribe_url = self._make_unsubscribe_url(user_email)
+        text = (
+            f"{intro_text}\n\n"
+            f"Apply this code at checkout (enter it in ALL CAPITAL LETTERS):\n\n"
+            f"    {coupon_code}\n\n"
+            f"Hurry — this code is only valid for the next {valid_hours} hours.\n\n"
+            f"{cta_label}: {cta_url}\n\n"
+            f"— The Blog2Video Team\n\n"
+            f"---\n"
+            f"To unsubscribe from these emails, visit: {unsubscribe_url}\n"
+        )
+        blocks = intro_text.split("\n\n") + [
+            "Apply this code at checkout (enter it in ALL CAPITAL LETTERS):",
+            coupon_code,
+            f"Hurry — this code is only valid for the next {valid_hours} hours.",
+            f'<a href="{cta_url}" style="color:#9333EA;">{cta_label}</a>',
+            "— The Blog2Video Team",
+        ]
+        body_html = "".join(
+            f'<p style="margin:0 0 14px;">{block}</p>' for block in blocks
+        )
+        html = (
+            '<!DOCTYPE html><html><head><meta charset="UTF-8" />'
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>'
+            '<body style="margin:0;padding:24px;background:#ffffff;text-align:left;'
+            "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;"
+            'font-size:15px;line-height:1.6;color:#111827;">'
+            f"{body_html}"
+            f'<p style="margin:24px 0 0;font-size:12px;color:#9ca3af;">'
+            f'<a href="{unsubscribe_url}" style="color:#9ca3af;">Unsubscribe</a></p>'
+            "</body></html>"
+        )
+        self.provider.send_email(
+            to=user_email, subject=subject, html_content=html, text_content=text,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+    def send_abandoned_checkout_coupon_email(
+        self,
+        user_email: str,
+        user_name: str,
+        coupon_code: str = "",
+        discount_percent: int = 25,
+        valid_hours: int = 48,
+        recovery_url: Optional[str] = None,
+    ) -> None:
+        """
+        Win-back email for a user who reached checkout but bought nothing.
+        Triggered by Stripe's checkout.session.expired webhook; `recovery_url` is
+        the Stripe abandoned-cart recovery link that resumes the original checkout.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        self._send_coupon_email(
+            user_email=user_email,
+            subject=f"Still thinking it over? Here's {discount_percent}% off",
+            intro_text=(
+                f"Hi {first_name},\n\n"
+                f"You were one step away from checking out on Blog2Video. To help "
+                f"you finish up, here's {discount_percent}% off — just pick up right "
+                f"where you left off."
+            ),
+            coupon_code=coupon_code,
+            valid_hours=valid_hours,
+            recovery_url=recovery_url,
+        )
+
+    def send_per_video_upsell_coupon_email(
+        self,
+        user_email: str,
+        user_name: str,
+        coupon_code: str = "",
+        discount_percent: int = 25,
+        valid_hours: int = 48,
+    ) -> None:
+        """
+        Win-back email for a user who bought a single video. Nudges them toward a
+        subscription with a limited-time discount. Sent on a completed per-video
+        purchase (checkout.session.completed).
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        self._send_coupon_email(
+            user_email=user_email,
+            subject=f"Thanks for your video — here's {discount_percent}% off a plan",
+            intro_text=(
+                f"Hi {first_name},\n\n"
+                f"We hope you love the video you just made. If you're planning to make "
+                f"more, a subscription unlocks extra features like custom video templates "
+                f"and premium voiceover with voice cloning — and works out far cheaper "
+                f"than buying one video at a time. As a thank-you, here's "
+                f"{discount_percent}% off any plan."
+            ),
+            coupon_code=coupon_code,
+            valid_hours=valid_hours,
         )
 
 

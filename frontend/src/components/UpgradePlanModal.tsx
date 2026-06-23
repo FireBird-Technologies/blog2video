@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import {
   createCheckoutSession,
   createPerVideoCheckout,
+  createCustomTemplateCheckout,
 } from "../api/client";
 import {
   STANDARD_MONTHLY_PRICE,
@@ -11,6 +12,8 @@ import {
   PRO_MONTHLY_PRICE,
   PRO_ANNUAL_MONTHLY_PRICE,
   PRO_ANNUAL_TOTAL_PRICE,
+  STANDARD_CUSTOM_TEMPLATE_COUNT,
+  PRO_CUSTOM_TEMPLATE_COUNT,
 } from "../content/pricingContent";
 import { useAuth } from "../hooks/useAuth";
 
@@ -23,6 +26,18 @@ interface Props {
   title?: string;
   /** Optional custom subtext below the heading */
   subtitle?: string;
+  /**
+   * "video" (default) keeps the existing upgrade flow. "custom_template" pushes
+   * subscriptions first (all 3 plan cards stay visible for everyone) and adds a
+   * $5 one-off "extra slot" purchase at the bottom.
+   */
+  mode?: "video" | "custom_template";
+  /**
+   * When true, hide the per-video "Buy a video" card and show only the
+   * subscription plans (Standard + Pro). Used where per-video isn't a valid
+   * unlock — e.g. a free user choosing a custom template at video-creation time.
+   */
+  subscriptionsOnly?: boolean;
 }
 
 export default function UpgradePlanModal({
@@ -31,12 +46,22 @@ export default function UpgradePlanModal({
   projectId,
   title: titleProp,
   subtitle: subtitleProp,
+  mode = "video",
+  subscriptionsOnly = false,
 }: Props) {
   const { user } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [slotQty, setSlotQty] = useState(1);
+
+  const SLOT_PRICE = 5;
+  const SLOT_MIN = 1;
+  const SLOT_MAX = 20;
+  const clampQty = (n: number) => Math.max(SLOT_MIN, Math.min(n, SLOT_MAX));
 
   if (!open) return null;
+
+  const isCustomTemplate = mode === "custom_template";
 
   const handleCheckout = async (plan: "per_video" | "standard" | "pro") => {
     if (!user) {
@@ -55,6 +80,20 @@ export default function UpgradePlanModal({
         });
         window.location.href = res.data.checkout_url;
       }
+    } catch {
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleExtraSlot = async () => {
+    if (!user) {
+      window.location.href = "/pricing";
+      return;
+    }
+    setLoadingPlan("extra_slot");
+    try {
+      const res = await createCustomTemplateCheckout(slotQty);
+      if (res.data.checkout_url) window.location.href = res.data.checkout_url;
     } catch {
       setLoadingPlan(null);
     }
@@ -112,8 +151,9 @@ export default function UpgradePlanModal({
         </div>
 
         <div className="p-6 overflow-y-auto flex-1">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className={`grid grid-cols-1 gap-4 ${subscriptionsOnly ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
             {/* Per Video — same bullets as Subscription */}
+            {!subscriptionsOnly && (
             <div className="glass-card p-5 flex flex-col">
               <div className="mb-4">
                 <h3 className="text-sm font-semibold text-gray-900">Per Video</h3>
@@ -140,6 +180,7 @@ export default function UpgradePlanModal({
                 {loadingPlan === "per_video" ? "Redirecting…" : "Buy a video"}
               </button>
             </div>
+            )}
 
             {/* Standard — same bullets as Subscription */}
             <div className="glass-card p-5 flex flex-col">
@@ -172,11 +213,11 @@ export default function UpgradePlanModal({
               </div>
               <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
                 <li className="flex items-start gap-2"><CheckMark />30 videos / month</li>
+                <li className="flex items-start gap-2"><CheckMark />{STANDARD_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
                 <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
                 <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
                 <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-                <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
                 <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
                 <li className="flex items-start gap-2"><CheckMark />Priority support</li>
               </ul>
@@ -225,11 +266,11 @@ export default function UpgradePlanModal({
               </div>
               <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
                 <li className="flex items-start gap-2"><CheckMark />100 videos / month</li>
+                <li className="flex items-start gap-2"><CheckMark />{PRO_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
                 <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
                 <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
                 <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-                <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
                 <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
                 <li className="flex items-start gap-2"><CheckMark />Priority support</li>
               </ul>
@@ -242,6 +283,58 @@ export default function UpgradePlanModal({
               </button>
             </div>
           </div>
+
+          {/* One-off extra custom-template slot — subscriptions are the primary
+              push, but a single $5 slot stays available to everyone. */}
+          {isCustomTemplate && (
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-purple-100 bg-purple-50/50 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  {slotQty > 1 ? `Need ${slotQty} more templates?` : "Just need one more template?"}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Buy custom template slots — one-time $5 each, no subscription.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                {/* Ticker counter */}
+                <div className="flex items-center gap-1 rounded-full bg-purple-100/70 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setSlotQty((q) => clampQty(q - 1))}
+                    disabled={!!loadingPlan || slotQty <= SLOT_MIN}
+                    aria-label="Decrease quantity"
+                    className="w-7 h-7 flex items-center justify-center rounded-full text-purple-700 hover:bg-white hover:shadow-sm transition-all disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" d="M5 12h14" />
+                    </svg>
+                  </button>
+                  <span className="w-6 text-center text-sm font-semibold text-gray-900 tabular-nums select-none">
+                    {slotQty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSlotQty((q) => clampQty(q + 1))}
+                    disabled={!!loadingPlan || slotQty >= SLOT_MAX}
+                    aria-label="Increase quantity"
+                    className="w-7 h-7 flex items-center justify-center rounded-full text-purple-700 hover:bg-white hover:shadow-sm transition-all disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  onClick={handleExtraSlot}
+                  disabled={!!loadingPlan}
+                  className="shrink-0 px-4 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
+                >
+                  {loadingPlan === "extra_slot" ? "Redirecting…" : `Buy — $${slotQty * SLOT_PRICE}`}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="p-6 border-t border-gray-100 flex-shrink-0 flex items-center justify-between gap-4">
@@ -251,8 +344,9 @@ export default function UpgradePlanModal({
           >
             Maybe later
           </button>
+          {/* Share B2V disabled
           <a
-            href="/invite-others"
+            href="/survey"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700 hover:bg-purple-100 hover:border-purple-400 transition-all relative"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -260,7 +354,7 @@ export default function UpgradePlanModal({
               <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
             </svg>
             Share B2V to get 5 videos free
-          </a>
+          </a> */}
         </div>
       </div>
     </div>,
