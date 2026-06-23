@@ -393,46 +393,22 @@ class EmailService:
         )
 
 
-    @staticmethod
-    def _coupon_code_chip(coupon_code: str) -> str:
-        """Dashed-border code chip used in win-back coupon emails."""
-        return (
-            f"<span style=\"display:inline-block;padding:12px 20px;border:2px dashed #9333EA;"
-            f"border-radius:8px;font-size:20px;font-weight:700;letter-spacing:1px;color:#9333EA;\">"
-            f"{coupon_code}</span>"
-        )
-
     def _send_coupon_email(
         self,
         *,
         user_email: str,
         subject: str,
-        headline: str,
-        intro_html: str,
         intro_text: str,
-        cta_label: str,
         coupon_code: str,
         valid_hours: int,
     ) -> None:
-        """Shared sender for the two win-back coupon emails (abandoned / per-video)."""
+        """
+        Shared sender for the two win-back coupon emails (abandoned / per-video).
+        Plain, left-aligned email — no card, coloured header, code chip or bold
+        styling — just a clickable "Choose a plan" link and an Unsubscribe link.
+        """
         pricing_url = f"{getattr(settings, 'FRONTEND_URL', 'https://blog2video.app').rstrip('/')}/pricing"
         unsubscribe_url = self._make_unsubscribe_url(user_email)
-        html = self._build_html(
-            headline=headline,
-            body_paragraph=(
-                f"{intro_html}"
-                f"<br/><br/>"
-                f"Apply this code at checkout:<br/><br/>"
-                f"{self._coupon_code_chip(coupon_code)}"
-                f"<br/><br/>"
-                f"Hurry — this code is only valid for the next "
-                f"<strong style=\"color:#111827;\">{valid_hours} hours</strong>."
-            ),
-            cta_label=cta_label,
-            cta_url=pricing_url,
-            unsubscribe_url=unsubscribe_url,
-            center=True,
-        )
         text = (
             f"{intro_text}\n\n"
             f"Apply this code at checkout:\n\n"
@@ -442,6 +418,27 @@ class EmailService:
             f"— The Blog2Video Team\n\n"
             f"---\n"
             f"To unsubscribe from these emails, visit: {unsubscribe_url}\n"
+        )
+        blocks = intro_text.split("\n\n") + [
+            "Apply this code at checkout:",
+            coupon_code,
+            f"Hurry — this code is only valid for the next {valid_hours} hours.",
+            f'<a href="{pricing_url}" style="color:#9333EA;">Choose a plan</a>',
+            "— The Blog2Video Team",
+        ]
+        body_html = "".join(
+            f'<p style="margin:0 0 14px;">{block}</p>' for block in blocks
+        )
+        html = (
+            '<!DOCTYPE html><html><head><meta charset="UTF-8" />'
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>'
+            '<body style="margin:0;padding:24px;background:#ffffff;text-align:left;'
+            "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;"
+            'font-size:15px;line-height:1.6;color:#111827;">'
+            f"{body_html}"
+            f'<p style="margin:24px 0 0;font-size:12px;color:#9ca3af;">'
+            f'<a href="{unsubscribe_url}" style="color:#9ca3af;">Unsubscribe</a></p>'
+            "</body></html>"
         )
         self.provider.send_email(
             to=user_email, subject=subject, html_content=html, text_content=text,
@@ -464,20 +461,12 @@ class EmailService:
         self._send_coupon_email(
             user_email=user_email,
             subject=f"Still thinking it over? Here's {discount_percent}% off",
-            headline=f"Hi {first_name}, here's {discount_percent}% off any plan",
-            intro_html=(
-                f"You were one step away from turning your blog posts into "
-                f"studio-quality videos. To help you get started, here's "
-                f"<strong style=\"color:#111827;\">{discount_percent}% off</strong> any "
-                f"Blog2Video subscription plan."
-            ),
             intro_text=(
                 f"Hi {first_name},\n\n"
                 f"You were one step away from turning your blog posts into "
                 f"studio-quality videos. To help you get started, here's "
                 f"{discount_percent}% off any Blog2Video subscription plan."
             ),
-            cta_label=f"Claim {discount_percent}% off",
             coupon_code=coupon_code,
             valid_hours=valid_hours,
         )
@@ -498,16 +487,6 @@ class EmailService:
         self._send_coupon_email(
             user_email=user_email,
             subject=f"Thanks for your video — here's {discount_percent}% off a plan",
-            headline=f"Hi {first_name}, thanks for creating with Blog2Video!",
-            intro_html=(
-                f"We hope you love the video you just made. If you're planning to "
-                f"make more, a subscription unlocks <strong style=\"color:#111827;\">extra "
-                f"features</strong> like <strong style=\"color:#111827;\">custom video "
-                f"templates</strong> and <strong style=\"color:#111827;\">premium voiceover "
-                f"with voice cloning</strong> — and works out far cheaper than buying one "
-                f"video at a time. As a thank-you, here's "
-                f"<strong style=\"color:#111827;\">{discount_percent}% off</strong> any plan."
-            ),
             intro_text=(
                 f"Hi {first_name},\n\n"
                 f"We hope you love the video you just made. If you're planning to make "
@@ -516,7 +495,6 @@ class EmailService:
                 f"than buying one video at a time. As a thank-you, here's "
                 f"{discount_percent}% off any plan."
             ),
-            cta_label=f"Upgrade & save {discount_percent}%",
             coupon_code=coupon_code,
             valid_hours=valid_hours,
         )
