@@ -4,6 +4,7 @@ import { NEWSPAPER_LAYOUT_REGISTRY } from "./layouts";
 import type { NewspaperLayoutType, BlogLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 export interface NewspaperSceneInput {
@@ -11,9 +12,13 @@ export interface NewspaperSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -32,6 +37,8 @@ export interface NewspaperVideoCompositionProps {
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
 }
 
 export const NewspaperVideoComposition: React.FC<
@@ -50,6 +57,8 @@ export const NewspaperVideoComposition: React.FC<
   aspectRatio,
   fontFamily,
   playbackSpeed,
+  captionsEnabled,
+  captionPosition,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -106,6 +115,19 @@ export const NewspaperVideoComposition: React.FC<
                <LayoutComponent {...layoutProps} />
                {scene.voiceoverUrl && (
                  <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+               )}
+               {captionsEnabled && (scene.narrationText || scene.narration) && (
+                 <CaptionTrack
+                   text={scene.narrationText || scene.narration}
+                   position={captionPosition || "bottom_center"}
+                   aspectRatio={aspectRatio || "landscape"}
+                   fontFamily={fontFamily || undefined}
+                   speechDurationFrames={
+                     scene.speechDurationSeconds
+                       ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                       : undefined
+                   }
+                 />
                )}
             </AbsoluteFill>
           </Sequence>

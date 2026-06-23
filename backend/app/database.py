@@ -100,6 +100,8 @@ def _migrate_sqlite(eng) -> None:
             "embed_token": "VARCHAR(64)",
             "video_length": "VARCHAR(10) DEFAULT 'auto'",
             "playback_speed": "REAL DEFAULT 1.0",
+            "captions_enabled": "BOOLEAN DEFAULT 0",
+            "caption_position": "VARCHAR(20) DEFAULT 'bottom_center'",
             "content_language": "VARCHAR(10)",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",

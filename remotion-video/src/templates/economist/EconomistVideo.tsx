@@ -14,6 +14,7 @@ import { resolveFontFamily } from "../../fonts/registry";
 import type { EconomistLayoutType, EconomistLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { EconomistChrome } from "./components/EconomistChrome";
 import { pickEconomistTransition } from "./transitions";
@@ -24,9 +25,13 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
+  narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
 }
@@ -46,6 +51,8 @@ interface VideoData {
   fontFamily?: string | null;
   bgmFile?: string | null;
   bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
   scenes: SceneData[];
 }
 
@@ -287,6 +294,19 @@ export const EconomistVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={s.durationFrames}
           >
             <Audio src={staticFile(s.scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            {data.captionsEnabled && (s.scene.narrationText || s.scene.narration) && (
+              <CaptionTrack
+                text={s.scene.narrationText || s.scene.narration}
+                position={data.captionPosition || "bottom_center"}
+                aspectRatio={data.aspectRatio || "landscape"}
+                fontFamily={resolvedFontFamily || undefined}
+                speechDurationFrames={
+                  s.scene.speechDurationSeconds
+                    ? getSceneDurationFrames(s.scene.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         );
       })}

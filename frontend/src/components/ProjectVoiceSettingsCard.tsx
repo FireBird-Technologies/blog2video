@@ -280,12 +280,12 @@ export default function ProjectVoiceSettingsCard({
       />
       <h2 className="text-base font-medium text-gray-900 mb-1">Voice</h2>
       <p
-        className="text-xs text-gray-400 mb-5 truncate"
+        className="text-xs text-gray-400 mb-3 truncate"
         title="The narration voice for this project. Changing it regenerates every scene's voiceover and counts as a new video."
       >
         The narration voice for this project…
       </p>
-      <div className="glass-card p-6 flex flex-col gap-3">
+      <div className="glass-card p-4 flex flex-col gap-2">
         {/* Current voice — preview only (spinner while a custom voice resolves) */}
         {!hasVoiceover ? (
           <div className="flex items-center gap-3 rounded-xl border-2 border-gray-200/60 bg-white/60 p-3">

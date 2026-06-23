@@ -822,6 +822,8 @@ def create_project(
         content_language=normalize_preferred_language_code(data.content_language),
         bgm_track_id=getattr(data, "bgm_track_id", None) or None,
         bgm_volume=getattr(data, "bgm_volume", None) or 0.10,
+        captions_enabled=bool(getattr(data, "captions_enabled", False)),
+        caption_position=getattr(data, "caption_position", None) or "bottom_center",
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -866,6 +868,20 @@ def update_project(
         else:
             if value is not None:
                 update_data[field] = value
+
+    # Captions require a voiceover to sync to — block enabling them on a muted project.
+    if update_data.get("captions_enabled") is True:
+        has_voiceover = (
+            db.query(Scene)
+            .filter(Scene.project_id == project.id, Scene.voiceover_path.isnot(None))
+            .first()
+            is not None
+        )
+        if not has_voiceover:
+            raise HTTPException(
+                status_code=400,
+                detail="Captions require a voiceover. Add a voice to this video first.",
+            )
 
     for field, value in update_data.items():
         old_value = getattr(project, field)
@@ -1555,6 +1571,10 @@ def _reset_scenes_to_muted(db: Session, project_id: int) -> None:
                 max(settings.MIN_SCENE_DURATION_SECONDS, est + DURATION_PAD), 1
             )
         s.voiceover_path = None
+    # Captions ride on the voiceover; once muted there's nothing to sync to.
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if project is not None:
+        project.captions_enabled = False
     db.commit()
 
 
@@ -2578,6 +2598,8 @@ def create_projects_bulk(
             content_language=normalize_preferred_language_code(data.content_language),
             bgm_track_id=getattr(data, "bgm_track_id", None) or None,
             bgm_volume=getattr(data, "bgm_volume", None) or 0.10,
+            captions_enabled=bool(getattr(data, "captions_enabled", False)),
+            caption_position=getattr(data, "caption_position", None) or "bottom_center",
             status=ProjectStatus.CREATED,
         )
         db.add(project)
@@ -4929,6 +4951,9 @@ async def _run_delete_voiceover(project_id: int, job_id: int) -> None:
         # scene's duration from its narration word count.
         project.voice_gender = "none"
         project.custom_voice_id = None
+        # Captions ride on the voiceover; with no audio there's nothing to sync to, so
+        # disable them when the project is muted.
+        project.captions_enabled = False
         db.commit()
 
         content_language = get_content_language_for_project(project)

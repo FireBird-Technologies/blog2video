@@ -55,9 +55,11 @@ export interface TemplateConfig {
       order: number;
       title: string;
       narration: string;
+      narrationText?: string;
       layout: string;
       layoutProps: Record<string, unknown>;
       durationSeconds: number;
+      speechDurationSeconds?: number;
       imageUrl?: string;
       voiceoverUrl?: string;
     }>;
@@ -70,6 +72,8 @@ export interface TemplateConfig {
     logoSize?: number;
     aspectRatio?: string;
     playbackSpeed?: number;
+    captionsEnabled?: boolean;
+    captionPosition?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     theme?: any;
   }>;

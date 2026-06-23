@@ -1,16 +1,22 @@
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { STICKMAN_FOOTBALL_LAYOUT_REGISTRY as LAYOUT_REGISTRY, StickmanFootballLayoutType, SceneLayoutProps } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
+import { CaptionTrack } from "../CaptionTrack";
+import { getSceneDurationFrames } from "../playbackSpeed";
 
 export interface StickmanFootballSceneInput {
   id: number;
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: StickmanFootballLayoutType;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -26,6 +32,8 @@ export interface StickmanFootballVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
 }
 
 export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCompositionProps> = ({
@@ -39,6 +47,8 @@ export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCom
   logoSize,
   aspectRatio,
   fontFamily,
+  captionsEnabled,
+  captionPosition,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
@@ -83,6 +93,19 @@ export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCom
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={fontFamily || undefined}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, 1)
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         );
       })}
