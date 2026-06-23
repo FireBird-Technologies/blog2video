@@ -1,6 +1,7 @@
 """
 Custom Templates Router — CRUD + theme extraction for user-created templates.
-All users can create/edit/delete custom templates. Pro required to use them in projects.
+All users (incl. Free) can create/edit/delete AND use custom templates in projects.
+Access is gated by video credits + the per-plan creation cap, not subscription tier.
 """
 
 import asyncio
