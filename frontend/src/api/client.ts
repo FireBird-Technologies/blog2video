@@ -413,8 +413,10 @@ export const createPerVideoCheckout = (
   });
 };
 
-export const createCustomTemplateCheckout = () =>
-  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {});
+export const createCustomTemplateCheckout = (quantity: number = 1) =>
+  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {
+    quantity,
+  });
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");
