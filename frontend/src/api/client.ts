@@ -414,12 +414,16 @@ export const createPerVideoCheckout = (
   });
 };
 
+
+export const createCustomTemplateCheckout = (quantity: number = 1) =>
+  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {
+    quantity,
+  });
+
+
 /** One-time $300 purchase of 500 never-expiring video credits. */
 export const createBulkCreditsCheckout = () =>
   api.post<{ checkout_url: string }>("/billing/checkout-bulk-credits", {});
-
-export const createCustomTemplateCheckout = () =>
-  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {});
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");

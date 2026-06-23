@@ -52,6 +52,12 @@ export default function UpgradePlanModal({
   const { user } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [slotQty, setSlotQty] = useState(1);
+
+  const SLOT_PRICE = 5;
+  const SLOT_MIN = 1;
+  const SLOT_MAX = 20;
+  const clampQty = (n: number) => Math.max(SLOT_MIN, Math.min(n, SLOT_MAX));
 
   if (!open) return null;
 
@@ -86,7 +92,7 @@ export default function UpgradePlanModal({
     }
     setLoadingPlan("extra_slot");
     try {
-      const res = await createCustomTemplateCheckout();
+      const res = await createCustomTemplateCheckout(slotQty);
       if (res.data.checkout_url) window.location.href = res.data.checkout_url;
     } catch {
       setLoadingPlan(null);
@@ -284,19 +290,49 @@ export default function UpgradePlanModal({
             <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-purple-100 bg-purple-50/50 px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-gray-900">
-                  Just need one more template?
+                  {slotQty > 1 ? `Need ${slotQty} more templates?` : "Just need one more template?"}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Buy a custom template — one-time $5, no subscription.
+                  Buy custom template slots — one-time $5 each, no subscription.
                 </p>
               </div>
-              <button
-                onClick={handleExtraSlot}
-                disabled={!!loadingPlan}
-                className="shrink-0 px-4 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
-              >
-                {loadingPlan === "extra_slot" ? "Redirecting…" : "Buy a custom template — $5"}
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                {/* Ticker counter */}
+                <div className="flex items-center gap-1 rounded-full bg-purple-100/70 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setSlotQty((q) => clampQty(q - 1))}
+                    disabled={!!loadingPlan || slotQty <= SLOT_MIN}
+                    aria-label="Decrease quantity"
+                    className="w-7 h-7 flex items-center justify-center rounded-full text-purple-700 hover:bg-white hover:shadow-sm transition-all disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" d="M5 12h14" />
+                    </svg>
+                  </button>
+                  <span className="w-6 text-center text-sm font-semibold text-gray-900 tabular-nums select-none">
+                    {slotQty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSlotQty((q) => clampQty(q + 1))}
+                    disabled={!!loadingPlan || slotQty >= SLOT_MAX}
+                    aria-label="Increase quantity"
+                    className="w-7 h-7 flex items-center justify-center rounded-full text-purple-700 hover:bg-white hover:shadow-sm transition-all disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  onClick={handleExtraSlot}
+                  disabled={!!loadingPlan}
+                  className="shrink-0 px-4 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
+                >
+                  {loadingPlan === "extra_slot" ? "Redirecting…" : `Buy — $${slotQty * SLOT_PRICE}`}
+                </button>
+              </div>
             </div>
           )}
         </div>
