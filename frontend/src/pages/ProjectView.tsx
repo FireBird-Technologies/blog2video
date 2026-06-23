@@ -4480,10 +4480,6 @@ export default function ProjectView() {
                   disabled={templateChangeDraft === assignedTemplateId || templateRelayoutRunning}
                   onClick={() => {
                     if (templateChangeDraft === assignedTemplateId) return;
-                    if (!isPro && templateChangeDraft.startsWith("custom_")) {
-                      setShowUpgrade(true);
-                      return;
-                    }
                     setTemplateRelayoutPendingId(templateChangeDraft);
                     setShowTemplateChangeModal(false);
                     setShowTemplateRelayoutWarning(true);

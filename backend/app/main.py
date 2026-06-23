@@ -414,6 +414,20 @@ async def lifespan(app: FastAPI):
     paid_cleanup = None
     support_cleanup = None
 
+    # Raise the open-file-descriptor soft limit toward the hard limit. Headless
+    # Chrome + node subprocesses (Remotion) plus HTTP connection pools can blow
+    # through the default soft limit (often 1024). Done in-process so it applies
+    # regardless of how the container is launched. Best-effort.
+    try:
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        target = min(65536, hard) if hard != resource.RLIM_INFINITY else 65536
+        if soft < target:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
+        new_soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+    except Exception as e:
+        print(f"[STARTUP] Could not raise RLIMIT_NOFILE: {e}")
+
     try:
         print("[STARTUP] Initializing database...")
         init_db()
@@ -818,19 +832,17 @@ def design_voice_from_prompt(body: dict):
         raise HTTPException(status_code=502, detail="Voice design failed. Try a different prompt.")
 
 
-@app.get("/api/voices/preview-audio")
-async def get_voice_preview_audio(key: str):
-    """Stream voice preview audio so playback can start as soon as first bytes arrive."""
+def _build_voice_preview_session():
+    """Shared HTTP session for the voice-preview proxy.
+
+    Created once and reused across requests so each preview does NOT open (and
+    leak) a fresh connection pool. Previously a per-request Session was closed
+    only inside the streaming generator's finally, so an early client disconnect
+    leaked the socket and exhausted file descriptors under load.
+    """
     import requests
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
-    from fastapi.responses import RedirectResponse
-    from fastapi.responses import StreamingResponse
-
-    preview_url = _get_voice_preview_url_by_key(key)
-    if not preview_url:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Voice preview not found")
 
     session = requests.Session()
     retry = Retry(
@@ -845,25 +857,43 @@ async def get_voice_preview_audio(key: str):
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
+    return session
+
+
+_voice_preview_session = _build_voice_preview_session()
+
+
+@app.get("/api/voices/preview-audio")
+async def get_voice_preview_audio(key: str):
+    """Stream voice preview audio so playback can start as soon as first bytes arrive."""
+    from fastapi.responses import RedirectResponse
+    from fastapi.responses import StreamingResponse
+
+    preview_url = _get_voice_preview_url_by_key(key)
+    if not preview_url:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Voice preview not found")
 
     try:
-        resp = session.get(
+        resp = _voice_preview_session.get(
             preview_url,
             timeout=(5, 20),
             stream=True,
-            headers={"Connection": "close", "Accept": "audio/mpeg,audio/*;q=0.9,*/*;q=0.1"},
+            headers={"Accept": "audio/mpeg,audio/*;q=0.9,*/*;q=0.1"},
         )
         resp.raise_for_status()
         media_type = resp.headers.get("Content-Type", "audio/mpeg")
 
         def chunk_iter():
+            # Starlette closes this generator (GeneratorExit) when the client
+            # disconnects, so the finally runs and releases the socket even on
+            # early abort. The shared session is intentionally NOT closed here.
             try:
                 for chunk in resp.iter_content(chunk_size=16 * 1024):
                     if chunk:
                         yield chunk
             finally:
                 resp.close()
-                session.close()
 
         return StreamingResponse(
             chunk_iter(),
@@ -871,6 +901,5 @@ async def get_voice_preview_audio(key: str):
         )
     except Exception as e:
         print(f"[VOICES] preview-audio proxy failed for {key}: {e}")
-        session.close()
         # Fallback: let browser fetch directly; useful when proxy-side TLS fails intermittently.
         return RedirectResponse(url=preview_url, status_code=307)

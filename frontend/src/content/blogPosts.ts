@@ -8935,6 +8935,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Generic AI video tools make finance content look like a TikTok. Blog2Video uses branded templates and built-in data visualization to turn newsletters into video the way finance audiences expect.",
     category: "Use Case",
+    heroImage: "/blog/blog-cover-why-finance-newsletters-are-switching-to-blog2video.png",
+    heroImageAlt:
+      "Comparison of generic TikTok-style AI video versus Blog2Video's branded finance newsletter video with data visualization charts and editorial typography.",
     publishedAt: "2026-06-21",
     readTime: "3 min read",
     heroEyebrow: "Use Case",

@@ -5,7 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
-import { classifyUrlScrapability } from "../utils/urlScrapability";
+import { classifyUrl, classifyUrlScrapability } from "../utils/urlScrapability";
 import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import {
   primeBlogUrlFormStep2Prefetch,
@@ -1486,7 +1486,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const hasBulkFileExt = bulkFileExtRows.some(Boolean);
 
   // ─── Non-scrapable link detection ────────────────────────────
-  const urlScrape = mode === "url" ? classifyUrlScrapability(urls[0] ?? "") : "ok";
+  const urlClassification = mode === "url" ? classifyUrl(urls[0] ?? "") : { kind: "ok" as const };
+  const urlScrape = urlClassification.kind;
   const bulkScrapeRows = mode === "bulk"
     ? bulkRows.map((r) => classifyUrlScrapability(r.url))
     : [];
@@ -1629,10 +1630,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         .map((r, i) => ({ url: r.url, name: bulkNames[i] ?? "", i }))
         .filter((r) => r.url.trim());
       if (valid.length === 0) return;
-      if (!isPro && valid.some((v) => (bulkTemplates[v.i] ?? "").startsWith("custom_"))) {
-        setShowCustomTemplateUpgrade(true);
-        return;
-      }
       // Detect duplicate URLs and auto-suffix names
       const urlCounts: Record<string, number> = {};
       const urlSeenSoFar: Record<string, number> = {};
@@ -1756,10 +1753,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     if (mode === "upload") {
       if (docFiles.length === 0) return;
-      if (template.startsWith("custom_") && !isPro) {
-        setShowCustomTemplateUpgrade(true);
-        return;
-      }
       const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
       const inferredGender =
         voiceGender === "none"
@@ -1797,10 +1790,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     } else {
       const validUrls = urls.filter((u) => u.trim());
       if (validUrls.length === 0) return;
-      if (template.startsWith("custom_") && !isPro) {
-        setShowCustomTemplateUpgrade(true);
-        return;
-      }
       const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
       const inferredGender =
         voiceGender === "none"
@@ -1843,10 +1832,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // ─── Template apply colors ───────────────────────────────────
   const applyTemplate = (id: string) => {
     templateManuallySelectedRef.current = true;
-    if (id.startsWith("custom_") && !isPro) {
-      setShowCustomTemplateUpgrade(true);
-      return;
-    }
     setTemplate(id);
     // Custom template
     if (id.startsWith("custom_")) {
@@ -1868,10 +1853,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   };
 
   const openStep2CustomTemplateCreator = (style: VideoStyleId, _bulkRow: number | null) => {
-    if (!isPro) {
-      setShowCustomTemplateUpgrade(true);
-      return;
-    }
+    // Creation is open to all plans; the dashboard creator enforces the per-plan
+    // template-creation cap (1 free + purchased slots) via can_create_custom_template.
     onDismissFlow?.();
     const params = new URLSearchParams();
     params.set("tab", "templates");
@@ -2111,14 +2094,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </p>
           )}
           {urlScrape === "warn" && urls[0]?.trim() && (
-            <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200/60">
-              <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-              </svg>
-              <p className="text-[11px] text-amber-600 leading-relaxed">
-                This link might not be scrapable — try a different one if you have it.
-              </p>
-            </div>
+            <p className="text-[11px] text-amber-600 leading-relaxed mt-1">
+              {urlClassification.message}
+            </p>
           )}
           <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
             Use a paywall-free link for best results.{" "}
@@ -2639,13 +2617,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 variant="default"
                 isPro={isPro}
                 onClick={() => {
-                  if (!isPro) { setShowCustomTemplateUpgrade(true); return; }
                   setShowGetMoreTemplates(true);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    if (!isPro) { setShowCustomTemplateUpgrade(true); return; }
                     setShowGetMoreTemplates(true);
                   }
                 }}
@@ -2686,11 +2662,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                             </span>
                           )}
                         </div>
-                        {item.type === "custom" && !isPro && (
-                          <div className="absolute top-6 left-0.5 z-[5] px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
-                            Pro
-                          </div>
-                        )}
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 z-20 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-md ring-2 ring-white">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3017,10 +2988,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     const applyBulkTemplate = (id: string) => {
       templateManuallySelectedRef.current = true;
-      if (id.startsWith("custom_") && !isPro) {
-        setShowCustomTemplateUpgrade(true);
-        return;
-      }
       const colors = id.startsWith("custom_")
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
         : id.startsWith("crafted_")
@@ -3400,13 +3367,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 variant="compact"
                 isPro={isPro}
                 onClick={() => {
-                  if (!isPro) { setShowCustomTemplateUpgrade(true); return; }
                   setShowGetMoreTemplates(true);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    if (!isPro) { setShowCustomTemplateUpgrade(true); return; }
                     setShowGetMoreTemplates(true);
                   }
                 }}
@@ -3447,11 +3412,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                             </span>
                           )}
                         </div>
-                        {item.type === "custom" && !isPro && (
-                          <div className="absolute top-6 left-0.5 z-[5] px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
-                            Pro
-                          </div>
-                        )}
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 z-20 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-md ring-2 ring-white">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
