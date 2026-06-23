@@ -9,6 +9,7 @@ import {
   submitTemplateRating,
   type CustomTemplateItem,
 } from "../api/client";
+import { invalidateBlogUrlFormAvailabilityCache } from "../api/blogUrlFormStep2Prefetch";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useAuth } from "../hooks/useAuth";
 import { preloadBabel } from "../utils/compileComponent";
@@ -27,9 +28,19 @@ import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestM
 // finishes in ~2 min; 8 min is a safe ceiling that won't false-flag a live run.
 const STUCK_GENERATION_MS = 8 * 60 * 1000;
 
+// Backend emits naive UTC timestamps (datetime.utcnow().isoformat(), no tz suffix).
+// Date.parse() would read those as LOCAL time, so for any user in a positive UTC
+// offset a brand-new template reads as hours old and instantly trips the stuck
+// threshold below. Append 'Z' when no zone is present so it's parsed as UTC.
+function parseServerTimestamp(s: string): number {
+  if (!s) return NaN;
+  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  return Date.parse(hasTz ? s : s + "Z");
+}
+
 function isStuckGenerating(tpl: CustomTemplateItem): boolean {
   if (tpl.intro_code || tpl.generation_failed) return false;
-  const ts = Date.parse(tpl.updated_at || tpl.created_at);
+  const ts = parseServerTimestamp(tpl.updated_at || tpl.created_at);
   if (Number.isNaN(ts)) return false;
   return Date.now() - ts > STUCK_GENERATION_MS;
 }
@@ -122,6 +133,9 @@ export default function CustomTemplates() {
           if (!stillPending) {
             clearInterval(pollingRef.current!);
             pollingRef.current = null;
+            // A template just finished generating — refresh the project-creation
+            // picker's cache so the now-ready template appears there.
+            invalidateBlogUrlFormAvailabilityCache();
           }
         } catch { /* ignore */ }
       }, 4000);
@@ -135,6 +149,9 @@ export default function CustomTemplates() {
     setTemplates((prev) => [tpl, ...prev]);
     setShowCreator(false);
     startPollingIfNeeded([tpl]);
+    // Drop the project-creation picker's cached template list so this new one
+    // shows up there without needing a full page refresh.
+    invalidateBlogUrlFormAvailabilityCache();
   };
 
   const handleSaved = (tpl: CustomTemplateItem) => {
@@ -205,6 +222,8 @@ export default function CustomTemplates() {
       setTemplates((prev) => prev.filter((t) => t.id !== deleteTarget.id));
       setDeleteTarget(null);
       setDeleteImpactCount(null);
+      // Keep the project-creation picker's cached list in sync with the deletion.
+      invalidateBlogUrlFormAvailabilityCache();
     } catch (err) {
       const detail = (err as {
         response?: { data?: { detail?: string | { code?: string; message?: string; project_count?: number } } };
@@ -310,6 +329,30 @@ export default function CustomTemplates() {
               </span>
             </h2>
             <div className="flex items-center gap-4">
+              {activeTemplatesTab === "custom" && user && (() => {
+                const created = user.custom_templates_created ?? 0;
+                const limit = user.custom_template_limit ?? 1;
+                const pct = limit > 0 ? Math.min(100, Math.round((created / limit) * 100)) : 0;
+                return (
+                  <div
+                    className="hidden sm:flex items-center gap-2.5"
+                    title="Templates created count toward your limit for life — deleting one does not free a slot. Buy more slots to raise your limit."
+                  >
+                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                      <span className="font-semibold text-gray-700 tabular-nums">{created}</span>
+                      <span className="mx-0.5 text-gray-300">/</span>
+                      <span className="tabular-nums">{limit}</span>
+                      <span className="ml-1.5">Created</span>
+                    </span>
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-purple-600 to-purple-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
               {activeTemplatesTab === "custom" && (
                 <button
                   onClick={openCreator}

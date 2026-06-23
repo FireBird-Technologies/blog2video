@@ -1,6 +1,7 @@
 """
 Custom Templates Router — CRUD + theme extraction for user-created templates.
-All users can create/edit/delete custom templates. Pro required to use them in projects.
+All users (incl. Free) can create/edit/delete AND use custom templates in projects.
+Access is gated by video credits + the per-plan creation cap, not subscription tier.
 """
 
 import asyncio
@@ -175,6 +176,19 @@ def _get_my_rating(template_id: int, user_id: int, db: Session) -> tuple[int | N
     return (row[0], row[1]) if row else (None, None)
 
 
+def _utc_iso(dt) -> str:
+    """Serialize a naive-UTC datetime as a UTC-aware ISO string (with 'Z').
+
+    Timestamp columns are stored via ``datetime.utcnow()`` (naive UTC). A bare
+    ``.isoformat()`` has no timezone suffix, so JS ``Date.parse`` reads it as
+    LOCAL time — making fresh rows look hours old to clients in a positive UTC
+    offset. Emitting an explicit 'Z' keeps every client's parsing correct.
+    """
+    if not dt:
+        return ""
+    return dt.replace(microsecond=0).isoformat() + "Z" if dt.tzinfo is None else dt.isoformat()
+
+
 def _serialize_template(
     tpl: CustomTemplate, my_rating: int | None = None, my_rating_comment: str | None = None
 ) -> dict:
@@ -231,8 +245,8 @@ def _serialize_template(
         "generation_failed": bool(tpl.generation_failed),
         "my_rating": my_rating,
         "my_rating_comment": my_rating_comment,
-        "created_at": tpl.created_at.isoformat() if tpl.created_at else "",
-        "updated_at": tpl.updated_at.isoformat() if tpl.updated_at else "",
+        "created_at": _utc_iso(tpl.created_at),
+        "updated_at": _utc_iso(tpl.updated_at),
     }
 
 

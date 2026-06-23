@@ -786,11 +786,9 @@ def create_project(
 
     name = data.name or _name_from_url(data.blog_url)
     template_id = validate_template_id(data.template, db=db, user_id=user.id)
-    if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        raise HTTPException(
-            status_code=403,
-            detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
-        )
+    # Custom templates are usable on any plan (incl. Free). Access is gated solely by
+    # video credits (checked above via can_create_video) and the per-plan template-
+    # creation cap enforced at creation time — not by subscription tier.
     if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
         raise HTTPException(
             status_code=403,
@@ -909,11 +907,8 @@ async def change_project_template_regenerate_layouts(
     target_template = validate_template_id(body.template, db=db, user_id=user.id)
     if target_template == project.template:
         raise HTTPException(status_code=400, detail="Project is already using this template.")
-    if is_custom_template(target_template) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        raise HTTPException(
-            status_code=403,
-            detail="Custom templates require a Pro or Standard subscription.",
-        )
+    # Custom templates are usable on any plan (incl. Free) — gated by video credits and
+    # the template-creation cap, not subscription tier. See create_project.
     if is_crafted_template(target_template) and not validate_crafted_template_access(target_template, user.id, db):
         raise HTTPException(
             status_code=403,
@@ -2512,14 +2507,8 @@ def create_projects_bulk(
             status_code=403,
             detail=f"Sorry, your video limit has been reached. Please upgrade your plan or buy more credits.",
         )
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        for data in items:
-            tid = getattr(data, "template", None) or ""
-            if tid and str(tid).strip().startswith("custom_"):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
-                )
+    # Custom templates are usable on any plan (incl. Free) — gated by video credits
+    # (checked above) and the template-creation cap, not subscription tier.
     logo_indices: list[int] = []
     if logo_indices_json:
         try:
@@ -2676,11 +2665,8 @@ def create_project_from_upload(
     # ── Create project ────────────────────────────────────
     project_name = name or _name_from_files(files)
     template_id = validate_template_id(template, db=db, user_id=user.id)
-    if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        raise HTTPException(
-            status_code=403,
-            detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
-        )
+    # Custom templates are usable on any plan (incl. Free) — gated by video credits and
+    # the template-creation cap, not subscription tier. See create_project.
     if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
         raise HTTPException(
             status_code=403,

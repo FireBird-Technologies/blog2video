@@ -340,17 +340,18 @@ export const googleLogin = (credential: string, reactivate = false, refCode?: st
   return api.post<AuthResponse>("/auth/google", { credential }, { params });
 };
 
-export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
-export const sendAffiliateInvites = (emails: string[]) =>
-  api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
-
-export interface AffiliateStats {
-  link: string;
-  signups_count: number;
-  bonus_earned: number;
-  max_signups: number;
-  bonus_per_signup: number;
-}
+// Share B2V (referral/invite) disabled
+// export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
+// export const sendAffiliateInvites = (emails: string[]) =>
+//   api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
+//
+// export interface AffiliateStats {
+//   link: string;
+//   signups_count: number;
+//   bonus_earned: number;
+//   max_signups: number;
+//   bonus_per_signup: number;
+// }
 
 export interface SurveyPayload {
   rating?: string;
@@ -450,12 +451,16 @@ export const createPerVideoCheckout = (
     });
 };
 
+
+export const createCustomTemplateCheckout = (quantity: number = 1) =>
+  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {
+    quantity,
+  });
+
+
 /** One-time $300 purchase of 500 never-expiring video credits. */
 export const createBulkCreditsCheckout = () =>
   api.post<{ checkout_url: string }>("/billing/checkout-bulk-credits", {});
-
-export const createCustomTemplateCheckout = () =>
-  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {});
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");
