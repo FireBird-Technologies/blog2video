@@ -7,6 +7,7 @@ import {
   Sequence,
   Audio,
 } from "remotion";
+import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import {
   BACKEND_URL,
   Project,
@@ -31,6 +32,12 @@ import {
 import { LogoOverlay } from "./remotion/LogoOverlay";
 import { CtaOverlay } from "./remotion/CtaOverlay";
 import { BackgroundMusic } from "./remotion/BackgroundMusic";
+// Brand exit-flourish between scenes — mirrors the headless render so the
+// "all scenes together" preview shows the SAME transitions the final video has.
+import { pickGeneratedTransition } from "./remotion/generated/generatedTransitions";
+// Dedicated data-viz scenes (custom templates) — same kit components the render
+// uses, so preview matches the final video.
+import { DataChartScene, DataTableScene } from "./remotion/generated/kit";
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -63,12 +70,30 @@ const StableCustomComposition: React.FC<any> = ({
   const FPS = 30;
   const playbackSpeed = 1;
 
+  // Brand transition family (motion personality) — drives which real two-scene
+  // transition plays between scenes, matching the render. Falls back to the
+  // default pool.
+  const transitionFamily = (project.custom_theme as { motion?: { transitionFamily?: string[] } } | undefined)
+    ?.motion?.transitionFamily;
+  const canvasW = aspectRatio === "portrait" ? 1080 : 1920;
+  const canvasH = aspectRatio === "portrait" ? 1920 : 1080;
+  if (typeof console !== "undefined") {
+    // eslint-disable-next-line no-console
+    console.log(`[F7-DEBUG][V3][PREVIEW-TRANSITION] injecting ${Math.max(0, totalScenes - 1)} transitions, family=${transitionFamily ? transitionFamily.join(",") : "default"}`);
+  }
+
   const sceneAssignments: { type: string; variantKey: string }[] = [];
   let contentIdx = 0;
   for (let i = 0; i < scenes.length; i++) {
     const scene = project.scenes[i];
     let sceneType = "content";
     let variantIdx = 0;
+
+    // Dedicated data-viz scenes route by scene_type (set on the DB scene).
+    if (scene?.scene_type === "dataviz_chart" || scene?.scene_type === "dataviz_table") {
+      sceneAssignments.push({ type: scene.scene_type, variantKey: scene.scene_type });
+      continue;
+    }
 
     if (scene?.remotion_code) {
       try {
@@ -109,17 +134,30 @@ const StableCustomComposition: React.FC<any> = ({
     frameDurations.push(dur);
     offset += dur;
   }
+  // Real two-scene transitions (TransitionSeries). Each non-last sequence is held
+  // by exactly its transition's frames, so total duration + audio start frames
+  // (frameOffsets) stay the back-to-back schedule — totalDurationFrames and audio
+  // sync are unchanged. See generatedTransitions.ts.
+  const transitions = scenes.map((_: unknown, i: number) =>
+    i < totalScenes - 1
+      ? pickGeneratedTransition(i, transitionFamily, canvasW, canvasH, brandColors.accent)
+      : null,
+  );
 
   return (
     <AbsoluteFill style={{ fontFamily: resolvedFontFamily || undefined }}>
+      <TransitionSeries>
       {scenes.map((s: any, i: number) => {
         const assignment = sceneAssignments[i];
-        const SceneComp =
-          compiledScenes[assignment.variantKey] ||
-          compiledScenes["intro"] ||
-          Object.values(compiledScenes)[0];
+        const isDataViz =
+          assignment.type === "dataviz_chart" || assignment.type === "dataviz_table";
+        const SceneComp: React.ComponentType<Record<string, unknown>> = isDataViz
+          ? ((assignment.type === "dataviz_chart" ? DataChartScene : DataTableScene) as unknown as React.ComponentType<Record<string, unknown>>)
+          : ((compiledScenes[assignment.variantKey] ||
+             compiledScenes["intro"] ||
+             Object.values(compiledScenes)[0]) as unknown as React.ComponentType<Record<string, unknown>>);
 
-        if (!SceneComp) return null;
+        const t = transitions[i];
 
         const sc = (s.structuredContent || {}) as Record<string, unknown>;
         const focusX = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusX ?? 50);
@@ -157,35 +195,73 @@ const StableCustomComposition: React.FC<any> = ({
         };
 
         // console.log(`[F7-DEBUG] [CustomComp] scene ${i}: displayText=${sceneProps.displayText?.substring(0,60)}, contentType=${sceneProps.contentType}, bullets=${sceneProps.bullets?.length}`);
+        const visual = !SceneComp ? (
+          <AbsoluteFill />
+        ) : s.ctaProps ? (
+          <CtaOverlay
+            ctaProps={s.ctaProps as any}
+            brandColors={brandColors}
+            aspectRatio={aspectRatio}
+            headingFont={headingFont}
+            bodyFont={bodyFont}
+            title={sceneProps.displayText}
+            logoUrl={sceneProps.logoUrl}
+          />
+        ) : (
+          <AbsoluteFill
+            style={{
+              ["--img-pos" as string]: sceneProps.imageObjectPosition,
+              ["--img-zoom" as string]: String(imageZoom),
+            }}
+          >
+            <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
+            <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
+              {isDataViz ? (
+                <SceneComp
+                  {...(sceneProps as unknown as Record<string, unknown>)}
+                  displayText={s.title || sceneProps.displayText}
+                  chartTable={(s.layoutProps as Record<string, unknown>)?.chartTable}
+                  chartType={(s.layoutProps as Record<string, unknown>)?.chartType}
+                  chartSummary={(s.layoutProps as Record<string, unknown>)?.chartSummary}
+                />
+              ) : (
+                <SceneComp {...sceneProps} />
+              )}
+            </div>
+          </AbsoluteFill>
+        );
+
+        const sequence = (
+          <TransitionSeries.Sequence
+            key={`seq-${s.id}`}
+            durationInFrames={frameDurations[i] + (t ? t.frames : 0)}
+          >
+            {visual}
+          </TransitionSeries.Sequence>
+        );
+        if (!t) return sequence;
         return (
-          <Sequence key={s.id} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
-            {s.ctaProps ? (
-              <CtaOverlay
-                ctaProps={s.ctaProps as any}
-                brandColors={brandColors}
-                aspectRatio={aspectRatio}
-                headingFont={headingFont}
-                bodyFont={bodyFont}
-                title={sceneProps.displayText}
-                logoUrl={sceneProps.logoUrl}
-              />
-            ) : (
-              <AbsoluteFill
-                style={{
-                  ["--img-pos" as string]: sceneProps.imageObjectPosition,
-                  ["--img-zoom" as string]: String(imageZoom),
-                }}
-              >
-                <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
-                <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
-                  <SceneComp {...sceneProps} />
-                </div>
-              </AbsoluteFill>
-            )}
-            {s.voiceoverUrl && <Audio src={s.voiceoverUrl} playbackRate={1} />}
-          </Sequence>
+          <React.Fragment key={`scene-${s.id}`}>
+            {sequence}
+            <TransitionSeries.Transition
+              presentation={t.presentation}
+              timing={linearTiming({ durationInFrames: t.frames })}
+            />
+          </React.Fragment>
         );
       })}
+      </TransitionSeries>
+
+      {/* Voiceover lives on a parallel absolute timeline (NOT inside the
+          TransitionSeries) so transition overlap never warps audio sync —
+          frameOffsets is the plain back-to-back schedule. */}
+      {scenes.map((s: any, i: number) =>
+        s.voiceoverUrl ? (
+          <Sequence key={`audio-${s.id}`} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
+            <Audio src={s.voiceoverUrl} playbackRate={1} />
+          </Sequence>
+        ) : null,
+      )}
 
       {project.logo_r2_url && (
         <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>

@@ -32,7 +32,7 @@ from app.schemas.schemas import (
 )
 from app.config import settings
 from app.services.scraper import scrape_blog
-from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content, classify_chart_tables_for_template
+from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content, classify_chart_tables_for_template, append_tables_to_content
 from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
     get_line_chartable_tables_from_visual_hint,
@@ -143,6 +143,95 @@ def _is_laduc_or_fj(template_id: str) -> bool:
     templates that share the market_annotation/ticker chart-binding pipeline."""
     tid = template_id or ""
     return ("laduc" in tid) or ("fj_research" in tid) or (tid in FJ_TEMPLATE_IDS)
+
+
+# Custom templates always get TWO dedicated, editable data-viz scenes (a chart +
+# a table), EXTRA to the content scenes — parity with the built-in templates.
+# Seed used only when the article has no chartable table, so the scenes still
+# render and are editable (mirrors the built-in editor's example tables).
+_CUSTOM_DATAVIZ_SEED: dict = {
+    "headers": ["Quarter", "Revenue", "Growth %"],
+    "rows": [
+        ["Q1", "120", "8"],
+        ["Q2", "145", "12"],
+        ["Q3", "170", "17"],
+        ["Q4", "210", "24"],
+    ],
+}
+
+
+def _chartable_props_from_blog(blog_content: str) -> list[dict]:
+    """Return deterministic chart props for every chartable blog table."""
+    try:
+        tables = extract_tables_from_content(blog_content or "")
+    except Exception as e:  # noqa: BLE001 — never break the pipeline on table parsing
+        print(f"[F7-DEBUG] [CUSTOM-DATAVIZ] table extraction failed: {e}")
+        return []
+    out: list[dict] = []
+    for t in tables:
+        props = _build_chart_props_from_table(t) or {}
+        ct = props.get("chartTable")
+        if isinstance(ct, dict) and ct.get("rows"):
+            out.append(props)
+    return out
+
+
+def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
+    """Build the 2 dedicated data-viz scene_raw dicts (chart + table) for custom
+    templates. Uses real extracted tables when available, else a seed. The bound
+    table is embedded in visual_description so it round-trips into layoutProps.
+    """
+    chartable = _chartable_props_from_blog(blog_content)
+    if chartable:
+        chart_props = chartable[0]
+        table_props = chartable[1] if len(chartable) > 1 else chartable[0]
+    else:
+        seed = {"chartTable": _CUSTOM_DATAVIZ_SEED, "chartType": "line"}
+        chart_props = table_props = seed
+
+    def _mk(stype: str, layout: str, props: dict, title: str, narration: str) -> dict:
+        table = props.get("chartTable") or {}
+        vd = append_tables_to_content(narration, [table])
+        return {
+            "title": title,
+            "narration": narration,
+            "visual_description": vd,
+            "duration_seconds": 8,
+            "preferred_layout": layout,
+            "_scene_type": stype,
+        }
+
+    chart_summary = (chart_props.get("chartSummary") or "").strip()
+    chart_narr = chart_summary or "Here's what the numbers reveal at a glance."
+    return [
+        _mk("dataviz_chart", "custom_chart", chart_props, "By the numbers", chart_narr),
+        _mk("dataviz_table", "custom_table", table_props, "The full breakdown",
+            "And here are the underlying figures in full."),
+    ]
+
+
+def _bind_dataviz_layout_props(scene, descriptor: dict) -> bool:
+    """For a dedicated data-viz scene, recover the table embedded in its
+    visual_description and write chartTable/chartType/chartSummary into the
+    descriptor's layoutProps (the editable location read by GeneratedVideo and
+    SceneEditModal). Returns True if bound."""
+    stype = getattr(scene, "scene_type", None)
+    if stype not in ("dataviz_chart", "dataviz_table"):
+        return False
+    try:
+        tables = extract_tables_from_content(getattr(scene, "visual_description", "") or "")
+    except Exception:  # noqa: BLE001
+        tables = []
+    props = _build_chart_props_from_table(tables[0]) if tables else None
+    if not props or not (props.get("chartTable") or {}).get("rows"):
+        props = {"chartTable": _CUSTOM_DATAVIZ_SEED, "chartType": "line"}
+    lp = dict(descriptor.get("layoutProps") or {})
+    lp["chartTable"] = props["chartTable"]
+    lp["chartType"] = props.get("chartType", "auto")
+    if props.get("chartSummary"):
+        lp["chartSummary"] = props["chartSummary"]
+    descriptor["layoutProps"] = lp
+    return True
 
 
 # Built-in templates that opt into the chartTable/tickerTable data-viz pipeline,
@@ -1085,6 +1174,18 @@ async def _generate_script(
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
+    # Custom templates ALWAYS get 2 dedicated data-viz scenes (chart + table),
+    # inserted just before the outro — EXTRA to the content scenes, mirroring the
+    # built-in templates' chart/table pair. Bound to real Firecrawl tables when
+    # present (seeded + editable otherwise).
+    if is_custom_template(template_id):
+        _dataviz_scenes = _build_custom_dataviz_scenes(getattr(project, "blog_content", None) or "")
+        _insert_at = max(1, len(scenes_raw) - 1) if len(scenes_raw) > 1 else len(scenes_raw)
+        for _offset, _dv in enumerate(_dataviz_scenes):
+            scenes_raw.insert(_insert_at + _offset, _dv)
+            display_texts.insert(_insert_at + _offset, _dv["title"])
+        print(f"[F7-DEBUG] [CUSTOM-DATAVIZ] injected {len(_dataviz_scenes)} dedicated data-viz scenes at index {_insert_at}")
+
     # Re-attach the original project instance to a fresh connection.
     # add() on a detached-but-previously-persistent instance issues UPDATE on
     # next flush (not INSERT), and pool_pre_ping verifies the new checkout.
@@ -1240,6 +1341,9 @@ async def _generate_script(
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
             preferred_layout=preferred,
+            # Dedicated data-viz scenes (custom templates) carry an explicit
+            # scene_type so GeneratedVideo routes them to the kit chart/table scenes.
+            scene_type=scene_data.get("_scene_type"),
         )
         db.add(scene)
 
@@ -1424,6 +1528,9 @@ async def _generate_scenes(
                     "layoutConfig": {},
                 })
 
+            # Chart data for the 2 dedicated data-viz scenes is bound separately
+            # (into layoutProps) in the descriptor-application loop below, where
+            # both the DB scene and its descriptor are in scope.
             print(f"[F7-DEBUG] [PIPELINE] Custom template: extracted structured content for {len(descriptors)} scenes in 1 call")
             return descriptors
         else:
@@ -1505,6 +1612,13 @@ async def _generate_scenes(
 
     # Store descriptors as JSON in remotion_code, optionally preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
+        # Dedicated data-viz scenes: recover the bound table from the scene's
+        # visual_description into the descriptor's layoutProps (editable + read by
+        # the kit DataChartScene/DataTableScene at render time).
+        if _bind_dataviz_layout_props(scene, descriptor):
+            sc = descriptor.setdefault("structuredContent", {})
+            sc["contentType"] = "dataviz"
+
         # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
         # We override the descriptor here so Remotion can render the themed ending consistently.
         if getattr(scene, "preferred_layout", None) == "ending_socials" and supports_ending_socials:
@@ -1828,6 +1942,7 @@ async def render_video_endpoint(
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    user_row.roll_video_period_if_due(db)
     user_row.sync_video_limit_bonus(db)
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:

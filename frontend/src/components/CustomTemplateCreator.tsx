@@ -2,13 +2,22 @@ import { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
 import {
   extractTheme,
+  extractThemeFromPrompt,
+  extractThemeFromDoc,
   createCustomTemplate,
   generateTemplateCode,
   getCodeGenerationStatus,
   getCustomTemplate,
   type CustomTemplateTheme,
   type CustomTemplateItem,
+  type ExtractThemeResponse,
 } from "../api/client";
+
+type CreateMode = "url" | "prompt" | "doc";
+
+const ACCEPTED_DOC_EXTENSIONS = [".pdf", ".docx", ".md", ".txt"];
+const MIN_PROMPT_CHARS = 15;
+const MAX_PROMPT_CHARS = 5000;
 
 /** Read-only demo mode used by help videos: skips API calls, seeds state, renders inline. */
 export interface CustomTemplateCreatorDemoMode {
@@ -26,6 +35,8 @@ export interface CustomTemplateCreatorDemoMode {
 interface Props {
   onCreated: (template: CustomTemplateItem) => void;
   onCancel: () => void;
+  /** Called when create is blocked by the plan quota (403) — parent shows the upgrade modal. */
+  onLimitReached?: () => void;
   /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
   demoMode?: CustomTemplateCreatorDemoMode;
 }
@@ -212,10 +223,15 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
   );
 }
 
-export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }: Props) {
+export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReached, demoMode }: Props) {
   const isDemo = !!demoMode;
   const [step, setStep] = useState<1 | 2>(demoMode?.step ?? 1);
+  const [mode, setMode] = useState<CreateMode>("url");
   const [url, setUrl] = useState(demoMode?.url ?? "");
+  const [prompt, setPrompt] = useState("");
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<CustomTemplateTheme>(demoMode?.themeOverride ?? DEFAULT_THEME);
@@ -247,32 +263,75 @@ export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }:
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
 
-  // Step 1: Extract theme from URL
+  // Apply a successful extraction (from any input mode) and advance to review.
+  const applyExtractedTheme = (data: ExtractThemeResponse, src: string) => {
+    if (!data.theme) return;
+    setTheme(data.theme);
+    setAccentColor(data.theme.colors.accent);
+    setTemplateName(data.template_name || "");
+    setSourceUrl(src);
+    setScrapedLogoUrls(data.logo_urls || []);
+    setScrapedOgImage(data.og_image || "");
+    setScrapedScreenshotUrl(data.screenshot_url || "");
+    setExtractedReason(data.reason || "");
+    setStep(2);
+  };
+
+  const canExtract =
+    mode === "url" ? !!url.trim()
+    : mode === "prompt" ? prompt.trim().length >= MIN_PROMPT_CHARS
+    : !!docFile;
+
+  // Step 1: Extract theme from the selected input (URL / prompt / uploaded doc)
   const handleExtract = async () => {
-    if (isDemo) return;
-    if (!url.trim()) return;
+    if (isDemo || !canExtract) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await extractTheme(url.trim());
+      let res;
+      if (mode === "url") {
+        res = await extractTheme(url.trim());
+      } else if (mode === "prompt") {
+        res = await extractThemeFromPrompt(prompt.trim());
+      } else {
+        res = await extractThemeFromDoc(docFile!);
+      }
       if (!res.data.extractable || !res.data.theme) {
-        setError(res.data.reason || "We couldn't pull a usable theme from this page. Try a different URL.");
+        setError(
+          res.data.reason ||
+            (mode === "url"
+              ? "We couldn't pull a usable theme from this page. Try a different URL."
+              : "We couldn't build a theme from that. Try adding more detail about the brand, industry, and feel you want.")
+        );
         return;
       }
-      setTheme(res.data.theme);
-      setAccentColor(res.data.theme.colors.accent);
-      setTemplateName(res.data.template_name || "");
-      setSourceUrl(url.trim());
-      setScrapedLogoUrls(res.data.logo_urls || []);
-      setScrapedOgImage(res.data.og_image || "");
-      setScrapedScreenshotUrl(res.data.screenshot_url || "");
-      setExtractedReason(res.data.reason || "");
-      setStep(2);
+      applyExtractedTheme(res.data, mode === "url" ? url.trim() : "");
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "We couldn't load that website. Try another URL, or try again in a moment.");
+      const fallback =
+        mode === "url"
+          ? "We couldn't load that website. Try another URL, or try again in a moment."
+          : mode === "doc"
+          ? "We couldn't read that file. Try a text-based PDF, Word, Markdown, or text document."
+          : "Something went wrong analyzing that. Please try again.";
+      setError(err?.response?.data?.detail || fallback);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePickFile = (file: File | undefined | null) => {
+    if (!file) return;
+    const lower = file.name.toLowerCase();
+    if (!ACCEPTED_DOC_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
+      setError("We support PDF, Word (.docx), Markdown, or plain-text files.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("That file's too large. Please keep it under 10 MB.");
+      return;
+    }
+    setError(null);
+    setDocFile(file);
   };
 
   // Step 2: Save template then trigger generation inline
@@ -295,7 +354,17 @@ export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }:
       setCreatedTemplate(res.data);
       handleGenerateCode(res.data);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Failed to save template.");
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      // Quota hit → let the parent open the upgrade modal instead of an error.
+      if (status === 403 && detail?.code === "custom_template_limit") {
+        setSaving(false);
+        onLimitReached?.();
+        return;
+      }
+      setError(
+        typeof detail === "string" ? detail : "Failed to save template."
+      );
       setSaving(false);
     }
   };
@@ -383,41 +452,142 @@ export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }:
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>
           )}
 
-          {/* Step 1: URL input */}
+          {/* Step 1: Choose an input mode, then provide it */}
           {step === 1 && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500">
-                Enter a website URL and we'll extract its colors, fonts, and style to create a custom video template.
-              </p>
-              <div>
-                <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-                  Website URL
-                </label>
-                <input
-                  type="url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-                  autoFocus
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleExtract(); } }}
-                />
+              {/* Mode selector */}
+              <div className="grid grid-cols-3 gap-1 p-1 bg-gray-100 rounded-xl">
+                {([
+                  { key: "url", label: "Website" },
+                  { key: "prompt", label: "Prompt" },
+                  { key: "doc", label: "Upload doc" },
+                ] as { key: CreateMode; label: string }[]).map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => { setMode(m.key); setError(null); }}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                      mode === m.key ? "bg-white text-purple-700 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
               </div>
+
+              {mode === "url" && (
+                <>
+                  <p className="text-sm text-gray-500">
+                    Enter a website URL and we'll extract its colors, fonts, and style to create a custom video template.
+                  </p>
+                  <div>
+                    <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                      Website URL
+                    </label>
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://example.com"
+                      className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleExtract(); } }}
+                    />
+                  </div>
+                </>
+              )}
+
+              {mode === "prompt" && (
+                <>
+                  <p className="text-sm text-gray-500">
+                    Describe the template you want — the brand, its industry, the colors, fonts, and overall feel. We'll design a theme from your description.
+                  </p>
+                  <div>
+                    <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                      Describe your template
+                    </label>
+                    <textarea
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value.slice(0, MAX_PROMPT_CHARS))}
+                      placeholder={`e.g. "A dark, modern fintech brand with warm orange accents — clean and trustworthy, Inter font, a bit friendlier than Stripe."`}
+                      rows={6}
+                      className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all resize-none min-h-[120px]"
+                      autoFocus
+                    />
+                    <div className="mt-1 text-[11px] text-gray-400 text-right">
+                      {prompt.trim().length < MIN_PROMPT_CHARS
+                        ? `Add a bit more detail (${prompt.trim().length}/${MIN_PROMPT_CHARS} min)`
+                        : `${prompt.length.toLocaleString()} / ${MAX_PROMPT_CHARS.toLocaleString()} chars`}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {mode === "doc" && (
+                <>
+                  <p className="text-sm text-gray-500">
+                    Upload a brand or design document (PDF, Word, Markdown, or text) and we'll read it to build a matching template.
+                  </p>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                    onDragLeave={() => setDragActive(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragActive(false);
+                      handlePickFile(e.dataTransfer.files?.[0]);
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl p-5 text-center text-sm cursor-pointer transition-colors ${
+                      dragActive ? "border-purple-400 bg-purple-50/50" : "border-gray-200 hover:border-purple-300 hover:bg-purple-50/40"
+                    }`}
+                  >
+                    {docFile ? (
+                      <div className="flex items-center justify-center gap-2 text-gray-700">
+                        <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="font-medium truncate max-w-[260px]">{docFile.name}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDocFile(null); }}
+                          className="text-gray-400 hover:text-gray-600"
+                          aria-label="Remove file"
+                        >✕</button>
+                      </div>
+                    ) : (
+                      <div className="text-gray-500">
+                        <svg className="w-6 h-6 mx-auto mb-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.9 5 5 0 119.66-2.1A4 4 0 0117 16h-1m-4-4v8m0 0l-3-3m3 3l3-3" />
+                        </svg>
+                        Drop a <span className="font-medium">PDF, .docx, .md</span> or <span className="font-medium">.txt</span> here, or click to browse
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPTED_DOC_EXTENSIONS.join(",")}
+                      className="hidden"
+                      onChange={(e) => { handlePickFile(e.target.files?.[0]); if (e.target) e.target.value = ""; }}
+                    />
+                  </div>
+                </>
+              )}
+
               <button
                 onClick={handleExtract}
-                disabled={loading || !url.trim()}
+                disabled={loading || !canExtract}
                 className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Extracting theme...
+                    {mode === "url" ? "Extracting theme..." : "Designing theme..."}
                   </>
-                ) : "Extract Theme"}
+                ) : mode === "url" ? "Extract Theme" : "Generate Theme"}
               </button>
               {loading && (
                 <p className="text-xs text-gray-400 text-center">
-                  Scraping website and analyzing design... this may take 10-20 seconds.
+                  {mode === "url"
+                    ? "Scraping website and analyzing design... this may take 10-20 seconds."
+                    : "Analyzing and designing your theme... this may take 10-20 seconds."}
                 </p>
               )}
             </div>
@@ -496,7 +666,9 @@ export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }:
                   {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.style}</span> */}
                   {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.animationPreset}</span> */}
                 </div>
-                {theme.patterns && (
+                {/* Visual Patterns — hidden: the corner/spacing/image/alignment chips
+                    were confusing to users without changing what they could act on. */}
+                {/* {theme.patterns && (
                   <>
                     <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Visual Patterns</span>
                     <div className="flex flex-wrap gap-2">
@@ -507,6 +679,34 @@ export default function CustomTemplateCreator({ onCreated, onCancel, demoMode }:
                         theme.patterns.layout?.direction || "centered",
                       ].map((tag) => (
                         <span key={tag} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">{tag}</span>
+                      ))}
+                    </div>
+                  </>
+                )} */}
+
+                {/* Motion / decor / charts — first-class craft signals derived from the brand */}
+                {(theme.motion?.energy || theme.decor?.system || theme.charts?.style) && (
+                  <>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Motion &amp; Style</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        theme.motion?.energy ? `${theme.motion.energy} motion` : null,
+                        theme.decor?.system && theme.decor.system !== "none" ? `${theme.decor.system} decor` : null,
+                        theme.charts?.style ? `${theme.charts.style} charts` : null,
+                      ].filter(Boolean).map((tag) => (
+                        <span key={tag as string} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-50 text-indigo-600 capitalize">{tag}</span>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Scene mix — preferred content archetypes for this brand */}
+                {theme.sceneBias && theme.sceneBias.length > 0 && (
+                  <>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Scene Mix</span>
+                    <div className="flex flex-wrap gap-2">
+                      {theme.sceneBias.map((s) => (
+                        <span key={s} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 text-emerald-700 capitalize">{s}</span>
                       ))}
                     </div>
                   </>
