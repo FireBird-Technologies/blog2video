@@ -12,7 +12,7 @@ Routes verified by reading each handler:
   POST /api/projects              (creates a Project, increments usage)
   POST /api/voices/saved          (creates a SavedVoice)
   POST /api/affiliate/survey      (creates a SurveyResponse; 2nd submit -> 400)
-  POST /api/affiliate/invite      (records ReferralInvite rows; email mocked)
+  # POST /api/affiliate/invite    (Share B2V disabled — endpoint removed)
 """
 import pytest
 
@@ -146,18 +146,18 @@ def test_post_survey__second_submit__returns_400(client, free_user, auth):
 
 
 # ─── POST /api/affiliate/invite ──────────────────────────────────────────────
-
-def test_post_invite__valid__records_sent(client, free_user, auth):
-    # Email send is stubbed by the kill-switch, so all invites count as "sent".
-    resp = client.post(
-        "/api/affiliate/invite",
-        headers=auth(free_user),
-        json={"emails": ["a@friend.test", "b@friend.test"]},
-    )
-    assert resp.status_code == 200
-    assert resp.json()["sent"] == 2
-
-
-def test_post_invite__empty_list__returns_400(client, free_user, auth):
-    resp = client.post("/api/affiliate/invite", headers=auth(free_user), json={"emails": []})
-    assert resp.status_code == 400
+# Share B2V (referral/invite) disabled — endpoint removed, tests no longer apply.
+# def test_post_invite__valid__records_sent(client, free_user, auth):
+#     # Email send is stubbed by the kill-switch, so all invites count as "sent".
+#     resp = client.post(
+#         "/api/affiliate/invite",
+#         headers=auth(free_user),
+#         json={"emails": ["a@friend.test", "b@friend.test"]},
+#     )
+#     assert resp.status_code == 200
+#     assert resp.json()["sent"] == 2
+#
+#
+# def test_post_invite__empty_list__returns_400(client, free_user, auth):
+#     resp = client.post("/api/affiliate/invite", headers=auth(free_user), json={"emails": []})
+#     assert resp.status_code == 400

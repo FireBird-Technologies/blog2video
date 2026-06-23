@@ -30,8 +30,9 @@ AUTHED_READ_PATHS = [
     "/api/projects/template-availability",
     "/api/voices/saved",
     "/api/voices/custom",
-    "/api/affiliate/link",
-    "/api/affiliate/stats",
+    # Share B2V (referral/invite) disabled
+    # "/api/affiliate/link",
+    # "/api/affiliate/stats",
     "/api/background-music/tracks",
     "/api/crafted-templates",
     "/api/crafted-templates/cache-stats",
@@ -132,21 +133,21 @@ def test_get_custom_voices__new_user__returns_empty_list(client, free_user, auth
 
 
 # ─── GET /api/affiliate/link and /stats ─────────────────────────────────────
-
-def test_get_affiliate_link__returns_referral_link(client, free_user, auth):
-    resp = client.get("/api/affiliate/link", headers=auth(free_user))
-    assert resp.status_code == 200
-    assert isinstance(resp.json()["link"], str)
-    assert resp.json()["link"]
-
-
-def test_get_affiliate_stats__new_user__zeroed(client, free_user, auth):
-    resp = client.get("/api/affiliate/stats", headers=auth(free_user))
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["signups_count"] == 0
-    assert body["bonus_earned"] == 0
-    assert isinstance(body["link"], str)
+# Share B2V (referral/invite) disabled — endpoints removed, tests no longer apply.
+# def test_get_affiliate_link__returns_referral_link(client, free_user, auth):
+#     resp = client.get("/api/affiliate/link", headers=auth(free_user))
+#     assert resp.status_code == 200
+#     assert isinstance(resp.json()["link"], str)
+#     assert resp.json()["link"]
+#
+#
+# def test_get_affiliate_stats__new_user__zeroed(client, free_user, auth):
+#     resp = client.get("/api/affiliate/stats", headers=auth(free_user))
+#     assert resp.status_code == 200
+#     body = resp.json()
+#     assert body["signups_count"] == 0
+#     assert body["bonus_earned"] == 0
+#     assert isinstance(body["link"], str)
 
 
 # ─── GET /api/background-music/tracks ───────────────────────────────────────

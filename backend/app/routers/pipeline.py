@@ -1942,6 +1942,7 @@ async def render_video_endpoint(
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    user_row.roll_video_period_if_due(db)
     user_row.sync_video_limit_bonus(db)
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
