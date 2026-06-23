@@ -178,16 +178,16 @@ def _chartable_props_from_blog(blog_content: str) -> list[dict]:
 
 def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
     """Build the 2 dedicated data-viz scene_raw dicts (chart + table) for custom
-    templates. Uses real extracted tables when available, else a seed. The bound
-    table is embedded in visual_description so it round-trips into layoutProps.
+    templates — but ONLY when the article actually has chartable tables. Returns
+    [] when there's no real data, so a video whose content doesn't warrant charts
+    never gets fabricated figures forced into it. The bound table is embedded in
+    visual_description so it round-trips into layoutProps.
     """
     chartable = _chartable_props_from_blog(blog_content)
-    if chartable:
-        chart_props = chartable[0]
-        table_props = chartable[1] if len(chartable) > 1 else chartable[0]
-    else:
-        seed = {"chartTable": _CUSTOM_DATAVIZ_SEED, "chartType": "line"}
-        chart_props = table_props = seed
+    if not chartable:
+        return []
+    chart_props = chartable[0]
+    table_props = chartable[1] if len(chartable) > 1 else chartable[0]
 
     def _mk(stype: str, layout: str, props: dict, title: str, narration: str) -> dict:
         table = props.get("chartTable") or {}
@@ -1174,17 +1174,21 @@ async def _generate_script(
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
-    # Custom templates ALWAYS get 2 dedicated data-viz scenes (chart + table),
-    # inserted just before the outro — EXTRA to the content scenes, mirroring the
-    # built-in templates' chart/table pair. Bound to real Firecrawl tables when
-    # present (seeded + editable otherwise).
+    # Custom templates get 2 dedicated data-viz scenes (chart + table), inserted
+    # just before the outro — EXTRA to the content scenes, mirroring the built-in
+    # templates' chart/table pair. Bound to real Firecrawl tables, and ONLY when
+    # the article actually has chartable data — articles with no figures get no
+    # fabricated charts forced into them.
     if is_custom_template(template_id):
         _dataviz_scenes = _build_custom_dataviz_scenes(getattr(project, "blog_content", None) or "")
-        _insert_at = max(1, len(scenes_raw) - 1) if len(scenes_raw) > 1 else len(scenes_raw)
-        for _offset, _dv in enumerate(_dataviz_scenes):
-            scenes_raw.insert(_insert_at + _offset, _dv)
-            display_texts.insert(_insert_at + _offset, _dv["title"])
-        print(f"[F7-DEBUG] [CUSTOM-DATAVIZ] injected {len(_dataviz_scenes)} dedicated data-viz scenes at index {_insert_at}")
+        if _dataviz_scenes:
+            _insert_at = max(1, len(scenes_raw) - 1) if len(scenes_raw) > 1 else len(scenes_raw)
+            for _offset, _dv in enumerate(_dataviz_scenes):
+                scenes_raw.insert(_insert_at + _offset, _dv)
+                display_texts.insert(_insert_at + _offset, _dv["title"])
+            print(f"[F7-DEBUG] [CUSTOM-DATAVIZ] injected {len(_dataviz_scenes)} dedicated data-viz scenes at index {_insert_at}")
+        else:
+            print("[F7-DEBUG] [CUSTOM-DATAVIZ] no chartable tables in article — skipping dedicated data-viz scenes")
 
     # Re-attach the original project instance to a fresh connection.
     # add() on a detached-but-previously-persistent instance issues UPDATE on

@@ -9,6 +9,7 @@ import {
   submitTemplateRating,
   type CustomTemplateItem,
 } from "../api/client";
+import { invalidateBlogUrlFormAvailabilityCache } from "../api/blogUrlFormStep2Prefetch";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useAuth } from "../hooks/useAuth";
 import { preloadBabel } from "../utils/compileComponent";
@@ -132,6 +133,9 @@ export default function CustomTemplates() {
           if (!stillPending) {
             clearInterval(pollingRef.current!);
             pollingRef.current = null;
+            // A template just finished generating — refresh the project-creation
+            // picker's cache so the now-ready template appears there.
+            invalidateBlogUrlFormAvailabilityCache();
           }
         } catch { /* ignore */ }
       }, 4000);
@@ -145,6 +149,9 @@ export default function CustomTemplates() {
     setTemplates((prev) => [tpl, ...prev]);
     setShowCreator(false);
     startPollingIfNeeded([tpl]);
+    // Drop the project-creation picker's cached template list so this new one
+    // shows up there without needing a full page refresh.
+    invalidateBlogUrlFormAvailabilityCache();
   };
 
   const handleSaved = (tpl: CustomTemplateItem) => {
@@ -215,6 +222,8 @@ export default function CustomTemplates() {
       setTemplates((prev) => prev.filter((t) => t.id !== deleteTarget.id));
       setDeleteTarget(null);
       setDeleteImpactCount(null);
+      // Keep the project-creation picker's cached list in sync with the deletion.
+      invalidateBlogUrlFormAvailabilityCache();
     } catch (err) {
       const detail = (err as {
         response?: { data?: { detail?: string | { code?: string; message?: string; project_count?: number } } };

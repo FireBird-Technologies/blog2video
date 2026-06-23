@@ -67,6 +67,16 @@ export function primeBlogUrlFormStep2Prefetch(): void {
   void availabilityDeduped();
 }
 
+/**
+ * Drops the cached availability/custom-template bundle so the next fetch hits the
+ * server fresh. Call after creating or deleting a custom template — otherwise the
+ * project-creation picker keeps serving the stale module-cached list until a full
+ * page refresh.
+ */
+export function invalidateBlogUrlFormAvailabilityCache(): void {
+  availabilityPrefetch = null;
+}
+
 export function fetchBlogUrlFormBuiltinTemplatesDeduped(): Promise<TemplateMeta[]> {
   return builtinTemplatesDeduped();
 }
