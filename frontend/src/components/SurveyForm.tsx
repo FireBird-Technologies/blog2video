@@ -69,29 +69,29 @@ export default function SurveyForm() {
 
   if (submitted) {
     return (
-      <section className="glass-card p-6">
+      <section className="glass-card p-7 min-h-[240px]">
         <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-1">
           Quick Survey
         </h2>
-        <p className="text-xs text-gray-400 mt-1.5 mb-3">
+        <p className="text-sm text-gray-400 mt-1.5 mb-3 leading-relaxed">
           Thank you for submitting the survey. Use this code to avail{" "}
           <span className="font-semibold text-purple-600">20% off</span> on subscription — apply it at
           checkout.
         </p>
         {promoCode ? (
-          <div className="flex items-center gap-2">
-            <code className="flex-1 text-sm font-semibold bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 text-purple-700 tracking-wide">
+          <div className="flex items-center gap-3">
+            <code className="flex-1 text-base font-semibold bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-purple-700 tracking-wide">
               {promoCode}
             </code>
             <button
               onClick={handleCopy}
-              className="shrink-0 text-xs font-medium px-3 py-2 rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 transition-colors"
+              className="shrink-0 text-sm font-medium px-4 py-3 rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 transition-colors"
             >
               {copied ? "Copied!" : "Copy"}
             </button>
           </div>
         ) : (
-          <p className="text-xs text-gray-400">Your promo code is being prepared…</p>
+          <p className="text-base text-gray-400">Your promo code is being prepared…</p>
         )}
       </section>
     );
