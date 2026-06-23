@@ -2540,12 +2540,12 @@ def _download_url_to_file(url: str, dest: str) -> bool:
     Returns True on success, False on failure.
     """
     try:
-        resp = requests.get(url, timeout=30, stream=True)
-        resp.raise_for_status()
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        with open(dest, "wb") as f:
-            for chunk in resp.iter_content(chunk_size=8192):
-                f.write(chunk)
+        with requests.get(url, timeout=30, stream=True) as resp:
+            resp.raise_for_status()
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    f.write(chunk)
         logger.info("[REMOTION] Downloaded from R2: %s", os.path.basename(dest))
         return True
     except Exception as e:
