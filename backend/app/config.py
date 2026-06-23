@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     # Checkout Session lifetime. On expiry Stripe fires checkout.session.expired,
     # which drives the abandoned-checkout win-back email. Stripe allows 1800–86400
     # (30 min – 24 h); values outside that range are clamped before use.
-    STRIPE_CHECKOUT_EXPIRES_SECONDS: int = 86400
+    STRIPE_CHECKOUT_EXPIRES_SECONDS: int = 1800
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"
