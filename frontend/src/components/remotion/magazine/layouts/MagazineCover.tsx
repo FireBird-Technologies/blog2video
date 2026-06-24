@@ -39,7 +39,12 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   const titleText = (title ?? "").trim();
 
   const p = isPortrait(props.aspectRatio);
-  const { bg, text, accent } = resolveMagColors(props);
+  // Hero scene only: invert the paper — black cover (was text colour) with white
+  // type (was bg colour). Accent stays the same red frame.
+  const resolved = resolveMagColors(props);
+  const bg = resolved.text;
+  const text = resolved.bg;
+  const accent = resolved.accent;
   const frame = useMagFrame();
   const { fps, width, height } = useVideoConfig();
 
@@ -49,7 +54,8 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   React.useEffect(() => { setImgFailed(false); }, [imageUrl]);
   const showPhoto = !!imageUrl && !imgFailed;
   const onImg = "#FFFFFF";
-  const mastheadCol = showPhoto ? onImg : accent;
+  // Masthead title always uses the default bg colour (white in this hero).
+  const mastheadCol = text;
   const coverTextCol = showPhoto ? onImg : text;
   const brandInitial = (titleText || brand || "").charAt(0).toUpperCase();
 
@@ -59,9 +65,9 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   const cardAspect = 0.75; // w / h
   // Sized to leave a clear margin on every side so the booklet never clips and
   // reads as a centred object on the desk (not edge-to-edge).
-  let cardH = height * (p ? 0.82 : 0.72);
+  let cardH = height * (p ? 0.98 : 0.92);
   let cardW = cardH * cardAspect;
-  const maxCardW = width * (p ? 0.82 : 0.5);
+  const maxCardW = width * (p ? 0.98 : 0.68);
   if (cardW > maxCardW) {
     cardW = maxCardW;
     cardH = cardW / cardAspect;
@@ -109,7 +115,10 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   const enterFrames = establishing ? 46 : 26;
   const e = interpolate(frame, [0, enterFrames], [0, 1], { ...CLAMP, easing: EASE_OUT });
   const enterRotX = interpolate(e, [0, 1], [78, 0]);            // lying flat → standing upright
-  const enterScale = interpolate(e, [0, 1], [0.82, 1]);         // comes forward toward the camera
+  // Comes forward and ZOOMS INTO the screen as it rises: starts small lying flat,
+  // pushes past rest size as it stands upright, then settles into a held zoom so
+  // the cover dominates the frame.
+  const enterScale = interpolate(e, [0, 0.7, 1], [0.82, 1.12, 1.06], CLAMP);
   const enterTY = interpolate(e, [0, 1], [height * 0.05, 0]);   // lifts off the desk
   const cardTransform = `perspective(1700px) translateY(${enterTY.toFixed(1)}px) rotateX(${enterRotX.toFixed(2)}deg) scale(${enterScale.toFixed(4)})`;
 

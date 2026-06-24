@@ -29,7 +29,7 @@ const easeOut = { ...clampO, easing: Easing.out(Easing.cubic) };
  * never bisected by the binding.
  */
 export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
-  const { title, narration, titleFontSize, descriptionFontSize, fontFamily } = props;
+  const { title, titleFontSize, descriptionFontSize, fontFamily } = props;
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
   const { bg, text, accent } = colors;
@@ -51,7 +51,6 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
 
   // ── Header reveal (fades in as the spread opens) ────────────────────────────
   const headO = interpolate(frame, [14, 30], [0, 1], clampO);
-  const titleO = interpolate(frame, [16, 34], [0, 1], clampO);
 
   // ── Draw pacing ─────────────────────────────────────────────────────────────
   // The baseline draws to each dot in turn: a milestone pops in, the line
@@ -105,11 +104,6 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
         <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titlePx, lineHeight: 1.04, letterSpacing: "-0.015em", color: text, margin: 0 }}>
           <KineticWords text={title ?? ""} start={18} stagger={2} dur={14} />
         </h1>
-        {narration && (
-          <p style={{ fontFamily: MAG_SERIF, fontSize: p ? 20 : 18, lineHeight: 1.5, color: text, opacity: titleO * 0.7, margin: "12px 0 0", maxWidth: "70%" }}>
-            {narration}
-          </p>
-        )}
 
         {/* The timeline band — a horizontal baseline with milestones above/below. */}
         <div style={{ flex: 1, position: "relative", marginTop: p ? 26 : 34 }}>

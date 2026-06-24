@@ -19,6 +19,7 @@ import {
   Kicker,
   Rule,
   KineticWords,
+  Halftone,
   MAG_DISPLAY,
   MAG_SERIF,
   MAG_SANS,
@@ -548,8 +549,11 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
   };
 
   return (
-    <MagazinePage colors={colors} section="Data" issue={props.issueLabel ?? "Report"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage cameraMove={props.cameraMove}>
-      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <MagazinePage colors={colors} section="Data" issue={props.issueLabel ?? "Report"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage hidePrintTexture cameraMove={props.cameraMove}>
+      {/* Faint halftone paper grain so the sheet reads as printed stock without
+          the legible ghost-text columns the full print texture would bleed in. */}
+      <Halftone color={ink} opacity={0.05} gap={9} />
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
         <Kicker color={accent} style={{ opacity: titleO, marginBottom: 12 }}>
           Figures
         </Kicker>

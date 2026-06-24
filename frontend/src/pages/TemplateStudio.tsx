@@ -220,7 +220,11 @@ function buildResolvedLayoutPropsForPreview(
 ): Record<string, unknown> {
   const schema = getSchema(template, layoutId);
   if (!schema) return {};
-  const next: Record<string, unknown> = { ...(schema.defaults ?? {}) };
+  // Layer the layout's own dummy `sample_props` over `defaults` so the
+  // "play all layouts" sequence shows each layout's preset content (exchanges,
+  // stats, milestones, …), mirroring the single-scene effect. sample_props is
+  // Studio-preview-only and never reaches real renders.
+  const next: Record<string, unknown> = { ...(schema.defaults ?? {}), ...(schema.sample_props ?? {}) };
   schema.fields.forEach((field) => {
     if (field.type === "number" && field.responsive) {
       const raw = next[field.key];
@@ -1365,6 +1369,10 @@ export default function TemplateStudio() {
       selectedTemplate && layouts.length > 1 && playAllLayouts
       ? layouts.map((layoutId, index) => {
         const trimmed = imageUrl.trim();
+        // Each scene shows its own layout's dummy content from meta.json
+        // (scene_defaults), not the editor's single shared title/narration.
+        // Fall back to the editor values for layouts without scene_defaults.
+        const sd = getSchema(selectedTemplate, layoutId)?.scene_defaults ?? {};
         const lp = buildResolvedLayoutPropsForPreview(
           selectedTemplate,
           layoutId,
@@ -1386,11 +1394,11 @@ export default function TemplateStudio() {
         return {
           id: index + 1,
           order: index + 1,
-          title,
-          narration,
+          title: sd.title ?? title,
+          narration: sd.narration ?? narration,
           layout: layoutId,
           layoutProps: lp,
-          durationSeconds,
+          durationSeconds: sd.durationSeconds ?? durationSeconds,
           imageUrl: sceneImageUrl,
           voiceoverUrl: undefined,
         };

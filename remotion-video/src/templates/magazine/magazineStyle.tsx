@@ -1314,9 +1314,13 @@ export const DeskBackdrop: React.FC<{ aspectRatio?: string; accent?: string; par
   );
 };
 
-/** A dog-eared page-curl in a bottom corner of the sheet. */
-const PageCurl: React.FC<{ corner: "bl" | "br"; size: number; accent?: string }> = ({ corner, size, accent }) => {
+/** A dog-eared page-curl in a bottom corner of the sheet. When `textureSrc` is
+ *  given, the folded flap (the back of the lifted page) carries a faint, mirrored
+ *  slice of the print texture so the corner shows ghost print/show-through instead
+ *  of reading as a bare white wedge. */
+const PageCurl: React.FC<{ corner: "bl" | "br"; size: number; accent?: string; textureSrc?: string }> = ({ corner, size, accent, textureSrc }) => {
   const br = corner === "br";
+  const clip = br ? "polygon(100% 0, 0 100%, 100% 100%)" : "polygon(0 0, 0 100%, 100% 100%)";
   return (
     <div style={{ position: "absolute", bottom: 0, [br ? "right" : "left"]: 0, width: size, height: size, zIndex: 8, pointerEvents: "none" }}>
       {/* shadow the lifted corner casts onto the page */}
@@ -1335,10 +1339,29 @@ const PageCurl: React.FC<{ corner: "bl" | "br"; size: number; accent?: string }>
           background: br
             ? "linear-gradient(135deg, #cbc7bd 0%, #ece9e2 48%, #ffffff 100%)"
             : "linear-gradient(225deg, #cbc7bd 0%, #ece9e2 48%, #ffffff 100%)",
-          clipPath: br ? "polygon(100% 0, 0 100%, 100% 100%)" : "polygon(0 0, 0 100%, 100% 100%)",
+          clipPath: clip,
           boxShadow: br ? "-3px -3px 8px rgba(0,0,0,0.16)" : "3px -3px 8px rgba(0,0,0,0.16)",
         }}
       />
+      {/* show-through: a faint, mirrored slice of the print texture on the flap so
+          the back of the lifted page isn't bare white. Mirrored on X (the corner
+          we'd see if the sheet folded toward us is its reverse) and clipped to the
+          flap triangle; blended low so the paper highlight still reads. */}
+      {textureSrc ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            clipPath: clip,
+            backgroundImage: `url(${staticFile(textureSrc)})`,
+            backgroundSize: "cover",
+            backgroundPosition: br ? "right bottom" : "left bottom",
+            transform: "scaleX(-1)",
+            opacity: 0.16,
+            mixBlendMode: "multiply",
+          }}
+        />
+      ) : null}
       {br && accent ? (
         <div style={{ position: "absolute", bottom: size * 0.16, right: size * 0.16, width: 8, height: 8, borderRadius: "50%", background: accent }} />
       ) : null}
@@ -1569,9 +1592,9 @@ export const MagazineTableIntro: React.FC<{
                 }}
               />
 
-              {/* dog-eared corners */}
-              <PageCurl corner="bl" size={curl} />
-              <PageCurl corner="br" size={curl} accent={accent} />
+              {/* dog-eared corners — flap carries the cover's ghost print */}
+              <PageCurl corner="bl" size={curl} textureSrc="magazine-blur-bg.svg" />
+              <PageCurl corner="br" size={curl} accent={accent} textureSrc="magazine-blur-bg.svg" />
             </div>
           </AbsoluteFill>
         </AbsoluteFill>
@@ -1837,9 +1860,10 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
           }}
         />
 
-        {/* Dog-eared corners */}
-        <PageCurl corner="bl" size={curl} />
-        <PageCurl corner="br" size={curl} accent={accent} />
+        {/* Dog-eared corners — flap carries the page's print texture as show-through
+            (unless this layout hides the texture for a clean sheet). */}
+        <PageCurl corner="bl" size={curl} textureSrc={hidePrintTexture ? undefined : printTextureSrc} />
+        <PageCurl corner="br" size={curl} accent={accent} textureSrc={hidePrintTexture ? undefined : printTextureSrc} />
 
         {/* Optional gentle curl down the left edge (e.g. EditorialQuote). */}
         {leftEdgeFoldOpacity > 0 && <LeftEdgeFold accent={accent} opacity={leftEdgeFoldOpacity} />}
