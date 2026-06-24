@@ -121,6 +121,23 @@ const ECONOMIST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: R
   ending_socials: { titleFontSize: { portrait: 56, landscape: 60 }, descriptionFontSize: { portrait: 26, landscape: 24 } },
 };
 
+// Per-layout title/body sizes mirrored from SceneEditModal's LAYOUT_FONT_DEFAULTS.magazine
+// so the Template Studio Typography section matches the scene editor and the rendered MP4.
+const MAGAZINE_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue }> = {
+  magazine_cover: { titleFontSize: { portrait: 68, landscape: 88 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
+  feature_spread: { titleFontSize: { portrait: 48, landscape: 64 }, descriptionFontSize: { portrait: 20, landscape: 26 } },
+  editorial_quote: { titleFontSize: { portrait: 56, landscape: 72 }, descriptionFontSize: { portrait: 18, landscape: 24 } },
+  by_the_numbers: { titleFontSize: { portrait: 56, landscape: 72 }, descriptionFontSize: { portrait: 20, landscape: 26 } },
+  interview_qa: { titleFontSize: { portrait: 40, landscape: 52 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
+  comparison_spread: { titleFontSize: { portrait: 44, landscape: 58 }, descriptionFontSize: { portrait: 18, landscape: 24 } },
+  magazine_data_visualization: { titleFontSize: { portrait: 56, landscape: 52 }, descriptionFontSize: { portrait: 28, landscape: 26 } },
+  timeline_journey: { titleFontSize: { portrait: 40, landscape: 52 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
+  expert_spotlight: { titleFontSize: { portrait: 48, landscape: 64 }, descriptionFontSize: { portrait: 20, landscape: 26 } },
+  text_narration: { titleFontSize: { portrait: 34, landscape: 44 }, descriptionFontSize: { portrait: 20, landscape: 23 } },
+  ending_socials: { titleFontSize: { portrait: 88, landscape: 72 }, descriptionFontSize: { portrait: 35, landscape: 27 } },
+  magazine_ticker: { titleFontSize: { portrait: 52, landscape: 42 }, descriptionFontSize: { portrait: 28, landscape: 22 } },
+};
+
 function withTypographyControls(
   schema: LayoutPropSchema,
   options?: { defaultTypography?: { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue } },
@@ -161,7 +178,9 @@ function getSchema(
       ? NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
       : tid === "economist"
         ? ECONOMIST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
-        : null;
+        : tid === "magazine"
+          ? MAGAZINE_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
+          : null;
   const applyTypography = perLayoutTypography !== null;
   const layoutTypographyDefaults =
     perLayoutTypography && layoutId ? perLayoutTypography[layoutId] : undefined;

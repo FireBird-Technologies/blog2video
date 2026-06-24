@@ -1,27 +1,29 @@
 import React from "react";
-import { Img, useCurrentFrame, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
   Kicker,
   Rule,
+  KineticWords,
   MAG_DISPLAY,
   MAG_SERIF,
   MAG_SANS,
-  hexToRgba,
   resolveMagColors,
   isPortrait,
   useReveal,
+  gutterPx,
 } from "../magazineStyle";
 
 /**
- * Expert spotlight — a profile page. The person's headshot sits in a red-keyline
- * portrait box, beside the name, role, credential and a bio with a
- * character-by-character reveal. With no image, a large serif monogram (the
- * person's initials) stands in for the portrait.
+ * Expert spotlight — an editorial two-page spread. The left page is a dark (ink)
+ * panel carrying a big, bold, uppercase pull-quote opened by a red quotation
+ * mark; the right page is a solid accent (red) panel with the "introducing"-style
+ * profile copy (kicker, rule, name, role, credential) centred. Image-free, in
+ * keeping with the print redesign — the page turns over on exit (see the
+ * single-page-turn transition wired for this layout).
  */
 export const ExpertSpotlight: React.FC<SceneLayoutProps> = (props) => {
-  const { narration, titleFontSize, descriptionFontSize, imageUrl, imageObjectPosition, imageZoom } = props;
+  const { narration, titleFontSize, descriptionFontSize } = props;
   const expertName = (props.expertName as string) ?? props.title ?? "Jane Doe";
   const expertRole = (props.expertRole as string) ?? "";
   const credential = (props.credential as string) ?? "";
@@ -29,88 +31,87 @@ export const ExpertSpotlight: React.FC<SceneLayoutProps> = (props) => {
   const colors = resolveMagColors(props);
   const { bg, text, accent } = colors;
 
-  const initials = expertName
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w.charAt(0).toUpperCase())
-    .join("");
+  const quote = (narration ?? props.title ?? "").trim();
 
-  const hasImage = Boolean(imageUrl) && props.imagePlacement !== "none";
+  // Staged reveals on the right page; the left quote animates via KineticWords.
+  const kickerO = useReveal(8, 12);
+  const ruleP = useReveal(12, 14);
+  const nameO = useReveal(15, 14);
+  const roleO = useReveal(20, 14);
+  const credO = useReveal(24, 14);
 
-  const frame = useCurrentFrame();
-  const monoO = useReveal(2, 14);
-  const monoScale = interpolate(frame, [2, 18], [0.85, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const kbScale = interpolate(frame, [0, 150], [1.05, 1.13], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) * (imageZoom ?? 1);
-  const nameO = useReveal(10, 14);
-  const ruleP = useReveal(18, 14);
-  const bioStart = 22;
-  const bio = narration ?? "";
-  const charsShown = Math.floor(interpolate(frame, [bioStart, bioStart + bio.length * 0.6], [0, bio.length], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
-
-  const namePx = titleFontSize ?? (p ? 56 : 56);
-  const bioPx = descriptionFontSize ?? (p ? 24 : 21);
-  const monoSize = p ? 220 : 300;
+  const g = gutterPx(props.aspectRatio);
+  const quotePx = titleFontSize ?? (p ? 46 : 56);
+  const rolePx = descriptionFontSize ?? (p ? 22 : 21);
+  const namePx = p ? 40 : 44;
+  const pad = p ? "32px 30px" : "48px 46px";
 
   return (
-    <MagazinePage colors={colors} section="Profile" issue={props.issueLabel ?? "Spotlight"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily}>
-      <div style={{ height: "100%", display: "flex", flexDirection: p ? "column" : "row", alignItems: p ? "center" : "center", gap: p ? 28 : 56, textAlign: p ? "center" : "left" }}>
-        {/* Portrait box — headshot if available, monogram otherwise */}
+    <MagazinePage colors={colors} section="Profile" issue={props.issueLabel ?? "Spotlight"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} cameraMove={props.cameraMove}>
+      <div style={{ height: "100%", display: "flex", flexDirection: p ? "column" : "row", gap: p ? 24 : g }}>
+        {/* LEFT PAGE — dark ink panel with the pull-quote */}
         <div
           style={{
-            flexShrink: 0,
-            width: monoSize,
-            height: monoSize,
-            border: `3px solid ${accent}`,
+            flex: 1,
+            minWidth: 0,
+            background: text,
             display: "flex",
-            alignItems: "center",
+            flexDirection: "column",
             justifyContent: "center",
-            opacity: monoO,
-            transform: `scale(${monoScale})`,
-            position: "relative",
+            padding: pad,
             overflow: "hidden",
-            background: hasImage ? hexToRgba(text, 0.06) : "transparent",
           }}
         >
-          {hasImage ? (
-            <Img
-              src={imageUrl as string}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: imageObjectPosition ?? "50% 30%",
-                transform: `scale(${kbScale.toFixed(4)})`,
-              }}
-            />
-          ) : (
-            <span style={{ fontFamily: MAG_DISPLAY, fontWeight: 900, fontSize: monoSize * 0.46, color: text, letterSpacing: "-0.02em" }}>{initials}</span>
-          )}
-          <div style={{ position: "absolute", bottom: -3, left: -3, width: "45%", height: 3, background: accent, zIndex: 2 }} />
+          <div style={{ fontFamily: MAG_DISPLAY, fontWeight: 900, fontSize: p ? 92 : 124, lineHeight: 0.55, color: accent, marginBottom: p ? 6 : 10 }}>
+            &ldquo;
+          </div>
+          <h1
+            style={{
+              fontFamily: MAG_DISPLAY,
+              fontWeight: 800,
+              fontSize: quotePx,
+              lineHeight: 1.0,
+              letterSpacing: "-0.01em",
+              textTransform: "uppercase",
+              color: bg,
+              margin: 0,
+            }}
+          >
+            <KineticWords text={quote} start={6} stagger={3} dur={14} />
+          </h1>
         </div>
 
-        {/* Details */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: p ? "center" : "flex-start" }}>
-          <Kicker color={accent} style={{ opacity: nameO, marginBottom: 12 }}>
+        {/* RIGHT PAGE — solid accent panel with the centred profile copy */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            background: accent,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            padding: pad,
+            overflow: "hidden",
+          }}
+        >
+          <Kicker color={bg} style={{ opacity: kickerO, marginBottom: 16 }}>
             Expert Profile
           </Kicker>
-          <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: namePx, lineHeight: 1.04, letterSpacing: "-0.015em", color: text, margin: 0, opacity: nameO }}>
+          <Rule color={bg} progress={ruleP} thickness={2} width={48} style={{ marginBottom: 22 }} />
+          <h2 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: namePx, lineHeight: 1.05, letterSpacing: "-0.015em", color: bg, margin: 0, opacity: nameO, transform: `translateY(${(1 - nameO) * 12}px)` }}>
             {expertName}
-          </h1>
+          </h2>
           {expertRole && (
-            <div style={{ fontFamily: MAG_SERIF, fontStyle: "italic", fontSize: p ? 24 : 22, color: text, opacity: nameO * 0.7, marginTop: 10 }}>
+            <div style={{ fontFamily: MAG_SERIF, fontStyle: "italic", fontSize: rolePx, color: bg, opacity: roleO * 0.92, marginTop: 12, maxWidth: "92%" }}>
               {expertRole}
             </div>
           )}
           {credential && (
-            <div style={{ display: "inline-block", marginTop: 16, opacity: nameO, background: accent, color: bg, fontFamily: MAG_SANS, fontWeight: 700, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", padding: "6px 14px" }}>
+            <div style={{ display: "inline-block", marginTop: 20, opacity: credO, background: bg, color: accent, fontFamily: MAG_SANS, fontWeight: 700, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", padding: "6px 14px" }}>
               {credential}
             </div>
-          )}
-          <Rule color={accent} progress={ruleP} thickness={2} width={p ? 120 : 90} style={{ margin: "24px 0" }} />
-          {bio && (
-            <p style={{ fontFamily: MAG_SERIF, fontSize: bioPx, lineHeight: 1.6, color: text, opacity: 0.9, margin: 0, maxWidth: p ? "92%" : "94%" }}>
-              {bio.slice(0, charsShown)}
-            </p>
           )}
         </div>
       </div>

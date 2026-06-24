@@ -1,7 +1,6 @@
 import { MagazineCover } from "./MagazineCover";
 import { FeatureSpread } from "./FeatureSpread";
 import { EditorialQuote } from "./EditorialQuote";
-import { PhotoEssay } from "./PhotoEssay";
 import { ByTheNumbers } from "./ByTheNumbers";
 import { InterviewQa } from "./InterviewQa";
 import { ComparisonSpread } from "./ComparisonSpread";
@@ -19,7 +18,6 @@ export const MAGAZINE_LAYOUT_REGISTRY: Record<MagazineLayoutType, React.FC<Scene
   magazine_cover: MagazineCover,
   feature_spread: FeatureSpread,
   editorial_quote: EditorialQuote,
-  photo_essay: PhotoEssay,
   by_the_numbers: ByTheNumbers,
   interview_qa: InterviewQa,
   comparison_spread: ComparisonSpread,

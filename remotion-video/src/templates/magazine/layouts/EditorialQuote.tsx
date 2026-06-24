@@ -1,122 +1,155 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
-  Rule,
   Halftone,
+  QuoteGlyph,
+  KineticWords,
+  Typewriter,
   MAG_DISPLAY,
   MAG_SANS,
   resolveMagColors,
   isPortrait,
   useReveal,
+  useMagFrame,
 } from "../magazineStyle";
 
 /**
- * Editorial pull quote — a large centred serif statement framed by short red
- * rules, with an attribution line. Oversized quotation mark watermark behind.
+ * Editorial pull quote — an asymmetric "bleed-quote" page. An oversized accent
+ * quotation mark bleeds off the top-left corner, a vertical accent rail grows
+ * down the left margin, and the statement is set large and left-aligned, anchored
+ * toward the lower-left. The attribution runs as vertical marginalia up the right
+ * edge (landscape) or beneath the quote (portrait). Deliberately off-centre so it
+ * never reads like the centred text-narration page.
  */
 export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
-  const { title, narration, titleFontSize } = props;
+  const { title, narration, titleFontSize, descriptionFontSize } = props;
   const attribution = (props.attribution as string) ?? narration;
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
 
-  const frame = useCurrentFrame();
+  const frame = useMagFrame();
   const { fps } = useVideoConfig();
 
-  const topRuleP = useReveal(0, 14);
-  const markO = useReveal(4, 12);
+  // The bleeding glyph and halftone field fade in first; the rail then grows.
+  const markO = useReveal(4, 16);
+  const railP = useReveal(6, 18);
+  const glyphScale = 0.86 + 0.14 * markO;
 
   const words = (title ?? "").split(" ");
-  const wStart = 8;
+  const wStart = 10;
   const wStagger = Math.max(1, Math.round(fps * 0.06));
   const wDur = Math.round(fps * 0.3);
   const lastEnd = wStart + (words.length - 1) * wStagger + wDur;
   const attrO = interpolate(frame, [lastEnd, lastEnd + 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const quotePx = titleFontSize ?? (p ? 58 : 66);
+  const quotePx = titleFontSize ?? (p ? 92 : 78);
+  const attrPx = descriptionFontSize ?? (p ? 52 : 26);
+  const glyphSize = p ? 320 : 520;
+
+  const attrInner = attribution && (
+    <div
+      style={{
+        fontFamily: MAG_SANS,
+        fontWeight: 700,
+        fontSize: attrPx,
+        letterSpacing: "0.16em",
+        textTransform: "uppercase",
+        color: text,
+        opacity: 0.78,
+      }}
+    >
+      <Typewriter text={attribution.replace(/^[—–-]\s*/, "— ")} start={lastEnd + 14} cpf={1.2} caretColor={accent} />
+    </div>
+  );
 
   return (
-    <MagazinePage colors={colors} section="Quote" issue={props.issueLabel ?? "Comment"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily}>
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          position: "relative",
-        }}
-      >
+    <MagazinePage
+      colors={colors}
+      section="Quote"
+      issue={props.issueLabel ?? "Comment"}
+      page={props.pageNumber}
+      aspectRatio={props.aspectRatio}
+      fontFamily={props.fontFamily}
+      cameraMove={props.cameraMove}
+      singlePage
+      printTextureSrc="editorial-quote-bg.svg"
+      printTextureOpacity={0.45}
+    >
+      <div style={{ height: "100%", position: "relative", overflow: "hidden" }}>
         {/* Faint halftone field for print texture */}
         <Halftone color={text} opacity={0.05 * markO} gap={8} />
 
-        {/* Watermark quote mark */}
+        {/* Oversized quotation mark anchored in the top-left — kept fully inside
+            the page so the wrapper's overflow:hidden never chops it off. */}
+        <QuoteGlyph
+          color={accent}
+          size={glyphSize}
+          opacity={0.16 * markO}
+          style={{
+            position: "absolute",
+            top: p ? "2%" : "0%",
+            left: p ? "4%" : "5%",
+            transform: `scale(${glyphScale.toFixed(3)})`,
+            transformOrigin: "top left",
+          }}
+        />
+
+        {/* Vertical accent rail growing down the left margin */}
         <div
           style={{
             position: "absolute",
-            top: p ? "2%" : "-4%",
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontFamily: MAG_DISPLAY,
-            fontWeight: 900,
-            fontSize: p ? 360 : 440,
-            lineHeight: 1,
-            color: accent,
-            opacity: 0.08 * markO,
-            pointerEvents: "none",
+            top: p ? "18%" : "14%",
+            left: p ? "8%" : "9%",
+            width: 6,
+            height: p ? "60%" : "64%",
+            background: accent,
+            transform: `scaleY(${railP.toFixed(3)})`,
+            transformOrigin: "top",
           }}
-        >
-          &ldquo;
-        </div>
+        />
 
-        <Rule color={accent} progress={topRuleP} thickness={2} width={p ? 120 : 160} style={{ marginBottom: p ? 34 : 44 }} />
-
-        <blockquote
+        {/* The statement — left-aligned, anchored toward the lower-left */}
+        <div
           style={{
-            fontFamily: MAG_DISPLAY,
-            fontStyle: "italic",
-            fontWeight: 500,
-            fontSize: quotePx,
-            lineHeight: 1.28,
-            letterSpacing: "-0.01em",
-            color: text,
-            margin: 0,
-            maxWidth: p ? "92%" : "78%",
+            position: "absolute",
+            left: "16%",
+            right: p ? "10%" : "22%",
+            bottom: "20%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
             zIndex: 1,
           }}
         >
-          {words.map((w, i) => {
-            const s = wStart + i * wStagger;
-            const o = interpolate(frame, [s, s + wDur], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-            return (
-              <span key={i} style={{ opacity: o }}>
-                {w}{" "}
-              </span>
-            );
-          })}
-        </blockquote>
-
-        <Rule color={accent} progress={attrO} thickness={2} width={p ? 120 : 160} style={{ margin: `${p ? 34 : 44}px 0 22px` }} />
-
-        {attribution && (
-          <div
+          <blockquote
             style={{
-              fontFamily: MAG_SANS,
-              fontWeight: 700,
-              fontSize: p ? 18 : 17,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
+              fontFamily: MAG_DISPLAY,
+              fontStyle: "italic",
+              fontWeight: 500,
+              fontSize: quotePx,
+              lineHeight: 1.26,
+              letterSpacing: "-0.01em",
               color: text,
-              opacity: attrO * 0.75,
+              margin: 0,
+              maxWidth: "100%",
+              textAlign: "left",
             }}
           >
-            {attribution.replace(/^[—–-]\s*/, "— ")}
-          </div>
-        )}
+            <KineticWords text={title ?? ""} start={wStart} stagger={wStagger} dur={wDur} depth={false} />
+          </blockquote>
+
+          {/* Attribution beneath the quote with a short accent rule (both
+              orientations — the vertical right-edge marginalia was removed). */}
+          {attribution && (
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 26, opacity: attrO }}>
+              <div style={{ width: 46, height: 2, background: accent }} />
+              {attrInner}
+            </div>
+          )}
+        </div>
       </div>
     </MagazinePage>
   );

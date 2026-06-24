@@ -1,11 +1,13 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
   Kicker,
   Rule,
   DingbatRule,
+  KineticWords,
+  WrittenText,
   MAG_DISPLAY,
   MAG_SERIF,
   MAG_SANS,
@@ -13,6 +15,8 @@ import {
   resolveMagColors,
   isPortrait,
   useReveal,
+  PopLayer,
+  useMagFrame,
 } from "../magazineStyle";
 
 const animateValue = (valueStr: string, progress: number): string => {
@@ -46,16 +50,23 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
       ]
   ).slice(0, 4);
 
-  const frame = useCurrentFrame();
+  const frame = useMagFrame();
   const { fps } = useVideoConfig();
   const titleO = useReveal(2, 12);
   const ruleP = useReveal(8, 14);
 
-  const titlePx = titleFontSize ?? (p ? 56 : 52);
-  const valuePx = descriptionFontSize ? descriptionFontSize * 2.2 : p ? 76 : 92;
+  const titlePx = titleFontSize ?? (p ? 92 : 107);
+  // descriptionFontSize drives the small body text. The big figures, the subtitle
+  // and the stat labels all scale proportionally off it so one slider tunes the
+  // whole block together.
+  const descSize = descriptionFontSize ?? (p ? 52 : 53);
+  const descScale = descSize / (p ? 52 : 40);
+  const valuePx = descSize * 2.2;
+  const subtitlePx = (p ? 24 : 20) * descScale;
+  const labelPx = (p ? 15 : 14) * descScale;
 
   return (
-    <MagazinePage colors={colors} section="By the Numbers" issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily}>
+    <MagazinePage colors={colors} section="By the Numbers" issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter cameraMove={props.cameraMove}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <Kicker color={accent} style={{ opacity: titleO, marginBottom: 14 }}>
           By the Numbers
@@ -69,16 +80,15 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
             letterSpacing: "-0.015em",
             color: text,
             margin: 0,
-            opacity: titleO,
           }}
         >
-          {title}
+          <KineticWords text={title ?? ""} start={2} stagger={2} dur={14} />
         </h1>
         {narration && (
           <p
             style={{
               fontFamily: MAG_SERIF,
-              fontSize: p ? 24 : 20,
+              fontSize: subtitlePx,
               lineHeight: 1.5,
               color: text,
               opacity: titleO * 0.7,
@@ -86,7 +96,7 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
               maxWidth: p ? "100%" : "70%",
             }}
           >
-            {narration}
+            <WrittenText text={narration} start={10} />
           </p>
         )}
 
@@ -98,7 +108,6 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
             display: "grid",
             gridTemplateColumns: p ? "1fr 1fr" : `repeat(${stats.length}, 1fr)`,
             gap: 0,
-            alignContent: "center",
           }}
         >
           {stats.map((s, i) => {
@@ -114,27 +123,34 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
                   opacity: o,
                   padding: p ? "20px 24px" : "0 32px",
                   borderLeft: showLeftBorder ? `1px solid ${text}22` : "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
                 }}
               >
-                <div
-                  style={{
-                    fontFamily: MAG_DISPLAY,
-                    fontWeight: 900,
-                    fontSize: valuePx,
-                    lineHeight: 1,
-                    color: accent,
-                    letterSpacing: "-0.02em",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {animateValue(String(s.value ?? ""), eased)}
-                </div>
+                {/* The figure lifts off the page so it floats over its label
+                    as the camera punches in. */}
+                <PopLayer depth={44} start={start} len={16} style={{ display: "block" }}>
+                  <div
+                    style={{
+                      fontFamily: MAG_DISPLAY,
+                      fontWeight: 900,
+                      fontSize: valuePx,
+                      lineHeight: 1,
+                      color: accent,
+                      letterSpacing: "-0.02em",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {animateValue(String(s.value ?? ""), eased)}
+                  </div>
+                </PopLayer>
                 <div style={{ width: 40, height: 2, background: text, opacity: 0.3, margin: "16px 0 12px" }} />
                 <div
                   style={{
                     fontFamily: MAG_SANS,
                     fontWeight: 700,
-                    fontSize: p ? 15 : 14,
+                    fontSize: labelPx,
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
                     lineHeight: 1.35,

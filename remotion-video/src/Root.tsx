@@ -260,7 +260,10 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
         defaultProps={{
-          dataUrl: "/data.json",
+          // Curated, prompt-aligned magazine sample covering every layout, so
+          // opening the studio shows real editorial content rather than the
+          // last-rendered /data.json project. Override per-render as usual.
+          dataUrl: "/mag-allscenes.json",
         }}
         calculateMetadata={calculateMagazineMetadata}
       />

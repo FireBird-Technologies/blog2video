@@ -57,7 +57,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
   const deckPx = descriptionFontSize ?? (p ? 24 : 21);
 
   return (
-    <MagazinePage colors={colors} section="Colophon" issue={props.issueLabel ?? "Fin"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily}>
+    <MagazinePage colors={colors} section="Colophon" issue={props.issueLabel ?? "Fin"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage cameraMove={props.cameraMove}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
         <h1
           style={{
