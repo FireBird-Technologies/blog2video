@@ -1,15 +1,17 @@
 import React from "react";
-import { useCurrentFrame, interpolate } from "remotion";
+import { interpolate } from "remotion";
 import type { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
   Kicker,
+  KineticWords,
   MAG_DISPLAY,
   MAG_SERIF,
   MAG_SANS,
   resolveMagColors,
   isPortrait,
   useReveal,
+  useMagFrame,
 } from "../magazineStyle";
 
 const MAX_ROWS = 20;
@@ -63,7 +65,7 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
   const cellPadH = colCount <= 4 ? 18 : 12;
   const GRID = `${text}1a`;
 
-  const frame = useCurrentFrame();
+  const frame = useMagFrame();
   const titleO = useReveal(0, 14);
   const headerOp = useReveal(6, 14);
   const footnoteOp = interpolate(frame, [20 + rowCount * 6, 20 + rowCount * 6 + 16], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -71,12 +73,12 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
   const rowY = (i: number) => interpolate(frame, [20 + i * 6, 20 + i * 6 + 14], [8, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
-    <MagazinePage colors={colors} section="Ledger" issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily}>
+    <MagazinePage colors={colors} section="Ledger" issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage cameraMove={props.cameraMove}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ opacity: titleO, flexShrink: 0, marginBottom: 22 }}>
           <Kicker color={accent} style={{ marginBottom: 12 }}>{tickerTitle || "Figures"}</Kicker>
           <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.04, letterSpacing: "-0.015em", color: text, margin: 0 }}>
-            {title || "By the Numbers"}
+            <KineticWords text={title || "By the Numbers"} start={2} stagger={2} dur={14} />
           </h1>
         </div>
 

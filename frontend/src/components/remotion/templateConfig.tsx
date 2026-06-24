@@ -294,7 +294,6 @@ const MAGAZINE_LAYOUTS = new Set([
   "magazine_cover",
   "feature_spread",
   "editorial_quote",
-  "photo_essay",
   "by_the_numbers",
   "interview_qa",
   "comparison_spread",

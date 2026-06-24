@@ -6,22 +6,19 @@ Use this list when picking the `preferred_layout` for each scene.
   - **Best for**: Opening title card and magazine cover intro sequence.
 
 - `feature_spread`  
-  - **Best for**: Main narrative, feature article body, and story setup pages. Supports an optional photo (boxed top-left).
+  - **Best for**: The workhorse — main narrative, feature body, story setup, and the default/fallback. Give it a full paragraph of `body` (the on-page article copy, distinct from the voiceover `narration`), a `standfirst` deck and 2–3 `keyPoints` so the whole page fills. Image-free.
 
 - `editorial_quote`  
   - **Best for**: Standout pull quote, key insight, or emotional beat between sections.
-
-- `photo_essay`  
-  - **Best for**: Visual moment, editorial photography showcase, or dramatic full-frame reveal. Features a full-bleed photo when a strong image exists.
 
 - `by_the_numbers`  
   - **Best for**: Key figures, data highlights, and 'by the numbers' infographic pages.
 
 - `interview_qa`  
-  - **Best for**: Interview, debate, two perspectives, or Q&A dialogue format.
+  - **Best for**: Interview, debate, two perspectives, or Q&A dialogue. Use the `exchanges` array with 2–3 exchanges, each a full paragraph-length answer, so the page reads full, not sparse.
 
 - `comparison_spread`  
-  - **Best for**: Claim vs reality, pro vs con, before vs after, or any two-sided comparison.
+  - **Best for**: Claim vs reality, pro vs con, before vs after, or any two-sided comparison. A two-page spread — needs a balanced bullet list (`leftPoints` / `rightPoints`, 3–5 short bullets each) on BOTH sides.
 
 - `magazine_data_visualization`  
   - **Best for**: A real animated chart (line / bar / histogram) rendered from an ACTUAL data table in the article. Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges.
@@ -35,7 +32,8 @@ Use this list when picking the `preferred_layout` for each scene.
   - **Best for**: Chronology, process steps, history, or roadmap sequences.
 
 - `expert_spotlight`  
-  - **Best for**: Expert profile, team spotlight, or key person feature. Shows the person's headshot when a photo is available.
+  - **Best for**: Surfacing a real, attributable quote from a named person as a big pull-quote with their name/role.
+  - **Rule**: Use ONLY when the source genuinely contains such a quote or strong first-person statement. Never invent a quote — for an unattributed standout line use `editorial_quote`, for plain prose use `text_narration`.
 
 - `text_narration`  
   - **Best for**: Narration-only scenes, transitional commentary, or text-driven story beats without imagery.

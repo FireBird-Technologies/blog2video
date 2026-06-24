@@ -1,9 +1,11 @@
 import React from "react";
 import "../../../fonts/magazine-defaults";
-import { AbsoluteFill, Audio, Sequence } from "remotion";
+import { AbsoluteFill, Audio, Easing, Sequence } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { MAGAZINE_LAYOUT_REGISTRY as LAYOUT_REGISTRY, MagazineLayoutType, SceneLayoutProps } from "./layouts";
 import { pickMagazineTransition } from "./transitions";
+import { signatureMoveFor } from "./magazineStyle";
+import type { MagazineCameraMove } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 
 export interface MagazineSceneInput {
@@ -21,6 +23,8 @@ export interface MagazineSceneInput {
 
 export interface MagazineVideoCompositionProps {
   scenes: MagazineSceneInput[];
+  /** Publication name — drives the TIME-style cover masthead. */
+  projectName?: string;
   accentColor: string;
   bgColor: string;
   textColor: string;
@@ -35,8 +39,10 @@ export interface MagazineVideoCompositionProps {
 const FPS = 30;
 // Extra hold added to each scene so it stays up through the (now slower)
 // transition overlap. Must be >= the largest transition duration in
-// transitions/index.ts (currently 42) or narration gets clipped.
-const EXTRA_HOLD = 42;
+// transitions/index.ts (currently 122, the zoom-blur dive) or the safeFrames
+// clamp shrinks the transition against an under-length sequence — which causes
+// the clamp-driven jerk on the boundary — and narration gets clipped.
+const EXTRA_HOLD = 122;
 
 const resolveLayout = (raw: string): MagazineLayoutType =>
   (raw as MagazineLayoutType) in LAYOUT_REGISTRY
@@ -45,6 +51,7 @@ const resolveLayout = (raw: string): MagazineLayoutType =>
 
 export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> = ({
   scenes,
+  projectName,
   accentColor,
   bgColor,
   textColor,
@@ -105,6 +112,13 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
       sceneDurationInFrames: durationFrames,
       fontFamily,
       pageNumber: pageNum < 10 ? `0${pageNum}` : String(pageNum),
+      brandName: projectName,
+      establishingShot: index === 0,
+      // First scene cranes in; otherwise use the per-layout signature move,
+      // unless the scene explicitly sets its own cameraMove.
+      cameraMove:
+        ((scene.layoutProps as Record<string, unknown>)?.cameraMove as MagazineCameraMove | undefined) ??
+        (index === 0 ? "crane_down" : signatureMoveFor(layoutKey, pageNum)),
     };
   };
 
@@ -179,7 +193,10 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
               {sequence}
               <TransitionSeries.Transition
                 presentation={choice.presentation}
-                timing={linearTiming({ durationInFrames: safeFrames })}
+                timing={linearTiming({
+                  durationInFrames: safeFrames,
+                  easing: Easing.inOut(Easing.cubic),
+                })}
               />
             </React.Fragment>
           );

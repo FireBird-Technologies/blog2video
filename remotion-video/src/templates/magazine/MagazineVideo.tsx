@@ -2,12 +2,15 @@ import React, { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
+  Easing,
   Sequence,
   staticFile,
   CalculateMetadataFunction,
 } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { MAGAZINE_LAYOUT_REGISTRY as LAYOUT_REGISTRY, MagazineLayoutType, SceneLayoutProps } from "./layouts";
+import { signatureMoveFor } from "./magazineStyle";
+import type { MagazineCameraMove } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
@@ -50,8 +53,10 @@ interface VideoProps extends Record<string, unknown> {
 
 // Extra hold added to each scene so it stays up through the (now slower)
 // transition overlap. Must be >= the largest transition duration in
-// transitions/index.ts (currently 42) or narration gets clipped.
-const EXTRA_HOLD_FRAMES = 42;
+// transitions/index.ts (currently 122, the zoom-blur dive) or the safeFrames
+// clamp shrinks the transition against an under-length sequence — which causes
+// the clamp-driven jerk on the boundary — and narration gets clipped.
+const EXTRA_HOLD_FRAMES = 122;
 
 const resolveLayoutKey = (raw: string): MagazineLayoutType =>
   (raw as MagazineLayoutType) in LAYOUT_REGISTRY
@@ -183,7 +188,13 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
             fontFamily: resolvedFontFamily || undefined,
             pageNumber: index + 1 < 10 ? `0${index + 1}` : String(index + 1),
+            establishingShot: index === 0,
             brandName: data.projectName,
+            // First scene cranes in; otherwise the per-layout signature move,
+            // unless the scene explicitly sets its own cameraMove.
+            cameraMove:
+              (rawProps.cameraMove as MagazineCameraMove | undefined) ??
+              (index === 0 ? "crane_down" : signatureMoveFor(layoutKey, index + 1)),
           };
 
           const sequence = (
@@ -220,7 +231,10 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               {sequence}
               <TransitionSeries.Transition
                 presentation={choice.presentation}
-                timing={linearTiming({ durationInFrames: safeFrames })}
+                timing={linearTiming({
+                  durationInFrames: safeFrames,
+                  easing: Easing.inOut(Easing.cubic),
+                })}
               />
             </React.Fragment>
           );

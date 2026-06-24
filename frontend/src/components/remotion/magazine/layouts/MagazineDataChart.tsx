@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { interpolate, useVideoConfig } from "remotion";
 import {
   Area,
   Bar,
@@ -19,6 +19,7 @@ import {
   MagazinePage,
   Kicker,
   Rule,
+  KineticWords,
   MAG_DISPLAY,
   MAG_SERIF,
   MAG_SANS,
@@ -26,6 +27,7 @@ import {
   isPortrait,
   useReveal,
   hexToRgba,
+  useMagFrame,
 } from "../magazineStyle";
 import {
   toNumber,
@@ -67,7 +69,6 @@ type BarDatum =
 export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
   const {
     title = "The story in the numbers",
-    narration = "",
     titleFontSize,
     descriptionFontSize,
     chartSummary = "",
@@ -80,7 +81,7 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
     yAxisLabel,
   } = props;
 
-  const frame = useCurrentFrame();
+  const frame = useMagFrame();
   const { width, fps, durationInFrames } = useVideoConfig();
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
@@ -547,13 +548,13 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
   };
 
   return (
-    <MagazinePage colors={colors} section="Data" issue={props.issueLabel ?? "Report"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily}>
+    <MagazinePage colors={colors} section="Data" issue={props.issueLabel ?? "Report"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage cameraMove={props.cameraMove}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <Kicker color={accent} style={{ opacity: titleO, marginBottom: 12 }}>
           Figures
         </Kicker>
-        <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, letterSpacing: "-0.015em", color: ink, margin: 0, opacity: titleO }}>
-          {title}
+        <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, letterSpacing: "-0.015em", color: ink, margin: 0 }}>
+          <KineticWords text={title} start={2} stagger={2} dur={14} />
         </h1>
         <Rule color={accent} progress={ruleP} thickness={3} width={p ? 110 : 90} style={{ margin: "22px 0" }} />
 
@@ -622,14 +623,6 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
             </div>
           </div>
         </div>
-
-        {narration && (
-          <div style={{ flexShrink: 0, marginTop: 16, opacity: interpolate(frame, [24, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
-            <div style={{ fontFamily: MAG_SERIF, fontStyle: "italic", fontSize: descSize * 0.78, color: ink, opacity: 0.6, lineHeight: 1.45 }}>
-              {narration}
-            </div>
-          </div>
-        )}
       </div>
     </MagazinePage>
   );

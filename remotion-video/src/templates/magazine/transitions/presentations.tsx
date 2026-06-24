@@ -4,6 +4,7 @@ import type {
   TransitionPresentation,
   TransitionPresentationComponentProps,
 } from "@remotion/transitions";
+import { QuoteGlyph } from "../magazineStyle";
 
 // easeInOutQuint — much slower/smoother at both ends than cubic.
 // Starts barely moving, accelerates through the middle, glides to a stop.
@@ -23,97 +24,124 @@ const easeSoft = (t: number): number => {
   return 0.5 * (1 - Math.cos(Math.PI * c));
 };
 
+// Warm dark "table" tone behind turning pages, matching the scenes' DeskBackdrop
+// so transitions read as pages turning on the same lamp-lit table — not a flash
+// of white void between scenes.
+const TABLE_BG = "#17120c";
+
 // ── Glossy Page Flip ────────────────────────────────────────────────────────
-// Zoom out → settle → soft flip → zoom in.
-// The scene gently shrinks to a centred card on a soft grey surface and holds
-// for a beat. The card then turns smoothly about its spine — the old page turns
-// away, the new page turns in — holds flat, and finally zooms back in on the new
-// scene. The zoom-out is what makes the turn clearly readable instead of a
-// full-frame blur.
+// Zoom out → settle → a real page turns over → zoom in.
+// The old scene shrinks to a bordered paper card on a medium-grey surface (so a
+// white page is clearly visible against it). After a beat, a NEW page swings in,
+// hinged at the left like a real magazine page: its blank back faces us while it
+// is folded open, then it rotates flat to reveal the new scene. The leading edge
+// catches a shadow throughout so the whole turn is readable. Finally it zooms in.
 //
 // Timeline (progress):
 //   0.00–0.22  exiting zooms out 1 → CARD
-//   0.22–0.40  stillness
-//   0.40–0.58  exiting turns 0 → ±90° (edge-on)
-//   0.58–0.78  entering turns ±90° → 0 (new page lands)
-//   0.78–0.86  stillness
-//   0.86–1.00  entering zooms in CARD → 1
+//   0.22–0.45  stillness
+//   0.45–0.82  entering page turns in (-165° → 0°) over the old card
+//   0.82–0.88  stillness
+//   0.88–1.00  entering zooms in CARD → 1
 
 type GlossyPageFlipProps = {
   direction: "forward" | "backward";
   accentColor?: string;
 };
 
-const GLOSSY_CARD = 0.84;
+const GLOSSY_CARD = 0.82;
 const GLOSSY_BACKDROP =
-  "radial-gradient(ellipse at 50% 45%, #FBFBFA 0%, #EFEEEC 58%, #E3E2E0 100%)";
+  "radial-gradient(ellipse at 54% 30%, #3a322a 0%, #251f19 52%, #15110b 100%)";
 
 const GlossyPageFlipComponent: React.FC<
   TransitionPresentationComponentProps<GlossyPageFlipProps>
-> = ({ children, presentationDirection, presentationProgress, passedProps }) => {
+> = ({ children, presentationDirection, presentationProgress }) => {
   const p = presentationProgress;
   const cl = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
-  const dir = passedProps?.direction === "backward" ? 1 : -1;
 
   if (presentationDirection === "exiting") {
-    if (p >= 0.6) return <AbsoluteFill style={{ background: GLOSSY_BACKDROP }} />;
-
+    // The incoming page fully covers the old card by ~0.78; after that just hold.
     const zo = easeSoft(interpolate(p, [0, 0.22], [0, 1], cl));
     const scale = 1 - (1 - GLOSSY_CARD) * zo;
-    const flip = easeSoft(interpolate(p, [0.4, 0.58], [0, 1], cl));
-    const angle = flip * 90 * dir; // 0 → ±90
-    const lift = Math.sin(flip * Math.PI * 0.5);
-
     return (
       <AbsoluteFill style={{ background: GLOSSY_BACKDROP }}>
-        <AbsoluteFill style={{ perspective: "1600px" }}>
+        <AbsoluteFill style={{ transform: `scale(${scale.toFixed(4)})`, transformOrigin: "center center" }}>
           <AbsoluteFill style={{
-            transform: `scale(${scale.toFixed(4)}) rotateY(${angle.toFixed(2)}deg)`,
-            transformOrigin: "center center",
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            borderRadius: 8,
+            border: "1px solid rgba(0,0,0,0.16)",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.22)",
             overflow: "hidden",
-            boxShadow: `0 ${(24 + lift * 30).toFixed(0)}px ${(50 + lift * 50).toFixed(0)}px rgba(0,0,0,${(0.1 + lift * 0.12).toFixed(3)})`,
+            borderRadius: 4,
           }}>
             {children}
-            <AbsoluteFill style={{
-              background: `linear-gradient(105deg, rgba(255,255,255,0) 45%, rgba(255,255,255,${(lift * 0.22).toFixed(3)}) 62%, rgba(0,0,0,${(lift * 0.1).toFixed(3)}) 100%)`,
-              pointerEvents: "none",
-            }} />
           </AbsoluteFill>
         </AbsoluteFill>
       </AbsoluteFill>
     );
   }
 
-  if (p < 0.56) return <AbsoluteFill style={{ pointerEvents: "none" }} />;
+  // ENTERING — wait, then turn the new page in over the old card.
+  if (p < 0.45) return <AbsoluteFill style={{ pointerEvents: "none" }} />;
 
-  const bdAlpha = interpolate(p, [0.52, 0.6], [0, 1], cl);
-  const flipIn = easeSoft(interpolate(p, [0.58, 0.78], [0, 1], cl));
-  const angle = (1 - flipIn) * 90 * dir; // ±90 → 0
-  const zin = easeSoft(interpolate(p, [0.86, 1.0], [0, 1], cl));
+  const bdAlpha = interpolate(p, [0.43, 0.52], [0, 1], cl);
+  const flip = easeSoft(interpolate(p, [0.45, 0.82], [0, 1], cl));
+  const angle = (1 - flip) * -165; // -165° (folded open, back showing) → 0° (flat)
+  const zin = easeSoft(interpolate(p, [0.88, 1.0], [0, 1], cl));
   const scale = GLOSSY_CARD + (1 - GLOSSY_CARD) * zin;
-  const lift = Math.sin((1 - flipIn) * Math.PI * 0.5);
+  // Edge shadow peaks mid-turn (page perpendicular to the lens).
+  const edgeDark = Math.sin(Math.min(1, Math.abs(angle) / 165) * Math.PI);
 
   return (
     <AbsoluteFill>
       <AbsoluteFill style={{ background: GLOSSY_BACKDROP, opacity: bdAlpha }} />
-      <AbsoluteFill style={{ perspective: "1600px" }}>
-        <AbsoluteFill style={{
-          transform: `scale(${scale.toFixed(4)}) rotateY(${angle.toFixed(2)}deg)`,
-          transformOrigin: "center center",
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-          borderRadius: zin < 1 ? 8 : 0,
-          overflow: "hidden",
-          boxShadow: `0 ${(24 - zin * 22).toFixed(0)}px ${(50 - zin * 44).toFixed(0)}px rgba(0,0,0,${(0.14 - zin * 0.12).toFixed(3)})`,
-        }}>
-          {children}
-          <AbsoluteFill style={{
-            background: `linear-gradient(105deg, rgba(0,0,0,${(lift * 0.1).toFixed(3)}) 0%, rgba(255,255,255,${(lift * 0.22).toFixed(3)}) 40%, rgba(255,255,255,0) 58%)`,
-            pointerEvents: "none",
-          }} />
+      <AbsoluteFill style={{ perspective: "1700px", perspectiveOrigin: "50% 50%" }}>
+        <AbsoluteFill style={{ transform: `scale(${scale.toFixed(4)})`, transformOrigin: "center center" }}>
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            transformStyle: "preserve-3d",
+            transformOrigin: "left center",
+            transform: `rotateY(${angle.toFixed(2)}deg)`,
+            willChange: "transform",
+            boxShadow: `0 ${(20 + edgeDark * 50).toFixed(0)}px ${(50 + edgeDark * 70).toFixed(0)}px rgba(0,0,0,${(0.1 + edgeDark * 0.3).toFixed(3)})`,
+          }}>
+            {/* FRONT — the new scene, printed on the page */}
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              overflow: "hidden",
+              border: "1px solid rgba(0,0,0,0.16)",
+              borderRadius: zin < 1 ? 4 : 0,
+            }}>
+              {children}
+              {/* Leading-edge shading so the turning edge stays visible */}
+              <AbsoluteFill style={{
+                background: `linear-gradient(to right, rgba(0,0,0,0.06) 0%, transparent 14%, transparent 80%, rgba(0,0,0,${(edgeDark * 0.4).toFixed(3)}) 100%)`,
+                pointerEvents: "none",
+              }} />
+            </div>
+            {/* BACK — blank paper, visible while the page is folded open */}
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              transform: "rotateY(180deg)",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              overflow: "hidden",
+              background: "linear-gradient(to left, #FDFDFD 0%, #F1F1EF 55%, #E4E3E0 100%)",
+              border: "1px solid rgba(0,0,0,0.14)",
+            }}>
+              <Img
+                src={staticFile("magazine-collage.avif")}
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.12, filter: "grayscale(0.7) brightness(1.06)" }}
+              />
+              <AbsoluteFill style={{
+                background: `linear-gradient(to left, rgba(0,0,0,0.05) 0%, transparent 16%, transparent 80%, rgba(0,0,0,${(edgeDark * 0.34).toFixed(3)}) 100%)`,
+                pointerEvents: "none",
+              }} />
+            </div>
+          </div>
         </AbsoluteFill>
       </AbsoluteFill>
     </AbsoluteFill>
@@ -148,7 +176,7 @@ const DramaticPageFlipComponent: React.FC<
     const tiltY = interpolate(raw, [0, 0.8], [-7, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const camScale = interpolate(raw, [0, 0.8], [1.08, 1.0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     return (
-      <AbsoluteFill style={{ backgroundColor: "#FDFCFB", perspective: "1400px" }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, perspective: "1400px" }}>
         <AbsoluteFill style={{
           transform: `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${camScale})`,
           transformStyle: "preserve-3d",
@@ -168,7 +196,7 @@ const DramaticPageFlipComponent: React.FC<
   const shimmerIntensity = (lift * 0.50).toFixed(3);
 
   return (
-    <AbsoluteFill style={{ perspective: "1200px", perspectiveOrigin: "55% 50%", overflow: "hidden", backgroundColor: "#FDFCFB" }}>
+    <AbsoluteFill style={{ perspective: "1200px", perspectiveOrigin: "55% 50%", overflow: "hidden", backgroundColor: TABLE_BG }}>
       <div
         style={{
           position: "absolute",
@@ -198,7 +226,7 @@ const DramaticPageFlipComponent: React.FC<
           <AbsoluteFill style={{
             background: `linear-gradient(to right,
               transparent ${Math.max(0, shimmerPos - 12).toFixed(1)}%,
-              rgba(255,255,255,${shimmerIntensity}) ${shimmerPos.toFixed(1)}%,
+              rgba(255,242,222,${shimmerIntensity}) ${shimmerPos.toFixed(1)}%,
               transparent ${Math.min(100, shimmerPos + 12).toFixed(1)}%)`,
             pointerEvents: "none",
           }} />
@@ -251,38 +279,20 @@ const MagazineZoomComponent: React.FC<
 
   if (!entering) {
     const scale = 1 + 1.8 * p;
-    const blurPx = 12 * p;
     const opacity = 1 - p;
-    const vogueFlash = interpolate(p, [0.25, 0.45, 0.65], [0, 0.30, 0], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    });
+    // Blur filter + a grayscale full-screen multiply-blend flash removed — both
+    // were very costly to paint each transition frame. Scale + fade carry it.
     return (
-      <AbsoluteFill style={{ backgroundColor: "#FDFCFB" }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>
         <AbsoluteFill
           style={{
             transform: `scale(${scale})`,
-            filter: `blur(${blurPx.toFixed(1)}px)`,
             opacity,
-            willChange: "transform, filter, opacity",
+            willChange: "transform, opacity",
           }}
         >
           {children}
         </AbsoluteFill>
-        <Img
-          src={staticFile("magazine-vogue.avif")}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: vogueFlash,
-            filter: "grayscale(1) contrast(1.2)",
-            mixBlendMode: "multiply",
-            pointerEvents: "none",
-          }}
-        />
       </AbsoluteFill>
     );
   }
@@ -293,7 +303,7 @@ const MagazineZoomComponent: React.FC<
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#FDFCFB" }}>
+    <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>
       <AbsoluteFill style={{ transform: `scale(${scale})`, opacity }}>
         {children}
       </AbsoluteFill>
@@ -371,8 +381,7 @@ const DoublePageTurnComponent: React.FC<
               />
               <div style={{
                 position: "absolute", inset: 0,
-                background: `linear-gradient(${140 + ease(page2Progress) * 40}deg, transparent 20%, rgba(255,255,255,0.4) 50%, transparent 80%)`,
-                mixBlendMode: "screen",
+                background: `linear-gradient(${140 + ease(page2Progress) * 40}deg, transparent 20%, rgba(255,255,255,0.28) 50%, transparent 80%)`,
               }} />
             </div>
           )}
@@ -399,8 +408,7 @@ const DoublePageTurnComponent: React.FC<
               />
               <div style={{
                 position: "absolute", inset: 0,
-                background: `linear-gradient(${130 + ease(page1Progress) * 50}deg, transparent 15%, rgba(255,255,255,0.5) 40%, transparent 65%)`,
-                mixBlendMode: "screen",
+                background: `linear-gradient(${130 + ease(page1Progress) * 50}deg, transparent 15%, rgba(255,255,255,0.32) 40%, transparent 65%)`,
               }} />
               <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 3, background: accent }} />
             </div>
@@ -449,7 +457,7 @@ const StackDropComponent: React.FC<
     });
 
     return (
-      <AbsoluteFill style={{ backgroundColor: "#E8E6E2" }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>
         <AbsoluteFill style={{ transform: `scale(${scale})`, opacity }}>
           {children}
         </AbsoluteFill>
@@ -475,9 +483,9 @@ const StackDropComponent: React.FC<
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#E8E6E2", perspective: 1400 }}>
+    <AbsoluteFill style={{ backgroundColor: TABLE_BG, perspective: 1400 }}>
       <AbsoluteFill style={{
-        background: "radial-gradient(ellipse at 50% 55%, #F0EEEA 0%, #E0DDD8 50%, #D4D0CA 100%)",
+        background: "radial-gradient(ellipse at 54% 40%, #3a322a 0%, #251f19 52%, #15110b 100%)",
       }} />
 
       <div style={{
@@ -576,7 +584,7 @@ const MetricZoomComponent: React.FC<
       extrapolateRight: "clamp",
     });
     return (
-      <AbsoluteFill style={{ backgroundColor: "#FDFCFB" }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>
         <AbsoluteFill style={{
           transform: `scale(${shrink})`,
           opacity,
@@ -596,7 +604,7 @@ const MetricZoomComponent: React.FC<
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#FDFCFB" }}>
+    <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>
       <AbsoluteFill style={{
         clipPath: raw < 0.95 ? `circle(${circleSize}% at 50% 50%)` : "none",
         opacity,
@@ -646,7 +654,7 @@ const CrispPagePushComponent: React.FC<
   const brightness = entering ? 1 : 1 - 0.15 * p;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#FDFCFB" }}>
+    <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>
       <AbsoluteFill
         style={{
           transform: `translateX(${x}px) scale(${scale})`,
@@ -705,7 +713,7 @@ const StackSlideComponent: React.FC<
   const rotate = p * 2;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#FDFCFB" }}>
+    <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>
       {STACK_LAYERS.map((layer, i) => (
         <div key={i} style={{
           position: "absolute", inset: 0,
@@ -765,7 +773,7 @@ const MagazineTearComponent: React.FC<
     const tiltY = interpolate(raw, [0, 0.75], [4, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const camScale = interpolate(raw, [0, 0.75], [1.05, 1.0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     return (
-      <AbsoluteFill style={{ backgroundColor: "#FDFCFB", perspective: "1600px" }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, perspective: "1600px" }}>
         <AbsoluteFill style={{
           transform: `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${camScale})`,
           transformStyle: "preserve-3d",
@@ -862,7 +870,7 @@ const PageFoldOverComponent: React.FC<
     const tiltY = interpolate(raw, [0, 0.75], [5, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const camScale = interpolate(raw, [0, 0.75], [1.05, 1.0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     return (
-      <AbsoluteFill style={{ backgroundColor: "#FDFCFB", perspective: "1600px" }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, perspective: "1600px" }}>
         <AbsoluteFill style={{
           transform: `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${camScale})`,
           transformStyle: "preserve-3d",
@@ -887,11 +895,12 @@ const PageFoldOverComponent: React.FC<
   const shadowAlpha = (lift * 0.50).toFixed(3);
   const bowDark = (0.08 + lift * 0.34).toFixed(3);
   const ridge = (38 + turnEased * 44).toFixed(0);
+  // Moving crinkle shimmer for fold-over
   const shimPos = interpolate(raw, [0.05, 0.75], [94, 6], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const shimIntensity = (lift * 0.36).toFixed(3);
 
   return (
-    <AbsoluteFill style={{ perspective: "2000px", perspectiveOrigin: "50% 50%", overflow: "hidden", backgroundColor: "#FDFCFB" }}>
+    <AbsoluteFill style={{ perspective: "2000px", perspectiveOrigin: "50% 50%", overflow: "hidden", backgroundColor: TABLE_BG }}>
       <div
         style={{
           position: "absolute",
@@ -987,7 +996,7 @@ const CornerCurlComponent: React.FC<
     const tiltY = interpolate(raw, [0, 0.75], [5, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const camScale = interpolate(raw, [0, 0.75], [1.05, 1.0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     return (
-      <AbsoluteFill style={{ backgroundColor: "#FDFCFB", perspective: "1600px" }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, perspective: "1600px" }}>
         <AbsoluteFill style={{
           transform: `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${camScale})`,
           transformStyle: "preserve-3d",
@@ -1039,7 +1048,7 @@ const CornerCurlComponent: React.FC<
   const lift = Math.sin(Math.min(1, raw) * Math.PI);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#FDFCFB", overflow: "hidden" }}>
+    <AbsoluteFill style={{ backgroundColor: TABLE_BG, overflow: "hidden" }}>
       {/* Flat remaining part of the OLD page */}
       {raw < 0.98 && (
         <AbsoluteFill style={{ clipPath: remaining, WebkitClipPath: remaining }}>
@@ -1054,8 +1063,7 @@ const CornerCurlComponent: React.FC<
             clipPath: flapClip,
             WebkitClipPath: flapClip,
             transform: "translate(-14px, 14px)",
-            background: `rgba(0,0,0,${(lift * 0.22).toFixed(3)})`,
-            filter: "blur(10px)",
+            background: `rgba(0,0,0,${(lift * 0.18).toFixed(3)})`,
             pointerEvents: "none",
           }}
         />
@@ -1137,7 +1145,7 @@ const PageSlideComponent: React.FC<
     const tiltY = interpolate(raw, [0, 0.75], [-4, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const camScale = interpolate(raw, [0, 0.75], [1.04, 1.0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     return (
-      <AbsoluteFill style={{ backgroundColor: "#FDFCFB", perspective: "1600px" }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, perspective: "1600px" }}>
         <AbsoluteFill
           style={{
             transform: `translateX(${(1 - p) * 100}%) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${camScale})`,
@@ -1165,7 +1173,7 @@ const PageSlideComponent: React.FC<
   }
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#FDFCFB" }}>
+    <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>
       <AbsoluteFill
         style={{
           transform: `translateX(${-p * 100}%)`,
@@ -1211,12 +1219,13 @@ const CornerPeelFlipComponent: React.FC<
   const accent = passedProps.accentColor ?? "#E63946";
 
   if (presentationDirection === "entering") {
+    // New scene rises from below with a camera swing: tilted down → flat.
     const tiltX = interpolate(raw, [0, 0.85], [-10, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const tiltY = interpolate(raw, [0, 0.85], [6, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const camScale = interpolate(raw, [0, 0.85], [1.10, 1.0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const slideY = interpolate(easeCubic(raw), [0, 1], [60, 0]);
     return (
-      <AbsoluteFill style={{ backgroundColor: "#FDFCFB", perspective: "1200px", perspectiveOrigin: "60% 30%" }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, perspective: "1200px", perspectiveOrigin: "60% 30%" }}>
         <AbsoluteFill style={{
           transform: `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${camScale}) translateY(${slideY}px)`,
           transformStyle: "preserve-3d",
@@ -1227,6 +1236,10 @@ const CornerPeelFlipComponent: React.FC<
     );
   }
 
+  // Phase 1 (0–0.15): the corner curl lifts — small triangle peels up.
+  // Phase 2 (0.15–0.85): the peel sweeps diagonally across the page.
+  // Phase 3 (0.85–1): page finishes rotating away.
+
   const peelStart = 0.10;
   const peelEnd = 0.90;
   const peelT = interpolate(raw, [peelStart, peelEnd], [0, 1], {
@@ -1235,16 +1248,21 @@ const CornerPeelFlipComponent: React.FC<
   });
   const peelEased = easeCubic(peelT);
 
+  // Diagonal fold line: x + y = C. C starts at W+H (just the corner) and
+  // sweeps to 0 (whole page peeled). The fold runs from top-right to bottom-left.
   const C = interpolate(peelEased, [0, 1], [W + H, -W * 0.15]);
 
+  // Corner curl grows in phase 1 before the full peel starts.
   const curlGrow = interpolate(raw, [0, peelStart], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
   const curlSize = 80 + curlGrow * 120;
 
+  // Helper: px point → "x% y%" for clip-path.
   const pc = (x: number, y: number) => `${((x / W) * 100).toFixed(2)}% ${((y / H) * 100).toFixed(2)}%`;
 
+  // Remaining (un-peeled) outgoing page = half-plane x + y <= C.
   let remaining: string;
   if (C >= W + H) {
     remaining = `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)`;
@@ -1258,6 +1276,8 @@ const CornerPeelFlipComponent: React.FC<
     remaining = `polygon(0% 0%, 0% 0%, 0% 0%)`;
   }
 
+  // Flap = peeled region (x + y >= C). Reflected across x + y = C:
+  // (x,y) → (C - y, C - x). CSS matrix(0, -1, -1, 0, C, C).
   let flapClip: string;
   if (C >= W) {
     flapClip = `polygon(${pc(C, 0)}, 100% 0%, 100% ${pc(W, C - W).split(" ")[1]})`;
@@ -1272,6 +1292,7 @@ const CornerPeelFlipComponent: React.FC<
   const lift = Math.sin(peelT * Math.PI);
   const shadowAlpha = (lift * 0.35).toFixed(3);
 
+  // Camera tilts to follow the peel — looks down at the top-right corner.
   const camTiltX = interpolate(raw, [0, 0.5, 0.9], [0, -4, 0], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
@@ -1284,13 +1305,15 @@ const CornerPeelFlipComponent: React.FC<
       perspective: "1200px",
       perspectiveOrigin: "65% 30%",
       overflow: "hidden",
-      backgroundColor: "#FDFCFB",
+      backgroundColor: TABLE_BG,
       transform: `rotateX(${camTiltX}deg) rotateY(${camTiltY}deg)`,
       transformStyle: "preserve-3d",
     }}>
+      {/* Flat remaining portion of the outgoing page */}
       {peelEased < 0.99 && (
         <AbsoluteFill style={{ clipPath: remaining, WebkitClipPath: remaining }}>
           {children}
+          {/* Static corner curl (shrinks as the peel takes over) */}
           {peelT < 0.3 && (
             <div style={{
               position: "absolute",
@@ -1320,17 +1343,18 @@ const CornerPeelFlipComponent: React.FC<
         </AbsoluteFill>
       )}
 
+      {/* Shadow the flap casts onto the surface below */}
       {peelEased > 0.02 && peelEased < 0.98 && (
         <AbsoluteFill style={{
           clipPath: flapClip,
           WebkitClipPath: flapClip,
           transform: "translate(-10px, 10px)",
           background: `rgba(0,0,0,${shadowAlpha})`,
-          filter: "blur(14px)",
           pointerEvents: "none",
         }} />
       )}
 
+      {/* The peeled flap — reflected outgoing content (page underside) */}
       {peelEased > 0.02 && peelEased < 0.98 && (
         <AbsoluteFill style={{
           clipPath: flapClip,
@@ -1349,6 +1373,7 @@ const CornerPeelFlipComponent: React.FC<
         </AbsoluteFill>
       )}
 
+      {/* Cylindrical curl tube running along the diagonal fold line */}
       {peelEased > 0.02 && peelEased < 0.98 && C > -W * 0.2 && C < W + H && (() => {
         const diag = Math.sqrt(W * W + H * H) * 1.4;
         const thickness = 40 + lift * 22;
@@ -1377,6 +1402,7 @@ const CornerPeelFlipComponent: React.FC<
         );
       })()}
 
+      {/* Accent line along the fold for brand colour pop */}
       {peelEased > 0.05 && peelEased < 0.95 && (() => {
         const diag = Math.sqrt(W * W + H * H) * 1.4;
         const ax = C / 2;
@@ -1430,12 +1456,15 @@ const MagazineRiffleOpenComponent: React.FC<
   const p = presentationProgress;
   const zoom = passedProps.zoom ?? false;
 
+  // Outgoing scene sits underneath; the pages sweep over it.
   if (presentationDirection === "exiting") {
-    return <AbsoluteFill style={{ backgroundColor: "#FDFCFB" }}>{children}</AbsoluteFill>;
+    return <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>{children}</AbsoluteFill>;
   }
 
-  // Eased softly (sine in/out) so it glides rather than snaps.
+  // The band of big pages travels right → left across the frame — eased softly
+  // (sine in/out) so it glides rather than snaps.
   const sweep = easeSoft(interpolate(p, [0.04, 0.84], [0, 1], clampOpts));
+  // New scene fades up behind the band as it passes.
   const newAppear = interpolate(p, [0.4, 0.62], [0, 1], clampOpts);
   // Optional push-in on the revealed scene — the "dive into the page".
   const zoomT = easeSoft(interpolate(p, [0.42, 1], [0, 1], clampOpts));
@@ -1443,21 +1472,24 @@ const MagazineRiffleOpenComponent: React.FC<
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
+      {/* New scene, revealed as the ruffle clears (and optionally pushing in) */}
       <AbsoluteFill style={{ opacity: newAppear, transform: `scale(${zoomScale.toFixed(4)})`, transformOrigin: "50% 50%", willChange: "transform, opacity" }}>
         {children}
       </AbsoluteFill>
 
+      {/* Smooth riffle of big clean pages filling the frame */}
       <AbsoluteFill style={{ perspective: "1600px", overflow: "hidden" }}>
         {Array.from({ length: RIFFLE_PAGES }).map((_, i) => {
-          const startX = 100 + i * 12;
-          const x = startX - sweep * 320;
-          if (x < -95 || x > 135) return null;
+          const startX = 100 + i * 12;           // tighter, denser stagger
+          const x = startX - sweep * 320;         // travels fully off to the left
+          if (x < -95 || x > 135) return null;    // skip pages outside the frame
           const centerX = x + 30;
-          const tilt = (centerX - 50) * 0.5;
-          const flutter = Math.sin(sweep * Math.PI * 2.4 + i * 0.7) * 6;
-          const bob = Math.cos(sweep * Math.PI * 2.0 + i * 0.5) * 1.6;
+          const tilt = (centerX - 50) * 0.5;      // gentle curve toward the spine
+          const flutter = Math.sin(sweep * Math.PI * 2.4 + i * 0.7) * 6; // softer flutter
+          const bob = Math.cos(sweep * Math.PI * 2.0 + i * 0.5) * 1.6;   // subtle vertical bob
           const rot = tilt + flutter;
           const facing = 1 - Math.min(1, Math.abs(rot) / 90);
+          // Per-page edge fade so pages glide in/out instead of popping.
           const edgeFade =
             x < -75 ? interpolate(x, [-95, -75], [0, 1], clampOpts)
             : x > 112 ? interpolate(x, [112, 135], [1, 0], clampOpts)
@@ -1498,10 +1530,12 @@ const MagazineRiffleOpenComponent: React.FC<
                   filter: "saturate(0.55)",
                 }}
               />
+              {/* thin top edge alternating sides */}
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: i % 2 === 0 ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.035)" }} />
               {Array.from({ length: 6 }).map((_, k) => (
                 <div key={k} style={{ position: "absolute", left: "16%", right: "16%", top: `${22 + k * 11}%`, height: 2, background: "rgba(0,0,0,0.045)" }} />
               ))}
+              {/* Soft cylindrical curl shading — lighter, cleaner */}
               <AbsoluteFill style={{
                 background: `linear-gradient(to right,
                   rgba(0,0,0,0.20) 0%,
@@ -1510,9 +1544,8 @@ const MagazineRiffleOpenComponent: React.FC<
                   rgba(255,255,255,0.08) 62%,
                   rgba(0,0,0,0.05) 86%,
                   rgba(0,0,0,0.22) 100%)`,
-                mixBlendMode: "overlay",
                 pointerEvents: "none",
-                opacity: 0.4 + facing * 0.35,
+                opacity: 0.3 + facing * 0.25,
               }} />
             </div>
           );
@@ -1650,5 +1683,520 @@ export const magazineCoverOpen = (
   props: MagazineCoverOpenProps = {},
 ): TransitionPresentation<MagazineCoverOpenProps> => ({
   component: MagazineCoverOpenComponent,
+  props,
+});
+
+// ── Zoom-Blur Dive ───────────────────────────────────────────────────────────
+// The outgoing page zooms all the way IN while going softly out of focus and
+// fading away; the new scene then opens by zooming OUT — resolving from a light
+// blur to a crisp page — and tilts on its paper plane before aligning flat, so
+// it reads as the page settling into view rather than a hard cut.
+//
+// Timeline (progress):
+//   exiting   0.00–0.60  scale 1 → 1.6, blur 0 → 6px, opacity 1 → 0
+//   entering  0.20–1.00  scale 1.5 → 1.0, blur 6 → 0px; opacity in by 0.40;
+//                        rotateX 8° / rotateY -5° → 0° (paper aligns flat)
+
+type ZoomBlurDiveProps = { accentColor?: string };
+
+const ZoomBlurDiveComponent: React.FC<
+  TransitionPresentationComponentProps<ZoomBlurDiveProps>
+> = ({ children, presentationDirection, presentationProgress }) => {
+  const p = presentationProgress;
+  const cl = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
+
+  if (presentationDirection === "exiting") {
+    // Zoom into the page while it softly blurs. The zoom keeps it covering the
+    // whole frame, so it holds opaque until the incoming page has covered the
+    // frame, then fades — no opaque dark fill, so no black gap shows through.
+    const z = ease(interpolate(p, [0, 0.75], [0, 1], cl));
+    const scale = 1 + z * 0.9; // 1 → 1.9 (zoom all the way in)
+    const opacity = 1 - ease(interpolate(p, [0.55, 0.8], [0, 1], cl));
+    // Per-frame full-frame blur() removed — re-blurring a 1.9×-upscaled full
+    // frame every frame saturated the live-preview compositor (whole-page jank).
+    // Scale + fade carry the "dive" exactly as magazineZoom does.
+    return (
+      <AbsoluteFill>
+        <AbsoluteFill
+          style={{
+            transform: `scale(${scale.toFixed(4)})`,
+            transformOrigin: "center center",
+            opacity: opacity.toFixed(3),
+            willChange: "transform, opacity",
+          }}
+        >
+          {children}
+        </AbsoluteFill>
+      </AbsoluteFill>
+    );
+  }
+
+  // ENTERING — the new page dives out of the blur, tilts on its paper plane,
+  // then aligns flat as it settles to rest.
+  const r = ease(interpolate(p, [0.25, 1], [0, 1], cl));
+  const scale = 1.8 - r * 0.8; // 1.8 → 1.0 (zoom out to rest)
+  const opacity = interpolate(p, [0.25, 0.52], [0, 1], cl);
+  const tiltX = (1 - r) * 10; // paper tips toward the lens, then aligns
+  const tiltY = (1 - r) * -6;
+
+  // Transparent container (no opaque dark fill): the incoming page zooms out and
+  // crossfades over the still-covering outgoing page. Per-frame full-frame blur()
+  // removed (live-preview compositor cost); the zoom-out + fade carry the dive.
+  return (
+    <AbsoluteFill style={{ perspective: "1600px" }}>
+      <AbsoluteFill
+        style={{
+          transform: `rotateX(${tiltX.toFixed(3)}deg) rotateY(${tiltY.toFixed(3)}deg) scale(${scale.toFixed(4)})`,
+          transformOrigin: "center center",
+          transformStyle: "preserve-3d",
+          opacity: opacity.toFixed(3),
+          willChange: "transform, opacity",
+        }}
+      >
+        {children}
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
+export const zoomBlurDive = (
+  props: ZoomBlurDiveProps = {},
+): TransitionPresentation<ZoomBlurDiveProps> => ({
+  component: ZoomBlurDiveComponent,
+  props,
+});
+
+// ── Single Page Turn → Zoom-In ──────────────────────────────────────────────
+// One full page turn that the viewer watches end-to-end, then the next scene
+// zooms in from inside the frame and crossfades over it.
+//   exiting   0.00–0.50  the whole page turns 0° → 180° about its left edge
+//                        (front = outgoing scene, back = blank paper), then
+//             0.50–0.72  the turned page fades away
+//   entering  0.45–1.00  scale 0.80 → 1.0 (zooms in from inside the screen)
+//             0.50–0.88  opacity 0 → 1 (crossfades in after the turn)
+
+type SinglePageTurnZoomProps = { accentColor?: string };
+
+const SinglePageTurnZoomComponent: React.FC<
+  TransitionPresentationComponentProps<SinglePageTurnZoomProps>
+> = ({ children, presentationDirection, presentationProgress, passedProps }) => {
+  const p = presentationProgress;
+  const cl = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
+  const accent = passedProps?.accentColor ?? "#D71921";
+
+  if (presentationDirection === "entering") {
+    // The next scene grows out of the centre and fades in as the page turns
+    // away — "zooming inside the screen". The fade is brought forward so the
+    // incoming page covers the frame early; no dark TABLE_BG fill here, so it
+    // composites directly over the still-present (turning) outgoing page rather
+    // than over a dark slab that would read as a "break".
+    const z = easeSoft(interpolate(p, [0.3, 0.85], [0, 1], cl));
+    const scale = 0.8 + z * 0.2; // 0.80 → 1.0
+    const opacity = interpolate(p, [0.3, 0.65], [0, 1], cl);
+    return (
+      <AbsoluteFill>
+        <AbsoluteFill
+          style={{
+            transform: `scale(${scale.toFixed(4)})`,
+            transformOrigin: "center center",
+            opacity: opacity.toFixed(3),
+            willChange: "transform, opacity",
+          }}
+        >
+          {children}
+        </AbsoluteFill>
+      </AbsoluteFill>
+    );
+  }
+
+  // EXITING — the full single page turn (watch the whole page rotate away),
+  // then fade the turned leaf out so the zooming-in scene takes over.
+  const turn = easeCubic(interpolate(p, [0, 0.5], [0, 1], cl));
+  const angle = turn * 180;
+  const lift = Math.sin(Math.min(1, turn) * Math.PI);
+  const pageOpacity = 1 - ease(interpolate(p, [0.5, 0.72], [0, 1], cl));
+  const shadowBlur = (22 + lift * 70).toFixed(1);
+  const shadowAlpha = (lift * 0.5).toFixed(3);
+  const bowDark = (0.08 + lift * 0.34).toFixed(3);
+  const ridge = (38 + turn * 44).toFixed(0);
+  const shimPos = interpolate(p, [0.03, 0.5], [94, 6], cl);
+  const shimIntensity = (lift * 0.36).toFixed(3);
+
+  return (
+    // No full-frame TABLE_BG: the exiting layer sits ON TOP of the entering one,
+    // so a dark fill would hide the incoming page behind a brown slab once the
+    // turned leaf has faded out. Transparent backing lets the zooming-in scene
+    // read through behind the turn.
+    <AbsoluteFill style={{ perspective: "2000px", perspectiveOrigin: "50% 50%", overflow: "hidden" }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          transformStyle: "preserve-3d",
+          transformOrigin: "left center",
+          transform: `rotateY(${angle.toFixed(2)}deg)`,
+          opacity: pageOpacity.toFixed(3),
+          willChange: "transform, opacity",
+        }}
+      >
+        {/* FRONT = outgoing scene */}
+        <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", overflow: "hidden", boxShadow: `0 18px ${shadowBlur}px rgba(0,0,0,${shadowAlpha})` }}>
+          {children}
+          {/* Spine crease at the hinge, tinted with the accent */}
+          <AbsoluteFill style={{
+            background: `linear-gradient(to right, ${accent}22 0%, rgba(0,0,0,0.05) 2.5%, transparent 6%)`,
+            pointerEvents: "none",
+          }} />
+          {/* Bow gradient: spine side darkens, centre brightens, free edge darkens */}
+          <AbsoluteFill style={{
+            background: `linear-gradient(to right,
+              rgba(0,0,0,${bowDark}) 0%,
+              rgba(0,0,0,0.01) 18%,
+              rgba(255,255,255,${(lift * 0.45).toFixed(3)}) ${ridge}%,
+              rgba(0,0,0,0.08) 82%,
+              rgba(0,0,0,${(0.12 + lift * 0.36).toFixed(3)}) 100%)`,
+            pointerEvents: "none",
+          }} />
+          {/* Moving crinkle shimmer travelling across as the page lifts */}
+          <AbsoluteFill style={{
+            background: `linear-gradient(to right,
+              transparent ${Math.max(0, shimPos - 9).toFixed(1)}%,
+              rgba(255,255,255,${shimIntensity}) ${shimPos.toFixed(1)}%,
+              transparent ${Math.min(100, shimPos + 9).toFixed(1)}%)`,
+            pointerEvents: "none",
+          }} />
+        </div>
+        {/* BACK = blank paper, revealed once the page passes 90° */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          transform: "rotateY(180deg)",
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
+          background: "linear-gradient(to left, #FDFDFD 0%, #F2F2F0 40%, #E8E7E4 80%, #DDDBD8 100%)",
+          overflow: "hidden",
+          boxShadow: `0 18px ${shadowBlur}px rgba(0,0,0,${shadowAlpha})`,
+        }}>
+          <Img
+            src={staticFile("magazine-collage.avif")}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.2, filter: "grayscale(0.6) brightness(1.05)" }}
+          />
+          <AbsoluteFill style={{
+            background: "linear-gradient(to right, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.10) 5%, rgba(0,0,0,0.02) 20%, transparent 50%)",
+            pointerEvents: "none",
+          }} />
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+export const singlePageTurnZoom = (
+  props: SinglePageTurnZoomProps = {},
+): TransitionPresentation<SinglePageTurnZoomProps> => ({
+  component: SinglePageTurnZoomComponent,
+  props,
+});
+
+// ── Pull-Quote Reveal ────────────────────────────────────────────────────────
+// The signature move for the editorial pull-quote. A bright accent band sweeps
+// across the frame from left to right; the outgoing page is wiped away in front
+// of it while the new page is uncovered in its wake — a clean editorial reveal
+// that echoes the quote page's own accent rail. Pure clip-path + transform, so
+// it stays cheap to paint (no per-frame blur or blend).
+//
+// At progress x the band sits at x across the frame: the new (entering) page
+// shows in [0, x], the old (exiting) page shows in [x, 1], and the accent line
+// rides the seam between them.
+
+type PullQuoteRevealProps = { accentColor?: string };
+
+const PullQuoteRevealComponent: React.FC<
+  TransitionPresentationComponentProps<PullQuoteRevealProps>
+> = ({ children, presentationDirection, presentationProgress, passedProps }) => {
+  const accent = passedProps.accentColor ?? "#E63946";
+  const raw = presentationProgress;
+  const p = ease(raw);
+  const cl = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
+
+  if (presentationDirection === "exiting") {
+    // Old page is hidden left→right, in lockstep with the incoming reveal. No
+    // full-frame TABLE_BG fill: the exiting layer renders ON TOP of the entering
+    // one, so a dark fill here would mask the new page behind a brown slab for
+    // the whole wipe. Leaving it transparent lets the revealed-in page show
+    // through the wiped region.
+    const insetLeft = (p * 100).toFixed(2);
+    const scale = 1 - 0.04 * p;
+    return (
+      <AbsoluteFill>
+        <AbsoluteFill
+          style={{
+            clipPath: `inset(0 0 0 ${insetLeft}%)`,
+            WebkitClipPath: `inset(0 0 0 ${insetLeft}%)`,
+            transform: `scale(${scale.toFixed(4)})`,
+            transformOrigin: "center center",
+            willChange: "clip-path, transform",
+          }}
+        >
+          {children}
+        </AbsoluteFill>
+      </AbsoluteFill>
+    );
+  }
+
+  // ENTERING — the new page is uncovered left→right; it settles from a small
+  // overscale to rest. A glowing accent band rides the reveal edge. Transparent
+  // backing so the still-present exiting page shows in the not-yet-revealed area.
+  const revealRight = ((1 - p) * 100).toFixed(2);
+  const scale = 1.04 - 0.04 * p;
+  return (
+    <AbsoluteFill>
+      <AbsoluteFill
+        style={{
+          clipPath: `inset(0 ${revealRight}% 0 0)`,
+          WebkitClipPath: `inset(0 ${revealRight}% 0 0)`,
+          transform: `scale(${scale.toFixed(4)})`,
+          transformOrigin: "center center",
+          willChange: "clip-path, transform",
+        }}
+      >
+        {children}
+      </AbsoluteFill>
+      {raw < 0.99 && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: `${(p * 100).toFixed(2)}%`,
+            width: 10,
+            marginLeft: -5,
+            background: accent,
+            boxShadow: `0 0 22px ${accent}`,
+            opacity: interpolate(raw, [0, 0.08, 0.92, 1], [0, 1, 1, 0], cl),
+            pointerEvents: "none",
+          }}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+export const pullQuoteReveal = (
+  props: PullQuoteRevealProps = {},
+): TransitionPresentation<PullQuoteRevealProps> => ({
+  component: PullQuoteRevealComponent,
+  props,
+});
+
+// ── Quote Drop Reveal (editorial pull-quote EXIT) ────────────────────────────
+// The signature move when LEAVING the editorial pull-quote. The oversized accent
+// quotation mark enlarges and swipes down off the bottom of the page; then the
+// next scene slides straight down into place from the top, settling to cover the
+// quote page. Two clean phases on the progress timeline:
+//   exiting  (quote page held still; an accent glyph overlay matched to the
+//             page's own resting mark)
+//     0.00–0.45  glyph scales 1 → ~3.2 (enlarge), brightening over the page mark
+//     0.18–0.55  glyph translates down past the bottom edge (swipes off-page)
+//   entering (the next scene, rendered ON TOP of the exiting page)
+//     0.00–0.45  held off-screen above (translateY -100%)
+//     0.45–1.00  slides down -100% → 0; a soft shadow rides its leading edge
+// Transform/opacity/shadow only — no per-frame blur or blend, so it stays cheap.
+
+type QuoteDropRevealProps = { accentColor?: string };
+
+const QuoteDropRevealComponent: React.FC<
+  TransitionPresentationComponentProps<QuoteDropRevealProps>
+> = ({ children, presentationDirection, presentationProgress, passedProps }) => {
+  const accent = passedProps.accentColor ?? "#E63946";
+  const cl = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
+  const { width, height } = useVideoConfig();
+  const portrait = height >= width;
+
+  if (presentationDirection === "exiting") {
+    // The quote page holds still; an accent quote mark — sized/anchored to match
+    // EditorialQuote's own resting glyph — grows, then drops off the bottom edge.
+    const p = ease(presentationProgress);
+    const glyphSize = portrait ? 320 : 520;
+    const scale = interpolate(p, [0, 0.45], [1, 3.2], cl);
+    // Glyph origin is its top-left; push it well past the bottom so it clears.
+    const dropY = interpolate(p, [0.18, 0.55], [0, height * 1.2], cl);
+    // Fade up over the page's own faint mark, then fade out as it swipes away.
+    const glyphOpacity = interpolate(p, [0, 0.12, 0.45, 0.55], [0, 0.95, 0.95, 0], cl);
+    return (
+      <AbsoluteFill>
+        {children}
+        <QuoteGlyph
+          color={accent}
+          size={glyphSize}
+          opacity={glyphOpacity}
+          style={{
+            position: "absolute",
+            top: portrait ? "2%" : "0%",
+            left: portrait ? "4%" : "5%",
+            transform: `translateY(${dropY.toFixed(1)}px) scale(${scale.toFixed(3)})`,
+            transformOrigin: "top left",
+            willChange: "transform, opacity",
+          }}
+        />
+      </AbsoluteFill>
+    );
+  }
+
+  // ENTERING — the next scene drops straight down from above. It renders on top
+  // of the (still-present) quote page, so its opaque MagazinePage covers it as it
+  // descends. Held off-screen until the glyph has swiped clear (~0.45).
+  const slide = ease(interpolate(presentationProgress, [0.45, 1], [0, 1], cl));
+  const translateY = -100 * (1 - slide); // -100% → 0
+  return (
+    <AbsoluteFill style={{ transform: `translateY(${translateY.toFixed(3)}%)`, willChange: "transform" }}>
+      {children}
+      {slide > 0.001 && slide < 0.999 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            height: 64,
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.32), rgba(0,0,0,0))",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+export const quoteDropReveal = (
+  props: QuoteDropRevealProps = {},
+): TransitionPresentation<QuoteDropRevealProps> => ({
+  component: QuoteDropRevealComponent,
+  props,
+});
+
+// ── Slide-Down Reveal ───────────────────────────────────────────────────────
+// The outgoing page holds still while the NEXT scene drops straight down from
+// above, its opaque page sheet covering the old one as it descends — the incoming
+// scene is "revealed" by sliding into place from the top. No glyph, blur or page
+// flip, so it reads clean after any page (used leaving the by-the-numbers stats
+// page). This is the entering half of quoteDropReveal, generalised.
+type SlideDownRevealProps = Record<string, never>;
+
+const SlideDownRevealComponent: React.FC<
+  TransitionPresentationComponentProps<SlideDownRevealProps>
+> = ({ children, presentationDirection, presentationProgress }) => {
+  if (presentationDirection === "exiting") {
+    // The outgoing page simply holds still; the descending scene covers it.
+    return <AbsoluteFill>{children}</AbsoluteFill>;
+  }
+
+  // ENTERING — the next scene slides down from above into place. It renders on top
+  // of the (still-present) outgoing page, so its opaque MagazinePage covers it as
+  // it descends.
+  const slide = ease(presentationProgress);
+  const translateY = -100 * (1 - slide); // -100% (off the top) → 0
+  return (
+    <AbsoluteFill style={{ transform: `translateY(${translateY.toFixed(3)}%)`, willChange: "transform" }}>
+      {children}
+      {slide > 0.001 && slide < 0.999 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            height: 64,
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.32), rgba(0,0,0,0))",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+export const slideDownReveal = (): TransitionPresentation<SlideDownRevealProps> => ({
+  component: SlideDownRevealComponent,
+  props: {},
+});
+
+// ── Masking Zoom (feature-spread exit) ──────────────────────────────────────
+// The feature page zooms INTO its red drop-cap initial, then the next scene is
+// teasingly revealed by zooming back out of that same point. Only transform +
+// opacity animate (no blur/shadow/blend) so the per-frame paint stays cheap.
+//   exiting   0.00–0.62  scale 1 → ~6, origin on the drop-cap, holds opaque,
+//                        then fades only at the very end (0.5–0.62)
+//   entering  0.30–1.00  scale ~6 → 1 from the same origin (slow ease-out tail
+//                        => the "very smooth, teasing" reveal), opacity 0→1 early
+
+type MaskingZoomProps = { accentColor?: string };
+
+// Drop-cap location in the no-image landscape feature (left page): the red
+// initial leads the body, roughly 8% from the left and ~46% down. Both sides
+// share this origin so the next scene unfolds from where the letter was,
+// keeping the zoom-in → zoom-out reveal continuous.
+const MASKING_FOCAL = "8% 46%";
+
+const MASKING_PEAK = 4; // how far we push into the drop-cap before the swap
+
+// IMPORTANT: transparent containers + opacity-on-the-transformed-element, exactly
+// like zoomBlurDive. An opaque background / `overflow:hidden` on the wrapper
+// collapses the scene's 3D-perspective content to nothing (the page vanished and
+// only the fill showed). Both layers always cover the frame (scale ≥ 1), and the
+// incoming reaches full opacity (on top) before the outgoing is hidden, so there
+// is never a gap — no fill is needed.
+const MaskingZoomComponent: React.FC<
+  TransitionPresentationComponentProps<MaskingZoomProps>
+> = ({ children, presentationDirection, presentationProgress }) => {
+  const p = presentationProgress;
+  const cl = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
+
+  if (presentationDirection === "exiting") {
+    // Push into the drop-cap. Stays fully opaque the whole time — it sits BELOW
+    // the incoming layer, which covers it from on top once the swap completes.
+    const z = ease(interpolate(p, [0, 0.5], [0, 1], cl));
+    const scale = 1 + z * (MASKING_PEAK - 1); // 1 → PEAK
+    return (
+      <AbsoluteFill>
+        <AbsoluteFill
+          style={{
+            transform: `scale(${scale.toFixed(4)})`,
+            transformOrigin: MASKING_FOCAL,
+            willChange: "transform",
+          }}
+        >
+          {children}
+        </AbsoluteFill>
+      </AbsoluteFill>
+    );
+  }
+
+  // ENTERING — reveal the next scene by zooming OUT of the same focal point.
+  // Fades in (on top) at the peak-zoom swap, then a slow easeSoft pull-out gives
+  // the smooth, teasing reveal.
+  const opacity = interpolate(p, [0.45, 0.55], [0, 1], cl); // 0 → 1 at the swap
+  const r = easeSoft(interpolate(p, [0.5, 1], [0, 1], cl));
+  const scale = MASKING_PEAK - r * (MASKING_PEAK - 1); // PEAK → 1
+  return (
+    <AbsoluteFill>
+      <AbsoluteFill
+        style={{
+          transform: `scale(${scale.toFixed(4)})`,
+          transformOrigin: MASKING_FOCAL,
+          opacity: opacity.toFixed(3),
+          willChange: "transform, opacity",
+        }}
+      >
+        {children}
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
+export const maskingZoom = (
+  props: MaskingZoomProps = {},
+): TransitionPresentation<MaskingZoomProps> => ({
+  component: MaskingZoomComponent,
   props,
 });

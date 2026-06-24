@@ -1,46 +1,43 @@
 import type { TransitionPresentation } from "@remotion/transitions";
+import { fade } from "@remotion/transitions/fade";
+import { slide } from "@remotion/transitions/slide";
 import type { MagazineLayoutType } from "../types";
 import {
-  glossyPageFlip,
-  dramaticPageFlip,
-  cornerPeelFlip,
-  magazineRiffleOpen,
-  magazineRiffleZoom,
-  magazineCoverOpen,
-  magazineTear,
-  realisticCornerFold,
-  pageFoldOver,
-  pageSlide,
+  zoomBlurDive,
+  pullQuoteReveal,
+  quoteDropReveal,
+  slideDownReveal,
+  singlePageTurnZoom,
+  maskingZoom,
 } from "./presentations";
 
 export const HERO_LAYOUTS_FROM = new Set<MagazineLayoutType>(["magazine_cover"]);
 export const HERO_LAYOUTS_TO = new Set<MagazineLayoutType>(["ending_socials"]);
-const METRIC_LAYOUTS = new Set<MagazineLayoutType>(["by_the_numbers", "magazine_data_visualization"]);
-const QUOTE_LAYOUTS = new Set<MagazineLayoutType>(["editorial_quote"]);
-// Image-heavy layouts — leaving these uses a page-turn style (reinforcing the
-// "turning to the next page" feel), but rotated so consecutive turns differ.
-const IMAGE_LAYOUTS = new Set<MagazineLayoutType>([
-  "feature_spread",
-  "photo_essay",
-  "expert_spotlight",
+
+// Data scenes (charts / stats / table). Any boundary touching one plays the
+// zoom-blur dive: the outgoing page zooms in + softly blurs, then the incoming
+// page zooms out of the blur, tilts on its paper plane and aligns flat. Used on
+// both sides, so a data page resolves crisp-and-flat when it arrives and dives
+// away when it leaves.
+const DATA_LAYOUTS = new Set<MagazineLayoutType>([
+  "magazine_data_visualization",
+  "by_the_numbers",
+  "magazine_ticker",
 ]);
 
-// Transition durations (frames @30fps). Slower + deliberate than before, and
-// each distinct so the deck doesn't feel like one repeated speed. The
-// composition's EXTRA_HOLD must be >= the largest of these (currently 42) or
-// narration gets clipped under the overlap.
+// Calm 2D transitions only. The scenes already carry a subtle cinematic camera
+// entrance; running a 3D page-flip on top of it made two 3D transforms fight on
+// the overlapping frames (the old "jerky" turns). A cross-fade / clean slide
+// reads smooth and never competes with the camera.
 const DUR = {
-  coverOpen: 42, // the grand opening — slowest
-  dramatic: 40, // pull-quote page-turn
-  foldOver: 38,
-  cornerPeel: 38,
-  riffleZoom: 38, // riffle then dive into the page
-  cornerFold: 36,
-  glossy: 34,
-  tear: 32,
-  slide: 30,
-  riffle: 32,
-  ending: 36,
+  fade: 49,
+  slide: 51,
+  zoomBlur: 122, // slow zoom-in-blur out → zoom-out-blur in, around data scenes
+  quote: 65, // accent-band wipe, ENTERING the editorial pull-quote
+  quoteDrop: 80, // glyph enlarges + swipes down, next scene drops in, LEAVING the pull-quote
+  slideDown: 60, // next scene slides straight down from the top, LEAVING the by-the-numbers page
+  pageTurn: 100, // single full page-turn → zoom-in, leaving the expert spotlight
+  masking: 100, // zoom into the feature drop-cap, then teasingly zoom back out
 };
 
 export interface MagazineTransitionChoice {
@@ -52,70 +49,63 @@ export interface MagazineTransitionChoice {
 const cast = (p: TransitionPresentation<any>): TransitionPresentation<Record<string, unknown>> =>
   p as unknown as TransitionPresentation<Record<string, unknown>>;
 
-const heroExitChoice = (accentColor?: string): MagazineTransitionChoice => ({
-  presentation: cast(magazineCoverOpen({ accentColor })),
-  frames: DUR.coverOpen,
+const fadeChoice = (): MagazineTransitionChoice => ({
+  presentation: cast(fade()),
+  frames: DUR.fade,
 });
 
-const endingEntryChoice = (accentColor?: string): MagazineTransitionChoice => ({
-  presentation: cast(glossyPageFlip({ direction: "forward", accentColor })),
-  frames: DUR.ending,
-});
-
-// A deliberately varied pool that leans on the (smooth) page riffle — half the
-// boundaries ruffle, alternating the plain riffle and the riffle-then-zoom, and
-// interleaved with other distinct page motions so it never feels repetitive.
-const buildPool = (
-  _w: number,
-  accentColor?: string,
-): Array<() => MagazineTransitionChoice> => [
-  () => ({ presentation: cast(magazineRiffleOpen({ accentColor })), frames: DUR.riffle }),
-  () => ({ presentation: cast(glossyPageFlip({ direction: "forward", accentColor })), frames: DUR.glossy }),
-  () => ({ presentation: cast(magazineRiffleZoom({ accentColor })), frames: DUR.riffleZoom }),
-  () => ({ presentation: cast(cornerPeelFlip({ accentColor })), frames: DUR.cornerPeel }),
-  () => ({ presentation: cast(magazineRiffleOpen({ accentColor })), frames: DUR.riffle }),
-  () => ({ presentation: cast(pageFoldOver()), frames: DUR.foldOver }),
-  () => ({ presentation: cast(magazineRiffleZoom({ accentColor })), frames: DUR.riffleZoom }),
-  () => ({ presentation: cast(realisticCornerFold({ accentColor })), frames: DUR.cornerFold }),
-];
-
-// Styles cycled when leaving an image-heavy scene — a page-turn or a riffle-zoom
-// (dive into the next page), rotated so those turns vary instead of repeating.
-const imageExitPool = (
-  accentColor?: string,
-): Array<() => MagazineTransitionChoice> => [
-  () => ({ presentation: cast(magazineRiffleZoom({ accentColor })), frames: DUR.riffleZoom }),
-  () => ({ presentation: cast(glossyPageFlip({ direction: "forward", accentColor })), frames: DUR.glossy }),
-  () => ({ presentation: cast(pageFoldOver()), frames: DUR.foldOver }),
+// A light, varied pool: mostly cross-fades with the occasional gentle slide so
+// the deck doesn't feel like one repeated motion.
+const POOL: Array<() => MagazineTransitionChoice> = [
+  fadeChoice,
+  () => ({ presentation: cast(slide({ direction: "from-right" })), frames: DUR.slide }),
+  fadeChoice,
+  () => ({ presentation: cast(slide({ direction: "from-left" })), frames: DUR.slide }),
 ];
 
 export const pickMagazineTransition = (
   fromIdx: number,
   fromLayout: MagazineLayoutType,
   toLayout: MagazineLayoutType,
-  width = 1920,
+  _width = 1920,
   accentColor?: string,
 ): MagazineTransitionChoice => {
-  if (HERO_LAYOUTS_FROM.has(fromLayout)) {
-    return heroExitChoice(accentColor);
+  // The grand opening (off the cover) and the entry into the ending card both
+  // settle best as a clean fade — no competing motion with the hero camera.
+  if (HERO_LAYOUTS_FROM.has(fromLayout) || HERO_LAYOUTS_TO.has(toLayout)) {
+    return fadeChoice();
   }
-  if (HERO_LAYOUTS_TO.has(toLayout)) {
-    return endingEntryChoice(accentColor);
+  // Leaving a feature spread → masking zoom: push into the red drop-cap initial,
+  // then teasingly zoom back out to reveal the next scene.
+  if (fromLayout === "feature_spread") {
+    return { presentation: cast(maskingZoom({ accentColor })), frames: DUR.masking };
   }
-  // Into or out of a pull-quote scene — slow, dramatic 3D page flip with
-  // cubic easing so the turn is clearly visible (not a quint blur).
-  if (QUOTE_LAYOUTS.has(toLayout) || QUOTE_LAYOUTS.has(fromLayout)) {
-    return { presentation: cast(dramaticPageFlip({ accentColor })), frames: DUR.dramatic };
+  // Leaving the by-the-numbers / stats page: the next scene is revealed by sliding
+  // straight down from the top, covering the stats page as it descends. Checked
+  // before the data-scene dive below so this exit wins for by-the-numbers.
+  if (fromLayout === "by_the_numbers") {
+    return { presentation: cast(slideDownReveal()), frames: DUR.slideDown };
   }
-  // Going INTO a metric/data page → a sweeping corner fold (3D page motion).
-  if (METRIC_LAYOUTS.has(toLayout)) {
-    return { presentation: cast(realisticCornerFold({ accentColor })), frames: DUR.cornerFold };
+  // Any boundary touching a data scene → zoom-blur dive. Entering one, the data
+  // page zooms out of the blur and aligns flat; leaving one, it zooms in + blurs
+  // away onto the next page.
+  if (DATA_LAYOUTS.has(fromLayout) || DATA_LAYOUTS.has(toLayout)) {
+    return { presentation: cast(zoomBlurDive({ accentColor })), frames: DUR.zoomBlur };
   }
-  // After an image-heavy scene, turn the page forward — but rotate the style.
-  if (IMAGE_LAYOUTS.has(fromLayout)) {
-    const pool = imageExitPool(accentColor);
-    return pool[fromIdx % pool.length]();
+  // Leaving the expert spotlight: one full page physically turns over (watched
+  // end-to-end), then the next scene zooms in from inside the frame and fades up.
+  if (fromLayout === "expert_spotlight") {
+    return { presentation: cast(singlePageTurnZoom({ accentColor })), frames: DUR.pageTurn };
   }
-  const pool = buildPool(width, accentColor);
-  return pool[fromIdx % pool.length]();
+  // Leaving the editorial pull-quote: the oversized quotation mark enlarges and
+  // swipes down off the page, then the next scene slides in from the top.
+  if (fromLayout === "editorial_quote") {
+    return { presentation: cast(quoteDropReveal({ accentColor })), frames: DUR.quoteDrop };
+  }
+  // Entering the editorial pull-quote keeps its signature accent-band wipe, so it
+  // never arrives like the other text pages.
+  if (toLayout === "editorial_quote") {
+    return { presentation: cast(pullQuoteReveal({ accentColor })), frames: DUR.quote };
+  }
+  return POOL[fromIdx % POOL.length]();
 };

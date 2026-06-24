@@ -1,0 +1,35 @@
+<svg viewBox="0 0 1280 860" width="1280" height="860" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="fn_grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0"/>
+    </filter>
+    <radialGradient id="fn_vign" cx="50%" cy="44%" r="75%">
+      <stop offset="48%" stop-color="#EFEFEF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.16"/>
+    </radialGradient>
+    <linearGradient id="fn_sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.0"/>
+      <stop offset="0.30" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.46" stop-color="#ffffff" stop-opacity="0.0"/>
+      <stop offset="0.72" stop-color="#000000" stop-opacity="0.05"/>
+      <stop offset="1"    stop-color="#000000" stop-opacity="0.10"/>
+    </linearGradient>
+  </defs>
+
+  <!-- faint ruled ledger lines — "field notes" paper -->
+  <g opacity="0.5" stroke="#cfc9ba" stroke-width="1">
+    <line x1="80" y1="150" x2="1200" y2="150"/>
+    <line x1="80" y1="320" x2="1200" y2="320"/>
+    <line x1="80" y1="490" x2="1200" y2="490"/>
+    <line x1="80" y1="660" x2="1200" y2="660"/>
+  </g>
+
+  <!-- ghost folio watermark -->
+  <text x="1202" y="62" text-anchor="end" font-family="Georgia, 'Times New Roman', serif" font-size="40" fill="#000000" opacity="0.04">No.</text>
+
+  <!-- paper overlays: diagonal sheen, fractal grain, edge vignette -->
+  <rect width="1280" height="860" fill="url(#fn_sheen)"/>
+  <rect width="1280" height="860" fill="#808080" filter="url(#fn_grain)" opacity="0.06"/>
+  <rect width="1280" height="860" fill="url(#fn_vign)"/>
+</svg>
