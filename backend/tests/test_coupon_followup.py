@@ -1,30 +1,28 @@
 """
-Post-checkout win-back coupon follow-up (_send_coupon_if_not_subscribed).
+Post-checkout win-back coupon (_send_winback_coupon).
 
-~10 min after a user reaches checkout, they get a SUB25 email *unless* they
-ended up on a paid subscription:
-  - abandoned (bought nothing)      → Email 1 (send_abandoned_checkout_coupon_email)
+The win-back is now driven by Stripe's official abandoned-checkout signal:
+``checkout.session.expired`` → ``_handle_checkout_expired`` → ``_send_winback_coupon``
+(the old ~10-min daemon Timer / module-level ``SessionLocal`` design is gone).
+``_send_winback_coupon`` applies the eligibility + dedup rules and picks the email:
+  - abandoned (bought nothing)       → Email 1 (send_abandoned_checkout_coupon_email)
   - bought a single per-video credit → Email 2 (send_per_video_upsell_coupon_email)
 
-The follow-up runs in a one-shot daemon Timer; here we call it directly (no
-delay). It opens its own SessionLocal and sends via email_service — both patched.
+Handlers are called directly; the DB is the test DB and email_service is patched.
 """
 from datetime import datetime, timedelta
 
 import pytest
 
-from app.models.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
 from app.models.user import PlanTier
 from app.routers import billing as billing_router
 
 pytestmark = pytest.mark.depth
 
 
-def _run_followup(db_session, monkeypatch, user_id, scheduled_at=None):
-    """Run the one-shot follow-up against the test session, capturing which email fired."""
+def _run_winback(db_session, monkeypatch, user, *, abandoned=True, recovery_url="https://stripe/recover"):
+    """Call _send_winback_coupon against the test session, capturing which email fired."""
     sent: dict[str, list] = {"abandoned": [], "per_video": []}
-    monkeypatch.setattr(billing_router, "SessionLocal", lambda: db_session)
-    monkeypatch.setattr(db_session, "close", lambda: None)  # don't close the fixture
     monkeypatch.setattr(
         billing_router.email_service, "send_abandoned_checkout_coupon_email",
         lambda **kw: sent["abandoned"].append(kw),
@@ -33,57 +31,63 @@ def _run_followup(db_session, monkeypatch, user_id, scheduled_at=None):
         billing_router.email_service, "send_per_video_upsell_coupon_email",
         lambda **kw: sent["per_video"].append(kw),
     )
-    billing_router._send_coupon_if_not_subscribed(
-        user_id, scheduled_at or datetime.utcnow() - timedelta(minutes=1)
+    outcome = billing_router._send_winback_coupon(
+        db_session, user, abandoned=abandoned, recovery_url=recovery_url
     )
-    return sent
+    return sent, outcome
 
 
-def _add_per_video_purchase(db, user_id, created_at):
-    plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
-    sub = Subscription(
-        user_id=user_id, plan_id=plan.id, status=SubscriptionStatus.COMPLETED,
-        quantity=1, created_at=created_at,
-    )
-    db.add(sub)
-    db.commit()
-
-
-def test_followup__abandoned_free_user__sends_email_1(db_session, monkeypatch, free_user):
-    sent = _run_followup(db_session, monkeypatch, free_user.id)
+def test_winback__abandoned_free_user__sends_email_1(db_session, monkeypatch, free_user):
+    sent, _ = _run_winback(db_session, monkeypatch, free_user, abandoned=True)
     assert len(sent["abandoned"]) == 1
     assert sent["abandoned"][0]["coupon_code"] == "SUB25"
     assert sent["per_video"] == []
 
 
-def test_followup__per_video_buyer__sends_email_2(db_session, monkeypatch, free_user):
-    scheduled_at = datetime.utcnow() - timedelta(minutes=5)
-    # Purchase landed *after* the visit started → counts as this checkout's buy.
-    _add_per_video_purchase(db_session, free_user.id, created_at=datetime.utcnow())
-    sent = _run_followup(db_session, monkeypatch, free_user.id, scheduled_at=scheduled_at)
+def test_winback__per_video_buyer__sends_email_2(db_session, monkeypatch, free_user):
+    sent, _ = _run_winback(db_session, monkeypatch, free_user, abandoned=False)
     assert len(sent["per_video"]) == 1
     assert sent["abandoned"] == []
 
 
-def test_followup__old_per_video_purchase__still_email_1(db_session, monkeypatch, free_user):
-    # A per-video buy from before this visit must NOT switch to the upsell email.
-    scheduled_at = datetime.utcnow() - timedelta(minutes=5)
-    _add_per_video_purchase(
-        db_session, free_user.id, created_at=datetime.utcnow() - timedelta(days=2)
-    )
-    sent = _run_followup(db_session, monkeypatch, free_user.id, scheduled_at=scheduled_at)
-    assert len(sent["abandoned"]) == 1
-    assert sent["per_video"] == []
-
-
-def test_followup__paid_subscriber__no_email(db_session, monkeypatch, paid_user):
+def test_winback__paid_subscriber__no_email(db_session, monkeypatch, paid_user):
     assert paid_user.plan == PlanTier.PRO
-    sent = _run_followup(db_session, monkeypatch, paid_user.id)
+    sent, _ = _run_winback(db_session, monkeypatch, paid_user, abandoned=True)
     assert sent["abandoned"] == [] and sent["per_video"] == []
 
 
-def test_followup__unsubscribed_user__no_email(db_session, monkeypatch, free_user):
+def test_winback__unsubscribed_user__no_email(db_session, monkeypatch, free_user):
     free_user.email_unsubscribed = True
     db_session.commit()
-    sent = _run_followup(db_session, monkeypatch, free_user.id)
+    sent, _ = _run_winback(db_session, monkeypatch, free_user, abandoned=True)
     assert sent["abandoned"] == [] and sent["per_video"] == []
+
+
+def test_winback__throttled_within_24h__no_email(db_session, monkeypatch, free_user):
+    # A win-back sent in the last 24h suppresses the next one (Stripe redelivers
+    # webhooks and a user can expire several checkout sessions in a day).
+    free_user.last_coupon_email_at = datetime.utcnow() - timedelta(hours=1)
+    db_session.commit()
+    sent, _ = _run_winback(db_session, monkeypatch, free_user, abandoned=True)
+    assert sent["abandoned"] == [] and sent["per_video"] == []
+
+
+def test_handle_checkout_expired__routes_to_winback(db_session, monkeypatch, free_user):
+    # The expired-session handler resolves the user from metadata["user_id"] and
+    # forwards the Stripe recovery URL to the abandoned-checkout win-back.
+    sent: dict = {}
+    monkeypatch.setattr(
+        billing_router, "_send_winback_coupon",
+        lambda db, user, *, abandoned, recovery_url=None: sent.update(
+            user_id=user.id, abandoned=abandoned, recovery_url=recovery_url
+        ) or "ok",
+    )
+    session = {
+        "id": "cs_exp_1",
+        "metadata": {"user_id": str(free_user.id)},
+        "after_expiration": {"recovery": {"url": "https://stripe/recover"}},
+    }
+    billing_router._handle_checkout_expired(session, db_session)
+    assert sent["user_id"] == free_user.id
+    assert sent["abandoned"] is True
+    assert sent["recovery_url"] == "https://stripe/recover"
