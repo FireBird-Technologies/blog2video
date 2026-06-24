@@ -7,9 +7,7 @@ import {
   Rule,
   DingbatRule,
   KineticWords,
-  WrittenText,
   MAG_DISPLAY,
-  MAG_SERIF,
   MAG_SANS,
   hexToRgba,
   resolveMagColors,
@@ -34,7 +32,7 @@ const animateValue = (valueStr: string, progress: number): string => {
  * tracked labels, separated by hairlines. Counters tick up on entry.
  */
 export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
-  const { title, narration, titleFontSize, descriptionFontSize } = props;
+  const { title, titleFontSize, descriptionFontSize } = props;
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
@@ -62,7 +60,6 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
   const descSize = descriptionFontSize ?? (p ? 52 : 53);
   const descScale = descSize / (p ? 52 : 40);
   const valuePx = descSize * 2.2;
-  const subtitlePx = (p ? 24 : 20) * descScale;
   const labelPx = (p ? 15 : 14) * descScale;
 
   return (
@@ -84,21 +81,6 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
         >
           <KineticWords text={title ?? ""} start={2} stagger={2} dur={14} />
         </h1>
-        {narration && (
-          <p
-            style={{
-              fontFamily: MAG_SERIF,
-              fontSize: subtitlePx,
-              lineHeight: 1.5,
-              color: text,
-              opacity: titleO * 0.7,
-              margin: "14px 0 0",
-              maxWidth: p ? "100%" : "70%",
-            }}
-          >
-            <WrittenText text={narration} start={10} />
-          </p>
-        )}
 
         <Rule color={accent} progress={ruleP} thickness={3} width={p ? 120 : 100} style={{ margin: "26px 0" }} />
 

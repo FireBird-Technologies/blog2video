@@ -19,9 +19,9 @@ import {
 /**
  * Text narration — a single-page "FIELD NOTES" index. Instead of a two-leaf
  * opening spread, this is ONE sheet: a department masthead, then the narration
- * broken into NUMBERED notes (01, 02, 03…) laid out as a two-column ledger, with
- * a footer mast. Reads like flipping to a magazine's Departments / Field Notes
- * page rather than a chapter opener.
+ * broken into BULLETED notes laid out as a two-column ledger, with a footer mast.
+ * Reads like flipping to a magazine's Departments / Field Notes page rather than
+ * a chapter opener.
  *
  * All text is narration-driven: the notes are sentences split from the narration,
  * and the title / section / folio come from the existing scene props.
@@ -38,16 +38,19 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
     interpolate(frame, [start, start + len], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // Narration → numbered notes (sentence split), capped so the page stays calm.
-  const maxN = p ? 5 : 6;
+  // Portrait is one tall column, so fewer/shorter notes fit before the fixed-
+  // height content area clips — cap tighter there so the last note never gets
+  // cut off at the bottom.
+  const maxN = p ? 4 : 6;
   const entries = (narration ?? "")
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
     .filter(Boolean)
     .slice(0, maxN);
 
-  const titlePx = titleFontSize ?? (p ? 72 : 44);
-  const entryPx = descriptionFontSize ?? (p ? 30 : 17);
-  const numPx = p ? 38 : 24;
+  const titlePx = titleFontSize ?? (p ? 60 : 44);
+  const entryPx = descriptionFontSize ?? (p ? 26 : 17);
+  const bulletPx = p ? 16 : 12;
 
   const kickerO = rev(2);
   const ruleP = rev(12);
@@ -92,12 +95,14 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
         <div
           style={{
             flex: 1,
-            marginTop: p ? 30 : 34,
+            marginTop: p ? 24 : 34,
             display: "grid",
             gridTemplateColumns: p ? "1fr" : "1fr 1fr",
             columnGap: 56,
-            rowGap: p ? 26 : 36,
+            rowGap: p ? 20 : 36,
             alignContent: "start",
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
           {entries.map((note, i) => {
@@ -105,20 +110,20 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
             return (
               <div key={i}>
                 <div style={{ width: 30, height: 2, background: accent, marginBottom: 10, opacity: o, transformOrigin: "left center" }} />
-                <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: p ? 16 : 10 }}>
                   <span
+                    aria-hidden
                     style={{
-                      fontFamily: MAG_SANS,
-                      fontWeight: 700,
-                      fontSize: numPx,
+                      fontSize: bulletPx,
                       lineHeight: 1,
-                      letterSpacing: "0.02em",
                       color: accent,
                       opacity: o,
                       flexShrink: 0,
+                      // square editorial bullet, optically aligned to the serif baseline
+                      transform: `translateY(${Math.round(bulletPx * -0.18)}px)`,
                     }}
                   >
-                    {String(i + 1).padStart(2, "0")}
+                    ▪
                   </span>
                   <p
                     style={{

@@ -4,7 +4,6 @@ import { slide } from "@remotion/transitions/slide";
 import type { MagazineLayoutType } from "../types";
 import {
   zoomBlurDive,
-  pullQuoteReveal,
   quoteDropReveal,
   slideDownReveal,
   singlePageTurnZoom,
@@ -33,7 +32,6 @@ const DUR = {
   fade: 49,
   slide: 51,
   zoomBlur: 122, // slow zoom-in-blur out → zoom-out-blur in, around data scenes
-  quote: 65, // accent-band wipe, ENTERING the editorial pull-quote
   quoteDrop: 80, // glyph enlarges + swipes down, next scene drops in, LEAVING the pull-quote
   slideDown: 60, // next scene slides straight down from the top, LEAVING the by-the-numbers page
   pageTurn: 100, // single full page-turn → zoom-in, leaving the expert spotlight
@@ -80,10 +78,14 @@ export const pickMagazineTransition = (
   if (fromLayout === "feature_spread") {
     return { presentation: cast(maskingZoom({ accentColor })), frames: DUR.masking };
   }
-  // Leaving the by-the-numbers / stats page: the next scene is revealed by sliding
-  // straight down from the top, covering the stats page as it descends. Checked
-  // before the data-scene dive below so this exit wins for by-the-numbers.
-  if (fromLayout === "by_the_numbers") {
+  // Leaving the by-the-numbers / timeline / interview pages: the next scene is
+  // revealed by sliding straight down from the top, covering the outgoing page as
+  // it descends. Checked before the data-scene dive below so this exit wins.
+  if (
+    fromLayout === "by_the_numbers" ||
+    fromLayout === "timeline_journey" ||
+    fromLayout === "interview_qa"
+  ) {
     return { presentation: cast(slideDownReveal()), frames: DUR.slideDown };
   }
   // Any boundary touching a data scene → zoom-blur dive. Entering one, the data
@@ -102,10 +104,12 @@ export const pickMagazineTransition = (
   if (fromLayout === "editorial_quote") {
     return { presentation: cast(quoteDropReveal({ accentColor })), frames: DUR.quoteDrop };
   }
-  // Entering the editorial pull-quote keeps its signature accent-band wipe, so it
-  // never arrives like the other text pages.
+  // Entering the editorial pull-quote: the next scene slides straight down from the
+  // top (pure-transform reveal). The old accent-band wipe animated clip-path + scale
+  // together on this heavy preserve-3d page, which saturated Chrome's shared
+  // compositor and glitched the whole frontend — see [[magazine-preview-paint-cost]].
   if (toLayout === "editorial_quote") {
-    return { presentation: cast(pullQuoteReveal({ accentColor })), frames: DUR.quote };
+    return { presentation: cast(slideDownReveal()), frames: DUR.slideDown };
   }
   return POOL[fromIdx % POOL.length]();
 };
