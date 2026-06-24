@@ -35,19 +35,27 @@ export default function LimitedSeatsBar({
     seatsLeftOverride != null ? seatsLeftOverride : TOTAL_SEATS - randomClaimed;
   const claimed = TOTAL_SEATS - seatsLeft;
 
+  const claimedPct = (claimed / TOTAL_SEATS) * 100;
+
   return (
-    <div className="mb-4 flex items-center gap-3 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-fuchsia-50 px-4 py-2.5">
-      <span className="relative flex h-2 w-2 flex-shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-purple-600" />
-      </span>
-      <p className="text-xs text-gray-700 leading-snug">
-        <span className="font-semibold text-purple-700">
-          {seatsLeft} of {TOTAL_SEATS} seats left
-        </span>{" "}
-        — <span className="font-semibold text-emerald-600">limited offer</span>,{" "}
-        {claimed} already claimed.
+    <div className="mb-4 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-fuchsia-50 px-4 py-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold tracking-widest text-purple-700">
+          LIMITED OFFER
+        </span>
+        <span className="text-xs text-gray-500">
+          {claimed} of {TOTAL_SEATS} claimed
+        </span>
+      </div>
+      <p className="mt-1.5 text-xl font-bold text-gray-900">
+        {seatsLeft} of {TOTAL_SEATS} seats left
       </p>
+      <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-purple-100">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-purple-500 to-fuchsia-500"
+          style={{ width: `${claimedPct}%` }}
+        />
+      </div>
     </div>
   );
 }
