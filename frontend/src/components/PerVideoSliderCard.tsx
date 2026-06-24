@@ -171,6 +171,7 @@ export default function PerVideoSliderCard({
 
   return (
     <div className="glass-card p-5 flex flex-col">
+      {bulkDeal && <LimitedSeatsBar seed="bulk-lifetime" />}
       <div className="mb-4">
         <h3 className={titleClass}>Per Video</h3>
         <p className={subtitleClass}>{bulkDeal ? "Bulk credit pack" : "Pay as you go"}</p>
@@ -313,7 +314,6 @@ export default function PerVideoSliderCard({
         ))}
       </ul>
 
-      {bulkDeal && <LimitedSeatsBar seed="bulk-lifetime" />}
       {customButton ?? (
         bulkDeal ? (
           <button
