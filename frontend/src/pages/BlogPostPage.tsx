@@ -47,19 +47,6 @@ export default function BlogPostPage() {
                 loading="eager"
               />
             </div>
-            {post.slug === "blog2video-going-to-the-moon-june-2026" && (
-              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src="https://www.youtube.com/embed/1IGdB7bkesQ"
-                  title="Blog2Video is going to the moon — June 2026 product update"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            )}
             {post.slug === "whats-new-in-blog2video-six-features" && (
               <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
                 <iframe
