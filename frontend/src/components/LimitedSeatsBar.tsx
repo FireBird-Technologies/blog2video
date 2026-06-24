@@ -38,19 +38,19 @@ export default function LimitedSeatsBar({
   const claimedPct = (claimed / TOTAL_SEATS) * 100;
 
   return (
-    <div className="mb-4 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-fuchsia-50 px-4 py-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold tracking-widest text-purple-700">
+    <div className="mb-4 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-fuchsia-50 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-[10px] font-bold tracking-wide text-purple-700">
           LIMITED OFFER
         </span>
-        <span className="text-xs text-gray-500">
+        <span className="text-[10px] text-gray-500 whitespace-nowrap">
           {claimed} of {TOTAL_SEATS} claimed
         </span>
       </div>
-      <p className="mt-1.5 text-xl font-bold text-gray-900">
+      <p className="mt-1 text-base font-bold text-gray-900 whitespace-nowrap">
         {seatsLeft} of {TOTAL_SEATS} seats left
       </p>
-      <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-purple-100">
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-purple-100">
         <div
           className="h-full rounded-full bg-gradient-to-r from-purple-500 to-fuchsia-500"
           style={{ width: `${claimedPct}%` }}
