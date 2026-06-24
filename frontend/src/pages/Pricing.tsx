@@ -423,6 +423,7 @@ export default function Pricing() {
 
           {/* Standard */}
           <div className="glass-card p-7 flex flex-col">
+            {isLifetime && <LimitedSeatsBar seed="standard-lifetime" seatsLeft={6} />}
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
                 Standard
@@ -479,7 +480,6 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            {isLifetime && <LimitedSeatsBar seed="standard-lifetime" seatsLeft={6} />}
             {user ? (
               isLifetime ? (
                 <button
@@ -522,6 +522,7 @@ export default function Pricing() {
                 Best value
               </span>
             </div>
+            {isLifetime && <LimitedSeatsBar seed="pro-lifetime" seatsLeft={8} />}
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
                 Pro
@@ -588,7 +589,6 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            {isLifetime && <LimitedSeatsBar seed="pro-lifetime" seatsLeft={8} />}
             {user ? (
               isLifetime ? (
                 <button

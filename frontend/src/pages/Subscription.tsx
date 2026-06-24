@@ -699,6 +699,9 @@ export default function Subscription() {
 
           {/* Standard */}
           <div className={`glass-card p-5 flex flex-col ${isStandard ? "ring-2 ring-purple-200" : ""}`}>
+            {billingCycle === "lifetime" && (
+              <LimitedSeatsBar seed="standard-lifetime" seatsLeft={6} />
+            )}
             <div className="mb-4">
               <h3 className="text-sm font-semibold text-gray-900">Standard</h3>
               <p className="text-xs text-gray-400 mt-0.5">30 videos/month</p>
@@ -742,9 +745,6 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
-            {billingCycle === "lifetime" && (
-              <LimitedSeatsBar seed="standard-lifetime" seatsLeft={6} />
-            )}
             {billingCycle === "lifetime" ? (
               <button
                 onClick={() => handleLifetimeBuy("standard")}
@@ -776,6 +776,9 @@ export default function Subscription() {
                   Best value
                 </span>
               </div>
+            )}
+            {billingCycle === "lifetime" && (
+              <LimitedSeatsBar seed="pro-lifetime" seatsLeft={8} />
             )}
             <div className="mb-4">
               <h3 className="text-sm font-semibold text-gray-900">Pro</h3>
@@ -820,9 +823,6 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
-            {billingCycle === "lifetime" && (
-              <LimitedSeatsBar seed="pro-lifetime" seatsLeft={8} />
-            )}
             {billingCycle === "lifetime" ? (
               <button
                 onClick={() => handleLifetimeBuy("pro")}
