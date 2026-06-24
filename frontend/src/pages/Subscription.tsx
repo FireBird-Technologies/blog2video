@@ -25,7 +25,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
-import LifetimeUrgencyBanner from "../components/LifetimeUrgencyBanner";
+import LimitedSeatsBar from "../components/LimitedSeatsBar";
 import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
 import PlanCardCTA from "../components/PlanCardCTA";
 import BillingCycleTabs from "../components/BillingCycleTabs";
@@ -639,11 +639,6 @@ export default function Subscription() {
           </div>
         </div>
 
-        {billingCycle === "lifetime" && (
-          <div className="mb-4">
-            <LifetimeUrgencyBanner />
-          </div>
-        )}
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Free */}
@@ -747,6 +742,9 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
+            {billingCycle === "lifetime" && (
+              <LimitedSeatsBar seed="standard-lifetime" seatsLeft={6} />
+            )}
             {billingCycle === "lifetime" ? (
               <button
                 onClick={() => handleLifetimeBuy("standard")}
@@ -822,6 +820,9 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
+            {billingCycle === "lifetime" && (
+              <LimitedSeatsBar seed="pro-lifetime" seatsLeft={8} />
+            )}
             {billingCycle === "lifetime" ? (
               <button
                 onClick={() => handleLifetimeBuy("pro")}

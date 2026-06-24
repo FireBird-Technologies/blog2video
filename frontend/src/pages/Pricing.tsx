@@ -21,7 +21,7 @@ import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 import { pricingSchema } from "../seo/schema";
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
-import LifetimeUrgencyBanner from "../components/LifetimeUrgencyBanner";
+import LimitedSeatsBar from "../components/LimitedSeatsBar";
 import PlanCardCTA from "../components/PlanCardCTA";
 import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
 import BillingCycleTabs from "../components/BillingCycleTabs";
@@ -320,12 +320,6 @@ export default function Pricing() {
         )}
       </div>
 
-      {isLifetime && (
-        <div className="max-w-md mx-auto px-4 -mt-2 mb-2">
-          <LifetimeUrgencyBanner />
-        </div>
-      )}
-
       {/* Plans */}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-8 max-w-[1600px] mx-auto">
@@ -485,6 +479,7 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
+            {isLifetime && <LimitedSeatsBar seed="standard-lifetime" seatsLeft={6} />}
             {user ? (
               isLifetime ? (
                 <button
@@ -593,6 +588,7 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
+            {isLifetime && <LimitedSeatsBar seed="pro-lifetime" seatsLeft={8} />}
             {user ? (
               isLifetime ? (
                 <button

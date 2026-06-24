@@ -1,4 +1,5 @@
 import { useState } from "react";
+import LimitedSeatsBar from "./LimitedSeatsBar";
 import {
   perUnitCents,
   totalCents,
@@ -312,6 +313,7 @@ export default function PerVideoSliderCard({
         ))}
       </ul>
 
+      {bulkDeal && <LimitedSeatsBar seed="bulk-lifetime" />}
       {customButton ?? (
         bulkDeal ? (
           <button
