@@ -1,5 +1,9 @@
+// Share B2V (referral/invite) disabled — this component is no longer rendered.
+// Its referral client calls are commented out in api/client.ts; @ts-nocheck keeps
+// the preserved code from failing the build on those now-missing imports.
+// @ts-nocheck
 import { useState, useEffect, useCallback } from "react";
-import { getAffiliateStats, sendAffiliateInvites, AffiliateStats } from "../api/client";
+// import { getAffiliateStats, sendAffiliateInvites, AffiliateStats } from "../api/client";
 
 export default function ReferralPanel() {
   const [stats, setStats] = useState<AffiliateStats | null>(null);

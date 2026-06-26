@@ -340,17 +340,18 @@ export const googleLogin = (credential: string, reactivate = false, refCode?: st
   return api.post<AuthResponse>("/auth/google", { credential }, { params });
 };
 
-export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
-export const sendAffiliateInvites = (emails: string[]) =>
-  api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
-
-export interface AffiliateStats {
-  link: string;
-  signups_count: number;
-  bonus_earned: number;
-  max_signups: number;
-  bonus_per_signup: number;
-}
+// Share B2V (referral/invite) disabled
+// export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
+// export const sendAffiliateInvites = (emails: string[]) =>
+//   api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
+//
+// export interface AffiliateStats {
+//   link: string;
+//   signups_count: number;
+//   bonus_earned: number;
+//   max_signups: number;
+//   bonus_per_signup: number;
+// }
 
 export interface SurveyPayload {
   rating?: string;
@@ -376,11 +377,34 @@ export const getPublicConfig = () =>
 
 export type CheckoutPlan = "pro" | "standard";
 
+// Post-checkout win-back coupon gate. We want at most one follow-up scheduled
+// per browser per day, BUT only count checkouts that actually succeed — a failed
+// / unauthorized attempt must not "burn" the day. So we *read* the flag to decide
+// whether to ask the backend to schedule, and only *write* it after a 2xx.
+const COUPON_FOLLOWUP_KEY = "b2v_coupon_followup_date";
+
+function couponFollowupAllowedToday(): boolean {
+  try {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    return localStorage.getItem(COUPON_FOLLOWUP_KEY) !== today;
+  } catch {
+    return true; // storage blocked → fall back to scheduling
+  }
+}
+
+function markCouponFollowupScheduled(): void {
+  try {
+    localStorage.setItem(COUPON_FOLLOWUP_KEY, new Date().toISOString().slice(0, 10));
+  } catch {
+    /* storage blocked → nothing to record */
+  }
+}
+
 export const createCheckoutSession = (
   options:
     | {
         plan?: CheckoutPlan;
-        billing_cycle?: "monthly" | "annual";
+        billing_cycle?: "monthly" | "annual" | "lifetime";
         apply_third_video_offer?: boolean;
       }
     | "monthly"
@@ -393,11 +417,18 @@ export const createCheckoutSession = (
     typeof options === "string" ? options : (options?.billing_cycle ?? "monthly");
   const apply_third_video_offer =
     typeof options === "string" ? false : (options?.apply_third_video_offer ?? false);
-  return api.post<{ checkout_url: string }>("/billing/checkout", {
-    plan,
-    billing_cycle,
-    apply_third_video_offer,
-  });
+  const schedule_coupon_followup = couponFollowupAllowedToday();
+  return api
+    .post<{ checkout_url: string }>("/billing/checkout", {
+      plan,
+      billing_cycle,
+      apply_third_video_offer,
+      schedule_coupon_followup,
+    })
+    .then((res) => {
+      if (schedule_coupon_followup) markCouponFollowupScheduled();
+      return res;
+    });
 };
 
 export const createPerVideoCheckout = (
@@ -407,14 +438,29 @@ export const createPerVideoCheckout = (
     typeof options === "number" ? options : options?.projectId;
   const quantity =
     typeof options === "object" && options?.quantity ? options.quantity : 1;
-  return api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
-    project_id: projectId ?? null,
-    quantity,
-  });
+  const schedule_coupon_followup = couponFollowupAllowedToday();
+  return api
+    .post<{ checkout_url: string }>("/billing/checkout-per-video", {
+      project_id: projectId ?? null,
+      quantity,
+      schedule_coupon_followup,
+    })
+    .then((res) => {
+      if (schedule_coupon_followup) markCouponFollowupScheduled();
+      return res;
+    });
 };
 
-export const createCustomTemplateCheckout = () =>
-  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {});
+
+export const createCustomTemplateCheckout = (quantity: number = 1) =>
+  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {
+    quantity,
+  });
+
+
+/** One-time $300 purchase of 500 never-expiring video credits. */
+export const createBulkCreditsCheckout = () =>
+  api.post<{ checkout_url: string }>("/billing/checkout-bulk-credits", {});
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");
