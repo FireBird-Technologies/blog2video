@@ -3,6 +3,8 @@ title: "Which Blog2Video Template Fits a Book Launch? A Guide for Nonfiction Aut
 slug: template-showcase-book-launch
 primary_keyword: book launch video template
 description: A practical guide to choosing the right Blog2Video template for each type of book launch video — thesis videos, framework demos, research breakdowns, origin stories, and social clips.
+hero_image: /blog/blog-cover-template-showcase-book-launch.png
+hero_image_alt: "Blog2Video template guide for nonfiction book launch video types."
 ---
 
 # Which Blog2Video Template Fits a Book Launch? A Guide for Nonfiction Authors

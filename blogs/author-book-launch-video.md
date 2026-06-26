@@ -3,6 +3,8 @@ title: "Why Your Book Launch Video Doesn't Have to Look Like Every Other Book La
 slug: author-book-launch-video
 primary_keyword: book launch video marketing
 description: Most book launch videos follow the same formula — dramatic music, floating text, dramatic pause. Here's why that template doesn't work and what to make instead.
+hero_image: /blog/blog-cover-author-book-launch-video.png
+hero_image_alt: "Nonfiction book launch video formats beyond generic rotating book trailers."
 ---
 
 # Why Your Book Launch Video Doesn't Have to Look Like Every Other Book Launch Video

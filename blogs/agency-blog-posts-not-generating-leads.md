@@ -3,6 +3,8 @@ title: "Why Your Clients' Blog Posts Aren't Generating Leads (And the One Fix Th
 slug: agency-blog-posts-not-generating-leads
 primary_keyword: blog posts not generating leads
 description: Most agency-produced blog posts underperform not because the content is bad, but because text-only content misses the distribution channels where buyers actually spend their time. Here's the fix.
+hero_image: /blog/blog-cover-agency-blog-posts-not-generating-leads.png
+hero_image_alt: "Blog posts failing to generate leads compared with video distribution on YouTube and LinkedIn."
 ---
 
 # Why Your Clients' Blog Posts Aren't Generating Leads (And the One Fix That Doesn't Require More Writing)

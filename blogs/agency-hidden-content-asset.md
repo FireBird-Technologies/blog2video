@@ -3,6 +3,8 @@ title: "The Hidden Asset in Every Client's Content Library (And How to Monetize 
 slug: agency-hidden-content-asset
 primary_keyword: content repurposing for agencies
 description: Your clients have 50–200 blog posts sitting in their archive generating zero ROI. Here's how agencies can turn dormant content into a high-margin video service without any production overhead.
+hero_image: /blog/blog-cover-agency-hidden-content-asset.png
+hero_image_alt: "Hidden blog content archive unlocked as a video distribution asset for agencies."
 ---
 
 # The Hidden Asset in Every Client's Content Library (And How to Monetize It)

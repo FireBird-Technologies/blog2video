@@ -3,6 +3,8 @@ title: "Your Best Newsletter Is Already a Video — You Just Haven't Made It Yet
 slug: newsletter-best-newsletter-is-a-video
 primary_keyword: turn newsletter into video
 description: Finance and business newsletter writers spend 6+ hours on their best pieces, then watch them disappear after the send. Here's why your newsletter is already a video script — and how to publish it that way.
+hero_image: /blog/blog-cover-newsletter-best-newsletter-is-a-video.png
+hero_image_alt: "Newsletter issue transformed into a professional finance video for wider distribution."
 ---
 
 # Your Best Newsletter Is Already a Video — You Just Haven't Made It Yet

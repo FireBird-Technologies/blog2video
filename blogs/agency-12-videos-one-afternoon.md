@@ -3,6 +3,8 @@ title: "How to Produce 12 Client Videos in One Afternoon (Without a Video Team)"
 slug: agency-12-videos-one-afternoon
 primary_keyword: content repurposing workflow agency
 description: A step-by-step walkthrough of how a marketing agency can convert 12 client blog posts into branded videos in a single afternoon using an AI video workflow — with actual time estimates.
+hero_image: /blog/blog-cover-agency-12-videos-one-afternoon.png
+hero_image_alt: "Agency workflow illustration showing 12 client blog posts converted into branded videos in one afternoon."
 ---
 
 # How to Produce 12 Client Videos in One Afternoon (Without a Video Team)

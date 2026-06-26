@@ -3,6 +3,8 @@ title: "The Content You Write Is Disappearing: Why Great Writing Deserves a Seco
 slug: content-with-no-second-life
 primary_keyword: content repurposing strategy
 description: Blog posts, newsletters, and book chapters are written with real craft — and then they disappear. Here's the case for giving every piece of written content a second life in the format where most people actually consume content in 2026.
+hero_image: /blog/blog-cover-content-with-no-second-life.png
+hero_image_alt: "Written content gaining a second life through video on YouTube and LinkedIn."
 ---
 
 # The Content You Write Is Disappearing: Why Great Writing Deserves a Second Life

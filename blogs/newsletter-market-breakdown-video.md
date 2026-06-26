@@ -3,6 +3,8 @@ title: "What Your Finance Subscribers Want to Watch: Turning Your Market Breakdo
 slug: newsletter-market-breakdown-video
 primary_keyword: finance video content creator
 description: Finance newsletter writers produce market breakdowns their subscribers love to read. Here's how to convert that same analysis into a 3-minute video that reaches new audiences on YouTube and LinkedIn.
+hero_image: /blog/blog-cover-newsletter-market-breakdown-video.png
+hero_image_alt: "Structured weekly market breakdown video format for finance newsletters."
 ---
 
 # What Your Finance Subscribers Want to Watch: Turning Your Market Breakdown Into a 3-Minute Video

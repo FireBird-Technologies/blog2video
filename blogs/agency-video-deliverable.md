@@ -3,6 +3,8 @@ title: "How Agencies Can Add Video to Every Retainer Without Hiring a Video Team
 slug: agency-video-deliverable
 primary_keyword: marketing agency video production
 description: Marketing agencies are leaving money on the table by not offering video as a retainer deliverable. Here's how to add it same-day using content clients already have.
+hero_image: /blog/blog-cover-agency-video-deliverable.png
+hero_image_alt: "Client video deliverable package with MP4, PDF carousel, PowerPoint, and PNG exports from one blog post."
 ---
 
 # How Agencies Can Add Video to Every Retainer Without Hiring a Video Team
