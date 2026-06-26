@@ -3,6 +3,8 @@ title: "The Author's Guide to Video Without a Camera"
 slug: author-video-without-camera
 primary_keyword: book promotion without video camera
 description: Most nonfiction authors avoid video because they don't want to be on camera. Here's how to build a YouTube and LinkedIn presence from your book's content without filming yourself — ever.
+hero_image: /blog/blog-cover-author-video-without-camera.png
+hero_image_alt: "Author creating professional structured videos without filming on camera."
 ---
 
 # The Author's Guide to Video Without a Camera

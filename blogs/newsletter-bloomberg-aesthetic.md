@@ -3,6 +3,8 @@ title: "The Bloomberg Terminal Aesthetic for Independent Finance Creators"
 slug: newsletter-bloomberg-aesthetic
 primary_keyword: finance video template professional
 description: Independent finance creators can now produce video content with the visual language of professional financial media — without a studio, a production team, or a Bloomberg subscription.
+hero_image: /blog/blog-cover-newsletter-bloomberg-aesthetic.png
+hero_image_alt: "Bloomberg-style finance newsletter video with dark data-forward aesthetic."
 ---
 
 # The Bloomberg Terminal Aesthetic for Independent Finance Creators

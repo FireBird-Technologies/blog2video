@@ -3,6 +3,8 @@ title: "Turning Your Book's Big Ideas Into Shareable Video: A Workflow for Autho
 slug: author-big-ideas-shareable-video
 primary_keyword: author content marketing workflow
 description: A step-by-step workflow for nonfiction authors who want to turn their book's ideas into video content that reaches new audiences — without a studio, a team, or video production experience.
+hero_image: /blog/blog-cover-author-big-ideas-shareable-video.png
+hero_image_alt: "Nonfiction author turning book big ideas into shareable short-form videos."
 ---
 
 # Turning Your Book's Big Ideas Into Shareable Video: A Workflow for Authors

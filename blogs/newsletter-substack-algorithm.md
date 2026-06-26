@@ -3,6 +3,8 @@ title: "Why the Substack Algorithm Doesn't Care How Good Your Analysis Is (And W
 slug: newsletter-substack-algorithm
 primary_keyword: substack growth strategy
 description: Substack's discovery algorithm rewards consistency and social proof, not analytical quality. Finance and business newsletter writers who want to grow need a distribution channel that surfaces based on content, not popularity metrics.
+hero_image: /blog/blog-cover-newsletter-substack-algorithm.png
+hero_image_alt: "Substack discovery limits versus YouTube search-driven newsletter growth."
 ---
 
 # Why the Substack Algorithm Doesn't Care How Good Your Analysis Is (And What to Do About It)

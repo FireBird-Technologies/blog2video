@@ -3,6 +3,8 @@ title: "The Best Blog2Video Templates for Finance and Market Analysis Content"
 slug: template-showcase-finance
 primary_keyword: finance video template
 description: A complete guide to choosing the right Blog2Video template for finance newsletter content, market commentary, research breakdowns, and investment analysis — with specific recommendations by content type.
+hero_image: /blog/blog-cover-template-showcase-finance.png
+hero_image_alt: "Finance and market analysis Blog2Video template selection guide."
 ---
 
 # The Best Blog2Video Templates for Finance and Market Analysis Content

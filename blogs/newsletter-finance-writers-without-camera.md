@@ -3,6 +3,8 @@ title: "How Finance Writers Are Reaching Video Audiences Without Ever Going on C
 slug: newsletter-finance-writers-without-camera
 primary_keyword: finance content creator without camera
 description: Finance newsletter writers and analysts are building YouTube and LinkedIn audiences using their existing writing — no camera, no recording, no video editing experience required.
+hero_image: /blog/blog-cover-newsletter-finance-writers-without-camera.png
+hero_image_alt: "Finance newsletter writer producing market analysis video without appearing on camera."
 ---
 
 # How Finance Writers Are Reaching Video Audiences Without Ever Going on Camera

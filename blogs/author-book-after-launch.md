@@ -3,6 +3,8 @@ title: "What Happens to Your Book After the Launch: Video as a Long-Term Discove
 slug: author-book-after-launch
 primary_keyword: book marketing after launch
 description: Most book sales don't happen at launch — they happen in the 12–36 months that follow, when the right person finds the right book at the right moment. Here's how video keeps your book discoverable long after the launch window closes.
+hero_image: /blog/blog-cover-author-book-after-launch.png
+hero_image_alt: "Long-term book discovery timeline powered by consistent author video content."
 ---
 
 # What Happens to Your Book After the Launch: Video as a Long-Term Discovery Engine

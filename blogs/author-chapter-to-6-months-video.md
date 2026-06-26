@@ -3,6 +3,8 @@ title: "How to Turn One Chapter of Your Book Into 6 Months of Video Content"
 slug: author-chapter-to-6-months-video
 primary_keyword: book marketing video content
 description: Nonfiction authors have 70,000 words of high-quality content already written. Here's a practical framework for turning a single chapter into six months of videos, posts, and clips that keep your book discoverable long after launch.
+hero_image: /blog/blog-cover-author-chapter-to-6-months-video.png
+hero_image_alt: "One book chapter repurposed into six months of weekly author video content."
 ---
 
 # How to Turn One Chapter of Your Book Into 6 Months of Video Content
