@@ -25,7 +25,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
-import LifetimeUrgencyBanner from "../components/LifetimeUrgencyBanner";
+import LimitedSeatsBar from "../components/LimitedSeatsBar";
 import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
 import PlanCardCTA from "../components/PlanCardCTA";
 import BillingCycleTabs from "../components/BillingCycleTabs";
@@ -639,11 +639,6 @@ export default function Subscription() {
           </div>
         </div>
 
-        {billingCycle === "lifetime" && (
-          <div className="mb-4">
-            <LifetimeUrgencyBanner />
-          </div>
-        )}
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Free */}
@@ -704,6 +699,9 @@ export default function Subscription() {
 
           {/* Standard */}
           <div className={`glass-card p-5 flex flex-col ${isStandard ? "ring-2 ring-purple-200" : ""}`}>
+            {billingCycle === "lifetime" && (
+              <LimitedSeatsBar seed="standard-lifetime" seatsLeft={6} />
+            )}
             <div className="mb-4">
               <h3 className="text-sm font-semibold text-gray-900">Standard</h3>
               <p className="text-xs text-gray-400 mt-0.5">30 videos/month</p>
@@ -778,6 +776,9 @@ export default function Subscription() {
                   Best value
                 </span>
               </div>
+            )}
+            {billingCycle === "lifetime" && (
+              <LimitedSeatsBar seed="pro-lifetime" seatsLeft={8} />
             )}
             <div className="mb-4">
               <h3 className="text-sm font-semibold text-gray-900">Pro</h3>

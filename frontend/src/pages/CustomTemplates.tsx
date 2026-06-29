@@ -9,6 +9,7 @@ import {
   submitTemplateRating,
   type CustomTemplateItem,
 } from "../api/client";
+import { invalidateBlogUrlFormAvailabilityCache } from "../api/blogUrlFormStep2Prefetch";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useAuth } from "../hooks/useAuth";
 import { preloadBabel } from "../utils/compileComponent";
@@ -27,9 +28,19 @@ import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestM
 // finishes in ~2 min; 8 min is a safe ceiling that won't false-flag a live run.
 const STUCK_GENERATION_MS = 8 * 60 * 1000;
 
+// Backend emits naive UTC timestamps (datetime.utcnow().isoformat(), no tz suffix).
+// Date.parse() would read those as LOCAL time, so for any user in a positive UTC
+// offset a brand-new template reads as hours old and instantly trips the stuck
+// threshold below. Append 'Z' when no zone is present so it's parsed as UTC.
+function parseServerTimestamp(s: string): number {
+  if (!s) return NaN;
+  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  return Date.parse(hasTz ? s : s + "Z");
+}
+
 function isStuckGenerating(tpl: CustomTemplateItem): boolean {
   if (tpl.intro_code || tpl.generation_failed) return false;
-  const ts = Date.parse(tpl.updated_at || tpl.created_at);
+  const ts = parseServerTimestamp(tpl.updated_at || tpl.created_at);
   if (Number.isNaN(ts)) return false;
   return Date.now() - ts > STUCK_GENERATION_MS;
 }
@@ -37,7 +48,7 @@ function isStuckGenerating(tpl: CustomTemplateItem): boolean {
 export default function CustomTemplates() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { craftedTemplates, loading: craftedTemplatesFetching, initialized: craftedTemplatesInitialized } = useCraftedTemplates();
   // Keep the loader visible until the first R2 roundtrip resolves, even when
   // we paint from localStorage cache first — otherwise an empty cache flashes
@@ -122,6 +133,9 @@ export default function CustomTemplates() {
           if (!stillPending) {
             clearInterval(pollingRef.current!);
             pollingRef.current = null;
+            // A template just finished generating — refresh the project-creation
+            // picker's cache so the now-ready template appears there.
+            invalidateBlogUrlFormAvailabilityCache();
           }
         } catch { /* ignore */ }
       }, 4000);
@@ -135,6 +149,14 @@ export default function CustomTemplates() {
     setTemplates((prev) => [tpl, ...prev]);
     setShowCreator(false);
     startPollingIfNeeded([tpl]);
+    // Drop the project-creation picker's cached template list so this new one
+    // shows up there without needing a full page refresh.
+    invalidateBlogUrlFormAvailabilityCache();
+    // Re-pull the user so the "X / Y Created" counter and the at-limit gating
+    // (can_create_custom_template) reflect the just-incremented server count —
+    // otherwise the counter stays stale and "Create New" reopens the creator
+    // instead of the upgrade modal.
+    void refreshUser();
   };
 
   const handleSaved = (tpl: CustomTemplateItem) => {
@@ -205,6 +227,8 @@ export default function CustomTemplates() {
       setTemplates((prev) => prev.filter((t) => t.id !== deleteTarget.id));
       setDeleteTarget(null);
       setDeleteImpactCount(null);
+      // Keep the project-creation picker's cached list in sync with the deletion.
+      invalidateBlogUrlFormAvailabilityCache();
     } catch (err) {
       const detail = (err as {
         response?: { data?: { detail?: string | { code?: string; message?: string; project_count?: number } } };
