@@ -6,6 +6,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
+import CoverflowCarousel, { type CoverflowTemplate } from "../components/CoverflowCarousel";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS } from "../components/templatePreviewRegistry";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
@@ -81,6 +83,18 @@ async function fetchOgData(url: string): Promise<{ image?: string; title?: strin
     return {};
   }
 }
+
+const CAROUSEL_TEMPLATES: CoverflowTemplate[] = Object.entries(TEMPLATE_PREVIEWS).map(
+  ([id, Preview]) => ({
+    id,
+    Preview,
+    name: TEMPLATE_DESCRIPTIONS[id]?.title ?? id,
+    subtitle: TEMPLATE_DESCRIPTIONS[id]?.subtitle ?? "",
+  })
+);
+
+// Start the coverflow centered on Newspaper (fall back to first if not found).
+const CAROUSEL_INITIAL_INDEX = Math.max(0, CAROUSEL_TEMPLATES.findIndex((t) => t.id === "newspaper"));
 
 const NAV_LINKS = [
   { href: "#demo", label: "Demo" },
@@ -805,6 +819,22 @@ export default function Landing() {
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
           <FullTemplateShowcase />
+        </div>
+      </section>
+
+      {/* ─── Coverflow template carousel ─── */}
+      <section id="templates" className="py-20 border-t border-gray-100 overflow-x-clip">
+        <div className="max-w-6xl mx-auto px-6">
+          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+          Templates Showcase
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
+            Pick your video's look
+          </h2>
+          <p className="text-sm text-gray-500 text-center max-w-lg mx-auto mb-12 leading-relaxed">
+            From broadcast newscasts to hand-drawn whiteboards, every built-in template comes fully animated with its own layouts, motion, and color theme.
+          </p>
+          <CoverflowCarousel templates={CAROUSEL_TEMPLATES} initialIndex={CAROUSEL_INITIAL_INDEX} />
         </div>
       </section>
 
