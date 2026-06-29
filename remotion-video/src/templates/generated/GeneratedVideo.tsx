@@ -26,6 +26,7 @@ import {
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { GeneratedVideoData, GeneratedSceneData, GeneratedSceneProps } from "./types";
 
@@ -418,6 +419,20 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={sceneFrames[index]}
           >
             <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            {data.captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={data.captionPosition || "bottom_center"}
+                aspectRatio={data.aspectRatio || "landscape"}
+                fontFamily={data.captionFontFamily ? (resolveFontFamily(data.captionFontFamily) || data.captionFontFamily) : (resolvedFontFamily || undefined)}
+                fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         ) : null,
       )}

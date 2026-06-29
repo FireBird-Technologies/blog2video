@@ -1,8 +1,10 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { MOSAIC_LAYOUT_REGISTRY } from "./layouts";
 import type { MosaicLayoutType, MosaicLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
 import { bgTilePalette } from "./MosaicBackground";
 
 export interface MosaicSceneInput {
@@ -10,9 +12,13 @@ export interface MosaicSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: MosaicLayoutType;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -30,6 +36,10 @@ export interface MosaicVideoCompositionProps {
   bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
@@ -45,6 +55,10 @@ export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
   bgmVolume,
   aspectRatio,
   fontFamily,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
@@ -84,6 +98,20 @@ export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? Math.max(1, Math.round(scene.speechDurationSeconds * FPS))
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         );
       })}
