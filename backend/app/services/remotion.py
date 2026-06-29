@@ -1193,6 +1193,8 @@ def write_remotion_data(
         "bgmVolume": round(float(getattr(project, "bgm_volume", 0.10) or 0.10), 2),
         "captionsEnabled": bool(getattr(project, "captions_enabled", False)),
         "captionPosition": getattr(project, "caption_position", None) or "bottom_center",
+        "captionFontFamily": getattr(project, "caption_font_family", None) or "inter",
+        "captionFontSize": str(getattr(project, "caption_font_size", None) or "36"),
         "scenes": scene_data,
     }
     print(f"[F7-DEBUG] write_remotion_data: final bgmFile={data['bgmFile']!r}, bgmVolume={data['bgmVolume']!r}")

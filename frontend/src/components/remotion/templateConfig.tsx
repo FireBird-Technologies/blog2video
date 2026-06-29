@@ -74,6 +74,8 @@ export interface TemplateConfig {
     playbackSpeed?: number;
     captionsEnabled?: boolean;
     captionPosition?: string;
+    captionFontFamily?: string;
+    captionFontSize?: number;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     theme?: any;
   }>;

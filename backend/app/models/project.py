@@ -61,6 +61,8 @@ class Project(Base):
     # Captions (subtitles) — text is the scene's narration_text. Position: bottom_center | top_center
     captions_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     caption_position: Mapped[str] = mapped_column(String(20), default="bottom_center")
+    caption_font_family: Mapped[str] = mapped_column(String(50), default="inter")
+    caption_font_size: Mapped[str] = mapped_column(String(10), default="36")
 
     # Voiceover
     custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)

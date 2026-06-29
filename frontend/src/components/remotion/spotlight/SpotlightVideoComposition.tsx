@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import React from "react";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { TransitionSeries } from "@remotion/transitions";
@@ -41,6 +42,8 @@ export interface SpotlightVideoCompositionProps {
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const SpotlightVideoComposition: React.FC<
@@ -61,6 +64,8 @@ export const SpotlightVideoComposition: React.FC<
   playbackSpeed,
   captionsEnabled,
   captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -158,7 +163,8 @@ export const SpotlightVideoComposition: React.FC<
                 text={scene.narrationText || scene.narration}
                 position={captionPosition || "bottom_center"}
                 aspectRatio={aspectRatio || "landscape"}
-                fontFamily={fontFamily || undefined}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)

@@ -69,7 +69,7 @@ import UpgradePlanModal from "../components/UpgradePlanModal";
 import OutOfVideosOfferModal from "../components/OutOfVideosOfferModal";
 import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
 import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
-import VideoPreview from "../components/VideoPreview";
+import VideoPreview, { type CaptionSettings } from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import RegenerateScriptModal from "../components/RegenerateScriptModal";
 import VerifyScriptModal from "../components/VerifyScriptModal";
@@ -637,6 +637,9 @@ export default function ProjectView() {
   // Captions
   const [captionsEnabledDraft, setCaptionsEnabledDraft] = useState(false);
   const [captionPositionDraft, setCaptionPositionDraft] = useState<"bottom_center" | "top_center">("bottom_center");
+  const [captionFontFamilyDraft, setCaptionFontFamilyDraft] = useState<string>("inter");
+  const [captionSettingsKey, setCaptionSettingsKey] = useState(0);
+  const [captionFontSizeDraft, setCaptionFontSizeDraft] = useState<number>(36);
   const [savingCaptions, setSavingCaptions] = useState(false);
   // Background music
   const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
@@ -717,6 +720,8 @@ export default function ProjectView() {
       setBgmVolumeDraft(project.bgm_volume ?? 0.10);
       setCaptionsEnabledDraft(project.captions_enabled ?? false);
       setCaptionPositionDraft(project.caption_position === "top_center" ? "top_center" : "bottom_center");
+      setCaptionFontFamilyDraft(project.caption_font_family ?? "inter");
+      setCaptionFontSizeDraft(project.caption_font_size ? Number(project.caption_font_size) || 36 : 36);
       // Seed global typography sliders from the first scene that has stored values.
       // This avoids the slider defaulting to 60 when e.g. mosaic_metric scenes have 131.
       if (project.scenes && project.scenes.length > 0) {
@@ -742,6 +747,7 @@ export default function ProjectView() {
       // (the backend toggles captions_enabled with voiceover presence). Without these
       // deps the draft goes stale and the toggle shows the wrong state until a hard refresh.
       project?.captions_enabled, project?.caption_position,
+      project?.caption_font_family, project?.caption_font_size,
       project?.scenes?.some((s) => !!s.voiceover_path)]);
 
   useEffect(() => {
@@ -1318,6 +1324,33 @@ export default function ProjectView() {
       } finally {
         setSavingPlaybackSpeed(false);
         savingPlaybackSpeedRef.current = false;
+      }
+    },
+    [project, loadProject, showError],
+  );
+
+  const handleCaptionSettingsChange = useCallback(
+    async (settings: CaptionSettings) => {
+      if (!project) return;
+      setSavingCaptions(true);
+      try {
+        await updateProject(project.id, {
+          captions_enabled: settings.captionsEnabled,
+          caption_position: settings.captionPosition,
+          caption_font_family: settings.captionFontFamily,
+          caption_font_size: settings.captionFontSize,
+        });
+        // Sync draft state so the settings panel reflects changes made via the player button.
+        setCaptionsEnabledDraft(settings.captionsEnabled);
+        setCaptionPositionDraft(settings.captionPosition);
+        setCaptionFontFamilyDraft(settings.captionFontFamily);
+        setCaptionFontSizeDraft(settings.captionFontSize);
+        setCaptionSettingsKey((k) => k + 1);
+        await loadProject();
+      } catch (err) {
+        showError(getErrorMessage(err, "Failed to save caption settings."));
+      } finally {
+        setSavingCaptions(false);
       }
     },
     [project, loadProject, showError],
@@ -3610,6 +3643,9 @@ export default function ProjectView() {
                         logoPositionOverride={logoPosition}
                         onPlaybackSpeedChange={handlePreviewPlaybackSpeedChange}
                         playbackSpeedSaving={savingPlaybackSpeed}
+                        onCaptionSettingsChange={handleCaptionSettingsChange}
+                        captionsSaving={savingCaptions}
+                        captionSettingsKey={captionSettingsKey}
                       />
                     </div>
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
@@ -5951,34 +5987,87 @@ export default function ProjectView() {
                   )}
 
                   {captionsEnabledDraft && hasVoiceover && (
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-2">Position</label>
-                      <div className="flex flex-wrap gap-2">
-                        {([
-                          { value: "top_center", label: "Top Center" },
-                          { value: "bottom_center", label: "Bottom Center" },
-                        ] as const).map((pos) => {
-                          const active = captionPositionDraft === pos.value;
-                          return (
-                            <button
-                              key={pos.value}
-                              type="button"
-                              onClick={() => setCaptionPositionDraft(pos.value)}
-                              className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                                active
-                                  ? "bg-purple-50 text-purple-700 border-purple-300"
-                                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                              }`}
-                            >
-                              {pos.label}
-                            </button>
-                          );
-                        })}
+                    <div className="flex flex-col gap-2">
+                      {/* Row 1: Position (2-col) + Size slider */}
+                      <div className="grid grid-cols-2 gap-2 items-start">
+
+                        {/* Position — 2 pills in one row */}
+                        <div>
+                          <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">Position</label>
+                          <div className="grid grid-cols-2 gap-1">
+                            {([
+                              { value: "top_center", label: "Top" },
+                              { value: "bottom_center", label: "Bottom" },
+                            ] as const).map((pos) => {
+                              const active = captionPositionDraft === pos.value;
+                              return (
+                                <button
+                                  key={pos.value}
+                                  type="button"
+                                  onClick={() => setCaptionPositionDraft(pos.value)}
+                                  className={`px-1.5 py-1.5 rounded-md text-[11px] font-semibold border transition-colors text-center ${
+                                    active
+                                      ? "bg-purple-50 text-purple-700 border-purple-300"
+                                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {pos.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Font Size — free slider 12–64px */}
+                        <div>
+                          <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">Size</label>
+                          <div className="flex flex-col justify-center pt-1">
+                            <input
+                              type="range"
+                              min={12}
+                              max={64}
+                              step={1}
+                              value={captionFontSizeDraft}
+                              onChange={(e) => setCaptionFontSizeDraft(Number(e.target.value))}
+                              className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
+                            />
+                            <div className="flex justify-between mt-1">
+                              <span className="text-[9px] text-gray-400">12</span>
+                              <span className="text-[9px] font-semibold text-purple-600">{captionFontSizeDraft}px</span>
+                            </div>
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   )}
 
-                  <div className="flex justify-end mt-auto">
+                  <div className="flex items-end justify-between mt-auto gap-3">
+                    {/* Font Family — shown in save row when captions enabled */}
+                    {captionsEnabledDraft && hasVoiceover ? (
+                      <div className="relative flex-1 max-w-[180px]">
+                        <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5">Font</label>
+                        <div className="relative">
+                          <select
+                            value={captionFontFamilyDraft}
+                            onChange={(e) => setCaptionFontFamilyDraft(e.target.value)}
+                            style={{ fontFamily: FONT_REGISTRY[captionFontFamilyDraft as keyof typeof FONT_REGISTRY]?.cssFamily }}
+                            className="w-full text-[11px] font-medium text-gray-700 bg-white border border-gray-200 rounded-md pl-2 pr-6 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-400/40 focus:border-purple-300 cursor-pointer appearance-none"
+                          >
+                            {(["inter","poppins","montserrat","roboto_slab","oswald","lora","patrick_hand","arimo","archivo_black","merriweather","playfair_display","fira_code"] as const).map((fontId) => (
+                              <option key={fontId} value={fontId} style={{ fontFamily: FONT_REGISTRY[fontId]?.cssFamily }}>
+                                {FONT_REGISTRY[fontId]?.label ?? fontId}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center">
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-gray-400">
+                              <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    ) : <div />}
                     <button
                       type="button"
                       disabled={savingCaptions || !hasVoiceover}
@@ -5988,7 +6077,10 @@ export default function ProjectView() {
                           await updateProject(project.id, {
                             captions_enabled: captionsEnabledDraft && hasVoiceover,
                             caption_position: captionPositionDraft,
+                            caption_font_family: captionFontFamilyDraft,
+                            caption_font_size: captionFontSizeDraft,
                           });
+                          setCaptionSettingsKey((k) => k + 1);
                           await loadProject();
                         } catch (err) {
                           showError(getErrorMessage(err, "Failed to save captions."));

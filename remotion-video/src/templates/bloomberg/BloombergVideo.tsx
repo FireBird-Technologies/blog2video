@@ -275,6 +275,8 @@ interface VideoData {
   bgmVolume?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
   scenes: SceneData[];
 }
 
@@ -458,7 +460,8 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 text={scene.narrationText || scene.narration}
                 position={data.captionPosition || "bottom_center"}
                 aspectRatio={data.aspectRatio || "landscape"}
-                fontFamily={resolvedFontFamily || undefined}
+                fontFamily={data.captionFontFamily ? (resolveFontFamily(data.captionFontFamily) || data.captionFontFamily) : (resolvedFontFamily || undefined)}
+                fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)

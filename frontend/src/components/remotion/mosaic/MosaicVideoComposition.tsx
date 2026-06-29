@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { MOSAIC_LAYOUT_REGISTRY } from "./layouts";
 import type { MosaicLayoutType, MosaicLayoutProps } from "./types";
@@ -37,6 +38,8 @@ export interface MosaicVideoCompositionProps {
   fontFamily?: string;
   captionsEnabled?: boolean;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
@@ -54,6 +57,8 @@ export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
   fontFamily,
   captionsEnabled,
   captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
@@ -98,7 +103,8 @@ export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
                 text={scene.narrationText || scene.narration}
                 position={captionPosition || "bottom_center"}
                 aspectRatio={aspectRatio || "landscape"}
-                fontFamily={fontFamily || undefined}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? Math.max(1, Math.round(scene.speechDurationSeconds * FPS))

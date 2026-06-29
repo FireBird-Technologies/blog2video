@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import React from "react";
 import "../../../fonts/economist-defaults";
 import { ECONOMIST_SERIF_FONT } from "../../../fonts/economist-defaults";
@@ -45,6 +46,8 @@ export interface EconomistVideoCompositionProps {
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 // cover_reveal owns its own dramatic opening; it skips the chrome fade.
@@ -122,6 +125,8 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
   playbackSpeed,
   captionsEnabled,
   captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -242,7 +247,8 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
                 text={s.scene.narrationText || s.scene.narration}
                 position={captionPosition || "bottom_center"}
                 aspectRatio={aspectRatio || "landscape"}
-                fontFamily={fontFamily || undefined}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
                 speechDurationFrames={
                   s.scene.speechDurationSeconds
                     ? getSceneDurationFrames(s.scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
