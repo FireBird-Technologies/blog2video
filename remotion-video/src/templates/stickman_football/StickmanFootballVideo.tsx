@@ -9,6 +9,7 @@ import {
 import { STICKMAN_FOOTBALL_LAYOUT_REGISTRY as LAYOUT_REGISTRY, StickmanFootballLayoutType, SceneLayoutProps } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 interface SceneData {
@@ -16,10 +17,14 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
+  narrationText?: string;
   layout: StickmanFootballLayoutType;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
 }
@@ -37,6 +42,10 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
   scenes: SceneData[];
 }
 
@@ -150,6 +159,20 @@ export const StickmanFootballVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
+            {data.captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={data.captionPosition || "bottom_center"}
+                aspectRatio={data.aspectRatio || "landscape"}
+                fontFamily={data.captionFontFamily ? (resolveFontFamily(data.captionFontFamily) || data.captionFontFamily) : (resolvedFontFamily || undefined)}
+                fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
             )}
           </Sequence>
         );

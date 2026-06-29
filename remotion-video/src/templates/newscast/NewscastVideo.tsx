@@ -14,6 +14,7 @@ import { resolveFontFamily } from "../../fonts/registry";
 import type { NewscastLayoutProps, NewscastLayoutType } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
 import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
@@ -181,6 +182,14 @@ const NewscastSequenceInner: React.FC<{
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverSrc?: string;
   playbackSpeed: number;
+  captionsEnabled?: boolean;
+  captionText?: string;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  aspectRatio?: string;
+  fontFamily?: string;
+  speechDurationFrames?: number;
 }> = ({
   startFrame,
   durationInFrames,
@@ -192,6 +201,14 @@ const NewscastSequenceInner: React.FC<{
   LayoutComponent,
   voiceoverSrc,
   playbackSpeed,
+  captionsEnabled,
+  captionText,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  aspectRatio,
+  fontFamily,
+  speechDurationFrames,
 }) => {
   const localFrame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -251,6 +268,16 @@ const NewscastSequenceInner: React.FC<{
         </div>
       </NewscastSceneZTransition>
       {voiceoverSrc ? <Audio src={voiceoverSrc} playbackRate={playbackSpeed} /> : null}
+      {captionsEnabled && captionText && (
+        <CaptionTrack
+          text={captionText}
+          position={captionPosition || "bottom_center"}
+          aspectRatio={aspectRatio || "landscape"}
+          fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+          fontSize={captionFontSize ? Number(captionFontSize) : undefined}
+          speechDurationFrames={speechDurationFrames}
+        />
+      )}
     </AbsoluteFill>
   );
 };
@@ -260,10 +287,14 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
+  narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   layoutConfig?: { titleFontSize?: number; descriptionFontSize?: number };
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
   imageUrl?: string;
@@ -284,6 +315,10 @@ interface VideoData {
   fontFamily?: string | null;
   bgmFile?: string | null;
   bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
   scenes: SceneData[];
 }
 
@@ -443,6 +478,18 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               LayoutComponent={LayoutComponent}
               voiceoverSrc={scene.voiceoverFile ? staticFile(scene.voiceoverFile) : undefined}
               playbackSpeed={playbackSpeed}
+              captionsEnabled={data.captionsEnabled}
+              captionText={scene.narrationText || scene.narration}
+              captionPosition={data.captionPosition}
+              captionFontFamily={data.captionFontFamily}
+              captionFontSize={data.captionFontSize}
+              aspectRatio={data.aspectRatio}
+              fontFamily={resolvedFontFamily || undefined}
+              speechDurationFrames={
+                scene.speechDurationSeconds
+                  ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)
+                  : undefined
+              }
             />
           </Sequence>
         );

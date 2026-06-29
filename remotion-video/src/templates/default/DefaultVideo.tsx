@@ -13,6 +13,7 @@ import { resolveFontFamily } from "../../fonts/registry";
 import { TransitionWipe } from "../../components/Transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -22,9 +23,13 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
+  narrationText?: string;
   layout: LayoutType;
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
 }
@@ -44,6 +49,10 @@ interface VideoData {
   fontFamily?: string | null;
   bgmFile?: string | null;
   bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
   scenes: SceneData[];
 }
 
@@ -264,6 +273,22 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             {/* Voiceover audio */}
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
+
+            {/* Captions — narration text, synced to this scene's voiceover window */}
+            {data.captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={data.captionPosition || "bottom_center"}
+                aspectRatio={data.aspectRatio || "landscape"}
+                fontFamily={data.captionFontFamily ? (resolveFontFamily(data.captionFontFamily) || data.captionFontFamily) : (resolvedFontFamily || undefined)}
+                fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
             )}
 
             {/* Transition overlay */}

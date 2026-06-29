@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import React from "react";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { TransitionSeries } from "@remotion/transitions";
@@ -6,6 +7,7 @@ import { pickSpotlightTransition } from "./transitions";
 import type { SpotlightLayoutType, SpotlightLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 export interface SpotlightSceneInput {
@@ -13,9 +15,13 @@ export interface SpotlightSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: SpotlightLayoutType;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -34,6 +40,10 @@ export interface SpotlightVideoCompositionProps {
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const SpotlightVideoComposition: React.FC<
@@ -52,6 +62,10 @@ export const SpotlightVideoComposition: React.FC<
   aspectRatio,
   fontFamily,
   playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -144,6 +158,20 @@ export const SpotlightVideoComposition: React.FC<
             durationInFrames={sceneFrames[index]}
           >
             <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            {captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         ) : null,
       )}
