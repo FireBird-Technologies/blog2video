@@ -162,7 +162,7 @@ export default function Pricing() {
     }
   };
 
-  // One-time lifetime purchase (Standard $1000 / Pro $1600). mode=payment Stripe
+  // One-time lifetime purchase (Standard $999.99 / Pro $1599.99). mode=payment Stripe
   // Checkout — bypasses the upgrade/downgrade switch flow entirely.
   const [lifetimeLoading, setLifetimeLoading] = useState<PlanKey | null>(null);
   const handleLifetimeBuy = async (plan: PlanKey) => {
@@ -435,7 +435,7 @@ export default function Pricing() {
             <div className="mb-6">
               {isLifetime ? (
                 <>
-                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">$1000</span>
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">$999.99</span>
                   <span className="text-sm text-gray-400 ml-1">one-time</span>
                   <p className="text-xs text-gray-400 mt-1">Pay once, yours forever</p>
                 </>
@@ -534,7 +534,7 @@ export default function Pricing() {
             <div className="mb-6">
               {isLifetime ? (
                 <>
-                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">$1600</span>
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">$1,599.99</span>
                   <span className="text-sm text-gray-400 ml-1">one-time</span>
                   <p className="text-xs text-gray-400 mt-1">Pay once, yours forever</p>
                 </>
@@ -719,7 +719,7 @@ export default function Pricing() {
             </thead>
             <tbody>
               {[
-                { feature: "Price", free: "$0", perVideo: "$2.80–$4/video", standard: isLifetime ? "$1000 one-time" : isAnnual ? `$${STANDARD_ANNUAL_MONTHLY_PRICE}/mo` : `$${STANDARD_MONTHLY_PRICE}/mo`, pro: isLifetime ? "$1600 one-time" : isAnnual ? `$${PRO_ANNUAL_MONTHLY_PRICE}/mo` : `$${PRO_MONTHLY_PRICE}/mo`, customized: "Custom" },
+                { feature: "Price", free: "$0", perVideo: "$2.80–$3.99/video", standard: isLifetime ? "$999.99 one-time" : isAnnual ? `$${STANDARD_ANNUAL_MONTHLY_PRICE}/mo` : `$${STANDARD_MONTHLY_PRICE}/mo`, pro: isLifetime ? "$1,599.99 one-time" : isAnnual ? `$${PRO_ANNUAL_MONTHLY_PRICE}/mo` : `$${PRO_MONTHLY_PRICE}/mo`, customized: "Custom" },
                 { feature: "Videos", free: "2 free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
                 { feature: "AI script generation", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, standard: true, pro: true, customized: true },

@@ -481,7 +481,7 @@ export default function Dashboard() {
             onClick={handleUpgrade}
             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
           >
-            Upgrade to Pro -- $60/mo
+            Upgrade to Pro -- $59.99/mo
           </button>
         )}
       </div>
