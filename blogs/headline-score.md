@@ -3,6 +3,8 @@ title: "5 Free Headline Score Checkers That Actually Improve Your CTR (2026)"
 slug: headline-score
 primary_keyword: headline score
 description: The best free headline score tools analyzed — CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.
+hero_image: /blog/blog-cover-headline-score.png
+hero_image_alt: "Headline score analyzer dashboard for blog and content titles."
 ---
 
 # 5 Free Headline Score Checkers That Actually Improve Your CTR (2026)
