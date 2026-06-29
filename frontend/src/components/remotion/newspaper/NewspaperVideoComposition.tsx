@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import "../../../fonts/newspaper-defaults";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { NEWSPAPER_LAYOUT_REGISTRY } from "./layouts";
@@ -39,6 +40,8 @@ export interface NewspaperVideoCompositionProps {
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const NewspaperVideoComposition: React.FC<
@@ -59,6 +62,8 @@ export const NewspaperVideoComposition: React.FC<
   playbackSpeed,
   captionsEnabled,
   captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -121,7 +126,8 @@ export const NewspaperVideoComposition: React.FC<
                    text={scene.narrationText || scene.narration}
                    position={captionPosition || "bottom_center"}
                    aspectRatio={aspectRatio || "landscape"}
-                   fontFamily={fontFamily || undefined}
+                   fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
                    speechDurationFrames={
                      scene.speechDurationSeconds
                        ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)

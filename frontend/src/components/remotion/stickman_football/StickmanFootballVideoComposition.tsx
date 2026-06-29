@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { STICKMAN_FOOTBALL_LAYOUT_REGISTRY as LAYOUT_REGISTRY, StickmanFootballLayoutType, SceneLayoutProps } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
@@ -34,6 +35,8 @@ export interface StickmanFootballVideoCompositionProps {
   fontFamily?: string;
   captionsEnabled?: boolean;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCompositionProps> = ({
@@ -49,6 +52,8 @@ export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCom
   fontFamily,
   captionsEnabled,
   captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
@@ -98,7 +103,8 @@ export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCom
                 text={scene.narrationText || scene.narration}
                 position={captionPosition || "bottom_center"}
                 aspectRatio={aspectRatio || "landscape"}
-                fontFamily={fontFamily || undefined}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, 1)

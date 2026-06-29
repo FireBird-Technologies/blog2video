@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
-from typing import Optional
+from typing import Optional, Union
 
 MIN_PLAYBACK_SPEED = 0.5
 MAX_PLAYBACK_SPEED = 2.5
@@ -44,6 +44,8 @@ class ProjectCreate(BaseModel):
     bgm_volume: Optional[float] = 0.10
     captions_enabled: Optional[bool] = False
     caption_position: Optional[str] = "bottom_center"  # bottom_center | top_center
+    caption_font_family: Optional[str] = "inter"
+    caption_font_size: Optional[str] = "36"
 
     @field_validator("bgm_volume")
     @classmethod
@@ -81,6 +83,15 @@ class ProjectUpdate(BaseModel):
     bgm_volume: Optional[float] = None
     captions_enabled: Optional[bool] = None
     caption_position: Optional[str] = None
+    caption_font_family: Optional[str] = None
+    caption_font_size: Optional[Union[str, int]] = None
+
+    @field_validator("caption_font_size", mode="before")
+    @classmethod
+    def coerce_caption_font_size(cls, v: Optional[Union[str, int]]) -> Optional[str]:
+        if v is None:
+            return None
+        return str(v)
 
     @field_validator("bgm_volume")
     @classmethod
@@ -343,6 +354,8 @@ class ProjectOut(BaseModel):
     bgm_track_url: Optional[str] = None
     captions_enabled: bool = False
     caption_position: str = "bottom_center"
+    caption_font_family: str = "inter"
+    caption_font_size: str = "36"
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
@@ -401,6 +414,8 @@ class BulkProjectItem(BaseModel):
     bgm_volume: Optional[float] = 0.10
     captions_enabled: Optional[bool] = False
     caption_position: Optional[str] = "bottom_center"
+    caption_font_family: Optional[str] = "inter"
+    caption_font_size: Optional[str] = "medium"
 
     @field_validator("caption_position")
     @classmethod

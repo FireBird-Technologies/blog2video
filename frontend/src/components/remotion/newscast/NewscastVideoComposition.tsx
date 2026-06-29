@@ -177,6 +177,8 @@ const NewscastSequenceInner: React.FC<{
   captionsEnabled?: boolean;
   captionText?: string;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
   speechDurationFrames?: number;
@@ -194,6 +196,8 @@ const NewscastSequenceInner: React.FC<{
   captionsEnabled,
   captionText,
   captionPosition,
+  captionFontFamily,
+  captionFontSize,
   aspectRatio,
   fontFamily,
   speechDurationFrames,
@@ -262,7 +266,8 @@ const NewscastSequenceInner: React.FC<{
           text={captionText}
           position={captionPosition || "bottom_center"}
           aspectRatio={aspectRatio || "landscape"}
-          fontFamily={fontFamily || undefined}
+          fontFamily={captionFontFamily || fontFamily || undefined}
+          fontSize={captionFontSize || undefined}
           speechDurationFrames={speechDurationFrames}
         />
       )}
@@ -304,6 +309,8 @@ export interface NewscastVideoCompositionProps {
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> = ({
@@ -322,6 +329,8 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
   playbackSpeed,
   captionsEnabled,
   captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -406,6 +415,8 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
               captionsEnabled={captionsEnabled}
               captionText={scene.narrationText || scene.narration}
               captionPosition={captionPosition}
+              captionFontFamily={captionFontFamily}
+              captionFontSize={captionFontSize}
               aspectRatio={aspectRatio}
               fontFamily={fontFamily}
               speechDurationFrames={

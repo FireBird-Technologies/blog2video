@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import "../../../fonts/nightfall-defaults";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
@@ -41,6 +42,8 @@ export interface NightfallVideoCompositionProps {
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const NightfallVideoComposition: React.FC<
@@ -61,6 +64,8 @@ export const NightfallVideoComposition: React.FC<
   playbackSpeed,
   captionsEnabled,
   captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -120,7 +125,8 @@ export const NightfallVideoComposition: React.FC<
                 text={scene.narrationText || scene.narration}
                 position={captionPosition || "bottom_center"}
                 aspectRatio={aspectRatio || "landscape"}
-                fontFamily={fontFamily || undefined}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)

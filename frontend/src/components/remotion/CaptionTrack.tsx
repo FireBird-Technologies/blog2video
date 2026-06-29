@@ -9,8 +9,10 @@ interface CaptionTrackProps {
   text: string;
   position?: CaptionPosition | string;
   aspectRatio?: string; // "landscape" | "portrait"
-  /** Ignored — captions always render in Inter. */
+  /** CSS font-family string. Defaults to Inter when omitted. */
   fontFamily?: string;
+  /** Explicit font size in video-composition pixels. Omit to use responsive auto-sizing. */
+  fontSize?: number | string;
   /** Max words shown per caption chunk. */
   maxWordsPerChunk?: number;
   /**
@@ -35,6 +37,8 @@ export const CaptionTrack: React.FC<CaptionTrackProps> = ({
   text,
   position = "bottom_center",
   aspectRatio = "landscape",
+  fontFamily,
+  fontSize,
   maxWordsPerChunk = 8,
   speechDurationFrames,
 }) => {
@@ -80,8 +84,11 @@ export const CaptionTrack: React.FC<CaptionTrackProps> = ({
 
   const opacity = captionChunkOpacity(frame, active.start, active.end);
 
-  // Responsive font sizing, mirroring LogoOverlay's landscape/portrait split.
-  const fontSize = isPortrait ? Math.round(width * 0.036) : Math.round(width * 0.020);
+  const parsedSize = fontSize !== undefined ? Number(fontSize) : NaN;
+  const resolvedFontSize = Number.isFinite(parsedSize) && parsedSize > 0
+    ? parsedSize
+    : Math.round(isPortrait ? width * 0.036 : width * 0.020);
+  const resolvedFontFamily = fontFamily || CAPTION_FONT_FAMILY;
 
   const verticalStyle: React.CSSProperties =
     position === "top_center" ? { top: "6%" } : { bottom: "8%" };
@@ -105,8 +112,8 @@ export const CaptionTrack: React.FC<CaptionTrackProps> = ({
           maxWidth: "80%",
           textAlign: "center",
           color: "#FFFFFF",
-          fontFamily: CAPTION_FONT_FAMILY,
-          fontSize,
+          fontFamily: resolvedFontFamily,
+          fontSize: resolvedFontSize,
           fontWeight: 600,
           lineHeight: 1.25,
           // Plain text + drop-shadow (no background bar) for legibility on any scene.

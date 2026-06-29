@@ -824,6 +824,8 @@ def create_project(
         bgm_volume=getattr(data, "bgm_volume", None) or 0.10,
         captions_enabled=bool(getattr(data, "captions_enabled", False)),
         caption_position=getattr(data, "caption_position", None) or "bottom_center",
+        caption_font_family=getattr(data, "caption_font_family", None) or "inter",
+        caption_font_size=getattr(data, "caption_font_size", None) or "36",
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -2600,6 +2602,8 @@ def create_projects_bulk(
             bgm_volume=getattr(data, "bgm_volume", None) or 0.10,
             captions_enabled=bool(getattr(data, "captions_enabled", False)),
             caption_position=getattr(data, "caption_position", None) or "bottom_center",
+            caption_font_family=getattr(data, "caption_font_family", None) or "inter",
+            caption_font_size=getattr(data, "caption_font_size", None) or "36",
             status=ProjectStatus.CREATED,
         )
         db.add(project)

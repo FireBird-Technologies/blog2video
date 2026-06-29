@@ -65,6 +65,8 @@ export interface GeneratedVideoData {
   bgmVolume?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
   scenes: GeneratedSceneData[];
   /** Brand colors derived from template theme */
   brandColors?: {

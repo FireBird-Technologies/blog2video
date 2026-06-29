@@ -285,7 +285,7 @@ export default function ProjectVoiceSettingsCard({
       >
         The narration voice for this project…
       </p>
-      <div className="glass-card p-4 flex flex-col gap-2">
+      <div className="glass-card p-4 flex flex-col gap-2" style={{ paddingBottom: 18 }}>
         {/* Current voice — preview only (spinner while a custom voice resolves) */}
         {!hasVoiceover ? (
           <div className="flex items-center gap-3 rounded-xl border-2 border-gray-200/60 bg-white/60 p-3">
@@ -316,7 +316,7 @@ export default function ProjectVoiceSettingsCard({
           />
         )}
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 pt-4">
           <p className="text-[11px] text-gray-400">
             {hasVoiceover
               ? "Changing the voice uses one video credit."

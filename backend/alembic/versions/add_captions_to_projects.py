@@ -1,7 +1,7 @@
 """Add captions_enabled and caption_position to projects.
 
 Revision ID: add_captions_to_projects
-Revises: add_custom_template_quota
+Revises: add_last_coupon_email
 Create Date: 2026-06-23
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "add_captions_to_projects"
-down_revision: Union[str, None] = "add_custom_template_quota"
+down_revision: Union[str, None] = "add_last_coupon_email"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
