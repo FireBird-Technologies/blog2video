@@ -116,7 +116,7 @@ export default function Subscription() {
     }
   };
 
-  // One-time lifetime purchase (Standard $1000 / Pro $1600). Goes straight to a
+  // One-time lifetime purchase (Standard $999.99 / Pro $1599.99). Goes straight to a
   // mode=payment Stripe Checkout — bypasses the upgrade/downgrade switch flow.
   const handleLifetimeBuy = async (plan: PlanKey) => {
     setActionLoading(`lifetime-${plan}`);
@@ -709,28 +709,28 @@ export default function Subscription() {
             <div className="mb-4">
               {billingCycle === "lifetime" ? (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$1000</span>
+                  <span className="text-2xl font-bold text-gray-900">$999.99</span>
                   <span className="text-xs text-gray-400 ml-1">one-time</span>
                   <p className="text-[10px] text-gray-400 mt-1">Pay once, yours forever</p>
                 </>
               ) : billingCycle === "annual" ? (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$28</span>
+                  <span className="text-2xl font-bold text-gray-900">$27.99</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-xs text-gray-400 line-through">$35/mo</span>
+                    <span className="text-xs text-gray-400 line-through">$34.99/mo</span>
                     <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                       Save 20%
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">$336 billed annually</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">$335.88 billed annually</p>
                 </>
               ) : (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$35</span>
+                  <span className="text-2xl font-bold text-gray-900">$34.99</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <p className="text-[10px] text-gray-400 mt-1">
-                    or <span className="font-medium text-gray-500">$28/mo</span> billed annually
+                    or <span className="font-medium text-gray-500">$27.99/mo</span> billed annually
                   </p>
                 </>
               )}
@@ -787,28 +787,28 @@ export default function Subscription() {
             <div className="mb-4">
               {billingCycle === "lifetime" ? (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$1600</span>
+                  <span className="text-2xl font-bold text-gray-900">$1,599.99</span>
                   <span className="text-xs text-gray-400 ml-1">one-time</span>
                   <p className="text-[10px] text-gray-400 mt-1">Pay once, yours forever</p>
                 </>
               ) : billingCycle === "annual" ? (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$48</span>
+                  <span className="text-2xl font-bold text-gray-900">$47.99</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-xs text-gray-400 line-through">$60/mo</span>
+                    <span className="text-xs text-gray-400 line-through">$59.99/mo</span>
                     <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                       Save 20%
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">$576 billed annually</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">$575.88 billed annually</p>
                 </>
               ) : (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$60</span>
+                  <span className="text-2xl font-bold text-gray-900">$59.99</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <p className="text-[10px] text-gray-400 mt-1">
-                    or <span className="font-medium text-gray-500">$48/mo</span> billed annually
+                    or <span className="font-medium text-gray-500">$47.99/mo</span> billed annually
                   </p>
                 </>
               )}
