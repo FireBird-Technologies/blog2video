@@ -16,7 +16,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.add_column("projects", sa.Column("caption_font_family", sa.String(length=50), nullable=False, server_default="inter"))
-    op.add_column("projects", sa.Column("caption_font_size", sa.String(length=10), nullable=False, server_default="20"))
+    op.add_column("projects", sa.Column("caption_font_size", sa.String(length=10), nullable=False, server_default="36"))
 
 
 def downgrade() -> None:
