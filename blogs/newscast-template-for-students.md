@@ -3,6 +3,8 @@ title: "5 Best Newscast Templates for Students in 2026 (Free Tools for School Pr
 slug: newscast-template-for-students
 primary_keyword: newscast template for students
 description: Looking for the best newscast template for students? Here are 5 free tools to create polished school news broadcasts — including one that generates a real broadcast video automatically.
+hero_image: /blog/blog-cover-newscast-template-for-students.png
+hero_image_alt: "Newscast video template for student broadcast and school project assignments."
 ---
 
 # 5 Best Newscast Templates for Students in 2026 (Free Tools for School Projects)
