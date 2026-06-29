@@ -10,17 +10,17 @@ import type { FaqItem } from "./seoTypes";
 import type { PricingPage, PricingPlan } from "./pricingTypes";
 
 // ── Subscription prices ───────────────────────────────────────────────────────
-export const STANDARD_MONTHLY_PRICE = 35;
-export const STANDARD_ANNUAL_MONTHLY_PRICE = 28;
-export const STANDARD_ANNUAL_TOTAL_PRICE = STANDARD_ANNUAL_MONTHLY_PRICE * 12; // 336
+export const STANDARD_MONTHLY_PRICE = 34.99;
+export const STANDARD_ANNUAL_MONTHLY_PRICE = 27.99;
+export const STANDARD_ANNUAL_TOTAL_PRICE = 335.88; // $27.99 × 12
 
-export const PRO_MONTHLY_PRICE = 60;
-export const PRO_ANNUAL_MONTHLY_PRICE = 48;
-export const PRO_ANNUAL_TOTAL_PRICE = PRO_ANNUAL_MONTHLY_PRICE * 12; // 576
+export const PRO_MONTHLY_PRICE = 59.99;
+export const PRO_ANNUAL_MONTHLY_PRICE = 47.99;
+export const PRO_ANNUAL_TOTAL_PRICE = 575.88; // $47.99 × 12
 
 // Per-video cost per unit at Pro scale (for callout copy)
-export const PRO_COST_PER_VIDEO_MONTHLY = (PRO_MONTHLY_PRICE / 100).toFixed(2);   // "0.60"
-export const PRO_COST_PER_VIDEO_ANNUAL  = (PRO_ANNUAL_MONTHLY_PRICE / 100).toFixed(2); // "0.48"
+export const PRO_COST_PER_VIDEO_MONTHLY = (PRO_MONTHLY_PRICE / 100).toFixed(2);
+export const PRO_COST_PER_VIDEO_ANNUAL  = (PRO_ANNUAL_MONTHLY_PRICE / 100).toFixed(2);
 
 // ── Custom-template counts per plan ──────────────────────────────────────────
 export const FREE_CUSTOM_TEMPLATE_COUNT = 1;
