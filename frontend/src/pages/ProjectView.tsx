@@ -3373,8 +3373,8 @@ export default function ProjectView() {
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <h2 className="text-sm font-medium text-gray-900 truncate">
+              <div className="flex items-center gap-3 min-w-0" style={{ maxWidth: "55%" }}>
+                <h2 className="text-sm font-medium text-gray-900 truncate min-w-0">
                   {project.name}
                 </h2>
                 <StatusBadge status={statusForBadge} />
