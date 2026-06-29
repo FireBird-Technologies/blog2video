@@ -132,6 +132,7 @@ def _migrate_sqlite(eng) -> None:
             "retention_offer_shown_count": "INTEGER DEFAULT 0",
             "retention_offer_suppressed": "BOOLEAN DEFAULT 0",
             "email_unsubscribed": "BOOLEAN DEFAULT 0",
+            "last_coupon_email_at": "DATETIME",
             "referrals_given": "INTEGER DEFAULT 0",
             "referral_video_bonus": "INTEGER DEFAULT 0",
         }
