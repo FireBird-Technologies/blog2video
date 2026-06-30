@@ -16,20 +16,20 @@
   },
   "composition_id": "MagazineVideo",
   "hero_layout": "magazine_cover",
-  "fallback_layout": "feature_spread",
+  "fallback_layout": "text_narration",
   "valid_layouts": [
     "magazine_cover",
-    "feature_spread",
     "editorial_quote",
     "by_the_numbers",
     "interview_qa",
-    "comparison_spread",
-    "magazine_data_visualization",
     "timeline_journey",
-    "expert_spotlight",
     "text_narration",
     "ending_socials",
-    "magazine_ticker"
+    "magazine_ticker",
+    "colorblock",
+    "feature",
+    "comparison",
+    "magazine_data_visualization"
   ],
   "layout_prop_schema": {
     "magazine_cover": {
@@ -74,85 +74,6 @@
           "label": "Sectionlabel",
           "type": "string",
           "description": "Red small-caps kicker above the cover deck, e.g. 'FEATURE'"
-        }
-      ]
-    },
-    "feature_spread": {
-      "label": "Feature Spread",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 92,
-          "landscape": 56
-        },
-        "descriptionFontSize": {
-          "portrait": 52,
-          "landscape": 28
-        },
-        "sectionLabel": "FEATURE"
-      },
-      "scene_defaults": {
-        "title": "The Shape of Things to Come",
-        "narration": "On a wet Tuesday in a converted east-London warehouse, eleven people are arguing about a margin. It is four millimetres wide, and it has held up the issue for an hour. To an outsider the fuss looks absurd; to the people in the room it is the entire job. This is one of a dozen small studios betting that how a thing is made still matters — that the gap between good and merely adequate is paid for in exactly these arguments. Get the four millimetres right, they say, and the reader never notices a thing. Get them wrong, and no amount of ornament will save the page.",
-        "durationSeconds": 7
-      },
-      "sample_props": {
-        "sectionLabel": "FEATURE",
-        "body": "On a wet Tuesday in a converted east-London warehouse, eleven people are arguing about a margin. It is four millimetres wide, and it has held up the issue for an hour. To an outsider the fuss looks absurd; to the people in the room it is the entire job. This is one of a dozen small studios betting that how a thing is made still matters — that the gap between good and merely adequate is paid for in exactly these arguments. Get the four millimetres right, they say, and the reader never notices a thing. Get them wrong, and no amount of ornament will save the page.",
-        "keyPoints": [
-          {
-            "value": "Attention is the scarce resource"
-          },
-          {
-            "value": "Detail is the whole job"
-          },
-          {
-            "value": "Craft outlasts ornament"
-          }
-        ]
-      },
-      "fields": [
-        {
-          "key": "titleFontSize",
-          "label": "Title Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 18,
-          "max": 220,
-          "step": 1
-        },
-        {
-          "key": "descriptionFontSize",
-          "label": "Body Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 10,
-          "max": 140,
-          "step": 1
-        },
-        {
-          "key": "sectionLabel",
-          "label": "Sectionlabel",
-          "type": "string",
-          "description": "Red small-caps section tag displayed above the headline, e.g. 'FEATURE'"
-        },
-        {
-          "key": "body",
-          "label": "Body Copy",
-          "type": "text",
-          "description": "The full article body that flows across both pages, led by the drop cap. Leave blank to fall back to the scene narration."
-        },
-        {
-          "key": "keyPoints",
-          "label": "Key Points",
-          "type": "object_array",
-          "description": "2–3 short takeaway points (≤8 words each) shown as a ruled list below the body",
-          "subFields": [
-            {
-              "key": "value",
-              "label": "Point"
-            }
-          ],
-          "maxItems": 3
         }
       ]
     },
@@ -376,116 +297,6 @@
         }
       ]
     },
-    "comparison_spread": {
-      "label": "Comparison Spread",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 92,
-          "landscape": 93
-        },
-        "descriptionFontSize": {
-          "portrait": 52,
-          "landscape": 30
-        },
-        "leftHeader": "BEFORE",
-        "rightHeader": "AFTER"
-      },
-      "scene_defaults": {
-        "title": "Before and After",
-        "narration": "The redesign in two views.",
-        "durationSeconds": 8
-      },
-      "sample_props": {
-        "leftHeader": "BEFORE",
-        "rightHeader": "AFTER",
-        "leftPoints": [
-          {
-            "value": "Columns ran too wide to read comfortably"
-          },
-          {
-            "value": "Heavy rules cast shadows across the page"
-          },
-          {
-            "value": "A cramped grid left the eye no room to rest"
-          },
-          {
-            "value": "Every element shouted at once"
-          }
-        ],
-        "rightPoints": [
-          {
-            "value": "Type is set with generous air"
-          },
-          {
-            "value": "Rules reduced to clean hairlines"
-          },
-          {
-            "value": "A flexible grid guides the eye without friction"
-          },
-          {
-            "value": "Nothing competes; everything cooperates"
-          }
-        ]
-      },
-      "fields": [
-        {
-          "key": "titleFontSize",
-          "label": "Title Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 18,
-          "max": 220,
-          "step": 1
-        },
-        {
-          "key": "descriptionFontSize",
-          "label": "Body Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 10,
-          "max": 140,
-          "step": 1
-        },
-        {
-          "key": "leftHeader",
-          "label": "Leftheader",
-          "type": "string",
-          "description": "Left column header label, e.g. 'BEFORE'"
-        },
-        {
-          "key": "rightHeader",
-          "label": "Rightheader",
-          "type": "string",
-          "description": "Right column header label, e.g. 'AFTER'"
-        },
-        {
-          "key": "leftPoints",
-          "label": "Left Points",
-          "type": "object_array",
-          "description": "3–5 short bullet points (≤10 words each) for the left column",
-          "subFields": [
-            {
-              "key": "value",
-              "label": "Point"
-            }
-          ],
-          "maxItems": 5
-        },
-        {
-          "key": "rightPoints",
-          "label": "Right Points",
-          "type": "object_array",
-          "description": "3–5 short bullet points (≤10 words each) for the right column",
-          "subFields": [
-            {
-              "key": "value",
-              "label": "Point"
-            }
-          ],
-          "maxItems": 5
-        }
-      ]
-    },
     "magazine_data_visualization": {
       "label": "Data Visualisation",
       "defaults": {
@@ -645,19 +456,23 @@
         "milestones": [
           {
             "value": "2014",
-            "label": "Founded as a quarterly zine"
+            "label": "Founded as a quarterly zine",
+            "desc": "Stapled, photocopied, mailed to a few hundred subscribers."
           },
           {
             "value": "2018",
-            "label": "First newsstand edition"
+            "label": "First newsstand edition",
+            "desc": "A glossy relaunch lands on shelves nationwide."
           },
           {
             "value": "2021",
-            "label": "The full redesign"
+            "label": "The full redesign",
+            "desc": "New masthead, new grid, a sharper editorial voice."
           },
           {
             "value": "2024",
-            "label": "Two million readers"
+            "label": "Two million readers",
+            "desc": "Print and digital combined cross the milestone."
           }
         ]
       },
@@ -684,7 +499,7 @@
           "key": "milestones",
           "label": "Milestones",
           "type": "object_array",
-          "description": "Array of milestone items, each with `date` (string, e.g. '2021') and `label` (string, e.g. 'Company Founded'), maximum 6 items",
+          "description": "Array of milestone items, each with `date` (string, e.g. '2021'), a `label` (string, e.g. 'Company Founded'), and an optional one-line `desc` detail (string) drawn from the source, maximum 6 items",
           "subFields": [
             {
               "key": "label",
@@ -693,70 +508,13 @@
             {
               "key": "value",
               "label": "Value"
+            },
+            {
+              "key": "desc",
+              "label": "Detail"
             }
           ],
           "maxItems": 10
-        }
-      ]
-    },
-    "expert_spotlight": {
-      "label": "Expert Spotlight",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 92,
-          "landscape": 76
-        },
-        "descriptionFontSize": {
-          "portrait": 52,
-          "landscape": 40
-        }
-      },
-      "scene_defaults": {
-        "title": "Mara Voss",
-        "narration": "A spread should feel inevitable — as if it could not have been set any other way.",
-        "durationSeconds": 7
-      },
-      "sample_props": {
-        "expertName": "Mara Voss",
-        "expertRole": "Art Director",
-        "credential": "Editor since 2014"
-      },
-      "fields": [
-        {
-          "key": "titleFontSize",
-          "label": "Title Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 18,
-          "max": 220,
-          "step": 1
-        },
-        {
-          "key": "descriptionFontSize",
-          "label": "Body Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 10,
-          "max": 140,
-          "step": 1
-        },
-        {
-          "key": "expertName",
-          "label": "Expertname",
-          "type": "string",
-          "description": "Expert's full name"
-        },
-        {
-          "key": "expertRole",
-          "label": "Expertrole",
-          "type": "string",
-          "description": "Expert's role or organisation"
-        },
-        {
-          "key": "credential",
-          "label": "Credential",
-          "type": "string",
-          "description": "Credential badge text, e.g. '20yr in Policy'"
         }
       ]
     },
@@ -1071,17 +829,264 @@
           "type": "string"
         }
       ]
+    },
+    "colorblock": {
+      "label": "Color Block",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 52,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        }
+      },
+      "scene_defaults": {
+        "title": "A spread should feel inevitable",
+        "narration": "The print issue, reimagined for screen.",
+        "durationSeconds": 4
+      },
+      "sample_props": {
+        "leftQuote": "A spread should feel inevitable — as if it could not have been set any other way.",
+        "panelLabel": "Expert Profile",
+        "panelHeading": "Mara Voss",
+        "panelSubline": "Art Director",
+        "panelTag": "Editor Since 2014"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Quote Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subline Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftQuote",
+          "label": "Quote (left ink block)",
+          "type": "string",
+          "description": "Big statement set on the dark panel; falls back to the scene title"
+        },
+        {
+          "key": "panelLabel",
+          "label": "Label (right block kicker)",
+          "type": "string",
+          "description": "Small-caps label above the heading, e.g. 'Expert Profile'"
+        },
+        {
+          "key": "panelHeading",
+          "label": "Heading (right block)",
+          "type": "string",
+          "description": "Centred serif heading on the accent panel, e.g. a name"
+        },
+        {
+          "key": "panelSubline",
+          "label": "Subline (right block)",
+          "type": "string",
+          "description": "Italic line under the heading, e.g. a role or descriptor"
+        },
+        {
+          "key": "panelTag",
+          "label": "Tag chip (right block)",
+          "type": "string",
+          "description": "Small inverted chip beneath the subline, e.g. 'Editor Since 2014'"
+        }
+      ]
+    },
+    "feature": {
+      "label": "Feature",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 56
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 28
+        }
+      },
+      "scene_defaults": {
+        "title": "The Shape of Things to Come",
+        "narration": "Inside the studios redrawing how we live and work.",
+        "durationSeconds": 8
+      },
+      "sample_props": {
+        "sectionLabel": "FEATURE",
+        "body": "On a wet Tuesday in a converted east-London warehouse, eleven people are arguing about a margin. It is the kind of room where the future of a magazine is decided one hairline rule at a time — where a redesign is less a grand gesture than a thousand small, stubborn judgements. The team has spent the morning on a single spread, moving the folio a few points, testing whether the drop cap should lead or follow. None of it looks like work from the outside. All of it is the work. By lunch the page reads as if it could not have been set any other way, which is exactly the point: the craft is invisible when it lands, and glaring when it does not.",
+        "keyPoints": [
+          { "value": "Attention is the scarce resource" },
+          { "value": "Craft outlasts ornament" },
+          { "value": "Detail is the whole job" }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Headline Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "sectionLabel",
+          "label": "Section Label",
+          "type": "string",
+          "description": "Red small-caps kicker above the headline, e.g. 'FEATURE'"
+        },
+        {
+          "key": "body",
+          "label": "Article Body",
+          "type": "text",
+          "description": "Original feature prose (60–110+ words) flowing across both pages in two columns; its first letter becomes the red drop cap. Falls back to the narration."
+        },
+        {
+          "key": "keyPoints",
+          "label": "Key Points",
+          "type": "object_array",
+          "description": "2–3 short takeaways (≤10 words each) shown along the bottom of both pages",
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Point"
+            }
+          ],
+          "maxItems": 3
+        }
+      ]
+    },
+    "comparison": {
+      "label": "Comparison",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 93
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 30
+        }
+      },
+      "scene_defaults": {
+        "title": "Before and After",
+        "narration": "The redesign, set side by side.",
+        "durationSeconds": 6
+      },
+      "sample_props": {
+        "leftHeader": "Before",
+        "rightHeader": "After",
+        "leftPoints": [
+          { "value": "Columns ran too wide to read comfortably" },
+          { "value": "Heavy rules cast shadows across the page" },
+          { "value": "A cramped grid left the eye no room to rest" },
+          { "value": "Every element shouted at once" }
+        ],
+        "rightPoints": [
+          { "value": "Type is set with generous air" },
+          { "value": "Rules reduced to clean hairlines" },
+          { "value": "A flexible grid guides the eye without friction" },
+          { "value": "Nothing competes; everything cooperates" }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Headline Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftHeader",
+          "label": "Left Column Header",
+          "type": "string",
+          "description": "Tracked small-caps label over the left column (accent), e.g. 'Before'"
+        },
+        {
+          "key": "rightHeader",
+          "label": "Right Column Header",
+          "type": "string",
+          "description": "Tracked small-caps label over the right column (ink), e.g. 'After'"
+        },
+        {
+          "key": "leftPoints",
+          "label": "Left Column Points",
+          "type": "object_array",
+          "description": "2–6 short bullets (≤10 words each) for the left side of the comparison",
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Point"
+            }
+          ],
+          "maxItems": 6
+        },
+        {
+          "key": "rightPoints",
+          "label": "Right Column Points",
+          "type": "object_array",
+          "description": "2–6 short bullets (≤10 words each) for the right side of the comparison",
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Point"
+            }
+          ],
+          "maxItems": 6
+        },
+        {
+          "key": "vsLabel",
+          "label": "Centre Badge",
+          "type": "string",
+          "description": "Text inside the circular centre badge; defaults to 'VS'"
+        }
+      ]
     }
   },
   "layouts_without_image": [
     "editorial_quote",
     "by_the_numbers",
     "interview_qa",
-    "comparison_spread",
     "magazine_data_visualization",
     "timeline_journey",
     "text_narration",
     "ending_socials",
-    "magazine_ticker"
+    "magazine_ticker",
+    "colorblock",
+    "feature",
+    "comparison"
   ]
 }

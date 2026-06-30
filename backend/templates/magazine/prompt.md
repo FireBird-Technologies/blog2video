@@ -9,12 +9,12 @@ An authentic print-editorial magazine template. Cream/white paper, high-contrast
 This is an editorial magazine, not a poster, and the body copy is ORIGINAL magazine writing — not a transcript of the voiceover. Do NOT paste the narration onto the page. Write each scene the way a feature writer would: open on something concrete — a scene, a moment, a person, a telling number — rather than an abstract thesis; carry it through a specific, reported middle; and land on a confident editorial judgement. Reach for the texture of real magazine prose: a strong lede, vivid specifics, named voices where the source gives them, a little narrative momentum. Active voice; precise, plain-but-confident English; no filler, and no aphorisms, platitudes or fortune-cookie lines.
 
 - **Give it enough text to fill the page.** A few tight paragraphs of real prose — roughly 60–110 words for a standard body field, a little more for a feature opener — so the page reads full and considered, never a lone line stranded in white space. Compose proper sentences, not bullet fragments or captions.
-- **ALWAYS emit every field a layout marks REQUIRED — no exceptions.** Each of these layouts leaves dead white space unless its secondary fields are filled, so you MUST populate them on EVERY scene of that layout, even when the source is thin. They are not optional embellishments — a `feature_spread` without `keyPoints`, an `interview_qa` with only one exchange, or a `comparison_spread` with only one side filled is incorrect output. The fields and their required minimums:
-  - `feature_spread` → `body` (4–7 sentences of on-page article copy) **+** `standfirst` (one line) **+** `keyPoints` (2–3 items). All three, every time.
+- **ALWAYS emit every field a layout marks REQUIRED — no exceptions.** Each of these layouts leaves dead white space unless its secondary fields are filled, so you MUST populate them on EVERY scene of that layout, even when the source is thin. They are not optional embellishments — an `interview_qa` with only one exchange is incorrect output. The fields and their required minimums:
   - `interview_qa` → `exchanges` with **2–3** full question/answer pairs, each answer a paragraph (3–5 sentences). Always at least two; prefer three.
-  - `comparison_spread` → balanced `leftPoints` **+** `rightPoints` (3–5 short bullets each), every time. Keep the two sides roughly equal in length.
-- **When the source is thin, DISTIL — do not pad and do not fabricate.** Always produce the required fields by distilling what the source genuinely supports: derive `keyPoints` and `comparison_spread` bullets from the points already made in the body, write the `standfirst` as a tight summary of the material, and base each `exchange` answer on real content. NEVER invent figures, names, dates or quotes to fill space.
-- **Two-page (folded) spreads must fill BOTH leaves.** `feature_spread`, `comparison_spread` and `interview_qa` open across the binding as a two-page spread — both sides are visible at once. Write substantial, *balanced* copy for each side; never leave one leaf nearly empty.
+  - `colorblock` → fill the accent panel's label stack: `panelLabel`, `panelHeading`, `panelSubline` and `panelTag` (plus a strong `leftQuote`). The right panel reads as empty if these are blank.
+  - `feature` → a full `body` (60–110+ words of original feature prose, flowing across BOTH pages) **+** `keyPoints` (2–3 short takeaways). The facing page reads as half-empty if the body is too short to fill both columns.
+- **When the source is thin, DISTIL — do not pad and do not fabricate.** Always produce the required fields by distilling what the source genuinely supports: derive `keyPoints` from the points already made in the body, write the `standfirst` as a tight summary of the material, and base each `exchange` answer on real content. NEVER invent figures, names, dates or quotes to fill space.
+- **Two-page (folded) spreads must fill BOTH leaves.** `interview_qa` opens across the binding as a two-page spread — both sides are visible at once. Write substantial, *balanced* copy for each side; never leave one leaf nearly empty.
 - **Stay grounded.** The *voice* is the Economist's; the *facts* are the source's. Build the prose only from what the narration/source actually supports. Write editorially around the real material; don't fabricate substance to hit a length.
 
 ---
@@ -36,34 +36,6 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 
 ---
 
-## feature_spread
-**Visual:** The workhorse feature page. A red kicker label, a large serif headline, an italic standfirst deck with a red side-rule, then the body set in justified multi-column type (two columns in landscape) led by an oversized red drop cap. A ruled list of key-point takeaways fills the lower band of the page so it reads full, never thin.
-
-**Props:**
-  - `sectionLabel` (string) — Red kicker above the headline and the running-head section; defaults to `"Feature"`
-  - `title` (string) — Serif headline
-  - `body` (string) — **REQUIRED.** The on-page article copy, set as justified multi-column prose; its first character becomes the drop cap. Write **4–7 full sentences (≈70–120 words)** of original editorial writing for this beat — not a caption and not a copy of the voiceover. This is the main copy that fills both columns; make it substantial, never leave it thin. Goes in `layout_props_json`.
-  - `narration` (string) — The spoken voiceover for the beat. It may be shorter or worded differently from the on-page `body`; do not simply duplicate `body` here.
-  - `standfirst` (string) — **REQUIRED — always emit.** A single-line italic deck (≤16 words) stating the article's sub-thesis — the one sentence a reader would skim. Distil it from the source; never omit it.
-  - `keyPoints` (object_array) — **REQUIRED — always emit 2–3.** An array of **2–3** short takeaway points (≤8 words each), distilled from the points already in the body, in the Economist voice. Each item is `{ "value": "<point>" }`. Never pad with filler and never leave it empty — if the source is thin, distil what is there.
-  - `titleFontSize` / `descriptionFontSize` (number) — Size overrides
-
-**When to Use:** The default and fallback layout — any explanatory prose beat (main narrative, feature body, story setup). Supply a full paragraph of `body`, a `standfirst` and 2–3 `keyPoints` so the whole page fills.
-
-**Avoid When:** Content is a single line with no supporting detail.
-
-**Worked example:**
-```json
-{ "layout": "feature_spread", "title": "The central bank's hardest year",
-  "narration": "After two years of forceful tightening, the Federal Reserve now faces a far more delicate task: easing without reigniting the inflation it fought so hard to tame.",
-  "layout_props_json": { "sectionLabel": "BRIEFING",
-    "body": "After two years of forceful tightening, the Federal Reserve faces its most delicate task yet: easing policy without reigniting the inflation it fought so hard to tame. The data now point in opposite directions. Hiring has cooled and manufacturing has stalled, yet services inflation remains stubbornly warm. Cut too soon, and a second wave of price rises could undo three years of work; wait too long, and the real economy may buckle under the most restrictive rates since 2007. Every meeting now carries the weight of a decision that will shape the next decade of growth.",
-    "standfirst": "Cut too soon and inflation returns; wait too long and growth buckles.",
-    "keyPoints": [ { "value": "Hiring has cooled sharply" }, { "value": "Core inflation near target" }, { "value": "Policy most restrictive since 2007" } ] } }
-```
-
----
-
 ## editorial_quote
 **Visual:** A centred pull quote: a large serif italic statement framed above and below by short red rules, an oversized quotation-mark watermark behind it, and a tracked uppercase attribution line.
 
@@ -75,6 +47,57 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 **When to Use:** A standout pull quote, key insight, or emotional beat between sections.
 
 **Avoid When:** The quote is very long or needs supporting detail.
+
+---
+
+## colorblock
+**Visual:** A two-panel color-block spread whose blocks animate in one after another. A solid ink (dark) left block carries a short uppercase serif statement opened by a red quotation mark; a solid red (accent) right block holds a centred label stack — small-caps label, a short rule, a serif heading, an italic subline and a small inverted tag chip.
+
+**Props:**
+  - `leftQuote` (string) — The short bold statement on the dark panel (revealed word-by-word); falls back to `title`. Keep it punchy — one or two clauses, not a paragraph.
+  - `panelLabel` (string) — Small-caps kicker on the accent panel, e.g. `"Expert Profile"`
+  - `panelHeading` (string) — Centred serif heading, e.g. a name or short title
+  - `panelSubline` (string) — Italic line under the heading, e.g. a role or descriptor
+  - `panelTag` (string) — Small inverted chip beneath the subline, e.g. `"Editor Since 2014"`
+  - `titleFontSize` (number) — Quote size override
+
+**When to Use:** A bold profile, spotlight or statement beat — pairing a striking quote with a named person/role or a labelled callout.
+
+**Avoid When:** The content needs running body copy or supporting detail — use the `feature` or `editorial_quote` layouts instead.
+
+---
+
+## feature
+**Visual:** A purely typographic feature-article spread. A red section kicker, a serif headline whose last word turns italic with a short red rule beneath, then a justified two-column body that inks in word-by-word, led by a large red drop cap. A ghosted folio number and a vertical section mark sit on the facing page, and a row of key-points runs along the bottom of both pages.
+
+**Props:**
+  - `title` (string) — The headline (last word renders italic)
+  - `body` (text) — Original feature prose, 60–110+ words, flowing across BOTH pages in two balanced columns. Open on something concrete — a scene, a moment, a person, a number — as a feature lede; its first letter becomes the red drop cap. Falls back to `narration` if omitted.
+  - `keyPoints` (object_array) — 2–3 short takeaways (≤10 words each), each with a `value`; shown along the bottom of both pages.
+  - `sectionLabel` (string) — Red small-caps kicker, e.g. `"FEATURE"`
+  - `titleFontSize` / `descriptionFontSize` (number) — Headline / body size overrides
+
+**When to Use:** A feature-article opener or any long-form editorial beat that carries a substantial paragraph of reported prose plus a few takeaways.
+
+**Avoid When:** The scene is a single statistic, a pull quote, or a thin transitional line — use `by_the_numbers`, `editorial_quote` or `text_narration`.
+
+---
+
+## comparison
+**Visual:** A two-column "Before / After" spread split by a centre hairline with a circular accent badge ("VS") on the binding. Each column is a tracked uppercase header — left in red accent, right in ink — over a short list of square-bulleted points that fade in one by one. The serif headline sits across the top.
+
+**Props:**
+  - `title` (string) — The headline, e.g. `"Before and After"`
+  - `leftHeader` (string) — Left column label, e.g. `"Before"`
+  - `rightHeader` (string) — Right column label, e.g. `"After"`
+  - `leftPoints` (object_array) — 2–6 short bullets (≤10 words each), each with a `value`, for the left side
+  - `rightPoints` (object_array) — 2–6 short bullets (≤10 words each), each with a `value`, for the right side
+  - `vsLabel` (string) — Optional centre badge text; defaults to `"VS"`
+  - `titleFontSize` / `descriptionFontSize` (number) — Headline / body size overrides
+
+**When to Use:** A before/after, two-perspective, or "VS" contrast beat where the two sides are best read as crisp parallel lists.
+
+**Avoid When:** The contrast is a paragraph-length dialogue (use `interview_qa`), a charted dataset (use `magazine_data_visualization`), or a structured grid (use `magazine_ticker`).
 
 ---
 
@@ -122,41 +145,6 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 
 ---
 
-## comparison_spread
-**Visual:** Two columns sitting on the page, split by a centre hairline with a circular red "VS" marker; each has a tracked uppercase header (left in red, right in ink), a short rule and a bulleted list of short points marked with small red squares.
-
-**Props:**
-  - `leftHeader` (string) — Left column label, defaults to `"Before"`
-  - `rightHeader` (string) — Right column label, defaults to `"After"`
-  - `leftPoints` (object_array) — **REQUIRED.** 3–5 short bullet points for the left side, each `{ "value": "<point>" }` (≤10 words each). Falls back to splitting `narration` only if absent.
-  - `rightPoints` (object_array) — **REQUIRED.** 3–5 short bullet points for the right side to match `leftPoints`; leave empty and the right leaf renders blank.
-  - `title` (string) — Optional serif heading above the columns
-
-**When to Use:** Claim vs reality, pro vs con, before vs after, A vs B — any balanced two-sided comparison. Always fill BOTH columns with a balanced number of bullets.
-
-**Avoid When:** The two sides have very unequal amounts of content.
-
-**Worked example:**
-```json
-{ "layout": "comparison_spread", "title": "Before and After",
-  "narration": "The redesign in two views.",
-  "layout_props_json": { "leftHeader": "BEFORE", "rightHeader": "AFTER",
-    "leftPoints": [
-      { "value": "Columns ran too wide to read" },
-      { "value": "Headlines crowded the gutter" },
-      { "value": "The grid bent to whatever filled it" },
-      { "value": "Pages looked busy yet said little" }
-    ],
-    "rightPoints": [
-      { "value": "A stricter grid holds a readable measure" },
-      { "value": "Headlines anchor the corner" },
-      { "value": "White space is a material, not a leftover" },
-      { "value": "The page reads slower, in the best sense" }
-    ] } }
-```
-
----
-
 ## magazine_data_visualization
 **Visual:** A red kicker and serif title, a red rule, then a single chart drawn as a print figure on the paper — hairline grid, accent series (animated line+area, grouped bars, or histogram bins) — beside a serif insight paragraph.
 
@@ -180,33 +168,11 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 **Props:**
   - `title` (string) — Heading
   - `narration` (string) — Optional standfirst beneath the title
-  - `milestones` (object_array) — Up to 6 items, each with a date (`value`) and a `label`
+  - `milestones` (object_array) — Up to 6 items, each with a date (`value`), a `label`, and an optional one-line `desc` detail (a short clause expanding the label, drawn from the source — do not invent)
 
 **When to Use:** Chronology, history, roadmap, process steps.
 
 **Avoid When:** Non-chronological content or more than 6 milestones.
-
----
-
-## expert_spotlight
-**Visual:** A two-page profile spread. The left page is a dark ink panel carrying a big, bold, uppercase **pull-quote** opened by a red quotation mark; the right page is a solid red panel with the speaker's name (serif), an italic role and a red-on-white credential badge, centred. Image-free.
-
-**Props:**
-  - `narration` (string) — **REQUIRED. The quote.** A real, attributable quotable statement from the named person — verbatim or a close paraphrase taken from the source, surfaced as the large pull-quote. Keep it punchy (one or two sentences). NEVER invent a quote.
-  - `expertName` (string) — **REQUIRED.** The person who said it.
-  - `expertRole` (string) — Their role / organisation (italic)
-  - `credential` (string) — Short red badge text, e.g. `"20yr in Policy"`
-
-**When to Use:** ONLY when the source genuinely contains a quote or a strong first-person statement attributable to a named person. Surface that statement as the pull-quote with the speaker's name, role and credential.
-
-**Avoid When:** The source has no real quote from a named person — do NOT invent one. For an unattributed standout line use `editorial_quote`; for plain prose use `text_narration` or `feature_spread`.
-
-**Worked example:**
-```json
-{ "layout": "expert_spotlight", "title": "Mara Voss",
-  "narration": "A spread should feel inevitable, as if it could not have been set any other way.",
-  "layout_props_json": { "expertName": "Mara Voss", "expertRole": "Art Director", "credential": "Editor since 2014" } }
-```
 
 ---
 

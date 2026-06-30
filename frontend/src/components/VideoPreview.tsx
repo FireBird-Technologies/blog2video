@@ -1188,8 +1188,8 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       );
       let total = seqFrames.reduce((a, b) => a + b, 0);
       for (let i = 0; i < n - 1; i++) {
-        const from = (scenes[i].layout || "feature_spread") as MagazineLayoutType;
-        const to = (scenes[i + 1].layout || "feature_spread") as MagazineLayoutType;
+        const from = (scenes[i].layout || "text_narration") as MagazineLayoutType;
+        const to = (scenes[i + 1].layout || "text_narration") as MagazineLayoutType;
         const rawFrames = pickMagazineTransition(i, from, to, w, accentColor).frames;
         total -= Math.max(1, Math.min(rawFrames, Math.floor(seqFrames[i] / 2), Math.floor(seqFrames[i + 1] / 2)));
       }

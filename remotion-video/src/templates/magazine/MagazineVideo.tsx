@@ -5,12 +5,13 @@ import {
   Easing,
   Sequence,
   staticFile,
+  useVideoConfig,
   CalculateMetadataFunction,
 } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { MAGAZINE_LAYOUT_REGISTRY as LAYOUT_REGISTRY, MagazineLayoutType, SceneLayoutProps } from "./layouts";
-import { signatureMoveFor } from "./magazineStyle";
-import type { MagazineCameraMove } from "./types";
+import { signatureMoveFor, MagDimsContext } from "./magazineStyle";
+import type { MagazineCameraMove, MagazineTransitionName } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
@@ -51,17 +52,10 @@ interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
-// Extra hold added to each scene so it stays up through the (now slower)
-// transition overlap. Must be >= the largest transition duration in
-// transitions/index.ts (currently 122, the zoom-blur dive) or the safeFrames
-// clamp shrinks the transition against an under-length sequence — which causes
-// the clamp-driven jerk on the boundary — and narration gets clipped.
-const EXTRA_HOLD_FRAMES = 122;
-
 const resolveLayoutKey = (raw: string): MagazineLayoutType =>
   (raw as MagazineLayoutType) in LAYOUT_REGISTRY
     ? (raw as MagazineLayoutType)
-    : "feature_spread";
+    : "text_narration";
 
 export const calculateMagazineMetadata: CalculateMetadataFunction<VideoProps> =
   async ({ props }) => {
@@ -76,16 +70,23 @@ export const calculateMagazineMetadata: CalculateMetadataFunction<VideoProps> =
       const sceneFrames = data.scenes.map((s) =>
         getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
-      const sequenceFrames = sceneFrames.map((f, i, arr) =>
-        i === arr.length - 1 ? f : f + EXTRA_HOLD_FRAMES,
-      );
+      // Per-boundary transition length (0 for the last scene). Each scene holds
+      // for exactly its own outgoing transition — must mirror the render's
+      // sequenceFrames so the total duration lines up (no black tail / truncated
+      // last scene). frames is independent of width/accent, so undefined is fine.
+      const transitionFrames = data.scenes.map((scene, i, arr) => {
+        if (i === arr.length - 1) return 0;
+        const fromLayout = resolveLayoutKey(scene.layout);
+        const toLayout = resolveLayoutKey(arr[i + 1].layout);
+        const fromExit = scene.layoutProps?.exitTransition as MagazineTransitionName | undefined;
+        const toEnter = arr[i + 1].layoutProps?.enterTransition as MagazineTransitionName | undefined;
+        return pickMagazineTransition(i, fromLayout, toLayout, undefined, undefined, toEnter, fromExit).frames;
+      });
+      const sequenceFrames = sceneFrames.map((f, i) => f + transitionFrames[i]);
 
       let totalFrames = sequenceFrames.reduce((sum, f) => sum + f, 0);
       for (let i = 0; i < data.scenes.length - 1; i++) {
-        const fromLayout = resolveLayoutKey(data.scenes[i].layout);
-        const toLayout = resolveLayoutKey(data.scenes[i + 1].layout);
-        const rawFrames = pickMagazineTransition(i, fromLayout, toLayout).frames;
-        const safeFrames = Math.max(1, Math.min(rawFrames, Math.floor(sequenceFrames[i] / 2), Math.floor(sequenceFrames[i + 1] / 2)));
+        const safeFrames = Math.max(1, Math.min(transitionFrames[i], Math.floor(sequenceFrames[i] / 2), Math.floor(sequenceFrames[i + 1] / 2)));
         totalFrames -= safeFrames;
       }
 
@@ -103,6 +104,9 @@ export const calculateMagazineMetadata: CalculateMetadataFunction<VideoProps> =
 
 export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
+  // Real output size — may be forced smaller than the 1080p design canvas at
+  // render time (e.g. 1280×720 via --width/--height).
+  const { width: outW, height: outH } = useVideoConfig();
 
   useEffect(() => {
     fetch(staticFile(dataUrl.replace(/^\//, "")))
@@ -128,17 +132,33 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
   const isPortrait = data.aspectRatio === "portrait";
   const canvasW = isPortrait ? 1080 : 1920;
+  const canvasH = isPortrait ? 1920 : 1080;
 
   const sceneFrames = data.scenes.map((s) =>
     getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
   );
-  const sequenceFrames = sceneFrames.map((f, i, arr) =>
-    i === arr.length - 1 ? f : f + EXTRA_HOLD_FRAMES,
+  const layoutKeys = data.scenes.map((s) => resolveLayoutKey(s.layout));
+
+  // One transition per boundary (null for the last scene). Reused for the hold,
+  // safeFrames and the rendered presentation so pickMagazineTransition runs once.
+  const transitionChoices = data.scenes.map((scene, i, arr) => {
+    if (i === arr.length - 1) return null;
+    const fromExit = scene.layoutProps?.exitTransition as MagazineTransitionName | undefined;
+    const toEnter = arr[i + 1].layoutProps?.enterTransition as MagazineTransitionName | undefined;
+    return pickMagazineTransition(i, layoutKeys[i], layoutKeys[i + 1], canvasW, data.accentColor || "#E63946", toEnter, fromExit);
+  });
+
+  // Hold each scene for exactly its own outgoing transition so the page-turn
+  // overlaps the hold (not the narration) and the next scene's voiceover begins
+  // the instant this one ends — no dead air. (A fixed max-length hold padded
+  // every scene by the longest transition, leaving silence on shorter boundaries.)
+  const sequenceFrames = sceneFrames.map(
+    (f, i) => f + (transitionChoices[i]?.frames ?? 0),
   );
 
   const resolvedScenes = data.scenes.map((scene, idx) => ({
     scene,
-    layoutKey: resolveLayoutKey(scene.layout),
+    layoutKey: layoutKeys[idx],
     durationFrames: sceneFrames[idx],
     sequenceFrames: sequenceFrames[idx],
   }));
@@ -149,8 +169,7 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     sceneStartFrames[i] = runningFrame;
     runningFrame += s.sequenceFrames;
     if (i < resolvedScenes.length - 1) {
-      const nextLayout = resolvedScenes[i + 1].layoutKey;
-      const rawFrames = pickMagazineTransition(i, s.layoutKey, nextLayout).frames;
+      const rawFrames = transitionChoices[i]!.frames;
       const safeFrames = Math.max(1, Math.min(rawFrames, Math.floor(s.sequenceFrames / 2), Math.floor(resolvedScenes[i + 1].sequenceFrames / 2)));
       runningFrame -= safeFrames;
     }
@@ -163,8 +182,24 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-      <TransitionSeries>
-        {resolvedScenes.map((s, index) => {
+      {/* Design canvas: author every spread at a fixed 1080p size, then uniformly
+          scale it to fill the real output so 720p/480p renders are identical to
+          1080p (no clipped bands, deterministic auto-fit). Provider hands the
+          design size to layout/transition math via useMagDims. */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: canvasW,
+          height: canvasH,
+          transform: `scale(${outW / canvasW}, ${outH / canvasH})`,
+          transformOrigin: "top left",
+        }}
+      >
+        <MagDimsContext.Provider value={{ width: canvasW, height: canvasH }}>
+          <TransitionSeries>
+            {resolvedScenes.map((s, index) => {
           const { scene, layoutKey, sequenceFrames: seqFrames } = s;
           const LayoutComponent = LAYOUT_REGISTRY[layoutKey];
           const imageUrl =
@@ -210,14 +245,7 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             return sequence;
           }
 
-          const nextLayout = resolvedScenes[index + 1].layoutKey;
-          const choice = pickMagazineTransition(
-            index,
-            layoutKey,
-            nextLayout,
-            canvasW,
-            data.accentColor || "#E63946",
-          );
+          const choice = transitionChoices[index]!;
           // Clamp so the transition never exceeds either adjacent sequence length.
           // Remotion throws a hard error if it does.
           const safeFrames = Math.max(1, Math.min(
@@ -239,7 +267,9 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             </React.Fragment>
           );
         })}
-      </TransitionSeries>
+          </TransitionSeries>
+        </MagDimsContext.Provider>
+      </div>
 
       {resolvedScenes.map((s, index) => {
         if (!s.scene.voiceoverFile) return null;

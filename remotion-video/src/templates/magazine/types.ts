@@ -1,7 +1,7 @@
 import type { SocialsMap, SocialsRow } from "../SocialIcons";
 
 export type MagazineLayoutType =
-  | "magazine_cover" | "feature_spread" | "editorial_quote" | "by_the_numbers" | "interview_qa" | "comparison_spread" | "magazine_data_visualization" | "timeline_journey" | "expert_spotlight" | "text_narration" | "ending_socials" | "magazine_ticker";
+  | "magazine_cover" | "editorial_quote" | "by_the_numbers" | "interview_qa" | "magazine_data_visualization" | "timeline_journey" | "text_narration" | "ending_socials" | "magazine_ticker" | "colorblock" | "feature" | "comparison";
 
 // Cinematic camera move applied to a scene's 3D spread. Each maps to a frame-
 // driven path in useMagazineCamera (magazineStyle.tsx). A scene can override its
@@ -12,13 +12,46 @@ export type MagazineCameraMove =
   | "dolly_out"    // pull back to reveal the whole spread + desk (endings)
   | "dolly_zoom"   // Hitchcock vertigo — widen FOV while holding the sheet's size
   | "orbit_sweep"  // arc the camera across the spread (features)
-  | "tracking_pan" // lateral dolly glide along the table edge (comparisons)
+  | "tracking_pan" // lateral dolly glide along the table edge
   | "whip_settle"  // fast whip-pan that snaps into the rest pose
   | "gods_eye"     // near-overhead flat-lay drifting to a readable tilt
   | "dutch_roll"   // enters rolled (Dutch angle) and levels out
   | "low_hero"     // imposing fill-frame push (cover, expert authority)
   | "book_open"    // spread swings open around the centre binding (features, interviews)
+  | "pinned"       // fully static, head-on, no motion (reading spreads — e.g. Q&A)
   | "breathe";     // gentle settle + drift, the calm baseline
+
+// Stable string names for the scene-entering transitions, used to pin a specific
+// transition to a specific scene (see `enterTransition`/`exitTransition` below and
+// the TRANSITION_REGISTRY in transitions/index.ts). Deterministic per scene — not
+// the order-based POOL cycling.
+export type MagazineTransitionName =
+  | "center_doors"  // outgoing splits at the spine; halves slide apart, new revealed behind
+  | "break_behind"  // outgoing breaks into 4 panels that fly off, new revealed behind
+  | "break_split"   // break_behind, 2-piece top/bottom variant
+  | "window_open"   // new revealed through a growing rectangular window (rect die-cut)
+  | "page_turn"     // single sheet hinged at the spine swings forward
+  | "page_turn_back" // single sheet hinged the opposite way (distinct from the cover turn)
+  | "page_turn_up"  // single sheet hinged at the bottom edge, turns up to reveal
+  | "page_slide"    // clean horizontal push — new slides in, old slides off
+  | "slide_down"    // new slides straight down from the top
+  | "die_cut"       // circular die-cut hole opens to reveal the new page
+  | "gatefold"      // spread splits at the spine; both halves swing open (3D)
+  | "bento"         // zoom out to a 3×3 contact sheet, then dive into the next cell
+  | "zoom_blur"     // zoom-in-blur out → zoom-out-blur in (data scenes)
+  | "riffle"        // magazine pages riffle past, revealing the next scene
+  | "settle"        // new page eases in + settles flat
+  | "lift"          // old page lifts off to reveal the next underneath
+  | "diagonal"      // a hard diagonal edge sweeps the next page in
+  | "press"         // printing-press roller sweeps down, printing the next page top→down
+  | "stack"         // a magazine stack drops in and the top page opens to the next scene
+  | "sweep_up"      // page sweeps up from the bottom (gap-free)
+  | "sweep_left"    // page sweeps in from the left (gap-free)
+  | "sweep_tl"      // page sweeps in diagonally from the top-left (gap-free)
+  | "sweep_br"      // page sweeps in diagonally from the bottom-right (gap-free)
+  | "ticker_tape"   // a ticker-tape print carriage crawls L→R, printing the ledger in
+  | "quote_swing"   // spread's two leaves swing in flat, staggered (call-and-response)
+  | "fade";         // simple crossfade
 
 export interface SceneLayoutProps {
   title: string;
@@ -56,34 +89,46 @@ export interface SceneLayoutProps {
   // Cinematic camera move for this scene's 3D spread. The composition fills this
   // with a per-layout signature default; an explicit value here overrides it.
   cameraMove?: MagazineCameraMove;
+  // Pin a specific transition to THIS scene, always applied regardless of the
+  // scene's position in the deck (overrides the per-layout maps + the order-based
+  // POOL). `enterTransition` plays when this scene STARTS; `exitTransition` plays
+  // when this scene ENDS. An enter override on the next scene wins over an exit
+  // override on this one at a shared boundary. See transitions/index.ts.
+  enterTransition?: MagazineTransitionName;
+  exitTransition?: MagazineTransitionName;
   // Publication/brand wordmark for the cover masthead (from project name)
   brandName?: string;
   attribution?: string;
   caption?: string;
   stats?: Array<{ label?: string; value?: string }>;
-  // feature_spread — optional italic standfirst deck + ruled key-point takeaways
-  // that fill the lower band of the page. Absent => the legacy first-sentence
-  // deck heuristic and a body-only page are used.
-  standfirst?: string;
-  keyPoints?: string[];
-  // feature_spread — directly-editable article body copy that flows across both
-  // pages. Absent => the body falls back to the scene narration.
-  body?: string;
   leftSpeaker?: string;
   rightSpeaker?: string;
   leftQuote?: string;
   rightQuote?: string;
+  // colorblock — generic two-panel color-block scene. leftQuote drives the ink
+  // panel statement; the panel* fields fill the accent panel's label stack.
+  panelLabel?: string;
+  panelHeading?: string;
+  panelSubline?: string;
+  panelTag?: string;
+  // feature — original feature-article prose (distilled from the source script by
+  // the generation pipeline); falls back to narration. The first letter renders as
+  // the red drop cap. keyPoints are 2–4 short takeaways shown along the bottom.
+  body?: string;
+  keyPoints?: Array<{ value?: string }>;
   // interview_qa — up to 3 question/answer exchanges. Supersedes the legacy
   // title + leftQuote/rightQuote pair when present.
   exchanges?: Array<{ q?: string; a?: string }>;
+  // comparison — two-column before/after spread with a centre "VS" badge.
+  // leftPoints/rightPoints are short bullets; leftContent/rightContent are the
+  // legacy paragraph fallbacks split into sentence bullets when no points exist.
   leftHeader?: string;
   rightHeader?: string;
-  // comparison_spread — a bullet list per column. leftContent/rightContent are
-  // legacy paragraph props kept only as a fallback for older saved scenes.
   leftPoints?: Array<{ value?: string }>;
   rightPoints?: Array<{ value?: string }>;
   leftContent?: string;
   rightContent?: string;
+  vsLabel?: string;
   // Data-visualization props (magazine_data_visualization) — shared chart contract
   chartTable?: { headers: string[]; rows: string[][] };
   chartType?: string;
@@ -92,10 +137,7 @@ export interface SceneLayoutProps {
   chartYAxisTicks?: string[];
   barPrimaryColor?: string;
   barSecondaryColor?: string;
-  milestones?: Array<{ label?: string; value?: string }>;
-  expertName?: string;
-  expertRole?: string;
-  credential?: string;
+  milestones?: Array<{ label?: string; value?: string; desc?: string }>;
   ctaText?: string;
   websiteUrl?: string;
   ctas?: unknown;
