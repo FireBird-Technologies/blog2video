@@ -1,15 +1,28 @@
 import { useState, useEffect, useCallback, useRef, type FC } from "react";
+import InputShowcase from "./InputShowcase";
+
+export type CoverflowOrientation = "landscape" | "portrait";
 
 export interface CoverflowTemplate {
   id: string;
   name: string;
   subtitle: string;
   Preview: FC<{ thumbnailMode?: boolean }>;
+  /** 9:16 preview, rendered when the carousel is in portrait orientation. */
+  PreviewPortrait?: FC<{ thumbnailMode?: boolean }>;
+  /**
+   * Optional click action for the center card. When provided, clicking the
+   * centered card fires this instead of opening the fullscreen preview — used
+   * for special CTA cards (e.g. "Your Own Brand").
+   */
+  onSelect?: () => void;
 }
 
 interface CoverflowCarouselProps {
   templates: CoverflowTemplate[];
   initialIndex?: number;
+  /** Card shape: 16:9 (default) or 9:16. */
+  orientation?: CoverflowOrientation;
 }
 
 const VISIBLE_RANGE = 3;
@@ -48,17 +61,33 @@ const PORTRAIT_OFFSETS: Record<number, { tx: number; ry: number; scaleMul: numbe
   3: { tx: 540, ry: -50, scaleMul: 0.40 },
 };
 
+// ── Portrait *card-shape* (9:16) geometry ──
+// Separate from the narrow-screen `portrait` shrink above. The card is tall and
+// narrow (≈220px wide, half ≈110), so side cards are pulled in much closer than
+// in the 16:9 layout while keeping the coverflow tilt.
+const PORTRAIT_CARD_OFFSETS: Record<number, { tx: number; ry: number; scale: number; opacity: number; z: number }> = {
+  0: { tx: 0,   ry: 0,   scale: 1.00, opacity: 1.00, z: 10 },
+  1: { tx: 150, ry: -38, scale: 0.74, opacity: 0.85, z: 9  },
+  2: { tx: 250, ry: -42, scale: 0.55, opacity: 0.58, z: 8  },
+  3: { tx: 330, ry: -44, scale: 0.40, opacity: 0.34, z: 7  },
+};
 
-function getStyle(offset: number, primed: boolean, portrait: boolean): React.CSSProperties {
+
+function getStyle(offset: number, primed: boolean, portrait: boolean, orientation: CoverflowOrientation): React.CSSProperties {
   const abs = Math.abs(offset);
   if (abs > VISIBLE_RANGE) {
     return { opacity: 0, pointerEvents: "none", zIndex: 0 };
   }
-  const cfg = OFFSETS[abs];
+  const isPortraitCard = orientation === "portrait";
+  // Portrait-card layout uses its own offsets table; the narrow-screen `portrait`
+  // shrink still applies a multiplier on top so it fits small viewports.
+  const cfg = isPortraitCard ? PORTRAIT_CARD_OFFSETS[abs] : OFFSETS[abs];
   const por = PORTRAIT_OFFSETS[abs];
-  const baseTx = portrait ? por.tx : cfg.tx;
-  const baseRy = portrait ? por.ry : cfg.ry;
-  const scale = portrait ? cfg.scale * por.scaleMul : cfg.scale;
+  const baseTx = (!isPortraitCard && portrait) ? por.tx : cfg.tx;
+  const baseRy = (!isPortraitCard && portrait) ? por.ry : cfg.ry;
+  const scale = isPortraitCard
+    ? cfg.scale * (portrait ? 0.82 : 1)
+    : (portrait ? cfg.scale * por.scaleMul : cfg.scale);
   const tx = offset < 0 ? -baseTx : baseTx;
   const ry = offset < 0 ? -baseRy : baseRy;
   // Before "primed", every card sits at neutral scale(1)/rotateY(0) with opacity
@@ -87,12 +116,16 @@ function getStyle(offset: number, primed: boolean, portrait: boolean): React.CSS
   };
 }
 
-/** Width the coverflow is designed at (center card 600px + breathing room). */
-const DESIGN_WIDTH = 660;
-/** Stage height at full scale (card 338 + reflection + arrows headroom). */
-const DESIGN_HEIGHT = 390;
+/** Landscape: center card 600×338 (16:9). Portrait: 220×391 (9:16). */
+const CARD = {
+  landscape: { w: 600, h: 338, designWidth: 660, designHeight: 390 },
+  portrait: { w: 220, h: 391, designWidth: 560, designHeight: 430 },
+} as const;
 
-export default function CoverflowCarousel({ templates, initialIndex = 0 }: CoverflowCarouselProps) {
+export default function CoverflowCarousel({ templates, initialIndex = 0, orientation = "landscape" }: CoverflowCarouselProps) {
+  const card = CARD[orientation];
+  const DESIGN_WIDTH = card.designWidth;
+  const DESIGN_HEIGHT = card.designHeight;
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [fullscreen, setFullscreen] = useState(false);
   // The fullscreen preview is a fresh mount; its ScaledCanvas/Remotion sizing
@@ -136,7 +169,7 @@ export default function CoverflowCarousel({ templates, initialIndex = 0 }: Cover
     const obs = new ResizeObserver(update);
     obs.observe(el);
     return () => obs.disconnect();
-  }, []);
+  }, [DESIGN_WIDTH]);
   /**
    * Starts false so every card first renders at neutral scale(1)/rotateY(0)
    * with opacity 0 — letting each preview measure the true 600px box at mount
@@ -145,6 +178,10 @@ export default function CoverflowCarousel({ templates, initialIndex = 0 }: Cover
    * which fade/animate in via the cards' CSS transition.
    */
   const [primed, setPrimed] = useState(false);
+  // Prime pass: every card first renders at a neutral, untransformed pose for two
+  // frames so each preview's ScaledCanvas measures its true width, then we apply
+  // the coverflow transforms. The carousel is remounted (via a `key` on the
+  // orientation) when the user switches orientation, so this runs fresh each time.
   useEffect(() => {
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
@@ -185,7 +222,7 @@ export default function CoverflowCarousel({ templates, initialIndex = 0 }: Cover
   }, [fullscreen, prev, next]);
 
   const active = templates[activeIndex];
-  const ActivePreview = active.Preview;
+  const ActivePreview = orientation === "portrait" ? (active.PreviewPortrait ?? active.Preview) : active.Preview;
 
   return (
     <div className="select-none">
@@ -240,22 +277,36 @@ export default function CoverflowCarousel({ templates, initialIndex = 0 }: Cover
             offset > len / 2 ? offset - len : offset < -len / 2 ? offset + len : offset;
 
           const isCenter = wrapped === 0;
-          const style = getStyle(wrapped, primed, portrait);
+          // Lazy render: only mount the preview for cards within the visible
+          // fan (|offset| <= VISIBLE_RANGE). Off-screen cards render an empty
+          // placeholder so their Remotion Players / animations aren't created
+          // until scrolled into view. Safe because each preview measures with
+          // offsetWidth, so mounting while transformed still locks the right scale.
+          const isVisible = Math.abs(wrapped) <= VISIBLE_RANGE;
+          const style = getStyle(wrapped, primed, portrait, orientation);
+          // A card with its own `onSelect` fires that action on click instead of
+          // opening the fullscreen preview (used for CTA cards).
+          const handleClick = isCenter
+            ? tpl.onSelect ?? (() => setFullscreen(true))
+            : undefined;
+          // In portrait orientation render the 9:16 variant (fall back to the
+          // landscape preview only if a card lacks a portrait one).
+          const CardPreview = orientation === "portrait" ? (tpl.PreviewPortrait ?? tpl.Preview) : tpl.Preview;
 
           return (
             <div
-              key={tpl.id}
-              onClick={isCenter ? () => setFullscreen(true) : undefined}
+              key={`${orientation}-${tpl.id}`}
+              onClick={handleClick}
               style={{
                 position: "absolute",
                 top: "50%",
                 left: "50%",
-                width: 600,
-                marginLeft: -300,
-                marginTop: -169,
+                width: card.w,
+                marginLeft: -card.w / 2,
+                marginTop: -card.h / 2,
                 transition: "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.45s ease",
                 transformStyle: "preserve-3d",
-                cursor: isCenter ? "zoom-in" : "default",
+                cursor: isCenter ? (tpl.onSelect ? "pointer" : "zoom-in") : "default",
                 ...style,
               }}
             >
@@ -270,15 +321,22 @@ export default function CoverflowCarousel({ templates, initialIndex = 0 }: Cover
               <div
                 className="rounded-xl border border-gray-200/60 bg-white"
                 style={{
-                  width: 600,
-                  height: 338,
+                  width: card.w,
+                  height: card.h,
                   overflow: "hidden",
                   position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   boxShadow: "0 12px 34px rgba(0,0,0,0.35), 0 4px 10px rgba(0,0,0,0.22)",
                 }}
               >
-                <div className="cf-preview" style={{ width: 600, overflow: "hidden", borderRadius: 12 }}>
-                  <tpl.Preview thumbnailMode={!isCenter} />
+                {/* The preview sizes to its own aspect from its width. Center it
+                    so any aspect mismatch reads as balanced letterboxing rather
+                    than a top-anchored gap. Off-screen cards skip the preview
+                    entirely (lazy render). */}
+                <div className="cf-preview" style={{ width: card.w, overflow: "hidden", borderRadius: 12 }}>
+                  {isVisible && <CardPreview thumbnailMode={!isCenter} />}
                 </div>
               </div>
             </div>
@@ -335,6 +393,9 @@ export default function CoverflowCarousel({ templates, initialIndex = 0 }: Cover
         </button>
       </div>
 
+      {/* ── Content source showcase ── */}
+      <InputShowcase />
+
       {/* ── Fullscreen modal ── */}
       {fullscreen && (
         <div
@@ -353,9 +414,13 @@ export default function CoverflowCarousel({ templates, initialIndex = 0 }: Cover
           </button>
 
           <div
-            className="w-full max-w-5xl mx-6 rounded-2xl overflow-hidden shadow-2xl"
+            className={`mx-6 rounded-2xl overflow-hidden shadow-2xl ${orientation === "portrait" ? "" : "w-full max-w-5xl"}`}
             onClick={(e) => e.stopPropagation()}
-            style={{ aspectRatio: "16/9" }}
+            style={
+              orientation === "portrait"
+                ? { aspectRatio: "9/16", height: "min(86vh, 760px)" }
+                : { aspectRatio: "16/9" }
+            }
           >
             <div
               className="cf-preview"

@@ -15,6 +15,23 @@ import EconomistPreview from "./templatePreviews/EconomistPreview";
 
 import Stickman2Preview from "./templatePreviews/Stickman2Preview";
 import StickmanFootballPreview from "./templatePreviews/StickmanFootballPreview";
+
+import DefaultPreviewPortrait from "./templatePreviews/portrait/DefaultPreviewPortrait";
+import NightfallPreviewPortrait from "./templatePreviews/portrait/NightfallPreviewPortrait";
+import GridcraftPreviewPortrait from "./templatePreviews/portrait/GridcraftPreviewPortrait";
+import SpotlightPreviewPortrait from "./templatePreviews/portrait/SpotlightPreviewPortrait";
+import MatrixPreviewPortrait from "./templatePreviews/portrait/MatrixPreviewPortrait";
+import WhiteboardPreviewPortrait from "./templatePreviews/portrait/WhiteboardPreviewPortrait";
+import NewsPaperPreviewPortrait from "./templatePreviews/portrait/NewsPaperPreviewPortrait";
+import NewscastPreviewPortrait from "./templatePreviews/portrait/NewscastPreviewPortrait";
+import BlackswanPreviewPortrait from "./templatePreviews/portrait/BlackswanPreviewPortrait";
+import MosaicPreviewPortrait from "./templatePreviews/portrait/MosaicPreviewPortrait";
+import BloombergPreviewPortrait from "./templatePreviews/portrait/BloombergPreviewPortrait";
+import ChroniclePreviewPortrait from "./templatePreviews/portrait/ChroniclePreviewPortrait";
+import EconomistPreviewPortrait from "./templatePreviews/portrait/EconomistPreviewPortrait";
+import Stickman2PreviewPortrait from "./templatePreviews/portrait/Stickman2PreviewPortrait";
+import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/StickmanFootballPreviewPortrait";
+
 /** Preview components keyed by built-in template id from the API. */
 export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   default: DefaultPreview,
@@ -32,6 +49,25 @@ export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> 
   economist: EconomistPreview,
   stickman_2: Stickman2Preview,
   stickman_football: StickmanFootballPreview,
+};
+
+/** Portrait (9:16) preview components, keyed by the same ids as {@link TEMPLATE_PREVIEWS}. */
+export const TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
+  default: DefaultPreviewPortrait,
+  nightfall: NightfallPreviewPortrait,
+  gridcraft: GridcraftPreviewPortrait,
+  spotlight: SpotlightPreviewPortrait,
+  matrix: MatrixPreviewPortrait,
+  whiteboard: WhiteboardPreviewPortrait,
+  newspaper: NewsPaperPreviewPortrait,
+  newscast: NewscastPreviewPortrait,
+  blackswan: BlackswanPreviewPortrait,
+  mosaic: MosaicPreviewPortrait,
+  bloomberg: BloombergPreviewPortrait,
+  chronicle: ChroniclePreviewPortrait,
+  economist: EconomistPreviewPortrait,
+  stickman_2: Stickman2PreviewPortrait,
+  stickman_football: StickmanFootballPreviewPortrait,
 };
 
 export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {

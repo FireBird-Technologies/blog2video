@@ -10,7 +10,7 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const update = () => setScale(el.getBoundingClientRect().width / INTERNAL_W);
+    const update = () => setScale(el.offsetWidth / INTERNAL_W);
     update();
     const obs = new ResizeObserver(update);
     obs.observe(el);
