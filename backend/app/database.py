@@ -104,6 +104,7 @@ def _migrate_sqlite(eng) -> None:
             "caption_position": "VARCHAR(20) DEFAULT 'bottom_center'",
             "caption_font_family": "VARCHAR(50) DEFAULT 'inter'",
             "caption_font_size": "VARCHAR(10) DEFAULT '36'",
+            "caption_offset": "INTEGER DEFAULT 0",
             "content_language": "VARCHAR(10)",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",

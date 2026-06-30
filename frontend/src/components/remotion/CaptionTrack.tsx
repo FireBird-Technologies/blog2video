@@ -22,6 +22,12 @@ interface CaptionTrackProps {
    * <= 0, falls back to the full scene window.
    */
   speechDurationFrames?: number;
+  /**
+   * Vertical fine-tune within the bottom region: -100..+100 (0 = default).
+   * Positive moves the caption UP, negative moves it DOWN. Captions are always
+   * bottom-anchored regardless of `position`.
+   */
+  offset?: number;
 }
 
 /**
@@ -41,6 +47,7 @@ export const CaptionTrack: React.FC<CaptionTrackProps> = ({
   fontSize,
   maxWordsPerChunk = 8,
   speechDurationFrames,
+  offset = 0,
 }) => {
   const frame = useCurrentFrame();
   const { width, height, durationInFrames } = useVideoConfig();
@@ -90,8 +97,14 @@ export const CaptionTrack: React.FC<CaptionTrackProps> = ({
     : Math.round(isPortrait ? width * 0.036 : width * 0.020);
   const resolvedFontFamily = fontFamily || CAPTION_FONT_FAMILY;
 
-  const verticalStyle: React.CSSProperties =
-    position === "top_center" ? { top: "6%" } : { bottom: "8%" };
+  // Captions are always bottom-anchored. `offset` (-100..+100) fine-tunes the
+  // vertical position within the bottom region: 0 = default (8% from bottom),
+  // positive moves up, negative moves down. (`position` is accepted for
+  // backward-compatible callers but no longer changes top/bottom.)
+  void position;
+  const clampedOffset = Math.max(-100, Math.min(100, offset || 0));
+  const bottomPct = 8 + (clampedOffset / 100) * 6; // 0 → 8%, +100 → 14%, -100 → 2%
+  const verticalStyle: React.CSSProperties = { bottom: `${bottomPct}%` };
 
   return (
     <div
