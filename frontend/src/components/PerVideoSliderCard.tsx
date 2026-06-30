@@ -32,9 +32,9 @@ interface Props {
   bulkLoading?: boolean;
 }
 
-// The $300 / 500-video credit pack (LIFETIME_DEAL_500). Credits never expire.
+// The $299.99 / 500-video credit pack (LIFETIME_DEAL_500). Credits never expire.
 const BULK_DEAL_VIDEOS = 500;
-const BULK_DEAL_PRICE = 300;
+const BULK_DEAL_PRICE = 299.99;
 
 const DEFAULT_FEATURES = [
   "No subscription needed",

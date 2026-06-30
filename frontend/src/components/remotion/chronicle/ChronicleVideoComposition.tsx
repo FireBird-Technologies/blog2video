@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import React from "react";
 import "../../../fonts/chronicle-defaults";
 import { CHRONICLE_BODY_FONT } from "../../../fonts/chronicle-defaults";
@@ -7,6 +8,7 @@ import { CHRONICLE_LAYOUT_REGISTRY } from "./layouts";
 import type { ChronicleLayoutType, ChronicleLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { ChronicleChrome } from "./components/ChronicleChrome";
 import { pickChronicleTransition } from "./transitions";
@@ -16,9 +18,13 @@ export interface ChronicleSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -37,6 +43,10 @@ export interface ChronicleVideoCompositionProps {
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 // book_open owns its own dramatic opening animation; every other layout
@@ -147,6 +157,10 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
   aspectRatio,
   fontFamily,
   playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -261,6 +275,20 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            {captionsEnabled && (s.scene.narrationText || s.scene.narration) && (
+              <CaptionTrack
+                text={s.scene.narrationText || s.scene.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
+                speechDurationFrames={
+                  s.scene.speechDurationSeconds
+                    ? getSceneDurationFrames(s.scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         );
       })}

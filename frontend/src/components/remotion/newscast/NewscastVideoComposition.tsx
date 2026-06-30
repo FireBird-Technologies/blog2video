@@ -5,6 +5,7 @@ import { NEWSCAST_LAYOUT_REGISTRY } from "./layouts";
 import type { NewscastLayoutProps, NewscastLayoutType } from "./layouts/types";
 import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
 import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
@@ -173,6 +174,14 @@ const NewscastSequenceInner: React.FC<{
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverUrl?: string;
   playbackSpeed: number;
+  captionsEnabled?: boolean;
+  captionText?: string;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+  speechDurationFrames?: number;
 }> = ({
   startFrame,
   durationInFrames,
@@ -184,6 +193,14 @@ const NewscastSequenceInner: React.FC<{
   LayoutComponent,
   voiceoverUrl,
   playbackSpeed,
+  captionsEnabled,
+  captionText,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  aspectRatio,
+  fontFamily,
+  speechDurationFrames,
 }) => {
   const localFrame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -244,6 +261,16 @@ const NewscastSequenceInner: React.FC<{
         </div>
       </NewscastSceneZTransition>
       {voiceoverUrl ? <Audio src={voiceoverUrl} playbackRate={playbackSpeed} /> : null}
+      {captionsEnabled && captionText && (
+        <CaptionTrack
+          text={captionText}
+          position={captionPosition || "bottom_center"}
+          aspectRatio={aspectRatio || "landscape"}
+          fontFamily={captionFontFamily || fontFamily || undefined}
+          fontSize={captionFontSize || undefined}
+          speechDurationFrames={speechDurationFrames}
+        />
+      )}
     </AbsoluteFill>
   );
 };
@@ -253,11 +280,15 @@ export interface NewscastSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   /** When present (e.g. hybrid descriptors), typography may live here instead of layoutProps. */
   layoutConfig?: { titleFontSize?: number; descriptionFontSize?: number };
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -276,6 +307,10 @@ export interface NewscastVideoCompositionProps {
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> = ({
@@ -292,6 +327,10 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
   aspectRatio,
   fontFamily,
   playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -373,6 +412,18 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
               LayoutComponent={LayoutComponent}
               voiceoverUrl={scene.voiceoverUrl}
               playbackSpeed={resolvedPlaybackSpeed}
+              captionsEnabled={captionsEnabled}
+              captionText={scene.narrationText || scene.narration}
+              captionPosition={captionPosition}
+              captionFontFamily={captionFontFamily}
+              captionFontSize={captionFontSize}
+              aspectRatio={aspectRatio}
+              fontFamily={fontFamily}
+              speechDurationFrames={
+                scene.speechDurationSeconds
+                  ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                  : undefined
+              }
             />
           </Sequence>
         );
