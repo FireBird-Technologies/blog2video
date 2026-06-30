@@ -5,6 +5,8 @@ export interface EnterpriseContactPayload {
   company: string;
   contact_details: string;
   message: string;
+  /** Set by the landing "Your Own Brand" CTA so the email is styled as a designer-template request. */
+  is_designer_request?: boolean;
 }
 
 export const sendEnterpriseContact = (payload: EnterpriseContactPayload) =>

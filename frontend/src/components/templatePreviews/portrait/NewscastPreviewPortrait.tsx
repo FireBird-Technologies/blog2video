@@ -1,14 +1,13 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Player } from "@remotion/player";
+import { Player, type PlayerRef } from "@remotion/player";
 import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // ─── Enlarged Logical Dimensions (9:16)
 // Lower values here make the content (text/images) appear larger in the box
-const INTERNAL_W = 240; 
-const INTERNAL_H = 426; 
-const AUTO_PLAY_DURATION = 5000; // Switch every 5 seconds
+const INTERNAL_W = 240;
+const INTERNAL_H = 426;
 
 function ScaledCanvas({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -18,8 +17,11 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
     const el = ref.current;
     if (!el) return;
     const update = () => {
-      const rect = el.getBoundingClientRect();
-      setScale(rect.width / INTERNAL_W);
+      // Use layout width (offsetWidth), which is immune to ancestor CSS
+      // transforms — the coverflow scales/rotates side cards, and
+      // getBoundingClientRect() would return the foreshortened width and lock a
+      // too-small internal scale (the card renders nearly empty).
+      setScale(el.offsetWidth / INTERNAL_W);
     };
     update();
     const obs = new ResizeObserver(update);
@@ -116,49 +118,89 @@ const NEWCAST_PREVIEW_SCENES = [
 
 const T_COLORS = { accent: "#E82020", bg: "#060614", text: "#B8C8E0" };
 
-export default function NewscastPreviewPortrait() {
+const FPS = 30;
+function sceneFrames(s: { durationSeconds: number }): number {
+  return Math.round(s.durationSeconds * FPS) + 45;
+}
+
+export default function NewscastPreviewPortrait({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const activeScene = NEWCAST_PREVIEW_SCENES[activeIdx];
-  
-  const fps = 30;
-  const durationInFrames = Math.round(activeScene.durationSeconds * fps) + 45;
+  const playerRef = useRef<PlayerRef>(null);
   const config = getTemplateConfig("newscast");
   const Composition = config.component as React.ComponentType<any>;
 
-  // ─── Automatic Switching ───
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveIdx((prev) => (prev + 1) % NEWCAST_PREVIEW_SCENES.length);
-    }, AUTO_PLAY_DURATION);
-    return () => clearInterval(timer);
+  // Pass ALL scenes at once so Remotion cuts between them internally — the Player
+  // props never change, so it never remounts (avoids the per-scene flicker).
+  const sceneOffsets = useMemo(() => {
+    const offs: number[] = [];
+    let acc = 0;
+    for (const s of NEWCAST_PREVIEW_SCENES) { offs.push(acc); acc += sceneFrames(s); }
+    return offs;
   }, []);
+  const durationInFrames = useMemo(
+    () => NEWCAST_PREVIEW_SCENES.reduce((sum, s) => sum + sceneFrames(s), 0),
+    [],
+  );
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 100);
 
   const inputProps = useMemo(() => ({
-    ...activeScene.layoutProps,
-    scenes: [activeScene],
+    scenes: NEWCAST_PREVIEW_SCENES,
     accentColor: T_COLORS.accent,
     bgColor: T_COLORS.bg,
     textColor: T_COLORS.text,
     aspectRatio: "portrait",
-  }), [activeScene]);
+  }), []);
+
+  // Side (thumbnail) cards park on a static frame and never play, so off-center
+  // Players don't keep rendering ~30fps each (the carousel slowdown).
+  useEffect(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    if (thumbnailMode) {
+      p.pause();
+      p.seekTo(thumbnailFrame);
+      return;
+    }
+    setActiveIdx(0);
+    p.seekTo(0);
+    p.play();
+  }, [thumbnailMode, thumbnailFrame]);
+
+  // Keep the active dot in sync with playback.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    const p = playerRef.current;
+    if (!p) return;
+    const onFrame = () => {
+      const f = p.getCurrentFrame();
+      let idx = 0;
+      for (let i = sceneOffsets.length - 1; i >= 0; i--) {
+        if (f >= sceneOffsets[i]) { idx = i; break; }
+      }
+      setActiveIdx((prev) => (prev === idx ? prev : idx));
+    };
+    p.addEventListener("frameupdate", onFrame);
+    return () => p.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, sceneOffsets]);
 
   return (
     <div style={{ width: "100%" }}>
       <ScaledCanvas>
         <div style={{ width: "100%", height: "100%", position: "relative" }}>
           <Player
-            key={activeIdx} // Remounts to reset animations on switch
+            ref={playerRef}
             component={Composition}
             inputProps={inputProps}
             durationInFrames={durationInFrames}
+            initialFrame={thumbnailMode ? thumbnailFrame : 0}
             compositionWidth={1080}
             compositionHeight={1920}
-            fps={fps}
+            fps={FPS}
             controls={false}
-            autoPlay
-            loop
+            autoPlay={!thumbnailMode}
+            loop={!thumbnailMode}
             acknowledgeRemotionLicense
-            style={{ width: "100%", height: "100%" }}
+            style={{ width: INTERNAL_W, height: INTERNAL_H }}
           />
           
           {/* Compact navigation dots — no scene titles */}

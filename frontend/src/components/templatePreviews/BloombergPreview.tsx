@@ -377,6 +377,17 @@ export default function BloombergPreview({ thumbnailMode = false }: { thumbnailM
     return () => clearInterval(id);
   }, [thumbnailMode]);
 
+  // Side cards play the first slide's intro once and rest on its settled state
+  // (the auto-advance interval is gated off in thumbnail mode). Pinning to the
+  // first slide also means it restarts from the top when it returns to center.
+  useEffect(() => {
+    lockedRef.current = false;
+    setOutgoing(null);
+    setAnimating(false);
+    setDisplayed(0);
+    setIncoming(0);
+  }, [thumbnailMode]);
+
   // Auto-advance
   useEffect(() => {
     if (thumbnailMode) return;
@@ -461,7 +472,9 @@ export default function BloombergPreview({ thumbnailMode = false }: { thumbnailM
                 transition: animating ? tx : "none",
                 willChange: "transform",
               }}>
-                <InBody active={!animating && outgoing === null} />
+                {/* Remount when crossing between center/side so the intro
+                    replays from the top on reaching center. */}
+                <InBody key={`${incoming}-${thumbnailMode}`} active={!animating && outgoing === null} />
               </div>
             );
           })()}
