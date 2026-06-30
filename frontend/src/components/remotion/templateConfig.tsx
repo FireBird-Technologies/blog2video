@@ -76,6 +76,7 @@ export interface TemplateConfig {
     captionPosition?: string;
     captionFontFamily?: string;
     captionFontSize?: number;
+    captionOffset?: number;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     theme?: any;
   }>;

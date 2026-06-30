@@ -46,6 +46,7 @@ interface VideoData {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: string;
+  captionOffset?: number;
   scenes: SceneData[];
 }
 
@@ -167,6 +168,7 @@ export const StickmanFootballVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 aspectRatio={data.aspectRatio || "landscape"}
                 fontFamily={data.captionFontFamily ? (resolveFontFamily(data.captionFontFamily) || data.captionFontFamily) : (resolvedFontFamily || undefined)}
                 fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                offset={data.captionOffset ?? 0}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)

@@ -46,6 +46,7 @@ class ProjectCreate(BaseModel):
     caption_position: Optional[str] = "bottom_center"  # bottom_center | top_center
     caption_font_family: Optional[str] = "inter"
     caption_font_size: Optional[str] = "36"
+    caption_offset: Optional[int] = 0  # vertical shift within bottom region: -100..+100 (0 = default, + = up)
 
     @field_validator("bgm_volume")
     @classmethod
@@ -85,6 +86,7 @@ class ProjectUpdate(BaseModel):
     caption_position: Optional[str] = None
     caption_font_family: Optional[str] = None
     caption_font_size: Optional[Union[str, int]] = None
+    caption_offset: Optional[int] = None
 
     @field_validator("caption_font_size", mode="before")
     @classmethod
@@ -92,6 +94,16 @@ class ProjectUpdate(BaseModel):
         if v is None:
             return None
         return str(v)
+
+    @field_validator("caption_offset", mode="before")
+    @classmethod
+    def clamp_caption_offset(cls, v: Optional[Union[str, int]]) -> Optional[int]:
+        if v is None or v == "":
+            return None
+        try:
+            return max(-100, min(100, int(v)))
+        except (TypeError, ValueError):
+            return None
 
     @field_validator("bgm_volume")
     @classmethod
@@ -356,6 +368,7 @@ class ProjectOut(BaseModel):
     caption_position: str = "bottom_center"
     caption_font_family: str = "inter"
     caption_font_size: str = "36"
+    caption_offset: int = 0
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None

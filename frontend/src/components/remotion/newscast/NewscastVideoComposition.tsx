@@ -179,6 +179,7 @@ const NewscastSequenceInner: React.FC<{
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
+  captionOffset?: number;
   aspectRatio?: string;
   fontFamily?: string;
   speechDurationFrames?: number;
@@ -198,6 +199,7 @@ const NewscastSequenceInner: React.FC<{
   captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
   aspectRatio,
   fontFamily,
   speechDurationFrames,
@@ -268,6 +270,7 @@ const NewscastSequenceInner: React.FC<{
           aspectRatio={aspectRatio || "landscape"}
           fontFamily={captionFontFamily || fontFamily || undefined}
           fontSize={captionFontSize || undefined}
+          offset={captionOffset ?? 0}
           speechDurationFrames={speechDurationFrames}
         />
       )}
@@ -311,6 +314,7 @@ export interface NewscastVideoCompositionProps {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
+  captionOffset?: number;
 }
 
 export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> = ({
@@ -331,6 +335,7 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
   captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -417,6 +422,7 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
               captionPosition={captionPosition}
               captionFontFamily={captionFontFamily}
               captionFontSize={captionFontSize}
+              captionOffset={captionOffset}
               aspectRatio={aspectRatio}
               fontFamily={fontFamily}
               speechDurationFrames={

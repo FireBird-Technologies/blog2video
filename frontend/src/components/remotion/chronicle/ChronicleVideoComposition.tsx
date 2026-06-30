@@ -47,6 +47,7 @@ export interface ChronicleVideoCompositionProps {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
+  captionOffset?: number;
 }
 
 // book_open owns its own dramatic opening animation; every other layout
@@ -161,6 +162,7 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
   captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -282,6 +284,7 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
                 aspectRatio={aspectRatio || "landscape"}
                 fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
                 fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
                 speechDurationFrames={
                   s.scene.speechDurationSeconds
                     ? getSceneDurationFrames(s.scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)

@@ -37,6 +37,7 @@ export interface StickmanFootballVideoCompositionProps {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
+  captionOffset?: number;
 }
 
 export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCompositionProps> = ({
@@ -54,6 +55,7 @@ export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCom
   captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
@@ -105,6 +107,7 @@ export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCom
                 aspectRatio={aspectRatio || "landscape"}
                 fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
                 fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, 1)
