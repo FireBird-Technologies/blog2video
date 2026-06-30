@@ -149,8 +149,9 @@ def scrape_blog(project: Project, db: Session) -> Project:
             "The site may require JavaScript rendering, block scrapers, or the page may be empty."
         )
 
-    # Download images (only from the original blog page — no external sources)
-    _download_images(project.user_id, project.id, image_urls, db)
+    # Download images (only from the original blog page — no external sources).
+    # Pass the blog URL as a Referer so hotlink-protected hosts serve the image.
+    _download_images(project.user_id, project.id, image_urls, db, page_url=url)
 
     # Update project
     project.blog_content = append_tables_to_content(text, extracted_tables)
@@ -501,30 +502,32 @@ def _scrape_with_requests(url: str) -> tuple[str, list[str], list[dict]]:
     Scraper using requests + BeautifulSoup.
     Hero/OG image is always first in the returned list.
     """
-    session = requests.Session()
-    session.headers.update(_BROWSER_HEADERS)
+    # `with` ensures the session (and its connection pool) is always closed,
+    # even on exceptions — otherwise every scrape leaks file descriptors.
+    with requests.Session() as session:
+        session.headers.update(_BROWSER_HEADERS)
 
-    response = session.get(url, timeout=30, allow_redirects=True)
-
-    # Retry once (some sites set cookies on first 403)
-    if response.status_code == 403:
         response = session.get(url, timeout=30, allow_redirects=True)
 
-    response.raise_for_status()
+        # Retry once (some sites set cookies on first 403)
+        if response.status_code == 403:
+            response = session.get(url, timeout=30, allow_redirects=True)
 
-    soup = BeautifulSoup(response.text, "lxml")
-    text = _extract_text(soup)
+        response.raise_for_status()
 
-    # Extract hero image (og:image) first, then remaining images
-    hero_url = _extract_og_image_from_soup(soup, url)
-    image_urls = _extract_image_urls(soup, url)
+        soup = BeautifulSoup(response.text, "lxml")
+        text = _extract_text(soup)
 
-    # Ensure hero image is first and deduplicated
-    if hero_url:
-        image_urls = [hero_url] + [u for u in image_urls if u != hero_url]
+        # Extract hero image (og:image) first, then remaining images
+        hero_url = _extract_og_image_from_soup(soup, url)
+        image_urls = _extract_image_urls(soup, url)
 
-    extracted_tables = extract_tables_from_html(response.text, source="requests_html")
-    return text, image_urls, extracted_tables
+        # Ensure hero image is first and deduplicated
+        if hero_url:
+            image_urls = [hero_url] + [u for u in image_urls if u != hero_url]
+
+        extracted_tables = extract_tables_from_html(response.text, source="requests_html")
+        return text, image_urls, extracted_tables
 
 
 def _extract_og_image(url: str) -> str | None:
@@ -1099,8 +1102,47 @@ _IMAGE_HEADERS = {
 }
 
 
+def _fetch_image_with_referer(url: str, page_url: str | None):
+    """GET an image, sending a Referer so hotlink-protected CDNs don't 403.
+
+    Many image hosts (e.g. photos.travellerspoint.com) reject requests that lack
+    a Referer pointing back at the page that embeds them, returning a 403 HTML
+    error page instead of the image. We try the source page first, then the
+    image's own origin, then no Referer — returning the first response that
+    actually looks like an image.
+    """
+    img_origin = None
+    parsed = urlparse(url)
+    if parsed.scheme and parsed.netloc:
+        img_origin = f"{parsed.scheme}://{parsed.netloc}/"
+
+    # Ordered, de-duplicated list of Referer candidates (None = no Referer).
+    referers: list[str | None] = []
+    for ref in (page_url, img_origin, None):
+        if ref not in referers:
+            referers.append(ref)
+
+    last_response = None
+    for ref in referers:
+        headers = dict(_IMAGE_HEADERS)
+        if ref:
+            headers["Referer"] = ref
+        try:
+            response = requests.get(url, headers=headers, timeout=15, stream=True)
+        except Exception:
+            continue
+        last_response = response
+        ctype = (response.headers.get("Content-Type") or "").lower()
+        if response.status_code == 200 and "image" in ctype:
+            return response
+        # Not an image (e.g. 403 HTML hotlink block) — release and try next Referer.
+        response.close()
+    return last_response
+
+
 def _download_single_image(
     url: str, user_id: int, project_id: int, project_media_dir: str,
+    page_url: str | None = None,
 ) -> tuple[str, dict] | None:
     """Download one image, apply size/GIF filters, upload to R2.
 
@@ -1108,33 +1150,41 @@ def _download_single_image(
     Does NO database operations — the caller handles all DB writes.
     """
     try:
-        response = requests.get(url, headers=_IMAGE_HEADERS, timeout=15, stream=True)
-        response.raise_for_status()
-
-        ctype = (response.headers.get("Content-Type") or "").lower()
-        if ctype and "image" not in ctype:
-            print(f"[SCRAPER] Skipping non-image content-type ({ctype}): {url[:80]}")
+        response = _fetch_image_with_referer(url, page_url)
+        if response is None:
+            print(f"[SCRAPER] Failed to fetch image (no response): {url[:80]}")
             return None
+        # The response is a streaming connection; always close it (even on early
+        # return / exception) so the socket/file descriptor is released.
+        try:
+            response.raise_for_status()
 
-        ext = None
-        for ct_key, ct_ext in _CTYPE_TO_EXT.items():
-            if ct_key in ctype:
-                ext = ct_ext
-                break
+            ctype = (response.headers.get("Content-Type") or "").lower()
+            if ctype and "image" not in ctype:
+                print(f"[SCRAPER] Skipping non-image content-type ({ctype}): {url[:80]}")
+                return None
 
-        if not ext:
-            parsed = urlparse(url)
-            ext = os.path.splitext(parsed.path)[1] or ".jpg"
-            if ext not in (".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"):
-                ext = ".jpg"
+            ext = None
+            for ct_key, ct_ext in _CTYPE_TO_EXT.items():
+                if ct_key in ctype:
+                    ext = ct_ext
+                    break
 
-        url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
-        filename = f"img_{url_hash}{ext}"
-        local_path = os.path.join(project_media_dir, filename)
+            if not ext:
+                parsed = urlparse(url)
+                ext = os.path.splitext(parsed.path)[1] or ".jpg"
+                if ext not in (".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"):
+                    ext = ".jpg"
 
-        with open(local_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+            url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
+            filename = f"img_{url_hash}{ext}"
+            local_path = os.path.join(project_media_dir, filename)
+
+            with open(local_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        finally:
+            response.close()
 
         # Discard tiny files — icons/badges, not blog images
         file_size = os.path.getsize(local_path)
@@ -1193,8 +1243,15 @@ def _download_single_image(
         return None
 
 
-def _download_images(user_id: int, project_id: int, image_urls: list[str], db: Session) -> list[str]:
-    """Download images concurrently, discard anything too small to be a real blog image."""
+def _download_images(
+    user_id: int, project_id: int, image_urls: list[str], db: Session,
+    page_url: str | None = None,
+) -> list[str]:
+    """Download images concurrently, discard anything too small to be a real blog image.
+
+    `page_url` is the source blog page; it is sent as a Referer so hotlink-protected
+    image hosts serve the image instead of a 403.
+    """
     project_media_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
     os.makedirs(project_media_dir, exist_ok=True)
 
@@ -1203,7 +1260,7 @@ def _download_images(user_id: int, project_id: int, image_urls: list[str], db: S
 
     with ThreadPoolExecutor(max_workers=5) as pool:
         futures = {
-            pool.submit(_download_single_image, url, user_id, project_id, project_media_dir): url
+            pool.submit(_download_single_image, url, user_id, project_id, project_media_dir, page_url): url
             for url in image_urls
         }
         for future in as_completed(futures):

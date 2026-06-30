@@ -45,6 +45,9 @@ class UserOut(BaseModel):
     videos_used_this_period: int
     video_limit: int
     can_create_video: bool
+    custom_templates_created: int = 0
+    custom_template_limit: int = 0
+    can_create_custom_template: bool = True
     preferred_voice_emotion: str | None = None
     survey_submitted: bool = False
 
@@ -211,6 +214,9 @@ def google_login(
             videos_used_this_period=user.videos_used_this_period,
             video_limit=user.video_limit,
             can_create_video=user.can_create_video,
+            custom_templates_created=user.custom_templates_created,
+            custom_template_limit=user.custom_template_limit,
+            can_create_custom_template=user.can_create_custom_template,
             preferred_voice_emotion=user.preferred_voice_emotion,
             survey_submitted=user.survey_submitted,
         ),
@@ -229,6 +235,9 @@ def get_me(user: User = Depends(get_current_user)):
         videos_used_this_period=user.videos_used_this_period,
         video_limit=user.video_limit,
         can_create_video=user.can_create_video,
+        custom_templates_created=user.custom_templates_created,
+        custom_template_limit=user.custom_template_limit,
+        can_create_custom_template=user.can_create_custom_template,
         preferred_voice_emotion=user.preferred_voice_emotion,
         survey_submitted=user.survey_submitted,
     )

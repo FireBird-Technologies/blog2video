@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
 import { createCheckoutSession } from "../api/client";
+import {
+  STANDARD_MONTHLY_PRICE,
+  STANDARD_ANNUAL_MONTHLY_PRICE,
+  STANDARD_ANNUAL_TOTAL_PRICE,
+} from "../content/pricingContent";
 
 interface Props {
   open: boolean;
@@ -11,6 +16,21 @@ interface Props {
 }
 
 const DAILY_POOL_OPTIONS = [20, 25, 30] as const;
+
+// Out-of-videos offer discounts (percentage coupons applied server-side).
+const MONTHLY_DISCOUNT = 0.15; // 15% off first month
+const ANNUAL_DISCOUNT = 0.20; // 20% off annual
+
+// Standard plan discounted prices (rounded to nearest dollar for display).
+const STANDARD_MONTHLY_DISCOUNTED = Math.round(
+  STANDARD_MONTHLY_PRICE * (1 - MONTHLY_DISCOUNT)
+); // 35 → 30
+const STANDARD_ANNUAL_MONTHLY_DISCOUNTED = Math.round(
+  STANDARD_ANNUAL_MONTHLY_PRICE * (1 - ANNUAL_DISCOUNT)
+); // 28 → 21
+const STANDARD_ANNUAL_TOTAL_DISCOUNTED = Math.round(
+  STANDARD_ANNUAL_TOTAL_PRICE * (1 - ANNUAL_DISCOUNT)
+); // 336 → 252
 
 function hashDateToPool(date: Date): number {
   const ymd = `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
@@ -96,7 +116,7 @@ export default function OutOfVideosOfferModal({
     setLoadingCycle(cycle);
     try {
       const res = await createCheckoutSession({
-        plan: "pro",
+        plan: "standard",
         billing_cycle: cycle,
         apply_third_video_offer: true,
       });
@@ -188,25 +208,25 @@ export default function OutOfVideosOfferModal({
 
         <div className="p-5 sm:p-6 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Pro Monthly — 15% off */}
+            {/* Standard Monthly — 15% off */}
             <div className="glass-card p-5 flex flex-col">
               <div className="mb-4">
-                <h3 className="text-sm font-semibold text-gray-900">Pro Monthly</h3>
-                <p className="text-xs text-gray-400 mt-0.5">100 videos / month</p>
+                <h3 className="text-sm font-semibold text-gray-900">Standard Monthly</h3>
+                <p className="text-xs text-gray-400 mt-0.5">30 videos / month</p>
               </div>
               <div className="mb-4">
-                <span className="text-2xl font-bold text-gray-900">$51</span>
+                <span className="text-2xl font-bold text-gray-900">${STANDARD_MONTHLY_DISCOUNTED}</span>
                 <span className="text-xs text-gray-400 ml-1">/month</span>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-xs text-gray-400 line-through">$60/mo</span>
+                  <span className="text-xs text-gray-400 line-through">${STANDARD_MONTHLY_PRICE}/mo</span>
                   <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                     Save 15%
                   </span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">First month only — then $60/mo</p>
+                <p className="text-[10px] text-gray-400 mt-1">First month only</p>
               </div>
               <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
-                <li className="flex items-start gap-2"><CheckMark />100 videos / month</li>
+                <li className="flex items-start gap-2"><CheckMark />30 videos / month</li>
                 <li className="flex items-start gap-2"><CheckMark />AI script & voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Custom templates</li>
                 <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
@@ -217,11 +237,11 @@ export default function OutOfVideosOfferModal({
                 disabled={loadingCycle !== null}
                 className="w-full py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
               >
-                {loadingCycle === "monthly" ? "Redirecting…" : "Claim 15% off — Pro Monthly"}
+                {loadingCycle === "monthly" ? "Redirecting…" : "Claim 15% off — Standard Monthly"}
               </button>
             </div>
 
-            {/* Pro Annual — 25% off (Best deal) */}
+            {/* Standard Annual — 20% off (Best deal) */}
             <div className="glass-card p-5 flex flex-col relative ring-2 ring-purple-300">
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                 <span className="px-3 py-0.5 bg-purple-600 text-white text-[10px] font-semibold rounded-full">
@@ -229,22 +249,22 @@ export default function OutOfVideosOfferModal({
                 </span>
               </div>
               <div className="mb-4">
-                <h3 className="text-sm font-semibold text-gray-900">Pro Annual</h3>
-                <p className="text-xs text-gray-400 mt-0.5">100 videos / month</p>
+                <h3 className="text-sm font-semibold text-gray-900">Standard Annual</h3>
+                <p className="text-xs text-gray-400 mt-0.5">30 videos / month</p>
               </div>
               <div className="mb-4">
-                <span className="text-2xl font-bold text-gray-900">$36</span>
+                <span className="text-2xl font-bold text-gray-900">${STANDARD_ANNUAL_MONTHLY_DISCOUNTED}</span>
                 <span className="text-xs text-gray-400 ml-1">/month</span>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-xs text-gray-400 line-through">$48/mo</span>
+                  <span className="text-xs text-gray-400 line-through">${STANDARD_ANNUAL_MONTHLY_PRICE}/mo</span>
                   <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
-                    Save 25%
+                    Save 20%
                   </span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">$432 billed annually — then $576/yr</p>
+                <p className="text-[10px] text-gray-400 mt-1">${STANDARD_ANNUAL_TOTAL_DISCOUNTED} billed annually</p>
               </div>
               <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
-                <li className="flex items-start gap-2"><CheckMark />100 videos / month</li>
+                <li className="flex items-start gap-2"><CheckMark />30 videos / month</li>
                 <li className="flex items-start gap-2"><CheckMark />AI script & voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Custom templates</li>
                 <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
@@ -255,7 +275,7 @@ export default function OutOfVideosOfferModal({
                 disabled={loadingCycle !== null}
                 className="w-full py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
               >
-                {loadingCycle === "annual" ? "Redirecting…" : "Claim 25% off — Pro Annual"}
+                {loadingCycle === "annual" ? "Redirecting…" : "Claim 20% off — Standard Annual"}
               </button>
             </div>
           </div>

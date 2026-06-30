@@ -77,8 +77,13 @@ export const CtaOverlay: React.FC<CtaOverlayProps> = ({
 
   const cardBasis = cardCount === 1 ? (p ? "80%" : "60%") : cardCount === 2 ? "45%" : "30%";
 
+  // Brand-accent atmosphere — mirrors the render overlay (GeneratedCtaOverlay)
+  // so preview === render. Static + low-alpha radial glows.
+  const backdrop = `radial-gradient(circle at 18% 22%, ${accent}14 0%, transparent 42%), radial-gradient(circle at 82% 80%, ${accent}10 0%, transparent 46%)`;
+
   return (
     <AbsoluteFill style={{ backgroundColor: bg, overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, background: backdrop, opacity: interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" }) }} />
       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 6, backgroundColor: accent }} />
 
       <div

@@ -102,6 +102,8 @@ _SHARED_SRC_FILES = [
     "src/templates/playbackSpeed.ts",
     # Shared font registry so templates can resolve font IDs to CSS families
     "src/fonts/registry.ts",
+    # Caption font constant + render preload helpers (used by CaptionTrack)
+    "src/fonts/captionFont.ts",
     # Newspaper template default fonts (bundled, not in registry)
     "src/fonts/newspaper-defaults.ts",
     # Nightfall template default fonts (bundled, not in registry)
@@ -524,6 +526,52 @@ import {{
   random,
 }} from "remotion";
 import type {{ GeneratedSceneProps }} from "./types";
+
+// Craft kit — OPTIONAL, brand-themed building blocks the generated scene may
+// compose when the content fits (never forced). See generated/kit/.
+import {{
+  SceneFrame,
+  useKit,
+  CountUpValue,
+  StatCard,
+  StatGrid,
+  MetricRow,
+  RevealText,
+  HighlightPhrase,
+  FitText,
+  CodeBlock,
+  KenBurnsImage,
+  Decor,
+  CenteredFocal,
+  AsymmetricSplit,
+  FullBleedHero,
+  OffsetCardStack,
+  SideRail,
+  IntroStage,
+  CustomChart,
+  SignatureArtifact,
+  CornerFrame,
+  StreakField,
+  KineticTicker,
+  BigGlyphBackdrop,
+  PulseRing,
+  AccentSweep,
+  DiagonalShards,
+  HalftoneField,
+  StarburstBadge,
+  LightDust,
+  OrbitRings,
+  cardStyle,
+  derivePalette,
+  withAlpha,
+  staggerEntrance,
+  headlinePop,
+  panelRise,
+  masterOpacity,
+  countUpString,
+  drawProgress,
+  seededRand,
+}} from "./kit";
 
 // Safe wrapper — ensures inputRange is strictly monotonic even when dynamic values resolve equal
 const interpolate: typeof _interpolate = (frame, inputRange, outputRange, options?) => {{
@@ -1029,6 +1077,17 @@ def write_remotion_data(
 
         extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
         effective_duration = scene.duration_seconds + extra_hold
+        # Spoken-audio length for caption timing: scene.duration_seconds is set to
+        # (audio length + DURATION_PAD=1.0s of trailing silence) during voiceover
+        # generation, so the speech occupies roughly the first (duration - 1.0s).
+        # Captions span only this window so they don't drift into the silent tail.
+        # 0 when there's no voiceover (captions are disabled in that case anyway).
+        _VOICEOVER_TRAILING_PAD = 1.0
+        speech_duration = (
+            max(0.5, round(scene.duration_seconds - _VOICEOVER_TRAILING_PAD, 2))
+            if voiceover_filename
+            else 0.0
+        )
         scene_entry: dict = {
             "id": scene.id,
             "order": scene.order,
@@ -1038,6 +1097,7 @@ def write_remotion_data(
             "narrationText": scene.narration_text or "",
             "visualDescription": scene.visual_description,
             "durationSeconds": round(effective_duration, 1),
+            "speechDurationSeconds": speech_duration,
             "voiceoverFile": voiceover_filename,
             "images": scene_images,
             "layoutProps": layout_props,
@@ -1133,6 +1193,11 @@ def write_remotion_data(
         "playbackSpeed": 1.0,
         "bgmFile": bgm_file,
         "bgmVolume": round(float(getattr(project, "bgm_volume", 0.10) or 0.10), 2),
+        "captionsEnabled": bool(getattr(project, "captions_enabled", False)),
+        "captionPosition": getattr(project, "caption_position", None) or "bottom_center",
+        "captionFontFamily": getattr(project, "caption_font_family", None) or "inter",
+        "captionFontSize": str(getattr(project, "caption_font_size", None) or "36"),
+        "captionOffset": int(getattr(project, "caption_offset", 0) or 0),
         "scenes": scene_data,
     }
     print(f"[F7-DEBUG] write_remotion_data: final bgmFile={data['bgmFile']!r}, bgmVolume={data['bgmVolume']!r}")
@@ -1149,8 +1214,12 @@ def write_remotion_data(
                     logger.info("[REMOTION] Using crafted bundled logo: %s", crafted_logo_file)
             ct_og_image = custom_data.get("og_image", "")
             if ct_og_image:
-                for sd in scene_data:
-                    if not sd.get("images"):
+                # Only the intro/hero scene falls back to the template og image. Content
+                # scenes that have no real image must report hasImage=false so the
+                # generated scene renders its full-width (no-image) branch instead of a
+                # split layout with an empty/irrelevant panel.
+                for idx, sd in enumerate(scene_data):
+                    if idx == 0 and not sd.get("images"):
                         sd["ogImageUrl"] = ct_og_image
         if custom_data and custom_data.get("theme"):
             data["theme"] = custom_data["theme"]
@@ -1166,6 +1235,19 @@ def write_remotion_data(
                 "background": project.bg_color or theme_colors.get("bg", "#FFFFFF"),
                 "text": project.text_color or theme_colors.get("text", "#1A1A2E"),
             }
+            # Background style as a render prop: the optional gradient endpoint
+            # (bg2) flows through so the kit's SceneFrame renders solid-vs-gradient
+            # at render time — toggling Background Style no longer needs a regen.
+            # Suppressed when the user has set a custom project bg (solid override).
+            bg2 = theme_colors.get("bg2")
+            if bg2 and not project.bg_color:
+                data["brandColors"]["bg2"] = bg2
+                data["bg2Color"] = bg2
+            # Transition family from the theme's motion personality (optional).
+            motion = custom_data["theme"].get("motion") or {}
+            tfam = motion.get("transitionFamily")
+            if isinstance(tfam, list) and tfam:
+                data["transitionFamily"] = tfam
             # Tag each scene with a sceneType for GeneratedVideo (custom only).
             total = len(scene_data)
             content_codes = custom_data.get("content_codes") or []
@@ -1198,9 +1280,9 @@ def write_remotion_data(
                         pass
 
                 # Priority: override > db_type > position-based
-                if override_type in ("intro", "content", "outro"):
+                if override_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
                     sd["sceneType"] = override_type
-                elif db_type in ("intro", "content", "outro"):
+                elif db_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
                     sd["sceneType"] = db_type
                 elif idx == 0:
                     sd["sceneType"] = "intro"
@@ -2479,12 +2561,12 @@ def _download_url_to_file(url: str, dest: str) -> bool:
     Returns True on success, False on failure.
     """
     try:
-        resp = requests.get(url, timeout=30, stream=True)
-        resp.raise_for_status()
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        with open(dest, "wb") as f:
-            for chunk in resp.iter_content(chunk_size=8192):
-                f.write(chunk)
+        with requests.get(url, timeout=30, stream=True) as resp:
+            resp.raise_for_status()
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    f.write(chunk)
         logger.info("[REMOTION] Downloaded from R2: %s", os.path.basename(dest))
         return True
     except Exception as e:

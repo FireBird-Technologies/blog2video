@@ -2,14 +2,14 @@
 // If you change these constants, change both.
 //
 // Three flat tiers:
-//   Zone A (qty 1-9):   $4.00/video — casual one-off buys
+//   Zone A (qty 1-9):   $3.99/video — casual one-off buys
 //   Zone B (qty 10-30): $3.00/video — pack tier
 //   Zone C (qty 31+):   $2.80/video — bulk tier
 //
 // Crossing qty=9->10 or qty=30->31 drops to the next tier; within a tier the
 // price is flat.
 
-export const CASUAL_PRICE_CENTS = 400;
+export const CASUAL_PRICE_CENTS = 399;
 export const PACK_PRICE_CENTS = 300;
 export const BULK_PRICE_CENTS = 280;
 

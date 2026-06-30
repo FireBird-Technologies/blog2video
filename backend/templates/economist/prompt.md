@@ -41,23 +41,24 @@ Core rules:
 
 ## leader_article
 
-**Visual:** Section kicker on a red rule, a bold serif headline, a drop-cap justified body, an optional byline, and an optional inset photo on the right.
+**Visual:** A reversed-out feature spread — a bold ink (or photo) plate on the left carrying the kicker, headline and standfirst reversed in paper-white; the paper side on the right carries the full article body as a large lead statement, with the key points beneath as a ruled list.
 
 **Best for:** The workhorse — any explanatory prose beat. The default and fallback layout.
 
 **Props:**
 - `sectionLabel` — short uppercase kicker (e.g. `"BRIEFING"`, `"FINANCE"`, `"LEADERS"`).
+- `body` — **REQUIRED.** The on-screen article paragraph: **4–7 full sentences (≈60–110 words)** of real explanatory prose for this beat, drawn from the source, in the Economist voice. This is the main copy that fills the page — make it substantial; never leave it thin. This is shown on screen but **not** spoken, so it is independent of `narration` and may be longer.
 - `standfirst` — **REQUIRED.** A single-line italic deck (≤16 words) stating the article's sub-thesis — the one sentence a reader would skim. Always emit one, grounded in the source.
-- `keyPoints` — **REQUIRED.** An array of **2–3** short takeaway points (≤8 words each), drawn from the source, in the Economist voice. These fill the page so a thin beat never reads as empty paper. Never pad with filler — if the source is thin, distil what is there.
-- `byline` — optional (e.g. `"By our finance correspondent"`).
-- `illuminatedLetter` — optional drop-cap override (defaults to the first letter of `narration`).
-- `title` (global) — the headline. `narration` (global) — the article body (2–5 sentences).
+- `keyPoints` — **REQUIRED.** An array of **2–3** short takeaway points (≤8 words each), drawn from the source, in the Economist voice. Never pad with filler — if the source is thin, distil what is there.
+- `title` (global) — the headline.
+- `narration` (global) — the **spoken voiceover only**: a short, punchy 1–2 sentence hook or summary of this beat. Keep it concise; it does NOT need to repeat the on-screen `body`.
 
 **Worked example:**
 ```json
 { "layout": "leader_article", "title": "The central bank's hardest year",
-  "narration": "After two years of forceful tightening, the Federal Reserve faces its most delicate task yet...",
-  "layout_props_json": { "sectionLabel": "BRIEFING", "byline": "By our finance correspondent",
+  "narration": "The Fed now faces its most delicate task yet — and the margin for error is thin.",
+  "layout_props_json": { "sectionLabel": "BRIEFING",
+    "body": "After two years of forceful tightening, the Federal Reserve faces its most delicate task yet: easing policy without reigniting the inflation it fought so hard to tame. The data now point in opposite directions. Hiring has cooled and manufacturing has stalled, yet services inflation remains stubbornly warm. Cut too soon, and a second wave of price rises could undo three years of work; wait too long, and the real economy may buckle under the most restrictive rates since 2007. Every meeting now carries the weight of a decision that will shape the next decade of growth.",
     "standfirst": "Cut too soon and inflation returns; wait too long and growth buckles.",
     "keyPoints": ["Hiring has cooled sharply", "Core inflation near target", "Policy still most restrictive since 2007"] } }
 ```

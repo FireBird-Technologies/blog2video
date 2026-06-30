@@ -49,6 +49,7 @@ CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "blackswan": ("data_visualisation", _NO_TICKER_SENTINEL),
     "gridcraft": ("data_visualisation", _NO_TICKER_SENTINEL),
     "stickman_2": ("data_visualisation", _NO_TICKER_SENTINEL),
+    "stickman_football": ("football_data_viz", "football_ticker"),
 }
 
 # Chart/ticker base layout ids derived from the map. One *_data chart layout per
@@ -261,6 +262,7 @@ def _get_custom_meta(template_id: str, db: Session | None = None, user_id: int |
         data["theme"],
         data["name"],
         content_codes_count=len(content_codes),
+        content_archetype_ids=data.get("content_archetype_ids"),
     )
 
 

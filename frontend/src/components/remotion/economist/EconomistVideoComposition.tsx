@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import React from "react";
 import "../../../fonts/economist-defaults";
 import { ECONOMIST_SERIF_FONT } from "../../../fonts/economist-defaults";
@@ -7,6 +8,7 @@ import { ECONOMIST_LAYOUT_REGISTRY } from "./layouts";
 import type { EconomistLayoutType, EconomistLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { EconomistChrome } from "./components/EconomistChrome";
 import { pickEconomistTransition } from "./transitions";
@@ -17,9 +19,13 @@ export interface EconomistSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -38,6 +44,11 @@ export interface EconomistVideoCompositionProps {
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
 }
 
 // cover_reveal owns its own dramatic opening; it skips the chrome fade.
@@ -113,6 +124,11 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
   aspectRatio,
   fontFamily,
   playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -228,6 +244,21 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            {captionsEnabled && (s.scene.narrationText || s.scene.narration) && (
+              <CaptionTrack
+                text={s.scene.narrationText || s.scene.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
+                speechDurationFrames={
+                  s.scene.speechDurationSeconds
+                    ? getSceneDurationFrames(s.scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         );
       })}

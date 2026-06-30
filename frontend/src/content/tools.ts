@@ -236,21 +236,21 @@ export const tools: ToolDefinition[] = [
   {
     slug: "headline-analyzer",
     path: "/tools/headline-analyzer",
-    title: "Headline Analyzer",
+    title: "Headline & Title Analyzer",
     description:
-      "Score headlines for clarity, specificity, length, curiosity, audience fit, and platform match across blog, Medium, Substack, and YouTube contexts.",
+      "Score headlines and titles for clarity, specificity, length, curiosity, audience fit, and platform match — including a dedicated YouTube title mode for thumbnail and search-friendly titles.",
     eyebrow: "Analyzer",
-    heroTitle: "Score your headline and get rewrite suggestions you can actually use.",
+    heroTitle: "Score your title or headline and get rewrite suggestions you can actually use.",
     heroDescription:
-      "See where a title is strong, where it is vague, and how to improve it for blogs, Medium, Substack, or YouTube without relying on black-box scoring.",
+      "See where a title is strong, where it is vague, and how to improve it for blogs, Medium, Substack, or YouTube — including a YouTube title checker mode — without relying on black-box scoring.",
     category: "analyzer",
     icon: "HA",
-    primaryKeyword: "headline analyzer",
-    keywordVariant: "headline score tool",
-    badges: ["Deterministic scoring", "Rewrite suggestions", "Platform modes"],
+    primaryKeyword: "title analyzer",
+    keywordVariant: "youtube title checker",
+    badges: ["Deterministic scoring", "Rewrite suggestions", "YouTube title mode"],
     proofPoints: [
       "The score is broken into transparent factors instead of hidden behind a single number.",
-      "Platform modes help the feedback match blog, newsletter, Medium, or YouTube goals.",
+      "Platform modes help the feedback match blog, newsletter, Medium, or YouTube title goals.",
       "Rewrite suggestions are based on the signals the analyzer found, not generic filler.",
     ],
     sections: [
@@ -262,9 +262,16 @@ export const tools: ToolDefinition[] = [
         ],
       },
       {
+        title: "Using it as a YouTube title checker",
+        body: [
+          "Switch to YouTube mode and the analyzer weighs the things that matter for video specifically: front-loaded keywords, a clear benefit or curiosity gap, and length. YouTube truncates titles past roughly 60 characters in search and suggested results, so the checker flags titles that will get cut off before the most important words.",
+          "This is the same scoring used for blog and newsletter titles, just re-weighted for how viewers scan a YouTube results page instead of how readers scan an inbox or feed.",
+        ],
+      },
+      {
         title: "What the score is for",
         body: [
-          "The point is not to chase a vanity score. It is to quickly see whether a headline is too vague, too long, too flat, or missing a concrete audience or benefit signal.",
+          "The point is not to chase a vanity score. It is to quickly see whether a title is too vague, too long, too flat, or missing a concrete audience or benefit signal — whether it is destined for a blog post or a YouTube upload.",
         ],
       },
     ],
@@ -275,9 +282,19 @@ export const tools: ToolDefinition[] = [
           "No. The scoring is deterministic and rules-based so you can understand what the tool is rewarding or penalizing.",
       },
       {
-        question: "Can it help with newsletter or YouTube titles too?",
+        question: "Is this also a YouTube title checker?",
         answer:
-          "Yes. The mode switch changes how the headline is evaluated and what kind of rewrite suggestions are prioritized.",
+          "Yes. Switching to YouTube mode re-weights the score toward what matters for video titles — keyword front-loading, length before truncation, and curiosity — instead of blog or newsletter conventions.",
+      },
+      {
+        question: "Can it help with newsletter titles too?",
+        answer:
+          "Yes. The mode switch changes how the title is evaluated and what kind of rewrite suggestions are prioritized for blog, Medium, Substack, or YouTube contexts.",
+      },
+      {
+        question: "If I score a video title here, can I publish the video too?",
+        answer:
+          "If the title is for a blog post you're turning into video, paste the same article into Blog2Video to generate the narrated video once the title scores well. If the underlying blog or publication is still building an audience, a free profile on BlogHub adds a second discovery channel alongside the video itself.",
       },
     ],
     relatedPaths: [
@@ -363,10 +380,30 @@ export const tools: ToolDefinition[] = [
     ],
     sections: [
       {
+        title: "What is Remotion?",
+        body: [
+          "Remotion is a framework for creating videos programmatically using React. Instead of dragging clips on a timeline, you write components that render frame-by-frame, which makes it possible to generate video from data — JSON, an API response, or in Blog2Video's case, a parsed article.",
+          "Remotion's own site offers starter templates (Hello World, Next.js, TikTok, 3D, Audiogram) that scaffold a blank project. The templates on this page are different: they are complete, pre-built compositions for blog-to-video content specifically, not blank starters you build up from scratch.",
+        ],
+      },
+      {
         title: "What these templates include",
         body: [
           "Each ZIP is a complete standalone Remotion project: TypeScript compositions, all layout components, shared utilities, sample data, and everything needed to run npx remotion studio out of the box.",
           "These are the exact compositions used by Blog2Video's production pipeline — cinematic dark, bold kinetic typography, editorial bento grids, cyberpunk terminal, and structured explainer styles.",
+        ],
+      },
+      {
+        title: "The 5 templates and what each is best for",
+        body: [
+          "Each template targets a different content style. Pick based on the kind of article you're converting, not just visual preference.",
+        ],
+        bullets: [
+          "Geometric Explainer — clean, structured layouts for tutorials, walkthroughs, and technical onboarding where clarity matters more than flair.",
+          "Nightfall — premium dark cinematic look with glass-morphism cards, built for founder stories, product launches, and thought-leadership clips.",
+          "Spotlight — bold kinetic typography for promotional content, keynote-style clips, and short-form hooks that need to grab attention fast.",
+          "Matrix — cyberpunk terminal aesthetic for developer tutorials, AI/ML explainers, and cybersecurity content aimed at technical audiences.",
+          "Gridcraft — warm editorial bento grids for comparisons, benchmarks, listicles, and data-heavy content with lists or metrics.",
         ],
       },
       {
@@ -402,6 +439,16 @@ export const tools: ToolDefinition[] = [
         answer:
           "Yes. Blog2Video Pro includes access to custom template creation tailored to your brand identity, color palette, and content style. See the pricing page for details.",
       },
+      {
+        question: "How is this different from the official Remotion starter templates?",
+        answer:
+          "Remotion's own templates (Hello World, Next.js, TikTok, 3D) are blank scaffolds you build a composition on top of. These five are finished, content-ready blog-to-video compositions — the same ones Blog2Video uses in production — so you start from a working video, not an empty project.",
+      },
+      {
+        question: "Do I need to know Remotion already to use these?",
+        answer:
+          "Basic React and TypeScript knowledge is enough to swap data and tweak styling. If you've never used Remotion, running npx remotion studio after unzipping shows the composition live and is the fastest way to learn by example.",
+      },
     ],
     relatedPaths: [
       "/templates/nightfall",
@@ -409,6 +456,88 @@ export const tools: ToolDefinition[] = [
       "/templates/matrix",
       "/templates/gridcraft",
       "/templates/geometric-explainer",
+    ],
+  },
+  {
+    slug: "stock-visualizer",
+    path: "/tools/stock-visualizer",
+    title: "Free Stock Data Visualizer — Price History, Income Statement & Balance Sheet",
+    description:
+      "Visualize any stock's 7, 30, or 60-day price history alongside annual income statements and balance sheets — styled in Newscast, Bloomberg Terminal, or Newspaper themes. Free with signup.",
+    eyebrow: "Finance Tool",
+    heroTitle: "Free stock visualizer styled like a financial newsroom.",
+    heroDescription:
+      "Pull live price history and financial statements for any ticker. Choose from Newscast, Bloomberg Terminal, or Newspaper visual themes. Sign in free to unlock custom tickers and annual financials.",
+    category: "analyzer",
+    icon: "SV",
+    primaryKeyword: "free stock data visualizer",
+    keywordVariant: "stock price history chart free",
+    badges: ["Price History", "Income Statement", "Balance Sheet", "3 Themes"],
+    proofPoints: [
+      "Live price history for 7, 30, or 60-day windows pulled directly from Yahoo Finance via yfinance.",
+      "Annual income statement and balance sheet data presented in clean, scannable tables.",
+      "Three visual themes — Newscast, Bloomberg Terminal, and Newspaper — designed to match how financial media presents data.",
+    ],
+    sections: [
+      {
+        title: "What this tool shows you",
+        body: [
+          "The stock visualizer pulls price history and financial statement data for any publicly traded ticker directly from Yahoo Finance. The default view shows SPCX with 30 days of closing price data in the Newscast theme — no sign-in required.",
+          "Once you sign in with your free Blog2Video account, you can search any ticker, switch between 7, 30, and 60-day windows, and view annual income statements and balance sheets from the last four reporting periods.",
+        ],
+      },
+      {
+        title: "Three visual themes: Newscast, Bloomberg, and Newspaper",
+        body: [
+          "The tool was built to match the visual language of financial media rather than default charting libraries. Each theme applies a distinct color palette, typography weight, and layout density.",
+          "Newscast uses a dark navy background with red broadcast accents and a blue area chart — the look of a live market segment. Bloomberg uses the terminal's signature black-and-orange palette. Newspaper renders the chart in editorial black and white with a cream-tinted background.",
+        ],
+        bullets: [
+          "Newscast — dark TV broadcast aesthetic, red header bar, blue chart line.",
+          "Bloomberg — black terminal background, orange accent line and price labels.",
+          "Newspaper — cream white background, dark navy chart, editorial typography.",
+        ],
+      },
+      {
+        title: "Why finance publishers use Blog2Video for stock content",
+        body: [
+          "Almost 70% of Blog2Video's paid users are finance publishers — analysts, investment researchers, and Substack writers who cover markets. They use Blog2Video to turn written research into narrated explainer videos and carousels for X, LinkedIn, and YouTube.",
+          "This free stock tool is built for the same audience: finance writers who need a fast, polished way to visualize the data behind a story before turning that story into video.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is this stock visualizer really free?",
+        answer:
+          "Yes. The default SPCX chart loads without any sign-in. Sign in with a free Blog2Video account to search any ticker, change the time range, and access financial statements.",
+      },
+      {
+        question: "Where does the data come from?",
+        answer:
+          "Price history and financial statements are fetched from Yahoo Finance via the yfinance Python library. Data accuracy depends on Yahoo Finance's coverage and update frequency.",
+      },
+      {
+        question: "Which tickers are supported?",
+        answer:
+          "Any ticker listed on Yahoo Finance — US equities, ETFs, index funds, and many international stocks. If a ticker has no data, the tool shows a clear error message.",
+      },
+      {
+        question: "Can I use this to make a video from stock data?",
+        answer:
+          "Yes. If you write a research note or market commentary about the stock you're visualizing, paste that article into Blog2Video to generate a narrated video using the Finance Publication template — the same visual style as the Bloomberg and Newscast themes here.",
+      },
+      {
+        question: "Why don't ETFs show income statement data?",
+        answer:
+          "ETFs like SPY or SPCX typically do not file traditional income statements or balance sheets — they're pass-through vehicles. Financial statement data is only available for operating companies (stocks like AAPL, MSFT, TSLA).",
+      },
+    ],
+    relatedPaths: [
+      "/blogs/new-template-finance-publication",
+      "/blog-to-video",
+      "/templates",
+      "/tools/headline-analyzer",
     ],
   },
 ];

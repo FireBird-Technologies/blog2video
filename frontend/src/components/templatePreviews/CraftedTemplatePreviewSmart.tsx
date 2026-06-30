@@ -43,9 +43,12 @@ interface CraftedTemplatePreviewSmartProps {
 }
 
 function hasFrontendGraph(item: CraftedTemplateItem): boolean {
-  const files = (item as any).frontend_files as Record<string, string> | null | undefined;
-  const entry = (item as any).frontend_entry_rel as string | null | undefined;
-  return !!(files && Object.keys(files).length > 0 && entry);
+  // Always render the bundled marquee `preview_file` via CraftedTemplatePreview,
+  // even after the frontend module graph has been fetched. Rendering the real
+  // composition once the bundle loaded caused the card to swap from the preview
+  // file to the live component; we want the preview file to show consistently.
+  void item;
+  return false;
 }
 
 export default function CraftedTemplatePreviewSmart({

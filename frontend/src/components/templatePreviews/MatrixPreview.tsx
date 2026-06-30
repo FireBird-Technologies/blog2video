@@ -304,10 +304,15 @@ export default function MatrixPreview({ thumbnailMode = false }: { thumbnailMode
   const [active, setActive] = useState(false);
 
   useEffect(() => {
+    // Side cards play the first slide's intro once and rest on its settled
+    // state (no slide cycling). Pinning to slide 0 also means the animation
+    // restarts from the top when the card returns to center.
+    setCurrent(0);
     if (thumbnailMode) {
       setActive(true);
       return;
     }
+    setActive(false);
     const t = setTimeout(() => setActive(true), 200);
     return () => clearTimeout(t);
   }, [thumbnailMode]);

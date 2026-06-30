@@ -115,10 +115,11 @@ export default function ErrorModal({
             OK
           </button>
         </div>
+        {/* Share B2V disabled
         {showUpgrade && (
           <div className="mt-4 pt-4 border-t border-gray-100 flex justify-center">
             <a
-              href="/invite-others"
+              href="/survey"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700 hover:bg-purple-100 hover:border-purple-400 transition-all relative"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -128,7 +129,7 @@ export default function ErrorModal({
               Share B2V to get 5 videos free
             </a>
           </div>
-        )}
+        )} */}
       </div>
     </div>,
     document.body

@@ -21,6 +21,25 @@ import * as Recharts from "recharts";
 import * as RemotionTransitions from "@remotion/transitions";
 import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { CaptionTrack } from "../components/remotion/CaptionTrack";
+import * as Kit from "../components/remotion/generated/kit";
+
+// Craft-kit exports injected into JIT-compiled AI scene code, mirroring the
+// import list in the backend's _wrap_generated_code so preview === render.
+const KIT_EXPORTS = [
+  "SceneFrame", "useKit", "CountUpValue", "StatCard", "StatGrid", "MetricRow",
+  "RevealText", "HighlightPhrase", "FitText", "CodeBlock", "KenBurnsImage", "Decor", "CustomChart",
+  "CustomTable", "cardStyle", "derivePalette", "withAlpha", "staggerEntrance",
+  "headlinePop", "panelRise", "masterOpacity", "countUpString", "drawProgress", "seededRand",
+  // Layout skeletons (intra-video structural variety)
+  "CenteredFocal", "AsymmetricSplit", "FullBleedHero", "OffsetCardStack", "SideRail",
+  // Intro scaffold (bookend richness)
+  "IntroStage",
+  // Signature artifacts — the brand's recurring animated motif
+  "SignatureArtifact", "CornerFrame", "StreakField", "KineticTicker",
+  "BigGlyphBackdrop", "PulseRing", "AccentSweep",
+  "DiagonalShards", "HalftoneField", "StarburstBadge", "LightDust", "OrbitRings",
+] as const;
 
 export interface SceneProps {
   displayText: string;
@@ -41,7 +60,7 @@ export interface SceneProps {
   };
   aspectRatio: "landscape" | "portrait";
   /** Structured content fields — populated when blog content contains lists, stats, quotes, etc. */
-  contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps";
+  contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps" | "dataviz";
   bullets?: string[];
   metrics?: { value: string; label: string; suffix?: string }[];
   codeLines?: string[];
@@ -52,6 +71,10 @@ export interface SceneProps {
   comparisonRight?: { label: string; description: string };
   timelineItems?: { label: string; description: string }[];
   steps?: string[];
+  /** Data-viz fields — used by the dedicated kit chart/table scenes (DataChartScene/DataTableScene). */
+  chartTable?: { headers?: string[]; rows?: (string | number)[][] };
+  chartType?: string;
+  chartSummary?: string;
   titleFontSize?: number;
   descriptionFontSize?: number;
   headingFont?: string;
@@ -121,7 +144,7 @@ export async function compileComponentCode(
       return interpolate(frame, safe, outputRange, options);
     };
 
-    // Create factory function that receives Remotion APIs as parameters
+    // Create factory function that receives Remotion APIs + craft kit as parameters
     // eslint-disable-next-line no-new-func
     const factory = new Function(
       "React",
@@ -134,6 +157,7 @@ export async function compileComponentCode(
       "Sequence",
       "Img",
       "random",
+      ...KIT_EXPORTS,
       result.code + "\nreturn SceneComponent;"
     );
 
@@ -147,7 +171,8 @@ export async function compileComponentCode(
       AbsoluteFill,
       Sequence,
       Img,
-      random
+      random,
+      ...KIT_EXPORTS.map((name) => (Kit as Record<string, unknown>)[name])
     );
 
     if (typeof SceneComponent !== "function") {
@@ -521,6 +546,16 @@ export async function compileModuleGraphEntry(
           __esModule: true,
           default: noOpComponent,
           SocialIcons: noOpComponent,
+        };
+      }
+      // Captions: crafted compositions (e.g. fj_research) import "../CaptionTrack",
+      // a shared component not shipped inside the bundle. Provide the real one so
+      // captions render in the editor preview, matching the final render.
+      if (spec.toLowerCase().includes("captiontrack")) {
+        return {
+          __esModule: true,
+          default: CaptionTrack,
+          CaptionTrack,
         };
       }
       if (spec === "react/jsx-runtime" || spec === "react/jsx-dev-runtime") {

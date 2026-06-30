@@ -95,6 +95,9 @@ export interface UserInfo {
   videos_used_this_period: number;
   video_limit: number;
   can_create_video: boolean;
+  custom_templates_created: number;
+  custom_template_limit: number;
+  can_create_custom_template: boolean;
   preferred_voice_emotion: string | null;
   survey_submitted: boolean;
 }
@@ -119,6 +122,8 @@ export interface Scene {
   extra_hold_seconds?: number | null;
   bgm_volume?: number | null;
   preferred_layout?: string | null;
+  /** "intro"|"content"|"outro"|"dataviz_chart"|"dataviz_table" (custom templates). */
+  scene_type?: string | null;
   created_at: string;
 }
 
@@ -167,6 +172,11 @@ export interface Project {
   bgm_track_id?: string | null;
   bgm_volume?: number;
   bgm_track_url?: string | null;
+  captions_enabled?: boolean;
+  caption_position?: "bottom_center" | "top_center";
+  caption_font_family?: string;
+  caption_font_size?: string | number;
+  caption_offset?: number;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_image_box_aspect_ratios?: {
@@ -335,17 +345,18 @@ export const googleLogin = (credential: string, reactivate = false, refCode?: st
   return api.post<AuthResponse>("/auth/google", { credential }, { params });
 };
 
-export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
-export const sendAffiliateInvites = (emails: string[]) =>
-  api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
-
-export interface AffiliateStats {
-  link: string;
-  signups_count: number;
-  bonus_earned: number;
-  max_signups: number;
-  bonus_per_signup: number;
-}
+// Share B2V (referral/invite) disabled
+// export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
+// export const sendAffiliateInvites = (emails: string[]) =>
+//   api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
+//
+// export interface AffiliateStats {
+//   link: string;
+//   signups_count: number;
+//   bonus_earned: number;
+//   max_signups: number;
+//   bonus_per_signup: number;
+// }
 
 export interface SurveyPayload {
   rating?: string;
@@ -371,11 +382,34 @@ export const getPublicConfig = () =>
 
 export type CheckoutPlan = "pro" | "standard";
 
+// Post-checkout win-back coupon gate. We want at most one follow-up scheduled
+// per browser per day, BUT only count checkouts that actually succeed — a failed
+// / unauthorized attempt must not "burn" the day. So we *read* the flag to decide
+// whether to ask the backend to schedule, and only *write* it after a 2xx.
+const COUPON_FOLLOWUP_KEY = "b2v_coupon_followup_date";
+
+function couponFollowupAllowedToday(): boolean {
+  try {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    return localStorage.getItem(COUPON_FOLLOWUP_KEY) !== today;
+  } catch {
+    return true; // storage blocked → fall back to scheduling
+  }
+}
+
+function markCouponFollowupScheduled(): void {
+  try {
+    localStorage.setItem(COUPON_FOLLOWUP_KEY, new Date().toISOString().slice(0, 10));
+  } catch {
+    /* storage blocked → nothing to record */
+  }
+}
+
 export const createCheckoutSession = (
   options:
     | {
         plan?: CheckoutPlan;
-        billing_cycle?: "monthly" | "annual";
+        billing_cycle?: "monthly" | "annual" | "lifetime";
         apply_third_video_offer?: boolean;
       }
     | "monthly"
@@ -388,11 +422,18 @@ export const createCheckoutSession = (
     typeof options === "string" ? options : (options?.billing_cycle ?? "monthly");
   const apply_third_video_offer =
     typeof options === "string" ? false : (options?.apply_third_video_offer ?? false);
-  return api.post<{ checkout_url: string }>("/billing/checkout", {
-    plan,
-    billing_cycle,
-    apply_third_video_offer,
-  });
+  const schedule_coupon_followup = couponFollowupAllowedToday();
+  return api
+    .post<{ checkout_url: string }>("/billing/checkout", {
+      plan,
+      billing_cycle,
+      apply_third_video_offer,
+      schedule_coupon_followup,
+    })
+    .then((res) => {
+      if (schedule_coupon_followup) markCouponFollowupScheduled();
+      return res;
+    });
 };
 
 export const createPerVideoCheckout = (
@@ -402,11 +443,29 @@ export const createPerVideoCheckout = (
     typeof options === "number" ? options : options?.projectId;
   const quantity =
     typeof options === "object" && options?.quantity ? options.quantity : 1;
-  return api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
-    project_id: projectId ?? null,
+  const schedule_coupon_followup = couponFollowupAllowedToday();
+  return api
+    .post<{ checkout_url: string }>("/billing/checkout-per-video", {
+      project_id: projectId ?? null,
+      quantity,
+      schedule_coupon_followup,
+    })
+    .then((res) => {
+      if (schedule_coupon_followup) markCouponFollowupScheduled();
+      return res;
+    });
+};
+
+
+export const createCustomTemplateCheckout = (quantity: number = 1) =>
+  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {
     quantity,
   });
-};
+
+
+/** One-time $300 purchase of 500 never-expiring video credits. */
+export const createBulkCreditsCheckout = () =>
+  api.post<{ checkout_url: string }>("/billing/checkout-bulk-credits", {});
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");
@@ -963,7 +1022,9 @@ export const createProject = (
   content_language?: string | null,
   voice_emotion?: string,
   bgm_track_id?: string | null,
-  bgm_volume?: number
+  bgm_volume?: number,
+  captions_enabled?: boolean,
+  caption_position?: "bottom_center" | "top_center"
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -985,6 +1046,8 @@ export const createProject = (
     voice_emotion,
     bgm_track_id,
     bgm_volume,
+    captions_enabled,
+    caption_position,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -1006,6 +1069,8 @@ export interface BulkProjectItem {
   custom_voice_id?: string;
   aspect_ratio?: string;
   content_language?: string | null;
+  captions_enabled?: boolean;
+  caption_position?: "bottom_center" | "top_center";
 }
 
 export interface BulkCreateResponse {
@@ -1197,6 +1262,11 @@ export const updateProject = (
     playback_speed?: number;
     bgm_track_id?: string | null;
     bgm_volume?: number;
+    captions_enabled?: boolean;
+    caption_position?: "bottom_center" | "top_center";
+    caption_font_family?: string;
+    caption_font_size?: number;
+    caption_offset?: number;
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 
@@ -1506,6 +1576,24 @@ export const getChatHistory = (id: number) =>
 
 // ─── Custom Templates API (Pro only) ─────────────────────
 
+/** Scene-exit transition styles (must match GeneratedTransition registry). */
+export type TransitionStyle =
+  | "fade"
+  | "accent_wash"
+  | "rule_sweep"
+  | "ink_wash"
+  | "whip_blur"
+  | "push_slide"
+  | "cover_wipe"
+  | "page_flip"
+  | "clock_sweep"
+  // richer custom presentations (palette-driven; ported from economist/chronicle)
+  | "parallax_push"
+  | "whip_pan"
+  | "accent_bar"
+  | "page_fold"
+  | "ink_bleed";
+
 export interface CustomTemplateTheme {
   colors: { accent: string; bg: string; text: string; surface: string; muted: string; bg2?: string };
   fonts: { heading: string; body: string; mono: string };
@@ -1519,6 +1607,31 @@ export interface CustomTemplateTheme {
     images: { treatment: string; overlay: string; captionStyle: string };
     layout: { direction: string; decorativeElements: string[] };
   };
+  /** Motion personality — drives kit animation timing + scene-exit transitions. */
+  motion?: {
+    energy?: "calm" | "smooth" | "energetic";
+    easing?: string;
+    transitionFamily?: TransitionStyle[];
+  };
+  /** Data-viz styling cues for the craft kit's CustomChart. */
+  charts?: {
+    style?: "clean" | "precise" | "editorial";
+    gridStyle?: "dashed" | "horizontal" | "none";
+    palette?: string[];
+  };
+  /** Background decoration system for the kit's <Decor>. */
+  decor?: {
+    system?: "none" | "dots" | "grid" | "orbs" | "starfield" | "rules" | "vignette";
+    intensity?: number;
+  };
+  /** Preferred content archetypes for this brand (scene-type variety hint). */
+  sceneBias?: string[];
+  /**
+   * The user's raw prompt / uploaded-doc text (prompt & doc creation paths only).
+   * Round-trips extract → create → DB so scene generation can honor explicit
+   * scene requests ("add a testimonial scene"). Absent for URL-scraped themes.
+   */
+  brief?: string;
 }
 
 export interface CustomTemplateItem {
@@ -1539,6 +1652,18 @@ export interface CustomTemplateItem {
   logo_urls?: string[];
   og_image?: string;
   generation_failed: boolean;
+  my_rating?: number | null;
+  my_rating_comment?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateRating {
+  id: number;
+  user_id: number;
+  custom_template_id: number;
+  rating: number;
+  suggestion: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1591,6 +1716,20 @@ export const deleteCustomTemplate = (id: number, force = false) =>
 export const extractTheme = (url: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
 
+export const extractThemeFromPrompt = (prompt: string, name?: string) =>
+  api.post<ExtractThemeResponse>("/custom-templates/extract-theme-from-prompt", { prompt, name });
+
+export const extractThemeFromDoc = (file: File, name?: string) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (name) formData.append("name", name);
+  return api.post<ExtractThemeResponse>(
+    "/custom-templates/extract-theme-from-doc",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
 export const generateTemplateCode = (templateId: number) =>
   api.post<{ detail: string; template_id: number }>(`/custom-templates/${templateId}/generate-code`);
 
@@ -1633,6 +1772,11 @@ export const rollbackTemplateVersion = (templateId: number, versionId: number) =
   api.post<CustomTemplateItem>(
     `/custom-templates/${templateId}/versions/${versionId}/rollback`
   );
+
+export const submitTemplateRating = (
+  templateId: number,
+  data: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }
+) => api.post<TemplateRating>(`/custom-templates/${templateId}/rating`, data);
 
 // ─── ElevenLabs voices (default / available) ─────────────────
 

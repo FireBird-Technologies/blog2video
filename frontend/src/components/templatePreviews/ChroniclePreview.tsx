@@ -137,6 +137,18 @@ export default function ChroniclePreview({
     return () => clearTimeout(t);
   }, [activeSceneIndex, durationInFrames, fps, thumbnailMode]);
 
+  // When the card reaches center, restart from the first scene/frame so the
+  // animation plays fresh — and stop it (the thumbnail effect above pauses it)
+  // the moment it moves away.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    setActiveSceneIndex(0);
+    const p = playerRef.current;
+    if (!p) return;
+    p.seekTo(0);
+    p.play();
+  }, [thumbnailMode]);
+
   return (
     <div className="w-full">
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
@@ -145,12 +157,12 @@ export default function ChroniclePreview({
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
-          initialFrame={0}
+          initialFrame={thumbnailMode ? thumbnailFrame : 0}
           compositionWidth={1920}
           compositionHeight={1080}
           fps={fps}
           controls={false}
-          autoPlay
+          autoPlay={!thumbnailMode}
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
           style={{ width: "100%", height: "100%", display: "block" }}

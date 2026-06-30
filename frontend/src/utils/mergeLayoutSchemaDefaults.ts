@@ -8,6 +8,11 @@
 
 export type LayoutPropSchema = Record<string, { defaults?: Record<string, unknown> }>;
 
+// Economist wordmark/dateline/teasers are LLM-authored content, never defaults —
+// mirror `_ECONOMIST_CONTENT_SKIP_KEYS` in backend/app/services/remotion.py so the
+// preview never injects the sample "The Brief" wordmark onto the cover / sign-off.
+const ECONOMIST_CONTENT_SKIP_KEYS = new Set(["wordmark", "dateline", "teasers"]);
+
 function resolveDefaultsForAspect(
   defaults: Record<string, unknown>,
   aspectRatio: string,
@@ -39,11 +44,17 @@ export function mergeLayoutSchemaDefaults(
   layoutId: string | null | undefined,
   schema: LayoutPropSchema | null | undefined,
   aspectRatio = "landscape",
+  templateId?: string | null,
 ): Record<string, unknown> {
   if (!layoutId || !schema || Object.keys(schema).length === 0) return layoutProps;
   const defaults = schema[layoutId]?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
   const resolved = resolveDefaultsForAspect(defaults, aspectRatio);
+  // Drop content-only defaults the renderer also refuses to inject, so the
+  // preview matches the MP4 (e.g. economist never auto-stamps a brand wordmark).
+  if (String(templateId ?? "").toLowerCase() === "economist") {
+    for (const key of ECONOMIST_CONTENT_SKIP_KEYS) delete resolved[key];
+  }
   const merged = { ...resolved, ...layoutProps };
 
   // Keep example chart data when stored chartTable has no rows (legacy partial merge).
@@ -55,6 +66,18 @@ export function mergeLayoutSchemaDefaults(
     ((existingTable as { rows: unknown[] }).rows.length > 0);
   if (!existingTableHasRows && resolved.chartTable && typeof resolved.chartTable === "object") {
     merged.chartTable = resolved.chartTable;
+  }
+
+  const existingTickerTable = layoutProps.tickerTable;
+  const existingTickerTableHasRows =
+    existingTickerTable &&
+    typeof existingTickerTable === "object" &&
+    Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+    ((existingTickerTable as { rows: unknown[] }).rows.some((row) =>
+      Array.isArray(row) && row.some((cell) => String(cell ?? "").trim() !== ""),
+    ));
+  if (!existingTickerTableHasRows && resolved.tickerTable && typeof resolved.tickerTable === "object") {
+    merged.tickerTable = resolved.tickerTable;
   }
 
   if (!("chartType" in layoutProps) && typeof resolved.chartType === "string") {

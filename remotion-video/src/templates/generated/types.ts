@@ -16,10 +16,12 @@ export interface GeneratedSceneProps {
     accent: string;
     background: string;
     text: string;
+    /** Optional gradient endpoint — when present the brand background is a gradient. */
+    bg2?: string;
   };
   aspectRatio: "landscape" | "portrait";
   /** Structured content fields — populated when blog content contains lists, stats, quotes, etc. */
-  contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps";
+  contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps" | "dataviz";
   bullets?: string[];
   metrics?: { value: string; label: string; suffix?: string }[];
   codeLines?: string[];
@@ -30,6 +32,10 @@ export interface GeneratedSceneProps {
   comparisonRight?: { label: string; description: string };
   timelineItems?: { label: string; description: string }[];
   steps?: string[];
+  /** Data-viz fields — populated when blog content contains a table/chartable data. */
+  chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
+  chartType?: string;
+  chartSummary?: string;
   titleFontSize?: number;
   descriptionFontSize?: number;
   headingFont?: string;
@@ -57,6 +63,11 @@ export interface GeneratedVideoData {
   bodyFont?: string | null;
   bgmFile?: string | null;
   bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  captionOffset?: number;
   scenes: GeneratedSceneData[];
   /** Brand colors derived from template theme */
   brandColors?: {
@@ -65,7 +76,18 @@ export interface GeneratedVideoData {
     accent: string;
     background: string;
     text: string;
+    bg2?: string;
   };
+  /** Optional gradient endpoint for the canvas background (solid when absent). */
+  bg2Color?: string | null;
+  /** Optional subset of transition styles for scene-exit flourishes. */
+  transitionFamily?: (
+    | "fade"
+    | "accent_wash"
+    | "rule_sweep"
+    | "ink_wash"
+    | "whip_blur"
+  )[];
   /** Number of unique content scene variants */
   contentVariantCount?: number;
   /** Brand images from BrandKit (resolved to public/ filenames) */
@@ -82,11 +104,13 @@ export interface GeneratedSceneData {
   /** Full voiceover narration script */
   narrationText?: string;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
   /** External image URL (og_image from brand kit) — used when no local image is assigned */
   ogImageUrl?: string;
-  sceneType?: "intro" | "content" | "outro";
+  sceneType?: "intro" | "content" | "outro" | "dataviz_chart" | "dataviz_table";
   /** Index into content variant array (0-based, cycles) */
   contentVariantIndex?: number;
   /** Structured content extracted from blog content (bullets, metrics, quotes, etc.) */

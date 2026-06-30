@@ -72,7 +72,7 @@ export interface EconomistLayoutProps {
   sectionLabel?: string;
   /** Issue dateline / folio (e.g. "MAY 23RD–29TH 2026"). */
   dateline?: string;
-  /** Byline (e.g. "By our finance correspondent"). */
+  /** Byline. Optional manual override; auto-generation never sets one (no fabricated authorship). */
   byline?: string;
   /** Source attribution line (charts, tables, KPI panels). */
   source?: string;
@@ -89,6 +89,11 @@ export interface EconomistLayoutProps {
   // ── leader_article ─────────────────────────────────────────────────────────
   /** Drop-cap override; defaults to the first letter of the body. */
   illuminatedLetter?: string;
+  /** On-screen article body paragraph (≈4–7 sentences), grounded in the source.
+   * Independent of `narration` (the short spoken voiceover) so the page fills
+   * with real article copy without lengthening the audio. Falls back to
+   * `narration` when absent. */
+  body?: string;
   /** Short takeaway points (2–3) shown as a ruled list so a thin article beat
    * still fills the page. `standfirst` (below) doubles as the deck line here. */
   keyPoints?: string[];

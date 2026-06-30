@@ -58,6 +58,9 @@ interface Props {
   onError?: (error: string) => void;
   onRetry?: () => void;
   onEnded?: () => void;
+  /** Continuous-composition mode: report the player's current frame so the parent
+   *  can highlight which scene is on-screen (the Edit-Template scene strip). */
+  onFrameUpdate?: (frame: number) => void;
   thumbnailMode?: boolean;
   thumbnailFrame?: number;
 }
@@ -82,6 +85,7 @@ export default function RemotionPreviewPlayer({
   onError,
   onRetry,
   onEnded,
+  onFrameUpdate,
   thumbnailMode = false,
   thumbnailFrame = 100,
 }: Props) {
@@ -98,6 +102,16 @@ export default function RemotionPreviewPlayer({
     player.addEventListener("ended", handler);
     return () => player.removeEventListener("ended", handler);
   }, [onEnded, compileResult, thumbnailMode]);
+
+  // Report current frame to the parent (continuous-composition scene strip).
+  useEffect(() => {
+    if (thumbnailMode || !onFrameUpdate) return;
+    const player = playerRef.current;
+    if (!player) return;
+    const onFrame = () => onFrameUpdate(player.getCurrentFrame());
+    player.addEventListener("frameupdate", onFrame);
+    return () => player.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, onFrameUpdate, compileResult, compiledComposition]);
 
   // In thumbnail mode, play briefly then freeze at a deterministic frame.
   useEffect(() => {

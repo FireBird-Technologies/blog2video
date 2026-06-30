@@ -3,6 +3,8 @@ title: "5 Best YouTube Title Score Checkers to Maximize Your CTR in 2026"
 slug: youtube-title-score-checker
 primary_keyword: youtube title score checker
 description: The best free YouTube title score checkers compared — TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.
+hero_image: /blog/blog-cover-youtube-title-score-checker.png
+hero_image_alt: "YouTube title score checker tools analyzing CTR and keyword placement."
 ---
 
 # 5 Best YouTube Title Score Checkers to Maximize Your CTR in 2026

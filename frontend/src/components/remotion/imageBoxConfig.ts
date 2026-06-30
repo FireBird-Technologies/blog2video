@@ -54,6 +54,9 @@ export function normalizeLayoutId(layoutId: string): string {
 export interface ImageBoxDims {
   landscape: { w: number; h: number };
   portrait:  { w: number; h: number };
+  /** When true, the layout crops the image into a circle — the adjust-modal
+   *  preview box should render round (border-radius 50%) to match. */
+  circular?: boolean;
 }
 
 /**
@@ -635,7 +638,40 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     landscape: { w: 1.0, h: 1.0 },
     portrait:  { w: 1.0, h: 1.0 },
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STICKMAN_FOOTBALL template  (canvas 1920 × 1080)
+  // Only kickoff_title, freekick_setup and goal_moment render an image; every
+  // other layout is in meta.json `layouts_without_image`. All three draw the
+  // image as a centered circular "mood" vignette of a fixed size — 560×560 in
+  // landscape, 420×420 in portrait (see KickoffTitle/FreekickSetup/GoalMoment).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  kickoff_title: {
+    landscape: { w: 0.292, h: 0.519 }, // 560 × 560 on 1920×1080 (1:1 box)
+    portrait:  { w: 0.389, h: 0.219 }, // 420 × 420 on 1080×1920 (1:1 box)
+    circular: true,
+  },
+  freekick_setup: {
+    landscape: { w: 0.292, h: 0.519 },
+    portrait:  { w: 0.389, h: 0.219 },
+    circular: true,
+  },
+  goal_moment: {
+    landscape: { w: 0.292, h: 0.519 },
+    portrait:  { w: 0.389, h: 0.219 },
+    circular: true,
+  },
 };
+
+/**
+ * True when a layout crops its image into a circle, so the adjust-modal preview
+ * box should be rendered round. Falls back to false for unknown layouts.
+ */
+export function isImageBoxCircular(layoutId: string | null): boolean {
+  if (!layoutId) return false;
+  return LAYOUT_IMAGE_BOX_DIMS[normalizeLayoutId(layoutId)]?.circular ?? false;
+}
 
 /**
  * Compute the CSS `aspect-ratio` string for the image adjustment modal preview box.
