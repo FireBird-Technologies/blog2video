@@ -1754,7 +1754,14 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     // Captions ride on the voiceover — never show them when there's no audio,
     // even if the stored flag is stale.
     captionsEnabled: activeCaptionSettings.captionsEnabled,
-    captionFontFamily: activeCaptionSettings.captionFontFamily,
+    // Resolve the caption font ID (e.g. "poppins") to a CSS family here so every
+    // preview composition — including JIT-compiled crafted templates that can't
+    // import the font registry — receives a usable font-family rather than a bare
+    // ID that the browser can't match. (The render side resolves from the data
+    // JSON independently.)
+    captionFontFamily:
+      resolveFontFamily(activeCaptionSettings.captionFontFamily) ||
+      activeCaptionSettings.captionFontFamily,
     captionFontSize: activeCaptionSettings.captionFontSize,
     captionOffset: activeCaptionSettings.captionOffset,
     ...(resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {}),
