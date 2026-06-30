@@ -866,7 +866,7 @@ export default function Landing() {
           <OrientationToggle orientation={templatesOrientation} onChange={setTemplatesOrientation} className="mb-8" />
           {/* key forces a clean remount on orientation change — resets every
               preview at once instead of swapping in place (which flickered). */}
-          <CoverflowCarousel key={templatesOrientation} templates={carouselTemplates} initialIndex={carouselInitialIndex} orientation={templatesOrientation} />
+          <CoverflowCarousel key={templatesOrientation} templates={carouselTemplates} initialIndex={carouselInitialIndex} orientation={templatesOrientation} showInputShowcase />
         </div>
       </section>
 

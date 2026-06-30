@@ -23,6 +23,8 @@ interface CoverflowCarouselProps {
   initialIndex?: number;
   /** Card shape: 16:9 (default) or 9:16. */
   orientation?: CoverflowOrientation;
+  /** Show the "any content source" input showcase below the carousel (landing only). */
+  showInputShowcase?: boolean;
 }
 
 const VISIBLE_RANGE = 3;
@@ -122,7 +124,7 @@ const CARD = {
   portrait: { w: 220, h: 391, designWidth: 560, designHeight: 430 },
 } as const;
 
-export default function CoverflowCarousel({ templates, initialIndex = 0, orientation = "landscape" }: CoverflowCarouselProps) {
+export default function CoverflowCarousel({ templates, initialIndex = 0, orientation = "landscape", showInputShowcase = false }: CoverflowCarouselProps) {
   const card = CARD[orientation];
   const DESIGN_WIDTH = card.designWidth;
   const DESIGN_HEIGHT = card.designHeight;
@@ -393,8 +395,8 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
         </button>
       </div>
 
-      {/* ── Content source showcase ── */}
-      <InputShowcase />
+      {/* ── Content source showcase (landing page only) ── */}
+      {showInputShowcase && <InputShowcase />}
 
       {/* ── Fullscreen modal ── */}
       {fullscreen && (
