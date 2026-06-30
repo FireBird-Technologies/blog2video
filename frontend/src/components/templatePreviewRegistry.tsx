@@ -32,6 +32,7 @@ import EconomistPreviewPortrait from "./templatePreviews/portrait/EconomistPrevi
 import Stickman2PreviewPortrait from "./templatePreviews/portrait/Stickman2PreviewPortrait";
 import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/StickmanFootballPreviewPortrait";
 
+import MagazinePreview from "./templatePreviews/MagazinePreview";
 /** Preview components keyed by built-in template id from the API. */
 export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   default: DefaultPreview,
@@ -68,6 +69,7 @@ export const TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boo
   economist: EconomistPreviewPortrait,
   stickman_2: Stickman2PreviewPortrait,
   stickman_football: StickmanFootballPreviewPortrait,
+  magazine: MagazinePreview,
 };
 
 export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -103,6 +105,7 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
     subtitle: "Editorial newspaper × economics — paper, red masthead, and reference-grade charts",
   },
   stickman_2: { title: "Stick Man 2: Night Edition", subtitle: "Glowing chalk stories under the night sky" },
+  magazine: { title: "Magazine", subtitle: "Glossy editorial storytelling" },
   stickman_football: { title: "Stickman Football Match", subtitle: "Hand-drawn football action for match recaps & highlights" },
 };
 
