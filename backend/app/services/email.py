@@ -561,15 +561,24 @@ class EmailService:
         company: str,
         contact_details: str,
         message: str,
+        is_designer_request: bool = False,
         to: str = "arslan@firebird-technologies.com",
     ) -> None:
         """
         Forward an enterprise contact form submission to the internal team.
         Triggered by POST /api/contact/enterprise.
+
+        When ``is_designer_request`` is set (the logged-out "Your Own Brand"
+        CTA on the landing page), the email is styled as a Designer Template
+        request rather than a generic enterprise contact.
         """
-        subject = f"[Enterprise] Contact from {name} ({company})"
+        kind_label = "Designer Template Request" if is_designer_request else "Enterprise Contact"
+        if is_designer_request:
+            subject = f"[Designer Template Request] from {name} ({company})"
+        else:
+            subject = f"[Enterprise] Contact from {name} ({company})"
         text = (
-            f"New enterprise contact request:\n\n"
+            f"New {kind_label.lower()}:\n\n"
             f"Name: {name}\n"
             f"Company: {company}\n"
             f"Contact details: {contact_details}\n\n"
@@ -586,7 +595,7 @@ class EmailService:
                       style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
                   <tr>
                     <td style="background:#9333EA;padding:24px 40px;">
-                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Enterprise Contact</span>
+                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — {kind_label}</span>
                     </td>
                   </tr>
                   <tr>
@@ -596,7 +605,7 @@ class EmailService:
                         <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Company</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{company}</td></tr>
                         <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Contact</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{contact_details}</td></tr>
                       </table>
-                      <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Message</p>
+                      <p style="margin:24px 0 8px;font-weight:600;color:#374151;">{"Theme / Description" if is_designer_request else "Message"}</p>
                       <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{message}</p>
                     </td>
                   </tr>

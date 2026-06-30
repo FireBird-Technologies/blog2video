@@ -699,13 +699,28 @@ const SLIDE_DURATION = 4000;
 
 export default function WhiteboardPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [current, setCurrent]       = useState(0);
-  const [visible, setVisible]       = useState(true);
+  const [visible, setVisible]       = useState(false);
   const transitioningRef            = useRef(false);
   const timeoutRef                  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentRef                  = useRef(0);
 
   // Keep currentRef in sync so the interval callback always has the latest value
   useEffect(() => { currentRef.current = current; }, [current]);
+
+  // Side cards play the first slide's drawing once and rest on its settled
+  // state (no slide cycling). Pinning to slide 0 also means it restarts from
+  // the top when the card returns to center.
+  useEffect(() => {
+    transitioningRef.current = false;
+    setCurrent(0);
+    if (thumbnailMode) {
+      setVisible(true);
+      return;
+    }
+    setVisible(false);
+    const t = setTimeout(() => setVisible(true), 200);
+    return () => clearTimeout(t);
+  }, [thumbnailMode]);
 
   const goTo = useCallback((i: number) => {
     if (transitioningRef.current) return;

@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
-import { getTemplateConfig } from "../remotion/templateConfig";
+import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -158,7 +158,7 @@ const STICKMAN_FOOTBALL_PREVIEW_SCENES: DemoScene[] = [
   },
 ];
 
-export default function StickmanFootballPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
+export default function StickmanFootballPreviewPortrait({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const playerRef = useRef<PlayerRef>(null);
   const fps = 30;
@@ -166,9 +166,6 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
   const Composition = config.component as React.ComponentType<any>;
   const { accent: accentColor, bg: bgColor, text: textColor } = config.defaultColors;
 
-  // Play the WHOLE timeline continuously (scene 1 → 2 → … → loop), exactly like the
-  // real video, instead of mounting one isolated scene per Player window. The dots
-  // just seek to a scene's start; auto-advance is driven by playback, not a timer.
   const sceneFrames = useMemo(
     () =>
       STICKMAN_FOOTBALL_PREVIEW_SCENES.map((s) =>
@@ -201,7 +198,7 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
       logoPosition: "bottom_right",
       logoOpacity: 0,
       logoSize: 0,
-      aspectRatio: "landscape",
+      aspectRatio: "portrait",
     }),
     [accentColor, bgColor, textColor],
   );
@@ -224,9 +221,6 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
     return () => pl.removeEventListener("frameupdate", onFrame);
   }, [thumbnailMode, thumbnailFrame]);
 
-  // When the card reaches center, restart the timeline from the top so the
-  // animation plays fresh — and stop it (the thumbnail effect above pauses it)
-  // the moment it moves away.
   useEffect(() => {
     if (thumbnailMode) return;
     const pl = playerRef.current;
@@ -236,7 +230,6 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
     pl.play();
   }, [thumbnailMode]);
 
-  // Keep the active-dot highlight in sync with which scene is currently playing.
   useEffect(() => {
     if (thumbnailMode) return;
     const pl = playerRef.current;
@@ -256,7 +249,6 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
     return () => pl.removeEventListener("frameupdate", onFrame);
   }, [thumbnailMode, sceneStartFrames]);
 
-  // Clicking a dot seeks the continuous timeline to that scene's start.
   const seekToScene = (index: number) => {
     setActiveSceneIndex(index);
     const pl = playerRef.current;
@@ -268,24 +260,24 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
 
   return (
     <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "9/16", background: bgColor }}>
         <Player
           ref={playerRef}
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
-          initialFrame={thumbnailMode ? thumbnailFrame : 0}
-          compositionWidth={1920}
-          compositionHeight={1080}
+          initialFrame={0}
+          compositionWidth={1080}
+          compositionHeight={1920}
           fps={fps}
           controls={false}
-          autoPlay={!thumbnailMode}
+          autoPlay
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
           style={{ width: "100%", height: "100%", display: "block" }}
         />
 
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 rounded-full bg-black/35 px-2 py-1">
           {STICKMAN_FOOTBALL_PREVIEW_SCENES.map((scene, index) => {
             const isActive = index === activeSceneIndex;
             return (
@@ -293,7 +285,7 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
                 key={scene.id}
                 onClick={() => seekToScene(index)}
                 disabled={thumbnailMode}
-                className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
+                className={`h-1.5 rounded-full transition-all ${isActive ? "w-4" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
                 style={isActive ? { background: accentColor } : undefined}
                 aria-label={`Preview ${scene.title} layout`}
                 title={scene.title}
