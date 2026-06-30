@@ -1,12 +1,190 @@
 import React from "react";
-import { AbsoluteFill, interpolate, staticFile, useCurrentFrame, useVideoConfig, delayRender, continueRender } from "remotion";
+import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig, delayRender, continueRender } from "remotion";
 import type { SceneLayoutProps } from "./types";
 import {
   MAGAZINE_DISPLAY_FONT,
   MAGAZINE_SERIF_FONT,
   MAGAZINE_SANS_FONT,
 } from "../../../fonts/magazine-defaults";
-import type { MagazineLayoutType, MagazineCameraMove } from "./types";
+import type { MagazineLayoutType, MagazineCameraMove, SceneExitVariant } from "./types";
+
+// ── Single-scene page-mechanics EXIT motion ──────────────────────────────────
+// SINGLE SCENE, ALWAYS: only ONE real page (children) is ever mounted/painted, so the
+// browser preview never has to rasterise two heavy magazine pages at once — which is
+// what made the dual-scene TransitionSeries overlap stutter ([[magazine-preview-paint-cost]]).
+// The EXIT plays a real 3D page move over the scene's LAST `frames` (page turns / flips /
+// slides / lifts / riffles away), revealing the persistent MAG_BACKDROP desk behind it;
+// then the next scene flies in on ITS camera (also single-scene). The scene's ENTRY is
+// the camera fly-in (useMagazineCamera). "lift" is the plain fallback.
+const smooth = (x: number) => {
+  const c = Math.max(0, Math.min(1, x));
+  return c * c * (3 - 2 * c); // smoothstep ease
+};
+const clampUnit = (x: number) => Math.max(0, Math.min(1, x));
+
+const FLIP_PERSP = 1600; // px
+const SHEET_FRONT = "linear-gradient(135deg, #f7f4ec 0%, #ffffff 58%, #efebe2 100%)";
+const SHEET_BACK = "linear-gradient(to left, #FDFDFD 0%, #F1F1EF 55%, #E4E3E0 100%)";
+const SHEET_EDGE_SHADE =
+  "linear-gradient(to right, rgba(0,0,0,0.05) 0%, transparent 16%, transparent 78%, rgba(0,0,0,0.42) 100%)";
+
+/** One flipping paper sheet (single-scene, GPU). `front` is the REAL page for the top
+ *  sheet; decorative sheets fall back to paper. The hidden back-face shows a paper
+ *  gradient once the sheet passes 90°, so content never mirrors. */
+const FlipSheet: React.FC<{
+  angle: number; axis: "y" | "x"; origin: string; zIndex: number; lift: number;
+  front?: React.ReactNode;
+}> = ({ angle, axis, origin, zIndex, lift, front }) => {
+  const rot = axis === "y" ? `rotateY(${angle.toFixed(2)}deg)` : `rotateX(${angle.toFixed(2)}deg)`;
+  const backRot = axis === "y" ? "rotateY(180deg)" : "rotateX(180deg)";
+  const shadow = `0 ${(6 + lift * 34).toFixed(0)}px ${(14 + lift * 48).toFixed(0)}px rgba(0,0,0,${(0.1 + lift * 0.3).toFixed(2)})`;
+  return (
+    <div style={{ position: "absolute", inset: 0, zIndex, transformStyle: "preserve-3d", transformOrigin: origin, transform: `perspective(${FLIP_PERSP}px) ${rot}` }}>
+      <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", overflow: "hidden", background: front ? undefined : SHEET_FRONT, boxShadow: lift > 0.02 ? shadow : undefined }}>
+        {front}
+        {lift > 0.02 && <div style={{ position: "absolute", inset: 0, background: SHEET_EDGE_SHADE, opacity: lift, pointerEvents: "none" }} />}
+      </div>
+      <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: backRot, background: SHEET_BACK }} />
+    </div>
+  );
+};
+
+/**
+ * SceneExit — a real 3D magazine PAGE MOVE over the scene's last `frames`. SINGLE
+ * scene: only the one real page (children) is mounted (riffle adds a few CHEAP blank
+ * paper sheets, never a second scene). The move reveals the desk behind, then the next
+ * scene flies in on its own camera. One page painted at a time → smooth preview.
+ */
+export const SceneExit: React.FC<{ variant?: SceneExitVariant; frames?: number; children: React.ReactNode }> = ({
+  variant = "lift",
+  frames = 48,
+  children,
+}) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  // The page MOVE finishes `hold` frames before the scene ends; those last frames show
+  // only the desk — a clear beat so the move completes before the next scene flies in.
+  const hold = Math.min(14, Math.max(0, frames - 8));
+  const e = smooth(
+    interpolate(frame, [durationInFrames - Math.max(1, frames), durationInFrames - hold], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    }),
+  );
+
+  // RIFFLE — the real page is the top sheet; N blank sheets flip R→L around the left
+  // spine in staggered sequence, each revealing the one beneath, finally the desk.
+  if (variant === "riffle_left" || variant === "riffle_zoom") {
+    const N = 4;
+    const total = N + 1;
+    const gap = 0.16, fd = 0.4;
+    const zoom = variant === "riffle_zoom" ? 1 + 0.5 * e : 1;
+    return (
+      <AbsoluteFill style={zoom !== 1 ? { transform: `scale(${zoom.toFixed(4)})`, transformOrigin: "50% 50%" } : undefined}>
+        {Array.from({ length: total }).map((_, i) => {
+          const li = smooth(clampUnit((e - i * gap) / fd));
+          return (
+            <FlipSheet key={i} angle={-180 * li} axis="y" origin="0% 50%" zIndex={total - i} lift={Math.sin(li * Math.PI)} front={i === 0 ? children : undefined} />
+          );
+        })}
+      </AbsoluteFill>
+    );
+  }
+
+  // PAGE TURN — one sheet turns around the RIGHT edge (off-screen right → desk).
+  if (variant === "page_turn") {
+    return <AbsoluteFill><FlipSheet angle={180 * e} axis="y" origin="100% 50%" zIndex={2} lift={Math.sin(e * Math.PI)} front={children} /></AbsoluteFill>;
+  }
+  // PAGE TURN BACK — one sheet turns around the LEFT edge.
+  if (variant === "page_turn_back") {
+    return <AbsoluteFill><FlipSheet angle={-180 * e} axis="y" origin="0% 50%" zIndex={2} lift={Math.sin(e * Math.PI)} front={children} /></AbsoluteFill>;
+  }
+  // FLIP UP / PAGE TURN UP — one sheet flips around the BOTTOM edge (rotateX) → desk.
+  if (variant === "flip_up" || variant === "page_turn_up") {
+    return <AbsoluteFill><FlipSheet angle={-180 * e} axis="x" origin="50% 100%" zIndex={2} lift={Math.sin(e * Math.PI)} front={children} /></AbsoluteFill>;
+  }
+
+  // SLIDE DOWN — the page slides straight down off the bottom, revealing the desk.
+  if (variant === "slide_down") {
+    const lift = Math.sin(e * Math.PI);
+    return <AbsoluteFill style={{ transform: `translateY(${(e * 108).toFixed(2)}%)`, boxShadow: `0 ${(10 + lift * 26).toFixed(0)}px ${(20 + lift * 40).toFixed(0)}px rgba(0,0,0,${(0.12 + lift * 0.22).toFixed(2)})` }}>{children}</AbsoluteFill>;
+  }
+  // PAGE SLIDE — the page slides off to the LEFT, revealing the desk.
+  if (variant === "page_slide") {
+    const lift = Math.sin(e * Math.PI);
+    return <AbsoluteFill style={{ transform: `translateX(${(-e * 108).toFixed(2)}%)`, boxShadow: `${(-10 - lift * 26).toFixed(0)}px 0 ${(20 + lift * 40).toFixed(0)}px rgba(0,0,0,${(0.12 + lift * 0.22).toFixed(2)})` }}>{children}</AbsoluteFill>;
+  }
+  // ZOOM DIVE — the page scales up toward the camera and fades onto the desk (no blur).
+  if (variant === "zoom_blur") {
+    const op = 1 - clampUnit((e - 0.35) / 0.65);
+    return <AbsoluteFill style={{ transform: `scale(${(1 + e * 0.6).toFixed(4)})`, transformOrigin: "50% 50%", opacity: op }}>{children}</AbsoluteFill>;
+  }
+
+  // SPREAD CLOSE — two cover panels swing shut over the page at the centre spine.
+  if (variant === "spread_close") {
+    const a = 100 * (1 - e); // ±100° (edge-on, hidden) → 0° (flat, closed)
+    const panel = (side: "l" | "r"): React.CSSProperties => ({
+      position: "absolute", top: 0, bottom: 0,
+      [side === "l" ? "left" : "right"]: 0, width: "50%",
+      transformStyle: "preserve-3d",
+      transformOrigin: side === "l" ? "100% 50%" : "0% 50%",
+      transform: `perspective(${FLIP_PERSP}px) rotateY(${(side === "l" ? -a : a).toFixed(2)}deg)`,
+      background: SHEET_FRONT,
+      backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+      boxShadow: "0 10px 30px rgba(0,0,0,0.28)",
+    });
+    return (
+      <AbsoluteFill>
+        {children}
+        <div style={panel("l")}><div style={{ position: "absolute", inset: 0, background: "linear-gradient(to left, rgba(0,0,0,0.18), transparent 32%)" }} /></div>
+        <div style={panel("r")}><div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(0,0,0,0.18), transparent 32%)" }} /></div>
+      </AbsoluteFill>
+    );
+  }
+
+  // CORNER PEEL — the page peels back from the top-right corner, fading to desk.
+  if (variant === "corner_peel") {
+    const lift = Math.sin(e * Math.PI);
+    return (
+      <AbsoluteFill>
+        <div style={{ position: "absolute", inset: 0, transformOrigin: "100% 0%", transform: `perspective(${FLIP_PERSP}px) rotate3d(-1, 1, 0, ${(95 * e).toFixed(2)}deg)`, opacity: 1 - clampUnit((e - 0.55) / 0.45), boxShadow: `0 ${(6 + lift * 30).toFixed(0)}px ${(14 + lift * 44).toFixed(0)}px rgba(0,0,0,${(0.1 + lift * 0.28).toFixed(2)})` }}>
+        {children}
+        <div style={{ position: "absolute", inset: 0, background: SHEET_EDGE_SHADE, opacity: lift * 0.8, pointerEvents: "none" }} />
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  // LIFT (fallback) — plain lift + fade to desk.
+  return <AbsoluteFill style={{ opacity: 1 - e, transform: `translateY(${(-4 * e).toFixed(2)}%)` }}>{children}</AbsoluteFill>;
+};
+
+// Per-layout signature EXIT move (no two ADJACENT default scenes share one). The
+// ENTRY is the camera fly-in. Override per scene via `exitAnim`.
+const EXIT_ANIM_BY_LAYOUT: Record<MagazineLayoutType, SceneExitVariant> = {
+  magazine_cover: "spread_close",
+  editorial_quote: "page_turn",
+  by_the_numbers: "riffle_left",
+  interview_qa: "corner_peel",
+  magazine_data_visualization: "riffle_zoom",
+  timeline_journey: "page_turn",
+  text_narration: "flip_up",
+  ending_socials: "page_turn", // last scene has no exit; harmless default
+  magazine_ticker: "riffle_left",
+  colorblock: "spread_close",
+  feature: "corner_peel",
+  comparison: "flip_up",
+};
+export const exitAnimFor = (layout: MagazineLayoutType): SceneExitVariant =>
+  EXIT_ANIM_BY_LAYOUT[layout] ?? "lift";
+/** Exit length (frames) = the page move + a short desk-only beat. Riffles need the
+ *  most room for their staggered flips. */
+export const exitFramesFor = (layout: MagazineLayoutType): number => {
+  const v = exitAnimFor(layout);
+  if (v === "riffle_left" || v === "riffle_zoom") return 64;
+  if (v === "flip_up" || v === "page_turn_up") return 52;
+  return 56;
+};
 
 /**
  * Shared print-editorial design system for the Magazine template.
@@ -318,7 +496,12 @@ export const useMagazineCamera = (
   const breatheRY = osc * 0.8;
   const push = interpolate(frame, [38, 672], [0, 0.04], cl); // slow sustained dolly-in
 
-  const enterFrames = establishing ? 64 : 34;
+  // Quick fly-in so each scene reads as "coming into view from a distinct camera",
+  // then settles and FREEZES fast. On a CPU (no GPU) every animated frame re-rasterizes
+  // the whole page in software, so the entrance is kept short and the page goes fully
+  // static ~1s in (see settleStart/settleEnd) — a frozen page is painted once and reused.
+  // The establishing cover keeps its longer crane.
+  const enterFrames = establishing ? 72 : 26;
   const e = easeOutCubic(interpolate(frame, [0, enterFrames], [0, 1], cl));
 
   // Defaults = the calm "breathe" baseline (matches the original editorial cam).
@@ -334,107 +517,127 @@ export const useMagazineCamera = (
   let originStr = "50% 30%";
   let ownsScale = false;
 
+  // Each move enters from a DRAMATICALLY distinct camera pose and resolves into
+  // focus (bold magnitudes — single page, GPU transforms, paint-safe under
+  // lightChrome). The shared `fill` settle then squares the page up to read.
   switch (move) {
     case "crane_down": {
-      // Far + high + soft → descend, dolly in, rack sharp, tilt levels onto the
-      // page. "Start from far, then point at the magazine on the table."
-      wScale = interpolate(e, [0, 1], [0.7, 1]);
-      wTY = interpolate(e, [0, 1], [-60, 0]);
-      rx = interpolate(e, [0, 1], [12, restRX + 2]);
-      ry = interpolate(e, [0, 1], [2, restRY]);
-      sScale = interpolate(e, [0, 1], [1.03, 1]);
-      pOY = interpolate(e, [0, 1], [18, 42]);
+      // Way up high + far + small → cranes down and dollies onto the spread.
+      wScale = interpolate(e, [0, 1], [0.5, 1]);
+      wTY = interpolate(e, [0, 1], [-150, 0]);
+      rx = interpolate(e, [0, 1], [22, restRX + 2]);
+      ry = interpolate(e, [0, 1], [6, restRY]);
+      sScale = interpolate(e, [0, 1], [1.06, 1]);
+      pOY = interpolate(e, [0, 1], [8, 42]);
       break;
     }
     case "punch_in": {
-      // Sustained dolly-in toward the focal point (a stat, a chart figure).
+      // Deep dolly from far back → punches into the focal point (a chart figure).
       originStr = focal ?? "50% 58%";
-      wScale = interpolate(frame, [0, enterFrames, 512], [0.98, 1, 1.04], cl);
-      rx = interpolate(e, [0, 1], [12, 9]);
-      ry = interpolate(e, [0, 1], [-5 + jitter, restRY]);
-      sScale = interpolate(e, [0, 1], [1.04, 1]);
+      wScale = interpolate(frame, [0, enterFrames, 560], [0.5, 1, 1.08], cl);
+      rx = interpolate(e, [0, 1], [16, 9]);
+      ry = interpolate(e, [0, 1], [-7 + jitter, restRY]);
+      sScale = interpolate(e, [0, 1], [1.06, 1]);
       ownsScale = true;
       break;
     }
     case "dolly_out": {
-      // Pull back to reveal the whole spread + desk — context / endings.
-      wScale = interpolate(frame, [0, 192], [1.04, 1], cl);
-      rx = interpolate(e, [0, 1], [11, restRX + 1]);
-      sScale = interpolate(e, [0, 1], [1.03, 1]);
+      // Starts hard in your face → pulls way back to reveal the whole spread + desk.
+      wScale = interpolate(frame, [0, enterFrames + 30], [1.35, 1], cl);
+      rx = interpolate(e, [0, 1], [13, restRX + 1]);
+      sScale = interpolate(e, [0, 1], [1.05, 1]);
       ownsScale = true;
       break;
     }
     case "dolly_zoom": {
-      // Hitchcock vertigo: widen the FOV while gently counter-scaling so the
-      // sheet holds its size and the desk behind rushes.
-      persp = interpolate(frame, [0, 352], [1250, 2700], cl);
-      wScale = interpolate(frame, [0, 352], [1.04, 0.98], cl);
-      rx = interpolate(e, [0, 1], [12, restRX]);
-      ry = interpolate(e, [0, 1], [-6 + jitter, restRY]);
+      // Hitchcock vertigo: widen the FOV while counter-scaling so the sheet holds
+      // its size and the desk behind rushes.
+      persp = interpolate(frame, [0, 380], [950, 2900], cl);
+      wScale = interpolate(frame, [0, 380], [1.08, 0.96], cl);
+      rx = interpolate(e, [0, 1], [14, restRX]);
+      ry = interpolate(e, [0, 1], [-7 + jitter, restRY]);
       ownsScale = true;
       break;
     }
     case "orbit_sweep": {
-      // Arc the camera across the spread; the vanishing point tracks the other
-      // way so PageThickness + the gutter catch the parallax.
-      const arc = interpolate(frame, [0, 384], [-10 + jitter, 8], cl);
-      ry = interpolate(e, [0, 1], [-12, arc]);
-      rx = interpolate(e, [0, 1], [12, restRX]);
-      pOX = interpolate(frame, [0, 384], [58, 42], cl);
+      // Bold arc across the spread — vanishing point tracks the other way.
+      const arc = interpolate(frame, [0, 420], [22, -8], cl);
+      ry = interpolate(e, [0, 1], [-75 + jitter, restRY]) + (arc - 7);
+      rx = interpolate(e, [0, 1], [16, restRX]);
+      pOX = interpolate(frame, [0, 420], [66, 38], cl);
+      persp = 1500;
       break;
     }
     case "tracking_pan": {
-      // Lateral dolly glide along the table edge.
-      wTX = interpolate(frame, [0, 416], [40, -40], cl);
-      pOX = interpolate(frame, [0, 416], [42, 58], cl);
-      rx = interpolate(e, [0, 1], [12, restRX]);
-      ry = interpolate(e, [0, 1], [-8 + jitter, restRY]);
+      // Big lateral glide along the table edge → tracks in to face.
+      wTX = interpolate(frame, [0, enterFrames + 40], [240, -10], cl);
+      pOX = interpolate(frame, [0, enterFrames + 40], [36, 56], cl);
+      ry = interpolate(e, [0, 1], [30 + jitter, restRY]);
+      rx = interpolate(e, [0, 1], [14, restRX]);
       break;
     }
     case "whip_settle": {
-      // Fast whip-pan that snaps into the rest pose, smeared with motion blur.
-      const we = easeOutCubic(interpolate(frame, [0, 20], [0, 1], cl));
-      ry = interpolate(we, [0, 1], [16, restRY]);
-      sTX = interpolate(we, [0, 1], [70, 0]);
-      rx = interpolate(we, [0, 1], [12, restRX]);
+      // Hard lateral whip-in that snaps into the rest pose.
+      const we = easeOutCubic(interpolate(frame, [0, 26], [0, 1], cl));
+      ry = interpolate(we, [0, 1], [44, restRY]);
+      sTX = interpolate(we, [0, 1], [190, 0]);
+      rx = interpolate(we, [0, 1], [16, restRX]);
       break;
     }
     case "gods_eye": {
-      // Near-overhead flat-lay drifting down to a readable tilt.
-      originStr = "50% 26%";
-      const settle = interpolate(frame, [enterFrames, 512], [0, 4], cl);
-      rx = interpolate(e, [0, 1], [14, 8]) - settle;
+      // Steep near-overhead flat-lay → tilts down to a readable angle.
+      originStr = "50% 22%";
+      rx = interpolate(e, [0, 1], [40, 8]);
       ry = interpolate(e, [0, 1], [0, restRY * 0.5]);
-      sScale = interpolate(e, [0, 1], [1.03, 1.0]);
+      sScale = interpolate(e, [0, 1], [1.05, 1.0]);
       ownsScale = true;
       break;
     }
     case "dutch_roll": {
-      // Enter rolled (Dutch angle) and level out — tension for pull-quotes.
-      rz = interpolate(e, [0, 1], [-5 - jitter * 0.5, 0]);
-      rx = interpolate(e, [0, 1], [12, restRX]);
-      ry = interpolate(e, [0, 1], [-6, restRY]);
+      // Enters hard-rolled (Dutch angle) → levels out (tension between two columns).
+      rz = interpolate(e, [0, 1], [22 + jitter, 0]);
+      rx = interpolate(e, [0, 1], [14, restRX]);
+      ry = interpolate(e, [0, 1], [15, restRY]);
       break;
     }
     case "low_hero": {
-      // Imposing: fills more of the frame, shallow tilt, slow push to camera.
-      rx = interpolate(e, [0, 1], [11, 7]);
-      sScale = interpolate(e, [0, 1], [1.04, 1.0]);
-      wTY = interpolate(e, [0, 1], [18, 0]);
-      ry = interpolate(e, [0, 1], [-5 + jitter, restRY]);
+      // Low + close hero push: fills the frame, rises into a shallow tilt.
+      rx = interpolate(e, [0, 1], [-12, 7]);
+      sScale = interpolate(e, [0, 1], [1.0, 1.0]);
+      wScale = interpolate(e, [0, 1], [1.25, 1]);
+      wTY = interpolate(e, [0, 1], [60, 0]);
+      ry = interpolate(e, [0, 1], [-6 + jitter, restRY]);
+      ownsScale = true;
       break;
     }
     case "book_open": {
-      // The spread swings open around its vertical centre binding — like a book
-      // opened flat toward the reader. Reads distinctly from the flat tilt-settle
-      // and the single-page fold; the shared `fill` settle then squares it up.
+      // Big spread swing open around the vertical centre binding → settles flat.
       originStr = "50% 50%";
       pOX = 50;
-      pOY = interpolate(e, [0, 1], [50, 42]);
-      persp = 1600;
-      ry = interpolate(e, [0, 1], [-52 + jitter, restRY]);
-      rx = interpolate(e, [0, 1], [10, restRX]);
-      sScale = interpolate(e, [0, 1], [0.94, 1]);
+      pOY = interpolate(e, [0, 1], [52, 42]);
+      persp = 1400;
+      ry = interpolate(e, [0, 1], [-85 + jitter, restRY]);
+      rx = interpolate(e, [0, 1], [12, restRX]);
+      sScale = interpolate(e, [0, 1], [0.88, 1]);
+      break;
+    }
+    case "read_lift": {
+      // Camera low, looking up → the page rises into the reader's eyeline.
+      wTY = interpolate(e, [0, 1], [160, 0]);
+      wScale = interpolate(e, [0, 1], [1.25, 1]);
+      rx = interpolate(e, [0, 1], [-16, restRX]);
+      ry = interpolate(e, [0, 1], [8 + jitter, restRY]);
+      sScale = interpolate(e, [0, 1], [1.04, 1]);
+      ownsScale = true;
+      break;
+    }
+    case "settle_read": {
+      // Strong off-angle yaw + slight roll → levels into a comfortable reading pose.
+      ry = interpolate(e, [0, 1], [-28 + jitter, restRY]);
+      rz = interpolate(e, [0, 1], [-8, 0]);
+      rx = interpolate(e, [0, 1], [14, restRX]);
+      pOX = interpolate(e, [0, 1], [58, 50]);
+      sScale = interpolate(e, [0, 1], [1.04, 1]);
       break;
     }
     case "breathe":
@@ -454,8 +657,12 @@ export const useMagazineCamera = (
   // output toward a head-on, centered, identity pose so the page squares up and
   // (via `fill`, in MagazinePage) grows to cover the whole screen. The cover keeps
   // its desk look, so this never runs on the establishing scene.
-  const settleStart = enterFrames + 6;
-  const settleEnd = settleStart + 48;
+  // Freeze FAST: settle begins as soon as the (short) entrance ends and completes ~24
+  // frames later, so the page is fully static ~1s in. After that, every camera output
+  // below is constant, so software (CPU) compositing repaints the page once and reuses
+  // the raster for the rest of the scene — no mid-scene re-rasterization jank.
+  const settleStart = enterFrames;
+  const settleEnd = settleStart + 24;
   const fill = establishing
     ? 0
     : easeOutCubic(interpolate(frame, [settleStart, settleEnd], [0, 1], cl));
@@ -471,14 +678,24 @@ export const useMagazineCamera = (
   const bWTX = wTX * k;
   const bWTY = wTY * k;
 
+  // Perspective + perspective-origin must freeze too. Some moves animate pOX/pOY/persp
+  // by raw `frame` (e.g. orbit_sweep's pOX over [0,420]), which would keep the perspective
+  // origin drifting — and the page repainting — long after the stage transform settled.
+  // Blend them toward their rest defaults by the SAME k so at fill=1 the ENTIRE camera
+  // output is constant frame-to-frame.
+  const restPOX = 50, restPOY = 42, restPersp = 2000;
+  const bPOX = pOX * k + restPOX * fill;
+  const bPOY = pOY * k + restPOY * fill;
+  const bPersp = persp * k + restPersp * fill;
+
   return {
     world: {
       transform: `translate(${bWTX.toFixed(1)}px, ${bWTY.toFixed(1)}px) scale(${bWScale.toFixed(4)})`,
       transformOrigin: "50% 50%",
       filter: "none", // no large-area blur — it's the biggest paint cost / wash source
     },
-    perspective: persp,
-    perspectiveOrigin: `${pOX.toFixed(1)}% ${pOY.toFixed(1)}%`,
+    perspective: bPersp,
+    perspectiveOrigin: `${bPOX.toFixed(1)}% ${bPOY.toFixed(1)}%`,
     stage: {
       transform: `translate(${bSTX.toFixed(1)}px, ${bSTY.toFixed(1)}px) scale(${bStageScale.toFixed(4)}) rotateX(${bRX.toFixed(2)}deg) rotateY(${bRY.toFixed(2)}deg) rotateZ(${bRZ.toFixed(2)}deg)`,
       transformOrigin: originStr,
@@ -491,19 +708,26 @@ export const useMagazineCamera = (
 
 // Per-layout signature camera moves. The composition picks one (varied by the
 // folio) as a scene's default; an explicit scene `cameraMove` overrides it.
+// Every layout maps to a DISTINCT camera move (no repeats across the deck) so each
+// scene reads as its own shot. Heavy self-animating pages stay calm/cheap (stats =
+// static; data/colorblock/ticker = dolly/translate/settle, no big 3D swings); only
+// the lightChrome feature page carries a continuous moving push. See the new
+// read_lift/settle_read "pick-up & read" moves above.
+// Each layout flies in from a DISTINCT bold camera (no repeats) and resolves into
+// focus. All pages run lightChrome so the moving cam stays paint-light (no jitter).
 const CAMERA_SIGNATURES: Record<MagazineLayoutType, MagazineCameraMove[]> = {
-  magazine_cover: ["crane_down", "low_hero"],
-  by_the_numbers: ["punch_in"],
-  editorial_quote: ["pinned"], // sit flat + full-bleed on the main bg from frame 0 — no tilted page-on-a-desk entrance wash (the un-settled tilt + desk read as a beige-grey wash as the scene came in)
-  interview_qa: ["pinned"], // the reading spread sits dead still — no camera drift on the Q&A copy
-  magazine_data_visualization: ["punch_in"],
-  timeline_journey: ["book_open"], // the spread swings open horizontally, then the chronology draws across it
-  text_narration: ["gods_eye"], // single-page "Field Notes" index — overhead flat-lay drifting to a readable tilt suits a numbered notes page
-  ending_socials: ["dolly_out"], // closing pull-back, distinct from the data punch-in
-  magazine_ticker: ["punch_in"],
-  colorblock: ["breathe"], // the motion is the sequential block reveal — a calm settle keeps the 3D from competing with it
-  feature: ["orbit_sweep"], // establishing arc across the feature spread while the body inks in
-  comparison: ["book_open"], // a before/after spread that opens around the binding, then the two columns fade in
+  magazine_cover: ["crane_down"], // way up high + far → cranes down onto the cover
+  editorial_quote: ["read_lift"], // camera low, looking up → the pull-quote rises to eyeline
+  by_the_numbers: ["whip_settle"], // hard lateral whip-in → snaps to rest
+  interview_qa: ["settle_read"], // strong off-angle yaw → levels into the reading pose
+  magazine_data_visualization: ["pinned"], // static full-bleed — CPU rasterizes once, no per-frame repaint
+  timeline_journey: ["book_open"], // big spread swing open around the binding
+  text_narration: ["gods_eye"], // steep near-overhead → tilts down to readable
+  ending_socials: ["dolly_out"], // starts in your face → pulls way back to reveal
+  magazine_ticker: ["tracking_pan"], // big lateral glide along the ledger/table edge
+  colorblock: ["pinned"], // static head-on hold — orbit_sweep's big 3D arc jerked on CPU
+  feature: ["pinned"], // static full-bleed read — CPU rasterizes once, no per-frame repaint
+  comparison: ["dutch_roll"], // enters hard-rolled (Dutch) → levels out
 };
 
 /** The default cinematic move for a scene, varied by its folio so repeats of a
@@ -513,6 +737,7 @@ export const signatureMoveFor = (layout: MagazineLayoutType, seed: number): Maga
   return pool[Math.abs(Math.floor(seed)) % pool.length];
 };
 
+// ── Per-layout page-mechanics EXIT signatures ────────────────────────────────
 /**
  * The physical thickness of the open magazine — a stack of page-edge layers
  * sitting just behind the top sheet (each offset down-right and pushed back in Z)
@@ -884,7 +1109,8 @@ export const KineticWords: React.FC<{
   depth?: boolean;
   /** Kept for source compatibility; per-word focus blur was removed for perf. */
   focus?: boolean;
-}> = ({ text, start = 6, stagger = 3, dur = 16, italicizeLast = false, depth = true }) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+}> = ({ text, start = 6, stagger = 3, dur = 16, italicizeLast = false, depth: _depth = true }) => {
   const frame = useMagFrame();
   const words = (text ?? "").split(" ").filter(Boolean);
   return (
@@ -894,15 +1120,13 @@ export const KineticWords: React.FC<{
         const t = interpolate(frame, [s, s + dur], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
         const e = 1 - Math.pow(1 - t, 3);
         const lift = 1 - e;
-        const rx = lift * -72;
-        const ty = lift * 24;
-        const tz = lift * -90;
+        // 2D-only reveal: a staggered translateY rise + fade. The per-word
+        // perspective()/rotateX/translateZ (a nested 3D context PER WORD) and the
+        // animated per-word textShadow were dropped — 8–10 nested 3D contexts +
+        // animated shadows per headline are brutal to rasterize without a GPU. The
+        // settled headline looks identical; only the entrance is now a clean 2D rise.
+        const ty = lift * 22;
         const isLast = italicizeLast && i === words.length - 1;
-        // A single soft drop shadow grounds the word as it tips into place — clean
-        // and editorial, no heavy extrusion.
-        const shadow = depth
-          ? `0 ${(1 + lift * 6).toFixed(1)}px ${(2 + lift * 10).toFixed(1)}px rgba(0,0,0,${(0.04 + lift * 0.2).toFixed(3)})`
-          : undefined;
         return (
           <span
             key={i}
@@ -911,12 +1135,7 @@ export const KineticWords: React.FC<{
               whiteSpace: "pre",
               transformOrigin: "50% 100%",
               opacity: t,
-              transform: `perspective(900px) translateY(${ty.toFixed(1)}px) translateZ(${tz.toFixed(1)}px) rotateX(${rx.toFixed(1)}deg)`,
-              // No per-word willChange: it created/destroyed a compositor layer per
-              // word per frame (layer thrash). The words now raster inside the
-              // parent page's single promoted layer instead.
-              textShadow: shadow,
-              // per-word blur removed — blurring 8–10 spans every frame is very costly
+              transform: `translateY(${ty.toFixed(1)}px)`,
               fontStyle: isLast ? "italic" : undefined,
               fontWeight: isLast ? 700 : undefined,
             }}
@@ -1000,27 +1219,40 @@ export const WrittenText: React.FC<{
   wordsPerFrame?: number;
   /** Per-word fade length in frames. */
   dur?: number;
-}> = ({ text, start = 8, wordsPerFrame = 0.5, dur = 8 }) => {
+  /**
+   * Reveal words in groups of this size (default 1 = one span per word).
+   * Use a larger value (e.g. 4) for long body copy inside multicolumn layouts
+   * to cut the number of simultaneously-animating opacity spans and avoid
+   * per-frame layout thrash in headless Chromium during MP4 export.
+   */
+  groupSize?: number;
+}> = ({ text, start = 8, wordsPerFrame = 0.5, dur = 8, groupSize = 1 }) => {
   const frame = useMagFrame();
-  // Scene length in mag-frames (useMagFrame divides the clock by MAG_TEMPO, so the
-  // budget must be divided too) minus a tail so the finished paragraph holds on
-  // screen briefly before the scene cuts.
   const { durationInFrames } = useVideoConfig();
   const words = (text ?? "").split(" ");
   const tailFrames = 18;
   const budget = Math.max(1, durationInFrames / MAG_TEMPO - start - dur - tailFrames);
-  // Speed needed to ink every word within the budget; never slower than the
-  // default (so short copy keeps its unhurried pace), only faster when required.
   const pace = Math.max(wordsPerFrame, (words.length - 1) / budget || wordsPerFrame);
+
+  const gs = Math.max(1, groupSize);
+  // Build chunks: each chunk is gs consecutive words joined with spaces.
+  // The chunk's reveal time is keyed to its first word's start frame so the
+  // overall pacing matches the single-word mode (same total duration).
+  const chunks: { text: string; s: number }[] = [];
+  for (let i = 0; i < words.length; i += gs) {
+    const slice = words.slice(i, i + gs);
+    chunks.push({ text: slice.join(" "), s: start + i / pace });
+  }
+
   return (
     <>
-      {words.map((w, i) => {
-        const s = start + i / pace;
-        const t = interpolate(frame, [s, s + dur], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+      {chunks.map((c, ci) => {
+        const t = interpolate(frame, [c.s, c.s + dur], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+        const isLast = ci === chunks.length - 1;
         return (
-          <span key={i} style={{ opacity: t }}>
-            {w}
-            {i < words.length - 1 ? " " : ""}
+          <span key={ci} style={{ opacity: t }}>
+            {c.text}
+            {!isLast ? " " : ""}
           </span>
         );
       })}
@@ -1061,6 +1293,11 @@ export const useFitText = (
   React.useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    // Hide the copy until the fit is resolved so the preview never paints it at the
+    // estimated size and then reflows to the measured size (the visible "shift" on
+    // scene load). We reveal it at the final size at the end of measure().
+    el.style.visibility = "hidden";
 
     if (handleRef.current === null) handleRef.current = delayRender("magazine-fit-text");
     let cancelled = false;
@@ -1154,16 +1391,30 @@ export const useFitText = (
         next = Math.max(minPx, size);
       }
       el.style.fontSize = `${next}px`;
+      el.style.visibility = "visible"; // reveal at the final, fitted size — no reflow shift
       setPx(next);
-      release();
+      // Defer continueRender until after the browser has painted the new font
+      // size. setPx triggers a React re-render but continueRender would fire
+      // synchronously before React commits — the headless capturer would then
+      // grab the frame at the old estimated size. rAF fires after the paint so
+      // the captured frame always shows the fitted size.
+      requestAnimationFrame(() => release());
     };
 
-    // Measure only once the web fonts have loaded — a synchronous mount-time
-    // probe runs with fallback metrics and mis-measures, so we wait for
-    // `document.fonts.ready` (keeping the frame gated) before fitting.
-    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
-    if (fonts?.ready) {
-      fonts.ready.then(() => {
+    // Try to measure synchronously — if the element has real dimensions (i.e.
+    // the custom fonts are already loaded, as is always the case in the Player
+    // after the first scene), reveal immediately at frame 0 so the content is
+    // visible from the first paint and there is no mid-entrance pop-in. Only
+    // fall back to the async fonts.ready path if the element has zero height
+    // (unmeasurable = fonts not yet loaded), which happens on very first load or
+    // in headless render before fonts are ready.
+    const el2 = ref.current;
+    const fontsObj = (document as Document & { fonts?: FontFaceSet }).fonts;
+    const canMeasureNow = el2 && el2.clientHeight > 0;
+    if (canMeasureNow) {
+      measure();
+    } else if (fontsObj?.ready) {
+      fontsObj.ready.then(() => {
         if (!cancelled) measure();
       });
     } else {
@@ -1263,32 +1514,21 @@ export const DeskBackdrop: React.FC<{ aspectRatio?: string; accent?: string; par
   const scale = p ? 0.7 : 1; // portrait has less room, so fan less aggressively
   return (
     <>
-      {/* warm, dark wooden/leather table surface */}
+      {/* Warm dark table surface WITH the lamp-glow + vignette baked into a single
+          gradient stack. Collapsed from 5 stacked full-frame gradient layers (table,
+          texture, lamp, contact-shadow, vignette) to ONE — the desk only shows during
+          the brief entrance now, and software compositing pays per layer per frame. */}
       <AbsoluteFill
         style={{
-          background:
+          background: [
+            "radial-gradient(ellipse 70% 60% at 54% 26%, rgba(255,243,224,0.16) 0%, rgba(255,236,205,0.05) 38%, rgba(255,230,195,0) 64%)",
+            "radial-gradient(ellipse at 54% 30%, rgba(0,0,0,0) 44%, rgba(8,5,2,0.55) 100%)",
             "radial-gradient(ellipse at 50% 34%, #3a322a 0%, #2a2420 42%, #19140f 78%, #100c08 100%)",
+          ].join(", "),
         }}
       />
-      {/* large-scale texture so the surface reads as a real material, not a wash */}
-      <AbsoluteFill
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(96deg, rgba(255,255,255,0.018) 0px, rgba(0,0,0,0.02) 2px, rgba(255,255,255,0) 5px), radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)",
-          backgroundSize: "auto, 4px 4px",
-          opacity: 0.6,
-        }}
-      />
-      {/* soft warm light pool — a lamp glow from the upper area. Plain alpha
-          gradient (no mixBlendMode:screen, which forced offscreen compositing). */}
-      <AbsoluteFill
-        style={{
-          background:
-            "radial-gradient(ellipse 70% 60% at 54% 26%, rgba(255,243,224,0.16) 0%, rgba(255,236,205,0.06) 38%, rgba(255,230,195,0) 66%)",
-          zIndex: 2,
-        }}
-      />
-      {/* the loose magazines peeking from under the open spread */}
+      {/* One loose magazine peeking from behind the spread — a single flat cover wash,
+          no per-cover highlight/rule/masthead child nodes (they painted every frame). */}
       {SCATTER_SHEETS.map((s, i) => (
         <div
           key={i}
@@ -1301,46 +1541,14 @@ export const DeskBackdrop: React.FC<{ aspectRatio?: string; accent?: string; par
             background: s.cover,
             borderRadius: 3,
             overflow: "hidden",
-            // Mid-ground props sit back in Z and counter-shift with the camera so
-            // they parallax against the open spread (multiplane / 2.5D read).
             transform: `translate(${s.tx * scale}%, ${s.ty * scale}%) translate(${(parallaxX * 0.6).toFixed(2)}px, ${(parallaxY * 0.6).toFixed(2)}px) translateZ(-90px) rotate(${s.rotate * scale}deg)`,
             transformOrigin: "center center",
             zIndex: i + 1,
+            border: `${p ? 2 : 2.5}px solid ${hexToRgba(accent, 0.45)}`,
           }}
-        >
-          {/* soft photographic highlight to suggest a cover image */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "radial-gradient(ellipse at 40% 26%, rgba(255,240,214,0.14) 0%, rgba(255,240,214,0) 55%)",
-            }}
-          />
-          {/* a thin accent rule near the edge — themed, but quiet */}
-          <div
-            style={{
-              position: "absolute",
-              inset: "4.5%",
-              border: `${p ? 2 : 2.5}px solid ${hexToRgba(accent, 0.55)}`,
-            }}
-          />
-          {/* a faint masthead bar at the top */}
-          <div
-            style={{
-              position: "absolute",
-              top: "9%",
-              left: "14%",
-              right: "14%",
-              height: p ? 8 : 11,
-              background: hexToRgba("#f3ead9", 0.42),
-              borderRadius: 1,
-            }}
-          />
-        </div>
+        />
       ))}
-      {/* Soft contact shadow grounding the spread on the table. A pre-feathered
-          radial gradient instead of a blur(38px) filter — same look, no
-          full-screen blur (the single biggest paint cost per frame). */}
+      {/* Soft contact shadow grounding the spread (pre-feathered gradient, no blur). */}
       <div
         style={{
           position: "absolute",
@@ -1351,14 +1559,6 @@ export const DeskBackdrop: React.FC<{ aspectRatio?: string; accent?: string; par
           background: "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.32) 45%, rgba(0,0,0,0) 72%)",
           transform: `translateY(2.4%) translate(${(parallaxX * 0.3).toFixed(2)}px, ${(parallaxY * 0.3).toFixed(2)}px) translateZ(-30px)`,
           zIndex: 3,
-        }}
-      />
-      {/* warm vignette tied to the light pool to settle the edges */}
-      <AbsoluteFill
-        style={{
-          background:
-            "radial-gradient(ellipse at 54% 30%, rgba(0,0,0,0) 44%, rgba(8,5,2,0.55) 100%)",
-          zIndex: 4,
         }}
       />
     </>
@@ -1676,6 +1876,18 @@ interface MagazinePageProps {
   printTextureSrc?: string;
   /** Opacity of the full-bleed print-texture layer (defaults to 0.12). */
   printTextureOpacity?: number;
+  /** Newspaper-style "light chrome": drop the per-frame-expensive page furniture
+   *  (PageThickness stack + dog-ear PageCurls) and don't toggle the stage's
+   *  willChange. For pages that run a moving camera, so the spread stays paint-light
+   *  enough to re-rasterise smoothly every frame (mirrors the newspaper template). */
+  lightChrome?: boolean;
+  /** Optional full-bleed photo embedded INTO the page sheet — sits above the
+   *  print texture but below the live content, with a paper scrim so overlaid
+   *  text/graphics stay readable (e.g. TimelineJourney's background). */
+  backgroundImageSrc?: string;
+  backgroundImageObjectPosition?: string;
+  backgroundImageZoom?: number;
+  backgroundImageOpacity?: number;
   contentStyle?: React.CSSProperties;
   children: React.ReactNode;
 }
@@ -1701,6 +1913,11 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
   hidePrintTexture = false,
   printTextureSrc = "magazine-blur-bg.svg",
   printTextureOpacity = 0.12,
+  lightChrome = false,
+  backgroundImageSrc,
+  backgroundImageObjectPosition = "50% 50%",
+  backgroundImageZoom = 1,
+  backgroundImageOpacity = 0.3,
   contentStyle,
   children,
 }) => {
@@ -1779,13 +1996,16 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
             perspectiveOrigin: cam.perspectiveOrigin,
           }}
         >
-          {/* Desk surface with loose magazine covers scattered behind the spread,
-              counter-shifting with the camera for a multiplane parallax read. It
-              fades out as the page settles to full-bleed so no desk peeks at the
-              edges while the sheet grows to cover the screen. */}
-          <AbsoluteFill style={{ opacity: 1 - cam.fill }}>
-            <DeskBackdrop aspectRatio={aspectRatio} accent={accent} parallaxX={cam.deskParallax.x} parallaxY={cam.deskParallax.y} />
-          </AbsoluteFill>
+          {/* Desk surface with loose magazine covers behind the spread. UNMOUNTED
+              (not just opacity:0) once the page settles to full-bleed — keeping its
+              8 gradients + scattered sheets in the tree during the static hold made
+              software (CPU) compositing repaint them every frame for nothing. Now it
+              only exists during the brief entrance, then is removed entirely. */}
+          {cam.fill < 0.999 && (
+            <AbsoluteFill style={{ opacity: 1 - cam.fill }}>
+              <DeskBackdrop aspectRatio={aspectRatio} accent={accent} parallaxX={cam.deskParallax.x} parallaxY={cam.deskParallax.y} />
+            </AbsoluteFill>
+          )}
 
           {/* 3D editorial camera — the cinematic move tilts/orbits/rolls the
               spread + page-thickness block */}
@@ -1806,15 +2026,18 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
               // during holds with no per-frame thrash. Establishing scenes keep
               // fill=0 so they stay promoted (they never stop moving). backface-
               // hidden stays so the 3D subtree can't flatten and flash the backdrop.
-              willChange: cam.fill < 0.999 ? "transform" : undefined,
+              willChange: lightChrome ? undefined : cam.fill < 0.999 ? "transform" : undefined,
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
               zIndex: 5,
             }}
           >
-            {/* The physical block of pages under the open spread — omitted for a
-                single page, which is one flat leaf, not a bound spread. */}
-            {!singlePage && <PageThickness sheetInsetX={sheetBaseInsetX} sheetInsetY={sheetBaseInsetY} />}
+            {/* The physical block of pages under the open spread — only on the
+                establishing (cover) scene now. It sits inside the 3D context, so on a
+                CPU it was repainting on every interior page for the whole hold. Gated
+                to `establishing` so interior pages stay flat/cheap (singlePage and
+                lightChrome already excluded it). */}
+            {establishing && !singlePage && !lightChrome && <PageThickness sheetInsetX={sheetBaseInsetX} sheetInsetY={sheetBaseInsetY} />}
 
       {/* The page sheet */}
       <div
@@ -1825,9 +2048,10 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
           left: sheetInsetX,
           right: sheetInsetX,
           background: bg,
-          // Single modest shadow: an 80px-blur shadow repainted every frame
-          // under the moving 3D stage was a top per-frame paint cost.
-          boxShadow: "0 10px 28px rgba(0,0,0,0.34)",
+          // Tight, small-blur shadow: large-radius blur is one of the most expensive
+          // software-raster paints, and this sheet is repainted under the 3D stage. A
+          // ≤8px blur still reads as a page edge but costs a fraction to paint on CPU.
+          boxShadow: "0 4px 8px rgba(0,0,0,0.30)",
           overflow: "hidden",
           backfaceVisibility: "hidden",
           WebkitBackfaceVisibility: "hidden",
@@ -1851,6 +2075,31 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
               pointerEvents: "none",
             }}
           />
+        )}
+
+        {/* Embedded full-bleed background photo — on the sheet, above the printed
+            texture but below the live content, with a paper scrim so the line,
+            dots and copy keep full contrast on top (e.g. TimelineJourney). */}
+        {backgroundImageSrc && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 1, overflow: "hidden", pointerEvents: "none" }}>
+            <Img
+              src={backgroundImageSrc}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: backgroundImageZoom < 1 ? "contain" : "cover",
+                objectPosition: backgroundImageZoom < 1 ? "center" : backgroundImageObjectPosition,
+                transform: `scale(${backgroundImageZoom})`,
+                transformOrigin: backgroundImageZoom < 1 ? "center center" : backgroundImageObjectPosition,
+                opacity: backgroundImageOpacity,
+                // filter removed — a CSS filter on a full-bleed image forces an
+                // offscreen pass each composite (costly without a GPU). The slight
+                // saturate/contrast grade isn't worth the per-composite cost.
+                display: "block",
+              }}
+            />
+            <div style={{ position: "absolute", inset: 0, background: hexToRgba(bg, 0.4) }} />
+          </div>
         )}
 
         {/* centre spine — only on landscape spreads; portrait reads as a single
@@ -1889,8 +2138,8 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
 
         {/* Dog-eared corners — flap carries the page's print texture as show-through
             (unless this layout hides the texture for a clean sheet). */}
-        <PageCurl corner="bl" size={curl} textureSrc={hidePrintTexture ? undefined : printTextureSrc} />
-        <PageCurl corner="br" size={curl} accent={accent} textureSrc={hidePrintTexture ? undefined : printTextureSrc} />
+        {!lightChrome && <PageCurl corner="bl" size={curl} textureSrc={hidePrintTexture ? undefined : printTextureSrc} />}
+        {!lightChrome && <PageCurl corner="br" size={curl} accent={accent} textureSrc={hidePrintTexture ? undefined : printTextureSrc} />}
 
         {/* Optional gentle curl down the left edge (e.g. EditorialQuote). */}
         {leftEdgeFoldOpacity > 0 && <LeftEdgeFold accent={accent} opacity={leftEdgeFoldOpacity} />}
@@ -2009,6 +2258,84 @@ export const QuoteGlyph: React.FC<{
     &ldquo;
   </div>
 );
+
+/**
+ * An editorial framed photo plate — a full-colour image set in a thin ink keyline
+ * over a cream mat, with a soft drop shadow and a faint print wash, so a
+ * photograph reads as a plate tipped onto the printed page rather than a flat web
+ * image. Used by Feature and TextNarration; the image framing honours the scene's
+ * focus point + zoom (`objectPosition`/`zoom`). Renders nothing without a `src`,
+ * so the surrounding layout simply reflows when a scene has no image.
+ */
+export const MagPlate: React.FC<{
+  src?: string;
+  colors: MagColors;
+  objectPosition?: string;
+  zoom?: number;
+  opacity?: number;
+  rotate?: number;
+  caption?: string;
+  style?: React.CSSProperties;
+}> = ({ src, colors, objectPosition = "50% 50%", zoom = 1, opacity = 1, rotate = 0, caption, style }) => {
+  if (!src) return null;
+  const { bg, text } = colors;
+  const z = zoom ?? 1;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        opacity,
+        transform: rotate ? `rotate(${rotate}deg)` : undefined,
+        ...style,
+      }}
+    >
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          background: bg,
+          padding: 8,
+          border: `1px solid ${hexToRgba(text, 0.85)}`,
+          boxShadow: "0 4px 10px rgba(0,0,0,0.22)",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
+          <Img
+            src={src}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: z < 1 ? "contain" : "cover",
+              objectPosition: z < 1 ? "center" : objectPosition,
+              transform: `scale(${z})`,
+              transformOrigin: z < 1 ? "center center" : objectPosition,
+              display: "block",
+            }}
+          />
+          {/* faint paper tint so the photo sits into the printed page */}
+          <div style={{ position: "absolute", inset: 0, background: hexToRgba(bg, 0.06), pointerEvents: "none" }} />
+        </div>
+      </div>
+      {caption && (
+        <div
+          style={{
+            fontFamily: MAG_SERIF,
+            fontStyle: "italic",
+            fontSize: 13,
+            lineHeight: 1.3,
+            color: hexToRgba(text, 0.6),
+            marginTop: 8,
+          }}
+        >
+          {caption}
+        </div>
+      )}
+    </div>
+  );
+};
 
 /** A centred rule broken by a star/asterisk dingbat — a section break. */
 export const DingbatRule: React.FC<{

@@ -2,21 +2,22 @@ import React, { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
-  Easing,
   Sequence,
   staticFile,
   useVideoConfig,
   CalculateMetadataFunction,
+  delayRender,
+  continueRender,
 } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { MAGAZINE_LAYOUT_REGISTRY as LAYOUT_REGISTRY, MagazineLayoutType, SceneLayoutProps } from "./layouts";
-import { signatureMoveFor, MagDimsContext } from "./magazineStyle";
+import { signatureMoveFor, MagDimsContext, MAG_BACKDROP } from "./magazineStyle";
+import { pickEnterTransition, pickExitTransition } from "./transitions";
 import type { MagazineCameraMove, MagazineTransitionName } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
-import { pickMagazineTransition } from "./transitions";
 
 interface SceneData {
   id: number;
@@ -57,6 +58,52 @@ const resolveLayoutKey = (raw: string): MagazineLayoutType =>
     ? (raw as MagazineLayoutType)
     : "text_narration";
 
+// Pure-black beat between a scene's exit and the next scene's entrance.
+const BLACK_HOLD = 12;
+// Minimum fraction of every scene held as a static, readable page (the rest is split
+// between the enter overlap at its head and the exit overlap at its tail).
+const STATIC_CORE_FRAC = 0.55;
+
+/** Per-boundary frame budget for the black-bridged TransitionSeries. Mirrors the math in
+ *  the render loop AND the frontend planMagazineBoundaries — keep all three in sync. */
+const magazineBoundaryFrames = (
+  fromLayout: MagazineLayoutType,
+  toLayout: MagazineLayoutType,
+  fromSceneFrames: number,
+  toSceneFrames: number,
+  accent: string,
+) => {
+  const exitChoice = pickExitTransition(fromLayout, accent);
+  const enterChoice = pickEnterTransition(toLayout, accent);
+  const blackFrames = Math.max(BLACK_HOLD, exitChoice.frames, enterChoice.frames);
+  const exitFrames = Math.max(
+    1,
+    Math.min(exitChoice.frames, Math.floor((fromSceneFrames * (1 - STATIC_CORE_FRAC)) / 2), Math.floor(blackFrames / 2)),
+  );
+  const enterFrames = Math.max(
+    1,
+    Math.min(enterChoice.frames, Math.floor((toSceneFrames * (1 - STATIC_CORE_FRAC)) / 2), Math.floor(blackFrames / 2)),
+  );
+  return { blackFrames, exitFrames, enterFrames };
+};
+
+/** Total composition length = Σ scene frames + Σ (blackFrames − exitFrames − enterFrames). */
+const computeMagazineTotalFrames = (
+  layoutKeys: MagazineLayoutType[],
+  sceneFrames: number[],
+  accent: string,
+): number => {
+  let run = 0;
+  sceneFrames.forEach((dur, i) => {
+    run += dur;
+    if (i < sceneFrames.length - 1) {
+      const b = magazineBoundaryFrames(layoutKeys[i], layoutKeys[i + 1], dur, sceneFrames[i + 1], accent);
+      run += b.blackFrames - b.exitFrames - b.enterFrames;
+    }
+  });
+  return run;
+};
+
 export const calculateMagazineMetadata: CalculateMetadataFunction<VideoProps> =
   async ({ props }) => {
     const FPS = 30;
@@ -70,25 +117,15 @@ export const calculateMagazineMetadata: CalculateMetadataFunction<VideoProps> =
       const sceneFrames = data.scenes.map((s) =>
         getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
-      // Per-boundary transition length (0 for the last scene). Each scene holds
-      // for exactly its own outgoing transition — must mirror the render's
-      // sequenceFrames so the total duration lines up (no black tail / truncated
-      // last scene). frames is independent of width/accent, so undefined is fine.
-      const transitionFrames = data.scenes.map((scene, i, arr) => {
-        if (i === arr.length - 1) return 0;
-        const fromLayout = resolveLayoutKey(scene.layout);
-        const toLayout = resolveLayoutKey(arr[i + 1].layout);
-        const fromExit = scene.layoutProps?.exitTransition as MagazineTransitionName | undefined;
-        const toEnter = arr[i + 1].layoutProps?.enterTransition as MagazineTransitionName | undefined;
-        return pickMagazineTransition(i, fromLayout, toLayout, undefined, undefined, toEnter, fromExit).frames;
-      });
-      const sequenceFrames = sceneFrames.map((f, i) => f + transitionFrames[i]);
-
-      let totalFrames = sequenceFrames.reduce((sum, f) => sum + f, 0);
-      for (let i = 0; i < data.scenes.length - 1; i++) {
-        const safeFrames = Math.max(1, Math.min(transitionFrames[i], Math.floor(sequenceFrames[i] / 2), Math.floor(sequenceFrames[i + 1] / 2)));
-        totalFrames -= safeFrames;
-      }
+      // Black-bridged TransitionSeries: each boundary ADDS a black bridge and removes the
+      // transition overlaps, so the total is the sum of scene lengths PLUS the per-boundary
+      // net (blackFrames − exitFrames − enterFrames). Mirror the exact boundary math used
+      // in the render loop below so the declared duration matches the composition.
+      const totalFrames = computeMagazineTotalFrames(
+        data.scenes.map((s) => resolveLayoutKey(s.layout)),
+        sceneFrames,
+        data.accentColor || "#D71921",
+      );
 
       const isPortrait = data.aspectRatio === "portrait";
       return {
@@ -104,6 +141,12 @@ export const calculateMagazineMetadata: CalculateMetadataFunction<VideoProps> =
 
 export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
+  // Gate headless frame capture until data.json is loaded. useState initialiser
+  // runs synchronously on the very first render — before React commits to the
+  // DOM — so Remotion's renderer sees the delayRender handle before it attempts
+  // any frame capture. A ref stores the handle so re-renders don't create new ones.
+  const [drHandle] = useState(() => delayRender("magazine-data-load"));
+
   // Real output size — may be forced smaller than the 1080p design canvas at
   // render time (e.g. 1280×720 via --width/--height).
   const { width: outW, height: outH } = useVideoConfig();
@@ -111,7 +154,10 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   useEffect(() => {
     fetch(staticFile(dataUrl.replace(/^\//, "")))
       .then((res) => res.json())
-      .then(setData)
+      .then((d: VideoData) => {
+        setData(d);
+        continueRender(drHandle);
+      })
       .catch(() => {
         setData({
           projectName: "Preview",
@@ -120,7 +166,10 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: "#1A1A1A",
           scenes: [],
         });
+        continueRender(drHandle);
       });
+  // drHandle is stable (useState initialiser runs once) — safe to omit from deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataUrl]);
 
   if (!data) {
@@ -139,41 +188,67 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   );
   const layoutKeys = data.scenes.map((s) => resolveLayoutKey(s.layout));
 
-  // One transition per boundary (null for the last scene). Reused for the hold,
-  // safeFrames and the rendered presentation so pickMagazineTransition runs once.
-  const transitionChoices = data.scenes.map((scene, i, arr) => {
-    if (i === arr.length - 1) return null;
-    const fromExit = scene.layoutProps?.exitTransition as MagazineTransitionName | undefined;
-    const toEnter = arr[i + 1].layoutProps?.enterTransition as MagazineTransitionName | undefined;
-    return pickMagazineTransition(i, layoutKeys[i], layoutKeys[i + 1], canvasW, data.accentColor || "#E63946", toEnter, fromExit);
-  });
-
-  // Hold each scene for exactly its own outgoing transition so the page-turn
-  // overlaps the hold (not the narration) and the next scene's voiceover begins
-  // the instant this one ends — no dead air. (A fixed max-length hold padded
-  // every scene by the longest transition, leaving silence on shorter boundaries.)
-  const sequenceFrames = sceneFrames.map(
-    (f, i) => f + (transitionChoices[i]?.frames ?? 0),
-  );
-
   const resolvedScenes = data.scenes.map((scene, idx) => ({
     scene,
     layoutKey: layoutKeys[idx],
     durationFrames: sceneFrames[idx],
-    sequenceFrames: sequenceFrames[idx],
   }));
 
-  let runningFrame = 0;
-  const sceneStartFrames: number[] = [];
-  resolvedScenes.forEach((s, i) => {
-    sceneStartFrames[i] = runningFrame;
-    runningFrame += s.sequenceFrames;
-    if (i < resolvedScenes.length - 1) {
-      const rawFrames = transitionChoices[i]!.frames;
-      const safeFrames = Math.max(1, Math.min(rawFrames, Math.floor(s.sequenceFrames / 2), Math.floor(resolvedScenes[i + 1].sequenceFrames / 2)));
-      runningFrame -= safeFrames;
-    }
+  // BLACK-BRIDGED sequencing: a TransitionSeries where every boundary is
+  //   [scene] · exitTransition · [BLACK bridge] · enterTransition · [next scene]
+  // The leaving scene clears to a solid black/desk fill (exitTransition, scene→black),
+  // then the entering scene flies in from that black with its layout's signature 3D
+  // move (enterTransition, black→scene). Because one side of EVERY transition is a
+  // cheap solid fill, only ONE heavy magazine page is ever painted per frame — so the
+  // per-layout 3D entrances are back without the two-pages-per-frame stutter that the
+  // old all-scene TransitionSeries had ([[magazine-preview-paint-cost]]).
+
+  // Resolve + clamp each boundary's exit and enter transition (see the frontend
+  // MagazineVideoComposition for the matching logic — these two trees must stay in sync).
+  // BLACK_HOLD / STATIC_CORE_FRAC are module-level so calculateMagazineMetadata reuses them.
+  const boundaries = resolvedScenes.slice(0, -1).map((s, i) => {
+    const next = resolvedScenes[i + 1];
+    const fromExit = (s.scene.layoutProps as Record<string, unknown>)?.exitTransition as
+      | MagazineTransitionName
+      | undefined;
+    const toEnter = (next.scene.layoutProps as Record<string, unknown>)?.enterTransition as
+      | MagazineTransitionName
+      | undefined;
+    const exitChoice = pickExitTransition(s.layoutKey, data.accentColor || "#D71921", fromExit);
+    const enterChoice = pickEnterTransition(next.layoutKey, data.accentColor || "#D71921", toEnter);
+    const blackFrames = Math.max(BLACK_HOLD, exitChoice.frames, enterChoice.frames);
+    // Reserve ≥STATIC_CORE_FRAC of every scene as a held, static page so each page has
+    // time to read/animate in before it leaves (otherwise a long transition eats the
+    // whole short scene).
+    const maxSidePerScene = Math.floor((s.durationFrames * (1 - STATIC_CORE_FRAC)) / 2);
+    const maxSideNextScene = Math.floor((next.durationFrames * (1 - STATIC_CORE_FRAC)) / 2);
+    const exitFrames = Math.max(
+      1,
+      Math.min(exitChoice.frames, maxSidePerScene, Math.floor(blackFrames / 2)),
+    );
+    const enterFrames = Math.max(
+      1,
+      Math.min(enterChoice.frames, maxSideNextScene, Math.floor(blackFrames / 2)),
+    );
+    return { exitChoice, enterChoice, blackFrames, exitFrames, enterFrames };
   });
+
+  // Scene start frames for audio sync — walk the same layout the series builds:
+  // scene → (−exitOverlap) exit → black → (−enterOverlap) enter → next scene.
+  const sceneStartFrames: number[] = [];
+  {
+    let run = 0;
+    resolvedScenes.forEach((s, i) => {
+      sceneStartFrames[i] = run;
+      run += s.durationFrames;
+      const b = boundaries[i];
+      if (b) {
+        run -= b.exitFrames;
+        run += b.blackFrames;
+        run -= b.enterFrames;
+      }
+    });
+  }
 
   return (
     <AbsoluteFill
@@ -182,6 +257,9 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
+      {/* Persistent desk behind everything so any transition gap reveals the dark
+          desk rather than a flat flash. */}
+      <AbsoluteFill style={{ backgroundColor: MAG_BACKDROP }} />
       {/* Design canvas: author every spread at a fixed 1080p size, then uniformly
           scale it to fill the real output so 720p/480p renders are identical to
           1080p (no clipped bands, deterministic auto-fit). Provider hands the
@@ -199,74 +277,73 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       >
         <MagDimsContext.Provider value={{ width: canvasW, height: canvasH }}>
           <TransitionSeries>
-            {resolvedScenes.map((s, index) => {
-          const { scene, layoutKey, sequenceFrames: seqFrames } = s;
-          const LayoutComponent = LAYOUT_REGISTRY[layoutKey];
-          const imageUrl =
-            scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+            {resolvedScenes.flatMap((s, index) => {
+              const { scene, layoutKey } = s;
+              const LayoutComponent = LAYOUT_REGISTRY[layoutKey];
+              const imageUrl =
+                scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
-          const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
-          const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
-          const focusY = Math.max(0, Math.min(100, Number(rawProps.imageFocusY ?? 50)));
+              const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
+              const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
+              const focusY = Math.max(0, Math.min(100, Number(rawProps.imageFocusY ?? 50)));
 
-          const layoutProps: SceneLayoutProps = {
-            ...(rawProps as Partial<SceneLayoutProps>),
-            title: scene.title,
-            narration: scene.narration,
-            accentColor: data.accentColor || "#D71921",
-            bgColor: data.bgColor || "#FFFFFF",
-            textColor: data.textColor || "#111111",
-            aspectRatio: data.aspectRatio || "landscape",
-            sceneDurationInFrames: s.durationFrames,
-            imageUrl,
-            imageObjectPosition: `${focusX}% ${focusY}%`,
-            imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
-            fontFamily: resolvedFontFamily || undefined,
-            pageNumber: index + 1 < 10 ? `0${index + 1}` : String(index + 1),
-            establishingShot: index === 0,
-            brandName: data.projectName,
-            // First scene cranes in; otherwise the per-layout signature move,
-            // unless the scene explicitly sets its own cameraMove.
-            cameraMove:
-              (rawProps.cameraMove as MagazineCameraMove | undefined) ??
-              (index === 0 ? "crane_down" : signatureMoveFor(layoutKey, index + 1)),
-          };
+              const layoutProps: SceneLayoutProps = {
+                ...(rawProps as Partial<SceneLayoutProps>),
+                title: scene.title,
+                narration: scene.narration,
+                accentColor: data.accentColor || "#D71921",
+                bgColor: data.bgColor || "#FFFFFF",
+                textColor: data.textColor || "#111111",
+                aspectRatio: data.aspectRatio || "landscape",
+                sceneDurationInFrames: s.durationFrames,
+                imageUrl,
+                imageObjectPosition: `${focusX}% ${focusY}%`,
+                imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
+                fontFamily: resolvedFontFamily || undefined,
+                pageNumber: index + 1 < 10 ? `0${index + 1}` : String(index + 1),
+                establishingShot: index === 0,
+                brandName: data.projectName,
+                // First scene cranes in; otherwise the per-layout signature move,
+                // unless the scene explicitly sets its own cameraMove.
+                cameraMove:
+                  (rawProps.cameraMove as MagazineCameraMove | undefined) ??
+                  (index === 0 ? "crane_down" : signatureMoveFor(layoutKey, index + 1)),
+              };
 
-          const sequence = (
-            <TransitionSeries.Sequence
-              key={`seq-${scene.id}-${index}`}
-              durationInFrames={seqFrames}
-            >
-              <LayoutComponent {...layoutProps} />
-            </TransitionSeries.Sequence>
-          );
-
-          if (index === resolvedScenes.length - 1) {
-            return sequence;
-          }
-
-          const choice = transitionChoices[index]!;
-          // Clamp so the transition never exceeds either adjacent sequence length.
-          // Remotion throws a hard error if it does.
-          const safeFrames = Math.max(1, Math.min(
-            choice.frames,
-            Math.floor(seqFrames / 2),
-            Math.floor(sequenceFrames[index + 1] / 2),
-          ));
-
-          return (
-            <React.Fragment key={`scene-${scene.id}-${index}`}>
-              {sequence}
-              <TransitionSeries.Transition
-                presentation={choice.presentation}
-                timing={linearTiming({
-                  durationInFrames: safeFrames,
-                  easing: Easing.inOut(Easing.cubic),
-                })}
-              />
-            </React.Fragment>
-          );
-        })}
+              const b = boundaries[index];
+              const nodes: React.ReactNode[] = [
+                <TransitionSeries.Sequence
+                  key={`seq-${scene.id}-${index}`}
+                  durationInFrames={s.durationFrames}
+                >
+                  <LayoutComponent {...layoutProps} />
+                </TransitionSeries.Sequence>,
+              ];
+              if (b) {
+                nodes.push(
+                  // scene → BLACK : the leaving page clears with its exit signature.
+                  <TransitionSeries.Transition
+                    key={`exit-${scene.id}-${index}`}
+                    presentation={b.exitChoice.presentation}
+                    timing={linearTiming({ durationInFrames: b.exitFrames })}
+                  />,
+                  // The pure black/desk bridge — only ONE heavy page is ever painted.
+                  <TransitionSeries.Sequence
+                    key={`black-${scene.id}-${index}`}
+                    durationInFrames={b.blackFrames}
+                  >
+                    <AbsoluteFill style={{ backgroundColor: MAG_BACKDROP }} />
+                  </TransitionSeries.Sequence>,
+                  // BLACK → next scene : the entering page flies in with its signature.
+                  <TransitionSeries.Transition
+                    key={`enter-${scene.id}-${index}`}
+                    presentation={b.enterChoice.presentation}
+                    timing={linearTiming({ durationInFrames: b.enterFrames })}
+                  />,
+                );
+              }
+              return nodes;
+            })}
           </TransitionSeries>
         </MagDimsContext.Provider>
       </div>

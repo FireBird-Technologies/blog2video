@@ -152,7 +152,71 @@ const ENTER_BY_LAYOUT: Partial<Record<MagazineLayoutType, MagazineTransitionName
   comparison: "page_turn_up",
   magazine_data_visualization: "zoom_blur",
 };
-const EXIT_BY_LAYOUT: Partial<Record<MagazineLayoutType, MagazineTransitionName>> = {};
+// Per-layout EXIT-to-black gesture, mirroring the ENTER map: "when a scene of this
+// layout ENDS, clear it to the black bridge with X". These run scene→black (only the
+// real page is heavy — the bridge is a solid fill), so even a 3D swing here is cheap.
+// Chosen to read as the magazine page leaving (turn/lift/slide), distinct from its
+// neighbour's entrance. A per-scene `exitTransition` in layoutProps overrides this.
+const EXIT_BY_LAYOUT: Partial<Record<MagazineLayoutType, MagazineTransitionName>> = {
+  magazine_cover: "page_turn",
+  editorial_quote: "page_turn",
+  by_the_numbers: "riffle",
+  interview_qa: "slide_down",
+  timeline_journey: "page_turn",
+  text_narration: "page_turn_up",
+  ending_socials: "page_slide", // last scene has no exit; harmless default
+  magazine_ticker: "riffle",
+  colorblock: "center_doors",
+  feature: "lift",
+  comparison: "page_turn_up",
+  magazine_data_visualization: "zoom_blur",
+};
+
+// Neutral exit when a layout has no signature exit-to-black (keeps the page clearing
+// cleanly to the black bridge rather than hard-cutting).
+const DEFAULT_EXIT: MagazineTransitionName = "lift";
+
+// Global slow-motion factor for the black-bridged enter/exit transitions. >1 = slower
+// (every page-move stretches by this factor); 1 = original speed. Applied in the two
+// resolver helpers below so it scales every transition from one dial — the composition
+// clamps it to half the adjacent scene, so short scenes degrade gracefully. Keep the
+// frontend and remotion-video copies of this value equal ([[magazine-dual-tree-and-camera]]).
+const TRANSITION_SPEED = 1.25;
+const slow = (c: MagazineTransitionChoice): MagazineTransitionChoice => ({
+  ...c,
+  frames: Math.round(c.frames * TRANSITION_SPEED),
+});
+
+/**
+ * Resolve the ENTER half of a boundary for the black-bridged TransitionSeries: the
+ * entering scene flies in from solid black with its layout's signature 3D move.
+ * Precedence: per-scene `enterTransition` override → ENTER_BY_LAYOUT[toLayout] →
+ * page_turn (the lone unsignatured layout, magazine_cover).
+ */
+export const pickEnterTransition = (
+  toLayout: MagazineLayoutType,
+  accentColor?: string,
+  toEnter?: MagazineTransitionName,
+): MagazineTransitionChoice => {
+  if (toEnter) return slow(TRANSITION_REGISTRY[toEnter](accentColor));
+  const sig = ENTER_BY_LAYOUT[toLayout];
+  return slow(TRANSITION_REGISTRY[sig ?? "page_turn"](accentColor));
+};
+
+/**
+ * Resolve the EXIT half of a boundary: the leaving scene clears to solid black with
+ * its layout's signature exit-to-black move. Precedence: per-scene `exitTransition`
+ * override → EXIT_BY_LAYOUT[fromLayout] → DEFAULT_EXIT.
+ */
+export const pickExitTransition = (
+  fromLayout: MagazineLayoutType,
+  accentColor?: string,
+  fromExit?: MagazineTransitionName,
+): MagazineTransitionChoice => {
+  if (fromExit) return slow(TRANSITION_REGISTRY[fromExit](accentColor));
+  const sig = EXIT_BY_LAYOUT[fromLayout];
+  return slow(TRANSITION_REGISTRY[sig ?? DEFAULT_EXIT](accentColor));
+};
 
 export const pickMagazineTransition = (
   fromIdx: number,

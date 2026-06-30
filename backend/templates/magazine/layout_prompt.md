@@ -2,6 +2,8 @@
 
 Use this list when picking the `preferred_layout` for each scene.
 
+Note: `feature`, `colorblock`, `text_narration` and `timeline_journey` automatically display an editorial photo when the project supplies imagery (a framed plate, a hero panel, or an embedded page background). You never set an image field — just write the full copy; these pages reflow gracefully with or without a photo.
+
 - `magazine_cover`  
   - **Best for**: Opening title card and magazine cover intro sequence.
 
@@ -18,7 +20,7 @@ Use this list when picking the `preferred_layout` for each scene.
   - **Best for**: A before/after, two-perspective, or "VS" contrast beat — two columns split by a centre badge, each a short bulleted list. Fill `leftHeader` / `rightHeader` (e.g. 'Before' / 'After') and 2–6 short `leftPoints` / `rightPoints` (≤10 words each). Use for crisp side-by-side contrasts, not paragraph-length dialogue (use `interview_qa` for that) or charted figures (use `magazine_data_visualization`).
 
 - `by_the_numbers`  
-  - **Best for**: Key figures, data highlights, and 'by the numbers' infographic pages.
+  - **Best for**: 2–4 key numeric metrics — statistics, KPIs, or data highlights where every value is a number (e.g. `"4.2B"`, `"98%"`, `"$12B"`). The scene displays ONLY numbers and their short labels — no title, no body text. Do not use this layout if the "values" would be words or sentences.
 
 - `interview_qa`  
   - **Best for**: Interview, debate, two perspectives, or Q&A dialogue. Use the `exchanges` array with 2–3 exchanges, each a full paragraph-length answer, so the page reads full, not sparse.
@@ -35,7 +37,7 @@ Use this list when picking the `preferred_layout` for each scene.
   - **Best for**: Chronology, process steps, history, or roadmap sequences.
 
 - `text_narration`  
-  - **Best for**: Narration-only scenes, transitional commentary, or text-driven story beats without imagery.
+  - **Best for**: Narration-only scenes, transitional commentary, or text-driven story beats; shows a framed field photo above the notes when the project supplies imagery.
 
 - `ending_socials`  
   - **Best for**: Outro, sign-off, call to action, and social media handles.

@@ -1,6 +1,6 @@
 # Design Philosophy
 
-An authentic print-editorial magazine template. Cream/white paper, high-contrast serif display headlines, a book-serif body, and a single editorial red accent. Every page carries newsstand furniture — an inset keyline border, a running head (issue • section) over a hairline rule, and a page folio at the foot. The look is purely typographic — strong headlines, decks, standfirsts, key-point lists, pull quotes, figures and Q&A carry each scene on words. No photographs. Default palette is white background, near-black ink, red accent.
+An authentic print-editorial magazine template. Cream/white paper, high-contrast serif display headlines, a book-serif body, and a single editorial red accent. Every page carries newsstand furniture — an inset keyline border, a running head (issue • section) over a hairline rule, and a page folio at the foot. The look is predominantly typographic — strong headlines, decks, standfirsts, key-point lists, pull quotes, figures and Q&A carry most scenes on words alone. Four layouts (`feature`, `colorblock`, `text_narration`, `timeline_journey`) will *additionally* show an editorial photo when the project supplies imagery — set as a framed plate, a hero panel or an embedded page background. Images are assigned automatically from the project's image pool, so you NEVER emit an image field; just keep writing the full copy for every layout (the page reflows gracefully whether or not a photo is present). All other layouts stay photo-free. Default palette is white background, near-black ink, red accent.
 
 ---
 
@@ -51,7 +51,7 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 ---
 
 ## colorblock
-**Visual:** A two-panel color-block spread whose blocks animate in one after another. A solid ink (dark) left block carries a short uppercase serif statement opened by a red quotation mark; a solid red (accent) right block holds a centred label stack — small-caps label, a short rule, a serif heading, an italic subline and a small inverted tag chip.
+**Visual:** A two-panel color-block spread whose blocks animate in one after another. A solid ink (dark) left block carries a short uppercase serif statement opened by a red quotation mark; a solid red (accent) right block holds a centred label stack — small-caps label, a short rule, a serif heading, an italic subline and a small inverted tag chip. When the scene has an assigned photo, the right block becomes a hero image with the label stack floating over an accent scrim — so always write the full label stack regardless.
 
 **Props:**
   - `leftQuote` (string) — The short bold statement on the dark panel (revealed word-by-word); falls back to `title`. Keep it punchy — one or two clauses, not a paragraph.
@@ -68,7 +68,7 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 ---
 
 ## feature
-**Visual:** A purely typographic feature-article spread. A red section kicker, a serif headline whose last word turns italic with a short red rule beneath, then a justified two-column body that inks in word-by-word, led by a large red drop cap. A ghosted folio number and a vertical section mark sit on the facing page, and a row of key-points runs along the bottom of both pages.
+**Visual:** A feature-article spread. A red section kicker, a serif headline whose last word turns italic with a short red rule beneath, then a justified two-column body that inks in word-by-word, led by a large red drop cap. A ghosted folio number and a vertical section mark sit on the facing page, and a row of key-points runs along the bottom of both pages. When the scene has an assigned photo the spread turns asymmetric — headline + a single-column body on the left leaf, a full-height framed plate on the right; otherwise the body fills both leaves. Write the full `body` either way.
 
 **Props:**
   - `title` (string) — The headline (last word renders italic)
@@ -102,17 +102,15 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 ---
 
 ## by_the_numbers
-**Visual:** A red kicker and serif title, a red rule, then a row of oversized serif figures (the values in red) each with a hairline divider, a short rule and a tracked uppercase label. Numeric values count up on entry.
+**Visual:** A "By the Numbers" kicker, a red rule, then a grid of oversized accent figures — each counting up on entry — separated by hairlines, each with a short accent rule and a tracked uppercase label beneath it. Nothing else is displayed: no headline, no body text.
 
 **Props:**
-  - `title` (string) — Heading
-  - `narration` (string) — Optional standfirst beneath the title
-  - `stats` (object_array) — Up to 4 items, each with `value` (e.g. `"4.2B"`) and `label`; numeric portions animate
-  - `descriptionFontSize` (number) — Scales the figure size
+  - `stats` (object_array) — **Required. 2–4 items only.** Each item must have `value` (a numeric string, e.g. `"4.2B"`, `"98%"`, `"$12B"`, `"150+"`) and `label` (a short uppercase descriptor, e.g. `"Monthly Readers"`). The numeric portion of `value` animates (counts up). **Do not pass text, sentences, or non-numeric values here.**
+  - `descriptionFontSize` (number) — Optional. Scales the figure size.
 
-**When to Use:** 2–4 key statistics, data highlights, "by the numbers" pages.
+**When to Use:** Exactly when a scene is best expressed as 2–4 key numeric metrics — statistics, KPIs, milestones as figures. Every `value` must contain a number.
 
-**Avoid When:** More than 4 stats or free-form text-heavy content.
+**Avoid When:** The content is text-heavy, a single statistic, a pull quote, or the "values" are words rather than numbers — use `editorial_quote`, `text_narration`, or `feature` instead. More than 4 stats: drop the least important or use `magazine_ticker`.
 
 ---
 
@@ -163,7 +161,7 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 ---
 
 ## timeline_journey
-**Visual:** A vertical chronology — a drawn red rule with milestone dots, each paired with an accent serif date and a serif label, reading top-to-bottom.
+**Visual:** A vertical chronology — a drawn red rule with milestone dots, each paired with an accent serif date and a serif label, reading top-to-bottom. When the scene has an assigned photo it is embedded as a faint full-bleed page background behind the chronology, which stays fully legible on top.
 
 **Props:**
   - `title` (string) — Heading
@@ -177,7 +175,7 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 ---
 
 ## text_narration
-**Visual:** A centred editorial column: a red kicker, a large serif headline, a red rule and a serif body paragraph. Image-free and authoritative.
+**Visual:** A "Field Notes" index page: a red kicker, a large serif headline, a red rule, then the narration broken into bulleted notes laid out as a ledger. When the scene has an assigned photo, a framed field-plate sits under the headline rule and the notes ledger reflows below (a couple fewer notes show).
 
 **Props:**
   - `sectionLabel` (string) — Red kicker and running-head section; defaults to `"Analysis"`

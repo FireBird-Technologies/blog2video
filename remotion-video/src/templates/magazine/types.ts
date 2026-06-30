@@ -18,8 +18,27 @@ export type MagazineCameraMove =
   | "dutch_roll"   // enters rolled (Dutch angle) and levels out
   | "low_hero"     // imposing fill-frame push (cover, expert authority)
   | "book_open"    // spread swings open around the centre binding (features, interviews)
+  | "read_lift"    // page lifts gently toward the reader, then holds (pick-up & read)
+  | "settle_read"  // drifts from a slight angle into a comfortable reading tilt, then holds
   | "pinned"       // fully static, head-on, no motion (reading spreads — e.g. Q&A)
   | "breathe";     // gentle settle + drift, the calm baseline
+
+// Single-scene EXIT page-move played over a scene's last frames (see SceneExit in
+// magazineStyle.tsx). Only ONE page is ever mounted — the move animates it away to
+// reveal the desk, then the next scene flies in on its camera. "lift" is the fallback.
+export type SceneExitVariant =
+  | "riffle_left"    // blank sheets flip R→L around the left spine, staggered (riffle)
+  | "page_turn"      // one sheet turns around the right edge
+  | "page_turn_back" // one sheet turns around the left edge
+  | "page_turn_up"   // one sheet flips around the bottom edge, turns up
+  | "flip_up"        // alias of page_turn_up (rotateX around the bottom edge)
+  | "spread_close"   // two cover panels swing shut at the centre spine
+  | "corner_peel"    // the page peels back from the top-right corner
+  | "riffle_zoom"    // riffle + a forward push (the dive used on data)
+  | "slide_down"     // the page slides straight down off the bottom
+  | "page_slide"     // the page slides off to the left
+  | "zoom_blur"      // the page scales up toward camera and fades
+  | "lift";          // plain lift + fade fallback
 
 // Stable string names for the scene-entering transitions, used to pin a specific
 // transition to a specific scene (see `enterTransition`/`exitTransition` below and
@@ -96,6 +115,9 @@ export interface SceneLayoutProps {
   // override on this one at a shared boundary. See transitions/index.ts.
   enterTransition?: MagazineTransitionName;
   exitTransition?: MagazineTransitionName;
+  // Override this scene's single-scene EXIT page-move (defaults to the per-layout
+  // signature in exitAnimFor; the entry is the scene's camera fly-in).
+  exitAnim?: SceneExitVariant;
   // Publication/brand wordmark for the cover masthead (from project name)
   brandName?: string;
   attribution?: string;

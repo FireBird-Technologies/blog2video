@@ -551,7 +551,7 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
   };
 
   return (
-    <MagazinePage colors={colors} section="Data" issue={props.issueLabel ?? "Report"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage hidePrintTexture cameraMove={props.cameraMove}>
+    <MagazinePage lightChrome colors={colors} section="Data" issue={props.issueLabel ?? "Report"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage hidePrintTexture cameraMove={props.cameraMove}>
       {/* Faint halftone paper grain so the sheet reads as printed stock without
           the legible ghost-text columns the full print texture would bleed in. */}
       <Halftone color={ink} opacity={0.05} gap={9} />

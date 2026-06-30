@@ -6,14 +6,12 @@ import {
   Kicker,
   Rule,
   DingbatRule,
-  KineticWords,
   MAG_DISPLAY,
   MAG_SANS,
   hexToRgba,
   resolveMagColors,
   isPortrait,
   useReveal,
-  PopLayer,
   useMagFrame,
 } from "../magazineStyle";
 
@@ -30,9 +28,10 @@ const animateValue = (valueStr: string, progress: number): string => {
 /**
  * By the numbers — a row of oversized serif figures with red rules and
  * tracked labels, separated by hairlines. Counters tick up on entry.
+ * Only stats (value + label pairs) are displayed — no title headline.
  */
 export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
-  const { title, titleFontSize, descriptionFontSize } = props;
+  const { descriptionFontSize } = props;
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
@@ -52,37 +51,25 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
   const { fps } = useVideoConfig();
   const titleO = useReveal(2, 12);
   const ruleP = useReveal(8, 14);
+  // Per-stat reveal ramps — plain interpolate (NOT the useReveal hook) so we never
+  // call a hook inside the stats .map loop.
+  const rev = (st: number, len: number) =>
+    interpolate(frame, [st, st + len], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const titlePx = titleFontSize ?? (p ? 92 : 107);
-  // descriptionFontSize drives the small body text. The big figures, the subtitle
-  // and the stat labels all scale proportionally off it so one slider tunes the
-  // whole block together.
+  // descriptionFontSize drives the stat labels; figures scale proportionally off it.
   const descSize = descriptionFontSize ?? (p ? 52 : 53);
   const descScale = descSize / (p ? 52 : 40);
   const valuePx = descSize * 2.2;
   const labelPx = (p ? 15 : 14) * descScale;
 
   return (
-    <MagazinePage colors={colors} section="By the Numbers" issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter cameraMove={props.cameraMove}>
+    <MagazinePage colors={colors} section="By the Numbers" issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-        <Kicker color={accent} style={{ opacity: titleO, marginBottom: 14 }}>
+        <Kicker color={accent} style={{ opacity: titleO, marginBottom: 20 }}>
           By the Numbers
         </Kicker>
-        <h1
-          style={{
-            fontFamily: MAG_DISPLAY,
-            fontWeight: 800,
-            fontSize: titlePx,
-            lineHeight: 1.05,
-            letterSpacing: "-0.015em",
-            color: text,
-            margin: 0,
-          }}
-        >
-          <KineticWords text={title ?? ""} start={2} stagger={2} dur={14} />
-        </h1>
 
-        <Rule color={accent} progress={ruleP} thickness={3} width={p ? 120 : 100} style={{ margin: "26px 0" }} />
+        <Rule color={accent} progress={ruleP} thickness={3} width={p ? 120 : 100} style={{ marginBottom: 24 }} />
 
         <div
           style={{
@@ -94,40 +81,61 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
         >
           {stats.map((s, i) => {
             const start = 16 + i * 8;
-            const o = interpolate(frame, [start, start + 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
             const counter = interpolate(frame, [start + 4, start + 4 + Math.round(fps * 0.8)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
             const eased = 1 - Math.pow(1 - counter, 3);
+            // The column "sets" in staged steps — all transform/opacity (no 3D / blur /
+            // clip-path), so it reads with magazine cadence yet can never jitter.
+            const dividerP = rev(start, 12);            // hairline draws downward
+            const riseRaw = rev(start + 2, 14);
+            const riseP = 1 - Math.pow(1 - riseRaw, 3); // figure rises + fades into place
+            const underlineP = rev(start + 6, 14);      // accent rule wipes in beneath it
+            const labelP = rev(start + 10, 12);         // label settles just after
             const showLeftBorder = p ? i % 2 === 1 : i > 0;
             return (
               <div
                 key={i}
                 style={{
-                  opacity: o,
+                  position: "relative",
                   padding: p ? "20px 24px" : "0 32px",
-                  borderLeft: showLeftBorder ? `1px solid ${text}22` : "none",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "center",
                 }}
               >
-                {/* The figure lifts off the page so it floats over its label
-                    as the camera punches in. */}
-                <PopLayer depth={44} start={start} len={16} style={{ display: "block" }}>
+                {/* Column divider draws downward as the column sets. */}
+                {showLeftBorder && (
                   <div
                     style={{
-                      fontFamily: MAG_DISPLAY,
-                      fontWeight: 900,
-                      fontSize: valuePx,
-                      lineHeight: 1,
-                      color: accent,
-                      letterSpacing: "-0.02em",
-                      fontVariantNumeric: "tabular-nums",
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 1,
+                      background: hexToRgba(text, 0.13),
+                      transform: `scaleY(${dividerP})`,
+                      transformOrigin: "top",
                     }}
-                  >
-                    {animateValue(String(s.value ?? ""), eased)}
-                  </div>
-                </PopLayer>
-                <div style={{ width: 40, height: 2, background: text, opacity: 0.3, margin: "16px 0 12px" }} />
+                  />
+                )}
+                {/* The big figure rises into place and counts up. */}
+                <div
+                  style={{
+                    fontFamily: MAG_DISPLAY,
+                    fontWeight: 900,
+                    fontSize: valuePx,
+                    lineHeight: 1,
+                    color: accent,
+                    letterSpacing: "-0.02em",
+                    fontVariantNumeric: "tabular-nums",
+                    opacity: riseP,
+                    transform: `translateY(${((1 - riseP) * 0.35).toFixed(3)}em)`,
+                  }}
+                >
+                  {animateValue(String(s.value ?? ""), eased)}
+                </div>
+                {/* Accent underline wipes in left→right (Rule's scaleX). */}
+                <Rule color={accent} progress={underlineP} thickness={2} width={48} style={{ margin: "16px 0 12px" }} />
+                {/* Tracked label settles up just behind its figure. */}
                 <div
                   style={{
                     fontFamily: MAG_SANS,
@@ -137,7 +145,8 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
                     textTransform: "uppercase",
                     lineHeight: 1.35,
                     color: text,
-                    opacity: 0.7,
+                    opacity: labelP * 0.7,
+                    transform: `translateY(${((1 - labelP) * 0.25).toFixed(3)}em)`,
                   }}
                 >
                   {s.label}

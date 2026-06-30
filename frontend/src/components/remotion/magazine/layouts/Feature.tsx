@@ -6,8 +6,8 @@ import {
   Kicker,
   Rule,
   KineticWords,
-  WrittenText,
   PageHalf,
+  MagPlate,
   MAG_DISPLAY,
   MAG_SERIF,
   MAG_SANS,
@@ -43,6 +43,7 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
     .filter(Boolean)
     .slice(0, 3);
   const p = isPortrait(props.aspectRatio);
+  const hasImage = Boolean(props.imageUrl);
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
   const uid = React.useId().replace(/[:]/g, "");
@@ -53,6 +54,8 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   const headO = useReveal(6, 14);
   const ruleP = useReveal(14, 14);
   const kpO = useReveal(30, 16);
+  const plateO = useReveal(10, 18); // the framed photo plate fades in with the spread
+  const bodyO = interpolate(frame, [24, 48], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const titlePx = titleFontSize ?? (p ? 92 : 56);
 
@@ -70,15 +73,17 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   // actual column band and shrinks the type until nothing overflows past the
   // bottom. This copes with any headline length, key-points band or aspect ratio.
   const base = descriptionFontSize ?? (p ? 52 : 28);
-  const bodyCapacity = p ? 760 : 1180;
+  // The body flows in a single column whenever a photo plate shares the spread
+  // (portrait always; landscape only when an image confines the copy to the left
+  // leaf), otherwise two justified columns run across both leaves.
+  const bodyCols = p || hasImage ? 1 : 2;
+  // Copy-capacity estimate seeds the fitter; a landscape photo halves the band.
+  const bodyCapacity = p ? 760 : hasImage ? 560 : 1180;
   const len = columns.length || 1;
   const estScale = len > bodyCapacity ? Math.sqrt(bodyCapacity / len) : 1;
   const floorPx = p ? 13 : 12;
   const targetBodyPx = Math.max(floorPx, Math.round(base * estScale));
 
-  // The body flows in 1 column (portrait) or 2 (landscape) — matches the column
-  // CSS below; the fitter needs it to compute the band's true copy capacity.
-  const bodyCols = p ? 1 : 2;
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const bodyPx = useFitText(bodyRef, targetBodyPx, floorPx, bodyCols, [columns, targetBodyPx, p]);
 
@@ -98,7 +103,11 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   // browser dumps everything into the first column and leaves the facing page
   // empty. `height:100%` + `box-sizing:border-box` keeps the columns full-bleed
   // top-to-bottom so both leaves carry equal copy.
-  const css = `.${cls}{position:relative;column-count:${p ? 1 : 2};column-gap:${p ? "6%" : `${g}px`};column-fill:balance;height:100%;box-sizing:border-box;}
+  // column-fill:auto (not balance) — auto fills col 1 completely before col 2,
+  // so the browser never runs a per-frame balance algorithm during WrittenText
+  // write-on. The copy still flows across both leaves; the split point is
+  // determined once by content height, not recalculated every frame.
+  const css = `.${cls}{position:relative;column-count:${bodyCols};column-gap:${p ? "6%" : `${g}px`};column-fill:auto;height:100%;box-sizing:border-box;}
 .${cls} p{margin:0;text-align:justify;}`;
 
   const headline = (
@@ -121,8 +130,67 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
     <Rule color={accent} progress={ruleP} thickness={3} width={p ? 130 : 100} style={{ margin: "24px 0 0" }} />
   );
 
+  // The justified body column(s) with the pinned red drop cap. Factored out so the
+  // image / no-image spreads can place it (full-width across both leaves, or
+  // confined to the left leaf when a photo plate takes the right one).
+  const bodyBlock = (
+    <div
+      ref={bodyRef}
+      className={cls}
+      style={{
+        fontFamily: MAG_SERIF,
+        fontSize: bodyPx,
+        lineHeight: 1.62,
+        color: hexToRgba(text, 0.9),
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden",
+      }}
+    >
+      {/* Visible drop cap — pinned to the top-left of the first column so the
+          column balancer can never relocate it to the facing page. */}
+      {columns.charAt(0) && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 6,
+            left: 0,
+            fontFamily: MAG_DISPLAY,
+            fontWeight: 800,
+            fontSize: capPx,
+            lineHeight: 0.72,
+            color: accent,
+            pointerEvents: "none",
+            zIndex: 1,
+            opacity: interpolate(frame, [24, 32], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+          }}
+        >
+          {columns.charAt(0)}
+        </span>
+      )}
+      <p style={{ opacity: bodyO }}>
+        {/* Transparent inline spacer that reserves the cap's footprint so the
+            first lines wrap around it. Being empty, even if balancing relocates
+            it nothing is visible — the real cap is the pinned span above. */}
+        {columns.charAt(0) && (
+          <span
+            aria-hidden
+            style={{
+              float: "left",
+              width: capW,
+              height: capPx * 0.72,
+              marginRight: 14,
+            }}
+          />
+        )}
+        {columns.slice(1)}
+      </p>
+    </div>
+  );
+
   return (
-    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Feature"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} establishingShot={props.establishingShot} cameraMove={props.cameraMove}>
+    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Feature"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} establishingShot={props.establishingShot} cameraMove={props.cameraMove} lightChrome printTextureSrc="qa-timeline-bg.svg" printTextureOpacity={0.38}>
       <style>{css}</style>
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <Kicker color={accent} style={{ opacity: kickerO, marginBottom: 16 }}>
@@ -130,115 +198,97 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
         </Kicker>
 
         {p ? (
-          // Portrait: headline + deck sit on the upper page; the body then flows
-          // below in a single fold-safe column.
-          <PageHalf side="left" aspectRatio={props.aspectRatio} style={{ marginBottom: 4 }}>
-            {headline}
-            <div style={{ marginBottom: 26 }}>{deckEl}</div>
-          </PageHalf>
-        ) : (
-          // Landscape: headline + deck sit on the left page so big type never
-          // crosses the binding; the facing half carries a ghosted folio + section
-          // mark so it doesn't read as blank. The body then flows below in two
-          // fold-safe columns.
-          <div style={{ display: "flex", alignItems: "flex-start", gap: g, marginBottom: 4 }}>
-            <div style={{ width: `calc(50% - ${g / 2}px)`, flexShrink: 0 }}>
+          // Portrait: headline + deck on the upper page. With a photo, a full-width
+          // framed plate sits between the deck and the body; the body then flows
+          // below in a single fold-safe column (the fitter reflows to the space).
+          <>
+            <PageHalf side="left" aspectRatio={props.aspectRatio} style={{ marginBottom: hasImage ? 18 : 4 }}>
               {headline}
               <div style={{ marginBottom: 26 }}>{deckEl}</div>
-            </div>
-            <div style={{ flex: 1, position: "relative", alignSelf: "stretch", minHeight: 180 }}>
-              <div
-                style={{
-                  position: "absolute",
-                  top: -16,
-                  right: 64,
-                  fontFamily: MAG_DISPLAY,
-                  fontWeight: 900,
-                  fontSize: 200,
-                  lineHeight: 0.8,
-                  letterSpacing: "-0.04em",
-                  color: hexToRgba(text, 0.07),
-                  opacity: headO,
-                  pointerEvents: "none",
-                }}
-              >
-                {props.pageNumber ?? "01"}
-              </div>
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  right: 0,
-                  writingMode: "vertical-rl",
-                  transform: "rotate(180deg)",
-                  fontFamily: MAG_SANS,
-                  fontWeight: 700,
-                  fontSize: 14,
-                  letterSpacing: "0.28em",
-                  textTransform: "uppercase",
-                  color: hexToRgba(text, 0.5),
-                  opacity: headO,
-                }}
-              >
-                {sectionLabel}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div
-          ref={bodyRef}
-          className={cls}
-          style={{
-            fontFamily: MAG_SERIF,
-            fontSize: bodyPx,
-            lineHeight: 1.62,
-            color: hexToRgba(text, 0.9),
-            flex: 1,
-            minHeight: 0,
-            overflow: "hidden",
-          }}
-        >
-          {/* Visible drop cap — pinned to the top-left of the first column so the
-              column balancer can never relocate it to the facing page. */}
-          {columns.charAt(0) && (
-            <span
-              aria-hidden
-              style={{
-                position: "absolute",
-                top: 6,
-                left: 0,
-                fontFamily: MAG_DISPLAY,
-                fontWeight: 800,
-                fontSize: capPx,
-                lineHeight: 0.72,
-                color: accent,
-                pointerEvents: "none",
-                zIndex: 1,
-                opacity: interpolate(frame, [24, 32], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-              }}
-            >
-              {columns.charAt(0)}
-            </span>
-          )}
-          <p>
-            {/* Transparent inline spacer that reserves the cap's footprint so the
-                first lines wrap around it. Being empty, even if balancing relocates
-                it nothing is visible — the real cap is the pinned span above. */}
-            {columns.charAt(0) && (
-              <span
-                aria-hidden
-                style={{
-                  float: "left",
-                  width: capW,
-                  height: capPx * 0.72,
-                  marginRight: 14,
-                }}
+            </PageHalf>
+            {hasImage && (
+              <MagPlate
+                src={props.imageUrl}
+                colors={colors}
+                objectPosition={props.imageObjectPosition}
+                zoom={props.imageZoom}
+                opacity={plateO}
+                style={{ height: "32%", flexShrink: 0, marginBottom: 24 }}
               />
             )}
-            <WrittenText text={columns.slice(1)} start={24} />
-          </p>
-        </div>
+            {bodyBlock}
+          </>
+        ) : hasImage ? (
+          // Landscape with a photo: an asymmetric spread — headline, deck and a
+          // single-column body confined to the LEFT leaf, a full-height framed
+          // plate filling the RIGHT leaf (replacing the ghosted folio block).
+          <div style={{ display: "flex", gap: g, flex: 1, minHeight: 0 }}>
+            <div style={{ width: `calc(50% - ${g / 2}px)`, flexShrink: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
+              {headline}
+              <div style={{ marginBottom: 26 }}>{deckEl}</div>
+              {bodyBlock}
+            </div>
+            <MagPlate
+              src={props.imageUrl}
+              colors={colors}
+              objectPosition={props.imageObjectPosition}
+              zoom={props.imageZoom}
+              opacity={plateO}
+              style={{ flex: 1, minWidth: 0, minHeight: 0 }}
+            />
+          </div>
+        ) : (
+          // Landscape, no photo: the original two-leaf spread — headline + deck on
+          // the left page so big type never crosses the binding; the facing half
+          // carries a ghosted folio + section mark so it doesn't read as blank; the
+          // body then flows below in two fold-safe columns across both leaves.
+          <>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: g, marginBottom: 4 }}>
+              <div style={{ width: `calc(50% - ${g / 2}px)`, flexShrink: 0 }}>
+                {headline}
+                <div style={{ marginBottom: 26 }}>{deckEl}</div>
+              </div>
+              <div style={{ flex: 1, position: "relative", alignSelf: "stretch", minHeight: 180 }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: -16,
+                    right: 64,
+                    fontFamily: MAG_DISPLAY,
+                    fontWeight: 900,
+                    fontSize: 200,
+                    lineHeight: 0.8,
+                    letterSpacing: "-0.04em",
+                    color: hexToRgba(text, 0.07),
+                    opacity: headO,
+                    pointerEvents: "none",
+                  }}
+                >
+                  {props.pageNumber ?? "01"}
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    writingMode: "vertical-rl",
+                    transform: "rotate(180deg)",
+                    fontFamily: MAG_SANS,
+                    fontWeight: 700,
+                    fontSize: 14,
+                    letterSpacing: "0.28em",
+                    textTransform: "uppercase",
+                    color: hexToRgba(text, 0.5),
+                    opacity: headO,
+                  }}
+                >
+                  {sectionLabel}
+                </div>
+              </div>
+            </div>
+            {bodyBlock}
+          </>
+        )}
 
         {keyPoints.length > 0 && (
           <div style={{ flexShrink: 0, marginTop: p ? 20 : 24 }}>
