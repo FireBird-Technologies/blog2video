@@ -5,6 +5,34 @@ import { computeEconomistVideoTotalFrames } from "../remotion/economist/Economis
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+// ─── Canvas wrapper (16:9). A fixed-pixel Player inside a CSS-scaled box keeps
+// Remotion's useElementSize stable: a width/height:100% Player re-measures its
+// container on mount (0-width → real width), which restarts the cover-reveal and
+// flashes the first scene. (Same pattern as Blackswan, which doesn't flicker.)
+const INTERNAL_W = 480;
+const INTERNAL_H = 270;
+
+function ScaledCanvas({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.5);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setScale(el.offsetWidth / INTERNAL_W);
+    update();
+    const obs = new ResizeObserver(update);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} style={{ width: "100%", aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, overflow: "hidden", position: "relative" }}>
+      <div style={{ width: INTERNAL_W, height: INTERNAL_H, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 const ECONOMIST_PREVIEW_SCENES = [
   {
     id: 1,
@@ -119,8 +147,10 @@ export default function EconomistPreview({
   );
 
   const thumbnailFrame = useMemo(() => {
-    // Show a mid-point of the cover scene for the thumbnail.
-    return Math.min(60, durationInFrames - 1);
+    // Park on a settled frame where the cover reveal has fully completed, so the
+    // card shows the finished cover (and resuming from here on center never
+    // flashes a half-revealed state).
+    return Math.min(110, durationInFrames - 1);
   }, [durationInFrames]);
 
   const inputProps = useMemo(
@@ -159,15 +189,15 @@ export default function EconomistPreview({
     return () => p.removeEventListener("frameupdate", onFrame);
   }, [thumbnailMode, thumbnailFrame]);
 
-  // When the card reaches center, restart the timeline from the top so the
-  // animation plays fresh — and stop it (the thumbnail effect above pauses it)
-  // the moment it moves away.
+  // When the card reaches center, resume playback from wherever it was parked
+  // (the thumbnail frame). We deliberately do NOT seekTo(0): rewinding to frame 0
+  // replays the cover_reveal from a blank state, which flashes as the card
+  // arrives. Continuing from the parked frame keeps the cover stable, and the
+  // loop brings it back around to a fresh reveal on its own.
   useEffect(() => {
     if (thumbnailMode) return;
     const p = playerRef.current;
     if (!p) return;
-    setActiveSceneIndex(0);
-    p.seekTo(0);
     p.play();
   }, [thumbnailMode]);
 
@@ -189,8 +219,8 @@ export default function EconomistPreview({
   }, [thumbnailMode, sceneOffsets]);
 
   return (
-    <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
+    <ScaledCanvas>
+      <div style={{ width: "100%", height: "100%", position: "relative", background: bgColor }}>
         <Player
           ref={playerRef}
           component={Composition}
@@ -204,7 +234,7 @@ export default function EconomistPreview({
           autoPlay={!thumbnailMode}
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
-          style={{ width: "100%", height: "100%", display: "block" }}
+          style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
         />
 
         {!thumbnailMode && (
@@ -228,6 +258,6 @@ export default function EconomistPreview({
           </div>
         )}
       </div>
-    </div>
+    </ScaledCanvas>
   );
 }
