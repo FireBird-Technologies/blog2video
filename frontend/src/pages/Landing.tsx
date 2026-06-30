@@ -1305,7 +1305,7 @@ export default function Landing() {
         open={contactOpen}
         onClose={() => setContactOpen(false)}
         title="Request a Designer Template"
-        description="Tell us about your brand and the template you'd like. Our design team will create a custom Designer Template and follow up by email."
+        description="Tell us about your brand and the template you'd like. Our design team will build a template that makes every video you publish look like it belongs in the same league as your writing."
         messagePlaceholder="Describe your ideal template, your brand, and any reference links."
         isDesignerRequest
       />
