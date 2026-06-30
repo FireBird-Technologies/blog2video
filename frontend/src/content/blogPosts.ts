@@ -167,6 +167,145 @@ export const blogPosts: BlogPost[] = [
     ],
   },
   {
+    slug: "free-stock-visualizer-price-history-financials",
+    title: "We Built a Free Stock Data Visualizer — Price History, Income Statements, and Three Financial Media Themes",
+    description:
+      "Blog2Video's free stock visualizer pulls live price history and financial statements for any ticker, styled after Newscast, Bloomberg Terminal, and Newspaper visual themes. Here's why we built it and how finance publishers are using it.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-stock-visualizer.png",
+    heroImageAlt:
+      "Blog2Video free stock data visualizer showing SPCX price chart in Bloomberg Terminal, Newscast, and Newspaper themes alongside income statement and balance sheet tables.",
+    publishedAt: "2026-06-30",
+    readTime: "5 min read",
+    heroEyebrow: "New Free Tool",
+    heroTitle: "A free stock visualizer built for finance publishers.",
+    heroDescription:
+      "Pull live price history and annual financial statements for any ticker. Choose from Newscast, Bloomberg Terminal, or Newspaper visual themes. No credit card, no paywall — sign in free and start visualizing.",
+    primaryKeyword: "free stock data visualizer",
+    keywordVariant: "stock price history chart tool",
+    relatedPaths: [
+      "/tools/stock-visualizer",
+      "/blog-to-video",
+      "/blogs/new-template-finance-publication",
+      "/templates",
+    ],
+    sections: [
+      {
+        heading: "Finance publishers are 70% of our paid users. We built something for them.",
+        paragraphs: [
+          "When we launched Blog2Video, we didn't expect finance publishers to become our biggest audience. Today, nearly 70% of our paid users are stock analysts, investment researchers, financial media outlets, and Substack writers who cover markets.",
+          "They use Blog2Video to turn written research into narrated explainer videos and carousels. The Finance Publication template — styled after major financial news outlets — was the first thing we built specifically for them. The stock visualizer is the second.",
+          "The idea was simple: finance writers need a fast, polished way to see the data behind a story before they write about it, not just a basic chart library. So we built a tool styled the way financial media actually presents data.",
+        ],
+      },
+      {
+        heading: "What the tool does",
+        paragraphs: [
+          "The stock visualizer pulls live price history and financial statements for any publicly traded ticker from Yahoo Finance, using the yfinance Python library on our backend.",
+          "The default view loads SPCX with 30 days of price data — no sign-in required. Once you create a free Blog2Video account, you can search any ticker, switch between 7, 30, and 60-day windows, and view annual income statements and balance sheets from the last four reporting periods.",
+        ],
+        bullets: [
+          "7, 30, or 60-day closing price history with an area chart",
+          "Annual income statement: Total Revenue, Net Income, Operating Income, Gross Profit, EBITDA",
+          "Annual balance sheet: Total Assets, Total Liabilities, Stockholders Equity, Total Debt, Cash",
+          "Current price, previous close, 1-day change, market cap, P/E ratio, and dividend yield",
+        ],
+      },
+      {
+        heading: "Three themes: Newscast, Bloomberg Terminal, and Newspaper",
+        paragraphs: [
+          "The most deliberate decision we made was the visual design. Finance data tools usually look like data tools — gray backgrounds, generic sans-serif, default charting library blues. We wanted something that looked like the publications finance writers actually read.",
+          "Newscast uses a dark navy background with a red broadcast header bar and a blue area chart — the aesthetic of a live market segment on cable news. Bloomberg mirrors the terminal's black-and-orange palette that traders have used for decades. Newspaper renders everything in editorial black and white with a cream-tinted background, the way a financial broadsheet would.",
+          "The theme doesn't change the data — it changes how you see it. And for finance publishers whose credibility is tied to their visual brand, that matters.",
+        ],
+      },
+      {
+        heading: "Why we didn't put it behind a paywall",
+        paragraphs: [
+          "The full tool — any ticker, any time range, full financial statements, all three themes — is free with a Blog2Video account. No credit card, no trial period, no paywall.",
+          "Our reasoning: finance writers are the users most likely to become long-term Blog2Video subscribers, and the best way to earn that relationship is to give them something genuinely useful before asking them to pay. The stock visualizer is useful on its own. If it helps a writer see the story in a dataset and they then paste that research note into Blog2Video to make a video — that's the outcome we're optimizing for.",
+          "The data comes from Yahoo Finance via yfinance. That makes it free to serve. Passing that along to users at no cost is an easy call.",
+        ],
+      },
+      {
+        heading: "How to use it with Blog2Video",
+        paragraphs: [
+          "The stock visualizer and Blog2Video are designed to work together. The workflow is:",
+        ],
+        bullets: [
+          "Open the stock visualizer, search your ticker, and review the price history and financial metrics.",
+          "Write your research note, market commentary, or explainer based on what you see.",
+          "Paste the article URL or text into Blog2Video.",
+          "Generate a narrated video using the Finance Publication template — the same visual register as the Bloomberg and Newscast themes in the visualizer.",
+          "Post the video to X, LinkedIn, or YouTube and link back to your full Substack post or research note.",
+        ],
+        ctaPath: "/tools/stock-visualizer",
+        ctaLabel: "Open the stock visualizer",
+      },
+      {
+        heading: "A note on data accuracy",
+        paragraphs: [
+          "The stock visualizer uses Yahoo Finance as its data source via the yfinance Python library. Yahoo Finance data is generally reliable for US equities, ETFs, and major international stocks, but it may lag by 15–20 minutes during market hours and can have gaps around corporate actions or delisting events.",
+          "For investment decisions, always cross-reference with your primary data provider. This tool is designed for content research and visualization, not for trading signals.",
+          "ETFs like SPCX or SPY typically do not have income statements or balance sheets in Yahoo Finance — they're pass-through vehicles and don't file traditional corporate financials. The income statement and balance sheet tables are most useful for operating companies like AAPL, MSFT, NVDA, or TSLA.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is the stock visualizer free?",
+        answer:
+          "Yes. The default SPCX chart loads without any sign-in. A free Blog2Video account unlocks custom tickers, time range controls, and financial statement tables.",
+      },
+      {
+        question: "Which tickers are supported?",
+        answer:
+          "Any ticker available on Yahoo Finance — US equities, ETFs, index funds, and most major international stocks. If a ticker has no data, the tool shows a clear error message.",
+      },
+      {
+        question: "Can I use this for ETFs?",
+        answer:
+          "Yes for price history. ETFs show 7, 30, and 60-day price charts. Financial statements (income statement and balance sheet) are typically not available for ETFs since they are pass-through vehicles, not operating companies.",
+      },
+      {
+        question: "Can I turn the visualized data into a video?",
+        answer:
+          "Yes. Write a research note or market commentary about the ticker, paste it into Blog2Video, and generate a narrated video using the Finance Publication template. The visual language matches the Bloomberg and Newscast themes in the visualizer.",
+      },
+      {
+        question: "Why does yfinance sometimes return no financial data?",
+        answer:
+          "Yahoo Finance doesn't have complete financial statement coverage for all tickers — particularly small-caps, foreign-listed stocks, and ETFs. If the income statement or balance sheet is blank, that data isn't available in Yahoo Finance for that ticker.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "We Built a Free Stock Data Visualizer — Price History, Income Statements, and Three Financial Media Themes",
+        angle:
+          "Founder-voice launch post explaining why we built a finance visualization tool for the 70% of Blog2Video users who are finance publishers, what it does, and the three visual themes.",
+      },
+      {
+        channel: "video",
+        title: "Free stock visualizer — Newscast, Bloomberg, and Newspaper themes explained",
+        angle:
+          "Screen recording showing the tool loading SPCX, switching themes, searching AAPL, viewing the income statement, then pasting the article into Blog2Video to generate a Finance Publication video.",
+      },
+      {
+        channel: "substack",
+        title: "We built a free stock tool for the 70% of our users who are finance publishers",
+        angle:
+          "Personal note from the team explaining the user discovery, the design decisions behind the three themes, and the connection to the Finance Publication template.",
+      },
+      {
+        channel: "twitter",
+        title: "Free stock visualizer: price history + financials in Newscast, Bloomberg, and Newspaper themes",
+        angle:
+          "GIF or screenshot showing the three themes side-by-side, then link to the free tool and the blog post.",
+      },
+    ],
+  },
+  {
     slug: "blog2video-just-shipped-june-2026",
     title: "Blog2Video Just Shipped: MCP Server, Voice Control, and the Biggest Editor Update Yet",
     description:

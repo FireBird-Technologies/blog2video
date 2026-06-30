@@ -458,6 +458,88 @@ export const tools: ToolDefinition[] = [
       "/templates/geometric-explainer",
     ],
   },
+  {
+    slug: "stock-visualizer",
+    path: "/tools/stock-visualizer",
+    title: "Free Stock Data Visualizer — Price History, Income Statement & Balance Sheet",
+    description:
+      "Visualize any stock's 7, 30, or 60-day price history alongside annual income statements and balance sheets — styled in Newscast, Bloomberg Terminal, or Newspaper themes. Free with signup.",
+    eyebrow: "Finance Tool",
+    heroTitle: "Free stock visualizer styled like a financial newsroom.",
+    heroDescription:
+      "Pull live price history and financial statements for any ticker. Choose from Newscast, Bloomberg Terminal, or Newspaper visual themes. Sign in free to unlock custom tickers and annual financials.",
+    category: "analyzer",
+    icon: "SV",
+    primaryKeyword: "free stock data visualizer",
+    keywordVariant: "stock price history chart free",
+    badges: ["Price History", "Income Statement", "Balance Sheet", "3 Themes"],
+    proofPoints: [
+      "Live price history for 7, 30, or 60-day windows pulled directly from Yahoo Finance via yfinance.",
+      "Annual income statement and balance sheet data presented in clean, scannable tables.",
+      "Three visual themes — Newscast, Bloomberg Terminal, and Newspaper — designed to match how financial media presents data.",
+    ],
+    sections: [
+      {
+        title: "What this tool shows you",
+        body: [
+          "The stock visualizer pulls price history and financial statement data for any publicly traded ticker directly from Yahoo Finance. The default view shows SPCX with 30 days of closing price data in the Newscast theme — no sign-in required.",
+          "Once you sign in with your free Blog2Video account, you can search any ticker, switch between 7, 30, and 60-day windows, and view annual income statements and balance sheets from the last four reporting periods.",
+        ],
+      },
+      {
+        title: "Three visual themes: Newscast, Bloomberg, and Newspaper",
+        body: [
+          "The tool was built to match the visual language of financial media rather than default charting libraries. Each theme applies a distinct color palette, typography weight, and layout density.",
+          "Newscast uses a dark navy background with red broadcast accents and a blue area chart — the look of a live market segment. Bloomberg uses the terminal's signature black-and-orange palette. Newspaper renders the chart in editorial black and white with a cream-tinted background.",
+        ],
+        bullets: [
+          "Newscast — dark TV broadcast aesthetic, red header bar, blue chart line.",
+          "Bloomberg — black terminal background, orange accent line and price labels.",
+          "Newspaper — cream white background, dark navy chart, editorial typography.",
+        ],
+      },
+      {
+        title: "Why finance publishers use Blog2Video for stock content",
+        body: [
+          "Almost 70% of Blog2Video's paid users are finance publishers — analysts, investment researchers, and Substack writers who cover markets. They use Blog2Video to turn written research into narrated explainer videos and carousels for X, LinkedIn, and YouTube.",
+          "This free stock tool is built for the same audience: finance writers who need a fast, polished way to visualize the data behind a story before turning that story into video.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is this stock visualizer really free?",
+        answer:
+          "Yes. The default SPCX chart loads without any sign-in. Sign in with a free Blog2Video account to search any ticker, change the time range, and access financial statements.",
+      },
+      {
+        question: "Where does the data come from?",
+        answer:
+          "Price history and financial statements are fetched from Yahoo Finance via the yfinance Python library. Data accuracy depends on Yahoo Finance's coverage and update frequency.",
+      },
+      {
+        question: "Which tickers are supported?",
+        answer:
+          "Any ticker listed on Yahoo Finance — US equities, ETFs, index funds, and many international stocks. If a ticker has no data, the tool shows a clear error message.",
+      },
+      {
+        question: "Can I use this to make a video from stock data?",
+        answer:
+          "Yes. If you write a research note or market commentary about the stock you're visualizing, paste that article into Blog2Video to generate a narrated video using the Finance Publication template — the same visual style as the Bloomberg and Newscast themes here.",
+      },
+      {
+        question: "Why don't ETFs show income statement data?",
+        answer:
+          "ETFs like SPY or SPCX typically do not file traditional income statements or balance sheets — they're pass-through vehicles. Financial statement data is only available for operating companies (stocks like AAPL, MSFT, TSLA).",
+      },
+    ],
+    relatedPaths: [
+      "/blogs/new-template-finance-publication",
+      "/blog-to-video",
+      "/templates",
+      "/tools/headline-analyzer",
+    ],
+  },
 ];
 
 export function getTool(slug: string) {
