@@ -176,6 +176,7 @@ export interface Project {
   caption_position?: "bottom_center" | "top_center";
   caption_font_family?: string;
   caption_font_size?: string | number;
+  caption_offset?: number;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_image_box_aspect_ratios?: {
@@ -1265,6 +1266,7 @@ export const updateProject = (
     caption_position?: "bottom_center" | "top_center";
     caption_font_family?: string;
     caption_font_size?: number;
+    caption_offset?: number;
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 

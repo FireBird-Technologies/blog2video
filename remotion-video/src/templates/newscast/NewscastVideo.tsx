@@ -187,6 +187,7 @@ const NewscastSequenceInner: React.FC<{
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: string;
+  captionOffset?: number;
   aspectRatio?: string;
   fontFamily?: string;
   speechDurationFrames?: number;
@@ -206,6 +207,7 @@ const NewscastSequenceInner: React.FC<{
   captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
   aspectRatio,
   fontFamily,
   speechDurationFrames,
@@ -275,6 +277,7 @@ const NewscastSequenceInner: React.FC<{
           aspectRatio={aspectRatio || "landscape"}
           fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
           fontSize={captionFontSize ? Number(captionFontSize) : undefined}
+          offset={captionOffset ?? 0}
           speechDurationFrames={speechDurationFrames}
         />
       )}
@@ -319,6 +322,7 @@ interface VideoData {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: string;
+  captionOffset?: number;
   scenes: SceneData[];
 }
 
@@ -483,6 +487,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               captionPosition={data.captionPosition}
               captionFontFamily={data.captionFontFamily}
               captionFontSize={data.captionFontSize}
+              captionOffset={data.captionOffset}
               aspectRatio={data.aspectRatio}
               fontFamily={resolvedFontFamily || undefined}
               speechDurationFrames={

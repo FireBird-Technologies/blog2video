@@ -48,6 +48,7 @@ export interface EconomistVideoCompositionProps {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
+  captionOffset?: number;
 }
 
 // cover_reveal owns its own dramatic opening; it skips the chrome fade.
@@ -127,6 +128,7 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
   captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -249,6 +251,7 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
                 aspectRatio={aspectRatio || "landscape"}
                 fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
                 fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
                 speechDurationFrames={
                   s.scene.speechDurationSeconds
                     ? getSceneDurationFrames(s.scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)

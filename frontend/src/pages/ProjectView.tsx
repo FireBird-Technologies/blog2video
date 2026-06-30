@@ -636,10 +636,10 @@ export default function ProjectView() {
   const [savingPlaybackSpeed, setSavingPlaybackSpeed] = useState(false);
   // Captions
   const [captionsEnabledDraft, setCaptionsEnabledDraft] = useState(false);
-  const [captionPositionDraft, setCaptionPositionDraft] = useState<"bottom_center" | "top_center">("bottom_center");
   const [captionFontFamilyDraft, setCaptionFontFamilyDraft] = useState<string>("inter");
   const [captionSettingsKey, setCaptionSettingsKey] = useState(0);
   const [captionFontSizeDraft, setCaptionFontSizeDraft] = useState<number>(36);
+  const [captionOffsetDraft, setCaptionOffsetDraft] = useState<number>(0);
   const [savingCaptions, setSavingCaptions] = useState(false);
   // Background music
   const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
@@ -719,9 +719,9 @@ export default function ProjectView() {
       setBgmTrackDraft(project.bgm_track_id ?? null);
       setBgmVolumeDraft(project.bgm_volume ?? 0.10);
       setCaptionsEnabledDraft(project.captions_enabled ?? false);
-      setCaptionPositionDraft(project.caption_position === "top_center" ? "top_center" : "bottom_center");
       setCaptionFontFamilyDraft(project.caption_font_family ?? "inter");
       setCaptionFontSizeDraft(project.caption_font_size ? Number(project.caption_font_size) || 36 : 36);
+      setCaptionOffsetDraft(typeof project.caption_offset === "number" ? project.caption_offset : 0);
       // Seed global typography sliders from the first scene that has stored values.
       // This avoids the slider defaulting to 60 when e.g. mosaic_metric scenes have 131.
       if (project.scenes && project.scenes.length > 0) {
@@ -746,8 +746,8 @@ export default function ProjectView() {
       // Re-seed caption drafts whenever the project refreshes after a voice add/delete
       // (the backend toggles captions_enabled with voiceover presence). Without these
       // deps the draft goes stale and the toggle shows the wrong state until a hard refresh.
-      project?.captions_enabled, project?.caption_position,
-      project?.caption_font_family, project?.caption_font_size,
+      project?.captions_enabled,
+      project?.caption_font_family, project?.caption_font_size, project?.caption_offset,
       project?.scenes?.some((s) => !!s.voiceover_path)]);
 
   useEffect(() => {
@@ -1336,15 +1336,15 @@ export default function ProjectView() {
       try {
         await updateProject(project.id, {
           captions_enabled: settings.captionsEnabled,
-          caption_position: settings.captionPosition,
           caption_font_family: settings.captionFontFamily,
           caption_font_size: settings.captionFontSize,
+          caption_offset: settings.captionOffset,
         });
         // Sync draft state so the settings panel reflects changes made via the player button.
         setCaptionsEnabledDraft(settings.captionsEnabled);
-        setCaptionPositionDraft(settings.captionPosition);
         setCaptionFontFamilyDraft(settings.captionFontFamily);
         setCaptionFontSizeDraft(settings.captionFontSize);
+        setCaptionOffsetDraft(settings.captionOffset);
         setCaptionSettingsKey((k) => k + 1);
         await loadProject();
       } catch (err) {
@@ -5988,33 +5988,35 @@ export default function ProjectView() {
 
                   {captionsEnabledDraft && hasVoiceover && (
                     <div className="flex flex-col gap-2">
-                      {/* Row 1: Position (2-col) + Size slider */}
+                      {/* Row 1: Offset (2-col) + Size slider */}
                       <div className="grid grid-cols-2 gap-2 items-start">
 
-                        {/* Position — 2 pills in one row */}
+                        {/* Offset — always bottom; slider nudges up/down */}
                         <div>
-                          <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">Position</label>
-                          <div className="grid grid-cols-2 gap-1">
-                            {([
-                              { value: "top_center", label: "Top" },
-                              { value: "bottom_center", label: "Bottom" },
-                            ] as const).map((pos) => {
-                              const active = captionPositionDraft === pos.value;
-                              return (
-                                <button
-                                  key={pos.value}
-                                  type="button"
-                                  onClick={() => setCaptionPositionDraft(pos.value)}
-                                  className={`px-1.5 py-1.5 rounded-md text-[11px] font-semibold border transition-colors text-center ${
-                                    active
-                                      ? "bg-purple-50 text-purple-700 border-purple-300"
-                                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                                  }`}
-                                >
-                                  {pos.label}
-                                </button>
-                              );
-                            })}
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide">Offset</label>
+                            <button
+                              type="button"
+                              onClick={() => setCaptionOffsetDraft(0)}
+                              className={`text-[10px] font-semibold ${captionOffsetDraft === 0 ? "text-gray-400" : "text-purple-600 hover:text-purple-700"}`}
+                            >
+                              {captionOffsetDraft === 0 ? "Default" : "Reset"}
+                            </button>
+                          </div>
+                          <div className="flex flex-col justify-center pt-1">
+                            <input
+                              type="range"
+                              min={-100}
+                              max={100}
+                              step={1}
+                              value={captionOffsetDraft}
+                              onChange={(e) => setCaptionOffsetDraft(Number(e.target.value))}
+                              className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
+                            />
+                            <div className="flex justify-between mt-1">
+                              <span className="text-[9px] text-gray-400">Down</span>
+                              <span className="text-[9px] text-gray-400">Up</span>
+                            </div>
                           </div>
                         </div>
 
@@ -6076,9 +6078,9 @@ export default function ProjectView() {
                         try {
                           await updateProject(project.id, {
                             captions_enabled: captionsEnabledDraft && hasVoiceover,
-                            caption_position: captionPositionDraft,
                             caption_font_family: captionFontFamilyDraft,
                             caption_font_size: captionFontSizeDraft,
+                            caption_offset: captionOffsetDraft,
                           });
                           setCaptionSettingsKey((k) => k + 1);
                           await loadProject();

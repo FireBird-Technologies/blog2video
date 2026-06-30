@@ -40,6 +40,7 @@ export interface MosaicVideoCompositionProps {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
+  captionOffset?: number;
 }
 
 export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
@@ -59,6 +60,7 @@ export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
   captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
@@ -105,6 +107,7 @@ export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
                 aspectRatio={aspectRatio || "landscape"}
                 fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
                 fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? Math.max(1, Math.round(scene.speechDurationSeconds * FPS))
