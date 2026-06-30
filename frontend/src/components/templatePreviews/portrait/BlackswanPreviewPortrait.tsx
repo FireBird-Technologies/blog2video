@@ -4,11 +4,11 @@ import "@fontsource/righteous/400.css";
 import {
   BlackswanVideoComposition,
   type BlackswanSceneInput,
-} from "../remotion/blackswan/BlackswanVideoComposition";
+} from "../../remotion/blackswan/BlackswanVideoComposition";
 
-// ─── Canvas wrapper (16:9 preview card) ─────────────────────────────────────
-const INTERNAL_W = 480;
-const INTERNAL_H = 270;
+// ─── Portrait canvas wrapper (9:16) ─────────────────────────────────────────
+const INTERNAL_W = 270;
+const INTERNAL_H = 480;
 const FPS = 30;
 
 const ACCENT = "#00E5FF";
@@ -18,43 +18,24 @@ const BG = "#000000";
 function ScaledCanvas({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
-
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const update = () => setScale(el.getBoundingClientRect().width / INTERNAL_W);
+    const update = () => setScale(el.offsetWidth / INTERNAL_W);
     update();
     const obs = new ResizeObserver(update);
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
-
   return (
-    <div
-      ref={ref}
-      style={{
-        width: "100%",
-        aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`,
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
-      <div
-        style={{
-          width: INTERNAL_W,
-          height: INTERNAL_H,
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-          position: "absolute",
-        }}
-      >
+    <div ref={ref} style={{ width: "100%", aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, overflow: "hidden", position: "relative" }}>
+      <div style={{ width: INTERNAL_W, height: INTERNAL_H, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute" }}>
         {children}
       </div>
     </div>
   );
 }
 
-/** Short carousel: hero, code matrix, dive insight, signal split — same registry as full renders. */
 const PREVIEW_SCENES: BlackswanSceneInput[] = [
   {
     id: 1,
@@ -132,26 +113,9 @@ function sceneIndexAtFrame(frame: number, scenes: BlackswanSceneInput[], fps: nu
   return 0;
 }
 
-function SlideDots({
-  total,
-  current,
-  onDotClick,
-}: {
-  total: number;
-  current: number;
-  onDotClick: (i: number) => void;
-}) {
+function SlideDots({ total, current, onDotClick }: { total: number; current: number; onDotClick: (i: number) => void }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 5,
-        position: "absolute",
-        bottom: 9,
-        right: 11,
-        zIndex: 10,
-      }}
-    >
+    <div style={{ display: "flex", gap: 5, position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
       {Array.from({ length: total }, (_, i) => (
         <button
           key={i}
@@ -175,15 +139,12 @@ function SlideDots({
   );
 }
 
-export default function BlackswanPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
+export default function BlackswanPreviewPortrait({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const playerRef = useRef<PlayerRef>(null);
   const [sceneIndex, setSceneIndex] = useState(0);
   const scenes = useMemo(() => (thumbnailMode ? PREVIEW_SCENES.slice(0, 1) : PREVIEW_SCENES), [thumbnailMode]);
 
-  const durationInFrames = useMemo(() => {
-    const total = totalDurationFrames(scenes, FPS);
-    return total;
-  }, [scenes, thumbnailMode]);
+  const durationInFrames = useMemo(() => totalDurationFrames(scenes, FPS), [scenes]);
   const thumbnailFrame = useMemo(() => Math.max(0, Math.floor(durationInFrames * 0.85) - 1), [durationInFrames]);
   const starts = useMemo(() => sceneStarts(scenes, FPS), [scenes]);
 
@@ -193,7 +154,7 @@ export default function BlackswanPreview({ thumbnailMode = false }: { thumbnailM
       accentColor: ACCENT,
       bgColor: BG,
       textColor: TEXT,
-      aspectRatio: "landscape" as const,
+      aspectRatio: "portrait" as const,
     }),
     [scenes]
   );
@@ -210,9 +171,6 @@ export default function BlackswanPreview({ thumbnailMode = false }: { thumbnailM
     return () => p.removeEventListener("frameupdate", onFrame);
   }, [durationInFrames, scenes]);
 
-  // When the card reaches center, restart the timeline from the top so the
-  // animation plays fresh — and stop it the moment it moves away. (In thumbnail
-  // mode the Player has autoPlay off and is parked on the static thumbnail frame.)
   useEffect(() => {
     const p = playerRef.current;
     if (!p) return;
@@ -242,19 +200,15 @@ export default function BlackswanPreview({ thumbnailMode = false }: { thumbnailM
           component={BlackswanVideoComposition}
           durationInFrames={durationInFrames}
           initialFrame={thumbnailMode ? thumbnailFrame : 0}
-          compositionWidth={1920}
-          compositionHeight={1080}
+          compositionWidth={1080}
+          compositionHeight={1920}
           fps={FPS}
           inputProps={inputProps}
           controls={false}
           autoPlay={!thumbnailMode}
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
-          style={{
-            width: INTERNAL_W,
-            height: INTERNAL_H,
-            display: "block",
-          }}
+          style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
         />
         <SlideDots
           total={scenes.length}
