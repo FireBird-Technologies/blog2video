@@ -125,7 +125,7 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   const cardTransform = `perspective(1700px) translateY(${enterTY.toFixed(1)}px) rotateX(${enterRotX.toFixed(2)}deg) scale(${enterScale.toFixed(4)})`;
 
   const cardInner = (
-    <div style={{ position: "absolute", inset: 0, zIndex: 10, background: bg, overflow: "hidden", boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 8px 22px rgba(0,0,0,0.3)" }}>
+    <div style={{ position: "absolute", inset: 0, zIndex: 10, background: bg, overflow: "hidden", boxShadow: "0 6px 16px rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.3)" }}>
       {/* Red frame */}
       <div style={{ position: "absolute", inset: outer, border: `${border}px solid ${accent}`, overflow: "hidden", background: bg }}>
         {/* Paper base — ALWAYS rendered so the cover is never blank, even if no

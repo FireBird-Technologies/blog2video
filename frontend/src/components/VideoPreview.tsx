@@ -23,8 +23,6 @@ import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templa
 import { resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
 import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
-import { pickMagazineTransition } from "./remotion/magazine/transitions";
-import type { MagazineLayoutType } from "./remotion/magazine/types";
 import {
   compileComponentCode,
   compileModuleGraphEntry,
@@ -1171,28 +1169,13 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       return computeChronicleVideoTotalFrames(chronicleScenes, 1);
     }
     if (templateId === "magazine") {
-      // Magazine uses TransitionSeries with EXTRA_HOLD=42 per non-last scene.
-      // Must mirror the arithmetic in MagazineVideoComposition exactly so the
-      // Player duration matches the actual rendered content length.
-      const EXTRA_HOLD = 42;
-      const n = scenes.length;
-      if (n === 0) return FPS * 5;
-      const isPortrait = project.aspect_ratio === "portrait";
-      const w = isPortrait ? 1080 : 1920;
-      const accentColor = project.accent_color || "#D71921";
-      const perScene = scenes.map((s) =>
-        Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS)),
+      // Magazine now renders as back-to-back Sequences (no transition overlap), so
+      // the Player duration is simply the sum of per-scene durations.
+      if (scenes.length === 0) return FPS * 5;
+      const total = scenes.reduce(
+        (sum, s) => sum + Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS)),
+        0,
       );
-      const seqFrames = perScene.map((f, i) =>
-        i === n - 1 ? f : f + EXTRA_HOLD,
-      );
-      let total = seqFrames.reduce((a, b) => a + b, 0);
-      for (let i = 0; i < n - 1; i++) {
-        const from = (scenes[i].layout || "text_narration") as MagazineLayoutType;
-        const to = (scenes[i + 1].layout || "text_narration") as MagazineLayoutType;
-        const rawFrames = pickMagazineTransition(i, from, to, w, accentColor).frames;
-        total -= Math.max(1, Math.min(rawFrames, Math.floor(seqFrames[i] / 2), Math.floor(seqFrames[i + 1] / 2)));
-      }
       return Math.max(total, FPS * 5);
     }
     const sceneFrames = project.scenes.map((s) => {

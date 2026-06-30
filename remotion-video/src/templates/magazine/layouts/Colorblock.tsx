@@ -1,4 +1,5 @@
 import React from "react";
+import { Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
@@ -11,6 +12,7 @@ import {
   MAG_SANS,
   resolveMagColors,
   isPortrait,
+  hexToRgba,
   useReveal,
   gutterPx,
 } from "../magazineStyle";
@@ -36,6 +38,8 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
   const subline = (props.panelSubline as string) ?? "";
   const tag = (props.panelTag as string) ?? "";
   const p = isPortrait(props.aspectRatio);
+  const imageUrl = props.imageUrl;
+  const hasImage = Boolean(imageUrl);
   const colors = resolveMagColors(props);
   const { bg, text, accent } = colors;
 
@@ -57,6 +61,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
 
   return (
     <MagazinePage
+      lightChrome
       colors={colors}
       section="Feature"
       issue={props.issueLabel ?? "Spotlight"}
@@ -99,78 +104,118 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
           </h1>
         </div>
 
-        {/* RIGHT BLOCK — solid accent panel with the centred label stack */}
+        {/* RIGHT BLOCK — a solid accent panel, OR (when the scene has a photo) a
+            hero image under an accent-tinted scrim so the centred white label
+            stack stays legible. The image honours the scene focus point + zoom. */}
         <div
           style={{
             flex: 1,
             minWidth: 0,
-            background: accent,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            padding: pad,
+            position: "relative",
             overflow: "hidden",
+            background: hasImage ? text : accent,
             opacity: rightPanelO,
             transform: `translateY(${((1 - rightPanelO) * 18).toFixed(1)}px)`,
           }}
         >
-          <Kicker color={bg} style={{ opacity: kickerO, marginBottom: 16 }}>
-            {label}
-          </Kicker>
-          <Rule color={bg} progress={ruleP} thickness={2} width={48} style={{ marginBottom: 22 }} />
-          {heading && (
-            <h2
-              style={{
-                fontFamily: MAG_DISPLAY,
-                fontWeight: 800,
-                fontSize: headingPx,
-                lineHeight: 1.05,
-                letterSpacing: "-0.015em",
-                color: bg,
-                margin: 0,
-                opacity: headingO,
-                transform: `translateY(${((1 - headingO) * 12).toFixed(1)}px)`,
-              }}
-            >
-              {heading}
-            </h2>
+          {imageUrl && (
+            <>
+              <Img
+                src={imageUrl}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (props.imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (props.imageZoom ?? 1) < 1 ? "center" : (props.imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${props.imageZoom ?? 1})`,
+                  transformOrigin: (props.imageZoom ?? 1) < 1 ? "center center" : (props.imageObjectPosition ?? "50% 50%"),
+                  // filter removed — offscreen-pass cost on a full-bleed image (no GPU).
+                  zIndex: 0,
+                }}
+              />
+              {/* accent-tinted scrim + a thin light keyline framing the hero */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: `linear-gradient(180deg, rgba(0,0,0,0.34) 0%, ${hexToRgba(accent, 0.58)} 100%)`,
+                  boxShadow: `inset 0 0 0 1px ${hexToRgba(bg, 0.45)}`,
+                  zIndex: 1,
+                }}
+              />
+            </>
           )}
-          {subline && (
-            <div
-              style={{
-                fontFamily: MAG_SERIF,
-                fontStyle: "italic",
-                fontSize: sublinePx,
-                color: bg,
-                opacity: sublineO * 0.92,
-                marginTop: 12,
-                maxWidth: "92%",
-              }}
-            >
-              {subline}
-            </div>
-          )}
-          {tag && (
-            <div
-              style={{
-                display: "inline-block",
-                marginTop: 20,
-                opacity: tagO,
-                background: bg,
-                color: accent,
-                fontFamily: MAG_SANS,
-                fontWeight: 700,
-                fontSize: 13,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                padding: "6px 14px",
-              }}
-            >
-              {tag}
-            </div>
-          )}
+          <div
+            style={{
+              position: "relative",
+              zIndex: 2,
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+              padding: pad,
+            }}
+          >
+            <Kicker color={bg} style={{ opacity: kickerO, marginBottom: 16 }}>
+              {label}
+            </Kicker>
+            <Rule color={bg} progress={ruleP} thickness={2} width={48} style={{ marginBottom: 22 }} />
+            {heading && (
+              <h2
+                style={{
+                  fontFamily: MAG_DISPLAY,
+                  fontWeight: 800,
+                  fontSize: headingPx,
+                  lineHeight: 1.05,
+                  letterSpacing: "-0.015em",
+                  color: bg,
+                  margin: 0,
+                  opacity: headingO,
+                  transform: `translateY(${((1 - headingO) * 12).toFixed(1)}px)`,
+                }}
+              >
+                {heading}
+              </h2>
+            )}
+            {subline && (
+              <div
+                style={{
+                  fontFamily: MAG_SERIF,
+                  fontStyle: "italic",
+                  fontSize: sublinePx,
+                  color: bg,
+                  opacity: sublineO * 0.92,
+                  marginTop: 12,
+                  maxWidth: "92%",
+                }}
+              >
+                {subline}
+              </div>
+            )}
+            {tag && (
+              <div
+                style={{
+                  display: "inline-block",
+                  marginTop: 20,
+                  opacity: tagO,
+                  background: bg,
+                  color: accent,
+                  fontFamily: MAG_SANS,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  padding: "6px 14px",
+                }}
+              >
+                {tag}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </MagazinePage>

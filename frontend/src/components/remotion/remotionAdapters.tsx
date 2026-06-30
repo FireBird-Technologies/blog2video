@@ -54,7 +54,13 @@ import {
   type MagazineLayoutType as RemotionMagazineLayoutType,
   type SceneLayoutProps as RemotionMagazineLayoutProps,
 } from "@remotion-video/templates/magazine/layouts";
-import { pickMagazineTransition as pickRemotionMagazineTransition } from "@remotion-video/templates/magazine/transitions";
+import {
+  SceneExit as RemotionMagazineSceneExit,
+  exitAnimFor as remotionMagazineExitAnimFor,
+  exitFramesFor as remotionMagazineExitFramesFor,
+  MAG_BACKDROP as REMOTION_MAGAZINE_BACKDROP,
+} from "@remotion-video/templates/magazine/magazineStyle";
+import type { SceneExitVariant as RemotionMagazineExitVariant } from "@remotion-video/templates/magazine/types";
 
 import {
   NEWSCAST_LAYOUT_REGISTRY as REMOTION_NEWSCAST_LAYOUT_REGISTRY,
@@ -2047,9 +2053,6 @@ export const RemotionMagazineVideoComposition: React.FC<
   fontFamily,
 }) => {
   const FPS = 30;
-  const EXTRA_HOLD = 42;
-  const isPortrait = aspectRatio === "portrait";
-  const canvasW = isPortrait ? 1080 : 1920;
 
   const resolveLayout = (raw: string): RemotionMagazineLayoutType =>
     (raw as RemotionMagazineLayoutType) in REMOTION_MAGAZINE_LAYOUT_REGISTRY
@@ -2062,29 +2065,29 @@ export const RemotionMagazineVideoComposition: React.FC<
     return { scene, layoutKey, durationFrames };
   });
 
-  const sequenceFrames = resolvedScenes.map((s, i, arr) =>
-    i === arr.length - 1 ? s.durationFrames : s.durationFrames + EXTRA_HOLD,
+  // SINGLE-SCENE sequencing: back-to-back, NO overlap — only ONE page mounted/painted
+  // at a time (the dual-scene TransitionSeries overlap is what stuttered the preview).
+  const visualStart: number[] = [];
+  {
+    let run = 0;
+    resolvedScenes.forEach((s, i) => {
+      visualStart[i] = run;
+      run += s.durationFrames;
+    });
+  }
+  const exitFramesByIndex = resolvedScenes.map((s, i) =>
+    i === resolvedScenes.length - 1
+      ? 0
+      : Math.max(1, Math.min(remotionMagazineExitFramesFor(s.layoutKey), s.durationFrames - 1)),
   );
-
-  let runningFrame = 0;
-  const sceneStartFrames: number[] = [];
-  resolvedScenes.forEach((s, i) => {
-    sceneStartFrames[i] = runningFrame;
-    runningFrame += sequenceFrames[i];
-    if (i < resolvedScenes.length - 1) {
-      const nextLayout = resolvedScenes[i + 1].layoutKey;
-      const rawFrames = pickRemotionMagazineTransition(i, s.layoutKey, nextLayout, canvasW, accentColor).frames;
-      const safeFrames = Math.max(1, Math.min(rawFrames, Math.floor(sequenceFrames[i] / 2), Math.floor(sequenceFrames[i + 1] / 2)));
-      runningFrame -= safeFrames;
-    }
-  });
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FFFFFF", fontFamily }}>
-      <TransitionSeries>
+      {/* Persistent desk behind every scene so a page's single-scene exit reveals the desk. */}
+      <AbsoluteFill style={{ backgroundColor: REMOTION_MAGAZINE_BACKDROP }} />
+      <>
         {resolvedScenes.map((s, index) => {
           const { scene, layoutKey } = s;
-          const seqFrames = sequenceFrames[index];
           const LayoutComponent =
             REMOTION_MAGAZINE_LAYOUT_REGISTRY[layoutKey] ??
             REMOTION_MAGAZINE_LAYOUT_REGISTRY.text_narration;
@@ -2110,53 +2113,34 @@ export const RemotionMagazineVideoComposition: React.FC<
             brandName: projectName,
           };
 
-          const sequence = (
-            <TransitionSeries.Sequence
-              key={`seq-${scene.id}-${index}`}
-              durationInFrames={seqFrames}
-            >
-              <LayoutComponent {...layoutProps} />
-            </TransitionSeries.Sequence>
-          );
-
-          if (index === resolvedScenes.length - 1) {
-            return sequence;
-          }
-
-          const nextLayout = resolvedScenes[index + 1].layoutKey;
-          const choice = pickRemotionMagazineTransition(
-            index,
-            layoutKey,
-            nextLayout,
-            canvasW,
-            accentColor || "#D71921",
-          );
-          // Clamp so the transition never exceeds either adjacent sequence length.
-          // Remotion throws a hard error if it does.
-          const safeFrames = Math.max(1, Math.min(
-            choice.frames,
-            Math.floor(seqFrames / 2),
-            Math.floor(sequenceFrames[index + 1] / 2),
-          ));
-
+          const isLast = index === resolvedScenes.length - 1;
+          const exitVariant =
+            (rawProps.exitAnim as RemotionMagazineExitVariant | undefined) ?? remotionMagazineExitAnimFor(layoutKey);
           return (
-            <React.Fragment key={`scene-${scene.id}-${index}`}>
-              {sequence}
-              <TransitionSeries.Transition
-                presentation={choice.presentation}
-                timing={linearTiming({ durationInFrames: safeFrames })}
-              />
-            </React.Fragment>
+            <Sequence
+              key={`seq-${scene.id}-${index}`}
+              from={visualStart[index]}
+              durationInFrames={s.durationFrames}
+              name={scene.title}
+            >
+              {isLast ? (
+                <LayoutComponent {...layoutProps} />
+              ) : (
+                <RemotionMagazineSceneExit variant={exitVariant} frames={exitFramesByIndex[index]}>
+                  <LayoutComponent {...layoutProps} />
+                </RemotionMagazineSceneExit>
+              )}
+            </Sequence>
           );
         })}
-      </TransitionSeries>
+      </>
 
       {resolvedScenes.map((s, index) => {
         if (!s.scene.voiceoverUrl) return null;
         return (
           <Sequence
             key={`audio-${s.scene.id}-${index}`}
-            from={sceneStartFrames[index]}
+            from={visualStart[index]}
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} />

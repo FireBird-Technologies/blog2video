@@ -260,10 +260,12 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
         defaultProps={{
-          // Curated, prompt-aligned magazine sample covering every layout, so
-          // opening the studio shows real editorial content rather than the
-          // last-rendered /data.json project. Override per-render as usual.
-          dataUrl: "/mag-allscenes.json",
+          // Must be "/data.json" like every other composition: the render
+          // workspace writes the project's real scenes to public/data.json,
+          // while public/mag-allscenes.json is only the bundled template sample.
+          // Pointing at the sample here made project renders output the demo
+          // video instead of the user's project.
+          dataUrl: "/data.json",
         }}
         calculateMetadata={calculateMagazineMetadata}
       />

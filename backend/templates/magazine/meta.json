@@ -47,7 +47,7 @@
       "scene_defaults": {
         "title": "The Quiet Revolution",
         "narration": "Inside the studios reshaping how we live and work.",
-        "durationSeconds": 3
+        "durationSeconds": 6
       },
       "sample_props": {
         "brandName": "Atlas Review",
@@ -92,7 +92,7 @@
       "scene_defaults": {
         "title": "It starts with the grid, and ends with the reader.",
         "narration": "— Mara Voss",
-        "durationSeconds": 3
+        "durationSeconds": 6
       },
       "sample_props": {
         "attribution": "Mara Voss, Editor"
@@ -140,7 +140,7 @@
       "scene_defaults": {
         "title": "By the Numbers",
         "narration": "The redesign, measured.",
-        "durationSeconds": 3
+        "durationSeconds": 6
       },
       "sample_props": {
         "stats": [
@@ -450,7 +450,7 @@
       "scene_defaults": {
         "title": "A Short History",
         "narration": "From a single zine to a global title.",
-        "durationSeconds": 4
+        "durationSeconds": 10
       },
       "sample_props": {
         "milestones": [
@@ -845,7 +845,7 @@
       "scene_defaults": {
         "title": "A spread should feel inevitable",
         "narration": "The print issue, reimagined for screen.",
-        "durationSeconds": 4
+        "durationSeconds": 7
       },
       "sample_props": {
         "leftQuote": "A spread should feel inevitable — as if it could not have been set any other way.",
@@ -1081,12 +1081,8 @@
     "by_the_numbers",
     "interview_qa",
     "magazine_data_visualization",
-    "timeline_journey",
-    "text_narration",
     "ending_socials",
     "magazine_ticker",
-    "colorblock",
-    "feature",
     "comparison"
   ]
 }

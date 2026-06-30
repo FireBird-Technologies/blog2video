@@ -5,7 +5,7 @@ import {
   MagazinePage,
   Halftone,
   QuoteGlyph,
-  KineticWords,
+  WrittenText,
   Typewriter,
   MAG_DISPLAY,
   MAG_SANS,
@@ -39,9 +39,9 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
   const glyphScale = 0.86 + 0.14 * markO;
 
   const words = (title ?? "").split(" ");
-  const wStart = 10;
-  const wStagger = Math.max(1, Math.round(fps * 0.06));
-  const wDur = Math.round(fps * 0.3);
+  const wStart = 14; // start right after the glyph + rail have appeared
+  const wStagger = Math.max(1, Math.round(fps * 0.045)); // tighter stagger = smoother flow
+  const wDur = Math.round(fps * 0.22); // each word fades in quickly
   const lastEnd = wStart + (words.length - 1) * wStagger + wDur;
   const attrO = interpolate(frame, [lastEnd, lastEnd + 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
@@ -74,6 +74,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
       aspectRatio={props.aspectRatio}
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
+      lightChrome
       singlePage
       printTextureSrc="editorial-quote-bg.svg"
       printTextureOpacity={0.45}
@@ -111,16 +112,18 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
           }}
         />
 
-        {/* The statement — left-aligned, anchored toward the lower-left */}
+        {/* The statement — left-aligned, tucked just below the quotation glyph */}
         <div
           style={{
             position: "absolute",
             left: "16%",
             right: p ? "10%" : "22%",
-            bottom: "20%",
+            top: p ? "22%" : "18%",
+            bottom: p ? "8%" : "10%",
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-start",
+            justifyContent: "center",
             zIndex: 1,
           }}
         >
@@ -138,11 +141,10 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
               textAlign: "left",
             }}
           >
-            <KineticWords text={title ?? ""} start={wStart} stagger={wStagger} dur={wDur} depth={false} />
+            <WrittenText text={title ?? ""} start={wStart} wordsPerFrame={wStagger > 0 ? 1 / wStagger : 0.5} dur={wDur} />
           </blockquote>
 
-          {/* Attribution beneath the quote with a short accent rule (both
-              orientations — the vertical right-edge marginalia was removed). */}
+          {/* Attribution beneath the quote with a short accent rule */}
           {attribution && (
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 26, opacity: attrO }}>
               <div style={{ width: 46, height: 2, background: accent }} />

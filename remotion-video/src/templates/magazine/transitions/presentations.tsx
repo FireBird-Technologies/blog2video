@@ -24,10 +24,11 @@ const easeSoft = (t: number): number => {
   return 0.5 * (1 - Math.cos(Math.PI * c));
 };
 
-// Warm dark "table" tone behind turning pages, matching the scenes' DeskBackdrop
-// so transitions read as pages turning on the same lamp-lit table — not a flash
-// of white void between scenes.
-const TABLE_BG = "#17120c";
+// Warm dark "table" tone behind turning pages. Kept EXACTLY equal to MAG_BACKDROP
+// (the black-bridge fill in the composition) so every dark surface in the deck — the
+// bridge and any desk a presentation paints — is one consistent colour, with no
+// tone-step "pop" at a transition seam.
+const TABLE_BG = "#14120E"; // === MAG_BACKDROP in magazineStyle.tsx
 
 // ── Glossy Page Flip ────────────────────────────────────────────────────────
 // Zoom out → settle → a real page turns over → zoom in.
@@ -1582,15 +1583,13 @@ const MagazineCoverOpenComponent: React.FC<
     // The interior spread sits beneath the opening cover; the camera pushes in.
     const zoom = easeSoft(interpolate(p, [0.18, 1], [0, 1], cl));
     const scale = 1.12 - 0.12 * zoom;
-    const reveal = interpolate(p, [0.1, 0.34], [0, 1], cl);
     return (
-      <AbsoluteFill style={{ backgroundColor: "#0c0b08", zIndex: 1 }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, zIndex: 1 }}>
         <AbsoluteFill
           style={{
             transform: `scale(${scale.toFixed(4)})`,
             transformOrigin: "50% 50%",
-            opacity: reveal,
-            willChange: "transform, opacity",
+            willChange: "transform",
           }}
         >
           {children}
@@ -2235,14 +2234,17 @@ const GatefoldUnfoldComponent: React.FC<
     // sinks the bento); the swinging doors carry all the motion
     // ([[magazine-preview-paint-cost]]).
     const zoom = easeSoft(interpolate(p, [0.12, 1], [0, 1], cl));
-    const reveal = interpolate(p, [0, 0.06], [0, 1], cl);
     // The interior starts in the closed cover's shadow and is flooded with light as
     // the doors swing open. Without this the unfold barely reads when both pages are
     // light editorial spreads — the dim gives the bright opening doors contrast.
     const shade = interpolate(p, [0.12, 0.62], [0.16, 0], cl);
     return (
-      <AbsoluteFill style={{ backgroundColor: "#E8E1D3", zIndex: 1 }}>
-        <AbsoluteFill style={{ opacity: reveal, willChange: "opacity" }}>
+      // Dark bridge-matched backing (was beige #E8E1D3, which flashed a light slab
+      // against the black bridge before the page appeared). The page is OPAQUE from
+      // frame 0 — it's revealed by the doors opening, not by a fade — so nothing
+      // shows behind it.
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, zIndex: 1 }}>
+        <AbsoluteFill>
           {children}
           {/* whole-interior shade, lifting as the doors clear (kept light so no black flash) */}
           <AbsoluteFill style={{ backgroundColor: "#000", opacity: shade.toFixed(3), pointerEvents: "none" }} />
@@ -3097,7 +3099,7 @@ const CenterDoorsComponent: React.FC<
     const settle = easeSoft(interpolate(presentationProgress, [0.1, 1], [0, 1], cl));
     const scale = 1.05 - 0.05 * settle;
     return (
-      <AbsoluteFill style={{ backgroundColor: "#0c0b08", zIndex: 1 }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, zIndex: 1 }}>
         <AbsoluteFill
           style={{
             transform: `scale(${scale.toFixed(4)})`,
@@ -3187,7 +3189,7 @@ const BreakFromBehindComponent: React.FC<
     const settle = easeSoft(interpolate(presentationProgress, [0.12, 1], [0, 1], cl));
     const scale = 1.06 - 0.06 * settle;
     return (
-      <AbsoluteFill style={{ backgroundColor: "#0c0b08", zIndex: 1 }}>
+      <AbsoluteFill style={{ backgroundColor: TABLE_BG, zIndex: 1 }}>
         <AbsoluteFill
           style={{
             transform: `scale(${scale.toFixed(4)})`,
@@ -3506,8 +3508,10 @@ const AlternatingQuoteSwingComponent: React.FC<
         const angle = (1 - t) * START * dir;
         const hinge: "left" | "right" = isLeft ? "right" : "left"; // spine side
         const free: "left" | "right" = isLeft ? "left" : "right";
-        // Each leaf brightens as it lands so the copy reads only once flat.
-        const litShade = (1 - t) * 0.5;
+        // Each leaf brightens as it lands so the copy reads only once flat. Capped low
+        // (was 0.5) so the incoming interview page doesn't read as dark while it swings
+        // in over the black bridge — it stays legible throughout.
+        const litShade = (1 - t) * 0.22;
         return (
           <div
             key={side}

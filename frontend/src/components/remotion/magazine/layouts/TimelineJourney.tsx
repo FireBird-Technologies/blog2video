@@ -81,12 +81,12 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
   const playheadO = interpolate(frac, [0, 0.02, 0.97, 1], [0, 1, 1, 0], clampO);
 
   // ── Sizing ──────────────────────────────────────────────────────────────────
-  const titlePx = titleFontSize ?? (p ? 46 : 40);
-  const yearPx = descriptionFontSize ?? (p ? 32 : 38);
-  const labelPx = p ? 17 : 18;
-  const descPx = p ? 13 : 14;
-  const stemLen = p ? 48 : 64; // baseline → year/label block
-  const slotW = Math.min(p ? 27 : 21, 94 / Math.max(n, 2)); // milestone column width, % of band
+  const titlePx = titleFontSize ?? (p ? 58 : 54);
+  const yearPx = descriptionFontSize ?? (p ? 44 : 58);
+  const labelPx = p ? 23 : 27;
+  const descPx = p ? 17 : 19;
+  const stemLen = p ? 56 : 90; // baseline → year/label block
+  const slotW = Math.min(p ? 27 : 22, 94 / Math.max(n, 2)); // milestone column width, % of band
   // inset the band so the first/last milestones never run off the page edge
   const edge = slotW / 2 + 2; // % inset on each side
   const span = 100 - 2 * edge; // drawable width between the insets
@@ -105,11 +105,12 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
     const top1 = 88; // last dot centre
     const reach = top1 - top0;
     const drawnReach = frac * reach;
-    const yearPxV = descriptionFontSize ?? 42;
-    const labelPxV = 19;
-    const descPxV = 15;
+    const yearPxV = descriptionFontSize ?? 58;
+    const labelPxV = 26;
+    const descPxV = 19;
     return (
       <MagazinePage
+        lightChrome
         colors={colors}
         section="Timeline"
         issue={props.issueLabel ?? "History"}
@@ -120,6 +121,10 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
         cameraMove={props.cameraMove ?? "book_open"}
         printTextureSrc="qa-timeline-bg.svg"
         printTextureOpacity={0.32}
+        backgroundImageSrc={props.imageUrl}
+        backgroundImageObjectPosition={props.imageObjectPosition}
+        backgroundImageZoom={props.imageZoom}
+        backgroundImageOpacity={0.3}
         hideGutter
       >
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -227,6 +232,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
 
   return (
     <MagazinePage
+      lightChrome
       colors={colors}
       section="Timeline"
       issue={props.issueLabel ?? "History"}
@@ -237,6 +243,10 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
       cameraMove={props.cameraMove ?? "book_open"}
       printTextureSrc="qa-timeline-bg.svg"
       printTextureOpacity={0.32}
+      backgroundImageSrc={props.imageUrl}
+      backgroundImageObjectPosition={props.imageObjectPosition}
+      backgroundImageZoom={props.imageZoom}
+      backgroundImageOpacity={0.3}
       hideGutter
     >
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>

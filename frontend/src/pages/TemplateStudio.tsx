@@ -39,8 +39,8 @@ import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../components/remotion/playbackSpeed";
 import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
 import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layouts";
-import { pickMagazineTransition } from "../components/remotion/magazine/transitions";
 import type { MagazineLayoutType } from "../components/remotion/magazine/types";
+import { planMagazineBoundaries, resolveMagazineLayout } from "../components/remotion/magazine/MagazineVideoComposition";
 
 const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
 const MAGAZINE_EXTRA_HOLD = 42;
@@ -1496,21 +1496,18 @@ export default function TemplateStudio() {
       return n * per;
     }
     if (selectedTemplateId === "magazine") {
+      // Black-bridged TransitionSeries: each boundary ADDS a black bridge and removes
+      // the transition overlaps, so the total is NOT just n×per. Use the SAME planner
+      // the composition uses so the Player's declared duration matches the composition
+      // exactly (otherwise the Player clips/races the scenes).
       const per = Math.max(1, Math.round(durationSeconds * fps));
-      const w = isPortrait ? 1080 : 1920;
-      let total = 0;
-      for (let i = 0; i < n; i++) {
-        const seqF = i === n - 1 ? per : per + MAGAZINE_EXTRA_HOLD;
-        total += seqF;
-        if (i < n - 1) {
-          const from = layouts[i] as MagazineLayoutType;
-          const to = layouts[i + 1] as MagazineLayoutType;
-          const nextSeqF = i + 1 === n - 1 ? per : per + MAGAZINE_EXTRA_HOLD;
-          const raw = pickMagazineTransition(i, from, to, w, accentColor).frames;
-          total -= Math.max(1, Math.min(raw, Math.floor(seqF / 2), Math.floor(nextSeqF / 2)));
-        }
-      }
-      return Math.max(total, fps * 2);
+      const layoutKeys = layouts.map(resolveMagazineLayout);
+      const { totalFrames } = planMagazineBoundaries(
+        layoutKeys,
+        layoutKeys.map(() => per),
+        accentColor,
+      );
+      return Math.max(totalFrames, fps * 2);
     }
     return n * getSceneDurationFrames(durationSeconds, fps, speed);
   }, [

@@ -7,6 +7,7 @@ import {
   Rule,
   KineticWords,
   WrittenText,
+  MagPlate,
   MAG_DISPLAY,
   MAG_SERIF,
   MAG_SANS,
@@ -30,6 +31,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
   const { title, narration, titleFontSize, descriptionFontSize } = props;
   const sectionLabel = (props.sectionLabel as string) ?? "Field Notes";
   const p = isPortrait(props.aspectRatio);
+  const hasImage = Boolean(props.imageUrl);
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
 
@@ -41,7 +43,9 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
   // Portrait is one tall column, so fewer/shorter notes fit before the fixed-
   // height content area clips — cap tighter there so the last note never gets
   // cut off at the bottom.
-  const maxN = p ? 4 : 6;
+  // Fewer notes when a photo plate shares the page, so the ledger never clips
+  // under the reduced height.
+  const maxN = (p ? 4 : 6) - (hasImage ? 2 : 0);
   const entries = (narration ?? "")
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
@@ -54,12 +58,14 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
 
   const kickerO = rev(2);
   const ruleP = rev(12);
+  const plateO = rev(10, 16);
   const footerO = rev(18 + entries.length * 5 + 4);
 
   const footerLabel = (props.issueLabel as string) ?? sectionLabel;
 
   return (
     <MagazinePage
+      lightChrome
       colors={colors}
       section={sectionLabel}
       issue={props.issueLabel ?? sectionLabel}
@@ -90,6 +96,20 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
           <KineticWords text={title ?? ""} start={6} stagger={3} dur={16} />
         </h1>
         <Rule color={accent} progress={ruleP} thickness={3} width="100%" style={{ marginTop: 18 }} />
+
+        {/* Optional field plate — a full-width framed photo under the masthead,
+            before the notes. The ledger below is flex:1 and reflows into the
+            remaining height (maxN is trimmed when a plate is present). */}
+        {hasImage && (
+          <MagPlate
+            src={props.imageUrl}
+            colors={colors}
+            objectPosition={props.imageObjectPosition}
+            zoom={props.imageZoom}
+            opacity={plateO}
+            style={{ height: p ? "26%" : "30%", flexShrink: 0, marginTop: p ? 20 : 26 }}
+          />
+        )}
 
         {/* Numbered notes ledger — two columns (landscape) / one (portrait) */}
         <div
