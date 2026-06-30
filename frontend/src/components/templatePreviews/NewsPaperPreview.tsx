@@ -50,7 +50,6 @@ const ScaledCanvas: FC<ScaledCanvasProps> = ({ children }) => {
 const BG     = "#FAFAF8" as const;
 const TEXT   = "#111111" as const;
 const ACCENT = "#FFE34D" as const;
-const BLUE   = "#2563EB" as const;
 
 const H_FONT = "Georgia, 'Times New Roman', serif" as const;
 const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif" as const;
@@ -200,7 +199,7 @@ const SlideNewsHeadline: FC<SlideProps> = ({ active }) => {
           display: "flex", gap: 10, alignItems: "center",
         }}
       >
-        <span style={{ color: BLUE, fontWeight: 600 }}>By Caitlin Yilek, Stefan Becket</span>
+        <span style={{ color: TEXT, fontWeight: 600 }}>By Caitlin Yilek, Stefan Becket</span>
         <span style={{ opacity: 0.4 }}>·</span>
         <span>January 31, 2026 / CBS News</span>
       </div>
@@ -744,12 +743,27 @@ const SLIDE_DURATION = 4200 as const;
 
 const Blog2VideoPreview: FC<{ thumbnailMode?: boolean }> = ({ thumbnailMode = false }) => {
   const [current, setCurrent] = useState<number>(0);
-  const [visible, setVisible] = useState<boolean>(true);
+  const [visible, setVisible] = useState<boolean>(false);
   const transRef   = useRef<boolean>(false);
   const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentRef = useRef<number>(0);
 
   useEffect(() => { currentRef.current = current; }, [current]);
+
+  // Side cards play the first slide's drawing once and rest on its settled
+  // state (no slide cycling). Pinning to slide 0 also means it restarts from
+  // the top when the card returns to center.
+  useEffect(() => {
+    transRef.current = false;
+    setCurrent(0);
+    if (thumbnailMode) {
+      setVisible(true);
+      return;
+    }
+    setVisible(false);
+    const t = setTimeout(() => setVisible(true), 200);
+    return () => clearTimeout(t);
+  }, [thumbnailMode]);
 
   const goTo = useCallback((i: number): void => {
     if (transRef.current) return;

@@ -15,6 +15,9 @@ class EnterpriseContact(BaseModel):
     company: str = Field(..., max_length=200)
     contact_details: str = Field(..., max_length=500)
     message: str = Field(..., max_length=4000)
+    # Set by the logged-out "Your Own Brand" CTA on the landing page so the
+    # forwarded email is styled as a Designer Template request.
+    is_designer_request: bool = False
 
 
 class CustomTemplateRequest(BaseModel):
@@ -32,6 +35,7 @@ async def enterprise_contact(payload: EnterpriseContact):
             company=payload.company,
             contact_details=payload.contact_details,
             message=payload.message,
+            is_designer_request=payload.is_designer_request,
         )
     except EmailServiceError as e:
         raise HTTPException(

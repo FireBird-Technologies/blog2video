@@ -1,16 +1,15 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
-import { getTemplateConfig } from "../remotion/templateConfig";
-import { computeEconomistVideoTotalFrames } from "../remotion/economist/EconomistVideoComposition";
+import { getTemplateConfig } from "../../remotion/templateConfig";
+import { computeEconomistVideoTotalFrames } from "../../remotion/economist/EconomistVideoComposition";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// ─── Canvas wrapper (16:9). A fixed-pixel Player inside a CSS-scaled box keeps
-// Remotion's useElementSize stable: a width/height:100% Player re-measures its
-// container on mount (0-width → real width), which restarts the cover-reveal and
-// flashes the first scene. (Same pattern as Blackswan, which doesn't flicker.)
-const INTERNAL_W = 480;
-const INTERNAL_H = 270;
+// ─── Portrait canvas wrapper (9:16). Fixed-pixel Player inside a CSS-scaled box
+// keeps Remotion's useElementSize stable under the carousel's ancestor
+// transforms (a width/height:100% Player flickers / collapses otherwise).
+const INTERNAL_W = 270;
+const INTERNAL_H = 480;
 
 function ScaledCanvas({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -116,7 +115,6 @@ const ECONOMIST_PREVIEW_SCENES = [
   },
 ] as const;
 
-// Cumulative frame offsets per scene so dots can seek to the right spot.
 function buildSceneOffsets(scenes: typeof ECONOMIST_PREVIEW_SCENES): number[] {
   const fps = 30;
   const offsets: number[] = [];
@@ -128,9 +126,7 @@ function buildSceneOffsets(scenes: typeof ECONOMIST_PREVIEW_SCENES): number[] {
   return offsets;
 }
 
-export default function EconomistPreview({
-  thumbnailMode = false,
-}: { thumbnailMode?: boolean } = {}) {
+export default function EconomistPreviewPortrait({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const playerRef = useRef<PlayerRef>(null);
   const fps = 30;
@@ -139,19 +135,12 @@ export default function EconomistPreview({
   const Composition = config.component as React.ComponentType<any>;
   const { accent: accentColor, bg: bgColor, text: textColor } = config.defaultColors;
 
-  // Pass ALL scenes at once — Remotion's TransitionSeries handles the cuts
-  // internally with no Player re-mount, which eliminates the glitch.
   const durationInFrames = useMemo(
     () => computeEconomistVideoTotalFrames(ECONOMIST_PREVIEW_SCENES as any, 1),
     [],
   );
 
-  const thumbnailFrame = useMemo(() => {
-    // Park on a settled frame where the cover reveal has fully completed, so the
-    // card shows the finished cover (and resuming from here on center never
-    // flashes a half-revealed state).
-    return Math.min(110, durationInFrames - 1);
-  }, [durationInFrames]);
+  const thumbnailFrame = useMemo(() => Math.min(60, durationInFrames - 1), [durationInFrames]);
 
   const inputProps = useMemo(
     () => ({
@@ -163,45 +152,28 @@ export default function EconomistPreview({
       logoPosition: "bottom_right",
       logoOpacity: 0,
       logoSize: 0,
-      aspectRatio: "landscape",
+      aspectRatio: "portrait",
     }),
     [accentColor, bgColor, textColor],
   );
 
   const sceneOffsets = useMemo(() => buildSceneOffsets(ECONOMIST_PREVIEW_SCENES), []);
 
-  // Seek to the thumbnail frame once the player is ready.
+  // Thumbnail (side) cards: park on a static frame and never play, so off-center
+  // Players don't keep rendering ~30fps each (the carousel slowdown).
   useEffect(() => {
-    if (!thumbnailMode) return;
     const p = playerRef.current;
     if (!p) return;
-    let settled = false;
-    const onFrame = () => {
-      if (settled) return;
-      const current = p.getCurrentFrame();
-      if (current >= thumbnailFrame) {
-        settled = true;
-        p.pause();
-        p.seekTo(thumbnailFrame);
-      }
-    };
-    p.addEventListener("frameupdate", onFrame);
-    return () => p.removeEventListener("frameupdate", onFrame);
+    if (thumbnailMode) {
+      p.pause();
+      p.seekTo(thumbnailFrame);
+      return;
+    }
+    setActiveSceneIndex(0);
+    p.seekTo(0);
+    p.play();
   }, [thumbnailMode, thumbnailFrame]);
 
-  // When the card reaches center, resume playback from wherever it was parked
-  // (the thumbnail frame). We deliberately do NOT seekTo(0): rewinding to frame 0
-  // replays the cover_reveal from a blank state, which flashes as the card
-  // arrives. Continuing from the parked frame keeps the cover stable, and the
-  // loop brings it back around to a fresh reveal on its own.
-  useEffect(() => {
-    if (thumbnailMode) return;
-    const p = playerRef.current;
-    if (!p) return;
-    p.play();
-  }, [thumbnailMode]);
-
-  // Track which dot is active based on playback position.
   useEffect(() => {
     if (thumbnailMode) return;
     const p = playerRef.current;
@@ -212,7 +184,7 @@ export default function EconomistPreview({
       for (let i = sceneOffsets.length - 1; i >= 0; i--) {
         if (f >= sceneOffsets[i]) { idx = i; break; }
       }
-      setActiveSceneIndex(idx);
+      setActiveSceneIndex((prev) => (prev === idx ? prev : idx));
     };
     p.addEventListener("frameupdate", onFrame);
     return () => p.removeEventListener("frameupdate", onFrame);
@@ -227,8 +199,8 @@ export default function EconomistPreview({
           inputProps={inputProps}
           durationInFrames={durationInFrames}
           initialFrame={thumbnailMode ? thumbnailFrame : 0}
-          compositionWidth={1920}
-          compositionHeight={1080}
+          compositionWidth={1080}
+          compositionHeight={1920}
           fps={fps}
           controls={false}
           autoPlay={!thumbnailMode}
@@ -238,15 +210,13 @@ export default function EconomistPreview({
         />
 
         {!thumbnailMode && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
             {ECONOMIST_PREVIEW_SCENES.map((scene, index) => {
               const isActive = index === activeSceneIndex;
               return (
                 <button
                   key={scene.id}
-                  onClick={() => {
-                    playerRef.current?.seekTo(sceneOffsets[index]);
-                  }}
+                  onClick={() => { playerRef.current?.seekTo(sceneOffsets[index]); }}
                   className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
                   style={isActive ? { background: accentColor } : undefined}
                   aria-label={`Preview ${scene.title} layout`}

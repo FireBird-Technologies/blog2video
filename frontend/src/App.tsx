@@ -21,6 +21,7 @@ import HelpPostPage from "./pages/HelpPostPage";
 import ToolsHub from "./pages/ToolsHub";
 import ToolPage from "./pages/ToolPage";
 import TemplateStudio from "./pages/TemplateStudio";
+import TemplatesShowcasePage from "./pages/TemplatesShowcasePage";
 
 function ExternalRedirect({ to }: { to: string }) {
   useEffect(() => { window.location.replace(to); }, [to]);
@@ -96,6 +97,7 @@ function AppRoutes() {
         <Route path="/tools/substack-directory/*" element={<ExternalRedirect to="https://bloghub.app" />} />
         <Route path="/tools/substack-directory" element={<ExternalRedirect to="https://bloghub.app" />} />
         <Route path="/tools/free-remotion-templates" element={<FreeTemplatesPage />} />
+        <Route path="/template-showcase" element={<TemplatesShowcasePage />} />
         <Route path="/tools/:slug" element={<ToolPage />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
