@@ -97,7 +97,14 @@ function AppRoutes() {
         <Route path="/tools/substack-directory/*" element={<ExternalRedirect to="https://bloghub.app" />} />
         <Route path="/tools/substack-directory" element={<ExternalRedirect to="https://bloghub.app" />} />
         <Route path="/tools/free-remotion-templates" element={<FreeTemplatesPage />} />
-        <Route path="/template-showcase" element={<TemplatesShowcasePage />} />
+        <Route
+          path="/template-showcase"
+          element={
+            <ProtectedRoute>
+              <TemplatesShowcasePage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/tools/:slug" element={<ToolPage />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
