@@ -72,6 +72,10 @@ export interface Project {
   voice_emotion?: string | null;
   aspect_ratio: string;
   playback_speed?: number;
+  captions_enabled?: boolean;
+  caption_position?: "bottom_center" | "top_center";
+  caption_font_family?: string;
+  caption_font_size?: string | number;
   custom_template_missing?: boolean;
   review_state?: ReviewState | null;
   created_at: string;

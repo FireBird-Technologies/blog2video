@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import {
   LAYOUT_REGISTRY,
@@ -6,6 +7,7 @@ import {
 } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 
@@ -14,9 +16,13 @@ export interface DefaultSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: LayoutType;
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -35,6 +41,10 @@ export interface DefaultVideoCompositionProps {
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
 }
 
 export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = ({
@@ -51,6 +61,10 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
   aspectRatio,
   fontFamily,
   playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -103,6 +117,20 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && (
               <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            )}
+            {captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                    : undefined
+                }
+              />
             )}
           </Sequence>
         );

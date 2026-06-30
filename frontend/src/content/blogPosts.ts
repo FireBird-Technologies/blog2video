@@ -5175,7 +5175,7 @@ export const blogPosts: BlogPost[] = [
           "Lumen5 ($19/mo) — The original blog-to-video platform. Paste a URL and it generates a storyboard with stock footage, text overlays, and music. Strong brand kit support and a large stock library (500M+ assets on higher tiers). Limitation: rigid templates, no AI avatars, and the free tier is watermarked at 720p with a 5-video cap.",
           "Pictory ($25/mo) — Converts blog posts, scripts, and URLs into video with auto-captioning and auto-summarization. Also supports text-based editing of existing videos. Limitation: minute-based pricing is confusing, AI voice minutes are capped separately, and output relies heavily on stock footage.",
           "InVideo AI ($25/mo) — Prompt-first AI video generator that can also import blog content. Generates full videos with script, footage, voiceover, and music from a text description. Limitation: not optimized specifically for blog-to-video — it is a general AI video tool, so article structure is often lost in translation.",
-          "Fliki ($28/mo) — Specializes in text-to-video with an emphasis on voice. Offers 2,000+ AI voices in 80+ languages and converts blogs, PPTs, and tweets into video. Limitation: visuals are mostly stock-based and the output can feel template-driven despite the voice quality.",
+          "Fliki ($27.99/mo) — Specializes in text-to-video with an emphasis on voice. Offers 2,000+ AI voices in 80+ languages and converts blogs, PPTs, and tweets into video. Limitation: visuals are mostly stock-based and the output can feel template-driven despite the voice quality.",
           "Synthesia ($29/mo) — AI avatar platform that converts text and URLs into videos featuring realistic AI presenters. Strong in corporate training and localization with 230+ avatars and 140+ languages. Limitation: expensive per-minute model, avatar-heavy approach does not suit all blog content, and creative control over visual styles is limited.",
           "VideoGen ($12/mo) — Fast, affordable text-to-video generator that claims under-30-second generation. Blog URL import, auto-subtitles, and AI b-roll matching. Limitation: simpler feature set than heavyweight competitors, smaller stock library on lower tiers, and no free permanent tier.",
           "Revid.ai ($39/mo) — AI video platform with 100+ tools focused on short-form viral content for TikTok, Reels, and Shorts. Includes a blog-to-video converter and uses Google Veo3 and OpenAI Sora 2 models. Limitation: expensive entry point, credit-based system, and the platform is optimized for viral hooks rather than long-form educational content.",
@@ -6748,9 +6748,9 @@ export const blogPosts: BlogPost[] = [
         ],
         bullets: [
           "Free: 2 videos, no watermark, no credit card required.",
-          "Pay-as-you-go: $4/video (1–9), $3/video (10–30), $2.80/video (31–200).",
-          "Standard: $35/month ($28/month billed annually) — 30 videos/month.",
-          "Pro: $60/month ($48/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
+          "Pay-as-you-go: $3.99/video (1–9), $3/video (10–30), $2.80/video (31–200).",
+          "Standard: $34.99/month ($27.99/month billed annually) — 30 videos/month.",
+          "Pro: $59.99/month ($47.99/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
           "No minute caps, no per-voice upsells, no credit system on subscription plans.",
         ],
       },
@@ -6777,7 +6777,7 @@ export const blogPosts: BlogPost[] = [
         bullets: [
           "Best for: general content repurposing, text-based video editing, moderate-volume marketing teams.",
           "Limitation: minute-based pricing is confusing; technical content is stripped by auto-summarization.",
-          "Pricing: Starter $25/month annual ($29 monthly) — 200 video minutes, 100 AI credits. Professional $35/month annual. Team $119/month annual. 14-day free trial.",
+          "Pricing: Starter $25/month annual ($29 monthly) — 200 video minutes, 100 AI credits. Professional $34.99/month annual. Team $119/month annual. 14-day free trial.",
         ],
       },
       {
@@ -6785,12 +6785,12 @@ export const blogPosts: BlogPost[] = [
         paragraphs: [
           "InVideo AI is a general-purpose AI video generator that can also import blog content. Its 2026 version gives access to 200+ AI models including Veo 3.1, Sora 2 Pro, Kling 3.0, and ElevenLabs — the model roster is more extensive than any other tool on this list. It can generate up to 30 minutes of video from a single prompt.",
           "The trade-off is that InVideo AI is optimized for prompt-first creation, not article-first. When you paste a blog URL, the tool extracts a rough summary and treats it the same as if you typed a sentence. The article's headings, progressional structure, examples, and supporting logic are not preserved — the AI rewrites from the summary.",
-          "Pricing in 2026: Free plan with watermark and 10 export cap per week. Plus at $25/month ($20/month annual) removes the watermark, gives 50 AI videos per month at 1080p. Max at $60/month ($48/month annual) adds 120 videos/month, 4K, 320 iStock downloads, and unlimited voice cloning. Credit system — unused credits do not roll over.",
+          "Pricing in 2026: Free plan with watermark and 10 export cap per week. Plus at $25/month ($20/month annual) removes the watermark, gives 50 AI videos per month at 1080p. Max at $59.99/month ($47.99/month annual) adds 120 videos/month, 4K, 320 iStock downloads, and unlimited voice cloning. Credit system — unused credits do not roll over.",
         ],
         bullets: [
           "Best for: high-volume short-form video from prompts, access to cutting-edge generative models.",
           "Limitation: article structure is lost in the prompt abstraction; credit system is confusing.",
-          "Pricing: Free (watermarked) → Plus $25/mo ($20 annual) → Max $60/mo ($48 annual).",
+          "Pricing: Free (watermarked) → Plus $25/mo ($20 annual) → Max $59.99/mo ($48 annual).",
         ],
       },
       {
@@ -6837,12 +6837,12 @@ export const blogPosts: BlogPost[] = [
         paragraphs: [
           "VEED is a strong all-in-one browser-based video editor with subtitles, stock media, screen recording, avatar generation, and an expanding AI toolkit. Its appeal is breadth — you can do most video editing tasks in VEED without installing anything. The auto-subtitle generator and text-based editing tools are genuinely polished.",
           "Blog-to-video is one feature in VEED's larger editing platform, not the core product. You can convert a script or article into a video, but the workflow routes through the general editor rather than a dedicated article-to-video pipeline. For teams who already edit video regularly, this is an advantage. For teams who just want to convert articles quickly, it adds friction.",
-          "Pricing (2026): Five tiers — Free (limited, watermarked), Creator (~$20/month, 1080p, watermark removed), Pro (adds 4K, 2-hour video length, 500GB storage, brand kit), Studio (~$35/month, heavier AI usage), Enterprise (custom security and support). All plans are per-user — a three-person team on Pro pays 3× the listed price.",
+          "Pricing (2026): Five tiers — Free (limited, watermarked), Creator (~$20/month, 1080p, watermark removed), Pro (adds 4K, 2-hour video length, 500GB storage, brand kit), Studio (~$34.99/month, heavier AI usage), Enterprise (custom security and support). All plans are per-user — a three-person team on Pro pays 3× the listed price.",
         ],
         bullets: [
           "Best for: general video editing, subtitles, screen recording workflows, teams who also do post-production.",
           "Limitation: blog-to-video is a bolt-on feature; per-user pricing makes team costs scale quickly.",
-          "Pricing: Free → Creator ~$20/mo → Pro → Studio ~$35/mo → Enterprise custom. Per-user billing.",
+          "Pricing: Free → Creator ~$20/mo → Pro → Studio ~$34.99/mo → Enterprise custom. Per-user billing.",
         ],
       },
       {
@@ -6936,14 +6936,14 @@ export const blogPosts: BlogPost[] = [
           "Entry-point pricing for each tool (cheapest paid plan, billed monthly unless noted), and what the mid-tier looks like for comparison.",
         ],
         bullets: [
-          "Blog2Video: Free (2 videos, no watermark) → $4/video pay-as-you-go → Standard $35/mo (30 videos) → Pro $60/mo (100 videos + unlimited AI)",
+          "Blog2Video: Free (2 videos, no watermark) → $3.99/video pay-as-you-go → Standard $34.99/mo (30 videos) → Pro $59.99/mo (100 videos + unlimited AI)",
           "Lumen5: Free (watermarked, 5 videos, 720p) → paid from ~$19/mo",
           "Pictory: 14-day trial → Starter $29/mo ($25 annual, 200 min, 100 AI credits) → Professional $59/mo ($35 annual) → Team $199/mo ($119 annual)",
-          "InVideo AI: Free (watermarked, 10 exports/week) → Plus $25/mo ($20 annual, 50 videos, 1080p) → Max $60/mo ($48 annual, 120 videos, 4K)",
+          "InVideo AI: Free (watermarked, 10 exports/week) → Plus $25/mo ($20 annual, 50 videos, 1080p) → Max $59.99/mo ($48 annual, 120 videos, 4K)",
           "Fliki: Free (3 credits/mo, watermarked) → Standard → Premium → Enterprise (annual saves 25%)",
           "Synthesia: Free (10 min/mo, 9 avatars) → Starter $29/mo ($18 annual) → Creator $89/mo ($64 annual) → Enterprise",
           "HeyGen: Free (3 videos/mo, 1 min max) → Creator $29/mo ($24 annual) → Pro $49/mo → Business $149/mo → Enterprise",
-          "VEED: Free (limited) → Creator ~$20/mo → Pro → Studio ~$35/mo → Enterprise (per-user pricing)",
+          "VEED: Free (limited) → Creator ~$20/mo → Pro → Studio ~$34.99/mo → Enterprise (per-user pricing)",
           "Descript: Free → Hobbyist $16/mo ($24 annual) → Creator $24/mo ($35 annual) → Business $50/mo ($65 annual) → Enterprise",
           "Revid.ai: Growth $39/mo (discounted from $99) → Ultra $199/mo",
           "VideoGen: Pro $12/mo (annual billing) → Enterprise custom",
@@ -7016,7 +7016,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "Which blog-to-video tool is cheapest in 2026?",
         answer:
-          "VideoGen at $12/month (annual billing) is the cheapest subscription. Blog2Video's pay-as-you-go tier starts at $4/video with no monthly commitment, which is the most affordable entry point for low-volume users. For teams producing 10+ videos per month, Blog2Video Standard at $35/month and Predis.ai Core at $19/month are the most affordable mid-tier options.",
+          "VideoGen at $12/month (annual billing) is the cheapest subscription. Blog2Video's pay-as-you-go tier starts at $3.99/video with no monthly commitment, which is the most affordable entry point for low-volume users. For teams producing 10+ videos per month, Blog2Video Standard at $34.99/month and Predis.ai Core at $19/month are the most affordable mid-tier options.",
       },
       {
         question: "Does any blog-to-video tool offer a free plan without a watermark?",
@@ -7036,7 +7036,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "How does Blog2Video pricing compare to Pictory?",
         answer:
-          "Pictory Starter is $29/month (or $25 annual) and gives 200 video minutes plus 100 AI credits — a dual-cap system that trips users up. Blog2Video Standard is $35/month (or $28 annual) and gives 30 complete videos per month with no minute or credit caps. For teams that consistently hit Pictory's limits, Blog2Video's flat pricing is more predictable at scale.",
+          "Pictory Starter is $29/month (or $25 annual) and gives 200 video minutes plus 100 AI credits — a dual-cap system that trips users up. Blog2Video Standard is $34.99/month (or $28 annual) and gives 30 complete videos per month with no minute or credit caps. For teams that consistently hit Pictory's limits, Blog2Video's flat pricing is more predictable at scale.",
       },
     ],
     distributionPlan: [
@@ -7101,15 +7101,15 @@ export const blogPosts: BlogPost[] = [
           "At the Detailed preset's upper bound of roughly 8 minutes per video, that works out to up to 240 minutes a month on Standard and up to 800 minutes a month on Pro. Scaling from Standard to Pro costs 71% more per month and buys 233% more video.",
         ],
         bullets: [
-          "Standard — $35/mo ($28/mo billed annually): 30 videos/month, up to ~240 minutes total",
-          "Pro — $60/mo ($48/mo billed annually): 100 videos/month, up to ~800 minutes total",
+          "Standard — $34.99/mo ($27.99/mo billed annually): 30 videos/month, up to ~240 minutes total",
+          "Pro — $59.99/mo ($47.99/mo billed annually): 100 videos/month, up to ~800 minutes total",
           "No credits, no per-minute add-on charges, no separate AI-feature cap layered on top",
         ],
       },
       {
         heading: "HeyGen: the same $29–$49 buys about a tenth of the video",
         paragraphs: [
-          "HeyGen's Creator plan is priced close to Blog2Video Standard — $29/month versus $35/month. But HeyGen doesn't sell video minutes directly. It sells credits, and its premium avatar rendering burns through them fast.",
+          "HeyGen's Creator plan is priced close to Blog2Video Standard — $29/month versus $34.99/month. But HeyGen doesn't sell video minutes directly. It sells credits, and its premium avatar rendering burns through them fast.",
           "Creator includes 200 monthly credits, and HeyGen's Avatar IV avatars cost about 20 credits per minute of rendered video. That caps Creator at roughly 30 minutes of avatar video a month, even though the plan is marketed around unlimited video count. Pro, at $49/month, raises the pool to 1,000 credits — about 50 minutes of the same avatar video. Scaling from Creator to Pro costs 69% more per month for 67% more video.",
         ],
         bullets: [
@@ -7127,7 +7127,7 @@ export const blogPosts: BlogPost[] = [
           "Synthesia Starter — $29/mo ($18/mo annual): 10 minutes/month",
           "Synthesia Creator — $89/mo ($64/mo annual): 30 minutes/month",
           "InVideo AI Plus — $25/mo ($20/mo annual): ~50 AI-generation minutes/month",
-          "InVideo AI Max — $60/mo ($48/mo annual): ~200 AI-generation minutes/month",
+          "InVideo AI Max — $59.99/mo ($47.99/mo annual): ~200 AI-generation minutes/month",
         ],
       },
       {
@@ -7138,7 +7138,7 @@ export const blogPosts: BlogPost[] = [
         ],
         bullets: [
           "Pictory Starter — $29/mo ($25/mo annual): 200 video minutes, gated by a separate 100-credit AI allowance",
-          "Pictory Professional — $59/mo ($35/mo annual): 600 video minutes, same dual-cap structure",
+          "Pictory Professional — $59/mo ($34.99/mo annual): 600 video minutes, same dual-cap structure",
         ],
       },
       {
@@ -7175,7 +7175,7 @@ export const blogPosts: BlogPost[] = [
     ],
     faq: [
       {
-        question: "How much video can I actually make on Blog2Video's $35/month plan?",
+        question: "How much video can I actually make on Blog2Video's $34.99/month plan?",
         answer:
           "Up to 240 minutes — 30 videos a month, each as long as the source article needs (typically 5 to 8 minutes for a Detailed-preset explainer). There's no separate credit pool layered on top of the video count.",
       },
