@@ -826,6 +826,7 @@ def create_project(
         caption_position=getattr(data, "caption_position", None) or "bottom_center",
         caption_font_family=getattr(data, "caption_font_family", None) or "inter",
         caption_font_size=getattr(data, "caption_font_size", None) or "36",
+        caption_offset=int(getattr(data, "caption_offset", 0) or 0),
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -2604,6 +2605,7 @@ def create_projects_bulk(
             caption_position=getattr(data, "caption_position", None) or "bottom_center",
             caption_font_family=getattr(data, "caption_font_family", None) or "inter",
             caption_font_size=getattr(data, "caption_font_size", None) or "36",
+            caption_offset=int(getattr(data, "caption_offset", 0) or 0),
             status=ProjectStatus.CREATED,
         )
         db.add(project)

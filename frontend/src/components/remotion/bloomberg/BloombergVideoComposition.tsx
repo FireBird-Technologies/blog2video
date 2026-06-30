@@ -54,6 +54,7 @@ export interface BloombergVideoCompositionProps {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
+  captionOffset?: number;
 }
 
 // Non-repeating enter style sequence — never the same style twice in a row.
@@ -323,6 +324,7 @@ export const BloombergVideoComposition: React.FC<
   captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -411,6 +413,7 @@ export const BloombergVideoComposition: React.FC<
                 aspectRatio={aspectRatio || "landscape"}
                 fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
                 fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)

@@ -55,6 +55,7 @@ interface VideoData {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: string;
+  captionOffset?: number;
   scenes: SceneData[];
 }
 
@@ -303,6 +304,7 @@ export const EconomistVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 aspectRatio={data.aspectRatio || "landscape"}
                 fontFamily={data.captionFontFamily ? (resolveFontFamily(data.captionFontFamily) || data.captionFontFamily) : (resolvedFontFamily || undefined)}
                 fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                offset={data.captionOffset ?? 0}
                 speechDurationFrames={
                   s.scene.speechDurationSeconds
                     ? getSceneDurationFrames(s.scene.speechDurationSeconds, FPS, playbackSpeed)

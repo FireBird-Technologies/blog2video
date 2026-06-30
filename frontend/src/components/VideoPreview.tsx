@@ -48,9 +48,9 @@ const StableCustomComposition: React.FC<any> = ({
   numContentVariants,
   resolvedFontFamily,
   captionsEnabled,
-  captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
 }) => {
   if (!isCustom || !compiledScenes) return null;
 
@@ -267,10 +267,10 @@ const StableCustomComposition: React.FC<any> = ({
             {captionsEnabled && (s.narrationText || s.narration) && (
               <CaptionTrack
                 text={s.narrationText || s.narration}
-                position={captionPosition || "bottom_center"}
                 aspectRatio={aspectRatio || "landscape"}
                 fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : undefined}
                 fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
                 speechDurationFrames={
                   s.speechDurationSeconds
                     ? getSceneDurationFrames(s.speechDurationSeconds, FPS, playbackSpeed)
@@ -471,9 +471,20 @@ function mergeMarketAnnotationChartDefaults(
 
 export interface CaptionSettings {
   captionsEnabled: boolean;
-  captionPosition: "top_center" | "bottom_center";
   captionFontFamily: string;
   captionFontSize: number;
+  /** Vertical fine-tune within the bottom region: -100..+100 (0 = default, + = up). */
+  captionOffset: number;
+}
+
+function buildCaptionSettingsFromProject(project: Project): CaptionSettings {
+  const hasVoiceover = (project.scenes || []).some((s) => !!s.voiceover_path);
+  return {
+    captionsEnabled: (project.captions_enabled ?? false) && hasVoiceover,
+    captionFontFamily: project.caption_font_family ?? "inter",
+    captionFontSize: project.caption_font_size ? Number(project.caption_font_size) || 36 : 36,
+    captionOffset: typeof project.caption_offset === "number" ? project.caption_offset : 0,
+  };
 }
 
 // ─── YouTube-style playback speed control ────────────────────────────────────
@@ -778,21 +789,33 @@ const CAPTION_FONT_OPTIONS: { id: string; label: string }[] = [
 
 function CaptionControl({
   captionsEnabled,
-  captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
   saving,
-  onChange,
+  onSave,
+  onPreviewChange,
   playerContainerRef,
 }: {
   captionsEnabled: boolean;
-  captionPosition: "top_center" | "bottom_center";
   captionFontFamily: string;
   captionFontSize: number;
+  captionOffset: number;
   saving: boolean;
-  onChange?: (settings: CaptionSettings) => void | Promise<void>;
+  onSave?: (settings: CaptionSettings) => void | Promise<void>;
+  onPreviewChange?: (settings: CaptionSettings | null) => void;
   playerContainerRef?: React.RefObject<PlayerRef | null>;
 }) {
+  const savedSettings = useMemo(
+    (): CaptionSettings => ({
+      captionsEnabled,
+      captionFontFamily,
+      captionFontSize,
+      captionOffset,
+    }),
+    [captionsEnabled, captionFontFamily, captionFontSize, captionOffset],
+  );
+
   const keepPlayerControlsVisible = useCallback(() => {
     const container = playerContainerRef?.current?.getContainerNode();
     if (!container) return;
@@ -800,22 +823,34 @@ function CaptionControl({
   }, [playerContainerRef]);
 
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<CaptionSettings>(savedSettings);
   const ref = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
 
+  useEffect(() => {
+    if (!open) setDraft(savedSettings);
+  }, [open, savedSettings]);
+
+  const closePopup = useCallback(() => {
+    setOpen(false);
+    onPreviewChange?.(null);
+  }, [onPreviewChange]);
+
   const openPopup = useCallback(() => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
-    const POPUP_HEIGHT = 360;
+    const POPUP_HEIGHT = 420;
     const rightOffset = window.innerWidth - rect.right;
+    setDraft(savedSettings);
+    onPreviewChange?.(null);
     if (rect.top >= POPUP_HEIGHT + 6) {
       setPopupStyle({ position: "fixed", bottom: window.innerHeight - rect.top + 6, right: rightOffset, zIndex: 9999 });
     } else {
       setPopupStyle({ position: "fixed", top: rect.bottom + 6, right: rightOffset, zIndex: 9999 });
     }
     setOpen(true);
-  }, []);
+  }, [onPreviewChange, savedSettings]);
 
   useEffect(() => {
     if (!open) return;
@@ -824,7 +859,7 @@ function CaptionControl({
         ? (e as TouchEvent).touches[0]?.target
         : (e as MouseEvent).target) as Node | null;
       if (ref.current?.contains(target) || popupRef.current?.contains(target)) return;
-      setOpen(false);
+      closePopup();
     };
     document.addEventListener("mousedown", handler as EventListener);
     document.addEventListener("touchstart", handler as EventListener, { passive: true });
@@ -832,17 +867,27 @@ function CaptionControl({
       document.removeEventListener("mousedown", handler as EventListener);
       document.removeEventListener("touchstart", handler as EventListener);
     };
-  }, [open]);
+  }, [open, closePopup]);
 
-  const emit = useCallback((patch: Partial<CaptionSettings>) => {
-    onChange?.({
-      captionsEnabled,
-      captionPosition,
-      captionFontFamily,
-      captionFontSize,
-      ...patch,
+  const updateDraft = useCallback((patch: Partial<CaptionSettings>) => {
+    setDraft((prev) => {
+      const next = { ...prev, ...patch };
+      onPreviewChange?.(next);
+      return next;
     });
-  }, [onChange, captionsEnabled, captionPosition, captionFontFamily, captionFontSize]);
+  }, [onPreviewChange]);
+
+  const hasUnsavedChanges =
+    draft.captionsEnabled !== savedSettings.captionsEnabled
+    || draft.captionFontFamily !== savedSettings.captionFontFamily
+    || draft.captionFontSize !== savedSettings.captionFontSize
+    || draft.captionOffset !== savedSettings.captionOffset;
+
+  const handleSave = useCallback(async () => {
+    if (!onSave || saving) return;
+    await onSave(draft);
+    closePopup();
+  }, [closePopup, draft, onSave, saving]);
 
   const btnStyle: React.CSSProperties = {
     display: "flex",
@@ -853,7 +898,7 @@ function CaptionControl({
     borderRadius: 6,
     border: "none",
     background: open ? "rgba(255,255,255,0.15)" : "transparent",
-    cursor: saving || !onChange ? "default" : "pointer",
+    cursor: saving || !onSave ? "default" : "pointer",
     color: captionsEnabled ? "#f9fafb" : "rgba(249,250,251,0.4)",
     transition: "background 150ms, color 150ms",
     position: "relative",
@@ -888,42 +933,47 @@ function CaptionControl({
           <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 12, fontWeight: 500, color: "#0f172a" }}>Enable captions</span>
             <button
-              onClick={() => emit({ captionsEnabled: !captionsEnabled })}
+              onClick={() => updateDraft({ captionsEnabled: !draft.captionsEnabled })}
               style={{
                 width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer",
-                background: captionsEnabled ? "#7c3aed" : "#cbd5e1",
+                background: draft.captionsEnabled ? "#7c3aed" : "#cbd5e1",
                 position: "relative", transition: "background 150ms", flexShrink: 0,
               }}
             >
               <span style={{
-                position: "absolute", top: 2, left: captionsEnabled ? 18 : 2,
+                position: "absolute", top: 2, left: draft.captionsEnabled ? 18 : 2,
                 width: 16, height: 16, borderRadius: "50%", background: "#fff",
                 transition: "left 150ms", display: "block",
               }} />
             </button>
           </div>
 
-          {captionsEnabled && (
+          {draft.captionsEnabled && (
             <>
-              {/* Position */}
+              {/* Vertical position — always bottom-anchored; slider fine-tunes
+                  up (right/positive) or down (left/negative). Center = default. */}
               <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
-                <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Position</p>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {(["top_center", "bottom_center"] as const).map((pos) => (
-                    <button
-                      key={pos}
-                      onClick={() => emit({ captionPosition: pos })}
-                      style={{
-                        flex: 1, padding: "5px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "1px solid",
-                        background: captionPosition === pos ? "rgba(124,58,237,0.1)" : "transparent",
-                        color: captionPosition === pos ? "#7c3aed" : "#64748b",
-                        borderColor: captionPosition === pos ? "#7c3aed" : "rgba(15,23,42,0.12)",
-                        transition: "all 120ms",
-                      }}
-                    >
-                      {pos === "top_center" ? "Top" : "Bottom"}
-                    </button>
-                  ))}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Offset</p>
+                  <button
+                    onClick={() => updateDraft({ captionOffset: 0 })}
+                    style={{ fontSize: 10, fontWeight: 600, color: draft.captionOffset === 0 ? "#94a3b8" : "#7c3aed", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    {draft.captionOffset === 0 ? "Default" : "Reset"}
+                  </button>
+                </div>
+                <input
+                  type="range"
+                  min={-100}
+                  max={100}
+                  step={1}
+                  value={draft.captionOffset}
+                  onChange={(e) => updateDraft({ captionOffset: Number(e.target.value) })}
+                  style={{ width: "100%", cursor: "pointer", accentColor: "#a855f7", height: 3 }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                  <span style={{ fontSize: 9, color: "#94a3b8" }}>Down</span>
+                  <span style={{ fontSize: 9, color: "#94a3b8" }}>Up</span>
                 </div>
               </div>
 
@@ -931,26 +981,26 @@ function CaptionControl({
               <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                   <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Size</p>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed" }}>{captionFontSize}px</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed" }}>{draft.captionFontSize}px</span>
                 </div>
                 <input
                   type="range"
                   min={12}
                   max={64}
                   step={1}
-                  value={captionFontSize}
-                  onChange={(e) => emit({ captionFontSize: Number(e.target.value) })}
+                  value={draft.captionFontSize}
+                  onChange={(e) => updateDraft({ captionFontSize: Number(e.target.value) })}
                   style={{ width: "100%", cursor: "pointer", accentColor: "#a855f7", height: 3 }}
                 />
               </div>
 
               {/* Font family */}
-              <div style={{ padding: "8px 14px" }}>
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
                 <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Font</p>
                 <div style={{ position: "relative" }}>
                   <select
-                    value={captionFontFamily}
-                    onChange={(e) => emit({ captionFontFamily: e.target.value })}
+                    value={draft.captionFontFamily}
+                    onChange={(e) => updateDraft({ captionFontFamily: e.target.value })}
                     style={{
                       width: "100%", padding: "6px 28px 6px 8px", borderRadius: 6,
                       border: "1px solid rgba(15,23,42,0.12)", background: "#fff",
@@ -971,13 +1021,48 @@ function CaptionControl({
               </div>
             </>
           )}
+
+          <div style={{ padding: "10px 14px 6px", borderTop: "1px solid rgba(15,23,42,0.08)" }}>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !onSave || !hasUnsavedChanges}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "none",
+                background: saving || !onSave || !hasUnsavedChanges ? "#e2e8f0" : "#7c3aed",
+                color: saving || !onSave || !hasUnsavedChanges ? "#94a3b8" : "#ffffff",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: saving || !onSave || !hasUnsavedChanges ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              {saving ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 0.8s linear infinite" }}>
+                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="20" strokeLinecap="round" opacity="0.35" />
+                    <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  Saving…
+                </>
+              ) : (
+                "Save caption settings"
+              )}
+            </button>
+          </div>
         </div>,
         document.body
       )}
 
       {/* CC button */}
       <button
-        onClick={() => { if (!saving && onChange) { open ? setOpen(false) : openPopup(); } }}
+        onClick={() => { if (!saving && onSave) { open ? closePopup() : openPopup(); } }}
         style={btnStyle}
         title="Captions"
         aria-label="Captions"
@@ -1632,6 +1717,25 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
   const isPortrait = project.aspect_ratio === "portrait";
   const currentPlaybackSpeed = Math.max(0.5, Math.min(2.5, getPlaybackSpeed(project.playback_speed)));
 
+  const savedCaptionSettings = useMemo(
+    () => buildCaptionSettingsFromProject(project),
+    [
+      project.captions_enabled,
+      project.caption_font_family,
+      project.caption_font_size,
+      project.caption_offset,
+      project.scenes,
+      captionSettingsKey,
+    ],
+  );
+  const [captionPreviewOverride, setCaptionPreviewOverride] = useState<CaptionSettings | null>(null);
+
+  useEffect(() => {
+    setCaptionPreviewOverride(null);
+  }, [savedCaptionSettings]);
+
+  const activeCaptionSettings = captionPreviewOverride ?? savedCaptionSettings;
+
   const colors = config.defaultColors;
 
   const inputProps = {
@@ -1649,12 +1753,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     bgmVolume: project.bgm_volume ?? 0.10,
     // Captions ride on the voiceover — never show them when there's no audio,
     // even if the stored flag is stale.
-    captionsEnabled:
-      (project.captions_enabled ?? false) &&
-      (project.scenes || []).some((s) => !!s.voiceover_path),
-    captionPosition: (project.caption_position ?? "bottom_center") as "top_center" | "bottom_center",
-    captionFontFamily: project.caption_font_family ?? "inter",
-    captionFontSize: project.caption_font_size ? Number(project.caption_font_size) || 36 : 36,
+    captionsEnabled: activeCaptionSettings.captionsEnabled,
+    captionFontFamily: activeCaptionSettings.captionFontFamily,
+    captionFontSize: activeCaptionSettings.captionFontSize,
+    captionOffset: activeCaptionSettings.captionOffset,
     ...(resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {}),
     ...(project.custom_theme ? { theme: project.custom_theme } : {}),
   };
@@ -1780,12 +1882,13 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           }}
         />
         <CaptionControl
-          captionsEnabled={inputProps.captionsEnabled}
-          captionPosition={inputProps.captionPosition}
-          captionFontFamily={inputProps.captionFontFamily}
-          captionFontSize={inputProps.captionFontSize}
+          captionsEnabled={savedCaptionSettings.captionsEnabled}
+          captionFontFamily={savedCaptionSettings.captionFontFamily}
+          captionFontSize={savedCaptionSettings.captionFontSize}
+          captionOffset={savedCaptionSettings.captionOffset}
           saving={captionsSaving}
-          onChange={onCaptionSettingsChange}
+          onSave={onCaptionSettingsChange}
+          onPreviewChange={setCaptionPreviewOverride}
           playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
         />
         <PlaybackSpeedControl

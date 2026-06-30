@@ -76,6 +76,7 @@ export interface Project {
   caption_position?: "bottom_center" | "top_center";
   caption_font_family?: string;
   caption_font_size?: string | number;
+  caption_offset?: number;
   custom_template_missing?: boolean;
   review_state?: ReviewState | null;
   created_at: string;

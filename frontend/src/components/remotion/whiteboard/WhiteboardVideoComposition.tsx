@@ -41,6 +41,7 @@ export interface WhiteboardVideoCompositionProps {
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
+  captionOffset?: number;
 }
 
 export const WhiteboardVideoComposition: React.FC<
@@ -63,6 +64,7 @@ export const WhiteboardVideoComposition: React.FC<
   captionPosition,
   captionFontFamily,
   captionFontSize,
+  captionOffset,
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -115,6 +117,7 @@ export const WhiteboardVideoComposition: React.FC<
                 aspectRatio={aspectRatio || "landscape"}
                 fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
                 fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
                 speechDurationFrames={
                   scene.speechDurationSeconds
                     ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)

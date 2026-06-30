@@ -1195,6 +1195,7 @@ def write_remotion_data(
         "captionPosition": getattr(project, "caption_position", None) or "bottom_center",
         "captionFontFamily": getattr(project, "caption_font_family", None) or "inter",
         "captionFontSize": str(getattr(project, "caption_font_size", None) or "36"),
+        "captionOffset": int(getattr(project, "caption_offset", 0) or 0),
         "scenes": scene_data,
     }
     print(f"[F7-DEBUG] write_remotion_data: final bgmFile={data['bgmFile']!r}, bgmVolume={data['bgmVolume']!r}")
