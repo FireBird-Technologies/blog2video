@@ -6,12 +6,14 @@ import {
   planParts,
   type CardTier,
   type CurrentSlug,
+  type Toggle,
 } from "../lib/planSwitch";
 
 interface Props {
   tier: CardTier;
   currentSlug: CurrentSlug;
-  billingCycle: BillingCycle;
+  // Recurring cycles only — lifetime is handled by a dedicated button, not this CTA.
+  billingCycle: Toggle;
   scheduledTargetSlug?: string | null;
   scheduledPending?: boolean;
   paymentBlocked?: boolean;

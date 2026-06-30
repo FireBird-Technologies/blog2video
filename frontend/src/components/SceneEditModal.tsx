@@ -295,7 +295,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     mosaic_punch: { title: [200, 130], desc: [34, 22] },
     mosaic_stream: { title: [76, 50], desc: [42, 28] },
     mosaic_metric: { title: [162, 106], desc: [34, 24] },
-    mosaic_phrases: { title: [90, 62], desc: [40, 26] },
+    mosaic_phrases: {  title: [90, 62], desc: [40, 26] },
     mosaic_close: { title: [104, 72], desc: [52, 34] },
   },
   magazine: {
@@ -309,6 +309,10 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     ending_socials: { title: [88, 72], desc: [35, 27] },
     magazine_ticker: { title: [52, 42], desc: [28, 22] },
     comparison: { title: [92, 93], desc: [52, 30] },
+  },
+  stickman_football: {
+    football_data_viz: { title: [72, 64], desc: [38, 30] },
+    football_ticker: { title: [68, 60], desc: [34, 28] },
   },
   custom: {
     // Custom template arrangements (font sizes are approximate)
@@ -775,6 +779,64 @@ function getFJResearchMarketAnnotationExampleTable(
       ["50–60", "4"],
     ],
   };
+}
+
+/**
+ * Custom-template example datasets per chart type — the generic counterpart to
+ * the built-ins' themed examples. The "line" shape mirrors the backend
+ * `_CUSTOM_DATAVIZ_SEED` (pipeline.py) so it matches the renderer's fallback;
+ * "bar" uses category labels and "histogram" uses bucket ranges so the preview
+ * reads correctly for the chosen shape. Used when the user changes the chart
+ * type on a custom data-viz scene that has no real data yet.
+ */
+function getCustomDataVizExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "bar") {
+    return {
+      headers: ["Category", "Revenue", "Growth %"],
+      rows: [
+        ["Product A", "120", "8"],
+        ["Product B", "145", "12"],
+        ["Product C", "170", "17"],
+        ["Product D", "210", "24"],
+      ],
+    };
+  }
+  if (chartType === "histogram") {
+    return {
+      headers: ["Range", "Count"],
+      rows: [
+        ["0 - 50", "4"],
+        ["50 - 100", "9"],
+        ["100 - 150", "15"],
+        ["150 - 200", "11"],
+        ["200 - 250", "6"],
+      ],
+    };
+  }
+  // line — mirrors backend _CUSTOM_DATAVIZ_SEED
+  return {
+    headers: ["Quarter", "Revenue", "Growth %"],
+    rows: [
+      ["Q1", "120", "8"],
+      ["Q2", "145", "12"],
+      ["Q3", "170", "17"],
+      ["Q4", "210", "24"],
+    ],
+  };
+}
+
+/** True when `table` matches one of the custom example datasets (i.e. it is
+ * seeded placeholder data, not something the user typed). Used to decide whether
+ * a chart-type change may safely swap the table for a shape-appropriate example. */
+function isCustomDataVizExampleTable(table: { headers: string[]; rows: string[][] }): boolean {
+  const sig = (t: { headers: string[]; rows: string[][] }) =>
+    JSON.stringify([t.headers, t.rows]);
+  const current = sig(table);
+  return (["line", "bar", "histogram"] as const).some(
+    (k) => sig(getCustomDataVizExampleTable(k)) === current,
+  );
 }
 
 /**
@@ -1725,6 +1787,132 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     ending_socials: [],
   },
+  /** Stickman Football Match — layout content keys per meta.json. ending_socials uses the dedicated CTA / socials block. */
+  stickman_football: {
+    kickoff_title: [
+      {
+        key: "subline",
+        label: "Subline",
+        type: "string",
+        placeholder: "e.g. Match Day — Highlights",
+      },
+    ],
+    passing_play: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 62%, 14, 3" },
+        ],
+        maxItems: 4,
+      },
+    ],
+    freekick_setup: [
+      {
+        key: "shotLabel",
+        label: "Shot caption",
+        type: "string",
+        placeholder: "e.g. Top corner",
+      },
+      {
+        key: "kickerName",
+        label: "Kicker name",
+        type: "string",
+        placeholder: "e.g. Striker",
+      },
+      {
+        key: "kickerNumber",
+        label: "Kicker number",
+        type: "string",
+        placeholder: "e.g. #9",
+      },
+    ],
+    corner_kick: [
+      {
+        key: "steps",
+        label: "Steps",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label", placeholder: "e.g. Flick on" },
+          { key: "detail", label: "Detail", placeholder: "e.g. Near post" },
+        ],
+        minItems: 3,
+        maxItems: 5,
+      },
+    ],
+    goal_moment: [
+      {
+        key: "goalLabel",
+        label: "Goal stamp",
+        type: "string",
+        placeholder: "e.g. GOAL!",
+      },
+      {
+        key: "scoreline",
+        label: "Scoreline",
+        type: "string",
+        placeholder: "e.g. 2 – 1",
+      },
+      {
+        key: "kickerName",
+        label: "Kicker name",
+        type: "string",
+        placeholder: "e.g. Striker",
+      },
+      {
+        key: "kickerNumber",
+        label: "Kicker number",
+        type: "string",
+        placeholder: "e.g. #9",
+      },
+    ],
+    match_stats: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 62%, 14, 3" },
+        ],
+        maxItems: 5,
+      },
+    ],
+    injury_break: [
+      { key: "leftLabel", label: "Left label", type: "string", placeholder: "e.g. What happened" },
+      { key: "rightLabel", label: "Right label", type: "string", placeholder: "e.g. The outcome" },
+      { key: "leftDescription", label: "Left description", type: "text" },
+      { key: "rightDescription", label: "Right description", type: "text" },
+    ],
+    ball_control: [
+      {
+        key: "skillCaption",
+        label: "Skill caption",
+        type: "string",
+        placeholder: "e.g. First touch",
+      },
+      {
+        key: "stats",
+        label: "Stats (above head)",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 57, 1.2k" },
+        ],
+        maxItems: 3,
+      },
+    ],
+    text_narration: [
+      { key: "eyebrow", label: "Eyebrow", type: "string", placeholder: "e.g. Match Report" },
+      { key: "leftLabel", label: "Left reporter", type: "string", placeholder: "e.g. Pundit One" },
+      { key: "leftDescription", label: "Left report", type: "text", placeholder: "Verdict on the cardboard sign" },
+      { key: "rightLabel", label: "Right reporter", type: "string", placeholder: "e.g. Pundit Two" },
+      { key: "rightDescription", label: "Right report", type: "text", placeholder: "Verdict on the cardboard sign" },
+    ],
+    ending_socials: [],
+  },
   /** LaDuc — overrides for layout IDs shared with other templates */
   laduc: {
     masthead: [
@@ -1926,6 +2114,29 @@ const CUSTOM_CONTENT_FIELDS: Record<string, FieldDef[]> = {
   timeline: [{ key: "timelineItems", label: "Timeline items", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 6 }],
   steps: [{ key: "steps", label: "Steps", type: "string_array", maxItems: 8 }],
+};
+
+// Editable fields for the custom-template dedicated data-viz scenes (chart +
+// table). Keyed off scene.scene_type rather than template id so they work for
+// any custom_<id> template — parity with the built-in data-viz editor.
+const CUSTOM_DATAVIZ_FIELDS: Record<"chart" | "table", FieldDef[]> = {
+  chart: [
+    { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    {
+      key: "chartType",
+      label: "Chart Type",
+      type: "select",
+      default: "line",
+      options: [
+        { label: "Line", value: "line" },
+        { label: "Bar", value: "bar" },
+        { label: "Histogram", value: "histogram" },
+      ],
+    },
+  ],
+  table: [
+    { key: "chartTable", label: "Table data (col 1: row labels; cols 2+: values; max 20 rows)", type: "chart_table" },
+  ],
 };
 
 function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
@@ -2495,7 +2706,24 @@ export default function SceneEditModal({
   // FJ Market Brief is a crafted template — project.template carries the public id.
   const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
 
+  // Custom templates get 2 dedicated, editable data-viz scenes (chart + table).
+  // A content scene can also be converted to data-viz via the layout dropdown, in
+  // which case scene_type stays "content" but the descriptor carries a
+  // sceneTypeOverride of dataviz_chart/dataviz_table.
+  const sceneTypeOverride: string | null = (() => {
+    if (!isCustomTemplate || !scene.remotion_code) return null;
+    try {
+      return JSON.parse(scene.remotion_code).sceneTypeOverride ?? null;
+    } catch { return null; }
+  })();
+  const dataVizKind: "chart" | "table" | null =
+    scene.scene_type === "dataviz_chart" || sceneTypeOverride === "dataviz_chart" ? "chart"
+    : scene.scene_type === "dataviz_table" || sceneTypeOverride === "dataviz_table" ? "table"
+    : null;
+
   const currentLayoutId = (() => {
+    // Dedicated/converted data-viz scenes route by scene type, not descriptor layout.
+    if (dataVizKind) return dataVizKind === "chart" ? "custom_chart" : "custom_table";
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
@@ -2806,6 +3034,27 @@ export default function SceneEditModal({
             lpCopy.chartTable = getEconomistChartExampleTable(kind);
           }
         }
+        // Built-in data-viz templates (matrix, stickman_football, …): seed themed
+        // example chart/ticker data when stored tables are empty.
+        if (layoutId && isBuiltinDataVizChartLayout(normalizedTemplateId, layoutId)) {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          if (!chartTableHasData(directChartTable)) {
+            const rawType = String(lpAny.chartType ?? "line").toLowerCase();
+            const kind: "line" | "bar" | "histogram" =
+              rawType === "bar" || rawType === "histogram" ? rawType : "line";
+            const example = builtinDataVizExampleTable(normalizedTemplateId, kind);
+            if (example) lpCopy.chartTable = example;
+          }
+        }
+        if (layoutId && isBuiltinTickerLayout(normalizedTemplateId, layoutId)) {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directTickerTable = normalizeChartTableValue(lpAny.tickerTable);
+          if (!chartTableHasData(directTickerTable)) {
+            const example = builtinTickerExampleTable(normalizedTemplateId);
+            if (example) lpCopy.tickerTable = example;
+          }
+        }
       } catch { /* ignore */ }
     }
     // For custom templates, CTA data lives in ctaProps, not layoutProps
@@ -2826,6 +3075,7 @@ export default function SceneEditModal({
         | Record<string, { defaults?: Record<string, unknown> }>
         | undefined,
       project.aspect_ratio || "landscape",
+      normalizedTemplateId,
     );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
@@ -3079,6 +3329,21 @@ export default function SceneEditModal({
           }
           // Custom templates use layoutConfig — skip layoutProps editing
           if (isCustomTemplate) {
+            // Exception: dedicated data-viz scenes persist their edited chart data
+            // into layoutProps (the location GeneratedVideo's kit scenes read).
+            if (dataVizKind) {
+              const dvTable = normalizeChartTableValue(
+                (editableLayoutProps as Record<string, unknown>).chartTable,
+              );
+              const prevLp = (desc.layoutProps as Record<string, unknown>) || {};
+              desc.layoutProps = {
+                ...prevLp,
+                chartTable: dvTable,
+                ...(dataVizKind === "chart" && editableLayoutProps.chartType
+                  ? { chartType: editableLayoutProps.chartType }
+                  : {}),
+              };
+            }
             // Ensure layoutConfig exists for custom templates
             if (!desc.layoutConfig) desc.layoutConfig = {};
             const config = desc.layoutConfig as Record<string, unknown>;
@@ -4127,6 +4392,7 @@ export default function SceneEditModal({
                       )
                     : undefined;
                 const rawLayoutFields =
+                  (dataVizKind ? CUSTOM_DATAVIZ_FIELDS[dataVizKind] : undefined) ??
                   craftedFields ??
                   schemaBackedFields ??
                   builtinDataVizSchemaFields ??
@@ -4506,6 +4772,10 @@ export default function SceneEditModal({
                         const isBuiltinChartTypeField =
                           field.key === "chartType" &&
                           isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId);
+                        const isCustomChartTypeField =
+                          isCustomTemplate &&
+                          currentLayoutId === "custom_chart" &&
+                          field.key === "chartType";
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -4544,6 +4814,31 @@ export default function SceneEditModal({
                                       [field.key]: nextChartType,
                                       chartTable: example,
                                     }));
+                                    return;
+                                  }
+                                }
+                                if (isCustomChartTypeField) {
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    // Only swap in a shape-appropriate example when the current
+                                    // table is empty or still a known seed/example — never clobber
+                                    // real data the user typed or imported.
+                                    setEditableLayoutProps((prev) => {
+                                      const existing = normalizeChartTableValue(prev.chartTable);
+                                      const isSeed =
+                                        !chartTableHasData(existing) || isCustomDataVizExampleTable(existing);
+                                      if (!isSeed) {
+                                        return { ...prev, [field.key]: nextChartType };
+                                      }
+                                      return {
+                                        ...prev,
+                                        [field.key]: nextChartType,
+                                        chartTable: getCustomDataVizExampleTable(concrete),
+                                      };
+                                    });
                                     return;
                                   }
                                 }

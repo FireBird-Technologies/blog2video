@@ -58,6 +58,15 @@ class Project(Base):
     logo_opacity: Mapped[float] = mapped_column(default=0.9)
     logo_size: Mapped[float] = mapped_column(Float, default=70.0)  # percentage, e.g. 70 = 70%, REAL for smooth slider
 
+    # Captions (subtitles) — text is the scene's narration_text. Always bottom-anchored;
+    # caption_offset shifts it vertically within the bottom region (-100..+100, 0 = default,
+    # positive = up, negative = down).
+    captions_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    caption_position: Mapped[str] = mapped_column(String(20), default="bottom_center")
+    caption_font_family: Mapped[str] = mapped_column(String(50), default="inter")
+    caption_font_size: Mapped[str] = mapped_column(String(10), default="36")
+    caption_offset: Mapped[int] = mapped_column(Integer, default=0)
+
     # Voiceover
     custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # Optional user voice tuning, stored as a JSON string array ["<stability>","<speed>","<emotion>"]

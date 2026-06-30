@@ -1,10 +1,178 @@
-import { lazy, Suspense, useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { lazy, Suspense, Fragment, useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { AbsoluteFill } from "remotion";
+import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import type { CustomTemplateTheme } from "../../api/client";
 import { compileComponentCode, compileModuleGraphEntry, type SceneProps } from "../../utils/compileComponent";
+import { DataChartScene, DataTableScene } from "../remotion/generated/kit";
+import { CtaOverlay } from "../remotion/CtaOverlay";
+import { pickGeneratedTransition } from "../remotion/generated/generatedTransitions";
 
 const RemotionPreviewPlayer = lazy(() => import("../RemotionPreviewPlayer"));
 
 type ContentSampleData = Partial<SceneProps> & { displayText: string; narrationText: string };
+
+/** One scene in the preview carousel. Code scenes (intro/content) compile from AI
+ *  source; data-viz scenes render the kit chart/table; the outro renders the same
+ *  CTA overlay the final video composites (so preview === render). */
+type PreviewScene =
+  | { kind: "code"; code: string; label: string }
+  | { kind: "dataviz_chart" | "dataviz_table"; label: string }
+  | { kind: "cta_outro"; label: string };
+
+/** Ordered scene labels for the carousel/strip — intro → content variants (named
+ *  from their archetype id) → Data Chart, Data Table → outro. Kept in sync with the
+ *  `sceneCodes` builder below; exported so the editor can render the scene strip
+ *  above the template name without re-deriving the order. */
+export function buildCustomSceneLabels(args: {
+  introCode?: string;
+  outroCode?: string;
+  contentCodes?: string[];
+  contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+}): string[] {
+  const labels: string[] = [];
+  if (args.introCode) labels.push("Intro");
+  if (args.contentCodes && args.contentCodes.length > 0) {
+    args.contentCodes.forEach((_, i) => {
+      const rawArch = args.contentArchetypeIds?.[i];
+      const archId = typeof rawArch === "string" ? rawArch : rawArch?.id;
+      const archetypeLabel = archId
+        ?.replace(/_/g, " ")
+        ?.replace(/\b\w/g, (ch: string) => ch.toUpperCase());
+      labels.push(archetypeLabel || `Content ${i + 1}`);
+    });
+  }
+  if (labels.length > 0) {
+    labels.push("Data Chart");
+    labels.push("Data Table");
+  }
+  if (args.outroCode) labels.push("Outro");
+  return labels;
+}
+
+/** Representative CTA/socials so the preview outro shows the same overlay the
+ *  pipeline injects into every custom video's last scene at render time. */
+const SAMPLE_CTA_PROPS = {
+  socials: {
+    linkedin: { enabled: true, label: "LinkedIn" },
+    instagram: { enabled: true, label: "Instagram" },
+    youtube: { enabled: true, label: "YouTube" },
+  },
+  showWebsiteButton: true,
+  websiteLink: "yourbrand.com",
+  ctaButtonText: "Get started",
+};
+
+/** Outro = the deterministic CTA overlay (mirrors GeneratedVideo's outro). Reads
+ *  brand colors/fonts/logo from the standard scene props injected by the player. */
+const OutroCtaScene: React.FC<SceneProps> = (props) => (
+  <CtaOverlay
+    ctaProps={SAMPLE_CTA_PROPS}
+    brandColors={props.brandColors}
+    aspectRatio={props.aspectRatio}
+    headingFont={props.headingFont}
+    bodyFont={props.bodyFont}
+    title={props.displayText}
+    logoUrl={props.logoUrl}
+  />
+);
+
+/** Per-scene length for the continuous preview. 150 frames (5s @30fps) matches
+ *  the render/per-scene cadence and keeps the thumbnail frame (~135) inside the
+ *  first scene. Each non-last sequence is held by exactly its transition's
+ *  frames, so total duration + scene start frames stay N×150 (the scene-strip
+ *  highlight math relies on this). */
+const PREVIEW_SCENE_FRAMES = 150;
+const PREVIEW_CANVAS_W = 1920;
+const PREVIEW_CANVAS_H = 1080;
+
+/** Continuous composition for the editor preview — sequences every scene through
+ *  a real Remotion `TransitionSeries`, with the same brand-keyed transition pool
+ *  the headless render uses (generatedTransitions.ts). The incoming + outgoing
+ *  scenes genuinely overlap and move, exactly like the built-in templates and
+ *  the final video — so preview === render, instead of a per-scene carousel. */
+interface ContinuousCompositionProps {
+  sceneCodes: PreviewScene[];
+  compiledMap: Map<number, React.FC<SceneProps>>;
+  sampleProps: Partial<SceneProps>[];
+  brandColors: SceneProps["brandColors"];
+  transitionFamily?: string[];
+}
+
+const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
+  sceneCodes,
+  compiledMap,
+  sampleProps,
+  brandColors,
+  transitionFamily,
+}) => {
+  const total = sceneCodes.length;
+  return (
+    <AbsoluteFill>
+      <TransitionSeries>
+        {sceneCodes.map((sc, idx) => {
+          // Data-viz/outro scenes render the deterministic kit/CTA components; code
+          // scenes use the JIT-compiled AI component from compiledMap.
+          const kitComp =
+            sc.kind === "dataviz_chart"
+              ? (DataChartScene as unknown as React.FC<SceneProps>)
+              : sc.kind === "dataviz_table"
+                ? (DataTableScene as unknown as React.FC<SceneProps>)
+                : sc.kind === "cta_outro"
+                  ? OutroCtaScene
+                  : undefined;
+          const Comp = kitComp ?? compiledMap.get(idx);
+          const props = {
+            aspectRatio: "landscape" as const,
+            ...(sampleProps[idx] || {}),
+            brandColors,
+          } as SceneProps;
+          const isLast = idx === total - 1;
+          // Failed compile → render a blank window (rare; full-fail caught upstream).
+          // We must NOT return null mid-TransitionSeries or the Sequence/Transition
+          // alternation breaks, so an empty AbsoluteFill holds the slot.
+          const t = isLast
+            ? null
+            : pickGeneratedTransition(idx, transitionFamily, PREVIEW_CANVAS_W, PREVIEW_CANVAS_H, brandColors?.accent);
+          const sequence = (
+            <TransitionSeries.Sequence
+              key={`seq-${idx}`}
+              durationInFrames={PREVIEW_SCENE_FRAMES + (t ? t.frames : 0)}
+            >
+              <AbsoluteFill>{Comp ? <Comp {...props} /> : null}</AbsoluteFill>
+            </TransitionSeries.Sequence>
+          );
+          if (!t) return sequence;
+          return (
+            <Fragment key={`scene-${idx}`}>
+              {sequence}
+              <TransitionSeries.Transition
+                presentation={t.presentation}
+                timing={linearTiming({ durationInFrames: t.frames })}
+              />
+            </Fragment>
+          );
+        })}
+      </TransitionSeries>
+    </AbsoluteFill>
+  );
+};
+
+/** Mirror of backend `_CUSTOM_DATAVIZ_SEED` (pipeline.py) — sample data so the
+ *  preview's chart/table scenes look realistic before a real table is bound. */
+const SAMPLE_CHART_TABLE: { headers: string[]; rows: (string | number)[][] } = {
+  headers: ["Quarter", "Revenue", "Growth %"],
+  rows: [
+    ["Q1", "120", "8"],
+    ["Q2", "145", "12"],
+    ["Q3", "170", "17"],
+    ["Q4", "210", "24"],
+  ],
+};
+
+/** Mirror of the GeneratedTransition default family (remotion-video). The preview
+ *  approximates these brand exit flourishes in CSS so transitions are visible
+ *  before render — the real video uses the Remotion GeneratedTransition. */
+const DEFAULT_TRANSITION_FAMILY = ["fade", "accent_wash", "rule_sweep", "ink_wash", "whip_blur"] as const;
 
 /** Map archetype best_for tags to rich sample data so previews look realistic */
 function buildArchetypeSampleData(
@@ -93,6 +261,15 @@ function buildArchetypeSampleData(
         ],
         codeLanguage: "typescript",
       };
+    case "dataviz":
+      // Defensive only — content archetypes no longer use "dataviz" (charts/tables are
+      // dedicated kit scenes). Keep a sensible fallback so a legacy archetype id that
+      // still says "dataviz" never renders a blank scene.
+      return {
+        displayText: `${n} by the Numbers`,
+        narrationText: `The data behind ${n}'s momentum, at a glance.`,
+        contentType: "plain",
+      };
     default:
       return {
         displayText: `The ${n} Experience`,
@@ -132,6 +309,9 @@ interface CustomPreviewProps {
   thumbnailFrame?: number;
   onRetry?: () => void;
   onAllScenesEnded?: () => void;
+  /** Fired with the currently on-screen scene index as the continuous preview plays,
+   *  so a parent (e.g. the Edit Template modal) can drive a live-highlighted scene strip. */
+  onLiveSceneChange?: (idx: number) => void;
   thumbnailMode?: boolean;
 }
 
@@ -153,10 +333,14 @@ export default function CustomPreview({
   thumbnailFrame = 135,
   onRetry,
   onAllScenesEnded,
+  onLiveSceneChange,
   thumbnailMode = false,
 }: CustomPreviewProps) {
   const [activeScene, setActiveScene] = useState(0);
   const [outgoingScene, setOutgoingScene] = useState<number | null>(null);
+  // Which scene is on-screen in the continuous (real-transition) player, derived
+  // from the player's current frame — drives the live scene strip below it.
+  const [continuousScene, setContinuousScene] = useState(0);
   const [compiledMap, setCompiledMap] = useState<Map<number, React.FC<SceneProps>>>(new Map());
   const [compiledComposition, setCompiledComposition] = useState<React.ComponentType<any> | null>(null);
   const [isCompiling, setIsCompiling] = useState(true);
@@ -164,10 +348,18 @@ export default function CustomPreview({
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const compileTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Build ordered list of scene codes: intro, content variants, outro
-  const sceneCodes = useMemo(() => {
-    const codes: { code: string; label: string }[] = [];
-    if (introCode) codes.push({ code: introCode, label: "Intro" });
+  // Report the on-screen scene index up to the parent so it can drive a live
+  // scene strip (the strip itself now lives above the template name in the editor).
+  useEffect(() => {
+    onLiveSceneChange?.(continuousScene);
+  }, [continuousScene, onLiveSceneChange]);
+
+  // Build ordered carousel: intro → content variants → data chart, data table → outro.
+  // The 2 data-viz scenes mirror what the pipeline always injects into custom videos
+  // at render time, so the template preview matches the final video.
+  const sceneCodes = useMemo<PreviewScene[]>(() => {
+    const codes: PreviewScene[] = [];
+    if (introCode) codes.push({ kind: "code", code: introCode, label: "Intro" });
     if (contentCodes && contentCodes.length > 0) {
       contentCodes.forEach((c, i) => {
         const rawArch = contentArchetypeIds?.[i];
@@ -175,10 +367,17 @@ export default function CustomPreview({
         const archetypeLabel = archId
           ?.replace(/_/g, " ")
           ?.replace(/\b\w/g, (ch: string) => ch.toUpperCase());
-        codes.push({ code: c, label: archetypeLabel || `Content ${i + 1}` });
+        codes.push({ kind: "code", code: c, label: archetypeLabel || `Content ${i + 1}` });
       });
     }
-    if (outroCode) codes.push({ code: outroCode, label: "Outro" });
+    // Only show the data-viz pair when there's a real generated template (at least one
+    // code scene) — they sit just before the outro, matching pipeline insertion order.
+    if (codes.length > 0) {
+      codes.push({ kind: "dataviz_chart", label: "Data Chart" });
+      codes.push({ kind: "dataviz_table", label: "Data Table" });
+    }
+    // Outro renders the CTA overlay (matching the final video), not the AI outro code.
+    if (outroCode) codes.push({ kind: "cta_outro", label: "Outro" });
     return codes;
   }, [introCode, outroCode, contentCodes, contentArchetypeIds]);
 
@@ -195,19 +394,55 @@ export default function CustomPreview({
   const fallbackSamples = useMemo(() => buildFallbackSamples(name || ""), [name]);
 
   const sceneSampleProps = useMemo(() => {
-    // Only pass ogImage. Never use previewImageUrl as an image prop, as that is the template's
-    // own thumbnail and will cause a broken recursive image load, resulting in empty space.
-    const imageProps = ogImage ? { imageUrl: ogImage } : {};
+    // The og image is only fed to the intro/hero scene (added per-scene below).
+    // Never use previewImageUrl as an image prop — it's the template's own thumbnail
+    // and causes a broken recursive image load. Content scenes get NO imageUrl so they
+    // render their full-width (no-image) branch instead of a split with an empty panel.
     const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
     const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
     const fontProps = { titleFontSize: 88, descriptionFontSize: 44 };
 
     return sceneCodes.map((sc, idx) => {
-      const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...imageProps, ...logoProps, ...brandImageProps, ...fontProps };
+      const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...logoProps, ...brandImageProps, ...fontProps };
       const n = name || "Our Brand";
 
+      // Data-viz scenes: feed the deterministic kit chart/table sample data + brand fonts.
+      if (sc.kind === "dataviz_chart") {
+        return {
+          displayText: "By the Numbers",
+          narrationText: `The data behind ${n}'s momentum.`,
+          chartTable: SAMPLE_CHART_TABLE,
+          chartType: "line",
+          headingFont: theme.fonts.heading,
+          bodyFont: theme.fonts.body,
+          ...base,
+        };
+      }
+      if (sc.kind === "dataviz_table") {
+        return {
+          displayText: "The Full Breakdown",
+          narrationText: `${n}'s figures in full.`,
+          chartTable: SAMPLE_CHART_TABLE,
+          headingFont: theme.fonts.heading,
+          bodyFont: theme.fonts.body,
+          ...base,
+        };
+      }
+      // Outro CTA overlay: brand name as the title + brand fonts.
+      if (sc.kind === "cta_outro") {
+        return {
+          displayText: n,
+          narrationText: `Learn more about ${n}.`,
+          headingFont: theme.fonts.heading,
+          bodyFont: theme.fonts.body,
+          ...base,
+        };
+      }
+
       if (sc.label === "Intro") {
-        return { displayText: n, narrationText: `Discover what makes ${n} special.`, ...base };
+        // Intro/hero is the only scene that gets the og image (matches the render).
+        const introImageProps = ogImage ? { imageUrl: ogImage } : {};
+        return { displayText: n, narrationText: `Discover what makes ${n} special.`, ...base, ...introImageProps };
       }
       if (sc.label === "Outro") {
         return { displayText: n, narrationText: `Learn more at ${n}. Thank you for watching.`, ...base };
@@ -223,7 +458,7 @@ export default function CustomPreview({
       const fallback = fallbackSamples[contentIdx % fallbackSamples.length];
       return { ...fallback, ...base };
     });
-  }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples]);
+  }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples, theme.fonts.heading, theme.fonts.body]);
 
   const compositionSampleProps = useMemo(() => {
     const layoutList =
@@ -255,6 +490,51 @@ export default function CustomPreview({
       playbackSpeed: 1,
     };
   }, [validLayouts, name, ogImage, theme, logoUrls]);
+
+  // Brand colors for the continuous composition (RemotionPreviewPlayer only
+  // auto-injects these in per-scene mode, so we must pass them ourselves here).
+  const brandColors = useMemo<SceneProps["brandColors"]>(
+    () => ({
+      primary: theme.colors.accent,
+      secondary: theme.colors.surface,
+      accent: theme.colors.accent,
+      background: theme.colors.bg,
+      text: theme.colors.text,
+    }),
+    [theme.colors],
+  );
+
+  // Stable props for the continuous (real-transition) composition. Memoized so the
+  // Remotion Player doesn't restart playback every render.
+  const continuousCompositionProps = useMemo(
+    () => ({
+      sceneCodes,
+      compiledMap,
+      sampleProps: sceneSampleProps,
+      brandColors,
+      transitionFamily: (theme as unknown as { motion?: { transitionFamily?: string[] } })
+        .motion?.transitionFamily,
+    }),
+    [sceneCodes, compiledMap, sceneSampleProps, brandColors, theme],
+  );
+
+  // [V3] Log the resolved transition plan once per template (component render, not
+  // per frame) so the Edit-Template preview transitions are verifiable in console.
+  useEffect(() => {
+    if (thumbnailMode || sceneCodes.length < 2) return;
+    const fam = (theme as unknown as { motion?: { transitionFamily?: string[] } }).motion
+      ?.transitionFamily;
+    const plan = sceneCodes
+      .slice(0, -1)
+      .map((_, i) => pickGeneratedTransition(i, fam).frames)
+      .length;
+    const fams = sceneCodes
+      .slice(0, -1)
+      .map((_, i) => (fam && fam.length ? fam[i % fam.length] : "default"));
+    console.log(
+      `[F7-DEBUG][V3][PREVIEW-TRANSITION] ${plan} transitions across ${sceneCodes.length} scenes | family=${JSON.stringify(fam) || "default-pool"} | rotation=${JSON.stringify(fams)}`,
+    );
+  }, [sceneCodes, theme, thumbnailMode]);
 
   // Pre-compile ALL scene codes on mount (eliminates per-scene "Compiling preview..." flash)
   useEffect(() => {
@@ -322,7 +602,9 @@ export default function CustomPreview({
       const map = new Map<number, React.FC<SceneProps>>();
       for (let i = 0; i < sceneCodes.length; i++) {
         if (cancelled) return;
-        const result = await compileComponentCode(sceneCodes[i].code);
+        const sc = sceneCodes[i];
+        if (sc.kind !== "code") continue; // data-viz scenes render via the kit, no compile
+        const result = await compileComponentCode(sc.code);
         if (result.success) {
           map.set(i, result.component);
         } else {
@@ -561,16 +843,90 @@ export default function CustomPreview({
     );
   }
 
+  // AI-custom live preview: play ALL scenes back-to-back through a single Remotion
+  // composition so the REAL GeneratedTransition flourishes are visible between
+  // scenes — matching Template Studio (and the headless render) instead of the
+  // per-scene CSS carousel. Thumbnails keep the lightweight carousel path below.
+  if (!thumbnailMode && hasCode) {
+    // The scene strip (counter + named chips) now lives above the template name in
+    // the editor (driven via onLiveSceneChange) — it is no longer rendered here, so it
+    // doesn't appear in the gallery or the project-creation form.
+    return (
+      <div style={{ position: "relative" }}>
+        <Suspense fallback={fallback}>
+          <RemotionPreviewPlayer
+            compiledComposition={ContinuousCustomComposition}
+            theme={theme}
+            compositionProps={continuousCompositionProps}
+            durationInFrames={Math.max(1, sceneCodes.length) * PREVIEW_SCENE_FRAMES}
+            fps={30}
+            compositionWidth={1920}
+            compositionHeight={1080}
+            loop
+            onFrameUpdate={(frame) => {
+              const idx = Math.min(
+                sceneCodes.length - 1,
+                Math.floor(frame / PREVIEW_SCENE_FRAMES),
+              );
+              setContinuousScene((prev) => (prev === idx ? prev : idx));
+            }}
+            onRetry={onRetry}
+          />
+        </Suspense>
+      </div>
+    );
+  }
+
+  // E — brand transitions in preview: approximate the Remotion GeneratedTransition
+  // exit flourishes in CSS, choosing a style per scene index from the brand's
+  // motion.transitionFamily (falls back to the default family). `active` is the
+  // settled state; the inactive state is the "from" each family animates out of.
+  const transitionFamily =
+    (theme as unknown as { motion?: { transitionFamily?: string[] } }).motion?.transitionFamily;
+  const familyPool =
+    Array.isArray(transitionFamily) && transitionFamily.length > 0
+      ? transitionFamily
+      : (DEFAULT_TRANSITION_FAMILY as unknown as string[]);
+  const transitionStyleFor = (idx: number, active: boolean): React.CSSProperties => {
+    switch (familyPool[Math.abs(idx) % familyPool.length]) {
+      case "accent_wash":
+        return { opacity: active ? 1 : 0, transform: active ? "translateX(0)" : "translateX(7%)" };
+      case "whip_blur":
+        return {
+          opacity: active ? 1 : 0,
+          transform: active ? "translateX(0)" : "translateX(-5%)",
+          filter: active ? "blur(0px)" : "blur(10px)",
+        };
+      case "rule_sweep":
+        return { opacity: 1, clipPath: active ? "inset(0 0 0 0)" : "inset(0 100% 0 0)" };
+      case "ink_wash":
+        return { opacity: active ? 1 : 0, transform: active ? "scale(1)" : "scale(0.96)" };
+      case "fade":
+      default:
+        return { opacity: active ? 1 : 0 };
+    }
+  };
+
   return (
     <div style={{ position: "relative" }}>
       {/* Scene layers — div wrappers always mounted so CSS transitions work on opacity */}
       <Suspense fallback={fallback}>
         <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", borderRadius: 8, overflow: "hidden" }}>
-          {sceneCodes.map((_, idx) => {
+          {sceneCodes.map((sc, idx) => {
             const isActive = idx === activeScene;
             const isOutgoing = idx === outgoingScene;
-            const compiled = compiledMap.get(idx);
-            const shouldRenderPlayer = (isActive || isOutgoing) && compiled;
+            // Data-viz scenes render the deterministic kit components; code scenes
+            // use the JIT-compiled AI component from compiledMap.
+            const kitComp =
+              sc.kind === "dataviz_chart"
+                ? (DataChartScene as unknown as React.FC<SceneProps>)
+                : sc.kind === "dataviz_table"
+                  ? (DataTableScene as unknown as React.FC<SceneProps>)
+                  : sc.kind === "cta_outro"
+                    ? OutroCtaScene
+                    : undefined;
+            const compiled = kitComp ?? compiledMap.get(idx);
+            const shouldRenderPlayer = (isActive || isOutgoing) && !!compiled;
 
             return (
               <div
@@ -578,14 +934,14 @@ export default function CustomPreview({
                 style={{
                   position: "absolute",
                   inset: 0,
-                  opacity: isActive ? 1 : 0,
-                  transform: isActive ? "scale(1)" : isOutgoing ? "scale(1.02)" : "scale(0.98)",
-                  transition: "opacity 300ms ease-out, transform 300ms ease-out",
+                  ...transitionStyleFor(idx, isActive),
+                  transition:
+                    "opacity 320ms ease-out, transform 320ms ease-out, filter 320ms ease-out, clip-path 360ms ease-out",
                   zIndex: isActive ? 2 : 1,
                   pointerEvents: isActive ? "auto" : "none",
                 }}
               >
-                {shouldRenderPlayer && (
+                {shouldRenderPlayer && compiled && (
                   <RemotionPreviewPlayer
                     compiledComponent={compiled}
                     theme={theme}
@@ -604,39 +960,93 @@ export default function CustomPreview({
         </div>
       </Suspense>
 
-      {/* Scene navigation dots (minimal — no layout labels) */}
+      {/* Scene navigation — control bar BELOW the video (prev/next + counter + dots) */}
       {hasMultipleScenes && !thumbnailMode && (
         <div
           style={{
-            position: "absolute",
-            bottom: 6,
-            left: 0,
-            right: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 4,
-            zIndex: 10,
+            gap: 10,
+            marginTop: 8,
+            padding: "0 10px 8px",
           }}
         >
-          {sceneCodes.map((_, idx) => (
+          {([
+            { label: "Previous scene", glyph: "‹", delta: -1 },
+            { label: "Next scene", glyph: "›", delta: 1 },
+          ] as const).map(({ label, glyph, delta }) => (
             <button
-              key={idx}
-              onClick={() => goToScene(idx)}
+              key={label}
               type="button"
+              onClick={() =>
+                goToScene((activeScene + delta + sceneCodes.length) % sceneCodes.length)
+              }
+              aria-label={label}
               style={{
-                width: idx === activeScene ? 10 : 3,
-                height: 3,
-                borderRadius: 2,
-                background: idx === activeScene ? "#fff" : "rgba(255,255,255,0.35)",
-                border: "none",
+                order: delta < 0 ? 0 : 2,
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#f3f4f6",
+                color: "#374151",
+                border: "1px solid #e5e7eb",
                 cursor: "pointer",
-                padding: 0,
-                transition: "all 0.2s",
+                fontSize: 17,
+                lineHeight: 1,
+                paddingBottom: 2,
+                flexShrink: 0,
               }}
-              aria-label={`Preview scene ${idx + 1} of ${sceneCodes.length}`}
-            />
+            >
+              {glyph}
+            </button>
           ))}
+
+          <div style={{ order: 1, display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#4b5563",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                {sceneCodes[activeScene]?.label}
+              </span>
+              <span style={{ color: "#9ca3af" }}>
+                {activeScene + 1} / {sceneCodes.length}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              {sceneCodes.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => goToScene(idx)}
+                  type="button"
+                  style={{
+                    width: idx === activeScene ? 16 : 7,
+                    height: 7,
+                    borderRadius: 4,
+                    background: idx === activeScene ? "#6b7280" : "#d1d5db",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    transition: "all 0.2s",
+                  }}
+                  aria-label={`Preview scene ${idx + 1} of ${sceneCodes.length}`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

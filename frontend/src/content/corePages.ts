@@ -68,6 +68,7 @@ export const coreCommercialPages: MarketingPage[] = [
     relatedPaths: [
       "/blog-to-video",
       "/ai-blog-to-video",
+      "/blog-to-video-generator",
       "/blog-to-youtube-video",
       "/blogs/how-to-turn-a-blog-post-into-a-video",
     ],
@@ -140,6 +141,79 @@ export const coreCommercialPages: MarketingPage[] = [
       "/blog-to-video",
       "/for-medium-writers",
       "/blogs/best-ai-tools-to-convert-articles-into-videos",
+    ],
+  }),
+  createPage({
+    path: "/blog-to-video-generator",
+    title: "Blog to Video Generator | Paste a URL, Get a Narrated Video | Blog2Video",
+    description:
+      "A blog to video generator that works from a URL: paste your article link, choose a template, voice, and length, and generate a finished narrated video in minutes.",
+    eyebrow: "Commercial workflow",
+    heroTitle: "The Blog to Video Generator That Starts From Your Article, Not a Blank Prompt",
+    heroDescription:
+      "Paste your article link, choose a template, voice, and length, and Blog2Video generates a structured, narrated video — built from the post you already wrote, not a stock-footage script.",
+    category: "commercial",
+    primaryKeyword: "blog to video generator",
+    keywordVariant: "blog post video generator",
+    badges: ["URL-first generator", "No editing required", "Free starting videos"],
+    proofPoints: [
+      "Paste a public blog URL — the generator reads the article and builds scenes from its actual structure.",
+      "Choose a template, an ElevenLabs voice, and a target length before generating.",
+      "No stock-footage matching step like Lumen5 or Pictory — animated templates carry the visuals.",
+      "Free starting videos with no watermark, so you can test the generator before paying.",
+    ],
+    sections: [
+      {
+        title: "How the generator works",
+        body: [
+          "Most blog-to-video generators — InVideo AI, VEED, Synthesia, HeyGen — follow the same basic shape: paste a link, pick a few settings, generate. Where they differ is what happens after you paste the link. Many extract a handful of highlights and pair them with stock footage or an avatar script, which works for short marketing recaps but loses detail on technical or in-depth posts.",
+          "Blog2Video's generator reads the full article structure — headings, sections, examples — and maps it directly to scenes rather than compressing it into a highlight reel. The settings you choose (template, voice, length) shape the output; the article itself supplies the content.",
+        ],
+        bullets: [
+          "Step 1: Paste the article URL.",
+          "Step 2: Pick a template, voice, and target length.",
+          "Step 3: Review the generated scenes and narration.",
+          "Step 4: Render and export for YouTube, LinkedIn, Shorts, or embedding.",
+        ],
+      },
+      {
+        title: "How it compares to other blog-to-video generators",
+        body: [
+          "Lumen5 and Pictory generate by matching stock footage to extracted sentences, which means manual curation when the match is wrong. HeyGen and Synthesia generate avatar-led videos, which means writing or adapting a presenter script before generation can start. Blog2Video's generator skips both: no stock library to browse, no avatar script to write.",
+          "That makes it a better fit when the article itself — the structure, the examples, the argument — is what you want the video to preserve, rather than a generic visual layer on top of a summary.",
+        ],
+      },
+    ],
+    recommendedTemplate: "gridcraft",
+    recommendedTemplateReason:
+      "Gridcraft is a strong default for generator output because it renders structured articles — lists, comparisons, steps — without flattening them into generic stock visuals.",
+    faq: [
+      {
+        question: "Is there a free blog to video generator?",
+        answer:
+          "Blog2Video offers free starting videos with no watermark, so you can generate a full video from a real article before deciding on a paid plan.",
+      },
+      {
+        question: "What is the best blog to video generator?",
+        answer:
+          "It depends on the source content. For marketing recaps where stock footage fits naturally, Lumen5 or Pictory work well. For technical posts, guides, or newsletters where structure and detail matter, Blog2Video's generator is built specifically to preserve that.",
+      },
+      {
+        question: "Does the generator work from just a URL, or do I need to upload a file?",
+        answer:
+          "A public URL is enough — the generator fetches and parses the article directly. You can also upload a document if the content isn't published at a public URL.",
+      },
+      {
+        question: "Can I edit the video after the generator finishes?",
+        answer:
+          "Yes. The generator produces a full first draft with scenes, narration, and visuals already in place, and you can adjust individual scenes, swap the voice, or change the template before rendering the final export.",
+      },
+    ],
+    relatedPaths: [
+      "/blog-to-video",
+      "/blog-to-video-ai",
+      "/ai-blog-to-video",
+      "/lumen5-alternative",
     ],
   }),
   createPage({
@@ -668,6 +742,79 @@ export const coreCommercialPages: MarketingPage[] = [
       "/ai-video-generator-for-bloggers",
       "/distribution-flywheel",
       "/blogs/blog-to-youtube-shorts-strategy",
+    ],
+  }),
+  createPage({
+    path: "/linkedin-carousel-generator",
+    title: "LinkedIn Carousel Generator From Articles, PDFs, and Blog Posts",
+    description:
+      "Turn an existing article, blog post, or PDF into LinkedIn carousel slides — download as PNG, PDF, or PowerPoint without starting from a blank canvas.",
+    eyebrow: "Social workflow",
+    heroTitle: "A LinkedIn carousel generator that starts with content you already wrote",
+    heroDescription:
+      "Most carousel tools start from a blank canvas, a single idea, or a generic hook-list-CTA template. Blog2Video starts from your article's actual structure and turns it into downloadable carousel slides.",
+    category: "commercial",
+    primaryKeyword: "linkedin carousel generator",
+    keywordVariant: "ai carousel generator from blog post",
+    proofPoints: [
+      "Generates carousel-ready scenes directly from an article URL, PDF, or document — no blank-canvas design work.",
+      "Export the same scene set as PNG slides, a PDF deck, or an editable PowerPoint file.",
+      "Scene structure follows your article's actual headings, not a generic hook-and-bullets carousel formula.",
+    ],
+    sections: [
+      {
+        title: "Why most carousel generators start in the wrong place",
+        body: [
+          "Most LinkedIn carousel tools ask you to paste a single idea, a tweet, or a topic and generate a generic hook-and-bullets sequence. That works for quick takes, but it throws away structure you've already built if the source material is a real article or research note.",
+          "Blog2Video reads the source article's headings, sections, and examples and maps each one to a scene, so the carousel mirrors the actual argument instead of a templated format.",
+        ],
+      },
+      {
+        title: "From article to carousel in three steps",
+        body: [
+          "1. Paste the article URL, PDF, or document into Blog2Video.",
+          "2. Review the generated scenes — each one maps to a section of the source content, and you can edit any scene before exporting.",
+          "3. Export the scene set as PNG slides for direct LinkedIn upload, a PDF deck, or a PowerPoint file for further editing.",
+        ],
+      },
+      {
+        title: "One generation, multiple distribution formats",
+        body: [
+          "The same generation run that produces a narrated video also produces the carousel. A single article can become a YouTube video, a LinkedIn carousel, and a PDF handout without separate production passes for each format.",
+          "If the source content is from an early-stage blog or publication still building an audience, pairing carousel distribution with a free listing on BlogHub adds a second discovery channel — a community-ranked, SEO-optimized profile page and backlinks for the publication itself.",
+        ],
+      },
+    ],
+    recommendedTemplate: "geometric-explainer",
+    recommendedTemplateReason:
+      "Geometric Explainer's clean panel-based layouts translate directly into carousel slides without feeling like a repurposed video frame.",
+    faq: [
+      {
+        question: "Can Blog2Video actually generate a LinkedIn carousel, not just a video?",
+        answer:
+          "Yes. Once an article, PDF, or document is generated into scenes, you can export that same scene set as PNG slides, a PDF deck, or a PowerPoint file — all formats LinkedIn's carousel upload accepts.",
+      },
+      {
+        question: "Do I need a video first to get a carousel?",
+        answer:
+          "No. Generating the scenes is the shared first step for both outputs. You can export straight to PNG, PDF, or PowerPoint without rendering or publishing a video.",
+      },
+      {
+        question: "How is this different from a generic AI carousel generator?",
+        answer:
+          "Generic carousel generators usually start from a single prompt or idea and produce a templated hook-list-CTA sequence. Blog2Video starts from your actual article structure, so the carousel follows your real argument and examples instead of a generic format.",
+      },
+      {
+        question: "What if I want to edit slides before exporting?",
+        answer:
+          "You can edit any scene's text, layout, or image after generation and before export, so the final PNG, PDF, or PowerPoint reflects your changes.",
+      },
+    ],
+    relatedPaths: [
+      "/blog-to-video",
+      "/tools/quote-card-generator",
+      "/blogs/ai-linkedin-carousel-generator-from-existing-content",
+      "/for-technical-bloggers",
     ],
   }),
 ];

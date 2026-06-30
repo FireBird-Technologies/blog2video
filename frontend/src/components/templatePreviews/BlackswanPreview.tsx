@@ -210,6 +210,21 @@ export default function BlackswanPreview({ thumbnailMode = false }: { thumbnailM
     return () => p.removeEventListener("frameupdate", onFrame);
   }, [durationInFrames, scenes]);
 
+  // When the card reaches center, restart the timeline from the top so the
+  // animation plays fresh — and stop it the moment it moves away. (In thumbnail
+  // mode the Player has autoPlay off and is parked on the static thumbnail frame.)
+  useEffect(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    if (thumbnailMode) {
+      p.pause();
+      return;
+    }
+    setSceneIndex(0);
+    p.seekTo(0);
+    p.play();
+  }, [thumbnailMode]);
+
   const seekToScene = (i: number) => {
     const p = playerRef.current;
     if (!p) return;

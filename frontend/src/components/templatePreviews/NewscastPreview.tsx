@@ -104,7 +104,8 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
   const fps = 30;
   const fullDurationInFrames = Math.round(activeScene.durationSeconds * fps) + 45;
   const durationInFrames = fullDurationInFrames;
-  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 90);
+  // Side cards freeze ~1 second into the animation (30 frames @ 30fps).
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), fps);
   const config = getTemplateConfig("newscast");
   const Composition = config.component as React.ComponentType<any>;
 
@@ -142,6 +143,18 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
     return () => p.removeEventListener("frameupdate", onFrame);
   }, [thumbnailMode, thumbnailFrame, activeSceneIndex]);
 
+  // When the card reaches center, restart from the first scene/frame so the
+  // animation plays fresh — and stop it (the thumbnail effect above pauses it)
+  // the moment it moves away.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    setActiveSceneIndex(0);
+    const p = playerRef.current;
+    if (!p) return;
+    p.seekTo(0);
+    p.play();
+  }, [thumbnailMode]);
+
   return (
     <div className="w-full">
       <div className="relative w-full overflow-hidden shadow-2xl rounded-xl" style={{ aspectRatio: "16/9", background: TEMPLATE_COLORS.bg }}>
@@ -151,12 +164,12 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
-          initialFrame={0}
+          initialFrame={thumbnailMode ? thumbnailFrame : 0}
           compositionWidth={1920}
           compositionHeight={1080}
           fps={fps}
           controls={false}
-          autoPlay
+          autoPlay={!thumbnailMode}
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
           style={{ width: "100%", height: "100%", display: "block" }}

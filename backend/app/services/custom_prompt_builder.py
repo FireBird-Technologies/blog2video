@@ -283,6 +283,7 @@ def build_custom_meta(
     theme: dict,
     name: str,
     content_codes_count: int = 0,
+    content_archetype_ids: list | None = None,
 ) -> dict[str, Any]:
     """
     Generate a meta.json equivalent for a custom template.
@@ -306,12 +307,29 @@ def build_custom_meta(
         for i in range(content_codes_count):
             key = f"content_{i}"
             variant_layouts.append(key)
-            layout_names[key] = f"Content Style {i + 1}"
+            # Prefer the real archetype name (e.g. "coca_cola_bullets" -> "Coca Cola
+            # Bullets") so the layout dropdown shows which scene the user is editing,
+            # falling back to a generic label only when no archetype id is available.
+            label = None
+            if content_archetype_ids and i < len(content_archetype_ids):
+                raw = content_archetype_ids[i]
+                arch_id = raw.get("id") if isinstance(raw, dict) else raw
+                if isinstance(arch_id, str) and arch_id.strip():
+                    label = arch_id.replace("_", " ").title()
+            layout_names[key] = label or f"Content Style {i + 1}"
+        # Data-viz scenes are always injected into custom videos by the pipeline; expose
+        # them as selectable, named layouts so the user can switch a scene to a
+        # chart/table. Layout ids match SceneEditModal's convention (custom_chart /
+        # custom_table — see currentLayoutId derivation). They never take an image.
+        variant_layouts.append("custom_chart")
+        layout_names["custom_chart"] = "Data Chart"
+        variant_layouts.append("custom_table")
+        layout_names["custom_table"] = "Data Table"
         variant_layouts.append("outro")
         layout_names["outro"] = "Outro Scene"
 
         valid_layouts = variant_layouts
-        no_image_layouts: list[str] = []
+        no_image_layouts: list[str] = ["custom_chart", "custom_table"]
     else:
         valid_layouts = list(CUSTOM_ARRANGEMENTS)
         layout_names = {}

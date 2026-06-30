@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.dspy_modules import ensure_dspy_configured
 from app.services.template_service import (
+    get_hero_layout,
     get_layout_prompt,
     get_prompt,
     get_valid_layouts,
@@ -18,10 +19,15 @@ from app.services.template_service import (
 _HERO_LIKE_PREFIXES: tuple[str, ...] = ("hero", "intro", "opening", "title_card")
 
 
-def _is_hero_like(layout_id: str) -> bool:
+def _is_hero_like(layout_id: str, hero_layout: str = "") -> bool:
     lid = (layout_id or "").lower().strip()
     if not lid:
         return False
+    # The template's declared hero layout (from meta.json `hero_layout`) is
+    # authoritative — e.g. `kickoff_title` — even when its ID matches none of the
+    # generic prefixes below.
+    if hero_layout and lid == (hero_layout or "").lower().strip():
+        return True
     return any(lid.startswith(p) for p in _HERO_LIKE_PREFIXES)
 
 
@@ -48,11 +54,12 @@ class PlanTemplateLayouts(dspy.Signature):
     - Spread heavy/light layouts across opening/middle/closing; avoid clustering.
 
     ─── HERO RULE (HARD) ───────────────────────────────────────────────────────
-    Hero-like layouts (IDs that are exactly `hero`, or start with `hero_`,
-    `intro`, `opening`, or `title_card`) MUST appear AT MOST ONCE in the
-    output, and ONLY at index 0. Never assign a hero/opening layout to any
-    scene with index > 0. If the catalog contains multiple hero variants
-    (e.g. `hero_image`, `hero_split`), pick the most appropriate one for
+    Hero / opening / title layouts MUST appear AT MOST ONCE in the output, and
+    ONLY at index 0. This covers IDs that are exactly `hero`, start with `hero_`,
+    `intro`, `opening`, or `title_card`, AND the template's designated opener
+    named in full_prompt / layout_catalog (e.g. one marked "Scene 0 only" such as
+    `kickoff_title`). Never assign such an opener to any scene with index > 0. If
+    the catalog has multiple hero variants, pick the most appropriate one for
     scene 0 — do not place the others elsewhere.
 
     ─── ENDING RULE ────────────────────────────────────────────────────────────
@@ -122,8 +129,15 @@ class TemplateLayoutPlanner:
         if is_custom_template(template_id):
             # Custom templates use universal arrangements, validated by scene generator.
             self.valid_layouts = set()
+            self.hero_layout = ""
         else:
             self.valid_layouts = get_valid_layouts(template_id)
+            # The template's declared hero layout (e.g. `kickoff_title`) — enforced
+            # as scene-0-only regardless of whether its ID matches a generic prefix.
+            try:
+                self.hero_layout = (get_hero_layout(template_id) or "").strip()
+            except Exception:
+                self.hero_layout = ""
         if "ending_socials" in self.valid_layouts:
             self.ending_layout: str | None = "ending_socials"
         elif "ending_cta" in self.valid_layouts:
@@ -325,11 +339,12 @@ class TemplateLayoutPlanner:
             return layouts
 
         out = list(layouts)
+        hero = self.hero_layout
         # If scene 0 is not hero-like but a later scene is, promote it: move the
         # later hero layout to slot 0 and replace its old slot with a fallback.
-        if not _is_hero_like(out[0]):
+        if not _is_hero_like(out[0], hero):
             for i in range(1, len(out)):
-                if _is_hero_like(out[i]):
+                if _is_hero_like(out[i], hero):
                     leaked = out[i]
                     out[i] = ""
                     out[0] = leaked
@@ -337,12 +352,17 @@ class TemplateLayoutPlanner:
 
         # Now strip any remaining hero-like layouts from non-zero slots.
         for i in range(1, len(out)):
-            if _is_hero_like(out[i]):
+            if _is_hero_like(out[i], hero):
                 out[i] = self._pick_fallback_non_hero(used=out, scene_index=i)
 
         # Re-run blank-fill + repeat-break to keep variety intact after the
-        # rewrites above (cheap; idempotent if no changes were made).
-        candidates = self._catalog_candidates(out)
+        # rewrites above (cheap; idempotent if no changes were made). The hero
+        # layout is excluded from the candidate pool here so the fill never
+        # re-introduces it into a non-zero slot (slot 0 is already the hero and
+        # is never blank/consecutive at this point).
+        candidates = [
+            c for c in self._catalog_candidates(out) if not _is_hero_like(c, hero)
+        ]
         if candidates:
             usage = Counter([x for x in out if x])
             for i in range(len(out)):
@@ -368,13 +388,13 @@ class TemplateLayoutPlanner:
         for c in candidates:
             if not c:
                 continue
-            if _is_hero_like(c):
+            if _is_hero_like(c, self.hero_layout):
                 continue
             if c in avoid:
                 continue
             return c
         # Last resort: first non-hero in candidates, even if recently used.
         for c in candidates:
-            if c and not _is_hero_like(c):
+            if c and not _is_hero_like(c, self.hero_layout):
                 return c
         return ""

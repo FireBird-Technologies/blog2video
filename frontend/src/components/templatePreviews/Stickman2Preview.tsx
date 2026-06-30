@@ -75,13 +75,7 @@ const STICKMAN2_PREVIEW_SCENES: DemoScene[] = [
 export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const playerRef = useRef<PlayerRef>(null);
-  const activeScene = STICKMAN2_PREVIEW_SCENES[activeSceneIndex];
   const fps = 30;
-  // Hold the scene fully visible for the display window plus a 2s steady buffer,
-  // with no trailing dark frames. The scene-switch effect below fires (at
-  // durationSeconds) before this window ever loops, so the exit fade is never seen.
-  const durationInFrames = Math.round((activeScene.durationSeconds + 2) * fps);
-  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 100);
   const config = getTemplateConfig("stickman_2");
   const Composition = config.component as React.ComponentType<any>;
 
@@ -90,11 +84,34 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
   const bgColor = "#000000";
   const textColor = "#FFFFFF";
 
+  // Play the WHOLE timeline continuously (scene 1 → 2 → … → loop), exactly like the
+  // real video, instead of mounting one isolated scene per Player window. The dots
+  // just seek to a scene's start; auto-advance is driven by playback, not a timer.
+  const sceneFrames = useMemo(
+    () =>
+      STICKMAN2_PREVIEW_SCENES.map((s) =>
+        Math.max(1, Math.round((Number(s.durationSeconds) || 5) * fps)),
+      ),
+    [fps],
+  );
+  const sceneStartFrames = useMemo(() => {
+    const starts: number[] = [];
+    let acc = 0;
+    for (const f of sceneFrames) {
+      starts.push(acc);
+      acc += f;
+    }
+    return starts;
+  }, [sceneFrames]);
+  const durationInFrames = useMemo(
+    () => Math.max(1, sceneFrames.reduce((a, b) => a + b, 0)),
+    [sceneFrames],
+  );
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 100);
+
   const inputProps = useMemo(
     () => ({
-      // Inflate the scene length handed to the composition so its built-in
-      // exit fade-to-black is pushed well past the preview window (no dark dip).
-      scenes: [{ ...activeScene, durationSeconds: activeScene.durationSeconds + 3 }],
+      scenes: STICKMAN2_PREVIEW_SCENES,
       accentColor,
       bgColor,
       textColor,
@@ -104,7 +121,7 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
       logoSize: 0,
       aspectRatio: "landscape",
     }),
-    [activeScene, accentColor, bgColor, textColor],
+    [accentColor, bgColor, textColor],
   );
 
   useEffect(() => {
@@ -123,16 +140,49 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
     };
     p.addEventListener("frameupdate", onFrame);
     return () => p.removeEventListener("frameupdate", onFrame);
-  }, [thumbnailMode, thumbnailFrame, activeSceneIndex]);
+  }, [thumbnailMode, thumbnailFrame]);
 
+  // When the card reaches center, restart the timeline from the top so the
+  // animation plays fresh — and stop it (the thumbnail effect above pauses it)
+  // the moment it moves away.
   useEffect(() => {
     if (thumbnailMode) return;
-    const ms = Math.max(500, Math.round(activeScene.durationSeconds * 1000));
-    const t = setTimeout(() => {
-      setActiveSceneIndex((i) => (i + 1) % STICKMAN2_PREVIEW_SCENES.length);
-    }, ms);
-    return () => clearTimeout(t);
-  }, [activeSceneIndex, activeScene.durationSeconds, thumbnailMode]);
+    const p = playerRef.current;
+    if (!p) return;
+    setActiveSceneIndex(0);
+    p.seekTo(0);
+    p.play();
+  }, [thumbnailMode]);
+
+  // Keep the active-dot highlight in sync with which scene is currently playing.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    const pl = playerRef.current;
+    if (!pl) return;
+    const onFrame = () => {
+      const f = pl.getCurrentFrame();
+      let idx = 0;
+      for (let i = sceneStartFrames.length - 1; i >= 0; i--) {
+        if (f >= sceneStartFrames[i]) {
+          idx = i;
+          break;
+        }
+      }
+      setActiveSceneIndex((prev) => (prev === idx ? prev : idx));
+    };
+    pl.addEventListener("frameupdate", onFrame);
+    return () => pl.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, sceneStartFrames]);
+
+  // Clicking a dot seeks the continuous timeline to that scene's start.
+  const seekToScene = (index: number) => {
+    setActiveSceneIndex(index);
+    const pl = playerRef.current;
+    if (pl) {
+      pl.seekTo(sceneStartFrames[index] ?? 0);
+      if (!thumbnailMode) pl.play();
+    }
+  };
 
   return (
     <div className="w-full">
@@ -142,12 +192,12 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
-          initialFrame={0}
+          initialFrame={thumbnailMode ? thumbnailFrame : 0}
           compositionWidth={1920}
           compositionHeight={1080}
           fps={fps}
           controls={false}
-          autoPlay
+          autoPlay={!thumbnailMode}
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
           style={{ width: "100%", height: "100%", display: "block" }}
@@ -159,7 +209,7 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
             return (
               <button
                 key={scene.id}
-                onClick={() => setActiveSceneIndex(index)}
+                onClick={() => seekToScene(index)}
                 disabled={thumbnailMode}
                 className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
                 style={isActive ? { background: accentColor } : undefined}

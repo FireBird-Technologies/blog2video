@@ -63,6 +63,10 @@ import {
   MagazineVideo,
   calculateMagazineMetadata,
 } from "./templates/magazine/MagazineVideo";
+import {
+  StickmanFootballVideo,
+  calculateStickmanFootballMetadata,
+} from "./templates/stickman_football/StickmanFootballVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -268,6 +272,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateMagazineMetadata}
+      />
+      <Composition
+        id="StickmanFootballVideo"
+        component={StickmanFootballVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateStickmanFootballMetadata}
       />
     </>
   );
