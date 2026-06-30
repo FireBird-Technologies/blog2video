@@ -114,6 +114,8 @@ _SHARED_SRC_FILES = [
     "src/fonts/economist-defaults.ts",
     # LaDuc template default fonts (bundled, not in registry)
     "src/fonts/laduc-defaults.ts",
+    # Magazine template default fonts (bundled, not in registry)
+    "src/fonts/magazine-defaults.ts",
     # Shared socials renderer used by multiple template layouts
     "src/templates/SocialIcons.tsx",
 ]
