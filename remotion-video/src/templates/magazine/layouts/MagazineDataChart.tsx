@@ -28,6 +28,7 @@ import {
   useReveal,
   hexToRgba,
   useMagFrame,
+  useMagDims,
 } from "../magazineStyle";
 import {
   toNumber,
@@ -83,7 +84,8 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
   } = props;
 
   const frame = useMagFrame();
-  const { width, fps, durationInFrames } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
+  const { width } = useMagDims();
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
   const ink = colors.text;

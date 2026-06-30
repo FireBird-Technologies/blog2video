@@ -5,20 +5,23 @@ Use this list when picking the `preferred_layout` for each scene.
 - `magazine_cover`  
   - **Best for**: Opening title card and magazine cover intro sequence.
 
-- `feature_spread`  
-  - **Best for**: The workhorse — main narrative, feature body, story setup, and the default/fallback. Give it a full paragraph of `body` (the on-page article copy, distinct from the voiceover `narration`), a `standfirst` deck and 2–3 `keyPoints` so the whole page fills. Image-free.
-
 - `editorial_quote`  
   - **Best for**: Standout pull quote, key insight, or emotional beat between sections.
+
+- `colorblock`  
+  - **Best for**: A bold spotlight or statement beat — a striking quote on a dark block paired with a named person/role or labelled callout on a red block. Fill the right block's label stack (`panelLabel` / `panelHeading` / `panelSubline` / `panelTag`).
+
+- `feature`  
+  - **Best for**: A feature-article opener or long-form editorial beat — a headline plus a substantial paragraph of reported prose flowing across both pages, led by a red drop cap. Fill `body` (60–110+ words) and `keyPoints` (2–3 short takeaways).
+
+- `comparison`  
+  - **Best for**: A before/after, two-perspective, or "VS" contrast beat — two columns split by a centre badge, each a short bulleted list. Fill `leftHeader` / `rightHeader` (e.g. 'Before' / 'After') and 2–6 short `leftPoints` / `rightPoints` (≤10 words each). Use for crisp side-by-side contrasts, not paragraph-length dialogue (use `interview_qa` for that) or charted figures (use `magazine_data_visualization`).
 
 - `by_the_numbers`  
   - **Best for**: Key figures, data highlights, and 'by the numbers' infographic pages.
 
 - `interview_qa`  
   - **Best for**: Interview, debate, two perspectives, or Q&A dialogue. Use the `exchanges` array with 2–3 exchanges, each a full paragraph-length answer, so the page reads full, not sparse.
-
-- `comparison_spread`  
-  - **Best for**: Claim vs reality, pro vs con, before vs after, or any two-sided comparison. A two-page spread — needs a balanced bullet list (`leftPoints` / `rightPoints`, 3–5 short bullets each) on BOTH sides.
 
 - `magazine_data_visualization`  
   - **Best for**: A real animated chart (line / bar / histogram) rendered from an ACTUAL data table in the article. Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges.
@@ -30,10 +33,6 @@ Use this list when picking the `preferred_layout` for each scene.
 
 - `timeline_journey`  
   - **Best for**: Chronology, process steps, history, or roadmap sequences.
-
-- `expert_spotlight`  
-  - **Best for**: Surfacing a real, attributable quote from a named person as a big pull-quote with their name/role.
-  - **Rule**: Use ONLY when the source genuinely contains such a quote or strong first-person statement. Never invent a quote — for an unattributed standout line use `editorial_quote`, for plain prose use `text_narration`.
 
 - `text_narration`  
   - **Best for**: Narration-only scenes, transitional commentary, or text-driven story beats without imagery.

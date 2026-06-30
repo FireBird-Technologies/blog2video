@@ -2054,7 +2054,7 @@ export const RemotionMagazineVideoComposition: React.FC<
   const resolveLayout = (raw: string): RemotionMagazineLayoutType =>
     (raw as RemotionMagazineLayoutType) in REMOTION_MAGAZINE_LAYOUT_REGISTRY
       ? (raw as RemotionMagazineLayoutType)
-      : "feature_spread";
+      : "text_narration";
 
   const resolvedScenes = scenes.map((scene) => {
     const layoutKey = resolveLayout(String(scene.layout));
@@ -2087,7 +2087,7 @@ export const RemotionMagazineVideoComposition: React.FC<
           const seqFrames = sequenceFrames[index];
           const LayoutComponent =
             REMOTION_MAGAZINE_LAYOUT_REGISTRY[layoutKey] ??
-            REMOTION_MAGAZINE_LAYOUT_REGISTRY.feature_spread;
+            REMOTION_MAGAZINE_LAYOUT_REGISTRY.text_narration;
 
           const rawProps = (scene.layoutProps as Record<string, unknown>) ?? {};
           const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));

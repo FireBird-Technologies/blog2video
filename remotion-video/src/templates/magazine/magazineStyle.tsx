@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, staticFile, useCurrentFrame, delayRender, continueRender } from "remotion";
+import { AbsoluteFill, interpolate, staticFile, useCurrentFrame, useVideoConfig, delayRender, continueRender } from "remotion";
 import type { SceneLayoutProps } from "./types";
 import {
   MAGAZINE_DISPLAY_FONT,
@@ -25,6 +25,24 @@ export const MAG_SANS = MAGAZINE_SANS_FONT;
 // ── Default palette: white paper, near-black ink, editorial red ──────────────
 export const MAG_DEFAULTS = { bg: "#FFFFFF", text: "#15110E", accent: "#D71921" };
 export const MAG_BACKDROP = "#14120E";
+
+// ── Design canvas ────────────────────────────────────────────────────────────
+// The magazine is authored in fixed 1080p pixels. At render time the backend can
+// force a smaller output (e.g. 1280×720 via --width/--height), which would
+// otherwise shrink the percentage-based page bands while the fixed-px copy stays
+// the same size → clipping + non-deterministic auto-fit. To stay resolution
+// independent we render every scene on a fixed design canvas (1920×1080 /
+// 1080×1920) and uniformly scale it to the real output. `MagDimsContext` carries
+// the design size so layout/transition math reads the canvas — not the (smaller)
+// composition — while `useMagDims` falls back to the live composition when no
+// provider is present (e.g. isolated stories/tests).
+export type MagDims = { width: number; height: number };
+export const MagDimsContext = React.createContext<MagDims | null>(null);
+export const useMagDims = (): MagDims => {
+  const ctx = React.useContext(MagDimsContext);
+  const { width, height } = useVideoConfig();
+  return ctx ?? { width, height };
+};
 
 // ── Animation tempo ──────────────────────────────────────────────────────────
 // A single global slow-motion factor for the whole Magazine template. Every
@@ -270,6 +288,21 @@ export const useMagazineCamera = (
   const frame = useMagFrame();
   const cl = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
 
+  // "pinned" — a fully static, head-on, full-bleed page with no frame-driven
+  // motion at all (no entrance, breath, drift or zoom). Used where the copy must
+  // sit dead still (e.g. the Interview Q&A reading spread).
+  if (move === "pinned") {
+    return {
+      world: { transform: "translate(0px, 0px) scale(1)", transformOrigin: "50% 50%", filter: "none" },
+      perspective: 2000,
+      perspectiveOrigin: "50% 50%",
+      stage: { transform: "translate(0px, 0px) scale(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg)", transformOrigin: "50% 50%" },
+      rotateY: 0,
+      deskParallax: { x: 0, y: 0 },
+      fill: 1,
+    };
+  }
+
   // Per-seed micro-variation so two adjacent scenes on the same move never read
   // as the exact same shot.
   const jitter = (Math.abs(Math.floor(seed)) % 5) - 2; // -2..2
@@ -460,17 +493,17 @@ export const useMagazineCamera = (
 // folio) as a scene's default; an explicit scene `cameraMove` overrides it.
 const CAMERA_SIGNATURES: Record<MagazineLayoutType, MagazineCameraMove[]> = {
   magazine_cover: ["crane_down", "low_hero"],
-  feature_spread: ["book_open", "orbit_sweep"],
   by_the_numbers: ["punch_in"],
-  editorial_quote: ["breathe"], // entered via the flat pull-quote clip-wipe, which has no 3D of its own to mask an aggressive entrance — a calm move keeps the revealed page from reading as rolled/tilted/broken mid-wipe
-  interview_qa: ["book_open"],
-  comparison_spread: ["book_open", "tracking_pan"],
+  editorial_quote: ["pinned"], // sit flat + full-bleed on the main bg from frame 0 — no tilted page-on-a-desk entrance wash (the un-settled tilt + desk read as a beige-grey wash as the scene came in)
+  interview_qa: ["pinned"], // the reading spread sits dead still — no camera drift on the Q&A copy
   magazine_data_visualization: ["punch_in"],
   timeline_journey: ["book_open"], // the spread swings open horizontally, then the chronology draws across it
-  expert_spotlight: ["breathe"], // flat hold so the single page-turn exit reads clean (no 3D move fighting the turn)
   text_narration: ["gods_eye"], // single-page "Field Notes" index — overhead flat-lay drifting to a readable tilt suits a numbered notes page
   ending_socials: ["dolly_out"], // closing pull-back, distinct from the data punch-in
   magazine_ticker: ["punch_in"],
+  colorblock: ["breathe"], // the motion is the sequential block reveal — a calm settle keeps the 3D from competing with it
+  feature: ["orbit_sweep"], // establishing arc across the feature spread while the body inks in
+  comparison: ["book_open"], // a before/after spread that opens around the binding, then the two columns fade in
 };
 
 /** The default cinematic move for a scene, varied by its folio so repeats of a
@@ -899,7 +932,7 @@ export const KineticWords: React.FC<{
 
 /**
  * Typewriter reveal — short text types in character-by-character with an optional
- * blinking caret at the writing head (generalises the ExpertSpotlight bio reveal).
+ * blinking caret at the writing head.
  * For SHORT strings only (labels, attributions, pull-quotes): a per-frame slice
  * reflows, which is cheap on a short line but not on a justified paragraph — use
  * `WrittenText` for body copy. Render-safe in headless Chromium.
@@ -1580,17 +1613,6 @@ export const MagazineTableIntro: React.FC<{
                 <Barcode color={text} width={p ? 120 : 116} />
               </div>
 
-              {/* warm lamp pool on the cover — plain alpha gradient (no blend mode) */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background:
-                    "radial-gradient(ellipse 80% 70% at 54% 18%, rgba(255,244,224,0.14) 0%, rgba(255,244,224,0) 58%), linear-gradient(180deg, rgba(255,250,240,0.05) 0%, rgba(0,0,0,0) 30%, rgba(20,12,4,0.04) 100%)",
-                  pointerEvents: "none",
-                  zIndex: 6,
-                }}
-              />
 
               {/* dog-eared corners — flap carries the cover's ghost print */}
               <PageCurl corner="bl" size={curl} textureSrc="magazine-blur-bg.svg" />
@@ -1847,18 +1869,6 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
           {children}
         </div>
 
-        {/* Warm light pooling on the page from the lamp above. Plain alpha
-            gradient (mixBlendMode:soft-light removed — offscreen compositing). */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse 80% 70% at 54% 18%, rgba(255,244,224,0.14) 0%, rgba(255,244,224,0) 58%), linear-gradient(180deg, rgba(255,250,240,0.05) 0%, rgba(0,0,0,0) 30%, rgba(20,12,4,0.04) 100%)",
-            pointerEvents: "none",
-            zIndex: 6,
-          }}
-        />
 
         {/* Dog-eared corners — flap carries the page's print texture as show-through
             (unless this layout hides the texture for a clean sheet). */}

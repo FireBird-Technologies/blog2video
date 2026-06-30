@@ -292,17 +292,17 @@ const STICKMAN_2_LAYOUTS = new Set([
 
 const MAGAZINE_LAYOUTS = new Set([
   "magazine_cover",
-  "feature_spread",
   "editorial_quote",
   "by_the_numbers",
   "interview_qa",
-  "comparison_spread",
   "magazine_data_visualization",
   "timeline_journey",
-  "expert_spotlight",
   "text_narration",
   "ending_socials",
   "magazine_ticker",
+  "colorblock",
+  "feature",
+  "comparison",
 ]);
 
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
@@ -491,7 +491,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   magazine: {
     component: MagazineVideoComposition as React.ComponentType<any>,
     heroLayout: "magazine_cover",
-    fallbackLayout: "feature_spread",
+    fallbackLayout: "text_narration",
     validLayouts: MAGAZINE_LAYOUTS,
     defaultColors: {
       accent: "#E63946",

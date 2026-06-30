@@ -35,12 +35,13 @@ const toPoints = (raw: unknown, fallbackText: string): string[] => {
  * marker, each headed by a tracked label and a bulleted list of short points.
  * Left header in accent, right in ink.
  */
-export const ComparisonSpread: React.FC<SceneLayoutProps> = (props) => {
+export const Comparison: React.FC<SceneLayoutProps> = (props) => {
   const { title, narration, titleFontSize, descriptionFontSize } = props;
-  const leftHeader = (props.leftHeader as string) ?? "Before";
-  const rightHeader = (props.rightHeader as string) ?? "After";
-  const leftPoints = toPoints(props.leftPoints, (props.leftContent as string) ?? narration ?? "");
-  const rightPoints = toPoints(props.rightPoints, (props.rightContent as string) ?? "");
+  const leftHeader = props.leftHeader ?? "Before";
+  const rightHeader = props.rightHeader ?? "After";
+  const leftPoints = toPoints(props.leftPoints, props.leftContent ?? narration ?? "");
+  const rightPoints = toPoints(props.rightPoints, props.rightContent ?? "");
+  const vsLabel = (props.vsLabel ?? "VS").trim() || "VS";
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
   const { bg, text, accent } = colors;
@@ -147,7 +148,7 @@ export const ComparisonSpread: React.FC<SceneLayoutProps> = (props) => {
               boxShadow: `0 0 0 8px ${bg}`,
             }}
           >
-            VS
+            {vsLabel}
           </div>
 
           {Column(rightHeader, rightPoints, rightO, text, 24)}

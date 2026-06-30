@@ -15,6 +15,7 @@ import {
   useReveal,
   hexToRgba,
   useMagFrame,
+  useMagDims,
 } from "../magazineStyle";
 
 const CLAMP = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -46,7 +47,8 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   const text = resolved.bg;
   const accent = resolved.accent;
   const frame = useMagFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps } = useVideoConfig();
+  const { width, height } = useMagDims();
 
   const establishing = props.establishingShot ?? props.pageNumber === "01";
 

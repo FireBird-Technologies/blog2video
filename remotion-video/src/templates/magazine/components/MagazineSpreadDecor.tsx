@@ -1,5 +1,6 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useMagDims } from "../magazineStyle";
 
 interface MagazineSpreadDecorProps {
   variant: "spread" | "editorial";
@@ -11,7 +12,8 @@ export const MagazineSpreadDecor: React.FC<MagazineSpreadDecorProps> = ({
   accentColor = "#E63946",
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps } = useVideoConfig();
+  const { width, height } = useMagDims();
 
   const fadeIn = interpolate(frame, [0, Math.round(fps * 0.5)], [0, 1], {
     extrapolateLeft: "clamp",

@@ -300,17 +300,15 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
   },
   magazine: {
     magazine_cover: { title: [68, 88] },
-    feature_spread: { title: [48, 64], desc: [20, 26] },
     editorial_quote: { title: [56, 72], desc: [18, 24] },
     by_the_numbers: { title: [56, 72], desc: [20, 26] },
     interview_qa: { title: [40, 52], desc: [16, 20] },
-    comparison_spread: { title: [44, 58], desc: [18, 24] },
     magazine_data_visualization: { title: [56, 52], desc: [28, 26] },
     timeline_journey: { title: [40, 52], desc: [16, 20] },
-    expert_spotlight: { title: [48, 64], desc: [20, 26] },
     text_narration: { title: [34, 44], desc: [20, 23] },
     ending_socials: { title: [88, 72], desc: [35, 27] },
     magazine_ticker: { title: [52, 42], desc: [28, 22] },
+    comparison: { title: [92, 93], desc: [52, 30] },
   },
   custom: {
     // Custom template arrangements (font sizes are approximate)
@@ -1873,12 +1871,6 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
   },
   magazine: {
     magazine_cover: [],
-    feature_spread: [
-      { key: "sectionLabel", label: "Section label", type: "string", placeholder: "BRIEFING" },
-      { key: "standfirst", label: "Standfirst (italic deck)", type: "string", placeholder: "Cut too soon and inflation returns; wait too long and growth buckles." },
-      { key: "body", label: "Body copy (article text)", type: "text", placeholder: "The full article body that flows across both pages. Leave blank to use the scene narration." },
-      { key: "keyPoints", label: "Key points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Hiring has cooled sharply" }], maxItems: 3 },
-    ],
     editorial_quote: [
       { key: "attribution", label: "Attribution", type: "string", placeholder: "— Mara Voss, Editor" },
     ],
@@ -1892,24 +1884,20 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "leftQuote", label: "Left speaker's statement (legacy)", type: "text", placeholder: "Legacy — use Q&A exchanges instead." },
       { key: "rightQuote", label: "Right speaker's response (legacy)", type: "text", placeholder: "Legacy — use Q&A exchanges instead." },
     ],
-    comparison_spread: [
-      { key: "leftHeader", label: "Left column header", type: "string", placeholder: "BEFORE" },
-      { key: "rightHeader", label: "Right column header", type: "string", placeholder: "AFTER" },
-      { key: "leftPoints", label: "Left column points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Columns ran too wide to read" }], maxItems: 5 },
-      { key: "rightPoints", label: "Right column points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "A stricter grid holds a readable measure" }], maxItems: 5 },
-    ],
     magazine_data_visualization: [
       { key: "chartTable", label: "Chart data", type: "chart_table" },
       { key: "chartType", label: "Chart type", type: "select", default: "auto", options: [{ value: "auto", label: "Auto" }, { value: "line", label: "Line" }, { value: "bar", label: "Bar" }, { value: "histogram", label: "Histogram" }] },
       { key: "chartSummary", label: "Insight summary", type: "string", placeholder: "Readership climbed steadily before levelling off near the high." },
     ],
     timeline_journey: [
-      { key: "milestones", label: "Milestones", type: "object_array", subFields: [{ key: "date", label: "Date", placeholder: "2021" }, { key: "label", label: "Event", placeholder: "The full redesign" }], maxItems: 6 },
+      { key: "milestones", label: "Milestones", type: "object_array", subFields: [{ key: "date", label: "Date", placeholder: "2021" }, { key: "label", label: "Event", placeholder: "The full redesign" }, { key: "desc", label: "Detail", placeholder: "What happened, in a few words" }], maxItems: 6 },
     ],
-    expert_spotlight: [
-      { key: "expertName", label: "Expert name", type: "string", placeholder: "Mara Voss" },
-      { key: "expertRole", label: "Role / organisation", type: "string", placeholder: "Art Director, Atlas Review" },
-      { key: "credential", label: "Credential badge", type: "string", placeholder: "Editor since 2014" },
+    comparison: [
+      { key: "leftHeader", label: "Left header", type: "string", placeholder: "Before" },
+      { key: "rightHeader", label: "Right header", type: "string", placeholder: "After" },
+      { key: "leftPoints", label: "Left points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Columns ran too wide to read" }], maxItems: 6 },
+      { key: "rightPoints", label: "Right points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Type is set with generous air" }], maxItems: 6 },
+      { key: "vsLabel", label: "Centre badge", type: "string", placeholder: "VS" },
     ],
     closing_page: [],
     ending_socials: [],
@@ -2839,14 +2827,6 @@ export default function SceneEditModal({
         | undefined,
       project.aspect_ratio || "landscape",
     );
-    // feature_spread renders its body copy from `body` (falling back to the scene
-    // narration). Seed the editable `body` field from the current on-screen text
-    // so the modal shows the actual copy — otherwise the field looks empty even
-    // though narration text is clearly on the page, and edits appear to do nothing.
-    if (layoutId === "feature_spread" && !(lpCopy as Record<string, unknown>).body) {
-      const seededBody = (scene.display_text ?? scene.narration_text ?? "").trim();
-      if (seededBody) (lpCopy as Record<string, unknown>).body = seededBody;
-    }
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
       const projectUrl = (project.blog_url || "").trim();
