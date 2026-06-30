@@ -1,3 +1,16 @@
 export { default as NightfallPreviewPortrait } from "./NightfallPreviewPortrait";
 export { default as SpotlightPreviewPortrait } from "./SpotlightPreviewPortrait";
 export { default as GridcraftPreviewPortrait } from "./GridcraftPreviewPortrait";
+export { default as NewscastPreviewPortrait } from "./NewscastPreviewPortrait";
+export { default as WhiteboardPreviewPortrait } from "./WhiteboardPreviewPortrait";
+export { default as BloombergPreviewPortrait } from "./BloombergPreviewPortrait";
+export { default as DefaultPreviewPortrait } from "./DefaultPreviewPortrait";
+export { default as MatrixPreviewPortrait } from "./MatrixPreviewPortrait";
+export { default as NewsPaperPreviewPortrait } from "./NewsPaperPreviewPortrait";
+export { default as BlackswanPreviewPortrait } from "./BlackswanPreviewPortrait";
+export { default as MosaicPreviewPortrait } from "./MosaicPreviewPortrait";
+export { default as ChroniclePreviewPortrait } from "./ChroniclePreviewPortrait";
+export { default as EconomistPreviewPortrait } from "./EconomistPreviewPortrait";
+export { default as Stickman2PreviewPortrait } from "./Stickman2PreviewPortrait";
+export { default as StickmanFootballPreviewPortrait } from "./StickmanFootballPreviewPortrait";
+export { default as YourOwnBrandPreviewPortrait } from "./YourOwnBrandPreviewPortrait";

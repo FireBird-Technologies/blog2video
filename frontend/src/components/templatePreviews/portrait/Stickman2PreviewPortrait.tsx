@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
-import { getTemplateConfig } from "../remotion/templateConfig";
+import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -72,21 +72,17 @@ const STICKMAN2_PREVIEW_SCENES: DemoScene[] = [
   },
 ];
 
-export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
+export default function Stickman2PreviewPortrait({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const playerRef = useRef<PlayerRef>(null);
   const fps = 30;
   const config = getTemplateConfig("stickman_2");
   const Composition = config.component as React.ComponentType<any>;
 
-  // Monochrome preview: white chalk strokes/text on a black night sky.
   const accentColor = "#FFFFFF";
   const bgColor = "#000000";
   const textColor = "#FFFFFF";
 
-  // Play the WHOLE timeline continuously (scene 1 → 2 → … → loop), exactly like the
-  // real video, instead of mounting one isolated scene per Player window. The dots
-  // just seek to a scene's start; auto-advance is driven by playback, not a timer.
   const sceneFrames = useMemo(
     () =>
       STICKMAN2_PREVIEW_SCENES.map((s) =>
@@ -119,7 +115,7 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
       logoPosition: "bottom_right",
       logoOpacity: 0,
       logoSize: 0,
-      aspectRatio: "landscape",
+      aspectRatio: "portrait",
     }),
     [accentColor, bgColor, textColor],
   );
@@ -142,9 +138,6 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
     return () => p.removeEventListener("frameupdate", onFrame);
   }, [thumbnailMode, thumbnailFrame]);
 
-  // When the card reaches center, restart the timeline from the top so the
-  // animation plays fresh — and stop it (the thumbnail effect above pauses it)
-  // the moment it moves away.
   useEffect(() => {
     if (thumbnailMode) return;
     const p = playerRef.current;
@@ -154,7 +147,6 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
     p.play();
   }, [thumbnailMode]);
 
-  // Keep the active-dot highlight in sync with which scene is currently playing.
   useEffect(() => {
     if (thumbnailMode) return;
     const pl = playerRef.current;
@@ -174,7 +166,6 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
     return () => pl.removeEventListener("frameupdate", onFrame);
   }, [thumbnailMode, sceneStartFrames]);
 
-  // Clicking a dot seeks the continuous timeline to that scene's start.
   const seekToScene = (index: number) => {
     setActiveSceneIndex(index);
     const pl = playerRef.current;
@@ -186,24 +177,24 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
 
   return (
     <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "9/16", background: bgColor }}>
         <Player
           ref={playerRef}
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
-          initialFrame={thumbnailMode ? thumbnailFrame : 0}
-          compositionWidth={1920}
-          compositionHeight={1080}
+          initialFrame={0}
+          compositionWidth={1080}
+          compositionHeight={1920}
           fps={fps}
           controls={false}
-          autoPlay={!thumbnailMode}
+          autoPlay
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
           style={{ width: "100%", height: "100%", display: "block" }}
         />
 
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
           {STICKMAN2_PREVIEW_SCENES.map((scene, index) => {
             const isActive = index === activeSceneIndex;
             return (

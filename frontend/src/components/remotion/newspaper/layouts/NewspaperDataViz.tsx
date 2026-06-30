@@ -82,10 +82,11 @@ export const NewspaperDataViz: React.FC<BlogLayoutProps> = ({
   const headFont = fontFamily || H_FONT;
   const bodyFont = fontFamily || B_FONT;
 
-  // Editorial series: ink, a muted red, a muted blue — restrained, print-like.
+  // Editorial series: ink, a muted red, a muted ochre — restrained, print-like.
+  // (No blue — the newspaper palette is yellow-accented only.)
   const INK = textColor;
   const SERIES_2 = "#B23B3B";
-  const SERIES_3 = "#2F5C8A";
+  const SERIES_3 = "#B8862B";
   const DEFAULT_BAR_COLORS = [INK, SERIES_2, SERIES_3] as const;
   const axisInk = textColor;
 

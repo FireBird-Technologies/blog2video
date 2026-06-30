@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
@@ -6,8 +6,13 @@ import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
-import CoverflowCarousel, { type CoverflowTemplate } from "../components/CoverflowCarousel";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS } from "../components/templatePreviewRegistry";
+import CoverflowCarousel, { type CoverflowTemplate, type CoverflowOrientation } from "../components/CoverflowCarousel";
+import OrientationToggle from "../components/OrientationToggle";
+import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS } from "../components/templatePreviewRegistry";
+import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
+import YourOwnBrandPreviewPortrait from "../components/templatePreviews/portrait/YourOwnBrandPreviewPortrait";
+import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
+import ContactModal from "../components/ContactModal";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
@@ -88,13 +93,11 @@ const CAROUSEL_TEMPLATES: CoverflowTemplate[] = Object.entries(TEMPLATE_PREVIEWS
   ([id, Preview]) => ({
     id,
     Preview,
+    PreviewPortrait: TEMPLATE_PREVIEWS_PORTRAIT[id],
     name: TEMPLATE_DESCRIPTIONS[id]?.title ?? id,
     subtitle: TEMPLATE_DESCRIPTIONS[id]?.subtitle ?? "",
   })
 );
-
-// Start the coverflow centered on Newspaper (fall back to first if not found).
-const CAROUSEL_INITIAL_INDEX = Math.max(0, CAROUSEL_TEMPLATES.findIndex((t) => t.id === "newspaper"));
 
 const NAV_LINKS = [
   { href: "#demo", label: "Demo" },
@@ -467,7 +470,39 @@ export default function Landing() {
   const [reactivating, setReactivating] = useState(false);
   const [heroUrl, setHeroUrl] = useState("");
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
+  const [designerOpen, setDesignerOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [templatesOrientation, setTemplatesOrientation] = useState<CoverflowOrientation>("landscape");
   const scrollRef = useScrollReveal();
+
+  // "Your Own Brand" CTA card: logged-in users get the in-app designer request
+  // modal; logged-out visitors get the contact form modal.
+  const handleBrandClick = () => {
+    if (user) setDesignerOpen(true);
+    else setContactOpen(true);
+  };
+
+  // Insert the "Your Own Brand" CTA right after Whiteboard (before Newspaper),
+  // and recompute the initial index against the augmented list so Whiteboard
+  // stays centered with the brand card one step to its right.
+  const carouselTemplates = useMemo<CoverflowTemplate[]>(() => {
+    const list = [...CAROUSEL_TEMPLATES];
+    const wbIdx = list.findIndex((t) => t.id === "whiteboard");
+    const insertAt = wbIdx >= 0 ? wbIdx + 1 : 1;
+    list.splice(insertAt, 0, {
+      id: "your-own-brand",
+      name: "Your Own Brand",
+      subtitle: "Get a custom template tailored to your brand",
+      Preview: YourOwnBrandPreview,
+      PreviewPortrait: YourOwnBrandPreviewPortrait,
+      onSelect: handleBrandClick,
+    });
+    return list;
+  }, [user]);
+  const carouselInitialIndex = Math.max(
+    0,
+    carouselTemplates.findIndex((t) => t.id === "whiteboard")
+  );
 
   const HERO_PLACEHOLDERS = [
     "https://yourbloglink.com/convert-to-video",
@@ -809,20 +844,14 @@ export default function Landing() {
         </div>
       </section>
 
-      <PlatformShowcaseSection />
+      {/* Platform + Reviews share one grey band (Reviews flows out of Platform) */}
+      <div style={{ background: "rgba(246,247,249,0.70)" }}>
+        <PlatformShowcaseSection />
 
-      <UserReviewsSection />
+        <UserReviewsSection />
+      </div>
 
-      <LandingDemoSection demos={demos} />
-
-      {/* ─── Multiple templates ─── */}
-      <section className="py-20 border-t border-gray-100">
-        <div className="max-w-5xl mx-auto px-6">
-          <FullTemplateShowcase />
-        </div>
-      </section>
-
-      {/* ─── Coverflow template carousel ─── */}
+       {/* ─── Coverflow template carousel ─── */}
       <section id="templates" className="py-20 border-t border-gray-100 overflow-x-clip">
         <div className="max-w-6xl mx-auto px-6">
           <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -832,11 +861,25 @@ export default function Landing() {
             Pick your video's look
           </h2>
           <p className="text-sm text-gray-500 text-center max-w-lg mx-auto mb-12 leading-relaxed">
-            From broadcast newscasts to hand-drawn whiteboards, every built-in template comes fully animated with its own layouts, motion, and color theme.
+            From broadcast newscasts to hand-drawn whiteboards, every template comes fully animated with its own layouts, motion, and color theme.
           </p>
-          <CoverflowCarousel templates={CAROUSEL_TEMPLATES} initialIndex={CAROUSEL_INITIAL_INDEX} />
+          <OrientationToggle orientation={templatesOrientation} onChange={setTemplatesOrientation} className="mb-8" />
+          {/* key forces a clean remount on orientation change — resets every
+              preview at once instead of swapping in place (which flickered). */}
+          <CoverflowCarousel key={templatesOrientation} templates={carouselTemplates} initialIndex={carouselInitialIndex} orientation={templatesOrientation} />
         </div>
       </section>
+
+
+      <LandingDemoSection demos={demos} />
+
+      {/* ─── Multiple templates ───
+      <section className="py-20 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <FullTemplateShowcase />
+        </div>
+      </section> */}
+
 
       {/* ─── Connect to AI (MCP) ─── */}
       <section className="py-14 border-t border-gray-100">
@@ -846,7 +889,7 @@ export default function Landing() {
       </section>
 
       {/* ─── Custom template showcase ─── */}
-      <section className="py-20 border-t border-gray-100">
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
           <CustomTemplateShowcase />
         </div>
@@ -1255,6 +1298,16 @@ export default function Landing() {
         onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
         onReactivate={handleReactivate}
         reactivating={reactivating}
+      />
+
+      <DesignerTemplateRequestModal open={designerOpen} onClose={() => setDesignerOpen(false)} />
+      <ContactModal
+        open={contactOpen}
+        onClose={() => setContactOpen(false)}
+        title="Request a Designer Template"
+        description="Tell us about your brand and the template you'd like. Our design team will create a custom Designer Template and follow up by email."
+        messagePlaceholder="Describe your ideal template, your brand, and any reference links."
+        isDesignerRequest
       />
     </div>
   );
