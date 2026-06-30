@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import StockVisualizer from "./StockVisualizer";
 import { Link } from "react-router-dom";
 import type { DirectoryPricingModel } from "../../content/seoTypes";
 import {
@@ -1271,6 +1272,8 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <QuoteCardGenerator />;
     case "substack-directory":
       return <SubstackDirectoryExplorer />;
+    case "stock-visualizer":
+      return <StockVisualizer />;
     default:
       return null;
   }

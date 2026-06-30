@@ -40,7 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -572,6 +572,7 @@ app.include_router(background_music.router)
 app.include_router(embed.router)
 app.include_router(unsubscribe.router)
 app.include_router(affiliate.router)
+app.include_router(stock_data.router)
 app.include_router(support.router)
 # Hosted MCP server: OAuth 2.1 + SSE transport
 app.include_router(mcp_oauth.router)

@@ -67,6 +67,9 @@ resend==2.29.0
 rank-bm25>=0.2.2
 PyYAML>=6.0
 
+# Stock data (for /api/stock-data tool)
+yfinance>=0.2.54
+
 # ─── Test & lint tooling (Tier A QA suite) ───────────────────────────────
 # Pinned to exact versions so local + CI runs are reproducible.
 pytest==9.0.2
