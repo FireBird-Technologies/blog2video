@@ -34,13 +34,17 @@ export default defineConfig({
         find: "recharts",
         replacement: path.resolve(__dirname, "node_modules/recharts"),
       },
-      // @remotion/transitions: alias ONLY the bare package root to frontend's
-      // node_modules so remotion-video source files can find it. Subpaths
-      // (/fade, /slide, /iris, /clock-wipe, …) are intentionally NOT rewritten
-      // to a filesystem path — doing so bypasses the package `exports` map, and
-      // some presentations (e.g. `iris`) have no root-level file and live only
-      // behind that map (dist/esm/iris.mjs). Letting Vite resolve the subpath
-      // via exports keeps every presentation working.
+      // @remotion/transitions: remotion-video source is pulled in via the
+      // @remotion-video/templates alias. Rollup cannot resolve package subpaths
+      // (fade, slide, iris, …) from that sibling directory via the exports map
+      // alone during production builds, so map each subpath to dist/esm/*.mjs.
+      {
+        find: /^@remotion\/transitions\/(.+)$/,
+        replacement: path.resolve(
+          __dirname,
+          "node_modules/@remotion/transitions/dist/esm/$1.mjs",
+        ),
+      },
       {
         find: /^@remotion\/transitions$/,
         replacement: path.resolve(__dirname, "node_modules/@remotion/transitions"),
