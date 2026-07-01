@@ -22,6 +22,7 @@ import * as RemotionTransitions from "@remotion/transitions";
 import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { CaptionTrack } from "../components/remotion/CaptionTrack";
+import { BackgroundMusic } from "../components/remotion/BackgroundMusic";
 import * as Kit from "../components/remotion/generated/kit";
 
 // Craft-kit exports injected into JIT-compiled AI scene code, mirroring the
@@ -556,6 +557,16 @@ export async function compileModuleGraphEntry(
           __esModule: true,
           default: CaptionTrack,
           CaptionTrack,
+        };
+      }
+      // Background music: crafted compositions import "../BackgroundMusic", another
+      // shared component not shipped inside the bundle. Provide the real one so BGM
+      // plays in the editor preview, matching the final render.
+      if (spec.toLowerCase().includes("backgroundmusic")) {
+        return {
+          __esModule: true,
+          default: BackgroundMusic,
+          BackgroundMusic,
         };
       }
       if (spec === "react/jsx-runtime" || spec === "react/jsx-dev-runtime") {

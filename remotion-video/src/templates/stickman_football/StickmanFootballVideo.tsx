@@ -10,6 +10,7 @@ import { STICKMAN_FOOTBALL_LAYOUT_REGISTRY as LAYOUT_REGISTRY, StickmanFootballL
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { CaptionTrack } from "../../components/CaptionTrack";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 interface SceneData {
@@ -47,6 +48,8 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
+  bgmFile?: string | null;
+  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -188,6 +191,10 @@ export const StickmanFootballVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
+      )}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
       )}
     </AbsoluteFill>
   );

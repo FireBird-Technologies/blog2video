@@ -129,18 +129,8 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
     if (!thumbnailMode) return;
     const p = playerRef.current;
     if (!p) return;
-    let settled = false;
-    const onFrame = () => {
-      if (settled) return;
-      const current = p.getCurrentFrame();
-      if (current >= thumbnailFrame) {
-        settled = true;
-        p.pause();
-        p.seekTo(thumbnailFrame);
-      }
-    };
-    p.addEventListener("frameupdate", onFrame);
-    return () => p.removeEventListener("frameupdate", onFrame);
+    p.pause();
+    p.seekTo(thumbnailFrame);
   }, [thumbnailMode, thumbnailFrame, activeSceneIndex]);
 
   // When the card reaches center, restart from the first scene/frame so the
