@@ -14,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import type { SceneLayoutProps } from "../types";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import {
   MagazinePage,
   Kicker,
@@ -47,7 +48,6 @@ import {
   easeInOutCubic,
   clampProgressAt,
 } from "../../_shared/chartData";
-import { MeasuredChart } from "../../_shared/MeasuredChart";
 
 /**
  * MagazineDataChart — data-visualization scene (line / bar / histogram) driven by

@@ -706,6 +706,13 @@ export const useMagazineCamera = (
   };
 };
 
+// Per-layout signature camera moves. The composition picks one (varied by the
+// folio) as a scene's default; an explicit scene `cameraMove` overrides it.
+// Every layout maps to a DISTINCT camera move (no repeats across the deck) so each
+// scene reads as its own shot. Heavy self-animating pages stay calm/cheap (stats =
+// static; data/colorblock/ticker = dolly/translate/settle, no big 3D swings); only
+// the lightChrome feature page carries a continuous moving push. See the new
+// read_lift/settle_read "pick-up & read" moves above.
 // Each layout flies in from a DISTINCT bold camera (no repeats) and resolves into
 // focus. All pages run lightChrome so the moving cam stays paint-light (no jitter).
 const CAMERA_SIGNATURES: Record<MagazineLayoutType, MagazineCameraMove[]> = {
@@ -730,7 +737,7 @@ export const signatureMoveFor = (layout: MagazineLayoutType, seed: number): Maga
   return pool[Math.abs(Math.floor(seed)) % pool.length];
 };
 
-
+// ── Per-layout page-mechanics EXIT signatures ────────────────────────────────
 /**
  * The physical thickness of the open magazine — a stack of page-edge layers
  * sitting just behind the top sheet (each offset down-right and pushed back in Z)
@@ -1233,11 +1240,20 @@ export const Typewriter: React.FC<{
  * safe inside justified columns and `::first-letter` drop caps (transforms /
  * inline-block would break justification), and cheap to paint. Renders inline word
  * spans (no wrapper) so callers keep their own paragraph font / justify styling.
+ *
+ * The reveal is auto-paced to ALWAYS finish before the scene ends: a long body in
+ * a short scene used to ink at a fixed speed and simply run out of time, leaving
+ * the tail of the paragraph stuck at opacity 0 — which read as the copy being
+ * "cut off". We now derive the words-per-frame from the scene's own frame budget
+ * (`durationInFrames`, in mag-frames) so every word — including its fade — is fully
+ * lit with a small tail margin to spare. `wordsPerFrame` is treated as a *ceiling*
+ * (a calm default speed); we only ever speed the reveal up to make the deadline,
+ * never slow it past the default.
  */
 export const WrittenText: React.FC<{
   text: string;
   start?: number;
-  /** Words revealed per frame (0.5 ≈ a word every 2 frames). */
+  /** Words revealed per frame (0.5 ≈ a word every 2 frames). Acts as the slowest speed. */
   wordsPerFrame?: number;
   /** Per-word fade length in frames. */
   dur?: number;
@@ -1250,13 +1266,22 @@ export const WrittenText: React.FC<{
   groupSize?: number;
 }> = ({ text, start = 8, wordsPerFrame = 0.5, dur = 8, groupSize = 1 }) => {
   const frame = useMagFrame();
+  const { durationInFrames } = useVideoConfig();
   const words = (text ?? "").split(" ");
+  const tailFrames = 18;
+  const budget = Math.max(1, durationInFrames / MAG_TEMPO - start - dur - tailFrames);
+  const pace = Math.max(wordsPerFrame, (words.length - 1) / budget || wordsPerFrame);
+
   const gs = Math.max(1, groupSize);
+  // Build chunks: each chunk is gs consecutive words joined with spaces.
+  // The chunk's reveal time is keyed to its first word's start frame so the
+  // overall pacing matches the single-word mode (same total duration).
   const chunks: { text: string; s: number }[] = [];
   for (let i = 0; i < words.length; i += gs) {
     const slice = words.slice(i, i + gs);
-    chunks.push({ text: slice.join(" "), s: start + i / wordsPerFrame });
+    chunks.push({ text: slice.join(" "), s: start + i / pace });
   }
+
   return (
     <>
       {chunks.map((c, ci) => {
@@ -1854,7 +1879,6 @@ export const MagazineTableIntro: React.FC<{
               <div style={{ position: "absolute", right: p ? "8%" : "6%", bottom: p ? "8%" : "9%", opacity: lineReveal, zIndex: 10 }}>
                 <Barcode color={text} width={p ? 120 : 116} />
               </div>
-
 
               {/* dog-eared corners — flap carries the cover's ghost print */}
               <PageCurl corner="bl" size={curl} textureSrc="magazine-spread-bg.svg" />
