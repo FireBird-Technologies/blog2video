@@ -4,10 +4,11 @@ import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// ─── Enlarged Logical Dimensions (9:16)
-// Lower values here make the content (text/images) appear larger in the box
-const INTERNAL_W = 240;
-const INTERNAL_H = 426;
+// ─── Logical dimensions (exact 9:16, matching the 1080×1920 composition).
+// A non-9:16 box (e.g. 240×426) makes Remotion letterbox the composition and
+// pushes the content down inside the card; keep this an exact 9:16 ratio.
+const INTERNAL_W = 270;
+const INTERNAL_H = 480;
 
 function ScaledCanvas({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -21,7 +22,8 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
       // transforms — the coverflow scales/rotates side cards, and
       // getBoundingClientRect() would return the foreshortened width and lock a
       // too-small internal scale (the card renders nearly empty).
-      setScale(el.offsetWidth / INTERNAL_W);
+      const s = el.offsetWidth / INTERNAL_W;
+      if (s > 0) setScale(s);
     };
     update();
     const obs = new ResizeObserver(update);
@@ -30,24 +32,22 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div 
-      ref={ref} 
-      style={{ 
-        width: "100%", 
-        maxWidth: "400px", // Simple rectangle width
-        margin: "0 auto",
-        aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, 
-        overflow: "hidden", 
+    <div
+      ref={ref}
+      style={{
+        width: "100%",
+        aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`,
+        overflow: "hidden",
         position: "relative",
         backgroundColor: "#000",
       }}
     >
-      <div style={{ 
-        width: INTERNAL_W, 
-        height: INTERNAL_H, 
-        transform: `scale(${scale})`, 
-        transformOrigin: "top left", 
-        position: "absolute" 
+      <div style={{
+        width: INTERNAL_W,
+        height: INTERNAL_H,
+        transform: `scale(${scale})`,
+        transformOrigin: "top left",
+        position: "absolute",
       }}>
         {children}
       </div>
