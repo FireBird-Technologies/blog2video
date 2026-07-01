@@ -69,7 +69,7 @@ import UpgradePlanModal from "../components/UpgradePlanModal";
 import OutOfVideosOfferModal from "../components/OutOfVideosOfferModal";
 import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
 import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
-import VideoPreview from "../components/VideoPreview";
+import VideoPreview, { type CaptionSettings } from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import RegenerateScriptModal from "../components/RegenerateScriptModal";
 import VerifyScriptModal from "../components/VerifyScriptModal";
@@ -634,6 +634,13 @@ export default function ProjectView() {
   const [showFontDropdown, setShowFontDropdown] = useState(false);
   const [playbackSpeedDraft, setPlaybackSpeedDraft] = useState<number>(1);
   const [savingPlaybackSpeed, setSavingPlaybackSpeed] = useState(false);
+  // Captions
+  const [captionsEnabledDraft, setCaptionsEnabledDraft] = useState(false);
+  const [captionFontFamilyDraft, setCaptionFontFamilyDraft] = useState<string>("inter");
+  const [captionSettingsKey, setCaptionSettingsKey] = useState(0);
+  const [captionFontSizeDraft, setCaptionFontSizeDraft] = useState<number>(36);
+  const [captionOffsetDraft, setCaptionOffsetDraft] = useState<number>(0);
+  const [savingCaptions, setSavingCaptions] = useState(false);
   // Background music
   const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
   const [bgmTrackDraft, setBgmTrackDraft] = useState<string | null>(null);
@@ -711,6 +718,10 @@ export default function ProjectView() {
       setPlaybackSpeedDraft(Math.min(2.5, Math.max(0.5, Number.isFinite(current) ? current : 1)));
       setBgmTrackDraft(project.bgm_track_id ?? null);
       setBgmVolumeDraft(project.bgm_volume ?? 0.10);
+      setCaptionsEnabledDraft(project.captions_enabled ?? false);
+      setCaptionFontFamilyDraft(project.caption_font_family ?? "inter");
+      setCaptionFontSizeDraft(project.caption_font_size ? Number(project.caption_font_size) || 36 : 36);
+      setCaptionOffsetDraft(typeof project.caption_offset === "number" ? project.caption_offset : 0);
       // Seed global typography sliders from the first scene that has stored values.
       // This avoids the slider defaulting to 60 when e.g. mosaic_metric scenes have 131.
       if (project.scenes && project.scenes.length > 0) {
@@ -731,7 +742,13 @@ export default function ProjectView() {
       }
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
-      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family, project?.playback_speed]);
+      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family, project?.playback_speed,
+      // Re-seed caption drafts whenever the project refreshes after a voice add/delete
+      // (the backend toggles captions_enabled with voiceover presence). Without these
+      // deps the draft goes stale and the toggle shows the wrong state until a hard refresh.
+      project?.captions_enabled,
+      project?.caption_font_family, project?.caption_font_size, project?.caption_offset,
+      project?.scenes?.some((s) => !!s.voiceover_path)]);
 
   useEffect(() => {
     if (project) {
@@ -1307,6 +1324,33 @@ export default function ProjectView() {
       } finally {
         setSavingPlaybackSpeed(false);
         savingPlaybackSpeedRef.current = false;
+      }
+    },
+    [project, loadProject, showError],
+  );
+
+  const handleCaptionSettingsChange = useCallback(
+    async (settings: CaptionSettings) => {
+      if (!project) return;
+      setSavingCaptions(true);
+      try {
+        await updateProject(project.id, {
+          captions_enabled: settings.captionsEnabled,
+          caption_font_family: settings.captionFontFamily,
+          caption_font_size: settings.captionFontSize,
+          caption_offset: settings.captionOffset,
+        });
+        // Sync draft state so the settings panel reflects changes made via the player button.
+        setCaptionsEnabledDraft(settings.captionsEnabled);
+        setCaptionFontFamilyDraft(settings.captionFontFamily);
+        setCaptionFontSizeDraft(settings.captionFontSize);
+        setCaptionOffsetDraft(settings.captionOffset);
+        setCaptionSettingsKey((k) => k + 1);
+        await loadProject();
+      } catch (err) {
+        showError(getErrorMessage(err, "Failed to save caption settings."));
+      } finally {
+        setSavingCaptions(false);
       }
     },
     [project, loadProject, showError],
@@ -3329,8 +3373,8 @@ export default function ProjectView() {
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <h2 className="text-sm font-medium text-gray-900 truncate">
+              <div className="flex items-center gap-3 min-w-0" style={{ maxWidth: "55%" }}>
+                <h2 className="text-sm font-medium text-gray-900 truncate min-w-0">
                   {project.name}
                 </h2>
                 <StatusBadge status={statusForBadge} />
@@ -3599,6 +3643,9 @@ export default function ProjectView() {
                         logoPositionOverride={logoPosition}
                         onPlaybackSpeedChange={handlePreviewPlaybackSpeedChange}
                         playbackSpeedSaving={savingPlaybackSpeed}
+                        onCaptionSettingsChange={handleCaptionSettingsChange}
+                        captionsSaving={savingCaptions}
+                        captionSettingsKey={captionSettingsKey}
                       />
                     </div>
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
@@ -5838,195 +5885,232 @@ export default function ProjectView() {
                 onOperationStarted={(op) => setVoiceOpKickstart(op)}
               />
 
-              {/* 3. Music */}
-              {isPro && (
+              {/* 3. Playback Speed */}
               <div>
-                <h2 className="text-base font-medium text-gray-900 mb-1">Music</h2>
-                <p className="text-xs text-gray-400 mb-3">Ambient music behind voiceover narration.</p>
-                <div className="glass-card p-4 flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <BgmTrackDropdown
-                      tracks={bgmTracks}
-                      value={bgmTrackDraft}
-                      onChange={setBgmTrackDraft}
-                      className="flex-1 min-w-0"
-                    />
-                    {bgmTrackDraft && (() => {
-                      const track = bgmTracks.find((t) => t.track_id === bgmTrackDraft);
-                      if (!track) return null;
-                      const isPlaying = bgmPlayingId === track.track_id;
+                <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
+                <p className="text-xs text-gray-400 mb-5">
+                  Applies to preview and final rendered video (including voiceover).
+                </p>
+                <div className="glass-card p-6 flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {PLAYBACK_SPEED_OPTIONS.map((speed) => {
+                      const active = playbackSpeedDraft === speed;
                       return (
                         <button
+                          key={speed}
                           type="button"
-                          onClick={() => {
-                            if (isPlaying) {
-                              bgmAudioRef.current?.pause();
-                              setBgmPlayingId(null);
-                            } else {
-                              bgmAudioRef.current?.pause();
-                              const audio = new Audio(track.r2_url);
-                              audio.volume = Math.max(0, Math.min(1, bgmVolumeDraft));
-                              audio.onended = () => setBgmPlayingId(null);
-                              audio.play().catch(() => {});
-                              bgmAudioRef.current = audio;
-                              setBgmPlayingId(track.track_id);
-                            }
-                          }}
-                          className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-purple-600 hover:text-purple-700 border border-purple-200 rounded-lg bg-purple-50/50 hover:bg-purple-50 transition-colors"
+                          onClick={() => setPlaybackSpeedDraft(speed)}
+                          className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                            active
+                              ? "bg-purple-50 text-purple-700 border-purple-300"
+                              : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                          }`}
                         >
-                          {isPlaying ? (
-                            <>
-                              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                                <rect x="6" y="4" width="4" height="16" rx="1" />
-                                <rect x="14" y="4" width="4" height="16" rx="1" />
-                              </svg>
-                              Pause
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                              Preview
-                            </>
-                          )}
+                          {speed}x
                         </button>
                       );
-                    })()}
+                    })}
                   </div>
-
                   <div>
-                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                      <span>Volume</span>
-                      <span className="text-gray-400 tabular-nums">{Math.round(bgmVolumeDraft * 100)}%</span>
+                    <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                      <span>Custom speed</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">
+                        {playbackSpeedDraft.toFixed(1)}x
+                      </span>
                     </label>
                     <input
                       type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={Math.round(bgmVolumeDraft * 100)}
-                      onChange={(e) => {
-                        const v = Number(e.target.value) / 100;
-                        setBgmVolumeDraft(v);
-                        if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
-                      }}
-                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
+                      min={0.5}
+                      max={2.5}
+                      step={0.1}
+                      value={playbackSpeedDraft}
+                      onChange={(e) => setPlaybackSpeedDraft(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
                     />
                   </div>
-
-                  {project.r2_video_url && (project.bgm_track_id !== bgmTrackDraft || project.bgm_volume !== bgmVolumeDraft) ? (
-                    <p className="text-[11px] text-amber-600 leading-snug">
-                      Save and re-render to update the MP4 after BGM changes.
-                    </p>
-                  ) : null}
-
-                  <div className="flex justify-end">
+                  <div className="flex justify-end mt-auto">
                     <button
                       type="button"
-                      disabled={savingBgm}
+                      disabled={savingPlaybackSpeed}
                       onClick={async () => {
-                        setSavingBgm(true);
+                        setSavingPlaybackSpeed(true);
                         try {
-                          await updateProject(project.id, {
-                            bgm_track_id: bgmTrackDraft,
-                            bgm_volume: Math.round(bgmVolumeDraft * 100) / 100,
-                          });
+                          const normalized = Math.min(2.5, Math.max(0.5, Math.round(playbackSpeedDraft * 10) / 10));
+                          await updateProject(project.id, { playback_speed: normalized });
                           await loadProject();
                         } catch (err) {
-                          showError(getErrorMessage(err, "Failed to save background music."));
+                          showError(getErrorMessage(err, "Failed to save playback speed."));
                         } finally {
-                          setSavingBgm(false);
+                          setSavingPlaybackSpeed(false);
                         }
                       }}
                       className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
                     >
-                      {savingBgm ? (
+                      {savingPlaybackSpeed ? (
                         <>
                           <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                           Saving…
                         </>
                       ) : (
-                        "Save music"
+                        "Save speed"
                       )}
                     </button>
                   </div>
                 </div>
               </div>
-              )}
 
-              {/* 4. Font sizes (with voiceover present) */}
+              {/* 3b. Captions */}
+              {(() => {
+              const hasVoiceover = (project.scenes || []).some((s) => !!s.voiceover_path);
+              return (
               <div>
-                <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
-                <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
-                <div className="glass-card p-4 flex flex-col gap-2">
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                      <span>Title font size</span>
-                      <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
-                    </label>
+                <h2 className="text-base font-medium text-gray-900 mb-1">Captions</h2>
+                <p className="text-xs text-gray-400 mb-5">
+                  Enable the cc, It applies to preview and the final rendered video.
+                </p>
+                <div className="glass-card p-6 flex flex-col gap-4">
+                  <label className={`flex items-center gap-3 select-none ${hasVoiceover ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
                     <input
-                      type="range"
-                      min={20}
-                      max={200}
-                      step={1}
-                      value={globalTitleSize}
-                      onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
-                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                      type="checkbox"
+                      checked={captionsEnabledDraft && hasVoiceover}
+                      disabled={!hasVoiceover}
+                      onChange={(e) => setCaptionsEnabledDraft(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 accent-purple-600 cursor-pointer disabled:cursor-not-allowed"
                     />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                      <span>Display text size</span>
-                      <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
-                    </label>
-                    <input
-                      type="range"
-                      min={12}
-                      max={80}
-                      step={1}
-                      value={globalDescSize}
-                      onChange={(e) => setGlobalDescSize(Number(e.target.value))}
-                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                    />
-                  </div>
-                  <div className="flex justify-end">
+                    <span className="text-sm font-medium text-gray-700">Enable captions</span>
+                  </label>
+
+                  {!hasVoiceover && (
+                    <p className="text-[11px] text-gray-400">
+                      Captions need a voiceover to sync to. Add a voice to this video to enable captions.
+                    </p>
+                  )}
+
+                  {captionsEnabledDraft && hasVoiceover && (
+                    <div className="flex flex-col gap-2">
+                      {/* Row 1: Offset (2-col) + Size slider */}
+                      <div className="grid grid-cols-2 gap-2 items-start">
+
+                        {/* Offset — always bottom; slider nudges up/down */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide">Offset</label>
+                            <button
+                              type="button"
+                              onClick={() => setCaptionOffsetDraft(0)}
+                              className={`text-[10px] font-semibold ${captionOffsetDraft === 0 ? "text-gray-400" : "text-purple-600 hover:text-purple-700"}`}
+                            >
+                              {captionOffsetDraft === 0 ? "Default" : "Reset"}
+                            </button>
+                          </div>
+                          <div className="flex flex-col justify-center pt-1">
+                            <input
+                              type="range"
+                              min={-100}
+                              max={100}
+                              step={1}
+                              value={captionOffsetDraft}
+                              onChange={(e) => setCaptionOffsetDraft(Number(e.target.value))}
+                              className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
+                            />
+                            <div className="flex justify-between mt-1">
+                              <span className="text-[9px] text-gray-400">Down</span>
+                              <span className="text-[9px] text-gray-400">Up</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Font Size — free slider 12–64px */}
+                        <div>
+                          <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">Size</label>
+                          <div className="flex flex-col justify-center pt-1">
+                            <input
+                              type="range"
+                              min={12}
+                              max={64}
+                              step={1}
+                              value={captionFontSizeDraft}
+                              onChange={(e) => setCaptionFontSizeDraft(Number(e.target.value))}
+                              className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
+                            />
+                            <div className="flex justify-between mt-1">
+                              <span className="text-[9px] text-gray-400">12</span>
+                              <span className="text-[9px] font-semibold text-purple-600">{captionFontSizeDraft}px</span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-end justify-between mt-auto gap-3">
+                    {/* Font Family — shown in save row when captions enabled */}
+                    {captionsEnabledDraft && hasVoiceover ? (
+                      <div className="relative flex-1 max-w-[180px]">
+                        <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5">Font</label>
+                        <div className="relative">
+                          <select
+                            value={captionFontFamilyDraft}
+                            onChange={(e) => setCaptionFontFamilyDraft(e.target.value)}
+                            style={{ fontFamily: FONT_REGISTRY[captionFontFamilyDraft as keyof typeof FONT_REGISTRY]?.cssFamily }}
+                            className="w-full text-[11px] font-medium text-gray-700 bg-white border border-gray-200 rounded-md pl-2 pr-6 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-400/40 focus:border-purple-300 cursor-pointer appearance-none"
+                          >
+                            {(["inter","poppins","montserrat","roboto_slab","oswald","lora","patrick_hand","arimo","archivo_black","merriweather","playfair_display","fira_code"] as const).map((fontId) => (
+                              <option key={fontId} value={fontId} style={{ fontFamily: FONT_REGISTRY[fontId]?.cssFamily }}>
+                                {FONT_REGISTRY[fontId]?.label ?? fontId}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center">
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-gray-400">
+                              <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    ) : <div />}
                     <button
                       type="button"
-                      disabled={savingGlobalTypography}
+                      disabled={savingCaptions || !hasVoiceover}
                       onClick={async () => {
-                        setSavingGlobalTypography(true);
+                        setSavingCaptions(true);
                         try {
-                          await bulkUpdateSceneTypography(project.id, {
-                            title_font_size: globalTitleSize,
-                            description_font_size: globalDescSize,
+                          await updateProject(project.id, {
+                            captions_enabled: captionsEnabledDraft && hasVoiceover,
+                            caption_font_family: captionFontFamilyDraft,
+                            caption_font_size: captionFontSizeDraft,
+                            caption_offset: captionOffsetDraft,
                           });
+                          setCaptionSettingsKey((k) => k + 1);
                           await loadProject();
                         } catch (err) {
-                          showError(getErrorMessage(err, "Failed to update typography."));
+                          showError(getErrorMessage(err, "Failed to save captions."));
                         } finally {
-                          setSavingGlobalTypography(false);
+                          setSavingCaptions(false);
                         }
                       }}
                       className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
                     >
-                      {savingGlobalTypography ? (
+                      {savingCaptions ? (
                         <>
                           <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Applying…
+                          Saving…
                         </>
                       ) : (
-                        "Apply to all Scenes"
+                        "Save caption settings"
                       )}
                     </button>
                   </div>
                 </div>
               </div>
+              );
+              })()}
 
             </>
           )}
 
-          {/* 5. Colors & Font */}
+          {/* 4. Colors & Font */}
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
             <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
@@ -6217,79 +6301,68 @@ export default function ProjectView() {
             </div>
           </div>
 
-          {/* 6. Playback Speed */}
+          {/* 5. Global Text Sizes */}
           <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
-            <p className="text-xs text-gray-400 mb-5">
-              Applies to preview and final rendered video (including voiceover).
-            </p>
-            <div className="glass-card p-6 flex flex-col gap-4">
-              <div className="flex flex-wrap gap-2">
-                {PLAYBACK_SPEED_OPTIONS.map((speed) => {
-                  const active = playbackSpeedDraft === speed;
-                  return (
-                    <button
-                      key={speed}
-                      type="button"
-                      onClick={() => setPlaybackSpeedDraft(speed)}
-                      className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                        active
-                          ? "bg-purple-50 text-purple-700 border-purple-300"
-                          : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      {speed}x
-                    </button>
-                  );
-                })}
-              </div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
+            <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
+            <div className="glass-card p-4 flex flex-col gap-2">
               <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
-                  <span>Custom speed</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">
-                    {playbackSpeedDraft.toFixed(1)}x
-                  </span>
+                <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                  <span>Title font size</span>
+                  <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
                 </label>
                 <input
                   type="range"
-                  min={0.5}
-                  max={2.5}
-                  step={0.1}
-                  value={playbackSpeedDraft}
-                  onChange={(e) => setPlaybackSpeedDraft(Number(e.target.value))}
+                  min={20}
+                  max={200}
+                  step={1}
+                  value={globalTitleSize}
+                  onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
                   className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
                 />
               </div>
-              {project.r2_video_url && project.playback_speed !== playbackSpeedDraft ? (
-                <p className="text-[11px] text-amber-600">
-                  Changing speed makes the current downloaded MP4 outdated. Save this and re-render to update it.
-                </p>
-              ) : null}
-              <div className="flex justify-end mt-auto">
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                  <span>Display text size</span>
+                  <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
+                </label>
+                <input
+                  type="range"
+                  min={12}
+                  max={80}
+                  step={1}
+                  value={globalDescSize}
+                  onChange={(e) => setGlobalDescSize(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                />
+              </div>
+              <div className="flex justify-end">
                 <button
                   type="button"
-                  disabled={savingPlaybackSpeed}
+                  disabled={savingGlobalTypography}
                   onClick={async () => {
-                    setSavingPlaybackSpeed(true);
+                    setSavingGlobalTypography(true);
                     try {
-                      const normalized = Math.min(2.5, Math.max(0.5, Math.round(playbackSpeedDraft * 10) / 10));
-                      await updateProject(project.id, { playback_speed: normalized });
+                      await bulkUpdateSceneTypography(project.id, {
+                        title_font_size: globalTitleSize,
+                        description_font_size: globalDescSize,
+                      });
                       await loadProject();
                     } catch (err) {
-                      showError(getErrorMessage(err, "Failed to save playback speed."));
+                      showError(getErrorMessage(err, "Failed to update typography."));
                     } finally {
-                      setSavingPlaybackSpeed(false);
+                      setSavingGlobalTypography(false);
                     }
                   }}
                   className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
                 >
-                  {savingPlaybackSpeed ? (
+                  {savingGlobalTypography ? (
                     <>
                       <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving…
+                      Applying…
                     </>
                   ) : (
-                    "Save speed"
+                    "Apply to all Scenes"
                   )}
                 </button>
               </div>

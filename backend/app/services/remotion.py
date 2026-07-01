@@ -102,6 +102,8 @@ _SHARED_SRC_FILES = [
     "src/templates/playbackSpeed.ts",
     # Shared font registry so templates can resolve font IDs to CSS families
     "src/fonts/registry.ts",
+    # Caption font constant + render preload helpers (used by CaptionTrack)
+    "src/fonts/captionFont.ts",
     # Newspaper template default fonts (bundled, not in registry)
     "src/fonts/newspaper-defaults.ts",
     # Nightfall template default fonts (bundled, not in registry)
@@ -112,6 +114,8 @@ _SHARED_SRC_FILES = [
     "src/fonts/economist-defaults.ts",
     # LaDuc template default fonts (bundled, not in registry)
     "src/fonts/laduc-defaults.ts",
+    # Magazine template default fonts (bundled, not in registry)
+    "src/fonts/magazine-defaults.ts",
     # Shared socials renderer used by multiple template layouts
     "src/templates/SocialIcons.tsx",
 ]
@@ -1073,6 +1077,17 @@ def write_remotion_data(
 
         extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
         effective_duration = scene.duration_seconds + extra_hold
+        # Spoken-audio length for caption timing: scene.duration_seconds is set to
+        # (audio length + DURATION_PAD=1.0s of trailing silence) during voiceover
+        # generation, so the speech occupies roughly the first (duration - 1.0s).
+        # Captions span only this window so they don't drift into the silent tail.
+        # 0 when there's no voiceover (captions are disabled in that case anyway).
+        _VOICEOVER_TRAILING_PAD = 1.0
+        speech_duration = (
+            max(0.5, round(scene.duration_seconds - _VOICEOVER_TRAILING_PAD, 2))
+            if voiceover_filename
+            else 0.0
+        )
         scene_entry: dict = {
             "id": scene.id,
             "order": scene.order,
@@ -1082,6 +1097,7 @@ def write_remotion_data(
             "narrationText": scene.narration_text or "",
             "visualDescription": scene.visual_description,
             "durationSeconds": round(effective_duration, 1),
+            "speechDurationSeconds": speech_duration,
             "voiceoverFile": voiceover_filename,
             "images": scene_images,
             "layoutProps": layout_props,
@@ -1177,6 +1193,11 @@ def write_remotion_data(
         "playbackSpeed": 1.0,
         "bgmFile": bgm_file,
         "bgmVolume": round(float(getattr(project, "bgm_volume", 0.10) or 0.10), 2),
+        "captionsEnabled": bool(getattr(project, "captions_enabled", False)),
+        "captionPosition": getattr(project, "caption_position", None) or "bottom_center",
+        "captionFontFamily": getattr(project, "caption_font_family", None) or "inter",
+        "captionFontSize": str(getattr(project, "caption_font_size", None) or "36"),
+        "captionOffset": int(getattr(project, "caption_offset", 0) or 0),
         "scenes": scene_data,
     }
     print(f"[F7-DEBUG] write_remotion_data: final bgmFile={data['bgmFile']!r}, bgmVolume={data['bgmVolume']!r}")

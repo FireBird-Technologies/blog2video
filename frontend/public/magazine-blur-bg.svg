@@ -1,0 +1,485 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 860" width="1280" height="860">
+<defs>
+  <filter id="blur" x="-5%" y="-5%" width="110%" height="110%">
+    <feGaussianBlur stdDeviation="2.6"/>
+  </filter>
+  <filter id="blurHard" x="-5%" y="-5%" width="110%" height="110%">
+    <feGaussianBlur stdDeviation="1.4"/>
+  </filter>
+  <filter id="bookShadow" x="-8%" y="-6%" width="118%" height="120%">
+    <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#000" flood-opacity="0.5"/>
+    <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#000" flood-opacity="0.22"/>
+  </filter>
+  <linearGradient id="spine" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#b0b0b0"/>
+    <stop offset="30%" stop-color="#e2e2e2"/>
+    <stop offset="50%" stop-color="#ffffff"/>
+    <stop offset="70%" stop-color="#e0e0e0"/>
+    <stop offset="100%" stop-color="#adadad"/>
+  </linearGradient>
+  <linearGradient id="lshad" x1="1" y1="0" x2="0" y2="0">
+    <stop offset="0%" stop-color="#000" stop-opacity="0.13"/>
+    <stop offset="20%" stop-color="#000" stop-opacity="0.02"/>
+    <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="rshad" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#000" stop-opacity="0.13"/>
+    <stop offset="20%" stop-color="#000" stop-opacity="0.02"/>
+    <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="curlBL" x1="0" y1="1" x2="1" y2="0" gradientUnits="objectBoundingBox">
+    <stop offset="0%" stop-color="#aaa"/>
+    <stop offset="45%" stop-color="#ddd"/>
+    <stop offset="100%" stop-color="#fff"/>
+  </linearGradient>
+  <linearGradient id="curlBR" x1="1" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+    <stop offset="0%" stop-color="#aaa"/>
+    <stop offset="45%" stop-color="#ddd"/>
+    <stop offset="100%" stop-color="#fff"/>
+  </linearGradient>
+</defs>
+
+<!-- BOOK SHADOW WRAPPER -->
+<g filter="url(#bookShadow)">
+
+<!-- ════ LEFT PAGE ════ -->
+<rect x="0" y="0" width="632" height="860" fill="#ffffff"/>
+<rect x="530" y="0" width="102" height="860" fill="url(#lshad)"/>
+
+<!-- LEFT CONTENT – blurred -->
+<g filter="url(#blur)">
+  <!-- folio top rule -->
+  <line x1="36" y1="22" x2="596" y2="22" stroke="#000" stroke-width="0.7"/>
+  <!-- folio number -->
+  <text x="36" y="20" font-family="Times New Roman,serif" font-size="9" fill="#000">28</text>
+  <!-- folio date center -->
+  <text x="316" y="20" font-family="Arial,sans-serif" font-size="7.5" fill="#000" text-anchor="middle" letter-spacing="2">7.28.19</text>
+
+  <!-- LARGE PHOTO placeholder left column -->
+  <rect x="0" y="26" width="258" height="306" fill="#c0c0c0"/>
+  <rect x="0" y="26" width="258" height="306" fill="#000" fill-opacity="0.06"/>
+  <!-- photo tonal shapes simulating a portrait -->
+  <ellipse cx="129" cy="140" rx="55" ry="68" fill="#a0a0a0" opacity="0.6"/>
+  <rect x="60" y="200" width="138" height="132" fill="#acacac" opacity="0.5"/>
+  <ellipse cx="129" cy="108" rx="32" ry="36" fill="#909090" opacity="0.7"/>
+
+  <!-- HEADLINE area top right of photo -->
+  <!-- kicker label -->
+  <text x="270" y="46" font-family="Arial,sans-serif" font-size="8" fill="#000" font-weight="700" letter-spacing="2">FEATURE</text>
+  <line x1="270" y1="49" x2="596" y2="49" stroke="#000" stroke-width="0.5"/>
+  <!-- big headline -->
+  <text x="270" y="72" font-family="Times New Roman,serif" font-size="22" fill="#000" font-weight="700">How to Ensure</text>
+  <text x="270" y="100" font-family="Times New Roman,serif" font-size="28" fill="#000" font-weight="900">That We Keep Their</text>
+  <text x="270" y="132" font-family="Times New Roman,serif" font-size="28" fill="#000" font-weight="900">Memories Alive</text>
+  <!-- deck text -->
+  <line x1="270" y1="140" x2="596" y2="140" stroke="#000" stroke-width="0.5"/>
+  <text x="270" y="153" font-family="Times New Roman,serif" font-size="9.5" fill="#000">On the 61st Anniversary of Kristallnacht, it is becoming</text>
+  <text x="270" y="166" font-family="Times New Roman,serif" font-size="9.5" fill="#000">more clear that Holocaust survivor stories need to be told.</text>
+  <text x="270" y="179" font-family="Times New Roman,serif" font-size="9.5" fill="#000">Elie Wiesel speaks out about the importance of sharing</text>
+  <text x="270" y="192" font-family="Times New Roman,serif" font-size="9.5" fill="#000">and recording survivor stories.</text>
+  <!-- byline rule + text -->
+  <line x1="270" y1="200" x2="596" y2="200" stroke="#000" stroke-width="0.8"/>
+  <text x="270" y="212" font-family="Arial,sans-serif" font-size="7.5" fill="#000" letter-spacing="1.5" font-weight="700">BY KAREN TUMULTY</text>
+
+  <!-- BODY — 3 cols starting at y=336 across full width -->
+  <!-- DROP CAP -->
+  <text x="36" y="390" font-family="Times New Roman,serif" font-size="58" fill="#000" font-weight="900">A</text>
+
+  <!-- COL 1 body text lines -->
+  <text x="84" y="350" font-family="Times New Roman,serif" font-size="8" fill="#000">s he walked past, I said, "Hi, Mr. Vice Presi-</text>
+  <text x="36" y="361" font-family="Times New Roman,serif" font-size="8" fill="#000">dent." He seemed subdued — nothing at all like</text>
+  <text x="36" y="372" font-family="Times New Roman,serif" font-size="8" fill="#000">the ebullient Biden of the Obama years. A little</text>
+  <text x="36" y="383" font-family="Times New Roman,serif" font-size="8" fill="#000">while later, when I went into the bleachers, I</text>
+  <text x="36" y="394" font-family="Times New Roman,serif" font-size="8" fill="#000">noticed that Biden wasn't sitting with the rest of</text>
+  <text x="36" y="405" font-family="Times New Roman,serif" font-size="8" fill="#000">the spectators. He stood by himself, a mournful</text>
+  <text x="36" y="416" font-family="Times New Roman,serif" font-size="8" fill="#000">figure leaning against a metal railing. It was easy</text>
+  <text x="36" y="427" font-family="Times New Roman,serif" font-size="8" fill="#000">enough to imagine the reason for the apparent</text>
+  <text x="36" y="438" font-family="Times New Roman,serif" font-size="8" fill="#000">melancholy: Natalie's father was Biden's son Beau,</text>
+  <text x="36" y="449" font-family="Times New Roman,serif" font-size="8" fill="#000">who died of brain cancer in 2015, 10 days before</text>
+  <text x="36" y="460" font-family="Times New Roman,serif" font-size="8" fill="#000">Donald Trump rode down the golden escalator</text>
+  <text x="36" y="471" font-family="Times New Roman,serif" font-size="8" fill="#000">and declared his candidacy.</text>
+  <text x="36" y="488" font-family="Times New Roman,serif" font-size="8" fill="#000">   Before entering the 2020 race, Biden said his</text>
+  <text x="36" y="499" font-family="Times New Roman,serif" font-size="8" fill="#000">obligation to help look after Beau's two children</text>
+  <text x="36" y="510" font-family="Times New Roman,serif" font-size="8" fill="#000">would factor heavily in his decision about whether</text>
+  <text x="36" y="521" font-family="Times New Roman,serif" font-size="8" fill="#000">to run for president. When I met with him last</text>
+  <text x="36" y="532" font-family="Times New Roman,serif" font-size="8" fill="#000">month at the house he was renting in McLean, Va.,</text>
+  <text x="36" y="543" font-family="Times New Roman,serif" font-size="8" fill="#000">near Washington, I mentioned the field-hockey</text>
+  <text x="36" y="554" font-family="Times New Roman,serif" font-size="8" fill="#000">game and said I had the sense from afar that the</text>
+  <text x="36" y="565" font-family="Times New Roman,serif" font-size="8" fill="#000">game was the sort of grandparenting ritual that</text>
+  <text x="36" y="576" font-family="Times New Roman,serif" font-size="8" fill="#000">made him feel conflicted. "You have it absolutely</text>
+  <text x="36" y="587" font-family="Times New Roman,serif" font-size="8" fill="#000">right," he said.</text>
+  <text x="36" y="604" font-family="Times New Roman,serif" font-size="8" fill="#000">   He told me he was still undecided in October</text>
+  <text x="36" y="615" font-family="Times New Roman,serif" font-size="8" fill="#000">about running. "The family was fragile after Beau</text>
+  <text x="36" y="626" font-family="Times New Roman,serif" font-size="8" fill="#000">passing away." He finally made up his mind to run</text>
+  <text x="36" y="637" font-family="Times New Roman,serif" font-size="8" fill="#000">in December, but even then he had doubts, mostly</text>
+  <text x="36" y="648" font-family="Times New Roman,serif" font-size="8" fill="#000">about subjecting his family to what was inevitably</text>
+  <text x="36" y="659" font-family="Times New Roman,serif" font-size="8" fill="#000">going to be a vicious campaign. Referring to Trump,</text>
+  <text x="36" y="670" font-family="Times New Roman,serif" font-size="8" fill="#000">he said: "The only thing he knows is being in the</text>
+  <text x="36" y="681" font-family="Times New Roman,serif" font-size="8" fill="#000">mosh pit. He's been there his whole life."</text>
+  <text x="36" y="698" font-family="Times New Roman,serif" font-size="8" fill="#000">   Mauris varius orci id sem. Vestibulum gravida</text>
+  <text x="36" y="709" font-family="Times New Roman,serif" font-size="8" fill="#000">tellus quis dolor. Nulla dignissim enim quis nisl.</text>
+  <text x="36" y="720" font-family="Times New Roman,serif" font-size="8" fill="#000">Aenean tempus risus ut odio. Nulla facilisi. Sus-</text>
+  <text x="36" y="731" font-family="Times New Roman,serif" font-size="8" fill="#000">pendisse et lectus. Lorem ipsum dolor sit amet,</text>
+  <text x="36" y="742" font-family="Times New Roman,serif" font-size="8" fill="#000">consectetur adipiscing elit. Class aptent taciti</text>
+  <text x="36" y="753" font-family="Times New Roman,serif" font-size="8" fill="#000">sociosqu ad litora torquent per conubia nostra,</text>
+  <text x="36" y="764" font-family="Times New Roman,serif" font-size="8" fill="#000">per inceptos himenaeos. Sed tempor lacus eu</text>
+  <text x="36" y="775" font-family="Times New Roman,serif" font-size="8" fill="#000">lacus. Aenean ac arcu at sem faucibus luctus.</text>
+  <text x="36" y="786" font-family="Times New Roman,serif" font-size="8" fill="#000">Nam feugiat leo vitae orci. Vestibulum accum-</text>
+  <text x="36" y="797" font-family="Times New Roman,serif" font-size="8" fill="#000">san nibh eget lacus. Cras mollis. Suspendisse</text>
+  <text x="36" y="808" font-family="Times New Roman,serif" font-size="8" fill="#000">ligula elit, consectetur et, sagittis vel, convallis</text>
+  <text x="36" y="819" font-family="Times New Roman,serif" font-size="8" fill="#000">non, lacus. Duis vel lorem. Duis sodales, lorem</text>
+
+  <!-- col 1 rule -->
+  <line x1="222" y1="336" x2="222" y2="834" stroke="#ccc" stroke-width="0.5"/>
+
+  <!-- COL 2 -->
+  <text x="232" y="350" font-family="Times New Roman,serif" font-size="8" fill="#000">to imagine the reason for the apparent melan-</text>
+  <text x="232" y="361" font-family="Times New Roman,serif" font-size="8" fill="#000">choly: Natalie's father was Biden's son Beau, who</text>
+  <text x="232" y="372" font-family="Times New Roman,serif" font-size="8" fill="#000">died of brain cancer in 2015, 10 days before Don-</text>
+  <text x="232" y="383" font-family="Times New Roman,serif" font-size="8" fill="#000">ald Trump rode down the golden escalator and</text>
+  <text x="232" y="394" font-family="Times New Roman,serif" font-size="8" fill="#000">declared his candidacy.</text>
+  <text x="232" y="411" font-family="Times New Roman,serif" font-size="8" fill="#000">   Before entering the 2020 race, Biden said his</text>
+  <text x="232" y="422" font-family="Times New Roman,serif" font-size="8" fill="#000">obligation to help look after Beau's two children</text>
+  <text x="232" y="433" font-family="Times New Roman,serif" font-size="8" fill="#000">would factor heavily in his decision about whether</text>
+  <text x="232" y="444" font-family="Times New Roman,serif" font-size="8" fill="#000">to run for president. When I met with him last</text>
+  <text x="232" y="455" font-family="Times New Roman,serif" font-size="8" fill="#000">month at the house he was renting in McLean, Va.,</text>
+  <text x="232" y="466" font-family="Times New Roman,serif" font-size="8" fill="#000">near Washington, I mentioned the field-hockey</text>
+  <text x="232" y="477" font-family="Times New Roman,serif" font-size="8" fill="#000">game and said I had the sense from afar that the</text>
+  <text x="232" y="488" font-family="Times New Roman,serif" font-size="8" fill="#000">game was the sort of grandparenting ritual that</text>
+  <text x="232" y="499" font-family="Times New Roman,serif" font-size="8" fill="#000">made him feel conflicted. "You have it absolutely</text>
+  <text x="232" y="510" font-family="Times New Roman,serif" font-size="8" fill="#000">right," he said.</text>
+  <text x="232" y="527" font-family="Times New Roman,serif" font-size="8" fill="#000">   He told me he was still undecided in October</text>
+  <text x="232" y="538" font-family="Times New Roman,serif" font-size="8" fill="#000">about running. "The family was fragile after Beau</text>
+  <text x="232" y="549" font-family="Times New Roman,serif" font-size="8" fill="#000">passing away." He finally made up his mind to run</text>
+  <text x="232" y="560" font-family="Times New Roman,serif" font-size="8" fill="#000">in December, but even then he had doubts, mostly</text>
+  <text x="232" y="571" font-family="Times New Roman,serif" font-size="8" fill="#000">about subjecting his family to what was inevitably</text>
+  <text x="232" y="582" font-family="Times New Roman,serif" font-size="8" fill="#000">going to be a vicious campaign. Referring to Trump,</text>
+  <text x="232" y="593" font-family="Times New Roman,serif" font-size="8" fill="#000">he said: "The only thing he knows is being in the</text>
+  <text x="232" y="604" font-family="Times New Roman,serif" font-size="8" fill="#000">mosh pit. He's been there his whole life."</text>
+  <text x="232" y="621" font-family="Times New Roman,serif" font-size="8" fill="#000">   I asked if he thought he would have beaten</text>
+  <text x="232" y="632" font-family="Times New Roman,serif" font-size="8" fill="#000">Trump in 2016. "I don't know," he said. "Every-</text>
+  <text x="232" y="643" font-family="Times New Roman,serif" font-size="8" fill="#000">body says that. But look, I don't know. You've got</text>
+  <text x="232" y="654" font-family="Times New Roman,serif" font-size="8" fill="#000">to be in the game. I thought Hillary would have</text>
+  <text x="232" y="665" font-family="Times New Roman,serif" font-size="8" fill="#000">made a good president."</text>
+  <text x="232" y="682" font-family="Times New Roman,serif" font-size="8" fill="#000">   Biden was sitting at a table in his basement</text>
+  <text x="232" y="693" font-family="Times New Roman,serif" font-size="8" fill="#000">office, which, like the rest of the house, memori-</text>
+  <text x="232" y="704" font-family="Times New Roman,serif" font-size="8" fill="#000">alized the Obama presidency, its walls lined with</text>
+  <text x="232" y="715" font-family="Times New Roman,serif" font-size="8" fill="#000">photos and posters from those years. He was</text>
+  <text x="232" y="726" font-family="Times New Roman,serif" font-size="8" fill="#000">scheduled to leave shortly for South Carolina,</text>
+  <text x="232" y="737" font-family="Times New Roman,serif" font-size="8" fill="#000">where he would seek to contain the fallout from</text>
+  <text x="232" y="748" font-family="Times New Roman,serif" font-size="8" fill="#000">comments made earlier in the week in which he</text>
+  <text x="232" y="759" font-family="Times New Roman,serif" font-size="8" fill="#000">recalled the cordial ties that he enjoyed in the</text>
+  <text x="232" y="770" font-family="Times New Roman,serif" font-size="8" fill="#000">1970s with Senators James O. Eastland and</text>
+  <text x="232" y="781" font-family="Times New Roman,serif" font-size="8" fill="#000">Herman Talmadge, both segregationists, and</text>
+  <text x="232" y="792" font-family="Times New Roman,serif" font-size="8" fill="#000">spoke wistfully of the civility that prevailed in</text>
+  <text x="232" y="803" font-family="Times New Roman,serif" font-size="8" fill="#000">the Senate back then. Biden didn't seem particu-</text>
+  <text x="232" y="814" font-family="Times New Roman,serif" font-size="8" fill="#000">larly concerned about the flap at the time. He</text>
+  <text x="232" y="825" font-family="Times New Roman,serif" font-size="8" fill="#000">conceded that he had perhaps chosen a poor</text>
+
+  <!-- col 2 rule -->
+  <line x1="408" y1="336" x2="408" y2="834" stroke="#ccc" stroke-width="0.5"/>
+
+  <!-- COL 3 -->
+  <text x="418" y="350" font-family="Times New Roman,serif" font-size="8" fill="#000">reference to Eastland and Talmadge suggested</text>
+  <text x="418" y="361" font-family="Times New Roman,serif" font-size="8" fill="#000">that Biden was trapped in another era.</text>
+  <text x="418" y="378" font-family="Times New Roman,serif" font-size="8" fill="#000">   Biden is still trim and spry, and in two recent</text>
+  <text x="418" y="389" font-family="Times New Roman,serif" font-size="8" fill="#000">interviews with him, I saw no evidence that his</text>
+  <text x="418" y="400" font-family="Times New Roman,serif" font-size="8" fill="#000">mind has slipped — to the contrary, his memory</text>
+  <text x="418" y="411" font-family="Times New Roman,serif" font-size="8" fill="#000">was impressively sharp. But there is no getting</text>
+  <text x="418" y="422" font-family="Times New Roman,serif" font-size="8" fill="#000">around the fact that he is in his mid-70s. The</text>
+  <text x="418" y="433" font-family="Times New Roman,serif" font-size="8" fill="#000">grayness of his complexion emphasizes the</text>
+  <text x="418" y="444" font-family="Times New Roman,serif" font-size="8" fill="#000">point. So much about Biden, right down to his</text>
+  <text x="418" y="455" font-family="Times New Roman,serif" font-size="8" fill="#000">manner of speech — he may be all that stands</text>
+  <text x="418" y="466" font-family="Times New Roman,serif" font-size="8" fill="#000">between the word "malarkey" and its extinction</text>
+  <text x="418" y="477" font-family="Times New Roman,serif" font-size="8" fill="#000">— says yesterday's man.</text>
+  <text x="418" y="494" font-family="Times New Roman,serif" font-size="8" fill="#000">   And yet this can obscure the fact that he is</text>
+  <text x="418" y="505" font-family="Times New Roman,serif" font-size="8" fill="#000">an enormously popular figure in the Democratic</text>
+  <text x="418" y="516" font-family="Times New Roman,serif" font-size="8" fill="#000">Party, commanding a degree of affection that is</text>
+  <text x="418" y="527" font-family="Times New Roman,serif" font-size="8" fill="#000">rare in politics. For voters unnerved by Trump's</text>
+  <text x="418" y="538" font-family="Times New Roman,serif" font-size="8" fill="#000">conduct in office but not necessarily seeking</text>
+  <text x="418" y="549" font-family="Times New Roman,serif" font-size="8" fill="#000">radical change, he offers vast experience, con-</text>
+  <text x="418" y="560" font-family="Times New Roman,serif" font-size="8" fill="#000">ciliatory instincts and an empathy rooted in</text>
+  <text x="418" y="571" font-family="Times New Roman,serif" font-size="8" fill="#000">personal anguish. To put these virtues before</text>
+  <text x="418" y="582" font-family="Times New Roman,serif" font-size="8" fill="#000">the national electorate, however, will require</text>
+  <text x="418" y="593" font-family="Times New Roman,serif" font-size="8" fill="#000">navigating a field of Democratic candidates who</text>
+  <text x="418" y="604" font-family="Times New Roman,serif" font-size="8" fill="#000">all see their path to the nomination as depend-</text>
+  <text x="418" y="615" font-family="Times New Roman,serif" font-size="8" fill="#000">ent on undermining Biden. "This is a tough game</text>
+  <text x="418" y="626" font-family="Times New Roman,serif" font-size="8" fill="#000">right now," he said.</text>
+  <text x="418" y="643" font-family="Times New Roman,serif" font-size="8" fill="#000">   Nulla massa. Suspendisse vel odio facilisis nisl</text>
+  <text x="418" y="654" font-family="Times New Roman,serif" font-size="8" fill="#000">vulputate suscipit. Cras in ligula vel nisi sceler-</text>
+  <text x="418" y="665" font-family="Times New Roman,serif" font-size="8" fill="#000">isque suscipit. Vestibulum ac risus ac nunc con-</text>
+  <text x="418" y="676" font-family="Times New Roman,serif" font-size="8" fill="#000">gue venenatis. Vestibulum vulputate, nisl in sus-</text>
+  <text x="418" y="687" font-family="Times New Roman,serif" font-size="8" fill="#000">cipit commodo, ipsum tortor fermentum lorem.</text>
+  <text x="418" y="704" font-family="Times New Roman,serif" font-size="8" fill="#000">   Mauris varius orci id sem. Vestibulum gravida</text>
+  <text x="418" y="715" font-family="Times New Roman,serif" font-size="8" fill="#000">tellus quis dolor. Nulla dignissim enim quis nisl.</text>
+  <text x="418" y="726" font-family="Times New Roman,serif" font-size="8" fill="#000">Aenean tempus risus ut odio. Nulla facilisi. Sus-</text>
+  <text x="418" y="737" font-family="Times New Roman,serif" font-size="8" fill="#000">pendisse et lectus. Lorem ipsum dolor sit amet,</text>
+  <text x="418" y="748" font-family="Times New Roman,serif" font-size="8" fill="#000">consectetur adipiscing elit. Class aptent taciti</text>
+  <text x="418" y="759" font-family="Times New Roman,serif" font-size="8" fill="#000">sociosqu ad litora torquent per conubia nostra,</text>
+  <text x="418" y="770" font-family="Times New Roman,serif" font-size="8" fill="#000">per inceptos himenaeos. Sed tempor lacus eu</text>
+  <text x="418" y="781" font-family="Times New Roman,serif" font-size="8" fill="#000">lacus. Aenean ac arcu at sem faucibus luctus.</text>
+  <text x="418" y="792" font-family="Times New Roman,serif" font-size="8" fill="#000">Nam feugiat leo vitae orci. Vestibulum accum-</text>
+  <text x="418" y="803" font-family="Times New Roman,serif" font-size="8" fill="#000">san nibh eget lacus. Cras mollis. Suspendisse</text>
+  <text x="418" y="814" font-family="Times New Roman,serif" font-size="8" fill="#000">ligula elit, consectetur et, sagittis vel, convallis</text>
+  <text x="418" y="825" font-family="Times New Roman,serif" font-size="8" fill="#000">non, lacus. Duis vel lorem. Duis sodales, lorem</text>
+
+  <!-- bottom folio rule -->
+  <line x1="36" y1="836" x2="596" y2="836" stroke="#000" stroke-width="0.7"/>
+  <text x="36" y="848" font-family="Times New Roman,serif" font-size="9" fill="#000">28</text>
+  <text x="316" y="848" font-family="Arial,sans-serif" font-size="7" fill="#000" text-anchor="middle" font-style="italic">the new york times magazine</text>
+</g>
+
+<!-- ════ SPINE ════ -->
+<rect x="632" y="0" width="16" height="860" fill="url(#spine)"/>
+<rect x="639" y="0" width="1" height="860" fill="#fff" opacity="0.45"/>
+
+<!-- ════ RIGHT PAGE ════ -->
+<rect x="648" y="0" width="632" height="860" fill="#ffffff"/>
+<rect x="648" y="0" width="102" height="860" fill="url(#rshad)"/>
+
+<g filter="url(#blur)">
+  <!-- folio top italic caption -->
+  <text x="1260" y="16" font-family="Times New Roman,serif" font-size="8" fill="#000" text-anchor="end" font-style="italic">Opening pages: Joe Biden on the campaign trail this month in Portsmouth, N.H.</text>
+  <line x1="660" y1="22" x2="1260" y2="22" stroke="#000" stroke-width="0.7"/>
+
+  <!-- COL 1 right page -->
+  <text x="660" y="36" font-family="Times New Roman,serif" font-size="8" fill="#000">said that despite the economic recovery under</text>
+  <text x="660" y="47" font-family="Times New Roman,serif" font-size="8" fill="#000">Obama, many Americans were still reeling when</text>
+  <text x="660" y="58" font-family="Times New Roman,serif" font-size="8" fill="#000">Trump came along. "A lot of people were left</text>
+  <text x="660" y="69" font-family="Times New Roman,serif" font-size="8" fill="#000">behind," Biden said. "In areas where people</text>
+  <text x="660" y="80" font-family="Times New Roman,serif" font-size="8" fill="#000">were hard hit, I don't think we paid enough</text>
+  <text x="660" y="91" font-family="Times New Roman,serif" font-size="8" fill="#000">attention to their plight."</text>
+  <text x="660" y="108" font-family="Times New Roman,serif" font-size="8" fill="#000">   The political calculation driving Biden's</text>
+  <text x="660" y="119" font-family="Times New Roman,serif" font-size="8" fill="#000">campaign — and the main reason he has been</text>
+  <text x="660" y="130" font-family="Times New Roman,serif" font-size="8" fill="#000">assumed by many to be the most electable Dem-</text>
+  <text x="660" y="141" font-family="Times New Roman,serif" font-size="8" fill="#000">ocrat — is the belief that the Scranton native</text>
+  <text x="660" y="152" font-family="Times New Roman,serif" font-size="8" fill="#000">can win back enough of those voters to carry</text>
+  <text x="660" y="163" font-family="Times New Roman,serif" font-size="8" fill="#000">Pennsylvania, Michigan and Wisconsin and</text>
+  <text x="660" y="174" font-family="Times New Roman,serif" font-size="8" fill="#000">deny Trump a second term. "The issues that</text>
+  <text x="660" y="185" font-family="Times New Roman,serif" font-size="8" fill="#000">are front and center now," he told me, "are</text>
+  <text x="660" y="196" font-family="Times New Roman,serif" font-size="8" fill="#000">issues that have been in my wheelhouse for a</text>
+  <text x="660" y="207" font-family="Times New Roman,serif" font-size="8" fill="#000">long time," citing what he said was his advo-</text>
+  <text x="660" y="218" font-family="Times New Roman,serif" font-size="8" fill="#000">cacy on behalf of the middle class. Some who</text>
+  <text x="660" y="229" font-family="Times New Roman,serif" font-size="8" fill="#000">voted for Trump, he went on, were starting to</text>
+  <text x="660" y="240" font-family="Times New Roman,serif" font-size="8" fill="#000">realize that Trump's tax cuts were tailored for</text>
+  <text x="660" y="251" font-family="Times New Roman,serif" font-size="8" fill="#000">the wealthy and for corporations, to take note of</text>
+  <text x="660" y="262" font-family="Times New Roman,serif" font-size="8" fill="#000">his unceasing effort to dismantle Obamacare; to</text>
+  <text x="660" y="273" font-family="Times New Roman,serif" font-size="8" fill="#000">grasp that he was a false tribune of the forgotten</text>
+  <text x="660" y="284" font-family="Times New Roman,serif" font-size="8" fill="#000">man. "When the carnival comes through town</text>
+  <text x="660" y="295" font-family="Times New Roman,serif" font-size="8" fill="#000">the first time, and the guy with the shell and the</text>
+  <text x="660" y="306" font-family="Times New Roman,serif" font-size="8" fill="#000">pea game, and you lose — the second time they</text>
+  <text x="660" y="317" font-family="Times New Roman,serif" font-size="8" fill="#000">come around, you're a little more 'Wait, wait,</text>
+  <text x="660" y="328" font-family="Times New Roman,serif" font-size="8" fill="#000">wait, wait, I saw what happened last time,'" he</text>
+  <text x="660" y="339" font-family="Times New Roman,serif" font-size="8" fill="#000">said. Trump voters might be unwilling to admit</text>
+  <text x="660" y="350" font-family="Times New Roman,serif" font-size="8" fill="#000">out loud to buyer's remorse, he allowed. "They</text>
+  <text x="660" y="361" font-family="Times New Roman,serif" font-size="8" fill="#000">don't want to turn to their buddy and say, 'I'm</text>
+  <text x="660" y="372" font-family="Times New Roman,serif" font-size="8" fill="#000">taking off my Make America Great Again hat.'"</text>
+  <text x="660" y="383" font-family="Times New Roman,serif" font-size="8" fill="#000">But Trump's path to victory isn't as clean as it</text>
+  <text x="660" y="394" font-family="Times New Roman,serif" font-size="8" fill="#000">appears: "Not all of them, but I think they're</text>
+  <text x="660" y="405" font-family="Times New Roman,serif" font-size="8" fill="#000">persuadable, yes."</text>
+  <text x="660" y="422" font-family="Times New Roman,serif" font-size="8" fill="#000">   Biden and his advisers are convinced that the</text>
+  <text x="660" y="433" font-family="Times New Roman,serif" font-size="8" fill="#000">general election will mostly be a referendum on</text>
+  <text x="660" y="444" font-family="Times New Roman,serif" font-size="8" fill="#000">Trump and his fitness for office. "This is really</text>
+  <text x="660" y="455" font-family="Times New Roman,serif" font-size="8" fill="#000">about character and values as opposed to issues</text>
+  <text x="660" y="466" font-family="Times New Roman,serif" font-size="8" fill="#000">and ideology," says Mike Donilon, Biden's chief</text>
+  <text x="660" y="477" font-family="Times New Roman,serif" font-size="8" fill="#000">strategist. He acknowledges that Hillary Clinton</text>
+  <text x="660" y="488" font-family="Times New Roman,serif" font-size="8" fill="#000">tried and failed to make Trump's suitability the</text>
+  <text x="660" y="499" font-family="Times New Roman,serif" font-size="8" fill="#000">pivotal question of the 2016 election. The dif-</text>
+  <text x="660" y="510" font-family="Times New Roman,serif" font-size="8" fill="#000">ference this time, he says, is that Trump is now</text>
+  <text x="660" y="521" font-family="Times New Roman,serif" font-size="8" fill="#000">president. When I raised this with Biden himself,</text>
+  <text x="660" y="532" font-family="Times New Roman,serif" font-size="8" fill="#000">Biden made a similar point. "Even when he was</text>
+  <text x="660" y="543" font-family="Times New Roman,serif" font-size="8" fill="#000">running," Biden told me, "I don't think anybody</text>
+  <text x="660" y="554" font-family="Times New Roman,serif" font-size="8" fill="#000">thought he would be as bad as he is."</text>
+  <text x="660" y="571" font-family="Times New Roman,serif" font-size="8" fill="#000">   The fact that Trump's approval rating has</text>
+  <text x="660" y="582" font-family="Times New Roman,serif" font-size="8" fill="#000">remained under 50 percent despite the rela-</text>
+  <text x="660" y="593" font-family="Times New Roman,serif" font-size="8" fill="#000">tively strong economy is an indication that</text>
+  <text x="660" y="604" font-family="Times New Roman,serif" font-size="8" fill="#000">many are deeply troubled by his behavior. And</text>
+  <text x="660" y="615" font-family="Times New Roman,serif" font-size="8" fill="#000">as Ron Brownstein recently observed in The</text>
+  <text x="660" y="626" font-family="Times New Roman,serif" font-size="8" fill="#000">Atlantic, the numbers inside the numbers are</text>
+  <text x="660" y="637" font-family="Times New Roman,serif" font-size="8" fill="#000">even worse for Trump. Typically, respondents</text>
+  <text x="660" y="648" font-family="Times New Roman,serif" font-size="8" fill="#000">who are happy with the economy express sat-</text>
+  <text x="660" y="659" font-family="Times New Roman,serif" font-size="8" fill="#000">isfaction with the incumbent president, often</text>
+  <text x="660" y="670" font-family="Times New Roman,serif" font-size="8" fill="#000">by a sizable margin. In 2015, Obama's approval</text>
+  <text x="660" y="681" font-family="Times New Roman,serif" font-size="8" fill="#000">rating among those voters was over 75 percent.</text>
+  <text x="660" y="692" font-family="Times New Roman,serif" font-size="8" fill="#000">But among respondents who were satisfied with</text>
+  <text x="660" y="703" font-family="Times New Roman,serif" font-size="8" fill="#000">the economy, Trump is at 55 percent, while 41</text>
+  <text x="660" y="714" font-family="Times New Roman,serif" font-size="8" fill="#000">percent disapprove of his performance. As</text>
+  <text x="660" y="725" font-family="Times New Roman,serif" font-size="8" fill="#000">Brownstein noted, "That's a huge, possibly</text>
+  <text x="660" y="736" font-family="Times New Roman,serif" font-size="8" fill="#000">unprecedented level of discontent for the</text>
+  <text x="660" y="747" font-family="Times New Roman,serif" font-size="8" fill="#000">president among voters happy with the econ-</text>
+  <text x="660" y="758" font-family="Times New Roman,serif" font-size="8" fill="#000">omy." Even so, some Democratic leaders and</text>
+  <text x="660" y="769" font-family="Times New Roman,serif" font-size="8" fill="#000">strategists are skittish about putting too much</text>
+  <text x="660" y="780" font-family="Times New Roman,serif" font-size="8" fill="#000">emphasis on Trump, and not just because that</text>
+  <text x="660" y="791" font-family="Times New Roman,serif" font-size="8" fill="#000">approach failed in 2016. They point out that the</text>
+  <text x="660" y="802" font-family="Times New Roman,serif" font-size="8" fill="#000">Democrats reclaimed the House last year with</text>
+  <text x="660" y="813" font-family="Times New Roman,serif" font-size="8" fill="#000">a campaign that focused more on issues like</text>
+  <text x="660" y="824" font-family="Times New Roman,serif" font-size="8" fill="#000">health care than on Trump.</text>
+
+  <!-- col 1|2 right rule -->
+  <line x1="848" y1="26" x2="848" y2="836" stroke="#ccc" stroke-width="0.5"/>
+
+  <!-- COL 2 right — with pull quote -->
+  <text x="858" y="36" font-family="Times New Roman,serif" font-size="8" fill="#000">   Likewise, while losing the Rust Belt states</text>
+  <text x="858" y="47" font-family="Times New Roman,serif" font-size="8" fill="#000">cost Clinton the presidency in 2016, there is</text>
+  <text x="858" y="58" font-family="Times New Roman,serif" font-size="8" fill="#000">disagreement about the extent to which Dem-</text>
+  <text x="858" y="69" font-family="Times New Roman,serif" font-size="8" fill="#000">ocrats must court white working-class voters this</text>
+  <text x="858" y="80" font-family="Times New Roman,serif" font-size="8" fill="#000">time around. As a portion of the total electorate,</text>
+  <text x="858" y="91" font-family="Times New Roman,serif" font-size="8" fill="#000">according to a report published by the Center</text>
+  <text x="858" y="102" font-family="Times New Roman,serif" font-size="8" fill="#000">for American Progress, that cohort has shrunk</text>
+  <text x="858" y="113" font-family="Times New Roman,serif" font-size="8" fill="#000">sharply, from 54 percent in 2000 to just 46 per-</text>
+  <text x="858" y="124" font-family="Times New Roman,serif" font-size="8" fill="#000">cent in 2016. Moreover, polling data suggests</text>
+  <text x="858" y="135" font-family="Times New Roman,serif" font-size="8" fill="#000">that Clinton didn't lose Wisconsin and Michigan</text>
+
+  <!-- PULL QUOTE block -->
+  <line x1="858" y1="148" x2="1040" y2="148" stroke="#000" stroke-width="1.2"/>
+  <text x="858" y="190" font-family="Times New Roman,serif" font-size="36" fill="#000" font-weight="900" opacity="0.1">"</text>
+  <text x="858" y="206" font-family="Times New Roman,serif" font-size="15" fill="#000" font-weight="700" font-style="italic">'Almost every</text>
+  <text x="858" y="224" font-family="Times New Roman,serif" font-size="15" fill="#000" font-weight="700" font-style="italic">morning I get up,</text>
+  <text x="858" y="242" font-family="Times New Roman,serif" font-size="15" fill="#000" font-weight="700" font-style="italic">I think to myself,</text>
+  <text x="858" y="260" font-family="Times New Roman,serif" font-size="15" fill="#000" font-weight="700" font-style="italic">I hope he's proud</text>
+  <text x="858" y="278" font-family="Times New Roman,serif" font-size="15" fill="#000" font-weight="700" font-style="italic">of me.'</text>
+  <line x1="858" y1="292" x2="1040" y2="292" stroke="#000" stroke-width="1.2"/>
+
+  <text x="858" y="309" font-family="Times New Roman,serif" font-size="8" fill="#000">because she failed to attract working-class white</text>
+  <text x="858" y="320" font-family="Times New Roman,serif" font-size="8" fill="#000">voters but, rather, because she failed to mobilize</text>
+  <text x="858" y="331" font-family="Times New Roman,serif" font-size="8" fill="#000">enough support among those who turned out</text>
+  <text x="858" y="342" font-family="Times New Roman,serif" font-size="8" fill="#000">to choose between them.</text>
+  <text x="858" y="359" font-family="Times New Roman,serif" font-size="8" fill="#000">   Many progressives are convinced that the</text>
+  <text x="858" y="370" font-family="Times New Roman,serif" font-size="8" fill="#000">Democratic Party will be making a colossal</text>
+  <text x="858" y="381" font-family="Times New Roman,serif" font-size="8" fill="#000">blunder if it chooses a nominee based on his or</text>
+  <text x="858" y="392" font-family="Times New Roman,serif" font-size="8" fill="#000">her perceived ability to peel away Trump's lost</text>
+  <text x="858" y="403" font-family="Times New Roman,serif" font-size="8" fill="#000">white voters. They believe that the party should</text>
+  <text x="858" y="414" font-family="Times New Roman,serif" font-size="8" fill="#000">instead focus on engaging those who now make</text>
+  <text x="858" y="425" font-family="Times New Roman,serif" font-size="8" fill="#000">up its base: women, people of color and college-</text>
+  <text x="858" y="436" font-family="Times New Roman,serif" font-size="8" fill="#000">educated white voters. In an interview last</text>
+  <text x="858" y="447" font-family="Times New Roman,serif" font-size="8" fill="#000">month with Vogue, Representative Alexandria</text>
+  <text x="858" y="458" font-family="Times New Roman,serif" font-size="8" fill="#000">Ocasio-Cortez of New York, the party's most</text>
+  <text x="858" y="469" font-family="Times New Roman,serif" font-size="8" fill="#000">prominent young progressive, took aim at Biden</text>
+  <text x="858" y="480" font-family="Times New Roman,serif" font-size="8" fill="#000">and the notion that he would be the sensible</text>
+  <text x="858" y="491" font-family="Times New Roman,serif" font-size="8" fill="#000">option in 2020. "I think that he's not a pragmatic</text>
+  <text x="858" y="502" font-family="Times New Roman,serif" font-size="8" fill="#000">choice," she told the magazine. "That's my frus-</text>
+  <text x="858" y="513" font-family="Times New Roman,serif" font-size="8" fill="#000">tration with politics today, that they're willing</text>
+  <text x="858" y="524" font-family="Times New Roman,serif" font-size="8" fill="#000">to give up every single person in America just</text>
+  <text x="858" y="535" font-family="Times New Roman,serif" font-size="8" fill="#000">for that dude in a diner." She continued: "Just</text>
+  <text x="858" y="546" font-family="Times New Roman,serif" font-size="8" fill="#000">so you can get this very specific slice of Trump</text>
+  <text x="858" y="557" font-family="Times New Roman,serif" font-size="8" fill="#000">voters? If you pick the perfect candidate like</text>
+  <text x="858" y="568" font-family="Times New Roman,serif" font-size="8" fill="#000">Joe Biden to win that guy in the diner, the cost</text>
+  <text x="858" y="579" font-family="Times New Roman,serif" font-size="8" fill="#000">will make you lose, because you will depress</text>
+  <text x="858" y="590" font-family="Times New Roman,serif" font-size="8" fill="#000">turnout as well."</text>
+  <text x="858" y="607" font-family="Times New Roman,serif" font-size="8" fill="#000">   David Plouffe, Obama's 2008 campaign man-</text>
+  <text x="858" y="618" font-family="Times New Roman,serif" font-size="8" fill="#000">ager and White House adviser, dismisses as</text>
+  <text x="858" y="629" font-family="Times New Roman,serif" font-size="8" fill="#000">"ridiculous" the argument that Democrats just</text>
+  <text x="858" y="640" font-family="Times New Roman,serif" font-size="8" fill="#000">need to energize the base — although he cites</text>
+  <text x="858" y="651" font-family="Times New Roman,serif" font-size="8" fill="#000">an imaginary welder rather than the diner dude</text>
+  <text x="858" y="662" font-family="Times New Roman,serif" font-size="8" fill="#000">to illustrate his point. Plouffe believes that, as</text>
+  <text x="858" y="673" font-family="Times New Roman,serif" font-size="8" fill="#000">they did in 2016, the Rust Belt states will deter-</text>
+  <text x="858" y="684" font-family="Times New Roman,serif" font-size="8" fill="#000">mine the outcome in 2020 and that Democrats</text>
+  <text x="858" y="695" font-family="Times New Roman,serif" font-size="8" fill="#000">must win over (or win back) working-class white</text>
+  <text x="858" y="706" font-family="Times New Roman,serif" font-size="8" fill="#000">voters if they want to beat Trump. "In just about</text>
+  <text x="858" y="717" font-family="Times New Roman,serif" font-size="8" fill="#000">every battleground state, there are more con-</text>
+  <text x="858" y="728" font-family="Times New Roman,serif" font-size="8" fill="#000">servative voters than liberal voters," Plouffe told</text>
+  <text x="858" y="739" font-family="Times New Roman,serif" font-size="8" fill="#000">me. "So a Republican nominee starts out closer</text>
+  <text x="858" y="750" font-family="Times New Roman,serif" font-size="8" fill="#000">to the goal line than a Democrat does. That's the</text>
+  <text x="858" y="761" font-family="Times New Roman,serif" font-size="8" fill="#000">fact." He said the party needs a nominee who</text>
+  <text x="858" y="772" font-family="Times New Roman,serif" font-size="8" fill="#000">can both excite the base and pull in blue-collar</text>
+  <text x="858" y="783" font-family="Times New Roman,serif" font-size="8" fill="#000">white voters. "We need a candidate who can do</text>
+  <text x="858" y="794" font-family="Times New Roman,serif" font-size="8" fill="#000">both," Plouffe says, "who has the ability to get a</text>
+  <text x="858" y="805" font-family="Times New Roman,serif" font-size="8" fill="#000">45-year-old welder in Racine, Wis., back in the</text>
+  <text x="858" y="816" font-family="Times New Roman,serif" font-size="8" fill="#000">Democratic column."</text>
+
+  <!-- col 2|3 right rule -->
+  <line x1="1052" y1="26" x2="1052" y2="836" stroke="#ccc" stroke-width="0.5"/>
+
+  <!-- COL 3 right -->
+  <text x="1062" y="36" font-family="Times New Roman,serif" font-size="8" fill="#000">   But to get a shot at reclaiming that welder's</text>
+  <text x="1062" y="47" font-family="Times New Roman,serif" font-size="8" fill="#000">vote and evicting Trump from the White House,</text>
+  <text x="1062" y="58" font-family="Times New Roman,serif" font-size="8" fill="#000">Biden first needs to win the nomination of a</text>
+  <text x="1062" y="69" font-family="Times New Roman,serif" font-size="8" fill="#000">party whose most energized faction is deep-</text>
+  <text x="1062" y="80" font-family="Times New Roman,serif" font-size="8" fill="#000">ly hostile to him. Biden and his team believe</text>
+  <text x="1062" y="91" font-family="Times New Roman,serif" font-size="8" fill="#000">that while this faction may drive the discussion</text>
+  <text x="1062" y="102" font-family="Times New Roman,serif" font-size="8" fill="#000">on social media, it is not representative of the</text>
+  <text x="1062" y="113" font-family="Times New Roman,serif" font-size="8" fill="#000">rank and file, and that claims of a leftward lurch</text>
+  <text x="1062" y="124" font-family="Times New Roman,serif" font-size="8" fill="#000">among Democratic voters are exaggerated.</text>
+  <text x="1062" y="135" font-family="Times New Roman,serif" font-size="8" fill="#000">"Twitter is highly unrepresentative, highly</text>
+  <text x="1062" y="146" font-family="Times New Roman,serif" font-size="8" fill="#000">partisanized, very ideological, and it has a dis-</text>
+  <text x="1062" y="157" font-family="Times New Roman,serif" font-size="8" fill="#000">proportionate impact on all the media," Donilon</text>
+  <text x="1062" y="168" font-family="Times New Roman,serif" font-size="8" fill="#000">says. "That doesn't mean it reflects where the</text>
+  <text x="1062" y="179" font-family="Times New Roman,serif" font-size="8" fill="#000">party is or the country."</text>
+  <text x="1062" y="196" font-family="Times New Roman,serif" font-size="8" fill="#000">   Biden prefers to talk about next year's face-off</text>
+  <text x="1062" y="207" font-family="Times New Roman,serif" font-size="8" fill="#000">with Trump — "a battle for the soul of America"</text>
+  <text x="1062" y="218" font-family="Times New Roman,serif" font-size="8" fill="#000">— in place of the ongoing fight for the soul of the</text>
+  <text x="1062" y="229" font-family="Times New Roman,serif" font-size="8" fill="#000">Democratic Party. He has brushed aside his pri-</text>
+  <text x="1062" y="240" font-family="Times New Roman,serif" font-size="8" fill="#000">rivals and, echoing Obama, has warned that the</text>
+  <text x="1062" y="251" font-family="Times New Roman,serif" font-size="8" fill="#000">nomination fight should not devolve into "a cir-</text>
+  <text x="1062" y="262" font-family="Times New Roman,serif" font-size="8" fill="#000">cular firing squad." When I caught up with him in</text>
+  <text x="1062" y="273" font-family="Times New Roman,serif" font-size="8" fill="#000">New Hampshire, he described the growing signs</text>
+  <text x="1062" y="284" font-family="Times New Roman,serif" font-size="8" fill="#000">of a rift between hard-line progressives and less</text>
+  <text x="1062" y="295" font-family="Times New Roman,serif" font-size="8" fill="#000">strident ones as an "artificial division." He also</text>
+  <text x="1062" y="306" font-family="Times New Roman,serif" font-size="8" fill="#000">spoke admiringly of Ocasio-Cortez, describing</text>
+  <text x="1062" y="317" font-family="Times New Roman,serif" font-size="8" fill="#000">her as "smart as hell."</text>
+  <text x="1062" y="334" font-family="Times New Roman,serif" font-size="8" fill="#000">   But the Miami debate showed that playing</text>
+  <text x="1062" y="345" font-family="Times New Roman,serif" font-size="8" fill="#000">the role of magnanimous party elder is not</text>
+  <text x="1062" y="356" font-family="Times New Roman,serif" font-size="8" fill="#000">an option for Biden — not if he wants to win.</text>
+  <text x="1062" y="367" font-family="Times New Roman,serif" font-size="8" fill="#000">Although Biden survived the night at the polls,</text>
+  <text x="1062" y="378" font-family="Times New Roman,serif" font-size="8" fill="#000">his numbers dropped sharply. (Harris picked</text>
+  <text x="1062" y="389" font-family="Times New Roman,serif" font-size="8" fill="#000">up the biggest gains.) In New Hampshire, he</text>
+  <text x="1062" y="400" font-family="Times New Roman,serif" font-size="8" fill="#000">struck a more combative tone, especially toward</text>
+  <text x="1062" y="411" font-family="Times New Roman,serif" font-size="8" fill="#000">Harris. "On this busing thing," Biden told me at</text>
+  <text x="1062" y="422" font-family="Times New Roman,serif" font-size="8" fill="#000">an event in Dover, "I've been reading what has</text>
+  <text x="1062" y="433" font-family="Times New Roman,serif" font-size="8" fill="#000">come out of Senator Harris. Well, guess what?</text>
+  <text x="1062" y="444" font-family="Times New Roman,serif" font-size="8" fill="#000">We're segregated now. Does she want to order</text>
+  <text x="1062" y="455" font-family="Times New Roman,serif" font-size="8" fill="#000">busing? Ask her. My understanding is no." Later,</text>
+  <text x="1062" y="472" font-family="Times New Roman,serif" font-size="8" fill="#000">   Mauris varius orci id sem. Vestibulum gravida</text>
+  <text x="1062" y="483" font-family="Times New Roman,serif" font-size="8" fill="#000">tellus quis dolor. Nulla dignissim enim quis nisl.</text>
+  <text x="1062" y="494" font-family="Times New Roman,serif" font-size="8" fill="#000">Aenean tempus risus ut odio. Nulla facilisi. Sus-</text>
+  <text x="1062" y="505" font-family="Times New Roman,serif" font-size="8" fill="#000">pendisse et lectus. Lorem ipsum dolor sit amet,</text>
+  <text x="1062" y="516" font-family="Times New Roman,serif" font-size="8" fill="#000">consectetur adipiscing elit. Class aptent taciti</text>
+  <text x="1062" y="527" font-family="Times New Roman,serif" font-size="8" fill="#000">sociosqu ad litora torquent per conubia nostra,</text>
+  <text x="1062" y="538" font-family="Times New Roman,serif" font-size="8" fill="#000">per inceptos himenaeos. Sed tempor lacus eu</text>
+  <text x="1062" y="549" font-family="Times New Roman,serif" font-size="8" fill="#000">lacus. Aenean ac arcu at sem faucibus luctus.</text>
+  <text x="1062" y="560" font-family="Times New Roman,serif" font-size="8" fill="#000">Nam feugiat leo vitae orci. Vestibulum accum-</text>
+  <text x="1062" y="571" font-family="Times New Roman,serif" font-size="8" fill="#000">san nibh eget lacus. Cras mollis. Suspendisse</text>
+  <text x="1062" y="582" font-family="Times New Roman,serif" font-size="8" fill="#000">ligula elit, consectetur et, sagittis vel, convallis</text>
+  <text x="1062" y="593" font-family="Times New Roman,serif" font-size="8" fill="#000">non, lacus. Duis vel lorem. Duis sodales, lorem</text>
+  <text x="1062" y="604" font-family="Times New Roman,serif" font-size="8" fill="#000">in interdum sodales, leo lorem elementum elit,</text>
+  <text x="1062" y="615" font-family="Times New Roman,serif" font-size="8" fill="#000">ut consequat lacus est at libero.</text>
+  <text x="1062" y="632" font-family="Times New Roman,serif" font-size="8" fill="#000">   Nulla massa. Suspendisse vel odio facilisis nisl</text>
+  <text x="1062" y="643" font-family="Times New Roman,serif" font-size="8" fill="#000">vulputate suscipit. Cras in ligula vel nisi sceleris-</text>
+  <text x="1062" y="654" font-family="Times New Roman,serif" font-size="8" fill="#000">que suscipit. Vestibulum ac risus ac nunc congue</text>
+  <text x="1062" y="665" font-family="Times New Roman,serif" font-size="8" fill="#000">venenatis. Vestibulum vulputate, nisl in suscipit</text>
+  <text x="1062" y="676" font-family="Times New Roman,serif" font-size="8" fill="#000">commodo, ipsum tortor fermentum lorem ipsum.</text>
+  <text x="1062" y="693" font-family="Times New Roman,serif" font-size="8" fill="#000">   Mauris varius orci id sem. Vestibulum gravida</text>
+  <text x="1062" y="704" font-family="Times New Roman,serif" font-size="8" fill="#000">tellus quis dolor. Nulla dignissim enim quis nisl.</text>
+  <text x="1062" y="715" font-family="Times New Roman,serif" font-size="8" fill="#000">Aenean tempus risus ut odio. Nulla facilisi. Sus-</text>
+  <text x="1062" y="726" font-family="Times New Roman,serif" font-size="8" fill="#000">pendisse et lectus. Lorem ipsum dolor sit amet,</text>
+  <text x="1062" y="737" font-family="Times New Roman,serif" font-size="8" fill="#000">consectetur adipiscing elit. Class aptent taciti</text>
+  <text x="1062" y="748" font-family="Times New Roman,serif" font-size="8" fill="#000">sociosqu ad litora torquent per conubia nostra.</text>
+  <text x="1062" y="759" font-family="Times New Roman,serif" font-size="8" fill="#000">Nulla dignissim enim quis nisl. Aenean tempus</text>
+  <text x="1062" y="770" font-family="Times New Roman,serif" font-size="8" fill="#000">risus ut odio. Nulla facilisi. Suspendisse et lec-</text>
+  <text x="1062" y="781" font-family="Times New Roman,serif" font-size="8" fill="#000">tus. Lorem ipsum dolor sit amet, consectetur</text>
+  <text x="1062" y="792" font-family="Times New Roman,serif" font-size="8" fill="#000">adipiscing elit. Class aptent taciti sociosqu ad</text>
+  <text x="1062" y="803" font-family="Times New Roman,serif" font-size="8" fill="#000">litora torquent per conubia nostra, per inceptos</text>
+  <text x="1062" y="814" font-family="Times New Roman,serif" font-size="8" fill="#000">himenaeos. Sed tempor lacus eu lacus. Aenean</text>
+  <text x="1062" y="825" font-family="Times New Roman,serif" font-size="8" fill="#000">ac arcu at sem faucibus luctus. Nam feugiat.</text>
+
+  <!-- bottom folio rule right -->
+  <line x1="660" y1="836" x2="1260" y2="836" stroke="#000" stroke-width="0.7"/>
+  <text x="1260" y="848" font-family="Times New Roman,serif" font-size="9" fill="#000" text-anchor="end">29</text>
+  <text x="960" y="848" font-family="Arial,sans-serif" font-size="7" fill="#000" text-anchor="middle" font-style="italic">the new york times magazine</text>
+</g>
+
+</g><!-- /bookShadow -->
+
+<!-- PAGE CURLS -->
+<g>
+  <path d="M0 860 Q 44 840 50 808 L 0 808 Z" fill="#000" opacity="0.08"/>
+  <path d="M0 860 Q 48 832 68 796 Q 92 756 124 724 Q 158 692 196 666 L 0 666 Z" fill="url(#curlBL)"/>
+  <path d="M0 860 Q 48 832 68 796 Q 92 756 124 724 Q 158 692 196 666" fill="none" stroke="#fff" stroke-width="0.9" opacity="0.8"/>
+</g>
+<g>
+  <path d="M1280 860 Q 1236 840 1230 808 L 1280 808 Z" fill="#000" opacity="0.08"/>
+  <path d="M1280 860 Q 1232 832 1212 796 Q 1188 756 1156 724 Q 1122 692 1084 666 L 1280 666 Z" fill="url(#curlBR)"/>
+  <path d="M1280 860 Q 1232 832 1212 796 Q 1188 756 1156 724 Q 1122 692 1084 666" fill="none" stroke="#fff" stroke-width="0.9" opacity="0.8"/>
+</g>
+
+</svg>

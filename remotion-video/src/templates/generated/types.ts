@@ -63,6 +63,11 @@ export interface GeneratedVideoData {
   bodyFont?: string | null;
   bgmFile?: string | null;
   bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  captionOffset?: number;
   scenes: GeneratedSceneData[];
   /** Brand colors derived from template theme */
   brandColors?: {
@@ -99,6 +104,8 @@ export interface GeneratedSceneData {
   /** Full voiceover narration script */
   narrationText?: string;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
   /** External image URL (og_image from brand kit) — used when no local image is assigned */

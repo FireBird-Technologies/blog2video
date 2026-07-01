@@ -22,6 +22,7 @@ import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition
 import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
 import { EconomistVideoComposition } from "./economist/EconomistVideoComposition";
 import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
+import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
 import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
 import {
   RemotionDefaultVideoComposition,
@@ -38,6 +39,7 @@ import {
   RemotionChronicleVideoComposition,
   RemotionEconomistVideoComposition,
   RemotionStickman2VideoComposition,
+  RemotionMagazineVideoComposition,
   RemotionStickmanFootballVideoComposition,
 } from "./remotionAdapters";
 
@@ -55,9 +57,11 @@ export interface TemplateConfig {
       order: number;
       title: string;
       narration: string;
+      narrationText?: string;
       layout: string;
       layoutProps: Record<string, unknown>;
       durationSeconds: number;
+      speechDurationSeconds?: number;
       imageUrl?: string;
       voiceoverUrl?: string;
     }>;
@@ -70,6 +74,11 @@ export interface TemplateConfig {
     logoSize?: number;
     aspectRatio?: string;
     playbackSpeed?: number;
+    captionsEnabled?: boolean;
+    captionPosition?: string;
+    captionFontFamily?: string;
+    captionFontSize?: number;
+    captionOffset?: number;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     theme?: any;
   }>;
@@ -290,6 +299,21 @@ const STICKMAN_2_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+const MAGAZINE_LAYOUTS = new Set([
+  "magazine_cover",
+  "editorial_quote",
+  "by_the_numbers",
+  "interview_qa",
+  "magazine_data_visualization",
+  "timeline_journey",
+  "text_narration",
+  "ending_socials",
+  "magazine_ticker",
+  "colorblock",
+  "feature",
+  "comparison",
+]);
+
 const STICKMAN_FOOTBALL_LAYOUTS = new Set([
   "kickoff_title",
   "passing_play",
@@ -488,6 +512,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  magazine: {
+    component: MagazineVideoComposition as React.ComponentType<any>,
+    heroLayout: "magazine_cover",
+    fallbackLayout: "text_narration",
+    validLayouts: MAGAZINE_LAYOUTS,
+    defaultColors: {
+      accent: "#E63946",
+      bg: "#FDFCFB",
+      text: "#1A1A1A",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
   stickman_football: {
     component: StickmanFootballVideoComposition as React.ComponentType<any>,
     heroLayout: "kickoff_title",
@@ -555,6 +592,8 @@ export function getTemplateConfig(
                               ? RemotionEconomistVideoComposition
                               : id === "stickman_2"
                                 ? RemotionStickman2VideoComposition
+                                : id === "magazine"
+                                  ? RemotionMagazineVideoComposition
                                 : id === "stickman_football"
                                   ? RemotionStickmanFootballVideoComposition
                     : null;

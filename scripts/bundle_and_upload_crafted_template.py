@@ -64,7 +64,16 @@ def first_existing(*paths: Path) -> Path | None:
     return None
 
 
-def infer_frontend_entry(frontend_dir: Path) -> str:
+def infer_frontend_entry(frontend_dir: Path, composition_id: str | None = None) -> str:
+    # Prefer the preview composition matching the render's composition_id
+    # (`<composition_id>Composition.tsx`) so preview and render stay in sync.
+    # Without this, sorted(glob) picks the alphabetically-first match, which can
+    # be a stale/simpler sibling (e.g. FjBriefCustomVideoComposition.tsx beats
+    # the render-matching FjBriefVideoComposition.tsx).
+    if composition_id:
+        preferred = frontend_dir / f"{composition_id}Composition.tsx"
+        if preferred.exists():
+            return f"frontend/{preferred.name}"
     candidates = sorted(frontend_dir.glob("*VideoComposition.tsx"))
     if candidates:
         return f"frontend/{candidates[0].name}"
@@ -409,17 +418,27 @@ def main() -> None:
         # Include shared frontend SocialIcons used by ending CTA layouts.
         # Built-in-authored layouts often import "../../SocialIcons"; after bundling
         # into `frontend/layouts/*`, that should resolve to `frontend/SocialIcons.tsx`.
+        # Only copy the shared module when the template does NOT ship its own
+        # SocialIcons.tsx — otherwise this would clobber a template-local copy
+        # (e.g. fj_market_brief exports `fjNormalizeSocials`) with the generic one.
         shared_frontend_social_icons = (
             REPO_ROOT / "frontend" / "src" / "components" / "remotion" / "SocialIcons.tsx"
         )
-        if shared_frontend_social_icons.exists():
+        if (
+            shared_frontend_social_icons.exists()
+            and not (frontend_src / "SocialIcons.tsx").exists()
+        ):
             shutil.copy2(shared_frontend_social_icons, out_root / "frontend" / "SocialIcons.tsx")
 
         # Include shared remotion SocialIcons used by ending CTA layouts during render.
         # Built-in-authored remotion layouts often import "../../SocialIcons"; after bundling
         # into `remotion-video/layouts/*`, that should resolve to `remotion-video/SocialIcons.tsx`.
+        # As above, skip when the template ships its own SocialIcons.tsx.
         shared_remotion_social_icons = REPO_ROOT / "remotion-video" / "src" / "templates" / "SocialIcons.tsx"
-        if shared_remotion_social_icons.exists():
+        if (
+            shared_remotion_social_icons.exists()
+            and not (remotion_src / "SocialIcons.tsx").exists()
+        ):
             shutil.copy2(shared_remotion_social_icons, out_root / "remotion-video" / "SocialIcons.tsx")
 
         template_key = (
@@ -466,7 +485,10 @@ def main() -> None:
             },
             "frontend": {
                 "mount_id": template_key,
-                "entry": infer_frontend_entry(out_root / "frontend"),
+                "entry": infer_frontend_entry(
+                    out_root / "frontend",
+                    composition_id if isinstance(composition_id, str) else None,
+                ),
                 "layout_index": "frontend/layouts/index.ts",
                 # Marquee preview (lightweight, fetched alongside list summary).
                 # Optional — falls back to preview_image when missing.

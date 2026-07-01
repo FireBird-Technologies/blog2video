@@ -224,6 +224,18 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
     return () => pl.removeEventListener("frameupdate", onFrame);
   }, [thumbnailMode, thumbnailFrame]);
 
+  // When the card reaches center, restart the timeline from the top so the
+  // animation plays fresh — and stop it (the thumbnail effect above pauses it)
+  // the moment it moves away.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    const pl = playerRef.current;
+    if (!pl) return;
+    setActiveSceneIndex(0);
+    pl.seekTo(0);
+    pl.play();
+  }, [thumbnailMode]);
+
   // Keep the active-dot highlight in sync with which scene is currently playing.
   useEffect(() => {
     if (thumbnailMode) return;
@@ -262,12 +274,12 @@ export default function StickmanFootballPreview({ thumbnailMode = false }: { thu
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
-          initialFrame={0}
+          initialFrame={thumbnailMode ? thumbnailFrame : 0}
           compositionWidth={1920}
           compositionHeight={1080}
           fps={fps}
           controls={false}
-          autoPlay
+          autoPlay={!thumbnailMode}
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
           style={{ width: "100%", height: "100%", display: "block" }}

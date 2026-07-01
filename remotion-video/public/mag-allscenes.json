@@ -1,0 +1,324 @@
+{
+  "projectName": "Atlas Review",
+  "accentColor": "#D71921",
+  "bgColor": "#FFFFFF",
+  "textColor": "#15110E",
+  "aspectRatio": "landscape",
+  "scenes": [
+    {
+      "id": 1,
+      "order": 0,
+      "title": "The Quiet Revolution",
+      "narration": "Inside the studios reshaping how we live and work.",
+      "layout": "magazine_cover",
+      "layoutProps": {},
+      "durationSeconds": 3,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3,
+      "order": 1,
+      "title": "A Working Theory of Print",
+      "narration": "The studios betting on print are not nostalgists. They have read the same charts as everyone else and reached a contrary conclusion: that attention, not paper, is the scarce resource worth fighting for. A magazine demands a kind of focus the feed cannot, and — when the columns settle and the rules align — it repays the effort. The grid becomes a quiet promise that nothing here is accidental, and that the reader's time has been respected. That promise, more than any typeface, is what keeps the format alive.",
+      "layout": "text_narration",
+      "layoutProps": {
+        "sectionLabel": "ESSAY"
+      },
+      "durationSeconds": 7,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4,
+      "order": 2,
+      "title": "It starts with the grid, and ends with the reader.",
+      "narration": "— Mara Voss",
+      "layout": "editorial_quote",
+      "layoutProps": {
+        "attribution": "Mara Voss, Editor"
+      },
+      "durationSeconds": 3,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 14,
+      "order": 3,
+      "title": "A spread should feel inevitable",
+      "narration": "The print issue, reimagined for screen.",
+      "layout": "colorblock",
+      "layoutProps": {
+        "leftQuote": "A spread should feel inevitable — as if it could not have been set any other way.",
+        "panelLabel": "Expert Profile",
+        "panelHeading": "Mara Voss",
+        "panelSubline": "Art Director",
+        "panelTag": "Editor Since 2014"
+      },
+      "durationSeconds": 4,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 15,
+      "order": 4,
+      "title": "The Shape of Things to Come",
+      "narration": "Inside the studios redrawing how we live and work.",
+      "layout": "feature",
+      "layoutProps": {
+        "sectionLabel": "FEATURE",
+        "body": "On a wet Tuesday in a converted east-London warehouse, eleven people are arguing about a margin. It is the kind of room where the future of a magazine is decided one hairline rule at a time — where a redesign is less a grand gesture than a thousand small, stubborn judgements. The team has spent the morning on a single spread, moving the folio a few points, testing whether the drop cap should lead or follow. None of it looks like work from the outside. All of it is the work. By lunch the page reads as if it could not have been set any other way, which is exactly the point: the craft is invisible when it lands, and glaring when it does not.",
+        "keyPoints": [
+          {
+            "value": "Attention is the scarce resource"
+          },
+          {
+            "value": "Craft outlasts ornament"
+          },
+          {
+            "value": "Detail is the whole job"
+          }
+        ]
+      },
+      "durationSeconds": 8,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5,
+      "order": 5,
+      "title": "Where does a redesign actually begin?",
+      "narration": "We sat down with the team behind the redesign.",
+      "layout": "interview_qa",
+      "layoutProps": {
+        "leftSpeaker": "Mara Voss",
+        "rightSpeaker": "Art Director",
+        "exchanges": [
+          {
+            "q": "Where does a redesign actually begin?",
+            "a": "It begins long before anything is drawn. We spent weeks simply reading the old magazine, page by page, asking where the eye stalled and where it flew. Only once we understood how people moved through it did we touch the grid."
+          },
+          {
+            "q": "What was the hardest constraint?",
+            "a": "Type, always. A magazine lives or dies on its body text, and the temptation is to make it expressive. We resisted that — the headline can sing, but the body must disappear into the reading."
+          },
+          {
+            "q": "How do you know when it's finished?",
+            "a": "You never quite do. But there's a moment when a spread stops feeling designed and starts feeling inevitable, as if it could not have been any other way. That is the signal to stop."
+          }
+        ]
+      },
+      "durationSeconds": 8,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 7,
+      "order": 7,
+      "title": "By the Numbers",
+      "narration": "The redesign, measured.",
+      "layout": "by_the_numbers",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "2.4M",
+            "label": "Monthly readers"
+          },
+          {
+            "value": "98%",
+            "label": "Renewal rate"
+          },
+          {
+            "value": "150+",
+            "label": "Countries"
+          },
+          {
+            "value": "47",
+            "label": "Issues in print"
+          }
+        ]
+      },
+      "durationSeconds": 3,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 8,
+      "order": 8,
+      "title": "Growth in Readership",
+      "narration": "Circulation climbed steadily after the relaunch.",
+      "layout": "magazine_data_visualization",
+      "layoutProps": {
+        "chartType": "line",
+        "chartTable": {
+          "headers": [
+            "Year",
+            "Readers (M)"
+          ],
+          "rows": [
+            [
+              "2019",
+              "0.6"
+            ],
+            [
+              "2020",
+              "0.9"
+            ],
+            [
+              "2021",
+              "1.3"
+            ],
+            [
+              "2022",
+              "1.7"
+            ],
+            [
+              "2023",
+              "2.0"
+            ],
+            [
+              "2024",
+              "2.4"
+            ]
+          ]
+        },
+        "chartSummary": "Readership __quadrupled__ in five years, with the steepest gains following the 2021 redesign."
+      },
+      "durationSeconds": 4,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 9,
+      "order": 9,
+      "title": "The Ledger",
+      "narration": "Quarterly performance at a glance.",
+      "layout": "magazine_ticker",
+      "layoutProps": {
+        "tickerTitle": "FIGURES",
+        "tickerHighlightCol": 2,
+        "tickerTable": {
+          "headers": [
+            "Quarter",
+            "Revenue",
+            "Change"
+          ],
+          "rows": [
+            [
+              "Q1",
+              "4.2",
+              "12"
+            ],
+            [
+              "Q2",
+              "4.8",
+              "14"
+            ],
+            [
+              "Q3",
+              "4.5",
+              "-6"
+            ],
+            [
+              "Q4",
+              "5.6",
+              "24"
+            ]
+          ]
+        },
+        "tickerFootnote": "Figures in millions, unaudited."
+      },
+      "durationSeconds": 4,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 10,
+      "order": 10,
+      "title": "A Short History",
+      "narration": "From a single zine to a global title.",
+      "layout": "timeline_journey",
+      "layoutProps": {
+        "milestones": [
+          {
+            "date": "2014",
+            "label": "Founded as a quarterly zine",
+            "desc": "Stapled, photocopied, mailed to a few hundred subscribers."
+          },
+          {
+            "date": "2018",
+            "label": "First newsstand edition",
+            "desc": "A glossy relaunch lands on shelves nationwide."
+          },
+          {
+            "date": "2021",
+            "label": "The full redesign",
+            "desc": "New masthead, new grid, a sharper editorial voice."
+          },
+          {
+            "date": "2024",
+            "label": "Two million readers",
+            "desc": "Print and digital combined cross the milestone."
+          }
+        ]
+      },
+      "durationSeconds": 4,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 12,
+      "order": 11,
+      "title": "The Last Word",
+      "narration": "Back in the warehouse, the argument over the four-millimetre margin has been settled, and the issue has gone to the printer. A page cannot interrupt itself with notifications or rearrange itself to chase a click; it waits, holding its argument in place, until the reader is ready to meet it. In an economy engineered to distract, that patience has quietly become the rarest luxury of all — which is, in the end, exactly what these studios are selling.",
+      "layout": "text_narration",
+      "layoutProps": {
+        "sectionLabel": "CODA"
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 14,
+      "order": 12,
+      "title": "Before and After",
+      "narration": "The redesign, set side by side.",
+      "layout": "comparison",
+      "layoutProps": {
+        "leftHeader": "Before",
+        "rightHeader": "After",
+        "leftPoints": [
+          { "value": "Columns ran too wide to read comfortably" },
+          { "value": "Heavy rules cast shadows across the page" },
+          { "value": "A cramped grid left the eye no room to rest" },
+          { "value": "Every element shouted at once" }
+        ],
+        "rightPoints": [
+          { "value": "Type is set with generous air" },
+          { "value": "Rules reduced to clean hairlines" },
+          { "value": "A flexible grid guides the eye without friction" },
+          { "value": "Nothing competes; everything cooperates" }
+        ]
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 13,
+      "order": 13,
+      "title": "Atlas Review",
+      "narration": "An independent report on the people still making things by hand.",
+      "layout": "ending_socials",
+      "layoutProps": {
+        "ctaButtonText": "Read the full issue",
+        "websiteLink": "atlasreview.com",
+        "showWebsiteButton": true
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

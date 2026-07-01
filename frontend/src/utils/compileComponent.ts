@@ -21,6 +21,7 @@ import * as Recharts from "recharts";
 import * as RemotionTransitions from "@remotion/transitions";
 import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { CaptionTrack } from "../components/remotion/CaptionTrack";
 import * as Kit from "../components/remotion/generated/kit";
 
 // Craft-kit exports injected into JIT-compiled AI scene code, mirroring the
@@ -545,6 +546,16 @@ export async function compileModuleGraphEntry(
           __esModule: true,
           default: noOpComponent,
           SocialIcons: noOpComponent,
+        };
+      }
+      // Captions: crafted compositions (e.g. fj_research) import "../CaptionTrack",
+      // a shared component not shipped inside the bundle. Provide the real one so
+      // captions render in the editor preview, matching the final render.
+      if (spec.toLowerCase().includes("captiontrack")) {
+        return {
+          __esModule: true,
+          default: CaptionTrack,
+          CaptionTrack,
         };
       }
       if (spec === "react/jsx-runtime" || spec === "react/jsx-dev-runtime") {

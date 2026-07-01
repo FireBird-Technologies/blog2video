@@ -1,0 +1,1088 @@
+{
+  "id": "magazine",
+  "name": "Magazine",
+  "new_template": true,
+  "description": "An authentic print-editorial magazine template: cream paper, serif headlines and book-serif body, a single red accent, hairline rules, page folios and a masthead. Purely typographic — no photographs. Folios, kicker labels, pull quotes, Q&A blocks and crisp infographic ledgers for features, interviews and brand content.",
+  "genres": [
+    "Business",
+    "Lifestyle",
+    "Technology",
+    "Culture"
+  ],
+  "preview_colors": {
+    "accent": "#D71921",
+    "bg": "#FFFFFF",
+    "text": "#111111"
+  },
+  "composition_id": "MagazineVideo",
+  "hero_layout": "magazine_cover",
+  "fallback_layout": "text_narration",
+  "valid_layouts": [
+    "magazine_cover",
+    "editorial_quote",
+    "by_the_numbers",
+    "interview_qa",
+    "timeline_journey",
+    "text_narration",
+    "ending_socials",
+    "magazine_ticker",
+    "colorblock",
+    "feature",
+    "comparison",
+    "magazine_data_visualization"
+  ],
+  "layout_prop_schema": {
+    "magazine_cover": {
+      "label": "Magazine Cover",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 16,
+          "landscape": 19
+        }
+      },
+      "scene_defaults": {
+        "title": "The Quiet Revolution",
+        "narration": "Inside the studios reshaping how we live and work.",
+        "durationSeconds": 6
+      },
+      "sample_props": {
+        "brandName": "Atlas Review",
+        "sectionLabel": "FEATURE"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "brandName",
+          "label": "Brand / Masthead",
+          "type": "string",
+          "description": "Publication name shown as the cover masthead brand, e.g. 'Atlas Review'"
+        },
+        {
+          "key": "sectionLabel",
+          "label": "Sectionlabel",
+          "type": "string",
+          "description": "Red small-caps kicker above the cover deck, e.g. 'FEATURE'"
+        }
+      ]
+    },
+    "editorial_quote": {
+      "label": "Editorial Pull Quote",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 78
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 26
+        }
+      },
+      "scene_defaults": {
+        "title": "It starts with the grid, and ends with the reader.",
+        "narration": "— Mara Voss",
+        "durationSeconds": 6
+      },
+      "sample_props": {
+        "attribution": "Mara Voss, Editor"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string",
+          "description": "Quote source displayed below the quote, e.g. '— Jane Smith, CEO'"
+        }
+      ]
+    },
+    "by_the_numbers": {
+      "label": "By the Numbers",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 107
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 53
+        },
+        "stats": []
+      },
+      "scene_defaults": {
+        "title": "By the Numbers",
+        "narration": "The redesign, measured.",
+        "durationSeconds": 6
+      },
+      "sample_props": {
+        "stats": [
+          {
+            "value": "2.4M",
+            "label": "Monthly readers"
+          },
+          {
+            "value": "98%",
+            "label": "Renewal rate"
+          },
+          {
+            "value": "150+",
+            "label": "Countries"
+          },
+          {
+            "value": "47",
+            "label": "Issues in print"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Stats",
+          "type": "object_array",
+          "description": "Array of stat items, each with `value` (string, e.g. '4.2B') and `label` (string, e.g. 'Users Worldwide'), maximum 4 items",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ],
+          "maxItems": 10
+        }
+      ]
+    },
+    "interview_qa": {
+      "label": "Interview Q&A",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "scene_defaults": {
+        "title": "Where does a redesign actually begin?",
+        "narration": "We sat down with the team behind the redesign.",
+        "durationSeconds": 8
+      },
+      "sample_props": {
+        "leftSpeaker": "Mara Voss",
+        "rightSpeaker": "Art Director",
+        "exchanges": [
+          {
+            "q": "Where does a redesign actually begin?",
+            "a": "It begins long before anything is drawn. We spent weeks simply reading the old magazine, page by page, asking where the eye stalled and where it flew. Only once we understood how people moved through it did we touch the grid."
+          },
+          {
+            "q": "What was the hardest constraint?",
+            "a": "Type, always. A magazine lives or dies on its body text, and the temptation is to make it expressive. We resisted that — the headline can sing, but the body must disappear into the reading."
+          },
+          {
+            "q": "How do you know when it's finished?",
+            "a": "You never quite do. But there's a moment when a spread stops feeling designed and starts feeling inevitable, as if it could not have been any other way. That is the signal to stop."
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftSpeaker",
+          "label": "Leftspeaker",
+          "type": "string",
+          "description": "Left panel speaker name"
+        },
+        {
+          "key": "rightSpeaker",
+          "label": "Rightspeaker",
+          "type": "string",
+          "description": "Right panel speaker name"
+        },
+        {
+          "key": "leftQuote",
+          "label": "Leftquote",
+          "type": "text",
+          "description": "Left speaker's statement or answer"
+        },
+        {
+          "key": "rightQuote",
+          "label": "Rightquote",
+          "type": "text",
+          "description": "Right speaker's statement or answer"
+        },
+        {
+          "key": "exchanges",
+          "label": "Exchanges",
+          "type": "object_array",
+          "description": "Up to 3 question/answer exchanges. Each has a `q` (question) and `a` (paragraph-length answer). Supersedes Leftquote/Rightquote when set.",
+          "subFields": [
+            {
+              "key": "q",
+              "label": "Question"
+            },
+            {
+              "key": "a",
+              "label": "Answer"
+            }
+          ],
+          "maxItems": 3
+        }
+      ]
+    },
+    "magazine_data_visualization": {
+      "label": "Data Visualisation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 56,
+          "landscape": 52
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 26
+        },
+        "chartType": "line",
+        "chartSummary": "Readership climbed steadily across the period before levelling off near the high.",
+        "chartTable": {
+          "headers": [
+            "Quarter",
+            "Readers",
+            "Subscribers"
+          ],
+          "rows": [
+            [
+              "Q1",
+              "298",
+              "72"
+            ],
+            [
+              "Q2",
+              "308",
+              "68"
+            ],
+            [
+              "Q3",
+              "315",
+              "61"
+            ],
+            [
+              "Q4",
+              "324",
+              "55"
+            ],
+            [
+              "Q5",
+              "318",
+              "59"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Quarter",
+        "yAxisLabel": "Thousands",
+        "barPrimaryColor": "#D71921",
+        "barSecondaryColor": "#111111"
+      },
+      "scene_defaults": {
+        "title": "The story in the numbers",
+        "narration": "The figures tell their own story across the period.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "timeline_journey": {
+      "label": "Timeline Journey",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "milestones": []
+      },
+      "scene_defaults": {
+        "title": "A Short History",
+        "narration": "From a single zine to a global title.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "milestones": [
+          {
+            "value": "2014",
+            "label": "Founded as a quarterly zine",
+            "desc": "Stapled, photocopied, mailed to a few hundred subscribers."
+          },
+          {
+            "value": "2018",
+            "label": "First newsstand edition",
+            "desc": "A glossy relaunch lands on shelves nationwide."
+          },
+          {
+            "value": "2021",
+            "label": "The full redesign",
+            "desc": "New masthead, new grid, a sharper editorial voice."
+          },
+          {
+            "value": "2024",
+            "label": "Two million readers",
+            "desc": "Print and digital combined cross the milestone."
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "milestones",
+          "label": "Milestones",
+          "type": "object_array",
+          "description": "Array of milestone items, each with `date` (string, e.g. '2021'), a `label` (string, e.g. 'Company Founded'), and an optional one-line `desc` detail (string) drawn from the source, maximum 6 items",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            },
+            {
+              "key": "desc",
+              "label": "Detail"
+            }
+          ],
+          "maxItems": 10
+        }
+      ]
+    },
+    "text_narration": {
+      "label": "Text Narration",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 56
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 28
+        }
+      },
+      "scene_defaults": {
+        "title": "A Working Theory of Print",
+        "narration": "The studios betting on print are not nostalgists. They have read the same charts as everyone else and reached a contrary conclusion: that attention, not paper, is the scarce resource worth fighting for. A magazine demands a kind of focus the feed cannot, and — when the columns settle and the rules align — it repays the effort. The grid becomes a quiet promise that nothing here is accidental, and that the reader's time has been respected. That promise, more than any typeface, is what keeps the format alive.",
+        "durationSeconds": 7
+      },
+      "sample_props": {
+        "sectionLabel": "ESSAY",
+        "standfirst": "The studios betting on print are not nostalgists — they are chasing the scarcest resource of all.",
+        "body": "The studios betting on print are not nostalgists. They have read the same charts as everyone else and reached a contrary conclusion: that attention, not paper, is the scarce resource worth fighting for. A magazine demands a kind of focus the feed cannot, and — when the columns settle and the rules align — it repays the effort. The grid becomes a quiet promise that nothing here is accidental, and that the reader's time has been respected. That promise, more than any typeface, is what keeps the format alive."
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "sectionLabel",
+          "label": "Sectionlabel",
+          "type": "string",
+          "description": "Red small-caps section tag displayed above the headline, e.g. 'ANALYSIS'"
+        },
+        {
+          "key": "standfirst",
+          "label": "Standfirst",
+          "type": "string",
+          "description": "Single-line italic deck under the headline (≤16 words) stating the essay's sub-thesis"
+        },
+        {
+          "key": "body",
+          "label": "Body Copy",
+          "type": "text",
+          "description": "The full essay body that flows down the page. Leave blank to fall back to the scene narration."
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Closing Page",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "ctaButtonText": "Read More",
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com",
+        "socials": [
+          {
+            "platform": "facebook",
+            "enabled": "true",
+            "label": "Facebook"
+          },
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "false",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "false",
+            "label": "TikTok"
+          }
+        ]
+      },
+      "scene_defaults": {
+        "title": "Atlas Review",
+        "narration": "An independent report on the people still making things by hand.",
+        "durationSeconds": 5
+      },
+      "sample_props": {
+        "ctaButtonText": "Read the full issue",
+        "websiteLink": "atlasreview.com",
+        "showWebsiteButton": true
+      },
+      "fields": [
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        },
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "description": "CTA button label text, e.g. 'Read More' or 'Visit Site'"
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "description": "URL shown below the CTA button, e.g. 'https://example.com'"
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show CTA Button",
+          "type": "boolean",
+          "description": "Toggle to show or hide the CTA button"
+        },
+        {
+          "key": "ctas",
+          "label": "CTA Cards",
+          "type": "object_array",
+          "description": "Up to 3 CTA cards. Each card has a button label and optional URL. Overrides the single ctaButtonText / websiteLink fields.",
+          "subFields": [
+            {
+              "key": "ctaButtonText",
+              "label": "Button Text"
+            },
+            {
+              "key": "websiteLink",
+              "label": "Website URL"
+            }
+          ],
+          "maxItems": 3
+        }
+      ]
+    },
+    "magazine_ticker": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 52,
+          "landscape": 42
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 22
+        },
+        "tickerTitle": "Q1 2026 Performance",
+        "tickerFootnote": "Source: editorial research",
+        "tickerHighlightCol": 5,
+        "tickerTable": {
+          "headers": [
+            "Name",
+            "Shares",
+            "Price",
+            "Cost",
+            "Value",
+            "% Chg"
+          ],
+          "rows": [
+            [
+              "House A",
+              "25",
+              "$20",
+              "$500",
+              "$600",
+              "+20%"
+            ],
+            [
+              "House B",
+              "20",
+              "$30",
+              "$600",
+              "$500",
+              "-16.7%"
+            ],
+            [
+              "House C",
+              "30",
+              "$90",
+              "$2,700",
+              "$3,000",
+              "+11.1%"
+            ],
+            [
+              "House D",
+              "50",
+              "$100",
+              "$5,000",
+              "$10,000",
+              "+100%"
+            ],
+            [
+              "House E",
+              "100",
+              "$20",
+              "$2,000",
+              "$1,000",
+              "-50%"
+            ]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "By the Numbers",
+        "narration": "The figures at a glance.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Cell Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table sub-headline",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: numeric or text values. Max 20 rows, max 6 columns.",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based) for gain/loss coloring, e.g. 5 for the 6th column. Set to -1 to disable.",
+          "type": "number"
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Footnote / source attribution",
+          "type": "string"
+        }
+      ]
+    },
+    "colorblock": {
+      "label": "Color Block",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 52,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        }
+      },
+      "scene_defaults": {
+        "title": "A spread should feel inevitable",
+        "narration": "The print issue, reimagined for screen.",
+        "durationSeconds": 7
+      },
+      "sample_props": {
+        "leftQuote": "A spread should feel inevitable — as if it could not have been set any other way.",
+        "panelLabel": "Expert Profile",
+        "panelHeading": "Mara Voss",
+        "panelSubline": "Art Director",
+        "panelTag": "Editor Since 2014"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Quote Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subline Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftQuote",
+          "label": "Quote (left ink block)",
+          "type": "string",
+          "description": "Big statement set on the dark panel; falls back to the scene title"
+        },
+        {
+          "key": "panelLabel",
+          "label": "Label (right block kicker)",
+          "type": "string",
+          "description": "Small-caps label above the heading, e.g. 'Expert Profile'"
+        },
+        {
+          "key": "panelHeading",
+          "label": "Heading (right block)",
+          "type": "string",
+          "description": "Centred serif heading on the accent panel, e.g. a name"
+        },
+        {
+          "key": "panelSubline",
+          "label": "Subline (right block)",
+          "type": "string",
+          "description": "Italic line under the heading, e.g. a role or descriptor"
+        },
+        {
+          "key": "panelTag",
+          "label": "Tag chip (right block)",
+          "type": "string",
+          "description": "Small inverted chip beneath the subline, e.g. 'Editor Since 2014'"
+        }
+      ]
+    },
+    "feature": {
+      "label": "Feature",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 56
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 28
+        }
+      },
+      "scene_defaults": {
+        "title": "The Shape of Things to Come",
+        "narration": "Inside the studios redrawing how we live and work.",
+        "durationSeconds": 8
+      },
+      "sample_props": {
+        "sectionLabel": "FEATURE",
+        "body": "On a wet Tuesday in a converted east-London warehouse, eleven people are arguing about a margin. It is the kind of room where the future of a magazine is decided one hairline rule at a time — where a redesign is less a grand gesture than a thousand small, stubborn judgements. The team has spent the morning on a single spread, moving the folio a few points, testing whether the drop cap should lead or follow. None of it looks like work from the outside. All of it is the work. By lunch the page reads as if it could not have been set any other way, which is exactly the point: the craft is invisible when it lands, and glaring when it does not.",
+        "keyPoints": [
+          { "value": "Attention is the scarce resource" },
+          { "value": "Craft outlasts ornament" },
+          { "value": "Detail is the whole job" }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Headline Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "sectionLabel",
+          "label": "Section Label",
+          "type": "string",
+          "description": "Red small-caps kicker above the headline, e.g. 'FEATURE'"
+        },
+        {
+          "key": "body",
+          "label": "Article Body",
+          "type": "text",
+          "description": "Original feature prose (60–110+ words) flowing across both pages in two columns; its first letter becomes the red drop cap. Falls back to the narration."
+        },
+        {
+          "key": "keyPoints",
+          "label": "Key Points",
+          "type": "object_array",
+          "description": "2–3 short takeaways (≤10 words each) shown along the bottom of both pages",
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Point"
+            }
+          ],
+          "maxItems": 3
+        }
+      ]
+    },
+    "comparison": {
+      "label": "Comparison",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 93
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 30
+        }
+      },
+      "scene_defaults": {
+        "title": "Before and After",
+        "narration": "The redesign, set side by side.",
+        "durationSeconds": 6
+      },
+      "sample_props": {
+        "leftHeader": "Before",
+        "rightHeader": "After",
+        "leftPoints": [
+          { "value": "Columns ran too wide to read comfortably" },
+          { "value": "Heavy rules cast shadows across the page" },
+          { "value": "A cramped grid left the eye no room to rest" },
+          { "value": "Every element shouted at once" }
+        ],
+        "rightPoints": [
+          { "value": "Type is set with generous air" },
+          { "value": "Rules reduced to clean hairlines" },
+          { "value": "A flexible grid guides the eye without friction" },
+          { "value": "Nothing competes; everything cooperates" }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Headline Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftHeader",
+          "label": "Left Column Header",
+          "type": "string",
+          "description": "Tracked small-caps label over the left column (accent), e.g. 'Before'"
+        },
+        {
+          "key": "rightHeader",
+          "label": "Right Column Header",
+          "type": "string",
+          "description": "Tracked small-caps label over the right column (ink), e.g. 'After'"
+        },
+        {
+          "key": "leftPoints",
+          "label": "Left Column Points",
+          "type": "object_array",
+          "description": "2–6 short bullets (≤10 words each) for the left side of the comparison",
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Point"
+            }
+          ],
+          "maxItems": 6
+        },
+        {
+          "key": "rightPoints",
+          "label": "Right Column Points",
+          "type": "object_array",
+          "description": "2–6 short bullets (≤10 words each) for the right side of the comparison",
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Point"
+            }
+          ],
+          "maxItems": 6
+        },
+        {
+          "key": "vsLabel",
+          "label": "Centre Badge",
+          "type": "string",
+          "description": "Text inside the circular centre badge; defaults to 'VS'"
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "editorial_quote",
+    "by_the_numbers",
+    "interview_qa",
+    "magazine_data_visualization",
+    "ending_socials",
+    "magazine_ticker",
+    "comparison"
+  ]
+}
