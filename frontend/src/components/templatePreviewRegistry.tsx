@@ -50,6 +50,7 @@ export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> 
   economist: EconomistPreview,
   stickman_2: Stickman2Preview,
   stickman_football: StickmanFootballPreview,
+  magazine: MagazinePreview,
 };
 
 /** Portrait (9:16) preview components, keyed by the same ids as {@link TEMPLATE_PREVIEWS}. */
