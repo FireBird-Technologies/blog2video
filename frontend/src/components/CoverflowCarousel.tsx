@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, type FC } from "react";
 import InputShowcase from "./InputShowcase";
+import PreviewErrorBoundary from "./PreviewErrorBoundary";
 
 export type CoverflowOrientation = "landscape" | "portrait";
 
@@ -28,6 +29,15 @@ interface CoverflowCarouselProps {
 }
 
 const VISIBLE_RANGE = 3;
+// How many cards actually mount their (Remotion) preview on each side of center.
+// Full range on desktop; capped to 2 on mobile so at most 5 Players exist at
+// once. Each Remotion <Player> is memory-heavy, and phones OOM/reload the tab
+// when many exist — most visibly on tapping the arrows, which churns Players in
+// and out and killed the tab before it could animate ("fails to move and
+// reloads"). On mobile the side cards render STATIC (thumbnailMode) and only
+// the center card plays, so just one live video decode/RAF loop runs at a time.
+const DESKTOP_RENDER_RANGE = VISIBLE_RANGE;
+const MOBILE_RENDER_RANGE = 2;
 
 // Center card is 600px wide (half = 300px). ±1 peeks from just outside that edge.
 // Each subsequent card is spaced further out.
@@ -157,8 +167,14 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
   const outerRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(1);
   // Portrait/mobile layout: shrink the center card and pull side cards inward so
-  // more of them is visible on narrow screens.
-  const [portrait, setPortrait] = useState(false);
+  // more of them is visible on narrow screens. Initialise from the current
+  // viewport so the very first render already applies the mobile preview cap —
+  // otherwise the first commit mounts the full 7 Players before the observer
+  // narrows it to 3, and that momentary spike is enough to OOM/reload a phone
+  // (worst on the orientation-switch remount).
+  const [portrait, setPortrait] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < 640,
+  );
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
@@ -249,11 +265,14 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
           width: "100vw",
           marginLeft: "calc(50% - 50vw)",
           marginRight: "calc(50% - 50vw)",
-          // `clip` (not `hidden`) clips horizontal overflow WITHOUT forcing the
-          // other axis to `auto` — `overflow-x: hidden` would make overflow-y
-          // compute to `auto` and add an unwanted vertical scrollbar.
+          // `clip` (not `hidden`) clips overflow WITHOUT forcing the other axis
+          // to `auto` (which would add an unwanted scrollbar). Clip BOTH axes:
+          // the scaled fan can spill *below* the stage box on short mobile
+          // layouts and, since the center card is pointer-interactive, that
+          // spill would sit over the arrow buttons and swallow their taps —
+          // making "next" do nothing. Clipping Y keeps the controls tappable.
           overflowX: "clip",
-          overflowY: "visible",
+          overflowY: "clip",
         }}
       >
       {/* ── Carousel stage (laid out at fixed DESIGN_WIDTH, scaled to fit) ── */}
@@ -284,7 +303,10 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
           // placeholder so their Remotion Players / animations aren't created
           // until scrolled into view. Safe because each preview measures with
           // offsetWidth, so mounting while transformed still locks the right scale.
-          const isVisible = Math.abs(wrapped) <= VISIBLE_RANGE;
+          // Cap how many previews mount at once on mobile (memory), while the
+          // fan geometry still positions cards out to VISIBLE_RANGE.
+          const renderRange = portrait ? MOBILE_RENDER_RANGE : DESKTOP_RENDER_RANGE;
+          const isVisible = Math.abs(wrapped) <= renderRange;
           const style = getStyle(wrapped, primed, portrait, orientation);
           // A card with its own `onSelect` fires that action on click instead of
           // opening the fullscreen preview (used for CTA cards).
@@ -338,7 +360,16 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
                     than a top-anchored gap. Off-screen cards skip the preview
                     entirely (lazy render). */}
                 <div className="cf-preview" style={{ width: card.w, overflow: "hidden", borderRadius: 12 }}>
-                  {isVisible && <CardPreview thumbnailMode={!isCenter} />}
+                  {isVisible && (
+                    <PreviewErrorBoundary>
+                      {/* Only the center card ever plays; side cards are static
+                          thumbnails. On mobile this is what keeps navigation
+                          alive — a single live video decode/RAF loop instead of
+                          several — so tapping the arrows no longer OOM-reloads
+                          the tab. (Same rule on desktop; it was already so.) */}
+                      <CardPreview thumbnailMode={!isCenter} />
+                    </PreviewErrorBoundary>
+                  )}
                 </div>
               </div>
             </div>
@@ -433,7 +464,9 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
                 transition: "opacity 0.15s ease",
               }}
             >
-              <ActivePreview />
+              <PreviewErrorBoundary>
+                <ActivePreview />
+              </PreviewErrorBoundary>
             </div>
           </div>
 

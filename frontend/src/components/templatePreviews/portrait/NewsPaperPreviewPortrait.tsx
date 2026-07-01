@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "../PlayerScaledCanvas";
 import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -219,11 +220,12 @@ export default function NewsPaperPreviewPortrait({ thumbnailMode = false }: { th
   };
 
   return (
-    <div className="w-full">
+    <PlayerScaledCanvas internalWidth={270} internalHeight={480}>
       <div
-        className="relative w-full overflow-hidden"
+        className="relative overflow-hidden"
         style={{
-          aspectRatio: "9/16",
+          width: "100%",
+          height: "100%",
           backgroundColor: bgColor,
           backgroundImage: 'url("/vintage-news.avif")',
           backgroundSize: "cover",
@@ -243,7 +245,7 @@ export default function NewsPaperPreviewPortrait({ thumbnailMode = false }: { th
           autoPlay={!thumbnailMode}
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
-          style={{ width: "100%", height: "100%", display: "block" }}
+          style={{ width: 270, height: 480, display: "block" }}
         />
 
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
@@ -264,6 +266,6 @@ export default function NewsPaperPreviewPortrait({ thumbnailMode = false }: { th
           })}
         </div>
       </div>
-    </div>
+    </PlayerScaledCanvas>
   );
 }
