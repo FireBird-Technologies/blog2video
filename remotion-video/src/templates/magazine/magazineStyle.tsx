@@ -1660,14 +1660,16 @@ export const PageCurl: React.FC<{ corner: "bl" | "br"; size: number; accent?: st
           we'd see if the sheet folded toward us is its reverse) and clipped to the
           flap triangle; blended low so the paper highlight still reads. */}
       {textureSrc ? (
-        <div
+        <Img
+          src={staticFile(textureSrc)}
           style={{
             position: "absolute",
             inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: br ? "right bottom" : "left bottom",
             clipPath: clip,
-            backgroundImage: `url(${staticFile(textureSrc)})`,
-            backgroundSize: "cover",
-            backgroundPosition: br ? "right bottom" : "left bottom",
             transform: "scaleX(-1)",
             opacity: 0.16,
             mixBlendMode: "multiply",
@@ -1827,13 +1829,15 @@ export const MagazineTableIntro: React.FC<{
               }}
             >
               {/* faint printed ghost so the cover reads as real paper */}
-              <div
+              <Img
+                src={staticFile(MAG_TEXTURES.spread)}
                 style={{
                   position: "absolute",
                   inset: 0,
-                  backgroundImage: `url(${staticFile(MAG_TEXTURES.spread)})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center",
                   opacity: 0.1,
                   pointerEvents: "none",
                 }}
@@ -2149,14 +2153,19 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
             on the sheet itself, giving each page a real "printed" texture
             beneath the live content. Suppressed for clean single-page layouts. */}
         {!hidePrintTexture && (
-          <div
+          <Img
+            src={staticFile(printTextureSrc)}
             style={{
               position: "absolute",
               inset: 0,
-              backgroundImage: `url(${staticFile(printTextureSrc)})`,
-              backgroundSize: printTextureZoom > 1 ? `${(printTextureZoom * 100).toFixed(0)}%` : "cover",
-              backgroundPosition: "center",
-              // blur filter removed — the SVG is already a soft texture
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              // printTextureZoom>1 pushes the texture in on the page centre (was a
+              // background-size %); as a transform scale it maps 1:1 to the old zoom.
+              transform: printTextureZoom > 1 ? `scale(${printTextureZoom})` : undefined,
+              transformOrigin: "center center",
               opacity: printTextureOpacity,
               zIndex: 0,
               pointerEvents: "none",
@@ -2211,6 +2220,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
               zIndex: 2,
+              overflow: "hidden",
               pointerEvents: "none",
             }}
           >
@@ -2220,13 +2230,18 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
                 blur + paper scrim as the sheet. */}
             {backgroundImageSrc && (
               <>
-                <div
+                <Img
+                  src={backgroundImageSrc}
                   style={{
+                    // The RIGHT half of the full-bleed image maps onto this leaf:
+                    // 200%-wide box pinned right (was background-size:200% 100% +
+                    // position right), the left half clipped by the leaf's overflow.
                     position: "absolute",
-                    inset: 0,
-                    backgroundImage: `url(${backgroundImageSrc})`,
-                    backgroundSize: "200% 100%",
-                    backgroundPosition: "right center",
+                    top: 0,
+                    right: 0,
+                    width: "200%",
+                    height: "100%",
+                    objectFit: "fill",
                     opacity: backgroundImageOpacity,
                     filter: backgroundImageBlur > 0 ? `blur(${backgroundImageBlur}px)` : undefined,
                   }}
@@ -2238,13 +2253,17 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
                 continues across it (the RIGHT half of the full-spread SVG maps onto
                 this right leaf). */}
             {!hidePrintTexture && (
-              <div
+              <Img
+                src={staticFile(printTextureSrc)}
                 style={{
+                  // RIGHT half of the full-spread texture maps onto this leaf
+                  // (was background-size:200% 100% + position right).
                   position: "absolute",
-                  inset: 0,
-                  backgroundImage: `url(${staticFile(printTextureSrc)})`,
-                  backgroundSize: "200% 100%",
-                  backgroundPosition: "right center",
+                  top: 0,
+                  right: 0,
+                  width: "200%",
+                  height: "100%",
+                  objectFit: "fill",
                   opacity: printTextureOpacity,
                 }}
               />
