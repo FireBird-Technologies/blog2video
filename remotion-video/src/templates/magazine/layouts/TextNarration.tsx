@@ -120,7 +120,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
             gridTemplateColumns: p ? "1fr" : "1fr 1fr",
             columnGap: 56,
             rowGap: p ? 20 : 36,
-            alignContent: "start",
+            alignContent: "center",
             minHeight: 0,
             overflow: "hidden",
           }}

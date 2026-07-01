@@ -71,9 +71,10 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
 
         <Rule color={accent} progress={ruleP} thickness={3} width={p ? 120 : 100} style={{ marginBottom: 24 }} />
 
+        <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
         <div
           style={{
-            flex: 1,
+            width: "100%",
             display: "grid",
             gridTemplateColumns: p ? "1fr 1fr" : `repeat(${stats.length}, 1fr)`,
             gap: 0,
@@ -154,6 +155,7 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
               </div>
             );
           })}
+        </div>
         </div>
 
         {/* Section-break dingbat */}

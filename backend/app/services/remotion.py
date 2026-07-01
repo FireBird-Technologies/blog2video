@@ -28,6 +28,7 @@ from app.services.template_service import (
     is_custom_template,
     is_crafted_template,
     get_meta,
+    get_preview_colors,
 )
 
 from app.observability.logging import get_logger
@@ -1176,12 +1177,13 @@ def write_remotion_data(
     raw_speed = round(float(getattr(project, "playback_speed", 1.0) or 1.0), 2)
     playback_speed = min(max(raw_speed, _MIN_PLAYBACK_SPEED), _MAX_PLAYBACK_SPEED)
 
+    _tpl_colors = get_preview_colors(template_id) or {}
     data = {
         "projectName": project.name,
         "heroImage": hero_image_file,
-        "accentColor": project.accent_color or "#7C3AED",
-        "bgColor": project.bg_color or "#FFFFFF",
-        "textColor": project.text_color or "#000000",
+        "accentColor": project.accent_color or _tpl_colors.get("accent") or "#7C3AED",
+        "bgColor": project.bg_color or _tpl_colors.get("bg") or "#FFFFFF",
+        "textColor": project.text_color or _tpl_colors.get("text") or "#000000",
         "fontFamily": getattr(project, "font_family", None),
         "logo": logo_file,
         "logoPosition": getattr(project, "logo_position", None) or "bottom_right",
