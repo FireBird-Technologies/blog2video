@@ -1,10 +1,10 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
-import { getTemplateConfig } from "../remotion/templateConfig";
+import { getTemplateConfig } from "../../remotion/templateConfig";
 import {
   planMagazineBoundaries,
   resolveMagazineLayout,
-} from "../remotion/magazine/MagazineVideoComposition";
+} from "../../remotion/magazine/MagazineVideoComposition";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -102,7 +102,7 @@ const MAGAZINE_PREVIEW_SCENES: DemoScene[] = [
   },
 ];
 
-export default function MagazinePreview({
+export default function MagazinePreviewPortrait({
   thumbnailMode = false,
 }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
@@ -140,7 +140,7 @@ export default function MagazinePreview({
       logoPosition: "bottom_right",
       logoOpacity: 0,
       logoSize: 0,
-      aspectRatio: "landscape",
+      aspectRatio: "portrait",
     }),
     [accentColor, bgColor, textColor],
   );
@@ -198,15 +198,15 @@ export default function MagazinePreview({
 
   return (
     <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "9/16", background: bgColor }}>
         <Player
           ref={playerRef}
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
           initialFrame={thumbnailMode ? thumbnailFrame : 0}
-          compositionWidth={1920}
-          compositionHeight={1080}
+          compositionWidth={1080}
+          compositionHeight={1920}
           fps={fps}
           controls={false}
           autoPlay={!thumbnailMode}
@@ -215,7 +215,7 @@ export default function MagazinePreview({
           style={{ width: "100%", height: "100%", display: "block" }}
         />
 
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
           {MAGAZINE_PREVIEW_SCENES.map((scene, index) => {
             const isActive = index === activeSceneIndex;
             return (
