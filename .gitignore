@@ -38,6 +38,16 @@ frontend/src/components/remotion/fj_research/
 backend/templates/fj_research/
 remotion-video/src/components/fj_research/
 remotion-video/src/templates/fj_research/
+
+frontend/src/components/remotion/fj_market_brief/
+backend/templates/fj_market_brief/
+remotion-video/src/components/fj_market_brief/
+remotion-video/src/templates/fj_market_brief/
+
+frontend/src/components/remotion/wealth_your_way/
+backend/templates/wealth_your_way/
+remotion-video/src/components/wealth_your_way/
+remotion-video/src/templates/wealth_your_way/
 # Build cache
 *.tsbuildinfo
 
