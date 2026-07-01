@@ -1,5 +1,10 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "./PlayerScaledCanvas";
+
+// Fixed-pixel size the Player renders at inside PlayerScaledCanvas (16:9).
+const INTERNAL_W = 480;
+const INTERNAL_H = 270;
 import { getTemplateConfig } from "../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -146,8 +151,8 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
   }, [thumbnailMode]);
 
   return (
-    <div className="w-full">
-      <div className="relative w-full overflow-hidden shadow-2xl rounded-xl" style={{ aspectRatio: "16/9", background: TEMPLATE_COLORS.bg }}>
+    <PlayerScaledCanvas>
+      <div className="relative overflow-hidden shadow-2xl rounded-xl" style={{ width: "100%", height: "100%", background: TEMPLATE_COLORS.bg }}>
         <Player
           ref={playerRef}
           key={activeSceneIndex} // CRITICAL: Restarts animation on scene change
@@ -162,7 +167,7 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
           autoPlay={!thumbnailMode}
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
-          style={{ width: "100%", height: "100%", display: "block" }}
+          style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
         />
 
         {/* Navigation dots — compact, no scene titles */}
@@ -186,6 +191,6 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
           })}
         </div>
       </div>
-    </div>
+    </PlayerScaledCanvas>
   );
 }
