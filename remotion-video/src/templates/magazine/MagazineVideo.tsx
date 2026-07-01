@@ -286,11 +286,18 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
               const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
               const focusY = Math.max(0, Math.min(100, Number(rawProps.imageFocusY ?? 50)));
+              // For a few layouts the pipeline writes the on-screen copy into
+              // layout_props_json (as `title`/`narration`) rather than reusing the scene's
+              // main Title / Display-text. For those, prefer the layout-prop value and only
+              // fall back to the main scene field when it's empty. Other layouts are unchanged.
+              const preferProps = layoutKey === "editorial_quote" || layoutKey === "text_narration";
+              const lpTitle = (rawProps.title as string | undefined)?.trim();
+              const lpNarr = (rawProps.narration as string | undefined)?.trim();
 
               const layoutProps: SceneLayoutProps = {
                 ...(rawProps as Partial<SceneLayoutProps>),
-                title: scene.title,
-                narration: scene.narration,
+                title: preferProps && lpTitle ? lpTitle : scene.title,
+                narration: preferProps && lpNarr ? lpNarr : scene.narration,
                 accentColor: data.accentColor || "#D71921",
                 bgColor: data.bgColor || "#FFFFFF",
                 textColor: data.textColor || "#111111",

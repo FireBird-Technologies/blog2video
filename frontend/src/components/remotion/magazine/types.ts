@@ -160,6 +160,9 @@ export interface SceneLayoutProps {
   barPrimaryColor?: string;
   barSecondaryColor?: string;
   milestones?: Array<{ label?: string; value?: string; desc?: string }>;
+  // text_narration — the bulleted field-notes. Each item is one note/bullet.
+  // Falls back to sentence-splitting `narration` when absent (legacy scenes).
+  points?: Array<{ value?: string }>;
   ctaText?: string;
   websiteUrl?: string;
   ctas?: unknown;

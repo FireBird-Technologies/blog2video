@@ -83,9 +83,13 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   const estScale = len > bodyCapacity ? Math.sqrt(bodyCapacity / len) : 1;
   const floorPx = p ? 13 : 12;
   const targetBodyPx = Math.max(floorPx, Math.round(base * estScale));
+  // On the landscape two-column spread, let short copy GROW (up to this ceiling)
+  // so it flows across both leaves instead of filling only the left column and
+  // leaving the facing page blank. Single-column spreads keep shrink-only fitting.
+  const bodyMaxPx = !p && !hasImage ? Math.round(base * 1.6) : undefined;
 
   const bodyRef = React.useRef<HTMLDivElement>(null);
-  const bodyPx = useFitText(bodyRef, targetBodyPx, floorPx, bodyCols, [columns, targetBodyPx, p]);
+  const bodyPx = useFitText(bodyRef, targetBodyPx, floorPx, bodyCols, [columns, targetBodyPx, p, bodyMaxPx], bodyMaxPx);
 
   const cls = `feat-${uid}`;
   // Drop-cap sizing — the cap is painted as an element pinned to the top-left of
@@ -187,7 +191,7 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   );
 
   return (
-    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Feature"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} establishingShot={props.establishingShot} cameraMove={props.cameraMove} lightChrome printTextureSrc="qa-timeline-bg.svg" printTextureOpacity={0.38}>
+    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Feature"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} establishingShot={props.establishingShot} cameraMove={props.cameraMove} lightChrome {...(p ? { hidePrintTexture: true } : { printTextureSrc: "magazine-spread-bg.svg", printTextureOpacity: 0.38 })}>
       <style>{css}</style>
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <Kicker color={accent} style={{ opacity: kickerO, marginBottom: 16 }}>

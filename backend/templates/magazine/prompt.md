@@ -13,6 +13,7 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
   - `interview_qa` → `exchanges` with **2–3** full question/answer pairs, each answer a paragraph (3–5 sentences). Always at least two; prefer three.
   - `colorblock` → fill the accent panel's label stack: `panelLabel`, `panelHeading`, `panelSubline` and `panelTag` (plus a strong `leftQuote`). The right panel reads as empty if these are blank.
   - `feature` → a full `body` (60–110+ words of original feature prose, flowing across BOTH pages) **+** `keyPoints` (2–3 short takeaways). The facing page reads as half-empty if the body is too short to fill both columns.
+  - `text_narration` → `points` with **at least 2** (prefer 3–6) separate field-notes. A single lone bullet reads as broken — never emit exactly one; if the beat only supports one point, use `editorial_quote` or `colorblock` instead.
 - **When the source is thin, DISTIL — do not pad and do not fabricate.** Always produce the required fields by distilling what the source genuinely supports: derive `keyPoints` from the points already made in the body, write the `standfirst` as a tight summary of the material, and base each `exchange` answer on real content. NEVER invent figures, names, dates or quotes to fill space.
 - **Two-page (folded) spreads must fill BOTH leaves.** `interview_qa` opens across the binding as a two-page spread — both sides are visible at once. Write substantial, *balanced* copy for each side; never leave one leaf nearly empty.
 - **Stay grounded.** The *voice* is the Economist's; the *facts* are the source's. Build the prose only from what the narration/source actually supports. Write editorially around the real material; don't fabricate substance to hit a length.
@@ -30,19 +31,21 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
   - `title` (string) — The cover line, set huge in serif and revealed word-by-word
   - `titleFontSize` (number) — Override for the cover-line size
 
-**When to Use:** The opening title card / cover of the piece.
+**When to Use:** The opening title card / cover of the piece — **Scene 0 only**.
 
-**Avoid When:** You need body paragraphs or data — this is a single cover line plus a deck.
+**Avoid When:** You need body paragraphs or data — this is a single cover line plus a deck. **Never use it on any scene after the first** — the cover is the opener only.
 
 ---
 
 ## editorial_quote
-**Visual:** A centred pull quote: a large serif italic statement framed above and below by short red rules, an oversized quotation-mark watermark behind it, and a tracked uppercase attribution line.
+**Visual:** A pull-quote page: a large serif italic statement anchored lower-left with an oversized quotation-mark watermark, a vertical accent rail, and a tracked uppercase attribution line beneath.
 
 **Props:**
-  - `title` (string) — The quote text (revealed word-by-word)
-  - `attribution` (string) — Source line, e.g. `"— Jane Smith, CEO"`; falls back to `narration`
+  - `title` (string) — **REQUIRED.** The pull-quote text itself (revealed word-by-word). This IS the on-screen statement — write the full quote here.
+  - `attribution` (string) — **REQUIRED.** The source/credit line, e.g. `"— Jane Smith, CEO"`. Always emit it; it is the only other copy on the page.
   - `titleFontSize` (number) — Quote size override
+
+The quote (`title`) and `attribution` are the ONLY copy shown on this page — the scene's narration / display text is NOT rendered here. Put the entire pull quote in `title` and the credit in `attribution`; do not rely on the narration to supply either.
 
 **When to Use:** A standout pull quote, key insight, or emotional beat between sections.
 
@@ -102,15 +105,17 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 ---
 
 ## by_the_numbers
-**Visual:** A "By the Numbers" kicker, a red rule, then a grid of oversized accent figures — each counting up on entry — separated by hairlines, each with a short accent rule and a tracked uppercase label beneath it. Nothing else is displayed: no headline, no body text.
+**Visual:** A "By the Numbers" kicker and red rule, then a short editorial heading (and optional standfirst line) framing the metrics, and beneath it a grid of oversized accent figures — each counting up on entry — separated by hairlines, each with a short accent rule and a tracked uppercase label beneath it.
 
 **Props:**
+  - `title` (string) — **Required.** A short editorial heading for the metrics (≤ ~6 words), tied to the scene's actual subject — e.g. `"The Numbers Behind the Launch"`, `"By the Box Office"`. This sits above the figures and anchors the page; do NOT leave it as the generic "By the Numbers".
+  - `subtitle` (string) — Optional. One short standfirst line (≤ ~14 words) framing what the figures show. Omit entirely if there is nothing substantive to add — never pad it.
   - `stats` (object_array) — **Required. 2–4 items only.** Each item must have `value` (a numeric string, e.g. `"4.2B"`, `"98%"`, `"$12B"`, `"150+"`) and `label` (a short uppercase descriptor, e.g. `"Monthly Readers"`). The numeric portion of `value` animates (counts up). **Do not pass text, sentences, or non-numeric values here.**
   - `descriptionFontSize` (number) — Optional. Scales the figure size.
 
 **When to Use:** Exactly when a scene is best expressed as 2–4 key numeric metrics — statistics, KPIs, milestones as figures. Every `value` must contain a number.
 
-**Avoid When:** The content is text-heavy, a single statistic, a pull quote, or the "values" are words rather than numbers — use `editorial_quote`, `text_narration`, or `feature` instead. More than 4 stats: drop the least important or use `magazine_ticker`.
+**Avoid When:** The content is text-heavy, a single statistic, a pull quote, or the "values" are words rather than numbers — use `editorial_quote`, `text_narration`, or `feature` instead. **If the source contains no numeric figures for this beat, do NOT select `by_the_numbers` — never fabricate figures; use `text_narration`, `feature`, or `editorial_quote` instead.** More than 4 stats: drop the least important or use `magazine_ticker`.
 
 ---
 
@@ -175,16 +180,32 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 ---
 
 ## text_narration
-**Visual:** A "Field Notes" index page: a red kicker, a large serif headline, a red rule, then the narration broken into bulleted notes laid out as a ledger. When the scene has an assigned photo, a framed field-plate sits under the headline rule and the notes ledger reflows below (a couple fewer notes show).
+**Visual:** A "Field Notes" index page: a red kicker, a large serif headline, a red rule, then a ledger of bulleted notes — one red-bulleted line per note. When the scene has an assigned photo, a framed field-plate sits under the headline rule and the notes ledger reflows below (a couple fewer notes show).
 
 **Props:**
   - `sectionLabel` (string) — Red kicker and running-head section; defaults to `"Analysis"`
-  - `title` (string) — Serif headline
-  - `narration` (string) — Body copy
+  - `title` (string) — **REQUIRED.** The serif headline for this page.
+  - `points` (object_array) — **REQUIRED. At least 2 — prefer 3–6 — short field-notes (≤14 words each), each `{ "value": "<note>" }`.** Each entry renders as its own red-bulleted line. **NEVER emit a single note — one lone bullet reads as broken.** If the beat genuinely supports only one point, use a different layout (`editorial_quote` or `colorblock`) instead of `text_narration`. Emit SEPARATE array entries — do NOT join items with `•` (or any character) inside a single string, and do not cram the whole list into one entry.
+  - `narration` (string) — The spoken voiceover for this beat. Used as a fallback (sentence-split into notes) ONLY when `points` is omitted; always prefer `points`.
 
-**When to Use:** Narration-only beats, chapter intros, transitional commentary.
+The headline (`title`) and the notes (`points`) are this layout's own on-screen copy — populate BOTH for every text_narration scene. Do not leave them empty expecting the page to reuse another field; the page renders exactly what you emit here.
 
-**Avoid When:** The scene would benefit from a list, figures or a comparison.
+**When to Use:** Narration-only beats, chapter intros, transitional commentary, or a short set of key takeaways.
+
+**Avoid When:** The scene would benefit from figures (`by_the_numbers`) or a two-sided comparison. Also avoid when the beat supports only ONE point — a single bullet looks broken; use `editorial_quote` or `colorblock` instead.
+
+**Worked example:**
+```json
+{ "layout": "text_narration", "title": "A Working Theory of Print",
+  "narration": "The studios betting on print are chasing attention, not paper.",
+  "layout_props_json": { "sectionLabel": "ESSAY",
+    "points": [
+      { "value": "Rejects generic stock footage for purpose-built visuals" },
+      { "value": "Generates real diagrams and labelled flowcharts from input" },
+      { "value": "Renders syntax-highlighted code blocks with accurate structure" },
+      { "value": "Animates data contextually, not decoratively" }
+    ] } }
+```
 
 ---
 

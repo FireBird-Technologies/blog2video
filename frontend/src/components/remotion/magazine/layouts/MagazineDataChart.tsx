@@ -10,11 +10,11 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
 import type { SceneLayoutProps } from "../types";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import {
   MagazinePage,
   Kicker,
@@ -593,9 +593,9 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
                     {chartInputs.lineSeries[2] && <LegendDot color={barColors[2]} label={chartInputs.lineSeries[2].label} />}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MAG_SERIF, fontStyle: "italic", color: hexToRgba(ink, 0.5), fontSize: descSize, opacity: ra }}>

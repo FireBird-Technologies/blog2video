@@ -138,7 +138,7 @@
         "stats": []
       },
       "scene_defaults": {
-        "title": "By the Numbers",
+        "title": "",
         "narration": "The redesign, measured.",
         "durationSeconds": 6
       },
@@ -163,6 +163,18 @@
         ]
       },
       "fields": [
+        {
+          "key": "title",
+          "label": "Heading",
+          "type": "string",
+          "description": "Short editorial heading above the figures, tied to the scene's subject (e.g. 'The Numbers Behind the Launch'). Not the generic 'By the Numbers'."
+        },
+        {
+          "key": "subtitle",
+          "label": "Standfirst",
+          "type": "string",
+          "description": "Optional one-line standfirst framing the figures. Omit if there is nothing substantive to add."
+        },
         {
           "key": "titleFontSize",
           "label": "Title Font Size",
@@ -522,12 +534,12 @@
       "label": "Text Narration",
       "defaults": {
         "titleFontSize": {
-          "portrait": 92,
-          "landscape": 56
+          "portrait": 100,
+          "landscape": 100
         },
         "descriptionFontSize": {
-          "portrait": 52,
-          "landscape": 28
+          "portrait": 40,
+          "landscape": 43
         }
       },
       "scene_defaults": {
@@ -538,7 +550,21 @@
       "sample_props": {
         "sectionLabel": "ESSAY",
         "standfirst": "The studios betting on print are not nostalgists — they are chasing the scarcest resource of all.",
-        "body": "The studios betting on print are not nostalgists. They have read the same charts as everyone else and reached a contrary conclusion: that attention, not paper, is the scarce resource worth fighting for. A magazine demands a kind of focus the feed cannot, and — when the columns settle and the rules align — it repays the effort. The grid becomes a quiet promise that nothing here is accidental, and that the reader's time has been respected. That promise, more than any typeface, is what keeps the format alive."
+        "body": "The studios betting on print are not nostalgists. They have read the same charts as everyone else and reached a contrary conclusion: that attention, not paper, is the scarce resource worth fighting for. A magazine demands a kind of focus the feed cannot, and — when the columns settle and the rules align — it repays the effort. The grid becomes a quiet promise that nothing here is accidental, and that the reader's time has been respected. That promise, more than any typeface, is what keeps the format alive.",
+        "points": [
+          {
+            "value": "Attention, not paper, is the scarce resource"
+          },
+          {
+            "value": "A magazine demands a focus the feed cannot"
+          },
+          {
+            "value": "The grid is a promise that nothing is accidental"
+          },
+          {
+            "value": "That promise, more than type, keeps print alive"
+          }
+        ]
       },
       "fields": [
         {
@@ -576,6 +602,19 @@
           "label": "Body Copy",
           "type": "text",
           "description": "The full essay body that flows down the page. Leave blank to fall back to the scene narration."
+        },
+        {
+          "key": "points",
+          "label": "Field Notes",
+          "type": "object_array",
+          "description": "Bulleted notes shown on the page; each item is one note. Leave blank to auto-split the narration into notes.",
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Note"
+            }
+          ],
+          "maxItems": 6
         }
       ]
     },
@@ -926,9 +965,15 @@
         "sectionLabel": "FEATURE",
         "body": "On a wet Tuesday in a converted east-London warehouse, eleven people are arguing about a margin. It is the kind of room where the future of a magazine is decided one hairline rule at a time — where a redesign is less a grand gesture than a thousand small, stubborn judgements. The team has spent the morning on a single spread, moving the folio a few points, testing whether the drop cap should lead or follow. None of it looks like work from the outside. All of it is the work. By lunch the page reads as if it could not have been set any other way, which is exactly the point: the craft is invisible when it lands, and glaring when it does not.",
         "keyPoints": [
-          { "value": "Attention is the scarce resource" },
-          { "value": "Craft outlasts ornament" },
-          { "value": "Detail is the whole job" }
+          {
+            "value": "Attention is the scarce resource"
+          },
+          {
+            "value": "Craft outlasts ornament"
+          },
+          {
+            "value": "Detail is the whole job"
+          }
         ]
       },
       "fields": [
@@ -982,11 +1027,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
-          "landscape": 93
+          "landscape": 95
         },
         "descriptionFontSize": {
           "portrait": 52,
-          "landscape": 30
+          "landscape": 46
         }
       },
       "scene_defaults": {
@@ -998,16 +1043,32 @@
         "leftHeader": "Before",
         "rightHeader": "After",
         "leftPoints": [
-          { "value": "Columns ran too wide to read comfortably" },
-          { "value": "Heavy rules cast shadows across the page" },
-          { "value": "A cramped grid left the eye no room to rest" },
-          { "value": "Every element shouted at once" }
+          {
+            "value": "Columns ran too wide to read comfortably"
+          },
+          {
+            "value": "Heavy rules cast shadows across the page"
+          },
+          {
+            "value": "A cramped grid left the eye no room to rest"
+          },
+          {
+            "value": "Every element shouted at once"
+          }
         ],
         "rightPoints": [
-          { "value": "Type is set with generous air" },
-          { "value": "Rules reduced to clean hairlines" },
-          { "value": "A flexible grid guides the eye without friction" },
-          { "value": "Nothing competes; everything cooperates" }
+          {
+            "value": "Type is set with generous air"
+          },
+          {
+            "value": "Rules reduced to clean hairlines"
+          },
+          {
+            "value": "A flexible grid guides the eye without friction"
+          },
+          {
+            "value": "Nothing competes; everything cooperates"
+          }
         ]
       },
       "fields": [

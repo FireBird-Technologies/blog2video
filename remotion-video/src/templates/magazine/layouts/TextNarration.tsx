@@ -8,6 +8,7 @@ import {
   KineticWords,
   WrittenText,
   MagPlate,
+  MagSwoosh,
   MAG_DISPLAY,
   MAG_SERIF,
   MAG_SANS,
@@ -16,6 +17,27 @@ import {
   useMagFrame,
   hexToRgba,
 } from "../magazineStyle";
+
+// Normalise a points prop (object_array of { value } or string[]) to a clean
+// string list. When absent, fall back to splitting the legacy narration prose
+// into sentence bullets so older saved scenes still render as separate notes.
+// Strip any leading bullet glyph the source text may carry (●, •, ▪, ‣, ◦, *,
+// -, –, —) so we never paint a bullet inside the note — the ledger draws its
+// own editorial marker.
+const stripBullet = (s: string): string =>
+  s.replace(/^[\s]*[•·●▪‣◦*\-–—]+[\s]+/, "").trim();
+
+const toPoints = (raw: unknown, fallbackText: string): string[] => {
+  const pts = (Array.isArray(raw) ? raw : [])
+    .map((x) => (typeof x === "string" ? x : (x as { value?: string })?.value ?? ""))
+    .map((s) => stripBullet(s))
+    .filter(Boolean);
+  if (pts.length) return pts;
+  return (fallbackText || "")
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => stripBullet(s))
+    .filter(Boolean);
+};
 
 /**
  * Text narration — a single-page "FIELD NOTES" index. Instead of a two-leaf
@@ -39,22 +61,20 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
   const rev = (start: number, len = 12) =>
     interpolate(frame, [start, start + len], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  // Narration → numbered notes (sentence split), capped so the page stays calm.
+  // Field-notes ledger, capped so the page stays calm. Prefer the structured
+  // `points` array (each item is one bullet); fall back to sentence-splitting
+  // the narration for legacy scenes that only carry prose.
   // Portrait is one tall column, so fewer/shorter notes fit before the fixed-
   // height content area clips — cap tighter there so the last note never gets
   // cut off at the bottom.
   // Fewer notes when a photo plate shares the page, so the ledger never clips
   // under the reduced height.
   const maxN = (p ? 4 : 6) - (hasImage ? 2 : 0);
-  const entries = (narration ?? "")
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, maxN);
+  const entries = toPoints(props.points, narration ?? "").slice(0, maxN);
 
-  const titlePx = titleFontSize ?? (p ? 60 : 44);
-  const entryPx = descriptionFontSize ?? (p ? 26 : 17);
-  const bulletPx = p ? 16 : 12;
+  const titlePx = titleFontSize ?? (p ? 100 : 100);
+  const entryPx = descriptionFontSize ?? (p ? 40 : 43);
+  const bulletPx = p ? 22 : 17;
 
   const kickerO = rev(2);
   const ruleP = rev(12);
@@ -74,10 +94,10 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
       singlePage
-      printTextureSrc="field-notes-bg.svg"
-      printTextureOpacity={0.5}
+      printTextureSrc="magazine-blur-bg.svg"
+      printTextureZoom={1.6}
     >
-      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
         {/* Department masthead */}
         <Kicker color={accent} style={{ opacity: kickerO, marginBottom: 14 }}>
           {sectionLabel}
@@ -91,11 +111,20 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
             letterSpacing: "-0.02em",
             color: text,
             margin: 0,
+            // Keep the heading on the left leaf so it never crosses the center
+            // hinge crease of the spread background (landscape only; portrait
+            // has no fold). Cap short of the 50% fold and force long words to
+            // wrap/break so a wide word can never spill over the hinge — the
+            // heading always stays wholly on the left page.
+            maxWidth: p ? "100%" : "44%",
+            overflowWrap: "break-word",
+            wordBreak: "break-word",
+            hyphens: "auto",
           }}
         >
           <KineticWords text={title ?? ""} start={6} stagger={3} dur={16} />
         </h1>
-        <Rule color={accent} progress={ruleP} thickness={3} width="100%" style={{ marginTop: 18 }} />
+        <Rule color={accent} progress={ruleP} thickness={3} width="100%" style={{ marginTop: 10 }} />
 
         {/* Optional field plate — a full-width framed photo under the masthead,
             before the notes. The ledger below is flex:1 and reflows into the
@@ -166,7 +195,6 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
 
         {/* Footer mast */}
         <div style={{ opacity: footerO, marginTop: 18 }}>
-          <div style={{ height: 1, background: hexToRgba(text, 0.25), marginBottom: 10 }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span
               style={{
@@ -193,6 +221,15 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
             </span>
           </div>
         </div>
+
+        {/* Editorial ink swoosh — a curved black sweep, thick on the left and
+            tapering to a fine tail on the right. Pinned to the very bottom edge
+            of the page, flush left→right, beneath everything else. */}
+        <MagSwoosh
+          color={text}
+          progress={footerO}
+          style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%" }}
+        />
       </div>
     </MagazinePage>
   );

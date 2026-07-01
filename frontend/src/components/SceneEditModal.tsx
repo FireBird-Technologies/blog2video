@@ -212,7 +212,7 @@ const _resolveCraftedFontDefaultsFromFiles = (
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
   default: {
-    text_narration: { title: [34, 44], desc: [20, 23] },
+    text_narration: { title: [100, 72], desc: [40, 30] },
     hero_image: { title: [40, 54] },
     image_caption: { title: [26, 32], desc: [17, 20] },
     bullet_list: { title: [30, 40], desc: [18, 22] },
@@ -305,7 +305,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     interview_qa: { title: [40, 52], desc: [16, 20] },
     magazine_data_visualization: { title: [56, 52], desc: [28, 26] },
     timeline_journey: { title: [40, 52], desc: [16, 20] },
-    text_narration: { title: [34, 44], desc: [20, 23] },
+    text_narration: { title: [100, 72], desc: [40, 30] },
     ending_socials: { title: [88, 72], desc: [35, 27] },
     magazine_ticker: { title: [52, 42], desc: [28, 22] },
     comparison: { title: [92, 93], desc: [52, 30] },
