@@ -1,0 +1,61 @@
+<svg viewBox="0 0 1850 1010" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Slightly stronger blurred magazine style backdrop</title>
+<desc>A softly blurred magazine page background meant to sit behind foreground content: a blurred headline block, blurred body copy columns on both pages, two soft photo placeholders, a pull quote, and a light center gutter crease.</desc>
+<defs>
+<filter id="softBlur" x="-30%" y="-30%" width="160%" height="160%">
+  <feGaussianBlur stdDeviation="7"/>
+</filter>
+</defs>
+
+<rect x="0" y="0" width="1840" height="1000" fill="#ffffff"/>
+
+<g filter="url(#softBlur)" opacity="0.28">
+
+  <g stroke="#3a3a37" stroke-width="4">
+    <line x1="90" y1="130" x2="560" y2="130"/>
+    <line x1="90" y1="200" x2="480" y2="200"/>
+  </g>
+
+  <g stroke="#8f8e88" stroke-width="2">
+    <line x1="90" y1="250" x2="470" y2="250"/><line x1="90" y1="267" x2="450" y2="267"/><line x1="90" y1="284" x2="470" y2="284"/>
+  </g>
+
+  <g stroke="#c2c1ba" stroke-width="1.8">
+    <line x1="90" y1="360" x2="370" y2="360"/><line x1="90" y1="379" x2="350" y2="379"/><line x1="90" y1="398" x2="370" y2="398"/><line x1="90" y1="417" x2="320" y2="417"/>
+    <line x1="90" y1="452" x2="370" y2="452"/><line x1="90" y1="471" x2="370" y2="471"/><line x1="90" y1="490" x2="330" y2="490"/><line x1="90" y1="509" x2="290" y2="509"/>
+    <line x1="90" y1="544" x2="370" y2="544"/><line x1="90" y1="563" x2="370" y2="563"/><line x1="90" y1="582" x2="310" y2="582"/>
+
+    <line x1="420" y1="360" x2="700" y2="360"/><line x1="420" y1="379" x2="680" y2="379"/><line x1="420" y1="398" x2="700" y2="398"/><line x1="420" y1="417" x2="650" y2="417"/>
+    <line x1="420" y1="452" x2="700" y2="452"/><line x1="420" y1="471" x2="700" y2="471"/><line x1="420" y1="490" x2="660" y2="490"/><line x1="420" y1="509" x2="620" y2="509"/>
+    <line x1="420" y1="544" x2="700" y2="544"/><line x1="420" y1="563" x2="700" y2="563"/><line x1="420" y1="582" x2="640" y2="582"/>
+  </g>
+
+  <rect x="90" y="650" width="380" height="220" fill="#8f8e88"/>
+
+  <g stroke="#c2c1ba" stroke-width="1.8">
+    <line x1="1000" y1="130" x2="1280" y2="130"/><line x1="1000" y1="149" x2="1260" y2="149"/><line x1="1000" y1="168" x2="1280" y2="168"/><line x1="1000" y1="187" x2="1230" y2="187"/>
+    <line x1="1000" y1="222" x2="1280" y2="222"/><line x1="1000" y1="241" x2="1280" y2="241"/><line x1="1000" y1="260" x2="1240" y2="260"/><line x1="1000" y1="279" x2="1200" y2="279"/>
+
+    <line x1="1330" y1="130" x2="1610" y2="130"/><line x1="1330" y1="149" x2="1590" y2="149"/><line x1="1330" y1="168" x2="1610" y2="168"/><line x1="1330" y1="187" x2="1560" y2="187"/>
+    <line x1="1330" y1="222" x2="1610" y2="222"/><line x1="1330" y1="241" x2="1610" y2="241"/><line x1="1330" y1="260" x2="1570" y2="260"/><line x1="1330" y1="279" x2="1530" y2="279"/>
+  </g>
+
+  <g font-family="Georgia, serif" font-style="italic" font-size="34" font-weight="700" fill="#3a3a37">
+    <text x="1000" y="400">"A single line</text>
+    <text x="1000" y="450">carries the whole</text>
+    <text x="1000" y="500">idea forward."</text>
+  </g>
+  <line x1="1000" y1="530" x2="1150" y2="530" stroke="#3a3a37" stroke-width="2"/>
+
+  <g stroke="#c2c1ba" stroke-width="1.8">
+    <line x1="1000" y1="600" x2="1280" y2="600"/><line x1="1000" y1="619" x2="1260" y2="619"/><line x1="1000" y1="638" x2="1280" y2="638"/><line x1="1000" y1="657" x2="1230" y2="657"/>
+    <line x1="1000" y1="692" x2="1280" y2="692"/><line x1="1000" y1="711" x2="1230" y2="711"/>
+  </g>
+
+  <rect x="1360" y="600" width="280" height="260" fill="#8f8e88"/>
+
+</g>
+
+<rect x="900" y="0" width="40" height="1000" fill="#000000" opacity="0.02"/>
+<rect x="918" y="0" width="4" height="1000" fill="#000000" opacity="0.05"/>
+</svg>

@@ -212,7 +212,7 @@ const _resolveCraftedFontDefaultsFromFiles = (
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
   default: {
-    text_narration: { title: [34, 44], desc: [20, 23] },
+    text_narration: { title: [100, 72], desc: [40, 30] },
     hero_image: { title: [40, 54] },
     image_caption: { title: [26, 32], desc: [17, 20] },
     bullet_list: { title: [30, 40], desc: [18, 22] },
@@ -305,7 +305,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     interview_qa: { title: [40, 52], desc: [16, 20] },
     magazine_data_visualization: { title: [56, 52], desc: [28, 26] },
     timeline_journey: { title: [40, 52], desc: [16, 20] },
-    text_narration: { title: [34, 44], desc: [20, 23] },
+    text_narration: { title: [100, 72], desc: [40, 30] },
     ending_socials: { title: [88, 72], desc: [35, 27] },
     magazine_ticker: { title: [52, 42], desc: [28, 22] },
     comparison: { title: [92, 93], desc: [52, 30] },
@@ -4198,8 +4198,36 @@ export default function SceneEditModal({
                       prev.length >= MAX_CTAS ? prev : [...prev, makeDefaultCta()],
                     );
                   };
+                  const endingHeadingFields: Array<{ key: string; label: string; placeholder: string }> = [
+                    { key: "followLabel", label: "Follow heading", placeholder: "Follow" },
+                    { key: "onlineLabel", label: "Online heading", placeholder: "Online" },
+                    { key: "issueLabel", label: "Colophon line", placeholder: "Thank you for reading" },
+                  ];
                   return (
                     <div className="space-y-3">
+                      {/* Editable back-cover section headings (magazine + any template
+                          whose closing layout reads these props; harmless elsewhere). */}
+                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                        Section headings
+                      </h4>
+                      <div className="space-y-3">
+                        {endingHeadingFields.map((field) => (
+                          <div key={field.key}>
+                            <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                              {field.label}
+                            </label>
+                            <input
+                              type="text"
+                              value={(editableLayoutProps[field.key] as string) ?? ""}
+                              onChange={(e) =>
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))
+                              }
+                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              placeholder={field.placeholder}
+                            />
+                          </div>
+                        ))}
+                      </div>
                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                         Social media Links
                       </h4>

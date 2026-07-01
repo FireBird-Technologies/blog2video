@@ -97,6 +97,10 @@ export interface SceneLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+  // ending_socials back-cover column headings — the tracked uppercase labels above
+  // the social handles ("Follow") and the CTA cards ("Online"). Editable per scene.
+  followLabel?: string;
+  onlineLabel?: string;
   // object_array props use the standard label/value pair shape so the editor can render both fields
   subtitle?: string;
   issueLabel?: string;
@@ -160,6 +164,9 @@ export interface SceneLayoutProps {
   barPrimaryColor?: string;
   barSecondaryColor?: string;
   milestones?: Array<{ label?: string; value?: string; desc?: string }>;
+  // text_narration — the bulleted field-notes. Each item is one note/bullet.
+  // Falls back to sentence-splitting `narration` when absent (legacy scenes).
+  points?: Array<{ value?: string }>;
   ctaText?: string;
   websiteUrl?: string;
   ctas?: unknown;
