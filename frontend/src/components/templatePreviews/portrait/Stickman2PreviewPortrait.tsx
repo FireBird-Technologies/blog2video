@@ -124,18 +124,8 @@ export default function Stickman2PreviewPortrait({ thumbnailMode = false }: { th
     if (!thumbnailMode) return;
     const p = playerRef.current;
     if (!p) return;
-    let settled = false;
-    const onFrame = () => {
-      if (settled) return;
-      const current = p.getCurrentFrame();
-      if (current >= thumbnailFrame) {
-        settled = true;
-        p.pause();
-        p.seekTo(thumbnailFrame);
-      }
-    };
-    p.addEventListener("frameupdate", onFrame);
-    return () => p.removeEventListener("frameupdate", onFrame);
+    p.pause();
+    p.seekTo(thumbnailFrame);
   }, [thumbnailMode, thumbnailFrame]);
 
   useEffect(() => {

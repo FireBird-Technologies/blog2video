@@ -207,18 +207,8 @@ export default function StickmanFootballPreviewPortrait({ thumbnailMode = false 
     if (!thumbnailMode) return;
     const pl = playerRef.current;
     if (!pl) return;
-    let settled = false;
-    const onFrame = () => {
-      if (settled) return;
-      const current = pl.getCurrentFrame();
-      if (current >= thumbnailFrame) {
-        settled = true;
-        pl.pause();
-        pl.seekTo(thumbnailFrame);
-      }
-    };
-    pl.addEventListener("frameupdate", onFrame);
-    return () => pl.removeEventListener("frameupdate", onFrame);
+    pl.pause();
+    pl.seekTo(thumbnailFrame);
   }, [thumbnailMode, thumbnailFrame]);
 
   useEffect(() => {
