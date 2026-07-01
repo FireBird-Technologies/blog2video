@@ -3,6 +3,7 @@ import { interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
+  MAG_TEXTURES,
   Kicker,
   Rule,
   KineticWords,
@@ -92,7 +93,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
       singlePage
-      printTextureSrc="magazine-blur-bg.svg"
+      printTextureSrc={MAG_TEXTURES.blur}
       printTextureZoom={1.6}
       backgroundImageSrc={props.imageUrl}
       backgroundImageObjectPosition={props.imageObjectPosition}

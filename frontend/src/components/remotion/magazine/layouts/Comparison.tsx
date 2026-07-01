@@ -3,6 +3,7 @@ import { interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
+  MAG_TEXTURES,
   KineticWords,
   MAG_DISPLAY,
   MAG_SERIF,
@@ -89,7 +90,7 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
   );
 
   return (
-    <MagazinePage lightChrome colors={colors} section={(props.sectionLabel as string)?.trim() || "Comparison"} issue={props.issueLabel ?? "Analysis"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} cameraMove={props.cameraMove} printTextureSrc="comparison-page-bg.svg" printTextureOpacity={0.3}>
+    <MagazinePage lightChrome colors={colors} section={(props.sectionLabel as string)?.trim() || "Comparison"} issue={props.issueLabel ?? "Analysis"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} cameraMove={props.cameraMove} printTextureSrc={MAG_TEXTURES.comparison} printTextureOpacity={0.3}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         {title && (
           <h1

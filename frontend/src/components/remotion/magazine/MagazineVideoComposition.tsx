@@ -7,16 +7,25 @@ import { signatureMoveFor, MagDimsContext, MAG_BACKDROP } from "./magazineStyle"
 import { pickEnterTransition, pickExitTransition, type MagazineTransitionChoice } from "./transitions";
 import type { MagazineCameraMove, MagazineTransitionName } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
+import { resolveFontFamily } from "../../../fonts/registry";
 
 export interface MagazineSceneInput {
   id: number;
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: MagazineLayoutType;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
+  /** Per-scene background-music volume override (0..1). */
+  bgmVolume?: number | null;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -34,6 +43,13 @@ export interface MagazineVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
 }
 
 const FPS = 30;
@@ -126,6 +142,13 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
   logoSize,
   aspectRatio,
   fontFamily,
+  bgmUrl,
+  bgmVolume,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
 }) => {
   const isPortrait = aspectRatio === "portrait";
   const canvasW = isPortrait ? 1080 : 1920;
@@ -230,6 +253,44 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
     };
   };
 
+  // On-screen captions for a scene, synced to its voiceover window. Lives at the
+  // real-output level (outside the scaled design canvas) so it sizes/positions in
+  // output pixels — matching how the newspaper composition renders captions.
+  const captionSequence = (
+    scene: MagazineSceneInput,
+    index: number,
+    startFrame: number,
+    durationFrames: number,
+  ) => {
+    const text = scene.narrationText || scene.narration;
+    if (!captionsEnabled || !text) return null;
+    return (
+      <Sequence
+        key={`caption-${scene.id}-${index}`}
+        from={startFrame}
+        durationInFrames={durationFrames}
+      >
+        <CaptionTrack
+          text={text}
+          position={captionPosition || "bottom_center"}
+          aspectRatio={aspectRatio || "landscape"}
+          fontFamily={
+            captionFontFamily
+              ? resolveFontFamily(captionFontFamily) || captionFontFamily
+              : fontFamily || undefined
+          }
+          fontSize={captionFontSize || undefined}
+          offset={captionOffset ?? 0}
+          speechDurationFrames={
+            scene.speechDurationSeconds
+              ? Math.round(scene.speechDurationSeconds * FPS)
+              : undefined
+          }
+        />
+      </Sequence>
+    );
+  };
+
   // Single scene — no transitions needed.
   if (resolvedScenes.length <= 1) {
     const only = resolvedScenes[0];
@@ -245,6 +306,7 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
             </Sequence>
           );
         })())}
+        {only && captionSequence(only.scene, 0, 0, only.durationFrames)}
         {logo && (
           <LogoOverlay
             src={logo}
@@ -253,6 +315,9 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
             size={logoSize ?? 100}
             aspectRatio={aspectRatio || "landscape"}
           />
+        )}
+        {bgmUrl && (
+          <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
         )}
       </AbsoluteFill>
     );
@@ -321,6 +386,10 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
         );
       })}
 
+      {resolvedScenes.map((s, index) =>
+        captionSequence(s.scene, index, sceneStartFrames[index], s.durationFrames),
+      )}
+
       {logo && (
         <LogoOverlay
           src={logo}
@@ -329,6 +398,10 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
       )}
     </AbsoluteFill>
   );
