@@ -196,6 +196,43 @@ const chronicleExample = (kind: ChartKind): ChartTable => {
   };
 };
 
+const magazineExample = (kind: ChartKind): ChartTable => {
+  if (kind === "bar") {
+    return {
+      headers: ["Section", "Readers", "Subscribers"],
+      rows: [
+        ["Culture", "324", "72"],
+        ["Business", "308", "55"],
+        ["Politics", "315", "61"],
+        ["Science", "298", "68"],
+        ["Opinion", "318", "59"],
+      ],
+    };
+  }
+  if (kind === "histogram") {
+    return {
+      headers: ["Time on page", "Readers"],
+      rows: [
+        ["0 - 1m", "2"],
+        ["1 - 3m", "6"],
+        ["3 - 5m", "9"],
+        ["5 - 10m", "5"],
+        ["10m+", "2"],
+      ],
+    };
+  }
+  return {
+    headers: ["Quarter", "Readers", "Subscribers"],
+    rows: [
+      ["Q1", "298", "72"],
+      ["Q2", "308", "68"],
+      ["Q3", "315", "61"],
+      ["Q4", "324", "55"],
+      ["Q5", "318", "59"],
+    ],
+  };
+};
+
 const defaultExample = (kind: ChartKind): ChartTable => {
   if (kind === "bar") {
     return {
@@ -405,6 +442,16 @@ const TICKER_EXAMPLE_BY_TEMPLATE: Record<string, () => ChartTable> = {
   }),
   gridcraft: sharedTickerExample,
   stickman_2: sharedTickerExample,
+  magazine: () => ({
+    headers: ["Name", "Shares", "Price", "Cost", "Value", "% Chg"],
+    rows: [
+      ["House A", "25", "$20", "$500", "$600", "+20%"],
+      ["House B", "20", "$30", "$600", "$500", "-16.7%"],
+      ["House C", "30", "$90", "$2,700", "$3,000", "+11.1%"],
+      ["House D", "50", "$100", "$5,000", "$10,000", "+100%"],
+      ["House E", "100", "$20", "$2,000", "$1,000", "-50%"],
+    ],
+  }),
   stickman_football: () => ({
     headers: ["Team", "P", "GD", "Pts"],
     rows: [
@@ -441,6 +488,12 @@ const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
     tickerLayoutId: "mosaic_ticker",
     layoutKind: layoutKindFromSuffix,
     exampleTable: mosaicExample,
+  },
+  magazine: {
+    chartLayoutIds: ["magazine_data_visualization"],
+    tickerLayoutId: "magazine_ticker",
+    layoutKind: layoutKindFromSuffix,
+    exampleTable: magazineExample,
   },
   default: {
     chartLayoutIds: ["default_data_visualization"],
