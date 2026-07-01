@@ -24,6 +24,7 @@ import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templa
 import { resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
 import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
+import { planMagazineBoundaries, resolveMagazineLayout } from "./remotion/magazine/MagazineVideoComposition";
 import {
   compileComponentCode,
   compileModuleGraphEntry,
@@ -1609,14 +1610,21 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       return computeChronicleVideoTotalFrames(chronicleScenes, 1);
     }
     if (templateId === "magazine") {
-      // Magazine now renders as back-to-back Sequences (no transition overlap), so
-      // the Player duration is simply the sum of per-scene durations.
+      // Magazine renders as a black-bridged TransitionSeries whose real length is NOT the
+      // raw per-scene sum (each boundary adds a net black bridge). Use the SAME planner the
+      // composition uses so the Player's declared length matches it exactly — otherwise the
+      // Player clips the tail. Mirrors MagazinePreview / Template Studio.
       if (scenes.length === 0) return FPS * 5;
-      const total = scenes.reduce(
-        (sum, s) => sum + Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS)),
-        0,
+      const layoutKeys = scenes.map((s) => resolveMagazineLayout(String(s.layout)));
+      const per = scenes.map((s) =>
+        Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS)),
       );
-      return Math.max(total, FPS * 5);
+      const { totalFrames } = planMagazineBoundaries(
+        layoutKeys,
+        per,
+        project.accent_color || "#D71921",
+      );
+      return Math.max(totalFrames, FPS * 5);
     }
     const sceneFrames = project.scenes.map((s) => {
       const base = Number(s.duration_seconds) || 5;

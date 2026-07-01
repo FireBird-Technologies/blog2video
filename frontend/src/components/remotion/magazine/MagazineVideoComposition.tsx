@@ -54,8 +54,18 @@ export interface MagazineVideoCompositionProps {
 
 const FPS = 30;
 
-// Pure-black beat length between a scene's exit and the next scene's entrance.
-const BLACK_HOLD = 12;
+// Pure-black beat length between a scene's exit and the next scene's entrance. This is the
+// EXACT visible dead-black gap: the bridge is sized to exitFrames + enterFrames + BLACK_HOLD.
+const BLACK_HOLD = 6;
+
+// Cap the per-side transition overlap. The clamp below otherwise scales the overlap
+// with scene length (perScene × 0.225), so on long narration-length scenes the enter
+// reveal grows to ~76f and fully covers each layout's camera-move settle window
+// (~68 real frames — settleEnd 50 × MAG_TEMPO 1.35 in useMagazineCamera). That's why
+// the camera moves only showed on the SHORT curated preview scenes and vanished in
+// Project View. Capping the overlap keeps the reveal shorter than the camera settle at
+// ANY scene length, so the per-layout camera move always plays in view.
+const TRANSITION_OVERLAP_CAP = 30;
 
 export interface MagazineBoundary {
   exitChoice: MagazineTransitionChoice;
@@ -88,24 +98,29 @@ export const planMagazineBoundaries = (
     const nextLayout = layoutKeys[i + 1];
     const exitChoice = pickExitTransition(layoutKey, accent, exitOverrides[i]);
     const enterChoice = pickEnterTransition(nextLayout, accent, enterOverrides[i + 1]);
-    const blackFrames = Math.max(BLACK_HOLD, exitChoice.frames, enterChoice.frames);
     // A scene's visible-static window = its duration MINUS the enter overlap at its head
     // and the exit overlap at its tail. Reserve at least STATIC_CORE_FRAC of each scene
     // as that static window so every page has time to read/animate in before it leaves —
     // otherwise long transitions (e.g. zoom_blur 122f) on a short scene can eat the WHOLE
-    // scene and it "moves away almost immediately". The transition gets the rest, split
-    // between the two sides. (The black bridge half-cap still applies so Remotion is happy.)
+    // scene and it "moves away almost immediately". The overlap is also capped by
+    // TRANSITION_OVERLAP_CAP so it never overruns the per-layout camera-move settle window.
     const STATIC_CORE_FRAC = 0.55; // ≥55% of every scene stays a held, static page
     const maxSidePerScene = Math.floor((perSceneFrames[i] * (1 - STATIC_CORE_FRAC)) / 2);
     const maxSideNextScene = Math.floor((perSceneFrames[i + 1] * (1 - STATIC_CORE_FRAC)) / 2);
     const exitFrames = Math.max(
       1,
-      Math.min(exitChoice.frames, maxSidePerScene, Math.floor(blackFrames / 2)),
+      Math.min(exitChoice.frames, maxSidePerScene, TRANSITION_OVERLAP_CAP),
     );
     const enterFrames = Math.max(
       1,
-      Math.min(enterChoice.frames, maxSideNextScene, Math.floor(blackFrames / 2)),
+      Math.min(enterChoice.frames, maxSideNextScene, TRANSITION_OVERLAP_CAP),
     );
+    // The bridge is just the two page-clearing overlaps + a short pure-black beat, so the
+    // visible dead-black gap between scenes is exactly BLACK_HOLD frames — NOT the full
+    // transition length (which made the gap balloon to ~3s once the overlaps were capped).
+    // exit+enter ≤ blackFrames holds by construction, so Remotion's overlap constraint is
+    // always satisfied.
+    const blackFrames = exitFrames + enterFrames + BLACK_HOLD;
     return { exitChoice, enterChoice, blackFrames, exitFrames, enterFrames };
   });
 
