@@ -39,8 +39,11 @@ import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../components/remotion/playbackSpeed";
 import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
 import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layouts";
+import type { MagazineLayoutType } from "../components/remotion/magazine/types";
+import { planMagazineBoundaries, resolveMagazineLayout } from "../components/remotion/magazine/MagazineVideoComposition";
 
 const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
+const MAGAZINE_EXTRA_HOLD = 42;
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
 
 const IMAGE_ADJUST_ZOOM_MIN = 0.1;
@@ -118,6 +121,20 @@ const ECONOMIST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: R
   ending_socials: { titleFontSize: { portrait: 56, landscape: 60 }, descriptionFontSize: { portrait: 26, landscape: 24 } },
 };
 
+// Per-layout title/body sizes mirrored from SceneEditModal's LAYOUT_FONT_DEFAULTS.magazine
+// so the Template Studio Typography section matches the scene editor and the rendered MP4.
+const MAGAZINE_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue }> = {
+  magazine_cover: { titleFontSize: { portrait: 68, landscape: 88 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
+  editorial_quote: { titleFontSize: { portrait: 56, landscape: 72 }, descriptionFontSize: { portrait: 18, landscape: 24 } },
+  by_the_numbers: { titleFontSize: { portrait: 56, landscape: 72 }, descriptionFontSize: { portrait: 20, landscape: 26 } },
+  interview_qa: { titleFontSize: { portrait: 40, landscape: 52 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
+  magazine_data_visualization: { titleFontSize: { portrait: 56, landscape: 52 }, descriptionFontSize: { portrait: 28, landscape: 26 } },
+  timeline_journey: { titleFontSize: { portrait: 40, landscape: 52 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
+  text_narration: { titleFontSize: { portrait: 34, landscape: 44 }, descriptionFontSize: { portrait: 20, landscape: 23 } },
+  ending_socials: { titleFontSize: { portrait: 88, landscape: 72 }, descriptionFontSize: { portrait: 35, landscape: 27 } },
+  magazine_ticker: { titleFontSize: { portrait: 52, landscape: 42 }, descriptionFontSize: { portrait: 28, landscape: 22 } },
+};
+
 function withTypographyControls(
   schema: LayoutPropSchema,
   options?: { defaultTypography?: { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue } },
@@ -158,7 +175,9 @@ function getSchema(
       ? NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
       : tid === "economist"
         ? ECONOMIST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
-        : null;
+        : tid === "magazine"
+          ? MAGAZINE_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
+          : null;
   const applyTypography = perLayoutTypography !== null;
   const layoutTypographyDefaults =
     perLayoutTypography && layoutId ? perLayoutTypography[layoutId] : undefined;
@@ -198,7 +217,11 @@ function buildResolvedLayoutPropsForPreview(
 ): Record<string, unknown> {
   const schema = getSchema(template, layoutId);
   if (!schema) return {};
-  const next: Record<string, unknown> = { ...(schema.defaults ?? {}) };
+  // Layer the layout's own dummy `sample_props` over `defaults` so the
+  // "play all layouts" sequence shows each layout's preset content (exchanges,
+  // stats, milestones, …), mirroring the single-scene effect. sample_props is
+  // Studio-preview-only and never reaches real renders.
+  const next: Record<string, unknown> = { ...(schema.defaults ?? {}), ...(schema.sample_props ?? {}) };
   schema.fields.forEach((field) => {
     if (field.type === "number" && field.responsive) {
       const raw = next[field.key];
@@ -1423,6 +1446,10 @@ export default function TemplateStudio() {
       selectedTemplate && layouts.length > 1 && playAllLayouts
       ? layouts.map((layoutId, index) => {
         const trimmed = imageUrl.trim();
+        // Each scene shows its own layout's dummy content from meta.json
+        // (scene_defaults), not the editor's single shared title/narration.
+        // Fall back to the editor values for layouts without scene_defaults.
+        const sd = getSchema(selectedTemplate, layoutId)?.scene_defaults ?? {};
         const lp = buildResolvedLayoutPropsForPreview(
           selectedTemplate,
           layoutId,
@@ -1444,11 +1471,11 @@ export default function TemplateStudio() {
         return {
           id: index + 1,
           order: index + 1,
-          title,
-          narration,
+          title: sd.title ?? title,
+          narration: sd.narration ?? narration,
           layout: layoutId,
           layoutProps: lp,
-          durationSeconds,
+          durationSeconds: sd.durationSeconds ?? durationSeconds,
           imageUrl: sceneImageUrl,
           voiceoverUrl: undefined,
         };
@@ -1548,14 +1575,31 @@ export default function TemplateStudio() {
           : getSceneDurationFrames(durationSeconds, fps, speed);
       return n * per;
     }
+    if (selectedTemplateId === "magazine") {
+      // Black-bridged TransitionSeries: each boundary ADDS a black bridge and removes
+      // the transition overlaps, so the total is NOT just n×per. Use the SAME planner
+      // the composition uses so the Player's declared duration matches the composition
+      // exactly (otherwise the Player clips/races the scenes).
+      const per = Math.max(1, Math.round(durationSeconds * fps));
+      const layoutKeys = layouts.map(resolveMagazineLayout);
+      const { totalFrames } = planMagazineBoundaries(
+        layoutKeys,
+        layoutKeys.map(() => per),
+        accentColor,
+      );
+      return Math.max(totalFrames, fps * 2);
+    }
     return n * getSceneDurationFrames(durationSeconds, fps, speed);
   }, [
     sequentialPreview,
     sceneDurationFrames,
     durationSeconds,
+    layouts,
     layouts.length,
     selectedTemplateId,
     viewSource,
+    isPortrait,
+    accentColor,
   ]);
 
   const responsiveFields = schema?.fields.filter((f) => f.responsive) ?? [];

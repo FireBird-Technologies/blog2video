@@ -298,6 +298,18 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     mosaic_phrases: {  title: [90, 62], desc: [40, 26] },
     mosaic_close: { title: [104, 72], desc: [52, 34] },
   },
+  magazine: {
+    magazine_cover: { title: [68, 88] },
+    editorial_quote: { title: [56, 72], desc: [18, 24] },
+    by_the_numbers: { title: [56, 72], desc: [20, 26] },
+    interview_qa: { title: [40, 52], desc: [16, 20] },
+    magazine_data_visualization: { title: [56, 52], desc: [28, 26] },
+    timeline_journey: { title: [40, 52], desc: [16, 20] },
+    text_narration: { title: [34, 44], desc: [20, 23] },
+    ending_socials: { title: [88, 72], desc: [35, 27] },
+    magazine_ticker: { title: [52, 42], desc: [28, 22] },
+    comparison: { title: [92, 93], desc: [52, 30] },
+  },
   stickman_football: {
     football_data_viz: { title: [72, 64], desc: [38, 30] },
     football_ticker: { title: [68, 60], desc: [34, 28] },
@@ -2044,6 +2056,39 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "unit", label: "Value Unit", type: "string", placeholder: "$bn" },
       { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
     ],
+  },
+  magazine: {
+    magazine_cover: [],
+    editorial_quote: [
+      { key: "attribution", label: "Attribution", type: "string", placeholder: "— Mara Voss, Editor" },
+    ],
+    by_the_numbers: [
+      { key: "stats", label: "Key figures", type: "object_array", subFields: [{ key: "value", label: "Value", placeholder: "2.4M" }, { key: "label", label: "Label", placeholder: "Monthly readers" }], maxItems: 4 },
+    ],
+    interview_qa: [
+      { key: "leftSpeaker", label: "Interviewee name", type: "string", placeholder: "Mara Voss" },
+      { key: "rightSpeaker", label: "Role / organisation", type: "string", placeholder: "Art Director, Atlas Review" },
+      { key: "exchanges", label: "Q&A exchanges", type: "object_array", subFields: [{ key: "q", label: "Question", placeholder: "Where does a redesign actually begin?" }, { key: "a", label: "Answer", placeholder: "It begins long before anything is drawn. We spend weeks reading the magazine as a reader would, noting where the eye stumbles and where it glides…" }], maxItems: 3 },
+      { key: "leftQuote", label: "Left speaker's statement (legacy)", type: "text", placeholder: "Legacy — use Q&A exchanges instead." },
+      { key: "rightQuote", label: "Right speaker's response (legacy)", type: "text", placeholder: "Legacy — use Q&A exchanges instead." },
+    ],
+    magazine_data_visualization: [
+      { key: "chartTable", label: "Chart data", type: "chart_table" },
+      { key: "chartType", label: "Chart type", type: "select", default: "auto", options: [{ value: "auto", label: "Auto" }, { value: "line", label: "Line" }, { value: "bar", label: "Bar" }, { value: "histogram", label: "Histogram" }] },
+      { key: "chartSummary", label: "Insight summary", type: "string", placeholder: "Readership climbed steadily before levelling off near the high." },
+    ],
+    timeline_journey: [
+      { key: "milestones", label: "Milestones", type: "object_array", subFields: [{ key: "date", label: "Date", placeholder: "2021" }, { key: "label", label: "Event", placeholder: "The full redesign" }, { key: "desc", label: "Detail", placeholder: "What happened, in a few words" }], maxItems: 6 },
+    ],
+    comparison: [
+      { key: "leftHeader", label: "Left header", type: "string", placeholder: "Before" },
+      { key: "rightHeader", label: "Right header", type: "string", placeholder: "After" },
+      { key: "leftPoints", label: "Left points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Columns ran too wide to read" }], maxItems: 6 },
+      { key: "rightPoints", label: "Right points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Type is set with generous air" }], maxItems: 6 },
+      { key: "vsLabel", label: "Centre badge", type: "string", placeholder: "VS" },
+    ],
+    closing_page: [],
+    ending_socials: [],
   },
 };
 
