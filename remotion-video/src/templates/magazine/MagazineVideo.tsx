@@ -291,7 +291,16 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               // main Title / Display-text. For those, prefer the layout-prop value and only
               // fall back to the main scene field when it's empty. Other layouts are unchanged.
               const preferProps = layoutKey === "editorial_quote" || layoutKey === "text_narration";
-              const lpTitle = (rawProps.title as string | undefined)?.trim();
+              // These layouts carry their own on-screen copy in layout_props_json. The key is
+              // named per-layout (`quoteText` / `headline`) so it never collides with the scene's
+              // main Title field; `title` is accepted only as a backward-compatible fallback.
+              const lpOwnCopy =
+                layoutKey === "editorial_quote"
+                  ? (rawProps.quoteText as string | undefined)
+                  : layoutKey === "text_narration"
+                    ? (rawProps.headline as string | undefined)
+                    : undefined;
+              const lpTitle = (lpOwnCopy ?? (rawProps.title as string | undefined))?.trim();
               const lpNarr = (rawProps.narration as string | undefined)?.trim();
 
               const layoutProps: SceneLayoutProps = {

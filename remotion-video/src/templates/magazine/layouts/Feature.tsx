@@ -117,7 +117,7 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
         fontFamily: MAG_DISPLAY,
         fontWeight: 800,
         fontSize: titlePx,
-        lineHeight: 1.02,
+        lineHeight: 1.12,
         letterSpacing: "-0.015em",
         color: text,
         margin: 0,

@@ -132,14 +132,14 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
       <MagazinePage
         lightChrome
         colors={colors}
-        section="Timeline"
+        section={(props.sectionLabel as string)?.trim() || "Timeline"}
         issue={props.issueLabel ?? "History"}
         page={props.pageNumber}
         aspectRatio={props.aspectRatio}
         fontFamily={fontFamily}
         establishingShot={props.establishingShot}
         cameraMove={props.cameraMove ?? "book_open"}
-        printTextureSrc="timeline-page-bg.svg"
+        printTextureSrc="timeline-spread-wireframe-bg.svg"
         printTextureOpacity={0.32}
         backgroundImageSrc={props.imageUrl}
         backgroundImageObjectPosition={props.imageObjectPosition}
@@ -154,7 +154,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
           <Kicker color={accent} style={{ opacity: headO, marginBottom: 12 }}>
             Timeline
           </Kicker>
-          <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titlePx, lineHeight: 1.04, letterSpacing: "-0.015em", color: text, margin: 0 }}>
+          <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titlePx, lineHeight: 1.12, letterSpacing: "-0.015em", color: text, margin: 0, overflowWrap: "break-word" }}>
             <KineticWords text={title ?? ""} start={18} stagger={2} dur={14} />
           </h1>
           <Rule color={accent} progress={headO} thickness={3} width={120} style={{ marginTop: 18 }} />
@@ -256,21 +256,20 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
     <MagazinePage
       lightChrome
       colors={colors}
-      section="Timeline"
+      section={(props.sectionLabel as string)?.trim() || "Timeline"}
       issue={props.issueLabel ?? "History"}
       page={props.pageNumber}
       aspectRatio={props.aspectRatio}
       fontFamily={fontFamily}
       establishingShot={props.establishingShot}
       cameraMove={props.cameraMove ?? "book_open"}
-      printTextureSrc="timeline-page-bg.svg"
+      printTextureSrc="timeline-spread-wireframe-bg.svg"
       printTextureOpacity={0.32}
       backgroundImageSrc={props.imageUrl}
       backgroundImageObjectPosition={props.imageObjectPosition}
       backgroundImageZoom={props.imageZoom}
       backgroundImageOpacity={0.3}
       hideGutter
-      strongHinge
       cornerCurl
     >
       <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
@@ -279,7 +278,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
         <Kicker color={accent} style={{ opacity: headO, marginBottom: 12 }}>
           Timeline
         </Kicker>
-        <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titlePx, lineHeight: 1.04, letterSpacing: "-0.015em", color: text, margin: 0 }}>
+        <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titlePx, lineHeight: 1.12, letterSpacing: "-0.015em", color: text, margin: 0, overflowWrap: "break-word" }}>
           <KineticWords text={title ?? ""} start={18} stagger={2} dur={14} />
         </h1>
 

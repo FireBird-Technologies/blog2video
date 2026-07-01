@@ -40,6 +40,7 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
+  const sectionLabel = (props.sectionLabel as string)?.trim() || "By the Numbers";
 
   // Render ONLY real numeric figures — never invent stats. Drop entries with an
   // empty value or a value that carries no digit (a stray word is not a figure).
@@ -94,13 +95,36 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
   const columnGap = !p && n % 2 === 0 ? 72 : 0;
 
   return (
-    <MagazinePage colors={colors} section="By the Numbers" issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove} printTextureSrc="by-the-numbers-bg.svg" printTextureOpacity={0.1}>
-      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-        <Kicker color={accent} style={{ opacity: titleO, marginBottom: 20 }}>
-          By the Numbers
-        </Kicker>
+    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove} printTextureSrc="by-the-numbers-bg.svg" printTextureOpacity={0.5}>
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
+        {/* Section header — a bold, unmistakable masthead so the scene reads as
+            "By the Numbers" at a glance: a small red eyebrow, an oversized display
+            title, and a heavy full-width rule that draws in beneath it. */}
+        <div style={{ opacity: titleO }}>
+          <Kicker color={accent} size={p ? 15 : 17} style={{ marginBottom: 10 }}>
+            {`Data · ${sectionLabel}`}
+          </Kicker>
+          <div
+            style={{
+              fontFamily: MAG_DISPLAY,
+              fontWeight: 900,
+              fontSize: p ? 60 : 84,
+              lineHeight: 1.12,
+              letterSpacing: "-0.02em",
+              color: text,
+              textTransform: "uppercase",
+            }}
+          >
+            {sectionLabel}
+          </div>
+        </div>
 
-        <Rule color={accent} progress={ruleP} thickness={3} width={p ? 120 : 100} style={{ marginBottom: 0 }} />
+        {/* Heavy header rule (draws in left→right) with a thin echo hairline just
+            below it — the classic magazine section-header underscore. */}
+        <div style={{ marginTop: p ? 14 : 18 }}>
+          <Rule color={text} progress={ruleP} thickness={p ? 5 : 6} width="100%" />
+          <Rule color={hexToRgba(text, 0.25)} progress={ruleP} thickness={1} width="100%" style={{ marginTop: 6 }} />
+        </div>
 
         {/* Subject-tied heading + optional standfirst — owns the upper band so the
             page never opens onto blank paper above the figures. Rendered only when the
@@ -112,7 +136,7 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
                 fontFamily: MAG_DISPLAY,
                 fontWeight: 800,
                 fontSize: headingPx,
-                lineHeight: 1.05,
+                lineHeight: 1.12,
                 color: text,
                 letterSpacing: "-0.01em",
                 maxWidth: p ? "100%" : "72%",
@@ -245,6 +269,22 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
 
         {/* Section-break dingbat */}
         <DingbatRule color={hexToRgba(text, 0.4)} width={p ? 160 : 220} opacity={ruleP} style={{ margin: "0 auto" }} />
+
+        {/* Faded black wash pinned to the very bottom of the page — grounds the
+            spread and lets the foot of the copy sink into shadow. Non-interactive
+            overlay; extends past the page edges so no hard seam shows. */}
+        <div
+          style={{
+            position: "absolute",
+            left: "-8%",
+            right: "-8%",
+            bottom: "-8%",
+            height: p ? "22%" : "26%",
+            background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.22) 42%, rgba(0,0,0,0) 100%)",
+            pointerEvents: "none",
+            opacity: framesP,
+          }}
+        />
       </div>
     </MagazinePage>
   );

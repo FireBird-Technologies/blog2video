@@ -63,7 +63,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
     <MagazinePage
       lightChrome
       colors={colors}
-      section="Feature"
+      section={(props.sectionLabel as string)?.trim() || "Feature"}
       issue={props.issueLabel ?? "Spotlight"}
       page={props.pageNumber}
       aspectRatio={props.aspectRatio}
@@ -95,7 +95,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
               fontFamily: MAG_DISPLAY,
               fontWeight: 800,
               fontSize: quotePx,
-              lineHeight: 1.04,
+              lineHeight: 1.12,
               letterSpacing: "-0.01em",
               textTransform: "uppercase",
               color: bg,
@@ -172,7 +172,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
                   fontFamily: MAG_DISPLAY,
                   fontWeight: 800,
                   fontSize: headingPx,
-                  lineHeight: 1.05,
+                  lineHeight: 1.12,
                   letterSpacing: "-0.015em",
                   color: bg,
                   margin: 0,
