@@ -33,6 +33,7 @@ import Stickman2PreviewPortrait from "./templatePreviews/portrait/Stickman2Previ
 import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/StickmanFootballPreviewPortrait";
 
 import MagazinePreview from "./templatePreviews/MagazinePreview";
+import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
 /** Preview components keyed by built-in template id from the API. */
 export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   default: DefaultPreview,
@@ -70,7 +71,7 @@ export const TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boo
   economist: EconomistPreviewPortrait,
   stickman_2: Stickman2PreviewPortrait,
   stickman_football: StickmanFootballPreviewPortrait,
-  magazine: MagazinePreview,
+  magazine: MagazinePreviewPortrait,
 };
 
 export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {

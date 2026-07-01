@@ -3,6 +3,7 @@ import { interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
+  MAG_TEXTURES,
   Kicker,
   WrittenText,
   MAG_DISPLAY,
@@ -169,7 +170,7 @@ export const InterviewQa: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
       lightChrome
-      printTextureSrc="qa-scene-color-wash.svg"
+      printTextureSrc={MAG_TEXTURES.qaWash}
       printTextureOpacity={1}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>

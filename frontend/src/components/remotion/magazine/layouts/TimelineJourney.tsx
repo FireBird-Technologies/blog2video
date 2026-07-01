@@ -3,6 +3,7 @@ import { interpolate, Easing } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
+  MAG_TEXTURES,
   Kicker,
   KineticWords,
   Rule,
@@ -139,7 +140,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
         fontFamily={fontFamily}
         establishingShot={props.establishingShot}
         cameraMove={props.cameraMove ?? "book_open"}
-        printTextureSrc="timeline-spread-wireframe-bg.svg"
+        printTextureSrc={MAG_TEXTURES.timelineWireframe}
         printTextureOpacity={0.32}
         backgroundImageSrc={props.imageUrl}
         backgroundImageObjectPosition={props.imageObjectPosition}
@@ -263,7 +264,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={fontFamily}
       establishingShot={props.establishingShot}
       cameraMove={props.cameraMove ?? "book_open"}
-      printTextureSrc="timeline-spread-wireframe-bg.svg"
+      printTextureSrc={MAG_TEXTURES.timelineWireframe}
       printTextureOpacity={0.32}
       backgroundImageSrc={props.imageUrl}
       backgroundImageObjectPosition={props.imageObjectPosition}

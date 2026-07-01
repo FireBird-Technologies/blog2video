@@ -17,6 +17,7 @@ import type { MagazineCameraMove, MagazineTransitionName } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 interface SceneData {
@@ -24,9 +25,13 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
+  narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
 }
@@ -46,6 +51,11 @@ interface VideoData {
   fontFamily?: string | null;
   bgmFile?: string | null;
   bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  captionOffset?: number;
   scenes: SceneData[];
 }
 
@@ -376,6 +386,40 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           </Sequence>
         );
       })}
+
+      {/* Captions — narration text, synced to each scene's voiceover window. Rendered
+          at the real-output level (outside the scaled design canvas) so they size and
+          position in output pixels, matching the newspaper composition. */}
+      {data.captionsEnabled &&
+        resolvedScenes.map((s, index) => {
+          const text = s.scene.narrationText || s.scene.narration;
+          if (!text) return null;
+          return (
+            <Sequence
+              key={`caption-${s.scene.id}-${index}`}
+              from={sceneStartFrames[index]}
+              durationInFrames={s.durationFrames}
+            >
+              <CaptionTrack
+                text={text}
+                position={data.captionPosition || "bottom_center"}
+                aspectRatio={data.aspectRatio || "landscape"}
+                fontFamily={
+                  data.captionFontFamily
+                    ? resolveFontFamily(data.captionFontFamily) || data.captionFontFamily
+                    : resolvedFontFamily || undefined
+                }
+                fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                offset={data.captionOffset ?? 0}
+                speechDurationFrames={
+                  s.scene.speechDurationSeconds
+                    ? getSceneDurationFrames(s.scene.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
+            </Sequence>
+          );
+        })}
 
       {data.logo && (
         <LogoOverlay

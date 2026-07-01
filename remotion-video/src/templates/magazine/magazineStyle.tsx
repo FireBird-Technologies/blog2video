@@ -230,6 +230,18 @@ export const useMagDims = (): MagDims => {
 // >1 = slower; 1 = original speed.
 export const MAG_TEMPO = 1.35;
 
+// ── Printed-spread background textures ───────────────────────────────────────
+// Raster PNG textures (à la chronicle's texture constants). Single source of
+// truth: a texture swap or rename is one edit here, not a hunt across layouts.
+export const MAG_TEXTURES = {
+  spread: "magazine-spread-bg.png",
+  blur: "magazine-blur-bg.png",
+  byTheNumbers: "by-the-numbers-bg.png",
+  comparison: "comparison-page-bg.png",
+  qaWash: "qa-scene-color-wash.png",
+  timelineWireframe: "timeline-spread-wireframe-bg.png",
+} as const;
+
 /** The template clock, slowed by {@link MAG_TEMPO}. Use everywhere a magazine
  *  animation would otherwise call Remotion's `useCurrentFrame()` so the whole
  *  template slows in lock-step. Returns a (fractional) frame — interpolate and
@@ -1819,7 +1831,7 @@ export const MagazineTableIntro: React.FC<{
                 style={{
                   position: "absolute",
                   inset: 0,
-                  backgroundImage: `url(${staticFile("magazine-spread-bg.svg")})`,
+                  backgroundImage: `url(${staticFile(MAG_TEXTURES.spread)})`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   opacity: 0.1,
@@ -1881,8 +1893,8 @@ export const MagazineTableIntro: React.FC<{
               </div>
 
               {/* dog-eared corners — flap carries the cover's ghost print */}
-              <PageCurl corner="bl" size={curl} textureSrc="magazine-spread-bg.svg" />
-              <PageCurl corner="br" size={curl} accent={accent} textureSrc="magazine-spread-bg.svg" />
+              <PageCurl corner="bl" size={curl} textureSrc={MAG_TEXTURES.spread} />
+              <PageCurl corner="br" size={curl} accent={accent} textureSrc={MAG_TEXTURES.spread} />
             </div>
           </AbsoluteFill>
         </AbsoluteFill>
@@ -1934,7 +1946,7 @@ interface MagazinePageProps {
    *  want a clean sheet (e.g. TimelineJourney) instead of bleed-through columns. */
   hidePrintTexture?: boolean;
   /** Override the full-bleed print-texture SVG painted on the sheet (defaults to
-   *  `magazine-spread-bg.svg`). Lets a layout substitute its own printed spread
+   *  `magazine-spread-bg.png`). Lets a layout substitute its own printed spread
    *  edge-to-edge behind the live content (e.g. EditorialQuote). */
   printTextureSrc?: string;
   /** Opacity of the full-bleed print-texture layer (defaults to 0.12). */
@@ -1984,7 +1996,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
   cameraMove,
   leftEdgeFoldOpacity = 0,
   hidePrintTexture = false,
-  printTextureSrc = "magazine-spread-bg.svg",
+  printTextureSrc = MAG_TEXTURES.spread,
   printTextureOpacity = 0.12,
   printTextureZoom = 1,
   lightChrome = false,
