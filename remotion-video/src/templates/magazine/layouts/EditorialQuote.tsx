@@ -1,5 +1,5 @@
 import React from "react";
-import { useVideoConfig, interpolate } from "remotion";
+import { useVideoConfig, interpolate, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
@@ -11,6 +11,7 @@ import {
   MAG_SANS,
   resolveMagColors,
   isPortrait,
+  hexToRgba,
   useReveal,
   useMagFrame,
 } from "../magazineStyle";
@@ -34,7 +35,13 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
   const attribution = (props.attribution as string) ?? "";
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
-  const { text, accent } = colors;
+  const { bg, text, accent } = colors;
+
+  // Optional photo — rendered ONLY when the scene carries an image. When present
+  // it sits as a framed block up the right margin (landscape) / beneath the quote
+  // (portrait), and the statement column narrows to make room for it.
+  const imageUrl = props.imageUrl;
+  const hasImage = Boolean(imageUrl);
 
   const frame = useMagFrame();
   const { fps } = useVideoConfig();
@@ -43,6 +50,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
   const markO = useReveal(4, 16);
   const railP = useReveal(6, 18);
   const glyphScale = 0.86 + 0.14 * markO;
+  const plateO = useReveal(8, 18); // the photo block fades in with the rail
 
   const words = quote.split(" ");
   const wStart = 14; // start right after the glyph + rail have appeared
@@ -74,7 +82,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
   return (
     <MagazinePage
       colors={colors}
-      section="Quote"
+      section={(props.sectionLabel as string)?.trim() || "Quote"}
       issue={props.issueLabel ?? "Comment"}
       page={props.pageNumber}
       aspectRatio={props.aspectRatio}
@@ -117,14 +125,54 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
           }}
         />
 
-        {/* The statement — left-aligned, tucked just below the quotation glyph */}
+        {/* Optional editorial photo block. Landscape: a tall framed plate up the
+            right margin; portrait: a wide plate anchored to the lower band. Only
+            rendered when the scene actually carries an image. */}
+        {imageUrl && (
+          <div
+            style={{
+              position: "absolute",
+              ...(p
+                ? { left: "16%", right: "10%", bottom: "8%", height: "26%" }
+                : { right: "6%", top: "20%", bottom: "12%", width: "30%" }),
+              background: bg,
+              padding: 8,
+              border: `1px solid ${hexToRgba(text, 0.85)}`,
+              boxShadow: "0 6px 16px rgba(0,0,0,0.24)",
+              overflow: "hidden",
+              opacity: plateO,
+              transform: `translateY(${((1 - plateO) * 16).toFixed(1)}px)`,
+              zIndex: 1,
+            }}
+          >
+            <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
+              <Img
+                src={imageUrl}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (props.imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (props.imageZoom ?? 1) < 1 ? "center" : (props.imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${props.imageZoom ?? 1})`,
+                  transformOrigin: (props.imageZoom ?? 1) < 1 ? "center center" : (props.imageObjectPosition ?? "50% 50%"),
+                  display: "block",
+                }}
+              />
+              {/* faint paper tint so the photo sits into the printed page */}
+              <div style={{ position: "absolute", inset: 0, background: hexToRgba(bg, 0.06), pointerEvents: "none" }} />
+            </div>
+          </div>
+        )}
+
+        {/* The statement — left-aligned, tucked just below the quotation glyph. It
+            narrows on the right when a photo block shares the page. */}
         <div
           style={{
             position: "absolute",
             left: "16%",
-            right: p ? "10%" : "22%",
+            right: p ? "10%" : hasImage ? "40%" : "22%",
             top: p ? "22%" : "18%",
-            bottom: p ? "8%" : "10%",
+            bottom: p ? (hasImage ? "38%" : "8%") : "10%",
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-start",

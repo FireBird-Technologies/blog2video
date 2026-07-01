@@ -162,7 +162,7 @@ export const InterviewQa: React.FC<SceneLayoutProps> = (props) => {
   return (
     <MagazinePage
       colors={colors}
-      section="Interview"
+      section={(props.sectionLabel as string)?.trim() || "Interview"}
       issue={props.issueLabel ?? "The Interview"}
       page={props.pageNumber}
       aspectRatio={props.aspectRatio}

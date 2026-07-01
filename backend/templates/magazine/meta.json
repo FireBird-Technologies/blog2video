@@ -623,15 +623,18 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
-          "landscape": 76
+          "landscape": 53
         },
         "descriptionFontSize": {
           "portrait": 52,
-          "landscape": 40
+          "landscape": 24
         },
         "ctaButtonText": "Read More",
         "showWebsiteButton": true,
         "websiteLink": "https://yourwebsite.com",
+        "followLabel": "Follow",
+        "onlineLabel": "Online",
+        "issueLabel": "Thank you for reading",
         "socials": [
           {
             "platform": "facebook",
@@ -673,7 +676,7 @@
       "scene_defaults": {
         "title": "Atlas Review",
         "narration": "An independent report on the people still making things by hand.",
-        "durationSeconds": 5
+        "durationSeconds": 7
       },
       "sample_props": {
         "ctaButtonText": "Read the full issue",
@@ -736,6 +739,24 @@
           "label": "Show CTA Button",
           "type": "boolean",
           "description": "Toggle to show or hide the CTA button"
+        },
+        {
+          "key": "followLabel",
+          "label": "Follow Heading",
+          "type": "string",
+          "description": "Tracked heading above the social handles, e.g. 'Follow'"
+        },
+        {
+          "key": "onlineLabel",
+          "label": "Online Heading",
+          "type": "string",
+          "description": "Tracked heading above the CTA cards, e.g. 'Online'"
+        },
+        {
+          "key": "issueLabel",
+          "label": "Colophon Line",
+          "type": "string",
+          "description": "Small sign-off line near the barcode, e.g. 'Thank you for reading'"
         },
         {
           "key": "ctas",
@@ -1138,7 +1159,6 @@
     }
   },
   "layouts_without_image": [
-    "editorial_quote",
     "by_the_numbers",
     "interview_qa",
     "magazine_data_visualization",

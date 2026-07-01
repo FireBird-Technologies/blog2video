@@ -7,7 +7,6 @@ import {
   Rule,
   KineticWords,
   WrittenText,
-  MagPlate,
   MagSwoosh,
   MAG_DISPLAY,
   MAG_SERIF,
@@ -53,7 +52,6 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
   const { title, narration, titleFontSize, descriptionFontSize } = props;
   const sectionLabel = (props.sectionLabel as string) ?? "Field Notes";
   const p = isPortrait(props.aspectRatio);
-  const hasImage = Boolean(props.imageUrl);
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
 
@@ -66,19 +64,19 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
   // the narration for legacy scenes that only carry prose.
   // Portrait is one tall column, so fewer/shorter notes fit before the fixed-
   // height content area clips — cap tighter there so the last note never gets
-  // cut off at the bottom.
-  // Fewer notes when a photo plate shares the page, so the ledger never clips
-  // under the reduced height.
-  const maxN = (p ? 4 : 6) - (hasImage ? 2 : 0);
+  // cut off at the bottom. The optional photo sits as a full-bleed background
+  // (not a plate), so it never steals height from the ledger.
+  const maxN = p ? 4 : 6;
   const entries = toPoints(props.points, narration ?? "").slice(0, maxN);
 
   const titlePx = titleFontSize ?? (p ? 100 : 100);
-  const entryPx = descriptionFontSize ?? (p ? 40 : 43);
-  const bulletPx = p ? 22 : 17;
+  // Portrait is one tall single column, so the notes can carry a larger body size
+  // and still fit (the ledger caps at maxN notes and centres in the remaining height).
+  const entryPx = descriptionFontSize ?? (p ? 54 : 43);
+  const bulletPx = p ? 28 : 17;
 
   const kickerO = rev(2);
   const ruleP = rev(12);
-  const plateO = rev(10, 16);
   const footerO = rev(18 + entries.length * 5 + 4);
 
   const footerLabel = (props.issueLabel as string) ?? sectionLabel;
@@ -96,6 +94,10 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
       singlePage
       printTextureSrc="magazine-blur-bg.svg"
       printTextureZoom={1.6}
+      backgroundImageSrc={props.imageUrl}
+      backgroundImageObjectPosition={props.imageObjectPosition}
+      backgroundImageZoom={props.imageZoom}
+      backgroundImageOpacity={0.22}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
         {/* Department masthead */}
@@ -107,7 +109,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
             fontFamily: MAG_DISPLAY,
             fontWeight: 800,
             fontSize: titlePx,
-            lineHeight: 1.02,
+            lineHeight: 1.12,
             letterSpacing: "-0.02em",
             color: text,
             margin: 0,
@@ -126,21 +128,10 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
         </h1>
         <Rule color={accent} progress={ruleP} thickness={3} width="100%" style={{ marginTop: 10 }} />
 
-        {/* Optional field plate — a full-width framed photo under the masthead,
-            before the notes. The ledger below is flex:1 and reflows into the
-            remaining height (maxN is trimmed when a plate is present). */}
-        {hasImage && (
-          <MagPlate
-            src={props.imageUrl}
-            colors={colors}
-            objectPosition={props.imageObjectPosition}
-            zoom={props.imageZoom}
-            opacity={plateO}
-            style={{ height: p ? "26%" : "30%", flexShrink: 0, marginTop: p ? 20 : 26 }}
-          />
-        )}
-
-        {/* Numbered notes ledger — two columns (landscape) / one (portrait) */}
+        {/* Numbered notes ledger — two columns (landscape) / one (portrait). The
+            optional photo renders as a full-bleed page background (see
+            backgroundImageSrc on MagazinePage above), so the ledger keeps its
+            full height regardless of whether a photo is present. */}
         <div
           style={{
             flex: 1,

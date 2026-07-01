@@ -20,6 +20,14 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 
 ---
 
+# Reserved prop names — never name a layout prop `title`
+
+The scene's main **Title** and **Display text** are top-level scene fields and are unchanged — keep filling them exactly as before. Separately, `title` (and `narration`) is a RESERVED key inside `layout_props_json`: the renderer maps the scene's main Title onto it, so any `title` you write in `layout_props_json` collides with, and may be overridden by, that main Title.
+
+Therefore, when a layout needs to carry its OWN on-screen copy or attributes in `layout_props_json`, give that key a layout-specific name — **never `title`**. Every layout below already names its own props (e.g. `quoteText`, `headline`, `leftQuote`, `panelHeading`); use those exact keys. Do NOT invent a `title` (or any generic `title`-like) key inside `layout_props_json`.
+
+---
+
 # Layout Catalog
 
 ---
@@ -41,11 +49,11 @@ This is an editorial magazine, not a poster, and the body copy is ORIGINAL magaz
 **Visual:** A pull-quote page: a large serif italic statement anchored lower-left with an oversized quotation-mark watermark, a vertical accent rail, and a tracked uppercase attribution line beneath.
 
 **Props:**
-  - `title` (string) — **REQUIRED.** The pull-quote text itself (revealed word-by-word). This IS the on-screen statement — write the full quote here.
+  - `quoteText` (string) — **REQUIRED.** The pull-quote text itself (revealed word-by-word). This IS the on-screen statement — write the full quote here. (Do NOT name this key `title`.)
   - `attribution` (string) — **REQUIRED.** The source/credit line, e.g. `"— Jane Smith, CEO"`. Always emit it; it is the only other copy on the page.
   - `titleFontSize` (number) — Quote size override
 
-The quote (`title`) and `attribution` are the ONLY copy shown on this page — the scene's narration / display text is NOT rendered here. Put the entire pull quote in `title` and the credit in `attribution`; do not rely on the narration to supply either.
+The quote (`quoteText`) and `attribution` are the ONLY copy shown on this page — the scene's narration / display text is NOT rendered here. Put the entire pull quote in `quoteText` and the credit in `attribution`; do not rely on the narration to supply either.
 
 **When to Use:** A standout pull quote, key insight, or emotional beat between sections.
 
@@ -126,7 +134,6 @@ The quote (`title`) and `attribution` are the ONLY copy shown on this page — t
   - `leftSpeaker` (string) — Interviewee name (used in the kicker)
   - `rightSpeaker` (string) — Their role/organisation (used in the kicker)
   - `exchanges` (object_array) — **REQUIRED — always emit 2–3 (prefer 3).** An array of question/answer exchanges, each `{ "q": "<question>", "a": "<answer>" }`. Write a fresh, specific question for each and give every answer a full, paragraph-length reply (**3–5 sentences**), grounded in the source — not one-liners. Always emit at least two; three substantial exchanges fill the page. Never emit a single exchange.
-  - `title` (string) — Used as the first question when the first `exchanges` entry omits `q`.
   - `leftQuote` / `rightQuote` (text) — *Legacy fields only. Do NOT use for new scenes — always use `exchanges` instead.*
   - `descriptionFontSize` (number) — Quote size override
 
@@ -184,11 +191,11 @@ The quote (`title`) and `attribution` are the ONLY copy shown on this page — t
 
 **Props:**
   - `sectionLabel` (string) — Red kicker and running-head section; defaults to `"Analysis"`
-  - `title` (string) — **REQUIRED.** The serif headline for this page.
+  - `headline` (string) — **REQUIRED.** The serif headline for this page. (Do NOT name this key `title`.)
   - `points` (object_array) — **REQUIRED. At least 2 — prefer 3–6 — short field-notes (≤14 words each), each `{ "value": "<note>" }`.** Each entry renders as its own red-bulleted line. **NEVER emit a single note — one lone bullet reads as broken.** If the beat genuinely supports only one point, use a different layout (`editorial_quote` or `colorblock`) instead of `text_narration`. Emit SEPARATE array entries — do NOT join items with `•` (or any character) inside a single string, and do not cram the whole list into one entry.
   - `narration` (string) — The spoken voiceover for this beat. Used as a fallback (sentence-split into notes) ONLY when `points` is omitted; always prefer `points`.
 
-The headline (`title`) and the notes (`points`) are this layout's own on-screen copy — populate BOTH for every text_narration scene. Do not leave them empty expecting the page to reuse another field; the page renders exactly what you emit here.
+The headline (`headline`) and the notes (`points`) are this layout's own on-screen copy — populate BOTH for every text_narration scene. Do not leave them empty expecting the page to reuse another field; the page renders exactly what you emit here.
 
 **When to Use:** Narration-only beats, chapter intros, transitional commentary, or a short set of key takeaways.
 
@@ -198,7 +205,7 @@ The headline (`title`) and the notes (`points`) are this layout's own on-screen 
 ```json
 { "layout": "text_narration", "title": "A Working Theory of Print",
   "narration": "The studios betting on print are chasing attention, not paper.",
-  "layout_props_json": { "sectionLabel": "ESSAY",
+  "layout_props_json": { "sectionLabel": "ESSAY", "headline": "A Working Theory of Print",
     "points": [
       { "value": "Rejects generic stock footage for purpose-built visuals" },
       { "value": "Generates real diagrams and labelled flowcharts from input" },

@@ -73,11 +73,11 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
   const rowY = (i: number) => interpolate(frame, [20 + i * 6, 20 + i * 6 + 14], [8, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
-    <MagazinePage lightChrome colors={colors} section="Ledger" issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage cameraMove={props.cameraMove} printTextureSrc="magazine-blur-bg.svg">
+    <MagazinePage lightChrome colors={colors} section={(props.sectionLabel as string)?.trim() || "Ledger"} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage cameraMove={props.cameraMove} printTextureSrc="magazine-blur-bg.svg" printTextureZoom={1.6}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ opacity: titleO, flexShrink: 0, marginBottom: 22 }}>
           <Kicker color={accent} style={{ marginBottom: 12 }}>{tickerTitle || "Figures"}</Kicker>
-          <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.04, letterSpacing: "-0.015em", color: text, margin: 0 }}>
+          <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.12, letterSpacing: "-0.015em", color: text, margin: 0, overflowWrap: "break-word" }}>
             <KineticWords text={title || "By the Numbers"} start={2} stagger={2} dur={14} />
           </h1>
         </div>

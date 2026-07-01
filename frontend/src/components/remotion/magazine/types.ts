@@ -97,6 +97,10 @@ export interface SceneLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+  // ending_socials back-cover column headings — the tracked uppercase labels above
+  // the social handles ("Follow") and the CTA cards ("Online"). Editable per scene.
+  followLabel?: string;
+  onlineLabel?: string;
   // object_array props use the standard label/value pair shape so the editor can render both fields
   subtitle?: string;
   issueLabel?: string;
