@@ -128,18 +128,8 @@ export default function Stickman2Preview({ thumbnailMode = false }: { thumbnailM
     if (!thumbnailMode) return;
     const p = playerRef.current;
     if (!p) return;
-    let settled = false;
-    const onFrame = () => {
-      if (settled) return;
-      const current = p.getCurrentFrame();
-      if (current >= thumbnailFrame) {
-        settled = true;
-        p.pause();
-        p.seekTo(thumbnailFrame);
-      }
-    };
-    p.addEventListener("frameupdate", onFrame);
-    return () => p.removeEventListener("frameupdate", onFrame);
+    p.pause();
+    p.seekTo(thumbnailFrame);
   }, [thumbnailMode, thumbnailFrame]);
 
   // When the card reaches center, restart the timeline from the top so the
