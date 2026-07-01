@@ -3,6 +3,7 @@ import { useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
+  MAG_TEXTURES,
   Kicker,
   Rule,
   DingbatRule,
@@ -88,14 +89,14 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
   // Portrait keeps its 2-column grid; landscape flows the stats in a single row so
   // two figures read as a centred pair, not two marooned columns.
   const gridCols = p ? "1fr 1fr" : `repeat(${n}, minmax(0, 1fr))`;
-  // The centre crease (hingeShade in by-the-numbers-bg.svg, ~50%) must never sit
+  // The centre crease (hingeShade in by-the-numbers-bg.png, ~50%) must never sit
   // under a figure. In landscape with an EVEN stat count the column split lands on
   // centre, so open a channel there so the figures read as a clearly separated
   // left/right block, clear of the fold. Odd counts already straddle acceptably.
   const columnGap = !p && n % 2 === 0 ? 72 : 0;
 
   return (
-    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove} printTextureSrc="by-the-numbers-bg.svg" printTextureOpacity={0.5}>
+    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove} printTextureSrc={MAG_TEXTURES.byTheNumbers} printTextureOpacity={0.5}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
         {/* Section header — a bold, unmistakable masthead so the scene reads as
             "By the Numbers" at a glance: a small red eyebrow, an oversized display
