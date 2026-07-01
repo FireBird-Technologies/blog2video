@@ -24,8 +24,14 @@ import {
  * never reads like the centred text-narration page.
  */
 export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
-  const { title, narration, titleFontSize, descriptionFontSize } = props;
-  const attribution = (props.attribution as string) ?? narration;
+  const { title, titleFontSize, descriptionFontSize } = props;
+  // The pull quote is the layout's own copy: the composition resolves `title` to the
+  // layout-prop quote for this layout (see buildLayoutProps / MagazineVideo). We render
+  // ONLY that quote + the attribution — the scene's main Display-text is not shown here.
+  const quote = (title ?? "").trim();
+  // Attribution is an explicit credit line only — never fall back to the quote
+  // copy, or the statement would be duplicated as its own attribution.
+  const attribution = (props.attribution as string) ?? "";
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
@@ -38,7 +44,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
   const railP = useReveal(6, 18);
   const glyphScale = 0.86 + 0.14 * markO;
 
-  const words = (title ?? "").split(" ");
+  const words = quote.split(" ");
   const wStart = 14; // start right after the glyph + rail have appeared
   const wStagger = Math.max(1, Math.round(fps * 0.045)); // tighter stagger = smoother flow
   const wDur = Math.round(fps * 0.22); // each word fades in quickly
@@ -61,7 +67,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
         opacity: 0.78,
       }}
     >
-      <Typewriter text={attribution.replace(/^[—–-]\s*/, "— ")} start={lastEnd + 14} cpf={1.2} caretColor={accent} />
+      <Typewriter text={attribution.replace(/^[—–-]\s*/, "")} start={lastEnd + 14} cpf={1.2} caretColor={accent} />
     </div>
   );
 
@@ -76,8 +82,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
       cameraMove={props.cameraMove}
       lightChrome
       singlePage
-      printTextureSrc="editorial-quote-bg.svg"
-      printTextureOpacity={0.45}
+      hidePrintTexture
     >
       <div style={{ height: "100%", position: "relative", overflow: "hidden" }}>
         {/* Faint halftone field for print texture */}
@@ -141,7 +146,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
               textAlign: "left",
             }}
           >
-            <WrittenText text={title ?? ""} start={wStart} wordsPerFrame={wStagger > 0 ? 1 / wStagger : 0.5} dur={wDur} />
+            <WrittenText text={quote} start={wStart} wordsPerFrame={wStagger > 0 ? 1 / wStagger : 0.5} dur={wDur} />
           </blockquote>
 
           {/* Attribution beneath the quote with a short accent rule */}
@@ -152,6 +157,22 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
             </div>
           )}
         </div>
+
+        {/* Faded-black vignette along the very bottom of the page. Pointer-inert
+            and low in the stack (the quote block above is zIndex:1) so it darkens
+            the bottom edge without ever landing on the statement or attribution. */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "22%",
+            background: "linear-gradient(to top, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.14) 45%, rgba(0,0,0,0) 100%)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
       </div>
     </MagazinePage>
   );

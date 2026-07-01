@@ -888,6 +888,89 @@ class TemplateSceneGenerator:
                 out["keyPoints"] = points
         return out
 
+    def _backfill_magazine_text_narration(self, layout: str, props: dict, narration: str) -> dict:
+        """Guarantee a magazine ``text_narration`` scene has a real ``points`` list.
+
+        The layout renders one red bullet per ``points`` entry. When the model
+        omits ``points`` (or packs the whole list into a single ``•``-joined
+        string), backfill a proper array so the page never collapses into one
+        giant bullet. We only re-shape copy the model already produced — split on
+        bullet glyphs first, then on sentence boundaries; we never fabricate
+        notes. If there is nothing to draw from, leave ``points`` unset and let
+        the component fall back to the narration.
+        """
+        if self.template_id != "magazine" or layout != "text_narration":
+            return props
+
+        import re
+
+        out = dict(props or {})
+
+        existing = out.get("points")
+        has_points = isinstance(existing, list) and any(
+            (p.get("value") if isinstance(p, dict) else p) and str(
+                p.get("value") if isinstance(p, dict) else p
+            ).strip()
+            for p in existing
+        )
+        if has_points:
+            return out
+
+        # Draw from the richest prose available: an accidental single-entry
+        # points string, a stray body, else the narration.
+        source = ""
+        if isinstance(existing, list) and existing:
+            first = existing[0]
+            source = str((first.get("value") if isinstance(first, dict) else first) or "")
+        source = source.strip() or str(out.get("body") or "").strip() or (narration or "").strip()
+        if not source:
+            return out
+
+        # Split on bullet glyphs first (•, -, –, —, *, ·), then fall back to
+        # sentence boundaries so a plain paragraph still yields several notes.
+        parts = [s.strip(" \t•*·-–—") for s in re.split(r"\s*[•·]\s*|\s+[-–—*]\s+", source)]
+        parts = [s for s in parts if s]
+        if len(parts) < 2:
+            parts = [s.strip() for s in re.split(r"(?<=[.!?])\s+", source) if s.strip()]
+
+        notes = [p for p in parts if p][:6]
+        if len(notes) >= 2:
+            out["points"] = [{"value": n} for n in notes]
+        return out
+
+    def _guard_magazine_by_the_numbers(self, layout: str, props: dict, narration: str):
+        """Keep magazine ``by_the_numbers`` honest — it must NEVER invent figures.
+
+        The layout renders one oversized figure per ``stats`` entry, and figures
+        must be real numbers drawn from the source. When the model picks this
+        layout for a beat that has no numeric data (e.g. a visual description),
+        it leaves ``stats`` empty or fills it with words — which previously
+        rendered as fabricated placeholder figures. Drop any entry whose ``value``
+        carries no digit, and if fewer than two real numeric stats remain, reroute
+        to the template's prose fallback (``text_narration``) with empty props so
+        ``_backfill_magazine_text_narration`` can repopulate it from the narration.
+        Mirrors the economist ``key_indicators`` prose fallback above.
+        """
+        if self.template_id != "magazine" or layout != "by_the_numbers":
+            return layout, props
+
+        raw = (props or {}).get("stats")
+        clean = [
+            s for s in raw
+            if isinstance(s, dict)
+            and str(s.get("value", "")).strip()
+            and re.search(r"\d", str(s.get("value", "")))
+        ] if isinstance(raw, list) else []
+
+        if len(clean) < 2:
+            logger.info(
+                "[SCENE_GEN] magazine by_the_numbers has <2 real numeric stats, falling back to '%s' (never fabricating figures)",
+                self._fallback_layout,
+            )
+            return self._fallback_layout, {}
+
+        return layout, {**(props or {}), "stats": clean}
+
     def _merge_economist_chart_props(
         self,
         layout: str,
@@ -1856,6 +1939,12 @@ class TemplateSceneGenerator:
                     narration=narration,
                     scene_index=scene_index,
                 )
+                layout, validated_props = self._guard_magazine_by_the_numbers(
+                    layout=layout, props=validated_props, narration=narration
+                )
+                validated_props = self._backfill_magazine_text_narration(
+                    layout=layout, props=validated_props, narration=narration
+                )
 
                 # Guard: reroute to terminal_dataviz when the table is line-chartable
                 # (set by terminal_chart with no OHLCV, or terminal_table with time-series data).
@@ -2026,6 +2115,12 @@ class TemplateSceneGenerator:
             scene_title=scene_title,
             narration=narration,
             scene_index=scene_index,
+        )
+        layout, validated_props = self._guard_magazine_by_the_numbers(
+            layout=layout, props=validated_props, narration=narration
+        )
+        validated_props = self._backfill_magazine_text_narration(
+            layout=layout, props=validated_props, narration=narration
         )
 
         # Guard: reroute to terminal_dataviz when the table is line-chartable.

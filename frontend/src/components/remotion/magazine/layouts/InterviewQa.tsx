@@ -169,8 +169,8 @@ export const InterviewQa: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
       lightChrome
-      printTextureSrc="qa-timeline-bg.svg"
-      printTextureOpacity={0.4}
+      printTextureSrc="qa-scene-color-wash.svg"
+      printTextureOpacity={1}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <Kicker color={accent} style={{ opacity: labelO, marginBottom: p ? 28 : 34, flexShrink: 0 }}>

@@ -187,15 +187,23 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
     index: number,
   ): SceneLayoutProps => {
     const pageNum = index + 1;
-    const focusX = Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)));
-    const focusY = Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)));
+    const rawProps = (scene.layoutProps as Record<string, unknown>) ?? {};
+    const focusX = Math.max(0, Math.min(100, Number(rawProps?.imageFocusX ?? 50)));
+    const focusY = Math.max(0, Math.min(100, Number(rawProps?.imageFocusY ?? 50)));
+    // For a few layouts the pipeline writes the on-screen copy into layout_props_json
+    // (as `title`/`narration`) rather than reusing the scene's main Title / Display-text.
+    // For those, prefer the layout-prop value and only fall back to the main scene field
+    // when the layout prop is empty. Every other layout keeps the main scene fields.
+    const preferProps = layoutKey === "editorial_quote" || layoutKey === "text_narration";
+    const lpTitle = (rawProps.title as string | undefined)?.trim();
+    const lpNarr = (rawProps.narration as string | undefined)?.trim();
     return {
-      ...(scene.layoutProps as Record<string, unknown>),
-      title: scene.title,
-      narration: scene.narration,
+      ...rawProps,
+      title: preferProps && lpTitle ? lpTitle : scene.title,
+      narration: preferProps && lpNarr ? lpNarr : scene.narration,
       imageUrl: scene.imageUrl,
       imageObjectPosition: `${focusX}% ${focusY}%`,
-      imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+      imageZoom: Math.max(0.1, Number(rawProps?.imageZoom ?? 1)),
       accentColor: accentColor || "#D71921",
       bgColor: bgColor || "#FFFFFF",
       textColor: textColor || "#111111",
@@ -208,7 +216,7 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
       // First scene cranes in; otherwise use the per-layout signature move,
       // unless the scene explicitly sets its own cameraMove.
       cameraMove:
-        ((scene.layoutProps as Record<string, unknown>)?.cameraMove as MagazineCameraMove | undefined) ??
+        (rawProps?.cameraMove as MagazineCameraMove | undefined) ??
         (index === 0 ? "crane_down" : signatureMoveFor(layoutKey, pageNum)),
     };
   };

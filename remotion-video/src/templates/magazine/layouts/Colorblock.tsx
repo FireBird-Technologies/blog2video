@@ -70,6 +70,8 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
       singlePage
+      raisedRightLeaf
+      hidePrintTexture
     >
       <div style={{ height: "100%", display: "flex", flexDirection: p ? "column" : "row", gap: p ? 22 : g }}>
         {/* LEFT BLOCK — solid ink panel with the pull-quote */}

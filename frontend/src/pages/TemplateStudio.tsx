@@ -130,7 +130,7 @@ const MAGAZINE_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: Re
   interview_qa: { titleFontSize: { portrait: 40, landscape: 52 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
   magazine_data_visualization: { titleFontSize: { portrait: 56, landscape: 52 }, descriptionFontSize: { portrait: 28, landscape: 26 } },
   timeline_journey: { titleFontSize: { portrait: 40, landscape: 52 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
-  text_narration: { titleFontSize: { portrait: 34, landscape: 44 }, descriptionFontSize: { portrait: 20, landscape: 23 } },
+  text_narration: { titleFontSize: { portrait: 100, landscape: 72 }, descriptionFontSize: { portrait: 40, landscape: 30 } },
   ending_socials: { titleFontSize: { portrait: 88, landscape: 72 }, descriptionFontSize: { portrait: 35, landscape: 27 } },
   magazine_ticker: { titleFontSize: { portrait: 52, landscape: 42 }, descriptionFontSize: { portrait: 28, landscape: 22 } },
 };

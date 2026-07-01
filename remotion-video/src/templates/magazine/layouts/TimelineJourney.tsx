@@ -54,6 +54,26 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
     }));
   const n = milestones.length;
 
+  // A soft editorial vignette fading up from the bottom edge of the page — a
+  // subtle printed shadow, NOT laid over the copy: rendered as the first child of
+  // the content column so every timeline element (headers, rail, milestones) paints
+  // on top of it, and pointer-inert with a low stacking order. Uses the page's own
+  // text colour at low alpha so it reads on light paper without dirtying the type.
+  const bottomFade = (
+    <div
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: "25%",
+        background: `linear-gradient(to top, ${hexToRgba(text, 0.22)} 0%, ${hexToRgba(text, 0.08)} 45%, ${hexToRgba(text, 0)} 100%)`,
+        pointerEvents: "none",
+        zIndex: 0,
+      }}
+    />
+  );
+
   // ── Header reveal (fades in as the spread opens) ────────────────────────────
   const headO = interpolate(frame, [14, 30], [0, 1], clampO);
 
@@ -81,10 +101,10 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
   const playheadO = interpolate(frac, [0, 0.02, 0.97, 1], [0, 1, 1, 0], clampO);
 
   // ── Sizing ──────────────────────────────────────────────────────────────────
-  const titlePx = titleFontSize ?? (p ? 58 : 54);
-  const yearPx = descriptionFontSize ?? (p ? 44 : 58);
-  const labelPx = p ? 23 : 27;
-  const descPx = p ? 17 : 19;
+  const titlePx = titleFontSize ?? (p ? 68 : 66);
+  const yearPx = descriptionFontSize ?? (p ? 54 : 70);
+  const labelPx = p ? 28 : 32;
+  const descPx = p ? 21 : 23;
   const stemLen = p ? 56 : 90; // baseline → year/label block
   const slotW = Math.min(p ? 27 : 22, 94 / Math.max(n, 2)); // milestone column width, % of band
   // inset the band so the first/last milestones never run off the page edge
@@ -105,9 +125,9 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
     const top1 = 88; // last dot centre
     const reach = top1 - top0;
     const drawnReach = frac * reach;
-    const yearPxV = descriptionFontSize ?? 58;
-    const labelPxV = 26;
-    const descPxV = 19;
+    const yearPxV = descriptionFontSize ?? 70;
+    const labelPxV = 31;
+    const descPxV = 23;
     return (
       <MagazinePage
         lightChrome
@@ -119,15 +139,17 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
         fontFamily={fontFamily}
         establishingShot={props.establishingShot}
         cameraMove={props.cameraMove ?? "book_open"}
-        printTextureSrc="qa-timeline-bg.svg"
+        printTextureSrc="timeline-page-bg.svg"
         printTextureOpacity={0.32}
         backgroundImageSrc={props.imageUrl}
         backgroundImageObjectPosition={props.imageObjectPosition}
         backgroundImageZoom={props.imageZoom}
         backgroundImageOpacity={0.3}
         hideGutter
+        cornerCurl
       >
-        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
+          {bottomFade}
           {/* Header — kicker + kinetic headline + a short accent rule. */}
           <Kicker color={accent} style={{ opacity: headO, marginBottom: 12 }}>
             Timeline
@@ -241,15 +263,18 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={fontFamily}
       establishingShot={props.establishingShot}
       cameraMove={props.cameraMove ?? "book_open"}
-      printTextureSrc="qa-timeline-bg.svg"
+      printTextureSrc="timeline-page-bg.svg"
       printTextureOpacity={0.32}
       backgroundImageSrc={props.imageUrl}
       backgroundImageObjectPosition={props.imageObjectPosition}
       backgroundImageZoom={props.imageZoom}
       backgroundImageOpacity={0.3}
       hideGutter
+      strongHinge
+      cornerCurl
     >
-      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
+        {bottomFade}
         {/* Header — kicker + kinetic headline + optional one-line deck. */}
         <Kicker color={accent} style={{ opacity: headO, marginBottom: 12 }}>
           Timeline
