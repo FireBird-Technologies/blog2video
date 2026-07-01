@@ -52,9 +52,9 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
   const vsO = interpolate(frame, [10, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const vsScale = interpolate(frame, [10, 24], [0.6, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const bodyPx = descriptionFontSize ?? (p ? 52 : 30);
-  const titlePx = titleFontSize ?? (p ? 92 : 93);
-  const headPx = p ? 22 : 20;
+  const bodyPx = descriptionFontSize ?? (p ? 52 : 46);
+  const titlePx = titleFontSize ?? (p ? 92 : 95);
+  const headPx = p ? 26 : 24;
 
   const Column = (header: string, points: string[], o: number, headerColor: string, start: number) => (
     <div style={{ flex: 1, opacity: o, display: "flex", flexDirection: "column", justifyContent: "flex-start", padding: p ? "0" : "0 8px" }}>
@@ -89,7 +89,7 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
   );
 
   return (
-    <MagazinePage lightChrome colors={colors} section="Comparison" issue={props.issueLabel ?? "Analysis"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} cameraMove={props.cameraMove}>
+    <MagazinePage lightChrome colors={colors} section={(props.sectionLabel as string)?.trim() || "Comparison"} issue={props.issueLabel ?? "Analysis"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} cameraMove={props.cameraMove} printTextureSrc="comparison-page-bg.svg" printTextureOpacity={0.3}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         {title && (
           <h1
@@ -97,7 +97,7 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
               fontFamily: MAG_DISPLAY,
               fontWeight: 800,
               fontSize: titlePx,
-              lineHeight: 1.06,
+              lineHeight: 1.12,
               letterSpacing: "-0.015em",
               color: text,
               margin: "0 0 30px",

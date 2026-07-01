@@ -10,11 +10,11 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
 import type { SceneLayoutProps } from "../types";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import {
   MagazinePage,
   Kicker,
@@ -551,7 +551,7 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
   };
 
   return (
-    <MagazinePage lightChrome colors={colors} section="Data" issue={props.issueLabel ?? "Report"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage hidePrintTexture cameraMove={props.cameraMove}>
+    <MagazinePage lightChrome colors={colors} section={(props.sectionLabel as string)?.trim() || "Data"} issue={props.issueLabel ?? "Report"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage hidePrintTexture cameraMove={props.cameraMove}>
       {/* Faint halftone paper grain so the sheet reads as printed stock without
           the legible ghost-text columns the full print texture would bleed in. */}
       <Halftone color={ink} opacity={0.05} gap={9} />
@@ -559,7 +559,7 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
         <Kicker color={accent} style={{ opacity: titleO, marginBottom: 12 }}>
           Figures
         </Kicker>
-        <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, letterSpacing: "-0.015em", color: ink, margin: 0 }}>
+        <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.12, letterSpacing: "-0.015em", color: ink, margin: 0, overflowWrap: "break-word" }}>
           <KineticWords text={title} start={2} stagger={2} dur={14} />
         </h1>
         <Rule color={accent} progress={ruleP} thickness={3} width={p ? 110 : 90} style={{ margin: "22px 0" }} />
@@ -593,9 +593,9 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
                     {chartInputs.lineSeries[2] && <LegendDot color={barColors[2]} label={chartInputs.lineSeries[2].label} />}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MAG_SERIF, fontStyle: "italic", color: hexToRgba(ink, 0.5), fontSize: descSize, opacity: ra }}>

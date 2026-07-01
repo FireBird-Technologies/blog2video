@@ -63,13 +63,15 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
     <MagazinePage
       lightChrome
       colors={colors}
-      section="Feature"
+      section={(props.sectionLabel as string)?.trim() || "Feature"}
       issue={props.issueLabel ?? "Spotlight"}
       page={props.pageNumber}
       aspectRatio={props.aspectRatio}
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
       singlePage
+      raisedRightLeaf
+      hidePrintTexture
     >
       <div style={{ height: "100%", display: "flex", flexDirection: p ? "column" : "row", gap: p ? 22 : g }}>
         {/* LEFT BLOCK — solid ink panel with the pull-quote */}
@@ -93,7 +95,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
               fontFamily: MAG_DISPLAY,
               fontWeight: 800,
               fontSize: quotePx,
-              lineHeight: 1.04,
+              lineHeight: 1.12,
               letterSpacing: "-0.01em",
               textTransform: "uppercase",
               color: bg,
@@ -170,7 +172,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
                   fontFamily: MAG_DISPLAY,
                   fontWeight: 800,
                   fontSize: headingPx,
-                  lineHeight: 1.05,
+                  lineHeight: 1.12,
                   letterSpacing: "-0.015em",
                   color: bg,
                   margin: 0,

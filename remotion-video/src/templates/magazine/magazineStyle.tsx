@@ -822,6 +822,44 @@ export const Rule: React.FC<{
 );
 
 /**
+ * Editorial ink swoosh — a curved black brush sweep that sits where a plain
+ * hairline rule would. It's thick on the left and curves up to a fine tapering
+ * tail on the right, reading like an ink stroke drawn across the foot of the
+ * page. `progress` wipes it in left→right so it draws on with the surrounding
+ * content.
+ */
+export const MagSwoosh: React.FC<{
+  color: string;
+  progress?: number;
+  height?: number;
+  style?: React.CSSProperties;
+}> = ({ color, progress = 1, height = 34, style }) => (
+  <div
+    style={{
+      width: "100%",
+      height,
+      overflow: "hidden",
+      clipPath: `inset(0 ${((1 - progress) * 100).toFixed(2)}% 0 0)`,
+      ...style,
+    }}
+  >
+    <svg
+      viewBox="0 0 300 40"
+      preserveAspectRatio="none"
+      width="100%"
+      height="100%"
+      style={{ display: "block" }}
+    >
+      {/* thick block on the left sweeping up into a thin tail on the right */}
+      <path
+        d="M0 4 L0 40 L300 40 C300 40 210 34 120 24 C64 18 22 12 0 4 Z"
+        fill={color}
+      />
+    </svg>
+  </div>
+);
+
+/**
  * The centre spine — the binding valley between the two open pages. Soft
  * symmetric shadow with a crease and page-edge sheen.
  */
@@ -1259,6 +1297,11 @@ export const useFitText = (
   minPx: number,
   columnCount: number,
   deps: React.DependencyList,
+  // Optional grow ceiling. When set, copy that already fits is GROWN (up to
+  // maxPx) so it fills the whole column band instead of leaving trailing
+  // columns blank — e.g. a short body on a two-column spread reaching the far
+  // leaf. Omit to keep the default shrink-only behavior.
+  maxPx?: number,
 ): number => {
   const [px, setPx] = React.useState(targetPx);
   // One delayRender handle per fit cycle so headless render blocks until we've
@@ -1364,6 +1407,12 @@ export const useFitText = (
         let size = targetPx;
         while (size > minPx && naturalHeight(size) > capacity) size -= 1;
         next = Math.max(minPx, size);
+      } else if (maxPx && maxPx > targetPx) {
+        // Copy already fits — grow it (up to maxPx) so it fills the whole band
+        // instead of leaving the trailing column(s) blank.
+        let size = targetPx;
+        while (size < maxPx && naturalHeight(size + 1) <= capacity) size += 1;
+        next = size;
       }
       el.style.fontSize = `${next}px`;
       el.style.visibility = "visible"; // reveal at the final, fitted size — no reflow shift
@@ -1544,7 +1593,7 @@ export const DeskBackdrop: React.FC<{ aspectRatio?: string; accent?: string; par
  *  given, the folded flap (the back of the lifted page) carries a faint, mirrored
  *  slice of the print texture so the corner shows ghost print/show-through instead
  *  of reading as a bare white wedge. */
-const PageCurl: React.FC<{ corner: "bl" | "br"; size: number; accent?: string; textureSrc?: string }> = ({ corner, size, accent, textureSrc }) => {
+export const PageCurl: React.FC<{ corner: "bl" | "br"; size: number; accent?: string; textureSrc?: string }> = ({ corner, size, accent, textureSrc }) => {
   const br = corner === "br";
   const clip = br ? "polygon(100% 0, 0 100%, 100% 100%)" : "polygon(0 0, 0 100%, 100% 100%)";
   return (
@@ -1745,7 +1794,7 @@ export const MagazineTableIntro: React.FC<{
                 style={{
                   position: "absolute",
                   inset: 0,
-                  backgroundImage: `url(${staticFile("magazine-blur-bg.svg")})`,
+                  backgroundImage: `url(${staticFile("magazine-spread-bg.svg")})`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   opacity: 0.1,
@@ -1808,8 +1857,8 @@ export const MagazineTableIntro: React.FC<{
 
 
               {/* dog-eared corners — flap carries the cover's ghost print */}
-              <PageCurl corner="bl" size={curl} textureSrc="magazine-blur-bg.svg" />
-              <PageCurl corner="br" size={curl} accent={accent} textureSrc="magazine-blur-bg.svg" />
+              <PageCurl corner="bl" size={curl} textureSrc="magazine-spread-bg.svg" />
+              <PageCurl corner="br" size={curl} accent={accent} textureSrc="magazine-spread-bg.svg" />
             </div>
           </AbsoluteFill>
         </AbsoluteFill>
@@ -1835,6 +1884,20 @@ interface MagazinePageProps {
    *  page-thickness book block, and a larger sheet — so content reads as a single
    *  page and never lands on a hinge. */
   singlePage?: boolean;
+  /** Static "open magazine" pose (landscape only): forces a prominent centre
+   *  crease and lifts/turns the RIGHT leaf slightly off the spine relative to the
+   *  flat left leaf. Purely static (no per-frame motion) so the page stays cheap
+   *  to paint. Opt-in — used by Colorblock. */
+  raisedRightLeaf?: boolean;
+  /** Force a prominent centre hinge/crease even when the gutter is otherwise
+   *  hidden (landscape only): draws the base binding valley plus a deeper crease
+   *  shadow down the fold so the spread reads as a hard-folded open book. Used by
+   *  TimelineJourney, which centres its band and normally hides the gutter. */
+  strongHinge?: boolean;
+  /** Draw a dog-eared page-curl in the bottom-right sheet corner even under
+   *  lightChrome (which otherwise drops the corner curls). The lifted corner
+   *  reads as a genuinely turned page. */
+  cornerCurl?: boolean;
   opacity?: number;
   /** Play the one-time establishing fly-in (defaults to true on the first scene). */
   establishingShot?: boolean;
@@ -1847,11 +1910,15 @@ interface MagazinePageProps {
    *  want a clean sheet (e.g. TimelineJourney) instead of bleed-through columns. */
   hidePrintTexture?: boolean;
   /** Override the full-bleed print-texture SVG painted on the sheet (defaults to
-   *  `magazine-blur-bg.svg`). Lets a layout substitute its own printed spread
+   *  `magazine-spread-bg.svg`). Lets a layout substitute its own printed spread
    *  edge-to-edge behind the live content (e.g. EditorialQuote). */
   printTextureSrc?: string;
   /** Opacity of the full-bleed print-texture layer (defaults to 0.12). */
   printTextureOpacity?: number;
+  /** Zoom factor for the full-bleed print texture. 1 = `cover`; values >1
+   *  scale the texture up (keeping it centred) so it reads as pushed-in on the
+   *  middle of the page. Defaults to 1. */
+  printTextureZoom?: number;
   /** Newspaper-style "light chrome": drop the per-frame-expensive page furniture
    *  (PageThickness stack + dog-ear PageCurls) and don't toggle the stage's
    *  willChange. For pages that run a moving camera, so the spread stays paint-light
@@ -1864,6 +1931,9 @@ interface MagazinePageProps {
   backgroundImageObjectPosition?: string;
   backgroundImageZoom?: number;
   backgroundImageOpacity?: number;
+  /** Static blur (px) baked onto the embedded background photo. Safe only on
+   *  pinned/static pages (rasterises once) — e.g. Colorblock's blurred collage. */
+  backgroundImageBlur?: number;
   contentStyle?: React.CSSProperties;
   children: React.ReactNode;
 }
@@ -1882,18 +1952,23 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
   fontFamily,
   hideGutter = false,
   singlePage = false,
+  raisedRightLeaf = false,
+  strongHinge = false,
+  cornerCurl = false,
   opacity = 1,
   establishingShot,
   cameraMove,
   leftEdgeFoldOpacity = 0,
   hidePrintTexture = false,
-  printTextureSrc = "magazine-blur-bg.svg",
+  printTextureSrc = "magazine-spread-bg.svg",
   printTextureOpacity = 0.12,
+  printTextureZoom = 1,
   lightChrome = false,
   backgroundImageSrc,
   backgroundImageObjectPosition = "50% 50%",
   backgroundImageZoom = 1,
   backgroundImageOpacity = 0.3,
+  backgroundImageBlur = 0,
   contentStyle,
   children,
 }) => {
@@ -2043,7 +2118,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
               position: "absolute",
               inset: 0,
               backgroundImage: `url(${staticFile(printTextureSrc)})`,
-              backgroundSize: "cover",
+              backgroundSize: printTextureZoom > 1 ? `${(printTextureZoom * 100).toFixed(0)}%` : "cover",
               backgroundPosition: "center",
               // blur filter removed — the SVG is already a soft texture
               opacity: printTextureOpacity,
@@ -2068,9 +2143,11 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
                 transform: `scale(${backgroundImageZoom})`,
                 transformOrigin: backgroundImageZoom < 1 ? "center center" : backgroundImageObjectPosition,
                 opacity: backgroundImageOpacity,
-                // filter removed — a CSS filter on a full-bleed image forces an
-                // offscreen pass each composite (costly without a GPU). The slight
-                // saturate/contrast grade isn't worth the per-composite cost.
+                // A CSS blur forces an offscreen pass each composite (costly without
+                // a GPU), so it's opt-in via backgroundImageBlur and only safe on a
+                // PINNED/static page — there it rasterises once and holds, no per-
+                // frame cost. Zero by default (no filter) for animated pages.
+                filter: backgroundImageBlur > 0 ? `blur(${backgroundImageBlur}px)` : undefined,
                 display: "block",
               }}
             />
@@ -2078,9 +2155,101 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
           </div>
         )}
 
+        {/* Static "open magazine" leaf — a paper-only right-half overlay hinged at
+            the spine, turned toward the viewer and lifted slightly off the binding
+            so the right leaf reads as raised vs the flat left leaf. Sits above the
+            sheet bg/texture but below the live content (z below the content's z:5),
+            so the colorblock panels stay flat and legible on top. Landscape only;
+            purely static (no per-frame values) to keep the page cheap to paint. */}
+        {raisedRightLeaf && !p && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: "50%",
+              right: 0,
+              background: bg,
+              transformOrigin: "left center",
+              transform: "perspective(1600px) rotateY(-6deg) translateZ(10px)",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              zIndex: 2,
+              pointerEvents: "none",
+            }}
+          >
+            {/* Carry the embedded background photo (e.g. Colorblock's blurred
+                collage) onto the raised leaf so it continues across it — the RIGHT
+                half of the full-bleed image maps onto this right leaf, with the same
+                blur + paper scrim as the sheet. */}
+            {backgroundImageSrc && (
+              <>
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    backgroundImage: `url(${backgroundImageSrc})`,
+                    backgroundSize: "200% 100%",
+                    backgroundPosition: "right center",
+                    opacity: backgroundImageOpacity,
+                    filter: backgroundImageBlur > 0 ? `blur(${backgroundImageBlur}px)` : undefined,
+                  }}
+                />
+                <div style={{ position: "absolute", inset: 0, background: hexToRgba(bg, 0.4) }} />
+              </>
+            )}
+            {/* Carry the printed textual-art texture onto the raised leaf so the wash
+                continues across it (the RIGHT half of the full-spread SVG maps onto
+                this right leaf). */}
+            {!hidePrintTexture && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundImage: `url(${staticFile(printTextureSrc)})`,
+                  backgroundSize: "200% 100%",
+                  backgroundPosition: "right center",
+                  opacity: printTextureOpacity,
+                }}
+              />
+            )}
+            {/* hard directional shadow down the spine edge — no blur (paint cost) */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(to right, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 14%)",
+              }}
+            />
+          </div>
+        )}
+
         {/* centre spine — only on landscape spreads; portrait reads as a single
-            page (no binding), so copy never sits on a fold there either */}
-        {!noGutter && !p && <MagazineGutter color={text} sheen={bg} aspectRatio={aspectRatio} opacity={headOpacity} />}
+            page (no binding), so copy never sits on a fold there either. The
+            raised-leaf pose forces the crease even under singlePage so the binding
+            reads prominently. */}
+        {(!noGutter || raisedRightLeaf || strongHinge) && !p && <MagazineGutter color={text} sheen={bg} aspectRatio={aspectRatio} opacity={headOpacity} />}
+
+        {/* Strong hinge — a deeper crease shadow down the fold, layered over the
+            base gutter valley so the spread reads as a hard-folded open book
+            (landscape only; portrait has no binding). */}
+        {strongHinge && !p && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: "50%",
+              width: 96,
+              transform: "translateX(-50%)",
+              zIndex: 7,
+              pointerEvents: "none",
+              opacity: headOpacity,
+              background: `linear-gradient(90deg, ${hexToRgba(text, 0)} 0%, ${hexToRgba(text, 0.16)} 42%, ${hexToRgba(text, 0.34)} 50%, ${hexToRgba(text, 0.16)} 58%, ${hexToRgba(text, 0)} 100%)`,
+            }}
+          />
+        )}
 
         {/* Running head */}
         <div style={{ position: "absolute", top: p ? "4.5%" : "5%", left: padX, right: padX, opacity: headOpacity, zIndex: 10 }}>
@@ -2116,6 +2285,10 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
             (unless this layout hides the texture for a clean sheet). */}
         {!lightChrome && <PageCurl corner="bl" size={curl} textureSrc={hidePrintTexture ? undefined : printTextureSrc} />}
         {!lightChrome && <PageCurl corner="br" size={curl} accent={accent} textureSrc={hidePrintTexture ? undefined : printTextureSrc} />}
+
+        {/* Opt-in bottom-right dog-ear under lightChrome (which drops the curls
+            above) — a single turned corner for otherwise flat light pages. */}
+        {lightChrome && cornerCurl && <PageCurl corner="br" size={curl} accent={accent} textureSrc={hidePrintTexture ? undefined : printTextureSrc} />}
 
         {/* Optional gentle curl down the left edge (e.g. EditorialQuote). */}
         {leftEdgeFoldOpacity > 0 && <LeftEdgeFold accent={accent} opacity={leftEdgeFoldOpacity} />}

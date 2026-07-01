@@ -312,6 +312,12 @@ def _sanitize_script_layouts(
         elif desired == "ending_socials":
             # ending_socials is reserved for final scene only.
             desired = ""
+        elif hero_layout and desired == hero_layout:
+            # The hero/cover layout (e.g. magazine's `magazine_cover`) is the opener
+            # only — it must NEVER repeat on a later scene. Strip it here so the
+            # _pick_diverse fallback below assigns a non-hero layout instead.
+            # Mirrors template_layout_planner._enforce_hero_rule.
+            desired = ""
 
         if not desired:
             excludes = set()
@@ -319,6 +325,9 @@ def _sanitize_script_layouts(
                 excludes.add(prev_layout)
             if supports_ending:
                 excludes.add("ending_socials")
+            # Hero/cover layout is scene-0-only — never let the fallback re-pick it.
+            if i != 0 and hero_layout:
+                excludes.add(hero_layout)
             desired = _pick_diverse(excludes)
 
         # Try to avoid consecutive duplicates even when valid was provided.
