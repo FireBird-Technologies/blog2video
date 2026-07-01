@@ -1784,10 +1784,35 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     ? Object.keys(compiledScenes).filter((k) => k.startsWith("content_")).length
     : 0;
 
+  // Crafted templates render the JIT-compiled composition directly in the
+  // preview. Unlike built-in / custom compositions (which render <BackgroundMusic>
+  // themselves) and unlike the render side (where the GeneratedVideo shim injects
+  // it), the crafted composition has no BGM element — so bgmUrl passed via
+  // inputProps was silently ignored and no audio ever mounted. Wrap it so the
+  // preview plays BGM to match the final render. Memoised on the compiled
+  // component so the Player doesn't remount every render.
+  const CraftedWithBgm = useMemo(() => {
+    if (!compiledCrafted) return null;
+    const Inner = compiledCrafted as React.ComponentType<any>;
+    const Wrapped: React.FC<any> = (props) => (
+      <AbsoluteFill>
+        <Inner {...props} />
+        {props.bgmUrl && (
+          <BackgroundMusic
+            src={props.bgmUrl}
+            volume={props.bgmVolume ?? 0.1}
+            scenes={props.scenes}
+          />
+        )}
+      </AbsoluteFill>
+    );
+    return Wrapped;
+  }, [compiledCrafted]);
+
   const Composition = (isCustom && compiledScenes)
     ? StableCustomComposition
-    : (isCrafted && compiledCrafted)
-      ? compiledCrafted
+    : (isCrafted && CraftedWithBgm)
+      ? CraftedWithBgm
       : config.component;
 
   const isPreviewLoading =
