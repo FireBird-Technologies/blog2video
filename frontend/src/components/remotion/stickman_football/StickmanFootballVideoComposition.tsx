@@ -3,6 +3,7 @@ import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { STICKMAN_FOOTBALL_LAYOUT_REGISTRY as LAYOUT_REGISTRY, StickmanFootballLayoutType, SceneLayoutProps } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
 import { CaptionTrack } from "../CaptionTrack";
+import { BackgroundMusic } from "../BackgroundMusic";
 import { getSceneDurationFrames } from "../playbackSpeed";
 
 export interface StickmanFootballSceneInput {
@@ -38,6 +39,8 @@ export interface StickmanFootballVideoCompositionProps {
   captionFontFamily?: string;
   captionFontSize?: number;
   captionOffset?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
 }
 
 export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCompositionProps> = ({
@@ -56,6 +59,8 @@ export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCom
   captionFontFamily,
   captionFontSize,
   captionOffset,
+  bgmUrl,
+  bgmVolume,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
@@ -127,6 +132,10 @@ export const StickmanFootballVideoComposition: React.FC<StickmanFootballVideoCom
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
       )}
     </AbsoluteFill>
   );
