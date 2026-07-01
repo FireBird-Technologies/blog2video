@@ -175,18 +175,8 @@ export default function EconomistPreview({
     if (!thumbnailMode) return;
     const p = playerRef.current;
     if (!p) return;
-    let settled = false;
-    const onFrame = () => {
-      if (settled) return;
-      const current = p.getCurrentFrame();
-      if (current >= thumbnailFrame) {
-        settled = true;
-        p.pause();
-        p.seekTo(thumbnailFrame);
-      }
-    };
-    p.addEventListener("frameupdate", onFrame);
-    return () => p.removeEventListener("frameupdate", onFrame);
+    p.pause();
+    p.seekTo(thumbnailFrame);
   }, [thumbnailMode, thumbnailFrame]);
 
   // When the card reaches center, resume playback from wherever it was parked
