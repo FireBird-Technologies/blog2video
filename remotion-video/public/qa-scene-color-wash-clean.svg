@@ -1,0 +1,12 @@
+<svg viewBox="0 0 1466 850" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Editorial color wash background — warm off-white wash, no fold or crease shadow</title>
+<desc>A magazine background where the empty lower half carries a very subtle warm off-white color wash, tinting the area without any block, border, photo, fold, or crease. No text, numbers, or icons.</desc>
+<defs>
+  <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f4efe8" stop-opacity="0"/>
+    <stop offset="1" stop-color="#f4efe8" stop-opacity="0.9"/>
+  </linearGradient>
+</defs>
+<rect x="0" y="0" width="1466" height="850" fill="#ffffff"/>
+<rect x="0" y="425" width="1466" height="425" fill="url(#wash)"/>
+</svg>
