@@ -238,8 +238,11 @@ export const MAG_TEXTURES = {
   blur: "magazine-blur-bg.png",
   byTheNumbers: "by-the-numbers-bg.png",
   comparison: "comparison-page-bg.png",
-  qaWash: "qa-scene-color-wash.png",
+  comparisonPortrait: "comparison-page-bg-portrait-clean.svg",
+  qaWash: "qa-scene-color-wash-clean.svg",
+  qaWashPortrait: "qa-scene-color-wash-portrait-clean.png",
   timelineWireframe: "timeline-spread-wireframe-bg.png",
+  glossyWhite: "glossy-white-bg.png",
 } as const;
 
 /** The template clock, slowed by {@link MAG_TEMPO}. Use everywhere a magazine
@@ -803,7 +806,7 @@ export const Kicker: React.FC<{
   color: string;
   size?: number;
   style?: React.CSSProperties;
-}> = ({ children, color, size = 15, style }) => (
+}> = ({ children, color, size = 18, style }) => (
   <div
     style={{
       fontFamily: MAG_SANS,
@@ -2315,10 +2318,10 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
         {/* Running head */}
         <div style={{ position: "absolute", top: p ? "4.5%" : "5%", left: padX, right: padX, opacity: headOpacity, zIndex: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-            <span style={{ fontFamily: MAG_SANS, fontWeight: 700, fontSize: 14, letterSpacing: "0.04em", color: text }}>
+            <span style={{ fontFamily: MAG_SANS, fontWeight: 700, fontSize: p ? 19 : 14, letterSpacing: "0.04em", color: text }}>
               {page ?? "01"}
             </span>
-            <span style={{ fontFamily: MAG_SANS, fontWeight: 700, fontSize: 13, letterSpacing: "0.26em", textTransform: "uppercase", color: hexToRgba(text, 0.62) }}>
+            <span style={{ fontFamily: MAG_SANS, fontWeight: 700, fontSize: p ? 18 : 13, letterSpacing: "0.26em", textTransform: "uppercase", color: hexToRgba(text, 0.62) }}>
               {issue ?? section ?? ""}
             </span>
           </div>
