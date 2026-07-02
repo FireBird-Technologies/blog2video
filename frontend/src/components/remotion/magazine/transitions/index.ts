@@ -142,7 +142,7 @@ const ENTER_BY_LAYOUT: Partial<Record<MagazineLayoutType, MagazineTransitionName
   magazine_cover: "page_turn",
   editorial_quote: "zoom_blur",
   by_the_numbers: "page_turn_back",
-  interview_qa: "quote_swing",
+  interview_qa: "lift",
   timeline_journey: "page_turn_up",
   text_narration: "lift",
   ending_socials: "page_slide",
