@@ -230,6 +230,18 @@ export const useMagDims = (): MagDims => {
 // >1 = slower; 1 = original speed.
 export const MAG_TEMPO = 1.35;
 
+// ── Printed-spread background textures ───────────────────────────────────────
+// Raster PNG textures (à la chronicle's texture constants). Single source of
+// truth: a texture swap or rename is one edit here, not a hunt across layouts.
+export const MAG_TEXTURES = {
+  spread: "magazine-spread-bg.png",
+  blur: "magazine-blur-bg.png",
+  byTheNumbers: "by-the-numbers-bg.png",
+  comparison: "comparison-page-bg.png",
+  qaWash: "qa-scene-color-wash.png",
+  timelineWireframe: "timeline-spread-wireframe-bg.png",
+} as const;
+
 /** The template clock, slowed by {@link MAG_TEMPO}. Use everywhere a magazine
  *  animation would otherwise call Remotion's `useCurrentFrame()` so the whole
  *  template slows in lock-step. Returns a (fractional) frame — interpolate and
@@ -1648,14 +1660,16 @@ export const PageCurl: React.FC<{ corner: "bl" | "br"; size: number; accent?: st
           we'd see if the sheet folded toward us is its reverse) and clipped to the
           flap triangle; blended low so the paper highlight still reads. */}
       {textureSrc ? (
-        <div
+        <Img
+          src={staticFile(textureSrc)}
           style={{
             position: "absolute",
             inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: br ? "right bottom" : "left bottom",
             clipPath: clip,
-            backgroundImage: `url(${staticFile(textureSrc)})`,
-            backgroundSize: "cover",
-            backgroundPosition: br ? "right bottom" : "left bottom",
             transform: "scaleX(-1)",
             opacity: 0.16,
             mixBlendMode: "multiply",
@@ -1815,13 +1829,15 @@ export const MagazineTableIntro: React.FC<{
               }}
             >
               {/* faint printed ghost so the cover reads as real paper */}
-              <div
+              <Img
+                src={staticFile(MAG_TEXTURES.spread)}
                 style={{
                   position: "absolute",
                   inset: 0,
-                  backgroundImage: `url(${staticFile("magazine-spread-bg.svg")})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center",
                   opacity: 0.1,
                   pointerEvents: "none",
                 }}
@@ -1881,8 +1897,8 @@ export const MagazineTableIntro: React.FC<{
               </div>
 
               {/* dog-eared corners — flap carries the cover's ghost print */}
-              <PageCurl corner="bl" size={curl} textureSrc="magazine-spread-bg.svg" />
-              <PageCurl corner="br" size={curl} accent={accent} textureSrc="magazine-spread-bg.svg" />
+              <PageCurl corner="bl" size={curl} textureSrc={MAG_TEXTURES.spread} />
+              <PageCurl corner="br" size={curl} accent={accent} textureSrc={MAG_TEXTURES.spread} />
             </div>
           </AbsoluteFill>
         </AbsoluteFill>
@@ -1934,7 +1950,7 @@ interface MagazinePageProps {
    *  want a clean sheet (e.g. TimelineJourney) instead of bleed-through columns. */
   hidePrintTexture?: boolean;
   /** Override the full-bleed print-texture SVG painted on the sheet (defaults to
-   *  `magazine-spread-bg.svg`). Lets a layout substitute its own printed spread
+   *  `magazine-spread-bg.png`). Lets a layout substitute its own printed spread
    *  edge-to-edge behind the live content (e.g. EditorialQuote). */
   printTextureSrc?: string;
   /** Opacity of the full-bleed print-texture layer (defaults to 0.12). */
@@ -1984,7 +2000,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
   cameraMove,
   leftEdgeFoldOpacity = 0,
   hidePrintTexture = false,
-  printTextureSrc = "magazine-spread-bg.svg",
+  printTextureSrc = MAG_TEXTURES.spread,
   printTextureOpacity = 0.12,
   printTextureZoom = 1,
   lightChrome = false,
@@ -2137,14 +2153,19 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
             on the sheet itself, giving each page a real "printed" texture
             beneath the live content. Suppressed for clean single-page layouts. */}
         {!hidePrintTexture && (
-          <div
+          <Img
+            src={staticFile(printTextureSrc)}
             style={{
               position: "absolute",
               inset: 0,
-              backgroundImage: `url(${staticFile(printTextureSrc)})`,
-              backgroundSize: printTextureZoom > 1 ? `${(printTextureZoom * 100).toFixed(0)}%` : "cover",
-              backgroundPosition: "center",
-              // blur filter removed — the SVG is already a soft texture
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              // printTextureZoom>1 pushes the texture in on the page centre (was a
+              // background-size %); as a transform scale it maps 1:1 to the old zoom.
+              transform: printTextureZoom > 1 ? `scale(${printTextureZoom})` : undefined,
+              transformOrigin: "center center",
               opacity: printTextureOpacity,
               zIndex: 0,
               pointerEvents: "none",
@@ -2199,6 +2220,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
               zIndex: 2,
+              overflow: "hidden",
               pointerEvents: "none",
             }}
           >
@@ -2208,13 +2230,18 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
                 blur + paper scrim as the sheet. */}
             {backgroundImageSrc && (
               <>
-                <div
+                <Img
+                  src={backgroundImageSrc}
                   style={{
+                    // The RIGHT half of the full-bleed image maps onto this leaf:
+                    // 200%-wide box pinned right (was background-size:200% 100% +
+                    // position right), the left half clipped by the leaf's overflow.
                     position: "absolute",
-                    inset: 0,
-                    backgroundImage: `url(${backgroundImageSrc})`,
-                    backgroundSize: "200% 100%",
-                    backgroundPosition: "right center",
+                    top: 0,
+                    right: 0,
+                    width: "200%",
+                    height: "100%",
+                    objectFit: "fill",
                     opacity: backgroundImageOpacity,
                     filter: backgroundImageBlur > 0 ? `blur(${backgroundImageBlur}px)` : undefined,
                   }}
@@ -2226,13 +2253,17 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
                 continues across it (the RIGHT half of the full-spread SVG maps onto
                 this right leaf). */}
             {!hidePrintTexture && (
-              <div
+              <Img
+                src={staticFile(printTextureSrc)}
                 style={{
+                  // RIGHT half of the full-spread texture maps onto this leaf
+                  // (was background-size:200% 100% + position right).
                   position: "absolute",
-                  inset: 0,
-                  backgroundImage: `url(${staticFile(printTextureSrc)})`,
-                  backgroundSize: "200% 100%",
-                  backgroundPosition: "right center",
+                  top: 0,
+                  right: 0,
+                  width: "200%",
+                  height: "100%",
+                  objectFit: "fill",
                   opacity: printTextureOpacity,
                 }}
               />

@@ -17,6 +17,7 @@ import {
   isPortrait,
   hexToRgba,
   useMagDims,
+  useFitText,
 } from "../magazineStyle";
 
 const CLAMP = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -128,7 +129,12 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
   // chars-per-line ≈ innerW/(s*0.6), lines ≈ chars/cpl = chars*s*0.6/innerW, so
   // height ≈ lines*s*LINE_H = chars*0.6*LINE_H*s²/innerW ≤ titleZoneH  ⇒ solve for s.
   const byHeight = Math.sqrt((titleZoneH * innerW) / (chars * 0.6 * LINE_H));
-  const wordPx = Math.max(18, Math.min(titleFontSize ?? cardW * 0.09, byWord, byHeight, cardW * 0.09));
+  // The math above is only a STARTING size — Playfair 900 caps wrap wider/taller than the
+  // 0.6·size estimate, so we then MEASURE the real wrapped height and shrink the wordmark
+  // until every line fits the fixed title band (never clipped by the overflow safety net).
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const targetPx = Math.max(18, Math.min(titleFontSize ?? cardW * 0.09, byWord, byHeight, cardW * 0.09));
+  const wordPx = useFitText(titleRef, targetPx, 14, 1, [brandMark, cardW, cardH, padX, targetPx, p]);
 
   // ── The BACK COVER — a back-of-issue plate matching the hero's front cover (red
   // frame + white keyline on inverted dark paper), carrying the full CTA sign-off:
@@ -158,7 +164,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
           }}
         >
           {brandMark ? (
-            <div style={{ fontFamily: MAG_DISPLAY, fontWeight: 900, fontSize: wordPx, lineHeight: LINE_H, letterSpacing: "0.005em", color: coverText, textTransform: "uppercase", opacity: headO, maxWidth: "100%", maxHeight: titleZoneH, overflow: "hidden", overflowWrap: "break-word" }}>
+            <div ref={titleRef} style={{ fontFamily: MAG_DISPLAY, fontWeight: 900, fontSize: wordPx, lineHeight: LINE_H, letterSpacing: "0.005em", color: coverText, textTransform: "uppercase", opacity: headO, width: "100%", height: titleZoneH, overflow: "hidden", overflowWrap: "break-word", textAlign: "center" }}>
               {brandMark}
             </div>
           ) : null}
