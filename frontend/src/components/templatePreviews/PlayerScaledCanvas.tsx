@@ -37,14 +37,21 @@ export default function PlayerScaledCanvas({
     const el = ref.current;
     if (!el) return;
     const update = () => {
-      const s = el.offsetWidth / internalWidth;
+      // Scale to *cover* the box: take the larger of the width- and height-fit
+      // scales. Sub-pixel rounding of the aspect-ratio box can leave the height
+      // a hair under width×ratio; covering guarantees the composition fills
+      // edge-to-edge (overflow is clipped) with no top/bottom strip when the
+      // card is previewed at center.
+      const sw = el.offsetWidth / internalWidth;
+      const sh = el.offsetHeight / internalHeight;
+      const s = Math.max(sw, sh);
       if (s > 0) setScale(s);
     };
     update();
     const obs = new ResizeObserver(update);
     obs.observe(el);
     return () => obs.disconnect();
-  }, [internalWidth]);
+  }, [internalWidth, internalHeight]);
 
   return (
     <div
