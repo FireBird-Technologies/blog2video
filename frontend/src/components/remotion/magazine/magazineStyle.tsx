@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig, delayRender, continueRender } from "remotion";
+import { AbsoluteFill, interpolate, staticFile, useCurrentFrame, useVideoConfig, delayRender, continueRender } from "remotion";
 import type { SceneLayoutProps } from "./types";
 import {
   MAGAZINE_DISPLAY_FONT,
@@ -27,6 +27,33 @@ const SHEET_FRONT = "linear-gradient(135deg, #f7f4ec 0%, #ffffff 58%, #efebe2 10
 const SHEET_BACK = "linear-gradient(to left, #FDFDFD 0%, #F1F1EF 55%, #E4E3E0 100%)";
 const SHEET_EDGE_SHADE =
   "linear-gradient(to right, rgba(0,0,0,0.05) 0%, transparent 16%, transparent 78%, rgba(0,0,0,0.42) 100%)";
+
+export const OptionalImg: React.FC<React.ImgHTMLAttributes<HTMLImageElement> & { src?: string }> = ({
+  src,
+  alt = "",
+  onError,
+  ...props
+}) => {
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) return null;
+
+  return (
+    <img
+      {...props}
+      src={src}
+      alt={alt}
+      onError={(event) => {
+        setFailed(true);
+        onError?.(event);
+      }}
+    />
+  );
+};
 
 /** One flipping paper sheet (single-scene, GPU). `front` is the REAL page for the top
  *  sheet; decorative sheets fall back to paper. The hidden back-face shows a paper
@@ -1663,7 +1690,7 @@ export const PageCurl: React.FC<{ corner: "bl" | "br"; size: number; accent?: st
           we'd see if the sheet folded toward us is its reverse) and clipped to the
           flap triangle; blended low so the paper highlight still reads. */}
       {textureSrc ? (
-        <Img
+        <OptionalImg
           src={staticFile(textureSrc)}
           onError={() => {}}
           style={{
@@ -1833,7 +1860,7 @@ export const MagazineTableIntro: React.FC<{
               }}
             >
               {/* faint printed ghost so the cover reads as real paper */}
-              <Img
+              <OptionalImg
                 src={staticFile(MAG_TEXTURES.spread)}
                 onError={() => {}}
                 style={{
@@ -2158,7 +2185,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
             on the sheet itself, giving each page a real "printed" texture
             beneath the live content. Suppressed for clean single-page layouts. */}
         {!hidePrintTexture && (
-          <Img
+          <OptionalImg
             src={staticFile(printTextureSrc)}
             onError={() => {}}
             style={{
@@ -2184,7 +2211,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
             dots and copy keep full contrast on top (e.g. TimelineJourney). */}
         {backgroundImageSrc && (
           <div style={{ position: "absolute", inset: 0, zIndex: 1, overflow: "hidden", pointerEvents: "none" }}>
-            <Img
+            <OptionalImg
               src={backgroundImageSrc}
               onError={() => {}}
               style={{
@@ -2237,7 +2264,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
                 blur + paper scrim as the sheet. */}
             {backgroundImageSrc && (
               <>
-                <Img
+                <OptionalImg
                   src={backgroundImageSrc}
                   onError={() => {}}
                   style={{
@@ -2261,7 +2288,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
                 continues across it (the RIGHT half of the full-spread SVG maps onto
                 this right leaf). */}
             {!hidePrintTexture && (
-              <Img
+              <OptionalImg
                 src={staticFile(printTextureSrc)}
                 onError={() => {}}
                 style={{
@@ -2516,7 +2543,7 @@ export const MagPlate: React.FC<{
         }}
       >
         <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
-          <Img
+          <OptionalImg
             src={src}
             onError={() => {}}
             style={{

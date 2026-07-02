@@ -1,10 +1,11 @@
 import React from "react";
-import { useVideoConfig, interpolate, Img } from "remotion";
+import { useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
   Halftone,
   QuoteGlyph,
+  OptionalImg,
   WrittenText,
   Typewriter,
   MAG_DISPLAY,
@@ -146,7 +147,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
             }}
           >
             <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
-              <Img
+              <OptionalImg
                 src={imageUrl}
                 onError={() => {}}
                 style={{
