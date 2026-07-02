@@ -1,7 +1,7 @@
 {
   "id": "economist",
   "name": "The Economist",
-  "new_template": true,
+  "new_template": false,
   "description": "Editorial 'newspaper × economic article' template inspired by The Economist: warm paper, a red flag masthead, serif headlines with drop caps, a signature blue/red pros-and-cons page, and reference-grade custom data charts (right-axis line charts with direct end-labels, ranked bars, ranked tables). Perfect for finance, markets, economics and serious news explainers.",
   "genres": [
     "Finance",
