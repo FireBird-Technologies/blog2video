@@ -124,6 +124,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
             <>
               <Img
                 src={imageUrl}
+                onError={() => {}}
                 style={{
                   position: "absolute",
                   inset: 0,
