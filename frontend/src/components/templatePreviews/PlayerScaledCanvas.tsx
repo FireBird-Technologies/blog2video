@@ -56,11 +56,17 @@ export default function PlayerScaledCanvas({
   return (
     <div
       ref={ref}
+      className="cf-scaled-canvas"
       style={{
+        // Pin to the preview root's box so offsetWidth/offsetHeight match the
+        // carousel card (or modal) — not the 480×270 internal render size.
+        // Percentage height alone often resolves to 270px when an ancestor still
+        // sizes from aspect-ratio; absolute inset-0 avoids that.
+        position: "absolute",
+        inset: 0,
         width: "100%",
-        aspectRatio: `${internalWidth}/${internalHeight}`,
+        height: "100%",
         overflow: "hidden",
-        position: "relative",
       }}
     >
       <div

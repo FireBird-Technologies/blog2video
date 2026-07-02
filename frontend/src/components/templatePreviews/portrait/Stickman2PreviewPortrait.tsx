@@ -167,8 +167,7 @@ export default function Stickman2PreviewPortrait({ thumbnailMode = false }: { th
   };
 
   return (
-    <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "9/16", background: bgColor }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: bgColor }}>
         <PlayerScaledCanvas internalWidth={270} internalHeight={480}>
           <Player
             ref={playerRef}
@@ -183,7 +182,7 @@ export default function Stickman2PreviewPortrait({ thumbnailMode = false }: { th
             autoPlay
             loop={!thumbnailMode}
             acknowledgeRemotionLicense
-            style={{ width: "100%", height: "100%", display: "block" }}
+            style={{ width: 270, height: 480, display: "block" }}
           />
         </PlayerScaledCanvas>
 
@@ -204,7 +203,6 @@ export default function Stickman2PreviewPortrait({ thumbnailMode = false }: { th
             );
           })}
         </div>
-      </div>
     </div>
   );
 }
