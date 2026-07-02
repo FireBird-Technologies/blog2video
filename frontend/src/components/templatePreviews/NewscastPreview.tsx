@@ -151,8 +151,8 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
   }, [thumbnailMode]);
 
   return (
-    <PlayerScaledCanvas>
-      <div className="relative overflow-hidden shadow-2xl rounded-xl" style={{ width: "100%", height: "100%", background: TEMPLATE_COLORS.bg }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: TEMPLATE_COLORS.bg }}>
+      <PlayerScaledCanvas>
         <Player
           ref={playerRef}
           key={activeSceneIndex} // CRITICAL: Restarts animation on scene change
@@ -169,6 +169,7 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
           acknowledgeRemotionLicense
           style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
         />
+      </PlayerScaledCanvas>
 
         {/* Navigation dots — compact, no scene titles */}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 rounded-full bg-black/35 backdrop-blur-sm px-2 py-1 border border-white/10">
@@ -190,7 +191,6 @@ export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMo
             );
           })}
         </div>
-      </div>
-    </PlayerScaledCanvas>
+    </div>
   );
 }

@@ -220,18 +220,16 @@ export default function NewsPaperPreview({ thumbnailMode = false }: { thumbnailM
   };
 
   return (
-    <PlayerScaledCanvas internalWidth={480} internalHeight={270}>
-      <div
-        className="relative overflow-hidden"
-        style={{
-          width: "100%",
-          height: "100%",
-          backgroundColor: bgColor,
-          backgroundImage: 'url("/vintage-news.avif")',
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
+    <div
+      className="relative w-full h-full overflow-hidden"
+      style={{
+        backgroundColor: bgColor,
+        backgroundImage: 'url("/vintage-news.avif")',
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <PlayerScaledCanvas internalWidth={480} internalHeight={270}>
         <Player
           ref={playerRef}
           component={Composition}
@@ -247,8 +245,9 @@ export default function NewsPaperPreview({ thumbnailMode = false }: { thumbnailM
           acknowledgeRemotionLicense
           style={{ width: 480, height: 270, display: "block" }}
         />
+      </PlayerScaledCanvas>
 
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
           {NEWSPAPER_PREVIEW_SCENES.map((scene, index) => {
             const isActive = index === activeSceneIndex;
             return (
@@ -265,7 +264,6 @@ export default function NewsPaperPreview({ thumbnailMode = false }: { thumbnailM
             );
           })}
         </div>
-      </div>
-    </PlayerScaledCanvas>
+    </div>
   );
 }

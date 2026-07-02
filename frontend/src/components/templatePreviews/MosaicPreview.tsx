@@ -117,8 +117,8 @@ export default function MosaicPreview({ thumbnailMode = false }: { thumbnailMode
   }, [thumbnailMode]);
 
   return (
-    <PlayerScaledCanvas>
-      <div style={{ width: "100%", height: "100%", position: "relative", background: bgColor }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: bgColor }}>
+      <PlayerScaledCanvas>
         <Player
           ref={playerRef}
           component={Composition}
@@ -134,6 +134,7 @@ export default function MosaicPreview({ thumbnailMode = false }: { thumbnailMode
           acknowledgeRemotionLicense
           style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
         />
+      </PlayerScaledCanvas>
 
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
           {MOSAIC_PREVIEW_SCENES.map((scene, index) => {
@@ -152,7 +153,6 @@ export default function MosaicPreview({ thumbnailMode = false }: { thumbnailMode
             );
           })}
         </div>
-      </div>
-    </PlayerScaledCanvas>
+    </div>
   );
 }
