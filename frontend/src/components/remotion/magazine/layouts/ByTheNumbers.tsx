@@ -96,13 +96,13 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
   const columnGap = !p && n % 2 === 0 ? 72 : 0;
 
   return (
-    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove} printTextureSrc={MAG_TEXTURES.byTheNumbers} printTextureOpacity={0.5}>
+    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove} hidePrintTexture>
       <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
         {/* Section header — a bold, unmistakable masthead so the scene reads as
             "By the Numbers" at a glance: a small red eyebrow, an oversized display
             title, and a heavy full-width rule that draws in beneath it. */}
         <div style={{ opacity: titleO }}>
-          <Kicker color={accent} size={p ? 15 : 17} style={{ marginBottom: 10 }}>
+          <Kicker color={accent} size={p ? 20 : 17} style={{ marginBottom: 10 }}>
             {`Data · ${sectionLabel}`}
           </Kicker>
           <div
