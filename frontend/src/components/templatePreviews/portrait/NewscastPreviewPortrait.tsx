@@ -22,7 +22,7 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
       // transforms — the coverflow scales/rotates side cards, and
       // getBoundingClientRect() would return the foreshortened width and lock a
       // too-small internal scale (the card renders nearly empty).
-      const s = el.offsetWidth / INTERNAL_W;
+      const s = Math.max(el.offsetWidth / INTERNAL_W, el.offsetHeight / INTERNAL_H);
       if (s > 0) setScale(s);
     };
     update();
