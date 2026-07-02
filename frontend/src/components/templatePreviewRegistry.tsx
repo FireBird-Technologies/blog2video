@@ -32,8 +32,8 @@ import EconomistPreviewPortrait from "./templatePreviews/portrait/EconomistPrevi
 import Stickman2PreviewPortrait from "./templatePreviews/portrait/Stickman2PreviewPortrait";
 import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/StickmanFootballPreviewPortrait";
 
-// import MagazinePreview from "./templatePreviews/MagazinePreview";
-// import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
+ import MagazinePreview from "./templatePreviews/MagazinePreview";
+import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
 import { withPoster } from "./templatePreviews/PosterOrPlayer";
 
 // Raw preview components. Not exported directly — every built-in preview is
@@ -55,7 +55,7 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   economist: EconomistPreview,
   stickman_2: Stickman2Preview,
   stickman_football: StickmanFootballPreview,
-  // magazine: MagazinePreview,
+   magazine: MagazinePreview,
 };
 
 const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
@@ -74,7 +74,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
   economist: EconomistPreviewPortrait,
   stickman_2: Stickman2PreviewPortrait,
   stickman_football: StickmanFootballPreviewPortrait,
-  // magazine: MagazinePreviewPortrait,
+  magazine: MagazinePreviewPortrait,
 };
 
 function wrapPreviews(
