@@ -42,6 +42,7 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
   const sectionLabel = (props.sectionLabel as string)?.trim() || "By the Numbers";
+  const kickerPrefix = (props.kickerPrefix as string)?.trim() || "Data";
 
   // Render ONLY real numeric figures — never invent stats. Drop entries with an
   // empty value or a value that carries no digit (a stray word is not a figure).
@@ -103,7 +104,7 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
             title, and a heavy full-width rule that draws in beneath it. */}
         <div style={{ opacity: titleO }}>
           <Kicker color={accent} size={p ? 20 : 17} style={{ marginBottom: 10 }}>
-            {`Data · ${sectionLabel}`}
+            {`${kickerPrefix} · ${sectionLabel}`}
           </Kicker>
           <div
             style={{

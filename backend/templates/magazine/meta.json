@@ -42,7 +42,9 @@
         "descriptionFontSize": {
           "portrait": 16,
           "landscape": 19
-        }
+        },
+        "sectionLabel": "Feature",
+        "byline": "The Editors"
       },
       "scene_defaults": {
         "title": "The Quiet Revolution",
@@ -50,30 +52,40 @@
         "durationSeconds": 6
       },
       "sample_props": {
-        "brandName": "Atlas Review",
         "sectionLabel": "FEATURE"
       },
       "fields": [
         {
           "key": "titleFontSize",
-          "label": "Title Font Size",
+          "label": "Cover Line Size (max)",
           "type": "number",
           "responsive": true,
           "min": 18,
           "max": 220,
-          "step": 1
+          "step": 1,
+          "description": "Upper limit for the big cover-line type. The cover line auto-sizes to fill the top band of the cover and stay clear of the photo/cover-lines; this only caps how large it may get."
         },
         {
-          "key": "brandName",
-          "label": "Brand / Masthead",
-          "type": "string",
-          "description": "Publication name shown as the cover masthead brand, e.g. 'Atlas Review'"
+          "key": "descriptionFontSize",
+          "label": "Deck Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1,
+          "description": "Size of the italic deck line (the narration) in the bottom-left cover-line block."
         },
         {
           "key": "sectionLabel",
-          "label": "Sectionlabel",
+          "label": "Section Label",
           "type": "string",
           "description": "Red small-caps kicker above the cover deck, e.g. 'FEATURE'"
+        },
+        {
+          "key": "byline",
+          "label": "Byline",
+          "type": "string",
+          "description": "Credit line at the bottom-left of the cover; rendered as 'By {value}'. Leave blank to hide the byline."
         }
       ]
     },
@@ -87,7 +99,8 @@
         "descriptionFontSize": {
           "portrait": 52,
           "landscape": 26
-        }
+        },
+        "issueLabel": "Comment"
       },
       "scene_defaults": {
         "title": "It starts with the grid, and ends with the reader.",
@@ -121,6 +134,12 @@
           "label": "Attribution",
           "type": "string",
           "description": "Quote source displayed below the quote, e.g. '— Jane Smith, CEO'"
+        },
+        {
+          "key": "issueLabel",
+          "label": "Corner Label",
+          "type": "string",
+          "description": "Small-caps running-head label in the top-right page corner, e.g. 'COMMENT'"
         }
       ]
     },
@@ -135,7 +154,10 @@
           "portrait": 52,
           "landscape": 53
         },
-        "stats": []
+        "stats": [],
+        "sectionLabel": "By the Numbers",
+        "issueLabel": "Data",
+        "kickerPrefix": "Data"
       },
       "scene_defaults": {
         "title": "",
@@ -209,6 +231,24 @@
             }
           ],
           "maxItems": 10
+        },
+        {
+          "key": "sectionLabel",
+          "label": "Section Label",
+          "type": "string",
+          "description": "Small-caps section tag used in the eyebrow and running head, e.g. 'BY THE NUMBERS'"
+        },
+        {
+          "key": "kickerPrefix",
+          "label": "Kicker Prefix",
+          "type": "string",
+          "description": "Word before the section label in the top eyebrow ('{prefix} · {section}'), e.g. 'DATA'"
+        },
+        {
+          "key": "issueLabel",
+          "label": "Corner Label",
+          "type": "string",
+          "description": "Small-caps running-head label in the top-right page corner, e.g. 'DATA'"
         }
       ]
     },
@@ -222,7 +262,9 @@
         "descriptionFontSize": {
           "portrait": 52,
           "landscape": 40
-        }
+        },
+        "issueLabel": "The Interview",
+        "conversationLabel": "In Conversation"
       },
       "scene_defaults": {
         "title": "Where does a redesign actually begin?",
@@ -306,6 +348,18 @@
             }
           ],
           "maxItems": 3
+        },
+        {
+          "key": "conversationLabel",
+          "label": "Conversation Label",
+          "type": "string",
+          "description": "Small-caps eyebrow prefix before the speaker names, e.g. 'IN CONVERSATION'"
+        },
+        {
+          "key": "issueLabel",
+          "label": "Corner Label",
+          "type": "string",
+          "description": "Small-caps running-head label in the top-right page corner, e.g. 'THE INTERVIEW'"
         }
       ]
     },
@@ -360,7 +414,8 @@
         "subtitle": "Quarter",
         "yAxisLabel": "Thousands",
         "barPrimaryColor": "#D71921",
-        "barSecondaryColor": "#111111"
+        "barSecondaryColor": "#111111",
+        "issueLabel": "Report"
       },
       "scene_defaults": {
         "title": "The story in the numbers",
@@ -443,6 +498,12 @@
           "key": "barSecondaryColor",
           "label": "Series color 2",
           "type": "color"
+        },
+        {
+          "key": "issueLabel",
+          "label": "Corner Label",
+          "type": "string",
+          "description": "Small-caps running-head label in the top-right page corner, e.g. 'REPORT'"
         }
       ]
     },
@@ -457,7 +518,8 @@
           "portrait": 52,
           "landscape": 40
         },
-        "milestones": []
+        "milestones": [],
+        "issueLabel": "History"
       },
       "scene_defaults": {
         "title": "A Short History",
@@ -527,6 +589,12 @@
             }
           ],
           "maxItems": 10
+        },
+        {
+          "key": "issueLabel",
+          "label": "Corner Label",
+          "type": "string",
+          "description": "Small-caps running-head label in the top-right page corner, e.g. 'HISTORY'"
         }
       ]
     },
@@ -540,7 +608,9 @@
         "descriptionFontSize": {
           "portrait": 72,
           "landscape": 43
-        }
+        },
+        "sectionLabel": "Field Notes",
+        "issueLabel": "Field Notes"
       },
       "scene_defaults": {
         "title": "A Working Theory of Print",
@@ -549,8 +619,6 @@
       },
       "sample_props": {
         "sectionLabel": "ESSAY",
-        "standfirst": "The studios betting on print are not nostalgists — they are chasing the scarcest resource of all.",
-        "body": "The studios betting on print are not nostalgists. They have read the same charts as everyone else and reached a contrary conclusion: that attention, not paper, is the scarce resource worth fighting for. A magazine demands a kind of focus the feed cannot, and — when the columns settle and the rules align — it repays the effort. The grid becomes a quiet promise that nothing here is accidental, and that the reader's time has been respected. That promise, more than any typeface, is what keeps the format alive.",
         "points": [
           {
             "value": "Attention, not paper, is the scarce resource"
@@ -587,21 +655,15 @@
         },
         {
           "key": "sectionLabel",
-          "label": "Sectionlabel",
+          "label": "Section Label",
           "type": "string",
-          "description": "Red small-caps section tag displayed above the headline, e.g. 'ANALYSIS'"
+          "description": "Red small-caps section tag displayed above the headline (also the running-head label), e.g. 'FIELD NOTES'"
         },
         {
-          "key": "standfirst",
-          "label": "Standfirst",
+          "key": "issueLabel",
+          "label": "Corner Label",
           "type": "string",
-          "description": "Single-line italic deck under the headline (≤16 words) stating the essay's sub-thesis"
-        },
-        {
-          "key": "body",
-          "label": "Body Copy",
-          "type": "text",
-          "description": "The full essay body that flows down the page. Leave blank to fall back to the scene narration."
+          "description": "Small-caps running-head label in the top-right page corner. Leave blank to reuse the Section Label."
         },
         {
           "key": "points",
@@ -791,6 +853,7 @@
         "tickerTitle": "Q1 2026 Performance",
         "tickerFootnote": "Source: editorial research",
         "tickerHighlightCol": 5,
+        "issueLabel": "Data",
         "tickerTable": {
           "headers": [
             "Name",
@@ -887,6 +950,12 @@
           "key": "tickerFootnote",
           "label": "Footnote / source attribution",
           "type": "string"
+        },
+        {
+          "key": "issueLabel",
+          "label": "Corner Label",
+          "type": "string",
+          "description": "Small-caps running-head label in the top-right page corner, e.g. 'DATA'"
         }
       ]
     },
@@ -900,7 +969,8 @@
         "descriptionFontSize": {
           "portrait": 24,
           "landscape": 22
-        }
+        },
+        "issueLabel": "Spotlight"
       },
       "scene_defaults": {
         "title": "A spread should feel inevitable",
@@ -962,6 +1032,12 @@
           "label": "Tag chip (right block)",
           "type": "string",
           "description": "Small inverted chip beneath the subline, e.g. 'Editor Since 2014'"
+        },
+        {
+          "key": "issueLabel",
+          "label": "Corner Label",
+          "type": "string",
+          "description": "Small-caps running-head label in the top-right page corner, e.g. 'SPOTLIGHT'"
         }
       ]
     },
@@ -975,7 +1051,9 @@
         "descriptionFontSize": {
           "portrait": 52,
           "landscape": 28
-        }
+        },
+        "sectionLabel": "Feature",
+        "issueLabel": "Feature"
       },
       "scene_defaults": {
         "title": "The Shape of Things to Come",
@@ -1023,6 +1101,12 @@
           "description": "Red small-caps kicker above the headline, e.g. 'FEATURE'"
         },
         {
+          "key": "issueLabel",
+          "label": "Corner Label",
+          "type": "string",
+          "description": "Small-caps running-head label in the top-right page corner, e.g. 'FEATURE'"
+        },
+        {
           "key": "body",
           "label": "Article Body",
           "type": "text",
@@ -1053,7 +1137,8 @@
         "descriptionFontSize": {
           "portrait": 52,
           "landscape": 46
-        }
+        },
+        "issueLabel": "Analysis"
       },
       "scene_defaults": {
         "title": "Before and After",
@@ -1154,6 +1239,12 @@
           "label": "Centre Badge",
           "type": "string",
           "description": "Text inside the circular centre badge; defaults to 'VS'"
+        },
+        {
+          "key": "issueLabel",
+          "label": "Corner Label",
+          "type": "string",
+          "description": "Small-caps running-head label in the top-right page corner, e.g. 'ANALYSIS'"
         }
       ]
     }

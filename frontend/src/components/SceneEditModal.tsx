@@ -299,7 +299,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     mosaic_close: { title: [104, 72], desc: [52, 34] },
   },
   magazine: {
-    magazine_cover: { title: [68, 88] },
+    magazine_cover: { title: [92, 62], desc: [16, 19] },
     editorial_quote: { title: [56, 72], desc: [18, 24] },
     by_the_numbers: { title: [56, 72], desc: [20, 26] },
     interview_qa: { title: [40, 52], desc: [16, 20] },
@@ -3718,6 +3718,30 @@ export default function SceneEditModal({
   const applySelectedLayout = (next: string) => {
     setSelectedLayout(next);
     if (next === "__keep__" || next === "__auto__") return;
+    // Magazine: switching INTO a layout whose content fields (stats, milestones,
+    // exchanges, points, keyPoints, left/rightPoints, …) are empty leaves the new
+    // scene blank. Seed those fields from the target layout's meta.json `sample_props`
+    // so the layout has real default content — both in this modal's fields and,
+    // because editableLayoutProps is what gets saved, in the rendered scene. Only
+    // fills fields that are currently empty; never clobbers existing content.
+    if (normalizedTemplateId === "magazine") {
+      const schema = (layouts?.layout_prop_schema as Record<string, LayoutPropSchema> | undefined)?.[next];
+      const sampleProps = schema?.sample_props;
+      if (sampleProps && Object.keys(sampleProps).length > 0) {
+        const isEmpty = (v: unknown) =>
+          v == null ||
+          (typeof v === "string" && v.trim() === "") ||
+          (Array.isArray(v) && v.length === 0);
+        setEditableLayoutProps((prev) => {
+          const seeded: Record<string, unknown> = { ...prev };
+          for (const [key, val] of Object.entries(sampleProps)) {
+            if (isEmpty(prev[key])) seeded[key] = val;
+          }
+          return seeded;
+        });
+      }
+      return;
+    }
     // Economist: seed shape-appropriate example data when switching into a data layout.
     if (isEconomistTemplate && (next === "chart_line" || next === "chart_bar" || next === "data_table")) {
       const kind = next === "chart_line" ? "line" : next === "chart_bar" ? "bar" : "table";
@@ -4138,7 +4162,7 @@ export default function SceneEditModal({
             <div className="mt-4 space-y-4">
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Title
+                  {currentLayoutId === "magazine_cover" ? "Cover Line" : "Title"}
                 </h4>
                 <input
                   type="text"

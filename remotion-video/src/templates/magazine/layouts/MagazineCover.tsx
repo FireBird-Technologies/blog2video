@@ -34,7 +34,9 @@ const EASE_OUT = Easing.out(Easing.cubic);
  */
 export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   const { title, narration, imageUrl, imageObjectPosition, imageZoom, titleFontSize, descriptionFontSize, fontFamily } = props;
-  const brand = (props.brandName ?? "").trim();
+  // Strip a leading "By " the value may already carry (AI/user/default) so the
+  // rendered "By {brand}" below never doubles up into "By By …".
+  const brand = ((props.byline as string) ?? "").trim().replace(/^by\s+/i, "");
   const kicker = (props.sectionLabel || "Feature").trim();
   const deck = (narration ?? "").trim();
   const titleText = (title ?? "").trim();
@@ -80,11 +82,49 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   // barcode (bottom-right) so no text is ever overprinted by it.
   const barcodeClearW = Math.round(cardW * 0.26);
 
-  // ---- Masthead (title) sizing — wraps between words, each word fits the cover.
+  // ---- Masthead (title) sizing.
+  // Behaviour matches every other magazine scene: when the user sets a Title font
+  // size in the editor, that value drives the masthead DIRECTLY (it grows AND
+  // shrinks) — clamped only by a hard safety cap so an over-large value can never
+  // spill a single word off the cover. When NO explicit size is set (fresh / AI
+  // covers), fall back to the auto-fit that keeps the whole wrapped masthead inside
+  // the top band above the hairline rule (~25% down) so it never runs into the
+  // photo / cover-lines below.
   const mastInnerW = cardW - 2 * outer - 2 * border;
   const words = titleText.split(/\s+/).filter(Boolean);
   const longestWord = words.length ? Math.max(...words.map((w) => w.length)) : 1;
-  const mastheadPx = Math.min(titleFontSize ?? (p ? 92 : 62), (mastInnerW * 0.92) / Math.max(1, longestWord * 0.6));
+  const basePx = p ? 92 : 62;
+  // WIDTH safety cap — the longest single word must always fit the inner width.
+  // 0.72em/char ≈ this bold uppercase serif display's real advance (kept
+  // conservative so a large user-set size can never clip a word off the cover).
+  const widthCapPx = (mastInnerW * 0.92) / Math.max(1, longestWord * 0.72);
+  const mastLineHeight = 1.12;
+  // Top band the auto-fit path must stay within (pinned top 3.5% → hairline 25%).
+  const mastBandH = cardH * 0.205;
+  const avgCharW = 0.72; // display caps advance ≈ 0.72em (matches the width cap factor)
+  const usableW = mastInnerW * 0.9; // masthead is inset left/right 5% and centre-aligned
+  const estLinesAt = (px: number) => {
+    const perLine = Math.max(1, Math.floor(usableW / (px * avgCharW)));
+    const totalChars = titleText.replace(/\s+/g, " ").length || 1;
+    return Math.max(words.length > 1 ? 2 : 1, Math.ceil(totalChars / perLine));
+  };
+  // Auto-fit size (used only when the user hasn't set a size): step down from the
+  // width-capped base until the wrapped block fits the top band.
+  let autoFitPx = Math.min(basePx, widthCapPx);
+  for (let i = 0; i < 24; i++) {
+    const lines = estLinesAt(autoFitPx);
+    if (lines * autoFitPx * mastLineHeight <= mastBandH) break;
+    autoFitPx *= 0.94;
+  }
+  autoFitPx = Math.max(14, autoFitPx);
+  // Hard safety cap for the user-driven path: the longest word must still fit the
+  // inner width (never spill off the cover), and the block can't exceed half the
+  // card height. Within that ceiling the slider grows/shrinks the type freely.
+  const safetyMaxPx = Math.min(widthCapPx, cardH * 0.5 / mastLineHeight);
+  const mastheadPx =
+    titleFontSize != null
+      ? Math.max(14, Math.min(titleFontSize, safetyMaxPx))
+      : autoFitPx;
   const deckPx = descriptionFontSize ?? (p ? 16 : 19);
 
   // ---- Reveals: masthead first, then the cover-line block cascades in.
@@ -200,7 +240,7 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
               fontFamily: MAG_DISPLAY,
               fontWeight: 900,
               fontSize: mastheadPx,
-              lineHeight: 1.12,
+              lineHeight: mastLineHeight,
               letterSpacing: "-0.01em",
               overflowWrap: "break-word",
               color: mastheadCol,
@@ -247,7 +287,10 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
                 opacity: kickerO,
                 fontFamily: MAG_SANS,
                 fontWeight: 800,
-                fontSize: Math.max(12, cardW * 0.03),
+                // Scales with the deck (descriptionFontSize) so the whole cover-line
+                // block resizes together; the cardW term is a floor so it never
+                // collapses on a small card and matches the look at the default deck size.
+                fontSize: Math.max(12, cardW * 0.03, deckPx * 1.15),
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
                 color: showPhoto ? onImg : accent,
@@ -289,7 +332,9 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
                 opacity: bylineO,
                 fontFamily: MAG_SANS,
                 fontWeight: 700,
-                fontSize: Math.max(11, cardW * 0.024),
+                // Scales with the deck (descriptionFontSize) alongside the kicker; cardW floor
+                // preserves the default look and guards small cards.
+                fontSize: Math.max(11, cardW * 0.024, deckPx * 0.9),
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
                 color: showPhoto ? hexToRgba(onImg, 0.85) : hexToRgba(text, 0.6),
