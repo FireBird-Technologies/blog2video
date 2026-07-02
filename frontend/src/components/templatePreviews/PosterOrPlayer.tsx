@@ -44,7 +44,7 @@ export function withPoster(
         <div
           style={{
             width: "100%",
-            aspectRatio: aspect,
+            height: "100%",
             overflow: "hidden",
             position: "relative",
             borderRadius: 12,

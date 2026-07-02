@@ -216,16 +216,14 @@ export default function WhiteboardPreviewPortrait({ thumbnailMode = false }: { t
   };
 
   return (
-    <div className="w-full">
-      <div
-        className="relative w-full overflow-hidden"
-        style={{
-          aspectRatio: "9/16",
-          backgroundColor: bgColor,
-          backgroundImage: WHITEBOARD_BG_IMAGE,
-          backgroundSize: "20px 20px, 12px 12px",
-        }}
-      >
+    <div
+      className="relative w-full h-full overflow-hidden"
+      style={{
+        backgroundColor: bgColor,
+        backgroundImage: WHITEBOARD_BG_IMAGE,
+        backgroundSize: "20px 20px, 12px 12px",
+      }}
+    >
         <PlayerScaledCanvas internalWidth={270} internalHeight={480}>
           <Player
             ref={playerRef}
@@ -240,7 +238,7 @@ export default function WhiteboardPreviewPortrait({ thumbnailMode = false }: { t
             autoPlay={!thumbnailMode}
             loop={!thumbnailMode}
             acknowledgeRemotionLicense
-            style={{ width: "100%", height: "100%", display: "block" }}
+            style={{ width: 270, height: 480, display: "block" }}
           />
         </PlayerScaledCanvas>
 
@@ -261,7 +259,6 @@ export default function WhiteboardPreviewPortrait({ thumbnailMode = false }: { t
             );
           })}
         </div>
-      </div>
     </div>
   );
 }

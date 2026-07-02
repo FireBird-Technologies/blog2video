@@ -4286,7 +4286,7 @@ export default function ProjectView() {
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">Selected preview</p>
                   <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.08)]">
-                    <div className="relative max-h-[200px] overflow-hidden">
+                    <div className="relative aspect-video overflow-hidden">
                       <TemplateAssignPreview
                         templateId={templateChangeDraft}
                         customTemplates={customTemplatesList}
@@ -4343,9 +4343,9 @@ export default function ProjectView() {
                                     : "ring-1 ring-gray-200/60 hover:ring-purple-300/60"
                                 }`}
                               >
-                                <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                                <div className="relative h-[70px] overflow-hidden">
                                   {PreviewComp ? (
-                                    <PreviewComp key={`pick-${t.id}`} />
+                                    <PreviewComp key={`pick-${t.id}`} thumbnailMode />
                                   ) : (
                                     <div className="w-full min-h-[56px] bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 px-1">
                                       {t.name}
@@ -4407,9 +4407,9 @@ export default function ProjectView() {
                                 isSel ? "border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.12)]" : "border-gray-200/60 hover:border-purple-300/60"
                               }`}
                             >
-                              <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
+                              <div className="relative isolate h-[70px] overflow-hidden">
                                 {/* Previews use canvas/Remotion; without pointer-events-none clicks never reach the button. */}
-                                <div className="relative z-0 min-h-[56px] pointer-events-none">
+                                <div className="relative z-0 h-full pointer-events-none">
                                   <CustomPreviewLandscape
                                     theme={ct.theme}
                                     name={ct.name}
@@ -4420,6 +4420,7 @@ export default function ProjectView() {
                                     previewImageUrl={ct.preview_image_url}
                                     logoUrls={ct.logo_urls}
                                     ogImage={ct.og_image}
+                                    thumbnailMode
                                   />
                                 </div>
                                 {!isPro && (
@@ -4469,8 +4470,8 @@ export default function ProjectView() {
                                 isSel ? "border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.12)]" : "border-gray-200/60 hover:border-purple-300/60"
                               }`}
                             >
-                              <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
-                                <div className="relative z-0 min-h-[56px] pointer-events-none">
+                              <div className="relative isolate h-[70px] overflow-hidden">
+                                <div className="relative z-0 h-full pointer-events-none">
                                   <CraftedTemplatePreview
                                     templateId={craftedId}
                                     compileCacheScope={user?.id != null ? String(user.id) : undefined}
@@ -5504,7 +5505,7 @@ export default function ProjectView() {
                           <button
                             type="button"
                             onClick={handleChooseScrapedImages}
-                            className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+                            className="w-full h-24 p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
                           >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
@@ -5514,7 +5515,7 @@ export default function ProjectView() {
                           <button
                             type="button"
                             onClick={handleChooseLocalUpload}
-                            className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+                            className="w-full h-24 p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
                           >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" />
