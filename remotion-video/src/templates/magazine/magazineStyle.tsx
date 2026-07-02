@@ -240,7 +240,7 @@ export const MAG_TEXTURES = {
   comparison: "comparison-page-bg.png",
   comparisonPortrait: "comparison-page-bg-portrait-clean.svg",
   qaWash: "qa-scene-color-wash-clean.svg",
-  qaWashPortrait: "qa-scene-color-wash-portrait-clean.png",
+  qaWashPortrait: "qa-scene-color-wash-portrait-rotated.png",
   timelineWireframe: "timeline-spread-wireframe-bg.png",
   glossyWhite: "glossy-white-bg.png",
 } as const;

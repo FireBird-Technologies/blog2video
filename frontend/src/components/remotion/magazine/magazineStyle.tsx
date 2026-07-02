@@ -240,7 +240,7 @@ export const MAG_TEXTURES = {
   comparison: "comparison-page-bg.png",
   comparisonPortrait: "comparison-page-bg-portrait-clean.svg",
   qaWash: "qa-scene-color-wash-clean.svg",
-  qaWashPortrait: "qa-scene-color-wash-portrait-clean.png",
+  qaWashPortrait: "qa-scene-color-wash-portrait-rotated.png",
   timelineWireframe: "timeline-spread-wireframe-bg.png",
   glossyWhite: "glossy-white-bg.png",
 } as const;
@@ -1665,6 +1665,7 @@ export const PageCurl: React.FC<{ corner: "bl" | "br"; size: number; accent?: st
       {textureSrc ? (
         <Img
           src={staticFile(textureSrc)}
+          onError={() => {}}
           style={{
             position: "absolute",
             inset: 0,
@@ -1834,6 +1835,7 @@ export const MagazineTableIntro: React.FC<{
               {/* faint printed ghost so the cover reads as real paper */}
               <Img
                 src={staticFile(MAG_TEXTURES.spread)}
+                onError={() => {}}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -2158,6 +2160,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
         {!hidePrintTexture && (
           <Img
             src={staticFile(printTextureSrc)}
+            onError={() => {}}
             style={{
               position: "absolute",
               inset: 0,
@@ -2183,6 +2186,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
           <div style={{ position: "absolute", inset: 0, zIndex: 1, overflow: "hidden", pointerEvents: "none" }}>
             <Img
               src={backgroundImageSrc}
+              onError={() => {}}
               style={{
                 width: "100%",
                 height: "100%",
@@ -2235,6 +2239,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
               <>
                 <Img
                   src={backgroundImageSrc}
+                  onError={() => {}}
                   style={{
                     // The RIGHT half of the full-bleed image maps onto this leaf:
                     // 200%-wide box pinned right (was background-size:200% 100% +
@@ -2258,6 +2263,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
             {!hidePrintTexture && (
               <Img
                 src={staticFile(printTextureSrc)}
+                onError={() => {}}
                 style={{
                   // RIGHT half of the full-spread texture maps onto this leaf
                   // (was background-size:200% 100% + position right).
@@ -2512,6 +2518,7 @@ export const MagPlate: React.FC<{
         <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
           <Img
             src={src}
+            onError={() => {}}
             style={{
               width: "100%",
               height: "100%",

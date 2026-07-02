@@ -170,7 +170,7 @@ export const InterviewQa: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
       lightChrome
-      {...(p ? { hidePrintTexture: true } : { printTextureSrc: MAG_TEXTURES.spread, printTextureOpacity: 0.38 })}
+      {...(p ? { printTextureSrc: MAG_TEXTURES.qaWashPortrait, printTextureOpacity: 0.7 } : { printTextureSrc: MAG_TEXTURES.spread, printTextureOpacity: 0.38 })}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <Kicker color={accent} style={{ opacity: labelO, marginBottom: p ? 28 : 34, flexShrink: 0 }}>
