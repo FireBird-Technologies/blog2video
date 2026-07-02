@@ -105,6 +105,10 @@ export interface SceneLayoutProps {
   subtitle?: string;
   issueLabel?: string;
   sectionLabel?: string;
+  // interview_qa — small-caps eyebrow prefix before the speaker names ("In Conversation")
+  conversationLabel?: string;
+  // by_the_numbers — word before the section label in the top eyebrow ("Data · …")
+  kickerPrefix?: string;
   // Folio page number injected by the composition (1-based scene order, zero-padded)
   pageNumber?: string;
   // True only for the first scene — plays the one-time establishing fly-in.
@@ -124,6 +128,8 @@ export interface SceneLayoutProps {
   exitAnim?: SceneExitVariant;
   // Publication/brand wordmark for the cover masthead (from project name)
   brandName?: string;
+  // magazine_cover — editable byline shown bottom-left ("By …"). Blank hides the line.
+  byline?: string;
   attribution?: string;
   caption?: string;
   stats?: Array<{ label?: string; value?: string }>;

@@ -82,9 +82,9 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
   // ── Zoom-out + fade exit ──────────────────────────────────────────────────────
   // The magazine slowly recedes from screen centre and dissolves — no desk, no 3D tilt.
   // The move runs over the scene's tail; before it, the upright back cover holds so the CTA reads.
-  const CLOSE = 70; // exit length in raw frames (longer than the hero raise for a graceful float away)
+  const CLOSE = 130; // exit length in raw frames — long, slow float away (was 70) so the zoom-out is gentle
   const l = interpolate(rawFrame, [durationInFrames - CLOSE, durationInFrames - 1], [0, 1], { ...CLAMP, easing: EASE_OUT });
-  const closeScale = interpolate(l, [0, 1], [1.06, 0.25]); // zooms out from screen
+  const closeScale = interpolate(l, [0, 1], [1.28, 0.9]); // starts BIGGER (zoomed in) then eases out only SLIGHTLY
   const closeOpacity = interpolate(l, [0, 1], [1, 0]);       // fades away
   const backdropOpacity = interpolate(l, [0.55, 1], [1, 0]); // backdrop fades slightly behind it
   const cardTransform = `scale(${closeScale.toFixed(4)})`;
