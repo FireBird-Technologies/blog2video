@@ -29,15 +29,11 @@ interface CoverflowCarouselProps {
 }
 
 const VISIBLE_RANGE = 3;
-// How many cards actually mount their (Remotion) preview on each side of center.
-// Full range on desktop; capped to 2 on mobile so at most 5 Players exist at
-// once. Each Remotion <Player> is memory-heavy, and phones OOM/reload the tab
-// when many exist — most visibly on tapping the arrows, which churns Players in
-// and out and killed the tab before it could animate ("fails to move and
-// reloads"). On mobile the side cards render STATIC (thumbnailMode) and only
-// the center card plays, so just one live video decode/RAF loop runs at a time.
-const DESKTOP_RENDER_RANGE = VISIBLE_RANGE;
-const MOBILE_RENDER_RANGE = 2;
+// Side cards render a static poster <img> in thumbnailMode (zero Players) and
+// only the center card renders a live preview, so the full visible fan can mount
+// on every device with at most one Player alive at a time. This replaced an
+// earlier per-side Player cap that existed only because side cards used to hold
+// live (paused) Players and phones OOM/reloaded the tab when many existed.
 
 // Center card is 600px wide (half = 300px). ±1 peeks from just outside that edge.
 // Each subsequent card is spaced further out.
@@ -128,10 +124,13 @@ function getStyle(offset: number, primed: boolean, portrait: boolean, orientatio
   };
 }
 
-/** Landscape: center card 600×338 (16:9). Portrait: 220×391 (9:16). */
+/** Landscape: center card 600×337.5 (exact 16:9). Portrait: 220×391.11 (exact
+ *  9:16). Heights are the width × the composition aspect so the preview — which
+ *  sizes to its own 16:9/9:16 ratio from the card width — fills the card box
+ *  exactly, with no top/bottom strip when a card is previewed at center. */
 const CARD = {
-  landscape: { w: 600, h: 338, designWidth: 660, designHeight: 390 },
-  portrait: { w: 220, h: 391, designWidth: 560, designHeight: 430 },
+  landscape: { w: 600, h: 337.5, designWidth: 660, designHeight: 390 },
+  portrait: { w: 220, h: (220 * 16) / 9, designWidth: 560, designHeight: 430 },
 } as const;
 
 export default function CoverflowCarousel({ templates, initialIndex = 0, orientation = "landscape", showInputShowcase = false }: CoverflowCarouselProps) {
@@ -250,7 +249,7 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
           uses). We deliberately do NOT force height — letting each preview keep
           its intrinsic 16:9 ratio avoids the Remotion Player overflowing. */}
       <style>{`
-        .cf-preview > * { width: 100% !important; border-radius: 12px !important; overflow: hidden !important; box-shadow: none !important; }
+        .cf-preview > * { width: 100% !important; height: 100% !important; border-radius: 12px !important; overflow: hidden !important; box-shadow: none !important; }
         .cf-preview > * > * { box-shadow: none !important; }
       `}</style>
       {/* ── Responsive fit wrapper ──
@@ -303,10 +302,11 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
           // placeholder so their Remotion Players / animations aren't created
           // until scrolled into view. Safe because each preview measures with
           // offsetWidth, so mounting while transformed still locks the right scale.
-          // Cap how many previews mount at once on mobile (memory), while the
-          // fan geometry still positions cards out to VISIBLE_RANGE.
-          const renderRange = portrait ? MOBILE_RENDER_RANGE : DESKTOP_RENDER_RANGE;
-          const isVisible = Math.abs(wrapped) <= renderRange;
+          // Side cards render a static poster <img> (via the withPoster-wrapped
+          // preview in thumbnailMode) — cheap, zero Players — so we can mount the
+          // full visible fan on every device. Only the center card renders a live
+          // preview, so at most one Player exists at a time even on mobile.
+          const isVisible = Math.abs(wrapped) <= VISIBLE_RANGE;
           const style = getStyle(wrapped, primed, portrait, orientation);
           // A card with its own `onSelect` fires that action on click instead of
           // opening the fullscreen preview (used for CTA cards).
@@ -355,11 +355,14 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
                   boxShadow: "0 12px 34px rgba(0,0,0,0.35), 0 4px 10px rgba(0,0,0,0.22)",
                 }}
               >
-                {/* The preview sizes to its own aspect from its width. Center it
-                    so any aspect mismatch reads as balanced letterboxing rather
-                    than a top-anchored gap. Off-screen cards skip the preview
+                {/* Absolutely fill the card's inner (border) box so the preview
+                    covers it edge-to-edge. The preview cover-scales to this box
+                    (see PlayerScaledCanvas / poster object-fit:cover), so there's
+                    no top/bottom strip when a card is previewed at center — even
+                    though the card's 1px border makes its content box a hair
+                    smaller than card.w×card.h. Off-screen cards skip the preview
                     entirely (lazy render). */}
-                <div className="cf-preview" style={{ width: card.w, overflow: "hidden", borderRadius: 12 }}>
+                <div className="cf-preview" style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: 12 }}>
                   {isVisible && (
                     <PreviewErrorBoundary>
                       {/* Only the center card ever plays; side cards are static
