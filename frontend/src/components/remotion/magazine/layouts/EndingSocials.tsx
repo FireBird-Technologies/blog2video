@@ -79,20 +79,15 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
   const border = Math.round(cardW * 0.022);
   const padX = outer + border + Math.round(cardW * 0.05);
 
-  // ── The CLOSE = hero open, reversed ─────────────────────────────────────────
-  // Hero:  rotX 78→0,  scale 0.82→1.12→1.06,  TY h*0.05→0   (raised UP off the desk)
-  // Close: rotX 0→78,  scale 1.06→0.82,       TY 0→h*0.05   (laid back DOWN flat)
-  // A single card transform with the SAME bottom-edge hinge and easing as the hero —
-  // that's what makes it smooth. The move runs over the scene's tail; before it, the
-  // upright back cover simply holds so the CTA reads.
-  const CLOSE = 46; // laydown length (frames) — matches the hero's establishing raise
+  // ── Zoom-out + fade exit ──────────────────────────────────────────────────────
+  // The magazine slowly recedes from screen centre and dissolves — no desk, no 3D tilt.
+  // The move runs over the scene's tail; before it, the upright back cover holds so the CTA reads.
+  const CLOSE = 130; // exit length in raw frames — long, slow float away (was 70) so the zoom-out is gentle
   const l = interpolate(rawFrame, [durationInFrames - CLOSE, durationInFrames - 1], [0, 1], { ...CLAMP, easing: EASE_OUT });
-  const closeRotX = interpolate(l, [0, 1], [0, 78]); // upright → lying flat, tilted back
-  const closeScale = interpolate(l, [0, 1], [1.06, 0.82]); // held size → small on the desk
-  const closeTY = interpolate(l, [0, 1], [0, height * 0.05]); // settles onto the desk
-  const cardTransform = `perspective(1700px) translateY(${closeTY.toFixed(1)}px) rotateX(${closeRotX.toFixed(2)}deg) scale(${closeScale.toFixed(4)})`;
-  // Ground shadow swells as it meets the desk.
-  const shadowLift = Math.sin(l * Math.PI * 0.5);
+  const closeScale = interpolate(l, [0, 1], [1.28, 0.9]); // starts BIGGER (zoomed in) then eases out only SLIGHTLY
+  const closeOpacity = interpolate(l, [0, 1], [1, 0]);       // fades away
+  const backdropOpacity = interpolate(l, [0.55, 1], [1, 0]); // backdrop fades slightly behind it
+  const cardTransform = `scale(${closeScale.toFixed(4)})`;
 
   // ── Back-cover CONTENT reveal — prints in up front (while the issue stands
   // upright and readable), settled well BEFORE the laydown begins.
@@ -226,13 +221,12 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ background: MAG_BACKDROP, fontFamily: props.fontFamily ?? MAG_SERIF, overflow: "hidden" }}>
-      {/* Blurred table behind the magazine — static, matching the hero. */}
-      <AbsoluteFill style={{ filter: `blur(${deskBlur}px)`, transform: "scale(1.06)" }}>
+      {/* Blurred table behind the magazine — fades as the magazine exits. */}
+      <AbsoluteFill style={{ filter: `blur(${deskBlur}px)`, transform: "scale(1.06)", opacity: backdropOpacity }}>
         <DeskBackdrop aspectRatio={props.aspectRatio} accent={accent} parallaxX={0} parallaxY={0} />
       </AbsoluteFill>
 
-      {/* The issue — ONE centred card that lays back down onto the desk (reverse of
-          the hero raise), bottom-edge hinged, easing exactly like the open. */}
+      {/* The issue — ONE centred card that zooms out from screen centre and fades away. */}
       <AbsoluteFill style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div
           style={{
@@ -240,8 +234,9 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
             width: cardW,
             height: cardH,
             transform: cardTransform,
-            transformOrigin: "50% 100%",
-            boxShadow: `0 ${(10 + shadowLift * 30).toFixed(0)}px ${(20 + shadowLift * 46).toFixed(0)}px rgba(0,0,0,${(0.1 + shadowLift * 0.26).toFixed(2)})`,
+            transformOrigin: "50% 50%",
+            opacity: closeOpacity,
+            boxShadow: "0 16px 48px rgba(0,0,0,0.28)",
           }}
         >
           {/* Page block under the cover gives it a subtle physical edge (as the hero). */}
