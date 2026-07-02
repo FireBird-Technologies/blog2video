@@ -2063,6 +2063,8 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "attribution", label: "Attribution", type: "string", placeholder: "— Mara Voss, Editor" },
     ],
     by_the_numbers: [
+      { key: "sectionLabel", label: "Eyebrow text", type: "string", placeholder: "By the Numbers" },
+      { key: "displayTitle", label: "Display headline", type: "string", placeholder: "By the Numbers" },
       { key: "stats", label: "Key figures", type: "object_array", subFields: [{ key: "value", label: "Value", placeholder: "2.4M" }, { key: "label", label: "Label", placeholder: "Monthly readers" }], maxItems: 4 },
     ],
     interview_qa: [
@@ -2079,6 +2081,12 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     timeline_journey: [
       { key: "milestones", label: "Milestones", type: "object_array", subFields: [{ key: "date", label: "Date", placeholder: "2021" }, { key: "label", label: "Event", placeholder: "The full redesign" }, { key: "desc", label: "Detail", placeholder: "What happened, in a few words" }], maxItems: 6 },
+    ],
+    feature: [
+      { key: "heading", label: "Headline", type: "string", placeholder: "The Shape of Things to Come" },
+      { key: "sectionLabel", label: "Section label", type: "string", placeholder: "FEATURE" },
+      { key: "body", label: "Article body", type: "text", placeholder: "Original feature prose (60–110+ words) flowing across both pages; its first letter becomes the red drop cap." },
+      { key: "keyPoints", label: "Key points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Attention is the scarce resource" }], maxItems: 3 },
     ],
     comparison: [
       { key: "leftHeader", label: "Left header", type: "string", placeholder: "Before" },
@@ -3725,7 +3733,57 @@ export default function SceneEditModal({
     // because editableLayoutProps is what gets saved, in the rendered scene. Only
     // fills fields that are currently empty; never clobbers existing content.
     if (normalizedTemplateId === "magazine") {
+      // interview_qa: map the scene's OWN text (title → question, narration →
+      // answer) into a single exchange so switching in shows the scene's content
+      // as a real q/a pair — not the canned sample. Runs before the generic seed
+      // below; the exchange is now non-empty, so the sample_props seed skips
+      // `exchanges` but still fills empty leftSpeaker/rightSpeaker. Never clobbers
+      // real exchanges; if the scene has no text at all, the generic seed handles it.
+      if (next === "interview_qa") {
+        setEditableLayoutProps((prev) => {
+          const existing = Array.isArray(prev.exchanges)
+            ? (prev.exchanges as Array<{ q?: string; a?: string }>)
+            : [];
+          const hasContent = existing.some(
+            (ex) => (ex?.q ?? "").trim() || (ex?.a ?? "").trim(),
+          );
+          if (hasContent) return prev;
+          const q = (title || "").trim();
+          const a = (aiNarration || displayText || "").trim();
+          if (!q && !a) return prev;
+          return { ...prev, exchanges: [{ q, a }] };
+        });
+      }
       const schema = (layouts?.layout_prop_schema as Record<string, LayoutPropSchema> | undefined)?.[next];
+      // by_the_numbers: guarantee the stats grid lands populated on switch — exactly
+      // like timeline_journey fills milestones. The generic sample_props loop below
+      // is meant to cover this, but seed stats explicitly here so it never depends on
+      // that path: when the current stats are empty, copy the target layout's
+      // sample_props.stats (falling back to a couple of starter rows). Never clobbers
+      // stats the scene already has.
+      if (next === "by_the_numbers") {
+        const sampleStats = Array.isArray(schema?.sample_props?.stats)
+          ? (schema?.sample_props?.stats as Array<{ value?: string; label?: string }>)
+          : [];
+        setEditableLayoutProps((prev) => {
+          const existing = Array.isArray(prev.stats)
+            ? (prev.stats as Array<{ value?: string; label?: string }>)
+            : [];
+          const hasContent = existing.some(
+            (s) => (s?.value ?? "").toString().trim() || (s?.label ?? "").toString().trim(),
+          );
+          if (hasContent) return prev;
+          const seed = sampleStats.length
+            ? sampleStats
+            : [
+                { value: "2.4M", label: "Monthly readers" },
+                { value: "98%", label: "Renewal rate" },
+                { value: "150+", label: "Countries" },
+                { value: "47", label: "Issues in print" },
+              ];
+          return { ...prev, stats: seed };
+        });
+      }
       const sampleProps = schema?.sample_props;
       if (sampleProps && Object.keys(sampleProps).length > 0) {
         const isEmpty = (v: unknown) =>
