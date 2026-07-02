@@ -140,8 +140,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
         fontFamily={fontFamily}
         establishingShot={props.establishingShot}
         cameraMove={props.cameraMove ?? "book_open"}
-        printTextureSrc={MAG_TEXTURES.timelineWireframe}
-        printTextureOpacity={0.32}
+        hidePrintTexture
         backgroundImageSrc={props.imageUrl}
         backgroundImageObjectPosition={props.imageObjectPosition}
         backgroundImageZoom={props.imageZoom}
@@ -264,8 +263,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={fontFamily}
       establishingShot={props.establishingShot}
       cameraMove={props.cameraMove ?? "book_open"}
-      printTextureSrc={MAG_TEXTURES.timelineWireframe}
-      printTextureOpacity={0.32}
+      hidePrintTexture
       backgroundImageSrc={props.imageUrl}
       backgroundImageObjectPosition={props.imageObjectPosition}
       backgroundImageZoom={props.imageZoom}
