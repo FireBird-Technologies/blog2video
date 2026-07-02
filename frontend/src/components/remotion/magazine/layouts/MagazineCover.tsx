@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Img, useVideoConfig, interpolate, Easing } from "remotion";
+import { AbsoluteFill, useVideoConfig, interpolate, Easing } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MAG_DISPLAY,
@@ -9,6 +9,7 @@ import {
   Barcode,
   Halftone,
   DeskBackdrop,
+  OptionalImg,
   PageThickness,
   resolveMagColors,
   isPortrait,
@@ -157,7 +158,7 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
             to the paper cover (onError) instead of blanking the whole scene. */}
         {showPhoto ? (
           <>
-            <Img
+            <OptionalImg
               src={imageUrl as string}
               onError={() => setImgFailed(true)}
               style={{
@@ -200,8 +201,9 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
               fontFamily: MAG_DISPLAY,
               fontWeight: 900,
               fontSize: mastheadPx,
-              lineHeight: 0.92,
+              lineHeight: 1.12,
               letterSpacing: "-0.01em",
+              overflowWrap: "break-word",
               color: mastheadCol,
               textTransform: "uppercase",
               textShadow: showPhoto ? "0 2px 18px rgba(0,0,0,0.4)" : "none",

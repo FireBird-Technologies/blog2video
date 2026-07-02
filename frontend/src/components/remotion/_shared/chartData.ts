@@ -39,16 +39,25 @@ export interface ChartInputs {
 export type ChartKind = "line" | "bar" | "histogram";
 
 // ─── Numeric parsing / formatting ────────────────────────────────────────────
+// Mirrors backend chart_planner._STRICT_NUMERIC_CELL_RE: allows an optional
+// leading currency word/symbol (e.g. "Rs. 431,600", "PKR 431,600", "$431,600")
+// so currency-prefixed price columns count as numeric, while still rejecting
+// unit/text columns like "BBL/D/1K" (letters not immediately followed by digits).
 const STRICT_NUMERIC_RE =
-  /^\s*\(?\s*[+\-]?\$?\s*\d[\d,]*(?:\.\d+)?\s*(?:%|[a-z]{1,12})?\s*\)?\s*$/i;
+  /^\s*\(?\s*(?:[a-z]{1,6}\.?\s*)?[+\-]?(?:\$|€|£|¥|₹)?\s*\d[\d,]*(?:\.\d+)?(?:[eE][+\-]?\d+)?\s*(?:%|[a-z]{1,12}(?:\/[a-z]{1,12})?)?\s*\)?\s*$/i;
 
 export function toNumber(value: string | number | undefined): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   const raw = (value ?? "").toString().trim();
   if (!raw) return null;
   if (STRICT_NUMERIC_RE.test(raw)) {
+    // Extract the first numeric token rather than stripping all non-digits — a
+    // blanket strip would keep the dot in a "Rs." prefix and turn "Rs. 431,600"
+    // into 0.4316 (matches backend chart_planner token extraction).
     const neg = raw.startsWith("(") && raw.endsWith(")");
-    const parsed = Number(raw.replace(/[^0-9.\-]/g, ""));
+    const token = raw.match(/[+\-]?\d[\d,]*(?:\.\d+)?(?:[eE][+\-]?\d+)?/)?.[0];
+    if (!token) return null;
+    const parsed = Number(token.replace(/,/g, ""));
     if (!Number.isFinite(parsed)) return null;
     return neg ? -Math.abs(parsed) : parsed;
   }

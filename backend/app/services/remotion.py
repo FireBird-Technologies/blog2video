@@ -28,6 +28,7 @@ from app.services.template_service import (
     is_custom_template,
     is_crafted_template,
     get_meta,
+    get_preview_colors,
 )
 
 from app.observability.logging import get_logger
@@ -217,6 +218,29 @@ def _get_all_template_src_files() -> list[str]:
     return sorted(set(files))
 
 
+def _copy_template_public_assets(workspace: str) -> None:
+    """Copy built-in Remotion public assets without replacing runtime data."""
+    template_public_dir = os.path.join(settings.REMOTION_PROJECT_PATH, "public")
+    if not os.path.isdir(template_public_dir):
+        return
+
+    public_dir = os.path.join(workspace, "public")
+    os.makedirs(public_dir, exist_ok=True)
+
+    # data.json is generated per project; the template sample must never replace it
+    # during render-time provisioning.
+    runtime_files = {"data.json", "public/data.json"}
+    for root, _dirs, filenames in os.walk(template_public_dir):
+        for filename in filenames:
+            src = os.path.join(root, filename)
+            rel = os.path.relpath(src, template_public_dir).replace("\\", "/")
+            if rel in runtime_files:
+                continue
+            dst = os.path.join(public_dir, *rel.split("/"))
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+
+
 def provision_workspace(project_id: int, template_id: str | None = None) -> str:
     """
     Create (or ensure) a per-project Remotion workspace.
@@ -235,6 +259,7 @@ def provision_workspace(project_id: int, template_id: str | None = None) -> str:
 
         os.makedirs(workspace, exist_ok=True)
         os.makedirs(os.path.join(workspace, "public"), exist_ok=True)
+        _copy_template_public_assets(workspace)
 
         _link_directory(
             os.path.join(template, "node_modules"),
@@ -667,18 +692,7 @@ def write_remotion_data(
     public_dir = os.path.join(workspace, "public")
     os.makedirs(public_dir, exist_ok=True)
 
-    # Copy static assets from the base Remotion project public/ into this workspace.
-    # This ensures template-specific backgrounds (like the vintage newspaper texture)
-    # are available both in preview and in the final rendered video.
-    template_public_dir = os.path.join(settings.REMOTION_PROJECT_PATH, "public")
-    if os.path.isdir(template_public_dir):
-        for root, _dirs, filenames in os.walk(template_public_dir):
-            for filename in filenames:
-                src = os.path.join(root, filename)
-                rel = os.path.relpath(src, template_public_dir)
-                dst = os.path.join(public_dir, rel)
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                shutil.copy2(src, dst)
+    # provision_workspace() already copies built-in template public assets here.
 
     # Collect and copy non-excluded images to public dir
     # If local file is missing (e.g. different Cloud Run container), download from R2
@@ -1176,12 +1190,13 @@ def write_remotion_data(
     raw_speed = round(float(getattr(project, "playback_speed", 1.0) or 1.0), 2)
     playback_speed = min(max(raw_speed, _MIN_PLAYBACK_SPEED), _MAX_PLAYBACK_SPEED)
 
+    _tpl_colors = get_preview_colors(template_id) or {}
     data = {
         "projectName": project.name,
         "heroImage": hero_image_file,
-        "accentColor": project.accent_color or "#7C3AED",
-        "bgColor": project.bg_color or "#FFFFFF",
-        "textColor": project.text_color or "#000000",
+        "accentColor": project.accent_color or _tpl_colors.get("accent") or "#7C3AED",
+        "bgColor": project.bg_color or _tpl_colors.get("bg") or "#FFFFFF",
+        "textColor": project.text_color or _tpl_colors.get("text") or "#000000",
         "fontFamily": getattr(project, "font_family", None),
         "logo": logo_file,
         "logoPosition": getattr(project, "logo_position", None) or "bottom_right",

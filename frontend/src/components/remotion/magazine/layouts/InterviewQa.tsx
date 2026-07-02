@@ -3,6 +3,7 @@ import { interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
+  MAG_TEXTURES,
   Kicker,
   WrittenText,
   MAG_DISPLAY,
@@ -162,15 +163,14 @@ export const InterviewQa: React.FC<SceneLayoutProps> = (props) => {
   return (
     <MagazinePage
       colors={colors}
-      section="Interview"
+      section={(props.sectionLabel as string)?.trim() || "Interview"}
       issue={props.issueLabel ?? "The Interview"}
       page={props.pageNumber}
       aspectRatio={props.aspectRatio}
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
       lightChrome
-      printTextureSrc="qa-timeline-bg.svg"
-      printTextureOpacity={0.4}
+      {...(p ? { printTextureSrc: MAG_TEXTURES.qaWashPortrait, printTextureOpacity: 0.7 } : { printTextureSrc: MAG_TEXTURES.spread, printTextureOpacity: 0.38 })}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <Kicker color={accent} style={{ opacity: labelO, marginBottom: p ? 28 : 34, flexShrink: 0 }}>

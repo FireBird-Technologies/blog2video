@@ -1,6 +1,11 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "./PlayerScaledCanvas";
 import { getTemplateConfig } from "../remotion/templateConfig";
+import {
+  planMagazineBoundaries,
+  resolveMagazineLayout,
+} from "../remotion/magazine/MagazineVideoComposition";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -17,7 +22,7 @@ interface DemoScene {
 
 // Curated from the existing sample issue in remotion-video/public/mag-allscenes.json
 // ("Atlas Review"), trimmed to a few visually distinct layouts for the preview cycle.
-const MAGAZINE_PREVIEW_SCENES: DemoScene[] = [
+export const MAGAZINE_PREVIEW_SCENES: DemoScene[] = [
   {
     id: 1,
     order: 1,
@@ -103,30 +108,31 @@ export default function MagazinePreview({
 }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const playerRef = useRef<PlayerRef>(null);
-
-  useEffect(() => {
-    if (thumbnailMode) setActiveSceneIndex(0);
-  }, [thumbnailMode]);
-
-  const activeScene = MAGAZINE_PREVIEW_SCENES[activeSceneIndex];
   const fps = 30;
-
-  // Single scene → no transitions, so total frames is just the scene's own length.
-  const durationInFrames = useMemo(
-    () => Math.max(1, Math.round((Number(activeScene.durationSeconds) || 5) * fps)),
-    [activeScene],
-  );
-  // Freeze a little past the intro so the cover/animation has settled.
-  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 130);
-
   const config = getTemplateConfig("magazine");
   const Composition = config.component as React.ComponentType<any>;
-
   const { accent: accentColor, bg: bgColor, text: textColor } = config.defaultColors;
+
+  // Play the WHOLE timeline continuously (cover → feature → … → loop) WITH the
+  // magazine's black-bridged 3D page transitions — exactly like the real video —
+  // instead of mounting one isolated static scene per Player window. Duration and
+  // per-scene start frames come from the SAME planner the composition uses, so the
+  // Player's declared length matches the composition (no clipped/raced pages).
+  const { durationInFrames, sceneStartFrames } = useMemo(() => {
+    const per = MAGAZINE_PREVIEW_SCENES.map((s) =>
+      Math.max(1, Math.round((Number(s.durationSeconds) || 5) * fps)),
+    );
+    const layoutKeys = MAGAZINE_PREVIEW_SCENES.map((s) => resolveMagazineLayout(s.layout));
+    const { totalFrames, startFrames } = planMagazineBoundaries(layoutKeys, per, accentColor);
+    return { durationInFrames: Math.max(1, totalFrames), sceneStartFrames: startFrames };
+  }, [accentColor, fps]);
+
+  // Freeze on the settled cover for the static thumbnail.
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 80);
 
   const inputProps = useMemo(
     () => ({
-      scenes: [activeScene],
+      scenes: MAGAZINE_PREVIEW_SCENES,
       projectName: "Atlas Review",
       accentColor,
       bgColor,
@@ -137,44 +143,82 @@ export default function MagazinePreview({
       logoSize: 0,
       aspectRatio: "landscape",
     }),
-    [activeScene, accentColor, bgColor, textColor],
+    [accentColor, bgColor, textColor],
   );
 
+  // Side cards are static: the moment a card is not the centered/live card it
+  // pauses and locks to the thumbnail frame, so only the live card ever animates.
   useEffect(() => {
     if (!thumbnailMode) return;
-    const p = playerRef.current;
-    if (!p) return;
-    p.pause();
-    p.seekTo(thumbnailFrame);
-  }, [thumbnailMode, thumbnailFrame, activeSceneIndex]);
+    const pl = playerRef.current;
+    if (!pl) return;
+    pl.pause();
+    pl.seekTo(thumbnailFrame);
+  }, [thumbnailMode, thumbnailFrame]);
 
+  // When the card becomes live, restart the timeline from the top so the
+  // animation plays fresh — the thumbnail effect above pauses it once it leaves.
   useEffect(() => {
     if (thumbnailMode) return;
-    const ms = Math.max(500, Math.round((durationInFrames / fps) * 1000));
-    const t = setTimeout(() => {
-      setActiveSceneIndex((i) => (i + 1) % MAGAZINE_PREVIEW_SCENES.length);
-    }, ms);
-    return () => clearTimeout(t);
-  }, [activeSceneIndex, durationInFrames, fps, thumbnailMode]);
+    const pl = playerRef.current;
+    if (!pl) return;
+    setActiveSceneIndex(0);
+    pl.seekTo(0);
+    pl.play();
+  }, [thumbnailMode]);
+
+  // Keep the active dot in sync with which scene is currently on screen.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    const pl = playerRef.current;
+    if (!pl) return;
+    const onFrame = () => {
+      const f = pl.getCurrentFrame();
+      let idx = 0;
+      for (let i = sceneStartFrames.length - 1; i >= 0; i--) {
+        if (f >= sceneStartFrames[i]) {
+          idx = i;
+          break;
+        }
+      }
+      setActiveSceneIndex((prev) => (prev === idx ? prev : idx));
+    };
+    pl.addEventListener("frameupdate", onFrame);
+    return () => pl.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, sceneStartFrames]);
+
+  // Clicking a dot seeks the continuous timeline to that scene's start.
+  const seekToScene = (index: number) => {
+    setActiveSceneIndex(index);
+    const pl = playerRef.current;
+    if (pl) {
+      pl.seekTo(sceneStartFrames[index] ?? 0);
+      if (!thumbnailMode) pl.play();
+    }
+  };
 
   return (
-    <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
-        <Player
-          ref={playerRef}
-          component={Composition}
-          inputProps={inputProps}
-          durationInFrames={durationInFrames}
-          initialFrame={0}
-          compositionWidth={1920}
-          compositionHeight={1080}
-          fps={fps}
-          controls={false}
-          autoPlay
-          loop={!thumbnailMode}
-          acknowledgeRemotionLicense
-          style={{ width: "100%", height: "100%", display: "block" }}
-        />
+    // Root fills the card box exactly (no intermediate aspect-ratio wrapper) so
+    // the carousel's `.cf-preview > * { height:100% }` makes the scene reach the
+    // card's top edge — matching NewscastPreview and avoiding a white strip.
+    <div className="relative w-full h-full overflow-hidden" style={{ background: bgColor }}>
+        <PlayerScaledCanvas>
+          <Player
+            ref={playerRef}
+            component={Composition}
+            inputProps={inputProps}
+            durationInFrames={durationInFrames}
+            initialFrame={0}
+            compositionWidth={1920}
+            compositionHeight={1080}
+            fps={fps}
+            controls={false}
+            autoPlay={!thumbnailMode}
+            loop={!thumbnailMode}
+            acknowledgeRemotionLicense
+            style={{ width: 480, height: 270, display: "block" }}
+          />
+        </PlayerScaledCanvas>
 
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
           {MAGAZINE_PREVIEW_SCENES.map((scene, index) => {
@@ -182,7 +226,7 @@ export default function MagazinePreview({
             return (
               <button
                 key={scene.id}
-                onClick={() => setActiveSceneIndex(index)}
+                onClick={() => seekToScene(index)}
                 disabled={thumbnailMode}
                 className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
                 style={isActive ? { background: accentColor } : undefined}
@@ -193,7 +237,6 @@ export default function MagazinePreview({
             );
           })}
         </div>
-      </div>
     </div>
   );
 }

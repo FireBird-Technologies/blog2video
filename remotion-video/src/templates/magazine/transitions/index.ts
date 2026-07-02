@@ -140,17 +140,17 @@ const TRANSITION_REGISTRY: Record<
 // entrance); if it ever enters mid-deck it falls through to the POOL.
 const ENTER_BY_LAYOUT: Partial<Record<MagazineLayoutType, MagazineTransitionName>> = {
   magazine_cover: "page_turn",
-  editorial_quote: "slide_down",
+  editorial_quote: "zoom_blur",
   by_the_numbers: "page_turn_back",
-  interview_qa: "quote_swing",
-  timeline_journey: "die_cut",
+  interview_qa: "lift",
+  timeline_journey: "page_turn_up",
   text_narration: "lift",
   ending_socials: "page_slide",
-  magazine_ticker: "riffle",
+  magazine_ticker: "die_cut",
   colorblock: "gatefold",
   feature: "sweep_br",
-  comparison: "page_turn_up",
-  magazine_data_visualization: "zoom_blur",
+  comparison: "die_cut",
+  magazine_data_visualization: "slide_down",
 };
 // Per-layout EXIT-to-black gesture, mirroring the ENTER map: "when a scene of this
 // layout ENDS, clear it to the black bridge with X". These run scene→black (only the

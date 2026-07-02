@@ -7,16 +7,25 @@ import { signatureMoveFor, MagDimsContext, MAG_BACKDROP } from "./magazineStyle"
 import { pickEnterTransition, pickExitTransition, type MagazineTransitionChoice } from "./transitions";
 import type { MagazineCameraMove, MagazineTransitionName } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
+import { resolveFontFamily } from "../../../fonts/registry";
 
 export interface MagazineSceneInput {
   id: number;
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: MagazineLayoutType;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
+  /** Per-scene background-music volume override (0..1). */
+  bgmVolume?: number | null;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -34,12 +43,29 @@ export interface MagazineVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
 }
 
 const FPS = 30;
 
-// Pure-black beat length between a scene's exit and the next scene's entrance.
-const BLACK_HOLD = 12;
+// Pure-black beat length between a scene's exit and the next scene's entrance. This is the
+// EXACT visible dead-black gap: the bridge is sized to exitFrames + enterFrames + BLACK_HOLD.
+const BLACK_HOLD = 6;
+
+// Cap the per-side transition overlap. The clamp below otherwise scales the overlap
+// with scene length (perScene × 0.225), so on long narration-length scenes the enter
+// reveal grows to ~76f and fully covers each layout's camera-move settle window
+// (~68 real frames — settleEnd 50 × MAG_TEMPO 1.35 in useMagazineCamera). That's why
+// the camera moves only showed on the SHORT curated preview scenes and vanished in
+// Project View. Capping the overlap keeps the reveal shorter than the camera settle at
+// ANY scene length, so the per-layout camera move always plays in view.
+const TRANSITION_OVERLAP_CAP = 30;
 
 export interface MagazineBoundary {
   exitChoice: MagazineTransitionChoice;
@@ -72,24 +98,29 @@ export const planMagazineBoundaries = (
     const nextLayout = layoutKeys[i + 1];
     const exitChoice = pickExitTransition(layoutKey, accent, exitOverrides[i]);
     const enterChoice = pickEnterTransition(nextLayout, accent, enterOverrides[i + 1]);
-    const blackFrames = Math.max(BLACK_HOLD, exitChoice.frames, enterChoice.frames);
     // A scene's visible-static window = its duration MINUS the enter overlap at its head
     // and the exit overlap at its tail. Reserve at least STATIC_CORE_FRAC of each scene
     // as that static window so every page has time to read/animate in before it leaves —
     // otherwise long transitions (e.g. zoom_blur 122f) on a short scene can eat the WHOLE
-    // scene and it "moves away almost immediately". The transition gets the rest, split
-    // between the two sides. (The black bridge half-cap still applies so Remotion is happy.)
+    // scene and it "moves away almost immediately". The overlap is also capped by
+    // TRANSITION_OVERLAP_CAP so it never overruns the per-layout camera-move settle window.
     const STATIC_CORE_FRAC = 0.55; // ≥55% of every scene stays a held, static page
     const maxSidePerScene = Math.floor((perSceneFrames[i] * (1 - STATIC_CORE_FRAC)) / 2);
     const maxSideNextScene = Math.floor((perSceneFrames[i + 1] * (1 - STATIC_CORE_FRAC)) / 2);
     const exitFrames = Math.max(
       1,
-      Math.min(exitChoice.frames, maxSidePerScene, Math.floor(blackFrames / 2)),
+      Math.min(exitChoice.frames, maxSidePerScene, TRANSITION_OVERLAP_CAP),
     );
     const enterFrames = Math.max(
       1,
-      Math.min(enterChoice.frames, maxSideNextScene, Math.floor(blackFrames / 2)),
+      Math.min(enterChoice.frames, maxSideNextScene, TRANSITION_OVERLAP_CAP),
     );
+    // The bridge is just the two page-clearing overlaps + a short pure-black beat, so the
+    // visible dead-black gap between scenes is exactly BLACK_HOLD frames — NOT the full
+    // transition length (which made the gap balloon to ~3s once the overlaps were capped).
+    // exit+enter ≤ blackFrames holds by construction, so Remotion's overlap constraint is
+    // always satisfied.
+    const blackFrames = exitFrames + enterFrames + BLACK_HOLD;
     return { exitChoice, enterChoice, blackFrames, exitFrames, enterFrames };
   });
 
@@ -126,6 +157,13 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
   logoSize,
   aspectRatio,
   fontFamily,
+  bgmUrl,
+  bgmVolume,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
 }) => {
   const isPortrait = aspectRatio === "portrait";
   const canvasW = isPortrait ? 1080 : 1920;
@@ -187,15 +225,32 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
     index: number,
   ): SceneLayoutProps => {
     const pageNum = index + 1;
-    const focusX = Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)));
-    const focusY = Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)));
+    const rawProps = (scene.layoutProps as Record<string, unknown>) ?? {};
+    const focusX = Math.max(0, Math.min(100, Number(rawProps?.imageFocusX ?? 50)));
+    const focusY = Math.max(0, Math.min(100, Number(rawProps?.imageFocusY ?? 50)));
+    // For a few layouts the pipeline writes the on-screen copy into layout_props_json
+    // (as `title`/`narration`) rather than reusing the scene's main Title / Display-text.
+    // For those, prefer the layout-prop value and only fall back to the main scene field
+    // when the layout prop is empty. Every other layout keeps the main scene fields.
+    const preferProps = layoutKey === "editorial_quote" || layoutKey === "text_narration";
+    // These layouts carry their own on-screen copy in layout_props_json. The key is
+    // named per-layout (`quoteText` / `headline`) so it never collides with the scene's
+    // main Title field; `title` is accepted only as a backward-compatible fallback.
+    const lpOwnCopy =
+      layoutKey === "editorial_quote"
+        ? (rawProps.quoteText as string | undefined)
+        : layoutKey === "text_narration"
+          ? (rawProps.headline as string | undefined)
+          : undefined;
+    const lpTitle = (lpOwnCopy ?? (rawProps.title as string | undefined))?.trim();
+    const lpNarr = (rawProps.narration as string | undefined)?.trim();
     return {
-      ...(scene.layoutProps as Record<string, unknown>),
-      title: scene.title,
-      narration: scene.narration,
+      ...rawProps,
+      title: preferProps && lpTitle ? lpTitle : scene.title,
+      narration: preferProps && lpNarr ? lpNarr : scene.narration,
       imageUrl: scene.imageUrl,
       imageObjectPosition: `${focusX}% ${focusY}%`,
-      imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+      imageZoom: Math.max(0.1, Number(rawProps?.imageZoom ?? 1)),
       accentColor: accentColor || "#D71921",
       bgColor: bgColor || "#FFFFFF",
       textColor: textColor || "#111111",
@@ -208,9 +263,47 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
       // First scene cranes in; otherwise use the per-layout signature move,
       // unless the scene explicitly sets its own cameraMove.
       cameraMove:
-        ((scene.layoutProps as Record<string, unknown>)?.cameraMove as MagazineCameraMove | undefined) ??
+        (rawProps?.cameraMove as MagazineCameraMove | undefined) ??
         (index === 0 ? "crane_down" : signatureMoveFor(layoutKey, pageNum)),
     };
+  };
+
+  // On-screen captions for a scene, synced to its voiceover window. Lives at the
+  // real-output level (outside the scaled design canvas) so it sizes/positions in
+  // output pixels — matching how the newspaper composition renders captions.
+  const captionSequence = (
+    scene: MagazineSceneInput,
+    index: number,
+    startFrame: number,
+    durationFrames: number,
+  ) => {
+    const text = scene.narrationText || scene.narration;
+    if (!captionsEnabled || !text) return null;
+    return (
+      <Sequence
+        key={`caption-${scene.id}-${index}`}
+        from={startFrame}
+        durationInFrames={durationFrames}
+      >
+        <CaptionTrack
+          text={text}
+          position={captionPosition || "bottom_center"}
+          aspectRatio={aspectRatio || "landscape"}
+          fontFamily={
+            captionFontFamily
+              ? resolveFontFamily(captionFontFamily) || captionFontFamily
+              : fontFamily || undefined
+          }
+          fontSize={captionFontSize || undefined}
+          offset={captionOffset ?? 0}
+          speechDurationFrames={
+            scene.speechDurationSeconds
+              ? Math.round(scene.speechDurationSeconds * FPS)
+              : undefined
+          }
+        />
+      </Sequence>
+    );
   };
 
   // Single scene — no transitions needed.
@@ -228,6 +321,7 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
             </Sequence>
           );
         })())}
+        {only && captionSequence(only.scene, 0, 0, only.durationFrames)}
         {logo && (
           <LogoOverlay
             src={logo}
@@ -236,6 +330,9 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
             size={logoSize ?? 100}
             aspectRatio={aspectRatio || "landscape"}
           />
+        )}
+        {bgmUrl && (
+          <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
         )}
       </AbsoluteFill>
     );
@@ -304,6 +401,10 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
         );
       })}
 
+      {resolvedScenes.map((s, index) =>
+        captionSequence(s.scene, index, sceneStartFrames[index], s.durationFrames),
+      )}
+
       {logo && (
         <LogoOverlay
           src={logo}
@@ -312,6 +413,10 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
       )}
     </AbsoluteFill>
   );

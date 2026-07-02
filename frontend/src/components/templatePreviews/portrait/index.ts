@@ -13,4 +13,5 @@ export { default as ChroniclePreviewPortrait } from "./ChroniclePreviewPortrait"
 export { default as EconomistPreviewPortrait } from "./EconomistPreviewPortrait";
 export { default as Stickman2PreviewPortrait } from "./Stickman2PreviewPortrait";
 export { default as StickmanFootballPreviewPortrait } from "./StickmanFootballPreviewPortrait";
+export { default as MagazinePreviewPortrait } from "./MagazinePreviewPortrait";
 export { default as YourOwnBrandPreviewPortrait } from "./YourOwnBrandPreviewPortrait";

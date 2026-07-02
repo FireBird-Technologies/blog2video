@@ -3,6 +3,7 @@ import { interpolate } from "remotion";
 import type { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
+  MAG_TEXTURES,
   Kicker,
   KineticWords,
   MAG_DISPLAY,
@@ -14,7 +15,7 @@ import {
   useMagFrame,
 } from "../magazineStyle";
 
-const MAX_ROWS = 20;
+const MAX_ROWS = 10;
 const MAX_COLS = 6;
 const POSITIVE_COLOR = "#1E7A4C";
 const NEGATIVE_COLOR = "#B83B3B";
@@ -44,8 +45,8 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
   const colors = resolveMagColors(props);
   const { bg, text, accent } = colors;
 
-  const titleSize = titleFontSize ?? (p ? 50 : 44);
-  const descSize = descriptionFontSize ?? (p ? 28 : 22);
+  const titleSize = titleFontSize ?? (p ? 58 : 44);
+  const descSize = descriptionFontSize ?? (p ? 34 : 22);
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, MAX_COLS);
   const rawRows = (tickerTable?.rows ?? []).slice(0, MAX_ROWS).map((r) => (r ?? []).slice(0, MAX_COLS));
@@ -54,14 +55,14 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
   const hlCol = typeof tickerHighlightCol === "number" && tickerHighlightCol >= 0 && tickerHighlightCol < colCount ? tickerHighlightCol : -1;
   const hasData = rowCount > 0;
 
-  const densityTier = rowCount <= 10 ? 0 : rowCount <= 16 ? 1 : 2;
+  const densityTier = rowCount <= 4 ? 0 : rowCount <= 7 ? 1 : 2;
   const cellFontSize = (() => {
     const colTier = colCount <= 3 ? 0 : colCount <= 5 ? 1 : 2;
     const tier = Math.max(densityTier, colTier);
-    return Math.round((p ? 24 : 20) * [1, 0.92, 0.85][tier]);
+    return Math.round((p ? 40 : 26) * [1, 0.92, 0.85][tier]);
   })();
   const headerFontSize = Math.round(cellFontSize * 0.82);
-  const cellPadV = (p ? [13, 10, 8] : [12, 9, 7])[densityTier];
+  const cellPadV = (p ? [16, 13, 10] : [14, 11, 8])[densityTier];
   const cellPadH = colCount <= 4 ? 18 : 12;
   const GRID = `${text}1a`;
 
@@ -73,16 +74,16 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
   const rowY = (i: number) => interpolate(frame, [20 + i * 6, 20 + i * 6 + 14], [8, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
-    <MagazinePage lightChrome colors={colors} section="Ledger" issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage cameraMove={props.cameraMove}>
+    <MagazinePage lightChrome colors={colors} section={(props.sectionLabel as string)?.trim() || "Ledger"} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} singlePage cameraMove={props.cameraMove} printTextureSrc={MAG_TEXTURES.blur} printTextureZoom={1.6}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ opacity: titleO, flexShrink: 0, marginBottom: 22 }}>
           <Kicker color={accent} style={{ marginBottom: 12 }}>{tickerTitle || "Figures"}</Kicker>
-          <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.04, letterSpacing: "-0.015em", color: text, margin: 0 }}>
+          <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.12, letterSpacing: "-0.015em", color: text, margin: 0, overflowWrap: "break-word" }}>
             <KineticWords text={title || "By the Numbers"} start={2} stagger={2} dur={14} />
           </h1>
         </div>
 
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: `1px solid ${GRID}` }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: p && rowCount <= 8 ? "center" : "flex-start", border: `1px solid ${GRID}` }}>
           {!hasData ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, fontFamily: MAG_SERIF, fontStyle: "italic", fontSize: descSize, color: text, opacity: 0.45 }}>
               No data — add a table by editing this scene
@@ -115,7 +116,7 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
                 </div>
               )}
 
-              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ flex: p && rowCount <= 8 ? "0 0 auto" : 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
                 {rawRows.map((row, ri) => (
                   <div
                     key={ri}

@@ -1,0 +1,34 @@
+<svg viewBox="0 0 1466 850" xmlns="http://www.w3.org/2000/svg" role="img" style="">
+<title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(11, 11, 11);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Editorial background with a subtle color wash across the empty area</title>
+<desc style="fill:rgb(0, 0, 0);stroke:none;color:rgb(11, 11, 11);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">A magazine background where the empty lower half of both pages carries a very subtle warm off white color wash, gently tinting the area without any block, border, photo, or diagram, while the top of the pages stay pure white. A center gutter crease with real depth runs between the two pages. No text, numbers, or icons.</desc>
+<defs>
+<linearGradient id="hingeL" x1="1" y1="0" x2="0" y2="0">
+  <stop offset="0" stop-color="#000000" stop-opacity="0.2"/>
+  <stop offset="0.5" stop-color="#000000" stop-opacity="0.05"/>
+  <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+</linearGradient>
+<linearGradient id="hingeR" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0" stop-color="#000000" stop-opacity="0.2"/>
+  <stop offset="0.5" stop-color="#000000" stop-opacity="0.05"/>
+  <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+</linearGradient>
+<linearGradient id="hingeHighlight" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0" stop-color="#000000" stop-opacity="0"/>
+  <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.45"/>
+  <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+</linearGradient>
+<linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#f4efe8" stop-opacity="0"/>
+  <stop offset="1" stop-color="#f4efe8" stop-opacity="0.9"/>
+</linearGradient>
+</defs>
+
+<rect x="0" y="0" width="1456" height="840" fill="#ffffff" style="fill:rgb(255, 255, 255);stroke:none;color:rgb(11, 11, 11);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<rect x="0" y="420" width="1456" height="420" fill="url(#wash)" style="stroke:none;color:rgb(11, 11, 11);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<rect x="726" y="0" width="34" height="840" fill="url(#hingeL)" style="stroke:none;color:rgb(11, 11, 11);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<rect x="760" y="0" width="34" height="840" fill="url(#hingeR)" style="stroke:none;color:rgb(11, 11, 11);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<rect x="744" y="0" width="26" height="840" fill="url(#hingeHighlight)" style="stroke:none;color:rgb(11, 11, 11);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<rect x="759" y="0" width="2" height="840" fill="#000000" opacity="0.18" style="fill:rgb(0, 0, 0);stroke:none;color:rgb(11, 11, 11);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.18;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+</svg>

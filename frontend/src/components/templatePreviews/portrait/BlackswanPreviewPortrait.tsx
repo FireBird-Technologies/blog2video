@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "../PlayerScaledCanvas";
 import "@fontsource/righteous/400.css";
 import {
   BlackswanVideoComposition,
@@ -14,27 +15,6 @@ const FPS = 30;
 const ACCENT = "#00E5FF";
 const TEXT = "#DFFFFF";
 const BG = "#000000";
-
-function ScaledCanvas({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.5);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setScale(el.offsetWidth / INTERNAL_W);
-    update();
-    const obs = new ResizeObserver(update);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return (
-    <div ref={ref} style={{ width: "100%", aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, overflow: "hidden", position: "relative" }}>
-      <div style={{ width: INTERNAL_W, height: INTERNAL_H, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute" }}>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 const PREVIEW_SCENES: BlackswanSceneInput[] = [
   {
@@ -193,8 +173,8 @@ export default function BlackswanPreviewPortrait({ thumbnailMode = false }: { th
   };
 
   return (
-    <ScaledCanvas>
-      <div style={{ width: "100%", height: "100%", position: "relative", background: BG }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: BG }}>
+      <PlayerScaledCanvas internalWidth={INTERNAL_W} internalHeight={INTERNAL_H}>
         <Player
           ref={playerRef}
           component={BlackswanVideoComposition}
@@ -210,6 +190,7 @@ export default function BlackswanPreviewPortrait({ thumbnailMode = false }: { th
           acknowledgeRemotionLicense
           style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
         />
+      </PlayerScaledCanvas>
         <SlideDots
           total={scenes.length}
           current={sceneIndex}
@@ -218,7 +199,6 @@ export default function BlackswanPreviewPortrait({ thumbnailMode = false }: { th
             seekToScene(i);
           }}
         />
-      </div>
-    </ScaledCanvas>
+    </div>
   );
 }

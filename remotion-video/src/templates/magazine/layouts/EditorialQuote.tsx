@@ -5,12 +5,14 @@ import {
   MagazinePage,
   Halftone,
   QuoteGlyph,
+  OptionalImg,
   WrittenText,
   Typewriter,
   MAG_DISPLAY,
   MAG_SANS,
   resolveMagColors,
   isPortrait,
+  hexToRgba,
   useReveal,
   useMagFrame,
 } from "../magazineStyle";
@@ -24,11 +26,23 @@ import {
  * never reads like the centred text-narration page.
  */
 export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
-  const { title, narration, titleFontSize, descriptionFontSize } = props;
-  const attribution = (props.attribution as string) ?? narration;
+  const { title, titleFontSize, descriptionFontSize } = props;
+  // The pull quote is the layout's own copy: the composition resolves `title` to the
+  // layout-prop quote for this layout (see buildLayoutProps / MagazineVideo). We render
+  // ONLY that quote + the attribution — the scene's main Display-text is not shown here.
+  const quote = (title ?? "").trim();
+  // Attribution is an explicit credit line only — never fall back to the quote
+  // copy, or the statement would be duplicated as its own attribution.
+  const attribution = (props.attribution as string) ?? "";
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
-  const { text, accent } = colors;
+  const { bg, text, accent } = colors;
+
+  // Optional photo — rendered ONLY when the scene carries an image. When present
+  // it sits as a framed block up the right margin (landscape) / beneath the quote
+  // (portrait), and the statement column narrows to make room for it.
+  const imageUrl = props.imageUrl;
+  const hasImage = Boolean(imageUrl);
 
   const frame = useMagFrame();
   const { fps } = useVideoConfig();
@@ -37,8 +51,9 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
   const markO = useReveal(4, 16);
   const railP = useReveal(6, 18);
   const glyphScale = 0.86 + 0.14 * markO;
+  const plateO = useReveal(8, 18); // the photo block fades in with the rail
 
-  const words = (title ?? "").split(" ");
+  const words = quote.split(" ");
   const wStart = 14; // start right after the glyph + rail have appeared
   const wStagger = Math.max(1, Math.round(fps * 0.045)); // tighter stagger = smoother flow
   const wDur = Math.round(fps * 0.22); // each word fades in quickly
@@ -61,14 +76,14 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
         opacity: 0.78,
       }}
     >
-      <Typewriter text={attribution.replace(/^[—–-]\s*/, "— ")} start={lastEnd + 14} cpf={1.2} caretColor={accent} />
+      <Typewriter text={attribution.replace(/^[—–-]\s*/, "")} start={lastEnd + 14} cpf={1.2} caretColor={accent} />
     </div>
   );
 
   return (
     <MagazinePage
       colors={colors}
-      section="Quote"
+      section={(props.sectionLabel as string)?.trim() || "Quote"}
       issue={props.issueLabel ?? "Comment"}
       page={props.pageNumber}
       aspectRatio={props.aspectRatio}
@@ -76,8 +91,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
       cameraMove={props.cameraMove}
       lightChrome
       singlePage
-      printTextureSrc="editorial-quote-bg.svg"
-      printTextureOpacity={0.45}
+      hidePrintTexture
     >
       <div style={{ height: "100%", position: "relative", overflow: "hidden" }}>
         {/* Faint halftone field for print texture */}
@@ -112,14 +126,55 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
           }}
         />
 
-        {/* The statement — left-aligned, tucked just below the quotation glyph */}
+        {/* Optional editorial photo block. Landscape: a tall framed plate up the
+            right margin; portrait: a wide plate anchored to the lower band. Only
+            rendered when the scene actually carries an image. */}
+        {imageUrl && (
+          <div
+            style={{
+              position: "absolute",
+              ...(p
+                ? { left: "16%", right: "10%", bottom: "8%", height: "26%" }
+                : { right: "6%", top: "20%", bottom: "12%", width: "30%" }),
+              background: bg,
+              padding: 8,
+              border: `1px solid ${hexToRgba(text, 0.85)}`,
+              boxShadow: "0 6px 16px rgba(0,0,0,0.24)",
+              overflow: "hidden",
+              opacity: plateO,
+              transform: `translateY(${((1 - plateO) * 16).toFixed(1)}px)`,
+              zIndex: 1,
+            }}
+          >
+            <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
+              <OptionalImg
+                src={imageUrl}
+                onError={() => {}}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (props.imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (props.imageZoom ?? 1) < 1 ? "center" : (props.imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${props.imageZoom ?? 1})`,
+                  transformOrigin: (props.imageZoom ?? 1) < 1 ? "center center" : (props.imageObjectPosition ?? "50% 50%"),
+                  display: "block",
+                }}
+              />
+              {/* faint paper tint so the photo sits into the printed page */}
+              <div style={{ position: "absolute", inset: 0, background: hexToRgba(bg, 0.06), pointerEvents: "none" }} />
+            </div>
+          </div>
+        )}
+
+        {/* The statement — left-aligned, tucked just below the quotation glyph. It
+            narrows on the right when a photo block shares the page. */}
         <div
           style={{
             position: "absolute",
             left: "16%",
-            right: p ? "10%" : "22%",
+            right: p ? "10%" : hasImage ? "40%" : "22%",
             top: p ? "22%" : "18%",
-            bottom: p ? "8%" : "10%",
+            bottom: p ? (hasImage ? "38%" : "8%") : "10%",
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-start",
@@ -141,7 +196,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
               textAlign: "left",
             }}
           >
-            <WrittenText text={title ?? ""} start={wStart} wordsPerFrame={wStagger > 0 ? 1 / wStagger : 0.5} dur={wDur} />
+            <WrittenText text={quote} start={wStart} wordsPerFrame={wStagger > 0 ? 1 / wStagger : 0.5} dur={wDur} />
           </blockquote>
 
           {/* Attribution beneath the quote with a short accent rule */}
@@ -152,6 +207,22 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
             </div>
           )}
         </div>
+
+        {/* Faded-black vignette along the very bottom of the page. Pointer-inert
+            and low in the stack (the quote block above is zIndex:1) so it darkens
+            the bottom edge without ever landing on the statement or attribution. */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "22%",
+            background: "linear-gradient(to top, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.14) 45%, rgba(0,0,0,0) 100%)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
       </div>
     </MagazinePage>
   );

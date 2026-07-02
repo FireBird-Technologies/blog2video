@@ -1,0 +1,44 @@
+<svg viewBox="0 0 850 1466" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Editorial background portrait — page-fold crease at the right margin</title>
+<desc>Portrait magazine background: warm bottom wash and a single bilateral page-fold crease pushed to the far-right margin (~x=800), clear of the text column so copy never lands on the hinge.</desc>
+<defs>
+  <!-- Left fold arm: dark at crease (right), transparent at far left -->
+  <linearGradient id="foldL" x1="1" y1="0" x2="0" y2="0">
+    <stop offset="0"   stop-color="#000000" stop-opacity="0.22"/>
+    <stop offset="0.5" stop-color="#000000" stop-opacity="0.06"/>
+    <stop offset="1"   stop-color="#000000" stop-opacity="0"/>
+  </linearGradient>
+  <!-- Right fold arm: dark at crease (left), transparent at far right -->
+  <linearGradient id="foldR" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0"   stop-color="#000000" stop-opacity="0.22"/>
+    <stop offset="0.5" stop-color="#000000" stop-opacity="0.06"/>
+    <stop offset="1"   stop-color="#000000" stop-opacity="0"/>
+  </linearGradient>
+  <!-- Crease highlight -->
+  <linearGradient id="creaseHL" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0"   stop-color="#000000" stop-opacity="0"/>
+    <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.45"/>
+    <stop offset="1"   stop-color="#000000" stop-opacity="0"/>
+  </linearGradient>
+  <!-- Warm bottom wash -->
+  <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f4efe8" stop-opacity="0"/>
+    <stop offset="1" stop-color="#f4efe8" stop-opacity="0.9"/>
+  </linearGradient>
+</defs>
+
+<!-- White base -->
+<rect x="0" y="0" width="850" height="1466" fill="#ffffff"/>
+<!-- Warm wash over bottom half -->
+<rect x="0" y="733" width="850" height="733" fill="url(#wash)"/>
+
+<!-- ── Bilateral page-fold crease at the far-right margin, centred at x=800 ── -->
+<!-- Left shadow arm: x=736 → x=800 (dark at x=800) -->
+<rect x="736" y="0" width="64" height="1466" fill="url(#foldL)"/>
+<!-- Right shadow arm: x=800 → x=850 (dark at x=800), runs off the viewBox edge -->
+<rect x="800" y="0" width="50" height="1466" fill="url(#foldR)"/>
+<!-- Crease highlight centred at x=800 -->
+<rect x="786" y="0" width="26" height="1466" fill="url(#creaseHL)"/>
+<!-- Thin dark crease line -->
+<rect x="799" y="0" width="2"  height="1466" fill="#000000" opacity="0.32"/>
+</svg>

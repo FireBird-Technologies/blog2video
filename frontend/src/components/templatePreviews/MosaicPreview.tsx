@@ -1,6 +1,11 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { getTemplateConfig } from "../remotion/templateConfig";
+import PlayerScaledCanvas from "./PlayerScaledCanvas";
+
+// Fixed-pixel size the Player renders at inside PlayerScaledCanvas (16:9).
+const INTERNAL_W = 480;
+const INTERNAL_H = 270;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -112,8 +117,8 @@ export default function MosaicPreview({ thumbnailMode = false }: { thumbnailMode
   }, [thumbnailMode]);
 
   return (
-    <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: bgColor }}>
+      <PlayerScaledCanvas>
         <Player
           ref={playerRef}
           component={Composition}
@@ -127,8 +132,9 @@ export default function MosaicPreview({ thumbnailMode = false }: { thumbnailMode
           autoPlay={!thumbnailMode}
           loop={!thumbnailMode}
           acknowledgeRemotionLicense
-          style={{ width: "100%", height: "100%", display: "block" }}
+          style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
         />
+      </PlayerScaledCanvas>
 
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
           {MOSAIC_PREVIEW_SCENES.map((scene, index) => {
@@ -147,7 +153,6 @@ export default function MosaicPreview({ thumbnailMode = false }: { thumbnailMode
             );
           })}
         </div>
-      </div>
     </div>
   );
 }

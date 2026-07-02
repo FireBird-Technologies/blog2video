@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "../PlayerScaledCanvas";
 import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -249,23 +250,24 @@ export default function StickmanFootballPreviewPortrait({ thumbnailMode = false 
   };
 
   return (
-    <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "9/16", background: bgColor }}>
-        <Player
-          ref={playerRef}
-          component={Composition}
-          inputProps={inputProps}
-          durationInFrames={durationInFrames}
-          initialFrame={0}
-          compositionWidth={1080}
-          compositionHeight={1920}
-          fps={fps}
-          controls={false}
-          autoPlay
-          loop={!thumbnailMode}
-          acknowledgeRemotionLicense
-          style={{ width: "100%", height: "100%", display: "block" }}
-        />
+    <div className="relative w-full h-full overflow-hidden" style={{ background: bgColor }}>
+        <PlayerScaledCanvas internalWidth={270} internalHeight={480}>
+          <Player
+            ref={playerRef}
+            component={Composition}
+            inputProps={inputProps}
+            durationInFrames={durationInFrames}
+            initialFrame={0}
+            compositionWidth={1080}
+            compositionHeight={1920}
+            fps={fps}
+            controls={false}
+            autoPlay
+            loop={!thumbnailMode}
+            acknowledgeRemotionLicense
+            style={{ width: 270, height: 480, display: "block" }}
+          />
+        </PlayerScaledCanvas>
 
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 rounded-full bg-black/35 px-2 py-1">
           {STICKMAN_FOOTBALL_PREVIEW_SCENES.map((scene, index) => {
@@ -284,7 +286,6 @@ export default function StickmanFootballPreviewPortrait({ thumbnailMode = false 
             );
           })}
         </div>
-      </div>
     </div>
   );
 }

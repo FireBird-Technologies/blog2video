@@ -1,36 +1,14 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "../PlayerScaledCanvas";
 import { getTemplateConfig } from "../../remotion/templateConfig";
 import { computeChronicleVideoTotalFrames } from "../../remotion/chronicle/ChronicleVideoComposition";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// ─── Portrait canvas wrapper (9:16). Fixed-pixel Player inside a CSS-scaled box
-// keeps Remotion's useElementSize stable under the carousel's ancestor
-// transforms (a width/height:100% Player flickers / collapses otherwise).
 const INTERNAL_W = 270;
 const INTERNAL_H = 480;
-
-function ScaledCanvas({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.5);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setScale(el.offsetWidth / INTERNAL_W);
-    update();
-    const obs = new ResizeObserver(update);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return (
-    <div ref={ref} style={{ width: "100%", aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, overflow: "hidden", position: "relative" }}>
-      <div style={{ width: INTERNAL_W, height: INTERNAL_H, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute" }}>
-        {children}
-      </div>
-    </div>
-  );
-}
+const FPS = 30;
 
 interface DemoScene {
   id: number;
@@ -86,8 +64,6 @@ const CHRONICLE_PREVIEW_SCENES: DemoScene[] = [
     imageUrl: "/assets/earth-blue-marble.jpg",
   },
 ];
-
-const FPS = 30;
 
 export default function ChroniclePreviewPortrait({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
@@ -161,8 +137,8 @@ export default function ChroniclePreviewPortrait({ thumbnailMode = false }: { th
   }, [thumbnailMode, sceneOffsets]);
 
   return (
-    <ScaledCanvas>
-      <div style={{ width: "100%", height: "100%", position: "relative", background: bgColor }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: bgColor }}>
+      <PlayerScaledCanvas internalWidth={INTERNAL_W} internalHeight={INTERNAL_H}>
         <Player
           ref={playerRef}
           component={Composition}
@@ -178,6 +154,7 @@ export default function ChroniclePreviewPortrait({ thumbnailMode = false }: { th
           acknowledgeRemotionLicense
           style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
         />
+      </PlayerScaledCanvas>
 
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
           {CHRONICLE_PREVIEW_SCENES.map((scene, index) => {
@@ -196,7 +173,6 @@ export default function ChroniclePreviewPortrait({ thumbnailMode = false }: { th
             );
           })}
         </div>
-      </div>
-    </ScaledCanvas>
+    </div>
   );
 }

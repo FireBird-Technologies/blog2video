@@ -1,0 +1,60 @@
+<svg viewBox="0 0 910 1610" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Print style magazine background portrait — single leaf, crop marks + halftone, NO center crease</title>
+<desc>A clean white single page with crop registration marks in all four corners and a softly blurred halftone dot cluster near the bottom-right corner. No center gutter crease. No text or numbers.</desc>
+<defs>
+<filter id="softBlur" x="-40%" y="-40%" width="180%" height="180%">
+  <feGaussianBlur stdDeviation="3.2"/>
+</filter>
+</defs>
+
+<rect x="0" y="0" width="910" height="1610" fill="#ffffff"/>
+
+<g stroke="#3a3a37" fill="none" opacity="0.55">
+  <g transform="translate(28,28)">
+    <circle r="9" stroke-width="1.2"/>
+    <line x1="-14" y1="0" x2="14" y2="0" stroke-width="0.8"/>
+    <line x1="0" y1="-14" x2="0" y2="14" stroke-width="0.8"/>
+  </g>
+  <g transform="translate(882,28)">
+    <circle r="9" stroke-width="1.2"/>
+    <line x1="-14" y1="0" x2="14" y2="0" stroke-width="0.8"/>
+    <line x1="0" y1="-14" x2="0" y2="14" stroke-width="0.8"/>
+  </g>
+  <g transform="translate(28,1582)">
+    <circle r="9" stroke-width="1.2"/>
+    <line x1="-14" y1="0" x2="14" y2="0" stroke-width="0.8"/>
+    <line x1="0" y1="-14" x2="0" y2="14" stroke-width="0.8"/>
+  </g>
+  <g transform="translate(882,1582)">
+    <circle r="9" stroke-width="1.2"/>
+    <line x1="-14" y1="0" x2="14" y2="0" stroke-width="0.8"/>
+    <line x1="0" y1="-14" x2="0" y2="14" stroke-width="0.8"/>
+  </g>
+</g>
+
+<g opacity="0.45" fill="none" stroke="#3a3a37" stroke-width="1">
+  <path d="M14 14 L14 30 M14 14 L30 14"/>
+  <path d="M896 14 L896 30 M896 14 L880 14"/>
+  <path d="M14 1596 L14 1580 M14 1596 L30 1596"/>
+  <path d="M896 1596 L896 1580 M896 1596 L880 1596"/>
+</g>
+
+<g filter="url(#softBlur)" opacity="0.75" transform="translate(-690,665)">
+  <g fill="#2c2c2a">
+    <circle cx="1470" cy="700" r="2.4"/><circle cx="1510" cy="700" r="2.6"/><circle cx="1550" cy="700" r="2.8"/>
+    <circle cx="1430" cy="730" r="2.6"/><circle cx="1470" cy="730" r="3.4"/><circle cx="1510" cy="730" r="4.4"/><circle cx="1550" cy="730" r="5.2"/>
+    <circle cx="1390" cy="760" r="2.6"/><circle cx="1430" cy="760" r="3.8"/><circle cx="1470" cy="760" r="5.6"/><circle cx="1510" cy="760" r="7.2"/><circle cx="1550" cy="760" r="8.4"/>
+    <circle cx="1350" cy="790" r="2.4"/><circle cx="1390" cy="790" r="4.2"/><circle cx="1430" cy="790" r="6.6"/><circle cx="1470" cy="790" r="8.8"/><circle cx="1510" cy="790" r="10.4"/><circle cx="1550" cy="790" r="11.6"/>
+    <circle cx="1310" cy="820" r="2.2"/><circle cx="1350" cy="820" r="4.4"/><circle cx="1390" cy="820" r="7.2"/><circle cx="1430" cy="820" r="10"/><circle cx="1470" cy="820" r="12.2"/><circle cx="1510" cy="820" r="14"/><circle cx="1550" cy="820" r="15.2"/>
+    <circle cx="1270" cy="850" r="2"/><circle cx="1310" cy="850" r="4.4"/><circle cx="1350" cy="850" r="7.6"/><circle cx="1390" cy="850" r="10.8"/><circle cx="1430" cy="850" r="13.4"/><circle cx="1470" cy="850" r="15.6"/><circle cx="1510" cy="850" r="17.2"/><circle cx="1550" cy="850" r="18"/>
+  </g>
+  <g fill="#9a9994" opacity="0.85">
+    <circle cx="1478" cy="694" r="1.6"/><circle cx="1518" cy="694" r="1.8"/>
+    <circle cx="1438" cy="724" r="1.8"/><circle cx="1478" cy="724" r="2.4"/><circle cx="1518" cy="724" r="3"/>
+    <circle cx="1398" cy="754" r="1.8"/><circle cx="1438" cy="754" r="2.6"/><circle cx="1478" cy="754" r="3.8"/><circle cx="1518" cy="754" r="4.8"/>
+    <circle cx="1358" cy="784" r="1.6"/><circle cx="1398" cy="784" r="2.8"/><circle cx="1438" cy="784" r="4.4"/><circle cx="1478" cy="784" r="5.8"/><circle cx="1518" cy="784" r="6.8"/>
+    <circle cx="1318" cy="814" r="1.5"/><circle cx="1358" cy="814" r="3"/><circle cx="1398" cy="814" r="4.8"/><circle cx="1438" cy="814" r="6.6"/><circle cx="1478" cy="814" r="8"/><circle cx="1518" cy="814" r="9"/>
+    <circle cx="1278" cy="844" r="1.4"/><circle cx="1318" cy="844" r="3"/><circle cx="1358" cy="844" r="5"/><circle cx="1398" cy="844" r="7"/><circle cx="1438" cy="844" r="8.8"/><circle cx="1478" cy="844" r="10.2"/><circle cx="1518" cy="844" r="11.2"/>
+  </g>
+</g>
+</svg>

@@ -1,59 +1,12 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "../PlayerScaledCanvas";
 import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// ─── Enlarged Logical Dimensions (9:16)
-// Lower values here make the content (text/images) appear larger in the box
-const INTERNAL_W = 240;
-const INTERNAL_H = 426;
-
-function ScaledCanvas({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => {
-      // Use layout width (offsetWidth), which is immune to ancestor CSS
-      // transforms — the coverflow scales/rotates side cards, and
-      // getBoundingClientRect() would return the foreshortened width and lock a
-      // too-small internal scale (the card renders nearly empty).
-      setScale(el.offsetWidth / INTERNAL_W);
-    };
-    update();
-    const obs = new ResizeObserver(update);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  return (
-    <div 
-      ref={ref} 
-      style={{ 
-        width: "100%", 
-        maxWidth: "400px", // Simple rectangle width
-        margin: "0 auto",
-        aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, 
-        overflow: "hidden", 
-        position: "relative",
-        backgroundColor: "#000",
-      }}
-    >
-      <div style={{ 
-        width: INTERNAL_W, 
-        height: INTERNAL_H, 
-        transform: `scale(${scale})`, 
-        transformOrigin: "top left", 
-        position: "absolute" 
-      }}>
-        {children}
-      </div>
-    </div>
-  );
-}
+const INTERNAL_W = 270;
+const INTERNAL_H = 480;
 
 const NEWCAST_PREVIEW_SCENES = [
   {
@@ -184,9 +137,8 @@ export default function NewscastPreviewPortrait({ thumbnailMode = false }: { thu
   }, [thumbnailMode, sceneOffsets]);
 
   return (
-    <div style={{ width: "100%" }}>
-      <ScaledCanvas>
-        <div style={{ width: "100%", height: "100%", position: "relative" }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: T_COLORS.bg }}>
+      <PlayerScaledCanvas internalWidth={INTERNAL_W} internalHeight={INTERNAL_H}>
           <Player
             ref={playerRef}
             component={Composition}
@@ -200,8 +152,9 @@ export default function NewscastPreviewPortrait({ thumbnailMode = false }: { thu
             autoPlay={!thumbnailMode}
             loop={!thumbnailMode}
             acknowledgeRemotionLicense
-            style={{ width: INTERNAL_W, height: INTERNAL_H }}
+            style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
           />
+      </PlayerScaledCanvas>
           
           {/* Compact navigation dots — no scene titles */}
           <div
@@ -229,8 +182,6 @@ export default function NewscastPreviewPortrait({ thumbnailMode = false }: { thu
               />
             ))}
           </div>
-        </div>
-      </ScaledCanvas>
     </div>
   );
 }

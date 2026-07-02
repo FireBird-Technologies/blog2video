@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "./PlayerScaledCanvas";
 import { getTemplateConfig } from "../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -216,31 +217,28 @@ export default function WhiteboardPreview({ thumbnailMode = false }: { thumbnail
   };
 
   return (
-    <div className="w-full">
-      <div
-        className="relative w-full overflow-hidden"
-        style={{
-          aspectRatio: "16/9",
+    <div className="relative w-full h-full overflow-hidden" style={{
           backgroundColor: bgColor,
           backgroundImage: WHITEBOARD_BG_IMAGE,
           backgroundSize: "20px 20px, 12px 12px",
-        }}
-      >
-        <Player
-          ref={playerRef}
-          component={Composition}
-          inputProps={inputProps}
-          durationInFrames={durationInFrames}
-          initialFrame={thumbnailMode ? thumbnailFrame : 0}
-          compositionWidth={1280}
-          compositionHeight={720}
-          fps={fps}
-          controls={false}
-          autoPlay={!thumbnailMode}
-          loop={!thumbnailMode}
-          acknowledgeRemotionLicense
-          style={{ width: "100%", height: "100%", display: "block" }}
-        />
+        }}>
+        <PlayerScaledCanvas>
+          <Player
+            ref={playerRef}
+            component={Composition}
+            inputProps={inputProps}
+            durationInFrames={durationInFrames}
+            initialFrame={thumbnailMode ? thumbnailFrame : 0}
+            compositionWidth={1280}
+            compositionHeight={720}
+            fps={fps}
+            controls={false}
+            autoPlay={!thumbnailMode}
+            loop={!thumbnailMode}
+            acknowledgeRemotionLicense
+            style={{ width: 480, height: 270, display: "block" }}
+          />
+        </PlayerScaledCanvas>
 
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
           {WHITEBOARD_PREVIEW_SCENES.map((scene, index) => {
@@ -259,7 +257,6 @@ export default function WhiteboardPreview({ thumbnailMode = false }: { thumbnail
             );
           })}
         </div>
-      </div>
     </div>
   );
 }
