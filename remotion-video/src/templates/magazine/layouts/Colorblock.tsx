@@ -1,9 +1,9 @@
 import React from "react";
-import { Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
   Kicker,
+  OptionalImg,
   Rule,
   QuoteGlyph,
   KineticWords,
@@ -124,7 +124,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
         >
           {imageUrl && (
             <>
-              <Img
+              <OptionalImg
                 src={imageUrl}
                 onError={() => {}}
                 style={{
