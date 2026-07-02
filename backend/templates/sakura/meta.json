@@ -1,0 +1,580 @@
+{
+  "id": "sakura",
+  "name": "Sakura",
+  "new_template": true,
+  "description": "A deeply characterful Japanese-aesthetic template featuring washi paper textures, Seigaiha wave patterns, Kamon crests, and falling cherry blossom petals. Ideal for converting written content into narrated, branded videos.",
+  "genres": [
+    "blog",
+    "editorial",
+    "cultural",
+    "storytelling",
+    "lifestyle"
+  ],
+  "preview_colors": {
+    "accent": "#C0143C",
+    "bg": "#FDF6F0",
+    "text": "#2A0A12"
+  },
+  "composition_id": "SakuraVideo",
+  "hero_layout": "sakura_intro",
+  "fallback_layout": "sakura_section",
+  "valid_layouts": [
+    "sakura_intro",
+    "sakura_section",
+    "sakura_quote",
+    "sakura_two_column_detail",
+    "sakura_stat_highlight",
+    "sakura_list_scene",
+    "sakura_text_narration",
+    "sakura_image_focus",
+    "sakura_chapter_transition",
+    "sakura_ending_socials"
+  ],
+  "layout_prop_schema": {
+    "sakura_intro": {
+      "label": "Sakura Intro",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "kanjiTitle",
+          "label": "Kanjititle",
+          "type": "string",
+          "description": "Large Japanese characters displayed as the main title."
+        },
+        {
+          "key": "romanTitle",
+          "label": "Romantitle",
+          "type": "string",
+          "description": "Romanized reading of the title shown beneath the kanji."
+        },
+        {
+          "key": "tagline",
+          "label": "Tagline",
+          "type": "string",
+          "description": "Short English tagline displayed below the brush stroke."
+        }
+      ]
+    },
+    "sakura_section": {
+      "label": "Content Section",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "chapterKanji",
+          "label": "Chapterkanji",
+          "type": "string",
+          "description": "Vertical Japanese chapter label (e.g. 第一章)."
+        },
+        {
+          "key": "chapterLabel",
+          "label": "Chapterlabel",
+          "type": "string",
+          "description": "Roman chapter subtitle shown beside the kanji eyebrow."
+        },
+        {
+          "key": "headline",
+          "label": "Headline",
+          "type": "string",
+          "description": "Main section headline in large ink-colored type."
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "text",
+          "description": "Body paragraph text for this section."
+        },
+        {
+          "key": "imageUrl",
+          "label": "Imageurl",
+          "type": "string",
+          "description": "Optional supporting image for the right column."
+        }
+      ]
+    },
+    "sakura_quote": {
+      "label": "Quote / Key Concept",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "string",
+          "description": "Japanese characters for the vertical quote display."
+        },
+        {
+          "key": "quoteRoman",
+          "label": "Quoteroman",
+          "type": "string",
+          "description": "Romanized reading displayed in angle brackets below the vertical text."
+        },
+        {
+          "key": "quoteTranslation",
+          "label": "Quotetranslation",
+          "type": "string",
+          "description": "English translation displayed in italic beneath the romanized reading."
+        }
+      ]
+    },
+    "sakura_two_column_detail": {
+      "label": "Two-Column Detail",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftHeadline",
+          "label": "Leftheadline",
+          "type": "string",
+          "description": "Headline for the left column."
+        },
+        {
+          "key": "leftBody",
+          "label": "Leftbody",
+          "type": "text",
+          "description": "Body text for the left column."
+        },
+        {
+          "key": "rightHeadline",
+          "label": "Rightheadline",
+          "type": "string",
+          "description": "Headline for the right column."
+        },
+        {
+          "key": "rightBody",
+          "label": "Rightbody",
+          "type": "text",
+          "description": "Body text for the right column (used when no image provided)."
+        },
+        {
+          "key": "imageUrl",
+          "label": "Imageurl",
+          "type": "string",
+          "description": "Optional image replacing right column body text."
+        }
+      ]
+    },
+    "sakura_stat_highlight": {
+      "label": "Stat / Number Highlight",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "stat",
+          "label": "Stat",
+          "type": "string",
+          "description": "The large number or short metric string (e.g. \"47%\" or \"1,200\")."
+        },
+        {
+          "key": "statLabel",
+          "label": "Statlabel",
+          "type": "string",
+          "description": "Short label beneath the stat (e.g. \"Annual Growth\")."
+        },
+        {
+          "key": "context",
+          "label": "Context",
+          "type": "string",
+          "description": "Supporting sentence providing context for the stat."
+        }
+      ]
+    },
+    "sakura_list_scene": {
+      "label": "Bullet List",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "items": []
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "headline",
+          "label": "Headline",
+          "type": "string",
+          "description": "Section headline above the list."
+        },
+        {
+          "key": "items",
+          "label": "Items",
+          "type": "string_array",
+          "description": "Array of list item strings (3–6 items recommended)."
+        }
+      ]
+    },
+    "sakura_text_narration": {
+      "label": "Text Narration",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "eyebrow",
+          "label": "Eyebrow",
+          "type": "string",
+          "description": "Optional small label above the headline (leave empty to hide)."
+        },
+        {
+          "key": "headline",
+          "label": "Headline",
+          "type": "string",
+          "description": "Main narration headline."
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "text",
+          "description": "Narration body paragraph."
+        }
+      ]
+    },
+    "sakura_image_focus": {
+      "label": "Image Focus",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "imageUrl",
+          "label": "Imageurl",
+          "type": "string",
+          "description": "The hero image to display."
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "type": "string",
+          "description": "Primary caption below the image."
+        },
+        {
+          "key": "subCaption",
+          "label": "Subcaption",
+          "type": "string",
+          "description": "Optional secondary caption in italic deep color."
+        }
+      ]
+    },
+    "sakura_chapter_transition": {
+      "label": "Chapter Transition",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "chapterNumber",
+          "label": "Chapternumber",
+          "type": "string",
+          "description": "Chapter number as kanji or numeral (e.g. 二 or \"02\")."
+        },
+        {
+          "key": "chapterTitle",
+          "label": "Chaptertitle",
+          "type": "string",
+          "description": "Chapter title in Roman type."
+        }
+      ]
+    },
+    "sakura_ending_socials": {
+      "label": "Outro / Socials",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "socialHandles": []
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "brandName",
+          "label": "Brandname",
+          "type": "string",
+          "description": "Brand or publication name displayed as the large heading."
+        },
+        {
+          "key": "tagline",
+          "label": "Tagline",
+          "type": "string",
+          "description": "Short brand tagline beneath the name."
+        },
+        {
+          "key": "ctaText",
+          "label": "Ctatext",
+          "type": "string",
+          "description": "Call-to-action text inside the bordered box."
+        },
+        {
+          "key": "websiteUrl",
+          "label": "Websiteurl",
+          "type": "string",
+          "description": "Website URL displayed at the bottom."
+        },
+        {
+          "key": "socialHandles",
+          "label": "Socialhandles",
+          "type": "string_array",
+          "description": "Optional array of social handles shown in small type below the URL."
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "sakura_intro",
+    "sakura_quote",
+    "sakura_stat_highlight",
+    "sakura_list_scene",
+    "sakura_text_narration",
+    "sakura_chapter_transition",
+    "sakura_ending_socials"
+  ]
+}

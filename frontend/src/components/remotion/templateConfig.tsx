@@ -24,6 +24,7 @@ import { EconomistVideoComposition } from "./economist/EconomistVideoComposition
 import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
 import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
 import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
+import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -329,6 +330,19 @@ const STICKMAN_FOOTBALL_LAYOUTS = new Set([
   "corner_kick",
 ]);
 
+const SAKURA_LAYOUTS = new Set([
+  "sakura_intro",
+  "sakura_section",
+  "sakura_quote",
+  "sakura_two_column_detail",
+  "sakura_stat_highlight",
+  "sakura_list_scene",
+  "sakura_text_narration",
+  "sakura_image_focus",
+  "sakura_chapter_transition",
+  "sakura_ending_socials",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -534,6 +548,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#869358",
       bg: "#FFFFFF",
       text: "#111111",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  sakura: {
+    component: SakuraVideoComposition as React.ComponentType<any>,
+    heroLayout: "sakura_intro",
+    fallbackLayout: "sakura_section",
+    validLayouts: SAKURA_LAYOUTS,
+    defaultColors: {
+      accent: "#C0143C",
+      bg: "#FDF6F0",
+      text: "#2A0A12",
     },
     baseWidth: 1920,
     baseHeight: 1080,
