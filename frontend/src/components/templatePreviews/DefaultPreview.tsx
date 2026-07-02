@@ -20,7 +20,7 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
     const el = ref.current;
     if (!el) return;
     const update = () => {
-      const s = el.offsetWidth / INTERNAL_W;
+      const s = Math.max(el.offsetWidth / INTERNAL_W, el.offsetHeight / INTERNAL_H);
       if (s > 0) setScale(s);
     };
     update();
