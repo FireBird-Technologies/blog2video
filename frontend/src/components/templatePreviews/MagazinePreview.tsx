@@ -18,7 +18,7 @@ interface DemoScene {
 
 // Curated from the existing sample issue in remotion-video/public/mag-allscenes.json
 // ("Atlas Review"), trimmed to a few visually distinct layouts for the preview cycle.
-const MAGAZINE_PREVIEW_SCENES: DemoScene[] = [
+export const MAGAZINE_PREVIEW_SCENES: DemoScene[] = [
   {
     id: 1,
     order: 1,
@@ -159,8 +159,10 @@ export default function MagazinePreview({
   }, [activeSceneIndex, durationInFrames, fps, thumbnailMode]);
 
   return (
-    <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
+    // Root fills the card box exactly (no intermediate aspect-ratio wrapper) so
+    // the carousel's `.cf-preview > * { height:100% }` makes the scene reach the
+    // card's top edge — matching NewscastPreview and avoiding a white strip.
+    <div className="relative w-full overflow-hidden" style={{ background: bgColor }}>
         <PlayerScaledCanvas>
           <Player
             ref={playerRef}
@@ -172,7 +174,7 @@ export default function MagazinePreview({
             compositionHeight={1080}
             fps={fps}
             controls={false}
-            autoPlay
+            autoPlay={!thumbnailMode}
             loop={!thumbnailMode}
             acknowledgeRemotionLicense
             style={{ width: "100%", height: "100%", display: "block" }}
@@ -196,7 +198,6 @@ export default function MagazinePreview({
             );
           })}
         </div>
-      </div>
     </div>
   );
 }
