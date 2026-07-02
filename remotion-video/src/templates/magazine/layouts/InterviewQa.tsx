@@ -53,7 +53,8 @@ export const InterviewQa: React.FC<SceneLayoutProps> = (props) => {
   // Pad to two slots so both pages always render
   while (blocks.length < 2) blocks.push({ q: "", a: "" });
 
-  const label = ["In Conversation", speaker, org].filter(Boolean).join(" · ");
+  const conversationLabel = (props.conversationLabel as string)?.trim() || "In Conversation";
+  const label = [conversationLabel, speaker, org].filter(Boolean).join(" · ");
 
   const frame = useMagFrame();
   const labelO = useReveal(2, 12);

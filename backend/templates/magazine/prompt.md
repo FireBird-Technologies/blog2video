@@ -36,12 +36,15 @@ Therefore, when a layout needs to carry its OWN on-screen copy or attributes in 
 **Visual:** A typographic cover. An enormous serif cover line is set huge across the top and reveals word-by-word; a kicker, a red rule and an italic deck (from `narration`) sit bottom-left. No image.
 
 **Props:**
-  - `title` (string) — The cover line, set huge in serif and revealed word-by-word
-  - `titleFontSize` (number) — Override for the cover-line size
+  - **Cover Line** — the scene's main Title field is the cover line, set huge in serif and revealed word-by-word (do NOT put a `title` key in `layout_props_json`; the main Title maps to it).
+  - `sectionLabel` (string) — Small-caps kicker cover-line, bottom-left, e.g. `"FEATURE"`
+  - `byline` (string) — Credit at the bottom-left, e.g. `"The Editorial Team"`. Do NOT include the word "By" — the layout adds it (so `"The Editors"` renders as "By The Editors"). Omit to hide it.
+
+Do NOT emit `titleFontSize` — the cover line auto-sizes itself to fill the top band of the cover and stay clear of the photo and cover-lines; a manual size only fights that.
 
 **When to Use:** The opening title card / cover of the piece — **Scene 0 only**.
 
-**Avoid When:** You need body paragraphs or data — this is a single cover line plus a deck. **Never use it on any scene after the first** — the cover is the opener only.
+**Avoid When:** **Never use it on any scene after the first** — the cover is the opener only.
 
 ---
 
@@ -116,14 +119,14 @@ The quote (`quoteText`) and `attribution` are the ONLY copy shown on this page �
 **Visual:** A "By the Numbers" kicker and red rule, then a short editorial heading (and optional standfirst line) framing the metrics, and beneath it a grid of oversized accent figures — each counting up on entry — separated by hairlines, each with a short accent rule and a tracked uppercase label beneath it.
 
 **Props:**
-  - `title` (string) — **Required.** A short editorial heading for the metrics (≤ ~6 words), tied to the scene's actual subject — e.g. `"The Numbers Behind the Launch"`, `"By the Box Office"`. This sits above the figures and anchors the page; do NOT leave it as the generic "By the Numbers".
+ 
   - `subtitle` (string) — Optional. One short standfirst line (≤ ~14 words) framing what the figures show. Omit entirely if there is nothing substantive to add — never pad it.
-  - `stats` (object_array) — **Required. 2–4 items only.** Each item must have `value` (a numeric string, e.g. `"4.2B"`, `"98%"`, `"$12B"`, `"150+"`) and `label` (a short uppercase descriptor, e.g. `"Monthly Readers"`). The numeric portion of `value` animates (counts up). **Do not pass text, sentences, or non-numeric values here.**
-  - `descriptionFontSize` (number) — Optional. Scales the figure size.
+  - `stats` (object_array) — **Required. 2–4 items only (MANDATORY). Give minimum of 2 and maximum of 4** Each item must have `value` (a numeric string, e.g. `"4.2B"`, `"98%"`, `"$12B"`, `"150+"`) and `label` (a short uppercase descriptor, e.g. `"Monthly Readers"`). The numeric portion of `value` animates (counts up). **Do not pass text, sentences, or non-numeric values here.**
+
 
 **When to Use:** Exactly when a scene is best expressed as 2–4 key numeric metrics — statistics, KPIs, milestones as figures. Every `value` must contain a number.
-
 **Avoid When:** The content is text-heavy, a single statistic, a pull quote, or the "values" are words rather than numbers — use `editorial_quote`, `text_narration`, or `feature` instead. **If the source contains no numeric figures for this beat, do NOT select `by_the_numbers` — never fabricate figures; use `text_narration`, `feature`, or `editorial_quote` instead.** More than 4 stats: drop the least important or use `magazine_ticker`.
+
 
 ---
 
@@ -137,7 +140,7 @@ The quote (`quoteText`) and `attribution` are the ONLY copy shown on this page �
   - `leftQuote` / `rightQuote` (text) — *Legacy fields only. Do NOT use for new scenes — always use `exchanges` instead.*
   - `descriptionFontSize` (number) — Quote size override
 
-**When to Use:** Interviews, debates, two perspectives, or Q&A dialogue. Use `exchanges` with 2–3 full exchanges so the conversation fills the page rather than leaving it sparse.
+**When to Use:** Interviews, debates, two perspectives, or Q&A dialogue. Use `exchanges` with 2–3 full exchanges so the conversation fills the page rather than leaving it sparse. You can also come up with a set of q/a pairs from the given text
 
 **Avoid When:** More than three exchanges are needed in one scene — split across scenes.
 
@@ -178,7 +181,7 @@ The quote (`quoteText`) and `attribution` are the ONLY copy shown on this page �
 **Props:**
   - `title` (string) — Heading
   - `narration` (string) — Optional standfirst beneath the title
-  - `milestones` (object_array) — Up to 6 items, each with a date (`value`), a `label`, and an optional one-line `desc` detail (a short clause expanding the label, drawn from the source — do not invent)
+  - `milestones` (MANDATORY object_array) — Up to 6 items, each with a date (`value`), a `label`, and an optional one-line `desc` detail (a short clause expanding the label, drawn from the source —Give a minimum of 3 and maximum of 6 but they should be from the data provided to you)
 
 **When to Use:** Chronology, history, roadmap, process steps.
 
