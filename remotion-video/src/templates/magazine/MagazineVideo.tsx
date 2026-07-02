@@ -17,6 +17,7 @@ import type { MagazineCameraMove, MagazineTransitionName } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 interface SceneData {
@@ -24,9 +25,13 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
+  narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
 }
@@ -46,6 +51,11 @@ interface VideoData {
   fontFamily?: string | null;
   bgmFile?: string | null;
   bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  captionOffset?: number;
   scenes: SceneData[];
 }
 
@@ -58,11 +68,20 @@ const resolveLayoutKey = (raw: string): MagazineLayoutType =>
     ? (raw as MagazineLayoutType)
     : "text_narration";
 
-// Pure-black beat between a scene's exit and the next scene's entrance.
-const BLACK_HOLD = 12;
+// Pure-black beat between a scene's exit and the next scene's entrance. This is the EXACT
+// visible dead-black gap: the bridge is sized to exitFrames + enterFrames + BLACK_HOLD.
+// Keep equal to the frontend MagazineVideoComposition copy ([[magazine-dual-tree-and-camera]]).
+const BLACK_HOLD = 6;
 // Minimum fraction of every scene held as a static, readable page (the rest is split
 // between the enter overlap at its head and the exit overlap at its tail).
 const STATIC_CORE_FRAC = 0.55;
+// Cap the per-side transition overlap. The clamps below otherwise scale the overlap with
+// scene length (perScene × 0.225), so on long narration-length scenes the enter reveal
+// grows to ~76f and fully covers each layout's camera-move settle window (~68 real frames
+// — settleEnd 50 × MAG_TEMPO 1.35 in useMagazineCamera), hiding the camera move. Capping
+// it keeps the reveal shorter than the camera settle at ANY scene length. Keep this value
+// equal to the frontend MagazineVideoComposition copy ([[magazine-dual-tree-and-camera]]).
+const TRANSITION_OVERLAP_CAP = 30;
 
 /** Per-boundary frame budget for the black-bridged TransitionSeries. Mirrors the math in
  *  the render loop AND the frontend planMagazineBoundaries — keep all three in sync. */
@@ -72,18 +91,22 @@ const magazineBoundaryFrames = (
   fromSceneFrames: number,
   toSceneFrames: number,
   accent: string,
+  exitOverride?: MagazineTransitionName,
+  enterOverride?: MagazineTransitionName,
 ) => {
-  const exitChoice = pickExitTransition(fromLayout, accent);
-  const enterChoice = pickEnterTransition(toLayout, accent);
-  const blackFrames = Math.max(BLACK_HOLD, exitChoice.frames, enterChoice.frames);
+  const exitChoice = pickExitTransition(fromLayout, accent, exitOverride);
+  const enterChoice = pickEnterTransition(toLayout, accent, enterOverride);
   const exitFrames = Math.max(
     1,
-    Math.min(exitChoice.frames, Math.floor((fromSceneFrames * (1 - STATIC_CORE_FRAC)) / 2), Math.floor(blackFrames / 2)),
+    Math.min(exitChoice.frames, Math.floor((fromSceneFrames * (1 - STATIC_CORE_FRAC)) / 2), TRANSITION_OVERLAP_CAP),
   );
   const enterFrames = Math.max(
     1,
-    Math.min(enterChoice.frames, Math.floor((toSceneFrames * (1 - STATIC_CORE_FRAC)) / 2), Math.floor(blackFrames / 2)),
+    Math.min(enterChoice.frames, Math.floor((toSceneFrames * (1 - STATIC_CORE_FRAC)) / 2), TRANSITION_OVERLAP_CAP),
   );
+  // Bridge = the two capped overlaps + a short pure-black beat, so the visible dead-black gap
+  // is exactly BLACK_HOLD frames (not the full transition length).
+  const blackFrames = exitFrames + enterFrames + BLACK_HOLD;
   return { blackFrames, exitFrames, enterFrames };
 };
 
@@ -92,12 +115,15 @@ const computeMagazineTotalFrames = (
   layoutKeys: MagazineLayoutType[],
   sceneFrames: number[],
   accent: string,
+  sceneLayoutProps?: Record<string, unknown>[],
 ): number => {
   let run = 0;
   sceneFrames.forEach((dur, i) => {
     run += dur;
     if (i < sceneFrames.length - 1) {
-      const b = magazineBoundaryFrames(layoutKeys[i], layoutKeys[i + 1], dur, sceneFrames[i + 1], accent);
+      const exitOverride = sceneLayoutProps?.[i]?.exitTransition as MagazineTransitionName | undefined;
+      const enterOverride = sceneLayoutProps?.[i + 1]?.enterTransition as MagazineTransitionName | undefined;
+      const b = magazineBoundaryFrames(layoutKeys[i], layoutKeys[i + 1], dur, sceneFrames[i + 1], accent, exitOverride, enterOverride);
       run += b.blackFrames - b.exitFrames - b.enterFrames;
     }
   });
@@ -125,6 +151,7 @@ export const calculateMagazineMetadata: CalculateMetadataFunction<VideoProps> =
         data.scenes.map((s) => resolveLayoutKey(s.layout)),
         sceneFrames,
         data.accentColor || "#D71921",
+        data.scenes.map((s) => s.layoutProps as Record<string, unknown>),
       );
 
       const isPortrait = data.aspectRatio === "portrait";
@@ -216,20 +243,22 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       | undefined;
     const exitChoice = pickExitTransition(s.layoutKey, data.accentColor || "#D71921", fromExit);
     const enterChoice = pickEnterTransition(next.layoutKey, data.accentColor || "#D71921", toEnter);
-    const blackFrames = Math.max(BLACK_HOLD, exitChoice.frames, enterChoice.frames);
     // Reserve ≥STATIC_CORE_FRAC of every scene as a held, static page so each page has
     // time to read/animate in before it leaves (otherwise a long transition eats the
-    // whole short scene).
+    // whole short scene). Overlap also capped by TRANSITION_OVERLAP_CAP.
     const maxSidePerScene = Math.floor((s.durationFrames * (1 - STATIC_CORE_FRAC)) / 2);
     const maxSideNextScene = Math.floor((next.durationFrames * (1 - STATIC_CORE_FRAC)) / 2);
     const exitFrames = Math.max(
       1,
-      Math.min(exitChoice.frames, maxSidePerScene, Math.floor(blackFrames / 2)),
+      Math.min(exitChoice.frames, maxSidePerScene, TRANSITION_OVERLAP_CAP),
     );
     const enterFrames = Math.max(
       1,
-      Math.min(enterChoice.frames, maxSideNextScene, Math.floor(blackFrames / 2)),
+      Math.min(enterChoice.frames, maxSideNextScene, TRANSITION_OVERLAP_CAP),
     );
+    // Bridge = the two capped overlaps + a short pure-black beat, so the visible dead-black
+    // gap is exactly BLACK_HOLD frames (not the full transition length).
+    const blackFrames = exitFrames + enterFrames + BLACK_HOLD;
     return { exitChoice, enterChoice, blackFrames, exitFrames, enterFrames };
   });
 
@@ -310,12 +339,12 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 accentColor: data.accentColor || "#D71921",
                 bgColor: data.bgColor || "#FFFFFF",
                 textColor: data.textColor || "#111111",
-                aspectRatio: data.aspectRatio || "landscape",
+                aspectRatio: data.aspectRatio,
                 sceneDurationInFrames: s.durationFrames,
                 imageUrl,
                 imageObjectPosition: `${focusX}% ${focusY}%`,
                 imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
-                fontFamily: resolvedFontFamily || undefined,
+                fontFamily: data.fontFamily ?? undefined,
                 pageNumber: index + 1 < 10 ? `0${index + 1}` : String(index + 1),
                 establishingShot: index === 0,
                 brandName: data.projectName,
@@ -377,12 +406,46 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         );
       })}
 
+      {/* Captions — narration text, synced to each scene's voiceover window. Rendered
+          at the real-output level (outside the scaled design canvas) so they size and
+          position in output pixels, matching the newspaper composition. */}
+      {data.captionsEnabled &&
+        resolvedScenes.map((s, index) => {
+          const text = s.scene.narrationText || s.scene.narration;
+          if (!text) return null;
+          return (
+            <Sequence
+              key={`caption-${s.scene.id}-${index}`}
+              from={sceneStartFrames[index]}
+              durationInFrames={s.durationFrames}
+            >
+              <CaptionTrack
+                text={text}
+                position={data.captionPosition || "bottom_center"}
+                aspectRatio={data.aspectRatio || "landscape"}
+                fontFamily={
+                  data.captionFontFamily
+                    ? resolveFontFamily(data.captionFontFamily) || data.captionFontFamily
+                    : resolvedFontFamily || undefined
+                }
+                fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                offset={data.captionOffset ?? 0}
+                speechDurationFrames={
+                  s.scene.speechDurationSeconds
+                    ? getSceneDurationFrames(s.scene.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
+            </Sequence>
+          );
+        })}
+
       {data.logo && (
         <LogoOverlay
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
-          size={data.logoSize || "default"}
+          size={data.logoSize ?? 100}
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}

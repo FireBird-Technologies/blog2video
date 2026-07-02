@@ -3,6 +3,7 @@ import { interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
+  MAG_TEXTURES,
   Kicker,
   Rule,
   KineticWords,
@@ -191,7 +192,7 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   );
 
   return (
-    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Feature"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} establishingShot={props.establishingShot} cameraMove={props.cameraMove} lightChrome {...(p ? { hidePrintTexture: true } : { printTextureSrc: "magazine-spread-bg.svg", printTextureOpacity: 0.38 })}>
+    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Feature"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} establishingShot={props.establishingShot} cameraMove={props.cameraMove} lightChrome {...(p ? { hidePrintTexture: true } : { printTextureSrc: MAG_TEXTURES.spread, printTextureOpacity: 0.38 })}>
       <style>{css}</style>
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <Kicker color={accent} style={{ opacity: kickerO, marginBottom: 16 }}>
