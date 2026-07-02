@@ -201,7 +201,7 @@ export default function MagazinePreview({
     // Root fills the card box exactly (no intermediate aspect-ratio wrapper) so
     // the carousel's `.cf-preview > * { height:100% }` makes the scene reach the
     // card's top edge — matching NewscastPreview and avoiding a white strip.
-    <div className="relative w-full overflow-hidden" style={{ background: bgColor }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: bgColor }}>
         <PlayerScaledCanvas>
           <Player
             ref={playerRef}
@@ -216,7 +216,7 @@ export default function MagazinePreview({
             autoPlay={!thumbnailMode}
             loop={!thumbnailMode}
             acknowledgeRemotionLicense
-            style={{ width: "100%", height: "100%", display: "block" }}
+            style={{ width: 480, height: 270, display: "block" }}
           />
         </PlayerScaledCanvas>
 
