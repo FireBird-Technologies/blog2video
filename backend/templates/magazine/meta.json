@@ -156,6 +156,7 @@
         },
         "stats": [],
         "sectionLabel": "By the Numbers",
+        "displayTitle": "By the Numbers",
         "issueLabel": "Data",
         "kickerPrefix": "Data"
       },
@@ -234,9 +235,15 @@
         },
         {
           "key": "sectionLabel",
-          "label": "Section Label",
+          "label": "Eyebrow / kicker text",
           "type": "string",
-          "description": "Small-caps section tag used in the eyebrow and running head, e.g. 'BY THE NUMBERS'"
+          "description": "Small red eyebrow label above the figures (shown after the 'Data ·' prefix), e.g. 'By the Numbers' or 'Growth'. Independent of the big display headline."
+        },
+        {
+          "key": "displayTitle",
+          "label": "Display headline",
+          "type": "string",
+          "description": "The large uppercase headline for the section, e.g. 'BY THE NUMBERS'. Independent of the eyebrow."
         },
         {
           "key": "kickerPrefix",
@@ -1057,11 +1064,13 @@
       },
       "scene_defaults": {
         "title": "The Shape of Things to Come",
+        "heading": "The Shape of Things to Come",
         "narration": "Inside the studios redrawing how we live and work.",
         "durationSeconds": 8
       },
       "sample_props": {
         "sectionLabel": "FEATURE",
+        "heading": "The Shape of Things to Come",
         "body": "On a wet Tuesday in a converted east-London warehouse, eleven people are arguing about a margin. It is the kind of room where the future of a magazine is decided one hairline rule at a time — where a redesign is less a grand gesture than a thousand small, stubborn judgements. The team has spent the morning on a single spread, moving the folio a few points, testing whether the drop cap should lead or follow. None of it looks like work from the outside. All of it is the work. By lunch the page reads as if it could not have been set any other way, which is exactly the point: the craft is invisible when it lands, and glaring when it does not.",
         "keyPoints": [
           {
@@ -1076,6 +1085,12 @@
         ]
       },
       "fields": [
+        {
+          "key": "heading",
+          "label": "Headline",
+          "type": "string",
+          "description": "The on-screen headline; its last word renders italic. Falls back to the scene title."
+        },
         {
           "key": "titleFontSize",
           "label": "Headline Font Size",

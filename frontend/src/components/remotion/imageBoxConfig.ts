@@ -662,6 +662,58 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.389, h: 0.219 },
     circular: true,
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MAGAZINE template  (canvas 1920 × 1080 landscape / 1080 × 1920 portrait)
+  // Only six layouts render the scene photo; the rest are typographic spreads
+  // (they're image-less, so they fall through to the full-canvas placeholder).
+  // The sheet has a content pad of 7.5% (landscape) / 7% (portrait) per side —
+  // see PAD in magazineStyle.tsx — so the fractions below fold that in
+  // (canvas fraction = content fraction × the layout's fraction of the sheet).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Full-bleed cover photo behind the masthead (both orientations).
+  magazine_cover: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+
+  // Full-bleed page background under the field-notes ledger (MagazinePage
+  // backgroundImageSrc). Fills the whole sheet in both orientations.
+  text_narration: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+
+  // Full-bleed page background behind the timeline band (MagazinePage bg).
+  timeline_journey: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+
+  // Framed photo plate (MagPlate). Landscape: fills the RIGHT leaf (~44% of
+  // the content width, full content height). Portrait: full-width plate at
+  // 32% of the content height, above the body.
+  feature: {
+    landscape: { w: 0.37, h: 0.85 }, // ~716 × 918 on 1920×1080
+    portrait:  { w: 0.86, h: 0.28 }, // ~929 × 528 on 1080×1920
+  },
+
+  // Two-panel color block. Landscape: image is the right half (50% content
+  // width, full content height). Portrait: image is the bottom panel
+  // (flex 1.3 of a 0.7+1.3 column → ~65% content height, full width).
+  colorblock: {
+    landscape: { w: 0.42, h: 0.85 }, // ~816 × 918
+    portrait:  { w: 0.86, h: 0.56 }, // ~929 × 1075
+  },
+
+  // Absolutely-positioned editorial photo plate. Landscape: tall plate up the
+  // right margin (width 30%, height 68% of content). Portrait: wide plate on
+  // the lower band (width 74%, height 26% of content).
+  editorial_quote: {
+    landscape: { w: 0.26, h: 0.58 }, // ~499 × 626
+    portrait:  { w: 0.64, h: 0.22 }, // ~691 × 422
+  },
 };
 
 /**
