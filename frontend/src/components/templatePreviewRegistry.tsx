@@ -35,6 +35,7 @@ import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/Stickma
 import MagazinePreview from "./templatePreviews/MagazinePreview";
 import SakuraPreview from "./templatePreviews/SakuraPreview";
 import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
+import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
 /** Preview components keyed by built-in template id from the API. */
 export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   default: DefaultPreview,
@@ -74,6 +75,7 @@ export const TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boo
   stickman_2: Stickman2PreviewPortrait,
   stickman_football: StickmanFootballPreviewPortrait,
   magazine: MagazinePreviewPortrait,
+  sakura: SakuraPreviewPortrait,
 };
 
 export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {

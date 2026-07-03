@@ -1,6 +1,12 @@
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { SAKURA_LAYOUT_REGISTRY as LAYOUT_REGISTRY, SakuraLayoutType, SceneLayoutProps } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
+import {
+  pickSakuraTransition,
+  SakuraTransitionOverlay,
+  SAKURA_TRANSITION_FRAMES,
+  SakuraTransition,
+} from "./sakuraTransitions";
 
 export interface SakuraSceneInput {
   id: number;
@@ -43,15 +49,26 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
   const FPS = 30;
   let currentFrame = 0;
 
+  // Per-boundary transition, keyed by the ENTERING (next) scene's layout,
+  // with no two adjacent boundaries repeating.
+  const boundaryTransitions: SakuraTransition[] = [];
+  let prevTransition: SakuraTransition | undefined;
+  for (let i = 0; i < scenes.length - 1; i++) {
+    const t = pickSakuraTransition(scenes[i + 1]?.layout, i, prevTransition);
+    boundaryTransitions.push(t);
+    prevTransition = t;
+  }
+
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FDF6F0", fontFamily }}>
-      {scenes.map((scene) => {
+      {scenes.map((scene, index) => {
         const durationFrames = Math.max(
           1,
           Math.round((Number(scene.durationSeconds) || 5) * FPS),
         );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
+        const isLastScene = index === scenes.length - 1;
 
         const LayoutComponent =
           LAYOUT_REGISTRY[scene.layout] ?? LAYOUT_REGISTRY.sakura_section;
@@ -83,6 +100,17 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {!isLastScene && durationFrames > SAKURA_TRANSITION_FRAMES && (
+              <Sequence
+                from={durationFrames - SAKURA_TRANSITION_FRAMES}
+                durationInFrames={SAKURA_TRANSITION_FRAMES}
+              >
+                <SakuraTransitionOverlay
+                  transition={boundaryTransitions[index]}
+                  seed={(scene.id % 7) + 3}
+                />
+              </Sequence>
+            )}
           </Sequence>
         );
       })}
