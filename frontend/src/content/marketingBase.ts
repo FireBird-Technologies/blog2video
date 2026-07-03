@@ -427,6 +427,45 @@ export const templateProfiles: TemplateProfile[] = [
     ],
   },
   {
+    slug: "magazine",
+    name: "Magazine",
+    description:
+      "A glossy editorial cover-story template that puts your subject on the cover of a TIME-style magazine, complete with feature spreads, pull quotes, and by-the-numbers panels.",
+    bestFor: "Personal-brand features, founder and customer profiles, milestone announcements, and prestige storytelling that should feel like a magazine cover story.",
+    differentiator:
+      "Puts you — or your subject — on the cover of a TIME-style magazine, then unfolds the story as a designed editorial spread: cover reveals, feature layouts, interview Q&As, and by-the-numbers panels that no stock-footage tool can replicate.",
+    styleFit: "Best for prestige, personal-brand, and milestone content that should feel like a cover story.",
+    previewSceneKey: "preview-magazine",
+    layouts: [
+      "magazine_cover",
+      "feature",
+      "editorial_quote",
+      "interview_qa",
+      "by_the_numbers",
+      "colorblock",
+      "comparison",
+      "timeline_journey",
+      "magazine_data_visualization",
+      "magazine_ticker",
+      "text_narration",
+      "ending_socials",
+    ],
+    longDescription:
+      "Magazine turns written content into a glossy editorial cover story. It opens by putting your subject on the cover of a TIME-style magazine — masthead, cover lines, and hero portrait — then unfolds the rest as a designed print spread. Layouts like Magazine Cover, Feature, Editorial Quote, Interview Q&A, By the Numbers, and Colorblock give founder profiles, personal-brand pieces, and milestone announcements the weight and prestige of a published feature. Pull quotes, data charts, and ticker tables carry the substance, so the final video reads like a cover story a real editorial team art-directed rather than an auto-generated slideshow.",
+    idealFor: [
+      "Personal-brand features and founder profiles",
+      "Customer and case-study spotlights",
+      "Milestone and launch announcements that deserve prestige treatment",
+      "Award, list, and 'person of the year' style features",
+      "Interview and Q&A content packaged as an editorial spread",
+    ],
+    exampleTopics: [
+      "Put yourself on the cover: a founder's year in review",
+      "Customer of the month: how one team shipped 12 videos in an afternoon",
+      "The interview issue: five questions with our lead designer",
+    ],
+  },
+  {
     slug: "custom",
     name: "Custom Templates",
     description:
