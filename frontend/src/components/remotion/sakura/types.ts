@@ -31,10 +31,11 @@ export interface SceneLayoutProps {
   chapterLabel?: string;
   headline?: string;
   body?: string;
-  imageUrl?: string;
   quote?: string;
   quoteRoman?: string;
   quoteTranslation?: string;
+  attribution?: string;
+  author?: string;
   leftHeadline?: string;
   leftBody?: string;
   rightHeadline?: string;
@@ -46,6 +47,8 @@ export interface SceneLayoutProps {
   eyebrow?: string;
   caption?: string;
   subCaption?: string;
+  imageFocusX?: number;
+  imageFocusY?: number;
   chapterNumber?: string;
   chapterTitle?: string;
   brandName?: string;

@@ -2,6 +2,8 @@
 
 A deeply characterful Japanese-aesthetic template featuring washi paper textures, Seigaiha wave patterns, Kamon crests, and falling cherry blossom petals. Ideal for converting written content into narrated, branded videos.
 
+Each layout has its OWN background geometry (deep-plum radial, warm washi radial, a vertical crimson band, an asymmetric ink-corner wash, an off-center spotlight, or a celebration ring field), its OWN composition (centered, left-column+panel, two-column, asymmetric big-number, left-rail list, off-center block, full-bleed image), and its OWN entrance motion — so no two scenes read alike. Scene boundaries use a VARIED transition vocabulary chosen automatically per boundary (petal vortex/swarm/scatter, bloom-unfurl, shoji sliding panels, iris circle wipe, sumi ink-bleed, brush swipe, diagonal panel, vertical shutter, rack-focus bloom), with no two adjacent boundaries repeating. These are all automatic and not author-configurable.
+
 ---
 
 # Layout Catalog
@@ -49,20 +51,20 @@ A deeply characterful Japanese-aesthetic template featuring washi paper textures
 ---
 
 ## sakura_quote
-**Visual:** A full-bleed dark background layout centered around a single Japanese quote rendered in vertical writing mode (Noto Serif JP 700, ~72px, washi color), with the romanized reading in angle brackets and an italic English translation stacked below it. Concentric crimson SVG rings animate outward from the screen center over a subtle SeigaihaPattern and a faint KamonCircle watermark.
+**Visual:** A full-bleed deep-plum background layout centered on a single large Japanese quote (Noto Serif JP 700, blush color, with a soft blush glow), the romanized reading in decorative angle brackets below it, a line—blossom—line divider, and an italic English translation stacked beneath. Three concentric rings expand outward from center with an easing bloom, a giant ghost 桜 sits faintly behind, and staggered soft-petal strips drift across the top and bottom edges over a subtle Seigaiha pattern.
 
 **Props:**
-  - `quote` (string) — Japanese characters displayed vertically, spanning ~60% of screen height at large weight
-  - `quoteRoman` (string) — Romanized reading shown in angle brackets below the vertical text (Shippori Mincho, mist color, wide letter-spacing)
-  - `quoteTranslation` (string) — English translation rendered in italic beneath the romanized line (parchment color, slightly reduced opacity)
+  - `quote` (string) — The Japanese phrase displayed large and centered at heavy weight (keep concise — a short aphorism or phrase, not a paragraph)
+  - `quoteRoman` (string) — Romanized reading shown in 《 angle brackets 》 below the quote (Shippori Mincho, gold, wide letter-spacing)
+  - `quoteTranslation` (string) — English translation rendered in italic washi beneath the romanized line
 
 **When to Use:** Use `sakura_quote` for cinematic, contemplative moments where a single Japanese aphorism, poem, or phrase is the sole focus of the scene.
 
-**Avoid When:** The content requires multiple quotes, dense body text, or imagery that would compete with the vertical typographic centerpiece.
+**Avoid When:** The content requires multiple quotes, dense body text, or imagery that would compete with the typographic centerpiece.
 
 **Notes:**
-- Vertical writing mode (`writing-mode: vertical-rl`) means very long `quote` strings will overflow or compress — keep quotes concise (under ~12 characters recommended)
-- PetalRain (count=28) and animated rings are purely decorative and cannot be disabled via props
+- Keep the `quote` string short (a phrase, ideally under ~12 characters) so it reads cleanly at large size
+- PetalRain, the expanding rings, and the petal strips are purely decorative and cannot be disabled via props
 - No image prop is supported; the visual atmosphere relies entirely on pattern overlays and animation
 
 ---
@@ -89,7 +91,7 @@ A deeply characterful Japanese-aesthetic template featuring washi paper textures
 ---
 
 ## sakura_stat_highlight
-**Visual:** A dark lacquer-to-void radial background with a faint seigaiha wave pattern and a semi-transparent kamon circle watermark centered behind the content. A large crimson numeral (with count-up animation) sits at ~40% height, underlined by an animated gold SVG line with petal ornaments, followed by a washi-colored label and mist-colored context sentence, all overlaid with drifting sakura petals.
+**Visual:** An ASYMMETRIC spotlight scene on a dark plum backdrop with an off-center radial spotlight. The large blush numeral (with count-up animation) sits on the LEFT, haloed by a scaling-in gold kamon ring circled by slowly orbiting soft petals; on the RIGHT, an animated gold brush underline, a gold label, and an italic washi context sentence are stacked. Enters with a bloom (scale-from-center) motion.
 
 **Props:**
   - `stat` (string) — The large metric displayed in crimson at ~180px; numeric strings trigger a count-up animation on entry
@@ -108,7 +110,7 @@ A deeply characterful Japanese-aesthetic template featuring washi paper textures
 ---
 
 ## sakura_list_scene
-**Visual:** A warm washi-paper background with a near-invisible seigaiha (overlapping scales) pattern overlaid at 4% opacity. A bold serif headline sits top-left with an animated crimson line-and-petal divider beneath it, followed by up to 6 vertically stacked list items — each prefixed by a small crimson sakura-petal bullet and separated by faint horizontal rules — while 18 soft pink petals drift down across the scene.
+**Visual:** A LEFT-RAIL composition on a light washi backdrop with an ink-wash bleeding from the right corner and a large kamon breathing on the right. The list occupies the left ~60%: a bold serif headline with an animated crimson underline-and-blossom, then up to 6 vertically stacked items. Each bullet is a soft five-petal blossom (alternating blush / deep-blush) whose petals bloom in sequentially, then the item text slides in from the left; a thin crimson connector line draws down through the bullet column. The scene rises up into place on entry.
 
 **Props:**
   - `headline` (string) — Section title rendered in Noto Serif JP 700 at ~52px in ink color, top-left, sliding in on entry
@@ -126,7 +128,7 @@ A deeply characterful Japanese-aesthetic template featuring washi paper textures
 ---
 
 ## sakura_text_narration
-**Visual:** A warm washi-paper background (radial gradient, subtle fiber texture, light vignette) with a near-invisible seigaiha scale pattern overlay and softly falling sakura petals. All content is vertically centered: an optional crimson eyebrow label, a large bold headline, an animated crimson line-and-petal divider, a body paragraph, and a faint kamon circle ornament anchored at the bottom of the frame.
+**Visual:** An OFF-CENTER, left-anchored narration on a light washi radial backdrop, with a large faint kamon breathing on the right. Left-aligned content: an optional gold eyebrow label, a large bold headline, an animated crimson brush underline, and a body paragraph. The block rises up into place on entry (distinct from the centered intro/quote).
 
 **Props:**
   - `eyebrow` (string) — Optional uppercase label in crimson above the headline; hidden entirely when empty
@@ -167,7 +169,7 @@ A deeply characterful Japanese-aesthetic template featuring washi paper textures
 ---
 
 ## sakura_chapter_transition
-**Visual:** A full-bleed dark background graduating from deep lacquer to near-void black, overlaid with a subtle seigaiha wave pattern and a faint gold kamon medallion centered at 560px diameter. A crimson brush-stroke line animates across the center, with a large gold kanji chapter number above it and a washi-white Roman chapter title below, while 30 sakura petals drift down throughout.
+**Visual:** A dramatic dark chapter card with a WIDE crimson→deep-blush VERTICAL BAND down the left edge. A giant blush kanji chapter numeral sits on the left; beside it, a short accent rule, a gold "Chapter N" eyebrow, and a large serif Roman chapter title are stacked. A kamon watermark is pushed off to the right and a horizontal current of soft petals streams across. Enters with a bloom (scale-from-center) motion.
 
 **Props:**
   - `chapterNumber` (string) — Kanji or numeral displayed in large gold type (~96px) above the crimson divider line (e.g. `"二"` or `"03"`)
@@ -188,14 +190,14 @@ A deeply characterful Japanese-aesthetic template featuring washi paper textures
 ---
 
 ## sakura_ending_socials
-**Visual:** A full-bleed dark Japanese-lacquer background (radial gradient from deep crimson to near-void black) overlaid with a subtle Seigaiha scale pattern and a faint KamonCircle watermark at center. Brand name, tagline, a crimson-bordered CTA box with petal corner ornaments, and a gold website URL are stacked vertically, while 35 blush/mist petals rain continuously and 16 petals burst outward from center on entry.
+**Visual:** A full-bleed deep-plum-to-void background overlaid with a subtle Seigaiha scale pattern, faint kamon watermark rings, and two concentric rings of soft petals slowly counter-rotating around center. Brand name, a letter-spaced tagline, a five-petal divider row, a blush-bordered CTA box with crimson sakura-blossom corner ornaments, a gold monospace website URL, and social icons are stacked vertically, while blush/mist petals rain continuously and 16 petals burst outward from center on entry.
 
 **Props:**
   - `brandName` (string) — Large serif heading (~80px Noto Serif JP 700, washi white) centered at ~36% height, spring-scales in on entry
   - `tagline` (string) — Smaller subtitle (~28px Shippori Mincho, mist color) fading in just below the brand name
   - `ctaText` (string) — Text inside the animated crimson-bordered box (~30px Shippori Mincho 500, washi) centered at ~58% height
   - `websiteUrl` (string) — Gold URL (~22px, letter-spacing 0.15em) revealed at ~76% height with expanding letter-spacing animation
-  - `socialHandles` (string[]) — Optional social handles rendered in small type below the URL
+  - `socialHandles` (string[]) — Optional social handles rendered in small type below the URL (when structured `socials` data is available, the shared branded social-icon row is rendered instead)
 
 **When to Use:** Use `sakura_ending_socials` as a closing card for brand videos, social campaigns, or Japanese-aesthetic content where you need a dramatic, ceremonial sign-off with CTA and contact details.
 

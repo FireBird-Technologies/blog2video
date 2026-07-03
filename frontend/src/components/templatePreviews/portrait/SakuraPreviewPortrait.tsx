@@ -6,10 +6,8 @@ const P = {
   mist: "#E8D5DF",
   crimson: "#C0143C",
   gold: "#C9A84C",
-  washi: "#FDF6F0",
 };
 
-// A soft five-ellipse sakura blossom
 const Blossom = ({
   x,
   y,
@@ -46,49 +44,47 @@ const Blossom = ({
   </g>
 );
 
-const SakuraPreview = ({ thumbnailMode = false }: { thumbnailMode?: boolean }) => {
+const SakuraPreviewPortrait = ({ thumbnailMode = false }: { thumbnailMode?: boolean }) => {
   void thumbnailMode;
   return (
     <div
       style={{
         width: "100%",
-        aspectRatio: "16/9",
+        aspectRatio: "9/16",
         position: "relative",
         overflow: "hidden",
         fontFamily: "Georgia, serif",
       }}
     >
       <svg
-        viewBox="0 0 320 180"
+        viewBox="0 0 180 320"
         preserveAspectRatio="xMidYMid slice"
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
       >
         <defs>
-          <radialGradient id="skp-bg" cx="30%" cy="20%" r="90%">
+          <radialGradient id="skpp-bg" cx="30%" cy="18%" r="95%">
             <stop offset="0%" stopColor={P.plum} />
             <stop offset="100%" stopColor={P.void} />
           </radialGradient>
         </defs>
-        <rect width="320" height="180" fill="url(#skp-bg)" />
-        {/* kamon rings */}
-        <circle cx="160" cy="90" r="78" fill="none" stroke={P.gold} strokeWidth="1" opacity="0.14" />
-        <circle cx="160" cy="90" r="58" fill="none" stroke={P.blush} strokeWidth="0.8" opacity="0.1" />
+        <rect width="180" height="320" fill="url(#skpp-bg)" />
+        <circle cx="90" cy="150" r="86" fill="none" stroke={P.gold} strokeWidth="1" opacity="0.14" />
+        <circle cx="90" cy="150" r="64" fill="none" stroke={P.blush} strokeWidth="0.8" opacity="0.1" />
         {/* corner blossoms */}
-        <Blossom x={22} y={24} r={11} rot={15} color={P.blush} opacity={0.8} />
-        <Blossom x={40} y={12} r={7} rot={-20} color={P.mist} opacity={0.6} />
-        <Blossom x={298} y={156} r={11} rot={-15} color={P.blush} opacity={0.8} />
-        <Blossom x={280} y={168} r={7} rot={30} color={P.mist} opacity={0.6} />
+        <Blossom x={20} y={26} r={11} rot={15} color={P.blush} opacity={0.8} />
+        <Blossom x={38} y={14} r={7} rot={-20} color={P.mist} opacity={0.6} />
+        <Blossom x={160} y={296} r={11} rot={-15} color={P.blush} opacity={0.8} />
+        <Blossom x={142} y={308} r={7} rot={30} color={P.mist} opacity={0.6} />
         {/* drifting petals */}
-        <Blossom x={90} y={40} r={6} rot={40} color={P.mist} opacity={0.5} />
-        <Blossom x={230} y={130} r={7} rot={10} color={P.blush} opacity={0.5} />
-        <Blossom x={250} y={50} r={5} rot={70} color={P.mist} opacity={0.45} />
+        <Blossom x={140} y={70} r={6} rot={40} color={P.mist} opacity={0.5} />
+        <Blossom x={44} y={230} r={7} rot={10} color={P.blush} opacity={0.5} />
         {/* kanji */}
         <text
-          x="160"
-          y="98"
+          x="90"
+          y="164"
           textAnchor="middle"
           fontFamily="'Noto Serif JP', Georgia, serif"
-          fontSize="66"
+          fontSize="82"
           fontWeight={700}
           fill={P.blush}
           opacity="0.96"
@@ -96,16 +92,16 @@ const SakuraPreview = ({ thumbnailMode = false }: { thumbnailMode?: boolean }) =
           桜
         </text>
         {/* split brush lines */}
-        <path d="M 160 118 Q 130 115 100 118" stroke={P.crimson} strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.8" />
-        <path d="M 160 118 Q 190 121 220 118" stroke={P.crimson} strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6" />
+        <path d="M 90 190 Q 62 187 36 190" stroke={P.crimson} strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.8" />
+        <path d="M 90 190 Q 118 193 144 190" stroke={P.crimson} strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6" />
         {/* gold label */}
         <text
-          x="160"
-          y="136"
+          x="90"
+          y="210"
           textAnchor="middle"
           fontFamily="Georgia, serif"
           fontSize="9"
-          letterSpacing="7"
+          letterSpacing="8"
           fill={P.gold}
         >
           SAKURA
@@ -115,4 +111,4 @@ const SakuraPreview = ({ thumbnailMode = false }: { thumbnailMode?: boolean }) =
   );
 };
 
-export default SakuraPreview;
+export default SakuraPreviewPortrait;

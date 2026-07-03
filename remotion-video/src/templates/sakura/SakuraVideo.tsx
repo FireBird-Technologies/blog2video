@@ -10,6 +10,12 @@ import { SAKURA_LAYOUT_REGISTRY as LAYOUT_REGISTRY, SakuraLayoutType, SceneLayou
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import {
+  pickSakuraTransition,
+  SakuraTransitionOverlay,
+  SAKURA_TRANSITION_FRAMES,
+  SakuraTransition,
+} from "./sakuraTransitions";
 
 interface SceneData {
   id: number;
@@ -100,6 +106,16 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
+  // Per-boundary transition, keyed by the ENTERING (next) scene's layout,
+  // with no two adjacent boundaries repeating.
+  const boundaryTransitions: SakuraTransition[] = [];
+  let prevTransition: SakuraTransition | undefined;
+  for (let i = 0; i < data.scenes.length - 1; i++) {
+    const t = pickSakuraTransition(data.scenes[i + 1]?.layout, i, prevTransition);
+    boundaryTransitions.push(t);
+    prevTransition = t;
+  }
+
   return (
     <AbsoluteFill
       style={{
@@ -107,7 +123,7 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-      {data.scenes.map((scene) => {
+      {data.scenes.map((scene, index) => {
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
@@ -115,6 +131,7 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
+        const isLastScene = index === data.scenes.length - 1;
 
         const LayoutComponent =
           LAYOUT_REGISTRY[scene.layout] || LAYOUT_REGISTRY.sakura_section;
@@ -150,6 +167,17 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
+            {!isLastScene && durationFrames > SAKURA_TRANSITION_FRAMES && (
+              <Sequence
+                from={durationFrames - SAKURA_TRANSITION_FRAMES}
+                durationInFrames={SAKURA_TRANSITION_FRAMES}
+              >
+                <SakuraTransitionOverlay
+                  transition={boundaryTransitions[index]}
+                  seed={(scene.id % 7) + 3}
+                />
+              </Sequence>
             )}
           </Sequence>
         );
