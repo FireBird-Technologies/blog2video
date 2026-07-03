@@ -74,7 +74,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
   economist: EconomistPreviewPortrait,
   stickman_2: Stickman2PreviewPortrait,
   stickman_football: StickmanFootballPreviewPortrait,
-  // magazine: MagazinePreviewPortrait,
+   magazine: MagazinePreviewPortrait,
 };
 
 function wrapPreviews(
