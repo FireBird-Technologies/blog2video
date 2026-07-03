@@ -40,7 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data, collaboration, collab_ws, collab_history
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -558,6 +558,13 @@ app.mount("/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")
 # Include routers
 app.include_router(auth.router)
 app.include_router(billing.router)
+# Collaboration routes are registered before projects so the more specific
+# /api/projects/{id}/members and /api/projects/{id}/history|finalise|... paths
+# are matched ahead of the projects catch-all.
+app.include_router(collaboration.router)
+app.include_router(collaboration.accept_router)
+app.include_router(collab_history.router)
+app.include_router(collab_ws.router)
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(chat.router)

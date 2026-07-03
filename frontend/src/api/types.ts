@@ -49,6 +49,7 @@ export interface Asset {
 
 export interface Project {
   id: number;
+  user_id: number;
   name: string;
   blog_url: string;
   blog_content: string | null;
@@ -79,6 +80,8 @@ export interface Project {
   caption_offset?: number;
   custom_template_missing?: boolean;
   review_state?: ReviewState | null;
+  /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
+  is_shared?: boolean;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -93,6 +96,9 @@ export interface ProjectListItem {
   created_at: string;
   updated_at: string;
   scene_count: number;
+  // Collaboration: acting user's role on this project ("owner" | "editor").
+  role?: string;
+  owner_name?: string | null;
 }
 
 export interface ProjectTemplateChangeJob {

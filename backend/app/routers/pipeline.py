@@ -385,12 +385,14 @@ def get_pipeline_status(
     db: Session = Depends(get_db),
 ):
     """Poll this endpoint to get pipeline progress."""
+    from app.services.access import get_member
     progress = _pipeline_progress.get(project_id, {})
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user.id)
-        .first()
-    )
+    # Owner or accepted collaborator may poll progress. (Note: this endpoint has
+    # a legacy branch that surfaces a removed-project error only to the initiating
+    # user, handled below, so we resolve access manually rather than 404-ing here.)
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if project is not None and project.user_id != user.id and get_member(project_id, user.id, db) is None:
+        project = None
 
     if not project:
         # Generation failed and DB row was removed; show last error once for this user.
@@ -1951,24 +1953,22 @@ async def render_video_endpoint(
             detail="This project no longer has access to its crafted template.",
         )
 
-    # Align per-video credits with Stripe (same as project creation) before any limit check.
-    user_row = db.query(User).filter(User.id == user.id).first()
-    if not user_row:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    user_row.roll_video_period_if_due(db)
-    user_row.sync_video_limit_bonus(db)
-    user_row = db.query(User).filter(User.id == user.id).first()
-    if not user_row:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    # Owner pays: a re-render is billed to the project OWNER, not the acting
+    # collaborator. Align the owner's per-video credits with Stripe before the check.
+    from app.services.access import project_owner, video_limit_message
+    payer = project_owner(project, db)
+    payer.roll_video_period_if_due(db)
+    payer.sync_video_limit_bonus(db)
+    db.refresh(payer)
 
-    # Re-render: deduct a video count (same as creating a new video)
+    # Re-render: deduct a video count from the owner (same as creating a new video)
     if force_render:
-        if not user_row.can_create_video:
+        if not payer.can_create_video:
             raise HTTPException(
                 status_code=403,
-                detail="Video limit reached. Re-rendering counts as a new video. Upgrade your plan or buy more credits to continue."
+                detail=video_limit_message(payer, user, "re-render"),
             )
-        user_row.videos_used_this_period += 1
+        payer.videos_used_this_period += 1
         db.commit()
 
     # Don't restart if already rendering (guard by DB status so stale shared payloads
@@ -2234,14 +2234,9 @@ def download_video_endpoint(
     2. Falls back to local storage if R2 is not available.
     3. Returns 202 if still rendering or 404 if missing.
     """
-    # 1. Fetch project and verify ownership
-    project = db.query(Project).filter(
-        Project.id == project_id, 
-        Project.user_id == user.id
-    ).first()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    # 1. Fetch project and verify access (owner or accepted collaborator)
+    from app.services.access import get_accessible_project
+    project = get_accessible_project(project_id, user, db)
 
     # 2. Case A: Video is stored on Cloudflare R2
     if project.r2_video_url:
@@ -2280,15 +2275,17 @@ def download_video_endpoint(
 
 
 def _get_project(project_id: int, user_id: int, db: Session) -> Project:
-    """Helper to get a project owned by the user, or raise 404."""
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user_id)
-        .first()
-    )
-    if not project:
+    """Helper to get a project the user may access (owner or collaborator), or 404."""
+    from app.models.user import User as _User
+    from app.services.access import get_accessible_project
+
+    acting = db.query(_User).filter(_User.id == user_id).first()
+    if acting is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, user_id, db):
+    project = get_accessible_project(project_id, acting, db)
+    # Crafted-template entitlement is held by the OWNER (who bought/created it),
+    # so validate against the owner rather than the acting collaborator.
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, project.user_id, db):
         raise HTTPException(
             status_code=403,
             detail="Access to this project's crafted template has been revoked.",

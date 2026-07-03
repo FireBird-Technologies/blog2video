@@ -59,6 +59,37 @@ class UserOut(BaseModel):
 AuthResponse.model_rebuild()
 
 
+def _bind_pending_collab_invites(user: User, db: Session) -> None:
+    """Link collaboration invites addressed to this user's email to their account.
+
+    Invites can be created before the invitee has an account (invite-by-email).
+    On login we attach the ``user_id`` to any unbound pending rows for that email
+    so they surface in the invitee's pending-invites list. Acceptance is still an
+    explicit action; this only binds identity.
+    """
+    try:
+        from app.models.project_member import ProjectMember, MemberStatus
+
+        rows = (
+            db.query(ProjectMember)
+            .filter(
+                ProjectMember.invited_email == user.email,
+                ProjectMember.user_id.is_(None),
+                ProjectMember.status == MemberStatus.PENDING,
+            )
+            .all()
+        )
+        changed = False
+        for row in rows:
+            row.user_id = user.id
+            changed = True
+        if changed:
+            db.commit()
+    except Exception as e:
+        logger.warning("[COLLAB] Failed to bind pending invites for %s: %s", user.email, e)
+        db.rollback()
+
+
 def _apply_referral_bonus(ref_code: str, new_user: User, db: Session) -> None:
     try:
         referral = db.query(Referral).filter_by(code=ref_code, is_active=True).first()
@@ -198,6 +229,10 @@ def google_login(
     # Grant referral bonuses for brand-new users only
     if created_new_user and ref_code:
         _apply_referral_bonus(ref_code, user, db)
+
+    # Bind any collaboration invites addressed to this email to the user account,
+    # so pending invites created before the user existed show up for them to accept.
+    _bind_pending_collab_invites(user, db)
 
     ensure_free_voices_for_user(db, user.id)
 

@@ -52,6 +52,11 @@ import {
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
+import { CollabProvider } from "../components/CollabContext";
+import CollabToolbar from "../components/CollabToolbar";
+import EditHistoryPanel from "../components/EditHistoryPanel";
+import ShareProjectModal from "../components/ShareProjectModal";
+import type { CollabEdit } from "../hooks/useCollabSocket";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import { useNoticeModal } from "../contexts/NoticeModalContext";
@@ -80,6 +85,8 @@ import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
 import VoiceOperationModal from "../components/VoiceOperationModal";
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
+import SceneCommentModal from "../components/SceneCommentModal";
+import { listComments } from "../api/collaboration";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
@@ -862,6 +869,7 @@ export default function ProjectView() {
   const [embedLoading, setEmbedLoading] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
   const [showShareDropdown, setShowShareDropdown] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [showPreviewLinkModal, setShowPreviewLinkModal] = useState(false);
   const [previewLinkUrl, setPreviewLinkUrl] = useState<string | null>(null);
   const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
@@ -900,6 +908,9 @@ export default function ProjectView() {
     }
   }, [project?.scenes?.[0]?.id]);
   const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
+  const [commentScene, setCommentScene] = useState<Scene | null>(null);
+  const [commentCounts, setCommentCounts] = useState<Record<number, number>>({});
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [imageAdjustSceneId, setImageAdjustSceneId] = useState<number | null>(null);
   const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
   const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
@@ -1318,6 +1329,51 @@ export default function ProjectView() {
     },
     [projectId, showError],
   );
+
+  // ─── Collaboration: apply a peer's live edit into local state ──
+  const handleRemoteCollabEdit = useCallback((edit: CollabEdit) => {
+    setProject((prev) => {
+      if (!prev) return prev;
+      if (edit.scope === "project") {
+        return { ...prev, [edit.field]: edit.value } as typeof prev;
+      }
+      if (edit.scope === "scene" && edit.scene_id != null) {
+        return {
+          ...prev,
+          scenes: prev.scenes.map((s) =>
+            s.id === edit.scene_id ? ({ ...s, [edit.field]: edit.value } as typeof s) : s
+          ),
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  // A change-set was reverted — refetch authoritative state.
+  const handleCollabDraftResolved = useCallback(() => {
+    loadProject();
+  }, [loadProject]);
+
+  // Per-scene comment counts (badge on the Comment button). Only fetched for shared
+  // projects, where the comment affordance is shown.
+  const loadCommentCounts = useCallback(async () => {
+    if (!projectId || !project?.is_shared) {
+      setCommentCounts({});
+      return;
+    }
+    try {
+      const res = await listComments(projectId);
+      const counts: Record<number, number> = {};
+      for (const c of res.data) counts[c.scene_id] = (counts[c.scene_id] ?? 0) + 1;
+      setCommentCounts(counts);
+    } catch {
+      /* non-critical */
+    }
+  }, [projectId, project?.is_shared]);
+
+  useEffect(() => {
+    loadCommentCounts();
+  }, [loadCommentCounts]);
 
   const handlePreviewPlaybackSpeedChange = useCallback(
     async (speed: number) => {
@@ -3391,6 +3447,14 @@ export default function ProjectView() {
 
         {/* Main content (hidden while rendering or saving to cloud) */}
         {!rendering && !saving && (
+          <CollabProvider
+            projectId={projectId}
+            projectName={project.name}
+            isOwner={project.user_id === user?.id}
+            onRemoteEdit={handleRemoteCollabEdit}
+            onRemoteComment={loadCommentCounts}
+            onDraftResolved={handleCollabDraftResolved}
+          >
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-3">
@@ -3401,6 +3465,8 @@ export default function ProjectView() {
                 <StatusBadge status={statusForBadge} />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Collaboration header controls: presence + invite. */}
+                <CollabToolbar />
                 {/* Video format (landscape / portrait) — left of download */}
                 <div className="flex items-center shrink-0" data-action="aspect-ratio">
                   <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
@@ -3624,6 +3690,7 @@ export default function ProjectView() {
               </div>
             </div>
 
+
             {/* Video player area + Chat */}
             <div className="flex flex-1 min-h-0">
               {/* Video preview — always shows live preview when scenes exist */}
@@ -3709,6 +3776,7 @@ export default function ProjectView() {
               </div>
             </div>
           </div>
+          </CollabProvider>
         )}
       </div>
     );
@@ -4586,6 +4654,20 @@ export default function ProjectView() {
             >
               <button
                 type="button"
+                onClick={() => {
+                  setShowShareDropdown(false);
+                  setInviteOpen(true);
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5"
+              >
+                <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                Invite collaborators
+              </button>
+              <div className="border-t border-gray-100 my-0.5" />
+              <button
+                type="button"
                 disabled={embedLoading}
                 onClick={() => {
                   void handleCopyPreviewLink();
@@ -4666,6 +4748,27 @@ export default function ProjectView() {
           </>,
           document.body
         )}
+
+      {/* Invite collaborators — opened from the Share menu. */}
+      <ShareProjectModal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        projectId={projectId}
+        projectName={project.name}
+        isOwner={project.user_id === user?.id}
+      />
+
+      {/* Edit history + comments (opens from any tab). */}
+      <EditHistoryPanel
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        projectId={project.id}
+        scenes={project.scenes.map((s) => ({ id: s.id, order: s.order, title: s.title }))}
+        isOwner={project.user_id === user?.id}
+        onReverted={handleCollabDraftResolved}
+        currentUserId={user?.id}
+        ownerId={project.user_id === user?.id ? user?.id : undefined}
+      />
 
       {showSlidesExportMenu &&
         !missingCustomTemplate &&
@@ -4969,8 +5072,21 @@ export default function ProjectView() {
           locale={{ back: "Back", close: "Close", last: "Done", next: "Next", skip: "Skip" }}
         />
       )}
-      {/* Pill tabs */}
-      <ProjectTabs tabs={tabs} active={activeTab} onChange={handleTabChange} containerDataTour="tabs-container" />
+      {/* Pill tabs + edit-history trigger. On small screens the button wraps to the
+          next row and right-aligns; on ≥sm it sits inline on the right. */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <ProjectTabs tabs={tabs} active={activeTab} onChange={handleTabChange} containerDataTour="tabs-container" />
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(true)}
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors shrink-0 ml-auto"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Edit history
+        </button>
+      </div>
 
       {/* Tab content */}
       <div>
@@ -5057,6 +5173,8 @@ export default function ProjectView() {
                         onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
                         onEdit={() => setSceneEditModal(scene)}
                         onDelete={() => setSceneToDelete(scene)}
+                        onComment={project.is_shared ? () => setCommentScene(scene) : undefined}
+                        commentCount={commentCounts[scene.id] ?? 0}
                         onDragHandleStart={(e) => {
                           setDraggedSceneId(scene.id);
                           e.dataTransfer.setData("text/plain", String(scene.id));
@@ -5737,6 +5855,19 @@ export default function ProjectView() {
                   </div>,
                   document.body
                 )}
+
+                {/* Per-scene comments (shared projects only) */}
+                <SceneCommentModal
+                  open={commentScene != null}
+                  onClose={() => setCommentScene(null)}
+                  projectId={project.id}
+                  sceneId={commentScene?.id ?? 0}
+                  sceneTitle={commentScene?.title ?? ""}
+                  currentUserId={user?.id}
+                  ownerId={project.user_id}
+                  onChanged={loadCommentCounts}
+                />
+
 
                 {/* Delete scene confirmation modal */}
                 <ConfirmDeleteModal

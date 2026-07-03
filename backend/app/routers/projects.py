@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, inspect, text, update
+from sqlalchemy import func, inspect, text, update, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -193,7 +193,28 @@ def _build_review_state(project: Project, user: User, db: Session) -> ReviewStat
 def _prepare_project_response(project: Project, user: User, db: Session) -> Project:
     _inject_custom_theme(project)
     project.review_state = _build_review_state(project, user, db)
+    project.is_shared = _project_is_shared(project, db)
     return project
+
+
+def _project_is_shared(project: Project, db: Session) -> bool:
+    """True when the project has ≥1 member other than the owner.
+
+    Counts any invited member regardless of status (pending or accepted), excluding
+    the owner's own OWNER membership row, so the comment affordance appears as soon
+    as someone is invited.
+    """
+    from app.models.project_member import ProjectMember, MemberRole, MemberStatus
+    return (
+        db.query(ProjectMember.id)
+        .filter(
+            ProjectMember.project_id == project.id,
+            ProjectMember.role != MemberRole.OWNER,
+            ProjectMember.status != MemberStatus.REVOKED,
+        )
+        .first()
+        is not None
+    )
 
 # ─── Constants ────────────────────────────────────────────
 _MAX_UPLOAD_FILES = 5
@@ -886,6 +907,8 @@ def update_project(
                 detail="Captions require a voiceover. Add a voice to this video first.",
             )
 
+    from app.services.edit_tracker import new_change_set_id
+    _proj_change_set = new_change_set_id()
     for field, value in update_data.items():
         old_value = getattr(project, field)
 
@@ -896,12 +919,25 @@ def update_project(
             old_value=old_value,
             new_value=value,
             is_ai_assisted=False,
+            user_id=user.id,
+            change_set_id=_proj_change_set,
         )
 
         setattr(project, field, value)
 
     db.commit()
     db.refresh(project)
+
+    # Push each change live to any collaborators connected on this project.
+    from app.routers.collab_ws import broadcast_project_edit
+    from app.services.collab_draft import PROJECT_EDITABLE_FIELDS
+    for field, value in update_data.items():
+        if field in PROJECT_EDITABLE_FIELDS:
+            broadcast_project_edit(
+                project.id, field, value,
+                user_id=user.id, name=user.name, change_set_id=_proj_change_set,
+            )
+
     return _prepare_project_response(project, user, db)
 
 
@@ -916,12 +952,17 @@ async def change_project_template_regenerate_layouts(
     db: Session = Depends(get_db),
 ):
     project = _get_user_project(project_id, user.id, db)
-    user.roll_video_period_if_due(db)
-    user.sync_video_limit_bonus(db)
-    if not user.can_create_video:
+    # Owner pays: on a shared project the video-credit quota is charged to the
+    # OWNER, not the acting collaborator (a FREE collaborator regenerating a PRO
+    # owner's video consumes the owner's allotment).
+    from app.services.access import project_owner, video_limit_message
+    payer = project_owner(project, db)
+    payer.roll_video_period_if_due(db)
+    payer.sync_video_limit_bonus(db)
+    if not payer.can_create_video:
         raise HTTPException(
             status_code=403,
-            detail=f"Video limit reached ({user.video_limit}). Upgrade to continue regenerating videos.",
+            detail=video_limit_message(payer, user, "change the template"),
         )
     target_template = validate_template_id(body.template, db=db, user_id=user.id)
     if target_template == project.template:
@@ -952,16 +993,26 @@ async def change_project_template_regenerate_layouts(
     total_scenes = db.query(Scene).filter(Scene.project_id == project.id).count()
     job = ProjectTemplateChangeJob(
         project_id=project.id,
-        user_id=user.id,
+        # The job's user is the PAYER (project owner). Charge and refund both key off
+        # this, so a collaborator's edits consume the owner's allotment, and any
+        # refund on failure returns to the owner.
+        user_id=payer.id,
         target_template=target_template,
         status="queued",
         total_scenes=total_scenes,
         processed_scenes=0,
     )
     db.add(job)
-    user.videos_used_this_period += 1
+    payer.videos_used_this_period += 1
     # Surface "generating" state during relayout via existing status pipeline.
     project.status = ProjectStatus.GENERATING
+    # Log a non-revertable history entry for the template change (visibility only).
+    from app.services.edit_tracker import log_project_event
+    log_project_event(
+        db, project_id=project.id,
+        label=f"Template changed to {target_template}",
+        user_id=user.id,
+    )
     db.commit()
     db.refresh(job)
 
@@ -2250,12 +2301,16 @@ async def regenerate_script(
     if active_job:
         raise HTTPException(status_code=409, detail="A script regeneration job is already running for this project.")
 
-    user.roll_video_period_if_due(db)
-    user.sync_video_limit_bonus(db)
-    if not user.can_create_video:
+    # Owner pays: on a shared project the video credit is charged to the OWNER, not
+    # the acting collaborator.
+    from app.services.access import project_owner, video_limit_message
+    payer = project_owner(project, db)
+    payer.roll_video_period_if_due(db)
+    payer.sync_video_limit_bonus(db)
+    if not payer.can_create_video:
         raise HTTPException(
             status_code=403,
-            detail=f"Video limit reached ({user.video_limit}). Upgrade to continue regenerating.",
+            detail=video_limit_message(payer, user, "regenerate the script"),
         )
 
     scenes = (
@@ -2290,7 +2345,8 @@ async def regenerate_script(
 
     job = ProjectRegenerateScriptJob(
         project_id=project.id,
-        user_id=user.id,
+        # Payer = project owner. Charge and refund both key off this.
+        user_id=payer.id,
         status="queued",
         current_step="analyzing_instruction",
         total_scenes=0,
@@ -2301,9 +2357,14 @@ async def regenerate_script(
     db.add(job)
     project.status = ProjectStatus.SCRIPT_REGENERATING
     # Reserve the video credit upfront (same as new-project creation) so a concurrent
-    # generation can't double-spend the user's last credit. Refunded on any failure
-    # (in-job exception or crash recovery); kept once the regeneration succeeds.
-    user.videos_used_this_period += 1
+    # generation can't double-spend the last credit. Refunded on any failure (in-job
+    # exception or crash recovery); kept once the regeneration succeeds.
+    payer.videos_used_this_period += 1
+    # Log a non-revertable history entry for the script regeneration.
+    from app.services.edit_tracker import log_project_event
+    log_project_event(
+        db, project_id=project.id, label="Script regenerated", user_id=user.id,
+    )
     db.commit()
     db.refresh(job)
 
@@ -2881,22 +2942,47 @@ def list_projects(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all projects for the current user. Single query with scene count subquery."""
+    """List projects the user owns OR collaborates on. Scene count via subquery."""
+    from app.models.project_member import ProjectMember, MemberStatus
+    from app.models.user import User as _User
+
     scene_counts = (
         db.query(Scene.project_id, func.count(Scene.id).label("cnt"))
         .group_by(Scene.project_id)
         .subquery()
     )
+
+    # Project ids where the user is an accepted collaborator (excludes their own
+    # OWNER rows, which are covered by the ownership filter below).
+    shared_ids = {
+        pid
+        for (pid,) in db.query(ProjectMember.project_id).filter(
+            ProjectMember.user_id == user.id,
+            ProjectMember.status == MemberStatus.ACCEPTED,
+        )
+    }
+
     rows = (
         db.query(
             Project,
             func.coalesce(scene_counts.c.cnt, 0).label("scene_count"),
         )
         .outerjoin(scene_counts, Project.id == scene_counts.c.project_id)
-        .filter(Project.user_id == user.id, Project.is_active == True)  # noqa: E712
+        .filter(
+            Project.is_active == True,  # noqa: E712
+            or_(Project.user_id == user.id, Project.id.in_(shared_ids) if shared_ids else False),
+        )
         .order_by(Project.created_at.desc())
         .all()
     )
+
+    # Resolve owner display names for shared projects (for "Shared by X" labels).
+    owner_ids = {p.user_id for p, _ in rows if p.user_id != user.id}
+    owner_names = {
+        u.id: u.name
+        for u in db.query(_User).filter(_User.id.in_(owner_ids)).all()
+    } if owner_ids else {}
+
     return [
         ProjectListOut(
             id=p.id,
@@ -2906,6 +2992,8 @@ def list_projects(
             created_at=p.created_at,
             updated_at=p.updated_at,
             scene_count=int(scene_count),
+            role="owner" if p.user_id == user.id else "editor",
+            owner_name=None if p.user_id == user.id else owner_names.get(p.user_id),
         )
         for p, scene_count in rows
     ]
@@ -2990,7 +3078,8 @@ def delete_project(
     db: Session = Depends(get_db),
 ):
     """Manually delete a project row from DB and remove all project storage."""
-    project = _get_user_project(project_id, user.id, db)
+    # Owner-only: collaborators may edit but must not delete a shared project.
+    project = _get_user_project(project_id, user.id, db, required_role="owner")
 
     # Ensure any active render subprocess is terminated before deleting files/DB row.
     try:
@@ -3170,10 +3259,13 @@ def delete_asset(
 MANUAL_TRACKED_FIELDS = {
     "title",
     "display_text",
-    "remotion_code",
+    "remotion_code",  # carries per-scene font sizes, colors, and layout in its descriptor JSON
     "narration_text",
+    "visual_description",
+    "duration_seconds",
     "extra_hold_seconds",
     "bgm_volume",
+    "preferred_layout",
 }
 
 
@@ -3247,6 +3339,11 @@ def update_scene(
         raise HTTPException(status_code=404, detail="Scene not found")
 
     update_data = data.model_dump(exclude_unset=True)
+    # Group every field changed by this one request into a single change-set so
+    # they preview and revert atomically, attributed to the acting user.
+    from app.services.edit_tracker import new_change_set_id
+    change_set_id = new_change_set_id()
+    _broadcast_changes: list[tuple[str, object]] = []
     for key, value in update_data.items():
         if key not in MANUAL_TRACKED_FIELDS:
             continue
@@ -3269,12 +3366,25 @@ def update_scene(
             old_value=old_value,
             new_value=value,
             is_ai_assisted=False,
+            user_id=user.id,
+            change_set_id=change_set_id,
         )
 
         setattr(scene, key, value)
+        _broadcast_changes.append((key, value))
 
     db.commit()
     db.refresh(scene)
+
+    # Push each change live to any collaborators connected on this project.
+    from app.routers.collab_ws import broadcast_scene_edit
+    from app.services.collab_draft import SCENE_EDITABLE_FIELDS
+    for key, value in _broadcast_changes:
+        if key in SCENE_EDITABLE_FIELDS:
+            broadcast_scene_edit(
+                project.id, scene.id, key, value,
+                user_id=user.id, name=user.name, change_set_id=change_set_id,
+            )
 
     # Keep remotion-workspace in sync so preview/render use latest props
     try:
@@ -3311,6 +3421,8 @@ def bulk_update_scene_typography(
         .all()
     )
 
+    from app.services.edit_tracker import new_change_set_id
+    _typo_change_set = new_change_set_id()
     for scene in scenes:
         if not scene.remotion_code:
             continue
@@ -3344,6 +3456,8 @@ def bulk_update_scene_typography(
                         old_value=scene.remotion_code,
                         new_value=json.dumps(_sanitize_descriptor_for_data_viz(descriptor)),
                         is_ai_assisted=False,
+                        user_id=user.id,
+                        change_set_id=_typo_change_set,
                     )
         scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
@@ -3965,15 +4079,24 @@ async def regenerate_scene(
     from app.services.remotion import rebuild_workspace
     
     project = _get_user_project(project_id, user.id, db)
-    
+
+    # Owner pays: the AI-editing entitlement/limit is charged to the project OWNER,
+    # so a FREE collaborator inherits the owner's plan on a shared project.
+    from app.services.access import project_owner
+    from app.services.edit_tracker import new_change_set_id
+    payer = project_owner(project, db)
+    # Group every field this AI regeneration touches into one change-set, attributed
+    # to the acting user, so the whole regen previews and reverts as a single unit.
+    _regen_change_set = new_change_set_id()
+
     # Check usage limits
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         if project.ai_assisted_editing_count >= 3:
             raise HTTPException(
                 status_code=403,
                 detail="AI editing limit reached (3 uses per project). Upgrade to Pro or Standard for unlimited AI edits."
             )
-    
+
     scene = (
         db.query(Scene)
         .filter(Scene.id == scene_id, Scene.project_id == project_id)
@@ -4070,6 +4193,8 @@ async def regenerate_scene(
                         new_value=scene.narration_text,
                         is_ai_assisted=True,
                         user_instruction=narration_text,
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
     else:
         # Prefer existing display_text when present; otherwise fall back to narration_text.
@@ -4147,7 +4272,9 @@ async def regenerate_scene(
             new_value=scene.remotion_code,
             is_ai_assisted=True,
             user_instruction=f"Variant switch to {normalized_layout}",
-        )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
             project.ai_assisted_editing_count += 1
@@ -4205,7 +4332,9 @@ async def regenerate_scene(
             new_value=scene.remotion_code,
             is_ai_assisted=True,
             user_instruction=f"Layout switch to {normalized_layout}",
-        )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
             project.ai_assisted_editing_count += 1
@@ -4351,6 +4480,8 @@ async def regenerate_scene(
                         new_value=new_visual_description,
                         is_ai_assisted=True,
                         user_instruction=description,
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
         
         # Update display_text only; narration_text remains the narration script.
@@ -4365,7 +4496,9 @@ async def regenerate_scene(
                             new_value=new_display_text,
                             is_ai_assisted=True,
                             user_instruction=narration_text,
-                        )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
         # If variant switch + description: stamp the variant override after AI regen
         if is_variant_switch and normalized_layout:
             if normalized_layout == "intro":
@@ -4389,6 +4522,8 @@ async def regenerate_scene(
                         new_value=scene.remotion_code,
                         is_ai_assisted=True,
                         user_instruction=description,
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
         db.commit()
     else:
@@ -4403,6 +4538,8 @@ async def regenerate_scene(
                         new_value=new_visual_description,
                         is_ai_assisted=True,
                         user_instruction=description,
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
         if hasattr(scene, "display_text"):
             scene.display_text = new_display_text
@@ -4415,7 +4552,9 @@ async def regenerate_scene(
                             new_value=new_display_text,
                             is_ai_assisted=True,
                             user_instruction=narration_text,
-                        )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
         db.commit()
 
     # Regenerate voiceover only if requested
@@ -4458,7 +4597,9 @@ async def regenerate_scene(
                 new_value=expanded_voiceover,
                 is_ai_assisted=True,
                 user_instruction="AI-expanded narration for voiceover",
-            )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
             db.commit()
 
         track_scene_edit(
@@ -4470,6 +4611,8 @@ async def regenerate_scene(
                         new_value="regenerated",
                         is_ai_assisted=not verbatim,
                         user_instruction="Regenerated voiceover via API",
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
         db.commit()
 
@@ -4488,16 +4631,19 @@ async def regenerate_scene(
     return scene
 
 
-def _get_user_project(project_id: int, user_id: int, db: Session) -> Project:
-    """Get a project owned by the given user, or raise 404."""
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user_id, Project.is_active == True)  # noqa: E712
-        .first()
-    )
-    if not project:
+def _get_user_project(project_id: int, user_id: int, db: Session, *, required_role: str = "editor") -> Project:
+    """Get a project the user may access (owner or accepted collaborator), or 404.
+
+    Delegates to the membership-aware access resolver so all ~35 call sites gain
+    collaborator support. ``required_role="owner"`` for owner-only actions.
+    """
+    from app.services.access import get_accessible_project
+    from app.models.user import User as _User
+
+    user = db.query(_User).filter(_User.id == user_id).first()
+    if user is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    return project
+    return get_accessible_project(project_id, user, db, required_role=required_role)
 
 
 async def _run_voice_change(project_id: int, job_id: int) -> None:
@@ -4707,19 +4853,22 @@ async def change_project_voice(
     if existing and not existing.get("done", True):
         raise HTTPException(status_code=409, detail="A voice change is already in progress.")
 
+    user_row = db.query(User).filter(User.id == user.id).first()
+    if not user_row:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Owner pays: bill the OWNER's quota, not the acting collaborator's. ``user_row``
+    # (the actor) is still used below for voice-tuning gating + preference.
+    from app.services.access import project_owner, video_limit_message
+    payer = project_owner(project, db)
     # Align per-video credits with Stripe before the limit check (same as render).
-    user_row = db.query(User).filter(User.id == user.id).first()
-    if not user_row:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    user_row.roll_video_period_if_due(db)
-    user_row.sync_video_limit_bonus(db)
-    user_row = db.query(User).filter(User.id == user.id).first()
-    if not user_row:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    if not user_row.can_create_video:
+    payer.roll_video_period_if_due(db)
+    payer.sync_video_limit_bonus(db)
+    db.refresh(payer)
+    if not payer.can_create_video:
         raise HTTPException(
             status_code=403,
-            detail="Video limit reached. Changing the voice counts as a new video. Upgrade your plan or buy more credits to continue.",
+            detail=video_limit_message(payer, user, "change the voice"),
         )
 
     scenes = (
@@ -4760,18 +4909,24 @@ async def change_project_voice(
     if voice_tuning_pref is not None:
         user_row.preferred_voice_emotion = voice_tuning_pref
 
-    # Deduct one video credit and mark the project as voice-regenerating.
-    user_row.videos_used_this_period += 1
+    # Deduct one video credit from the OWNER and mark the project as voice-regenerating.
+    payer.videos_used_this_period += 1
     project.status = ProjectStatus.VOICE_REGENERATING
     job = ProjectVoiceChangeJob(
         project_id=project_id,
-        user_id=user.id,
+        # Payer = project owner. Charge and refund both key off this.
+        user_id=payer.id,
         status="queued",
         total_scenes=len(scenes),
         processed_scenes=0,
         voice_snapshot=voice_snapshot,
     )
     db.add(job)
+    # Log a non-revertable history entry for the audio regeneration (attributed to actor).
+    from app.services.edit_tracker import log_project_event
+    log_project_event(
+        db, project_id=project_id, label="Audio regenerated (voice change)", user_id=user.id,
+    )
     db.commit()
     db.refresh(job)
 

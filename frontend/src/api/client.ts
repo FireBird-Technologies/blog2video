@@ -142,6 +142,8 @@ export interface Asset {
 
 export interface Project {
   id: number;
+  // Owner user id — lets the editor tell owners from collaborators.
+  user_id: number;
   name: string;
   blog_url: string | null;
   blog_content: string | null;
@@ -187,6 +189,8 @@ export interface Project {
   custom_template_missing?: boolean;
   brand_logo_url?: string | null;
   review_state?: ReviewState | null;
+  /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
+  is_shared?: boolean;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -211,6 +215,9 @@ export interface ProjectListItem {
   created_at: string;
   updated_at: string;
   scene_count: number;
+  // Collaboration: acting user's role ("owner" | "editor") + owner display name.
+  role?: string;
+  owner_name?: string | null;
 }
 
 export interface ChatMessage {

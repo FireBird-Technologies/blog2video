@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
 import InviteOthers from "./pages/InviteOthers";
+import AcceptInvite from "./pages/AcceptInvite";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
@@ -66,11 +67,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const path = `${location.pathname}${location.search || ""}`;
     trackPageView(path);
   }, [location.pathname, location.search]);
+
+  // Resume a collaboration invite the user opened before signing in.
+  useEffect(() => {
+    if (!user) return;
+    const pending = localStorage.getItem("b2v_pending_invite");
+    if (pending && !location.pathname.startsWith("/invite/")) {
+      localStorage.removeItem("b2v_pending_invite");
+      navigate(`/invite/${pending}`, { replace: true });
+    }
+  }, [user, location.pathname, navigate]);
 
   if (loading) {
     return (
@@ -150,6 +162,10 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        {/* Collaboration invite accept link — public so AcceptInvite can stash the
+            token and redirect an unauthenticated user to sign in, then auto-accept
+            on return. */}
+        <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route
           path="/subscription"
           element={

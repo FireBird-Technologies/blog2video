@@ -334,6 +334,8 @@ class TemplateRatingSubmit(BaseModel):
 
 class ProjectOut(BaseModel):
     id: int
+    # Owner user id — lets the frontend tell owners from collaborators.
+    user_id: int
     name: str
     blog_url: Optional[str] = None
     blog_content: Optional[str] = None
@@ -376,6 +378,9 @@ class ProjectOut(BaseModel):
     custom_template_missing: bool = False
     brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None
+    # True when the project has ≥1 member (invited/pending or accepted). Gates the
+    # per-scene comment affordance in the UI.
+    is_shared: bool = False
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []
@@ -473,6 +478,10 @@ class ProjectListOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     scene_count: int = 0
+    # Collaboration: the acting user's role on this project ("owner"/"editor").
+    # Lets the frontend split "My videos" from "Shared with me".
+    role: str = "owner"
+    owner_name: Optional[str] = None
 
     class Config:
         from_attributes = True

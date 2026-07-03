@@ -726,6 +726,14 @@ export default function Dashboard() {
                     {project.name}
                   </h3>
                   <StatusBadge status={project.status} />
+                  {project.role === "editor" && (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 whitespace-nowrap"
+                      title={project.owner_name ? `Shared by ${project.owner_name}` : "Shared with you"}
+                    >
+                      Shared
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-0.5 text-xs text-gray-400 sm:flex-row sm:items-center sm:gap-3">
                   <span className="truncate max-w-[220px]">
@@ -739,25 +747,28 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={(e) => handleDeleteClick(project.id, project.name, e)}
-                className="text-gray-300 hover:text-red-500 transition-colors p-1 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-                title="Delete"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              {/* Only owners may delete a project — collaborators (role "editor") can't. */}
+              {project.role !== "editor" && (
+                <button
+                  onClick={(e) => handleDeleteClick(project.id, project.name, e)}
+                  className="text-gray-300 hover:text-red-500 transition-colors p-1 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                  title="Delete"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         ))
