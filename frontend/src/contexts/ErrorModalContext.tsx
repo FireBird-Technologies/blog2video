@@ -68,7 +68,9 @@ export function ErrorModalProvider({ children }: { children: ReactNode }) {
     setMessage(finalMsg);
     setShowUpgrade(Boolean(options?.showUpgrade));
     let nextVariant: ErrorModalHeadingVariant =
-      options?.variant === "pipeline" ? "pipeline" : "default";
+      options?.variant === "pipeline" || options?.variant === "warning"
+        ? options.variant
+        : "default";
     if (options?.variant === "maintenance" || finalMsg === MAINTENANCE_MESSAGE) {
       nextVariant = "maintenance";
     }
