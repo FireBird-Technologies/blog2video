@@ -1,6 +1,6 @@
 import ReactDOM from "react-dom";
 
-export type ErrorModalHeadingVariant = "default" | "pipeline" | "maintenance";
+export type ErrorModalHeadingVariant = "default" | "pipeline" | "maintenance" | "warning";
 
 interface Props {
   open: boolean;
@@ -12,6 +12,7 @@ interface Props {
 
 const PIPELINE_HEADING = "Oops 😢";
 const MAINTENANCE_HEADING = "We're updating right now";
+const WARNING_HEADING = "Oops 😢";
 
 export default function ErrorModal({
   open,
@@ -23,22 +24,25 @@ export default function ErrorModal({
   if (!open) return null;
 
   const isMaintenance = variant === "maintenance";
+  const isWarning = variant === "warning";
   const isSoft = variant === "pipeline" || showUpgrade;
   const iconBgClass = isMaintenance
     ? "bg-blue-100"
-    : isSoft
+    : isWarning || isSoft
       ? "bg-amber-100"
       : "bg-red-100";
   const iconColorClass = isMaintenance
     ? "text-blue-600"
-    : isSoft
+    : isWarning || isSoft
       ? "text-amber-700"
       : "text-red-600";
   const heading = isMaintenance
     ? MAINTENANCE_HEADING
-    : isSoft
-      ? PIPELINE_HEADING
-      : "Error";
+    : isWarning
+      ? WARNING_HEADING
+      : isSoft
+        ? PIPELINE_HEADING
+        : "Error";
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -70,6 +74,13 @@ export default function ErrorModal({
                   strokeLinejoin="round"
                   strokeWidth={2}
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              ) : isWarning ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z"
                 />
               ) : (
                 <path

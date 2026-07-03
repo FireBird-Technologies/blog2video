@@ -117,6 +117,18 @@ const SCENE_EDIT_FIRST_STEP: Step = {
   disableBeacon: true,
   placement: "right",
 };
+const CAPTIONS_STEP: Step = {
+  target: '[data-tour="captions"]',
+  content: "Turn on captions here: enable subtitles for your video, then fine-tune their font, size, and timing.",
+  disableBeacon: true,
+  placement: "top",
+};
+const PLAYBACK_SPEED_STEP: Step = {
+  target: '[data-tour="playback-speed"]',
+  content: "Adjust the playback speed here — speed up or slow down your video with a preset, or drag the slider for a custom speed.",
+  disableBeacon: true,
+  placement: "top",
+};
 const PROJECT_JOYRIDE_STYLES = {
   options: { primaryColor: "#7c3aed", width: 280 },
   tooltip: { fontSize: 13 },
@@ -128,6 +140,11 @@ const PROJECT_JOYRIDE_STYLES = {
 function buildProjectTourSteps(project: Project | null): Step[] {
   const steps: Step[] = [TABS_CONTAINER_STEP];
   if (project?.scenes?.length) steps.push(SCENE_EDIT_FIRST_STEP);
+  // Captions require a voiceover to have anything to transcribe; the CC button is
+  // only rendered when the project has narration audio.
+  const hasVoiceover = project?.scenes?.some((s) => s.voiceover_path) ?? false;
+  if (hasVoiceover) steps.push(CAPTIONS_STEP);
+  steps.push(PLAYBACK_SPEED_STEP);
   return steps;
 }
 
@@ -1348,7 +1365,11 @@ export default function ProjectView() {
         setCaptionSettingsKey((k) => k + 1);
         await loadProject();
       } catch (err) {
-        showError(getErrorMessage(err, "Failed to save caption settings."));
+        const msg = getErrorMessage(err, "Failed to save caption settings.");
+        // "Captions require a voiceover" is a soft prerequisite, not a failure —
+        // show it as a warning so the user isn't alarmed.
+        const isVoiceoverWarning = /captions? require a voiceover/i.test(msg);
+        showError(msg, isVoiceoverWarning ? { variant: "warning" } : undefined);
       } finally {
         setSavingCaptions(false);
       }

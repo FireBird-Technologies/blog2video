@@ -719,6 +719,7 @@ function PlaybackSpeedControl({
 
       {/* Icon button */}
       <button
+        data-tour="playback-speed"
         onClick={() => { if (!saving && onChange) { open ? setOpen(false) : openPopup(); } }}
         style={btnStyle}
         title={`Playback speed: ${currentSpeed.toFixed(1)}×`}
@@ -889,6 +890,28 @@ function CaptionControl({
     await onSave(draft);
     closePopup();
   }, [closePopup, draft, onSave, saving]);
+
+  // Enable captions directly (with save) without opening the popup. Used when the
+  // user clicks the CC button while captions are off — a one-click turn-on.
+  const handleQuickEnable = useCallback(async () => {
+    if (!onSave || saving) return;
+    await onSave({ ...savedSettings, captionsEnabled: true });
+  }, [onSave, saving, savedSettings]);
+
+  const handleCcButtonClick = useCallback(() => {
+    if (saving || !onSave) return;
+    if (open) {
+      closePopup();
+      return;
+    }
+    // Off → enable in one click and save. On → open the popup so the user can
+    // tweak settings or turn captions off (which requires an explicit Save).
+    if (!captionsEnabled) {
+      void handleQuickEnable();
+    } else {
+      openPopup();
+    }
+  }, [saving, onSave, open, closePopup, captionsEnabled, handleQuickEnable, openPopup]);
 
   const btnStyle: React.CSSProperties = {
     display: "flex",
@@ -1063,7 +1086,8 @@ function CaptionControl({
 
       {/* CC button */}
       <button
-        onClick={() => { if (!saving && onSave) { open ? closePopup() : openPopup(); } }}
+        data-tour="captions"
+        onClick={handleCcButtonClick}
         style={btnStyle}
         title="Captions"
         aria-label="Captions"
