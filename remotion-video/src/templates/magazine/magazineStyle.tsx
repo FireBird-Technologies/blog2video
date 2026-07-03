@@ -1522,6 +1522,108 @@ export const useFitText = (
   return px;
 };
 
+/**
+ * Auto-shrink text block. Renders its children at `basePx`, measures their
+ * natural height, and — if that overflows `maxHeight` — steps a uniform font
+ * scale down (to `minScale`) until the content fits. Unlike {@link useFitText}
+ * (which is tuned for a fixed-height multicolumn body box) this fits a small,
+ * height-auto stack (e.g. a timeline milestone's year + label + detail) so long
+ * copy is displayed in full at a smaller size instead of being clamped with an
+ * ellipsis. `scaleTargets` name the descendant elements (by ref) whose
+ * font-size should scale; if omitted, the block's own font-size is scaled.
+ *
+ * Render-safe: the measurement pass is gated with delayRender/continueRender so
+ * headless capture waits for the fitted size, keeping the MP4 == the Player.
+ */
+export const FitBlock: React.FC<{
+  maxHeight: number;
+  /** px base size the scale is applied against, per scaled target. */
+  targets: Array<{ ref: React.RefObject<HTMLElement>; basePx: number }>;
+  minScale?: number;
+  /** deps that change the copy or available height. */
+  deps: React.DependencyList;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}> = ({ maxHeight, targets, minScale = 0.5, deps, style, children }) => {
+  const boxRef = React.useRef<HTMLDivElement>(null);
+  const [scale, setScale] = React.useState(1);
+  const handleRef = React.useRef<number | null>(null);
+
+  React.useLayoutEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+
+    box.style.visibility = "hidden";
+    if (handleRef.current === null) handleRef.current = delayRender("magazine-fit-block");
+    let cancelled = false;
+    const release = () => {
+      if (handleRef.current !== null) {
+        continueRender(handleRef.current);
+        handleRef.current = null;
+      }
+    };
+
+    const applyScale = (s: number) => {
+      for (const t of targets) {
+        if (t.ref.current) t.ref.current.style.fontSize = `${(t.basePx * s).toFixed(2)}px`;
+      }
+    };
+
+    const measure = () => {
+      if (cancelled || !box.isConnected) {
+        release();
+        return;
+      }
+      // Probe the block's natural (unclamped) height off-flow at each scale and
+      // shrink until it fits maxHeight. 0.05 steps → at most ~10 probes.
+      applyScale(1);
+      let s = 1;
+      // scrollHeight reflects the full content height because the children set no
+      // fixed height / clamp (the callers remove WebkitLineClamp when using this).
+      if (box.scrollHeight > maxHeight + 1) {
+        while (s > minScale) {
+          s = Math.max(minScale, s - 0.05);
+          applyScale(s);
+          if (box.scrollHeight <= maxHeight + 1) break;
+        }
+      }
+      applyScale(s);
+      box.style.visibility = "visible";
+      setScale(s);
+      requestAnimationFrame(() => release());
+    };
+
+    const fontsObj = (document as Document & { fonts?: FontFaceSet }).fonts;
+    if (box.clientHeight > 0 || box.scrollHeight > 0) {
+      measure();
+    } else if (fontsObj?.ready) {
+      fontsObj.ready.then(() => { if (!cancelled) measure(); });
+    } else {
+      measure();
+    }
+
+    return () => {
+      cancelled = true;
+      release();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+
+  // Re-apply the resolved scale on every render so animated re-renders (opacity,
+  // transform) never revert the targets to their base size.
+  React.useEffect(() => {
+    for (const t of targets) {
+      if (t.ref.current) t.ref.current.style.fontSize = `${(t.basePx * scale).toFixed(2)}px`;
+    }
+  });
+
+  return (
+    <div ref={boxRef} style={style}>
+      {children}
+    </div>
+  );
+};
+
 /** Printed-sheen highlight — removed for performance. A full-screen animated
  *  gradient with mixBlendMode:soft-light forced an offscreen recomposite every
  *  frame; it's now a no-op (kept so callers/props stay source-compatible). */
