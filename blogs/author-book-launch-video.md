@@ -9,6 +9,8 @@ hero_image_alt: "Nonfiction book launch video formats beyond generic rotating bo
 
 # Why Your Book Launch Video Doesn't Have to Look Like Every Other Book Launch Video
 
+> **TL;DR:** The standard book-launch video (dramatic music, floating text, rotating cover) gets watched once and forgotten. Here's why that template fails and what to make instead — a video built to keep working long after launch week.
+
 Open YouTube and search "[book title] official book trailer" for any nonfiction bestseller from the past five years. You'll see the same video approximately 200 times with different covers:
 
 Sweeping orchestral music. Fragments of sentences appearing one at a time against a black background. A dramatic pause. The book cover, slowly rotating. An author photo. A slow fade. "Available Now."

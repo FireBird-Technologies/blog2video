@@ -9,6 +9,8 @@ hero_image_alt: "Cost and speed comparison between Blog2Video and hiring a freel
 
 # Blog2Video vs. Hiring a Video Editor: The Real Cost and Speed Breakdown
 
+> **TL;DR:** A side-by-side comparison of turning blog content into video with Blog2Video vs. hiring a freelance editor — cost per video, turnaround, revision cycles, and quality trade-offs — so you can run the faster/cheaper/good-enough math yourself.
+
 Before anyone commits to a new content production workflow, they run the same mental calculation: is it faster and cheaper than what I already do, and is the quality good enough?
 
 If you're currently producing video content from written material by hiring a freelancer or using an in-house video editor, the comparison is worth running explicitly. Here's the breakdown.

@@ -22,7 +22,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "A new Magazine template puts you on the cover of TIME, automatic captions now run on every video, and a Custom Template Generator lets you build your own look — plus upgrades across every existing template.",
     category: "Product updates",
-    heroImage: "/blog/blog-cover-biggest-update-magazine-captions-custom-templates.png",
+    heroImage: "/blog/blog-cover-biggest-update-magazine-captions-custom-templates.svg",
     heroImageAlt:
       "Blog2Video's biggest update: a TIME-style Magazine cover template, automatic captions, and a custom template generator.",
     publishedAt: "2026-07-03",
@@ -299,7 +299,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video's free stock visualizer pulls live price history and financial statements for any ticker, styled after Newscast, Bloomberg Terminal, and Newspaper visual themes. Here's why we built it and how finance publishers are using it.",
     category: "Product Update",
-    heroImage: "/blog/blog-cover-stock-visualizer.png",
+    heroImage: "/blog/blog-cover-stock-visualizer.svg",
     heroImageAlt:
       "Blog2Video free stock data visualizer showing SPCX price chart in Bloomberg Terminal, Newscast, and Newspaper themes alongside income statement and balance sheet tables.",
     publishedAt: "2026-06-30",
