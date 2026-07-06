@@ -43,6 +43,19 @@ engine = create_engine(
     connect_args=connect_args,
     **engine_kwargs,
 )
+
+if IS_SQLITE:
+    # SQLite disables foreign-key enforcement per-connection by default, so
+    # ON DELETE CASCADE would not fire — deleting a project would orphan its
+    # members, edit history, comments, etc. Turn it on for every connection.
+    from sqlalchemy import event
+
+    @event.listens_for(engine, "connect")
+    def _sqlite_fk_pragma(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

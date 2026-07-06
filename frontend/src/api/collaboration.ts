@@ -24,10 +24,16 @@ export interface PendingInvite {
 }
 
 export interface FieldChange {
+  /** Row id of this individual field edit — the unit of per-field revert/redo. */
+  id: number | null;
   field_name: string | null;
   old_value: string | null;
   new_value: string | null;
   scene_id: number | null;
+  /** This field edit is currently reverted (so its control shows "Redo"). */
+  reverted: boolean;
+  /** A newer edit to this field exists — it can no longer be reverted/redone. */
+  stale: boolean;
 }
 
 export interface ChangeSet {
@@ -40,6 +46,12 @@ export interface ChangeSet {
   revert_of_change_set_id: string | null;
   /** False for bulk operations logged for visibility but not revertable. */
   revertable: boolean;
+  /** True when a newer edit to one of this change-set's fields exists — only the
+   *  latest edit of a field can be reverted/redone. */
+  stale: boolean;
+  /** Row ids of this change-set's still-actionable (latest, revertable) fields —
+   *  what "Revert all" / "Redo all" acts on. */
+  revertable_field_ids: number[];
   user_id: number | null;
   user_name: string | null;
   user_picture: string | null;
@@ -79,8 +91,11 @@ export const getProjectHistory = (projectId: number) =>
 export const getSceneHistory = (projectId: number, sceneId: number) =>
   api.get<ChangeSet[]>(`/projects/${projectId}/scenes/${sceneId}/history`);
 
-export const revertChangeSet = (projectId: number, changeSetId: string) =>
-  api.post<ChangeSet[]>(`/projects/${projectId}/history/${changeSetId}/revert`);
+/** Revert/redo individual field edits by row id. Each row toggles based on its own
+ *  state (revert if active, redo if reverted). "Revert all" passes every actionable
+ *  row id of a change-set. */
+export const revertFields = (projectId: number, rowIds: number[]) =>
+  api.post<ChangeSet[]>(`/projects/${projectId}/history/revert`, { row_ids: rowIds });
 
 // ─── Scene comments ───────────────────────────────────────
 

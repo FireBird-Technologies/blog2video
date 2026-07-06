@@ -336,12 +336,22 @@ def delete_account(
             _delete_project_storage(proj)
             db.delete(proj)
 
-        # 4. Delete saved voices, custom voices, custom templates
+        # 4. Remove this user's collaborator memberships on OTHER people's projects
+        #    (their own projects were deleted above, cascading those member rows).
+        #    Match by bound user_id or by the invited email for still-pending invites,
+        #    so no ghost collaborator entry is left behind.
+        from app.models.project_member import ProjectMember
+        db.query(ProjectMember).filter(
+            (ProjectMember.user_id == user.id)
+            | (ProjectMember.invited_email == (user.email or "").lower())
+        ).delete(synchronize_session=False)
+
+        # 5. Delete saved voices, custom voices, custom templates
         db.query(SavedVoice).filter(SavedVoice.user_id == user.id).delete()
         db.query(CustomVoice).filter(CustomVoice.user_id == user.id).delete()
         db.query(CustomTemplate).filter(CustomTemplate.user_id == user.id).delete()
 
-        # 5. Soft-delete user — normalize usage before plan becomes FREE (read plan first)
+        # 6. Soft-delete user — normalize usage before plan becomes FREE (read plan first)
         was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
         if was_paid:
             # Paid users already had (or could have had) the free grant; do not let a low

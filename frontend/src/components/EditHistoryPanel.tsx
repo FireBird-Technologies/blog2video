@@ -5,7 +5,7 @@ import {
   FieldChange,
   getProjectHistory,
   getSceneHistory,
-  revertChangeSet,
+  revertFields,
 } from "../api/collaboration";
 import type { SceneRef } from "./CollabContext";
 import { relTime } from "../utils/relTime";
@@ -63,8 +63,20 @@ function ValueDelta({ change }: { change: LeafChange }) {
   );
 }
 
-/** A single field's changes: only the sub-fields that actually changed. */
-function FieldChangeRow({ change }: { change: FieldChange }) {
+/** A single field's changes, with its own per-field Revert/Redo control. */
+function FieldChangeRow({
+  change,
+  canAct,
+  busy,
+  onRevert,
+}: {
+  change: FieldChange;
+  /** Whether the current user may revert/redo this field (owner or its author). */
+  canAct: boolean;
+  /** This field's revert/redo is in flight. */
+  busy: boolean;
+  onRevert: (rowId: number) => void;
+}) {
   const leaves = diffFieldValue(change.old_value, change.new_value);
   return (
     <li>
@@ -76,6 +88,37 @@ function FieldChangeRow({ change }: { change: FieldChange }) {
           <ValueDelta key={i} change={lf} />
         ))}
       </div>
+      {canAct && change.id != null && (
+        <div className="mt-1 pl-1">
+          {change.stale ? (
+            <span className="inline-flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-medium text-gray-400">
+                {change.reverted ? "Not redoable" : "Not revertable"}
+              </span>
+              <span className="text-[10px] text-gray-400">
+                — a newer edit to this field exists
+              </span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-600"
+                title="Most recent edit of this field — it can be reverted."
+              >
+                latest
+              </span>
+              <button
+                type="button"
+                onClick={() => onRevert(change.id as number)}
+                disabled={busy}
+                className="text-[11px] font-medium text-[#7C3AED] hover:text-[#6D28D9] disabled:opacity-50"
+              >
+                {busy ? "Processing…" : change.reverted ? "Redo" : "Revert"}
+              </button>
+            </span>
+          )}
+        </div>
+      )}
     </li>
   );
 }
@@ -122,7 +165,8 @@ export default function EditHistoryPanel({
   const [projectEdits, setProjectEdits] = useState<ChangeSet[]>([]);
   const [sceneEdits, setSceneEdits] = useState<ChangeSet[]>([]);
   const [loading, setLoading] = useState(false);
-  const [reverting, setReverting] = useState<string | null>(null);
+  // Row ids currently being reverted/redone (per-field, so several can be in flight).
+  const [reverting, setReverting] = useState<Set<number>>(new Set());
   const [selectOpen, setSelectOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
 
@@ -197,18 +241,26 @@ export default function EditHistoryPanel({
     else loadSceneEdits();
   }, [open, tab, loadProjectEdits, loadSceneEdits]);
 
-  const handleRevert = async (cs: ChangeSet) => {
-    if (!cs.change_set_id) return;
-    setReverting(cs.change_set_id);
+  const handleRevertFields = async (rowIds: number[]) => {
+    const ids = rowIds.filter((id) => id != null);
+    if (ids.length === 0) return;
+    setReverting((prev) => new Set([...prev, ...ids]));
     try {
-      await revertChangeSet(projectId, cs.change_set_id);
+      await revertFields(projectId, ids);
       if (tab === "project") await loadProjectEdits();
       else await loadSceneEdits();
       onReverted?.();
     } catch {
-      /* surfaced via reload; keep panel open */
+      // A newer edit may have landed (409) — reload so the controls reflect the
+      // current state instead of retrying blindly.
+      if (tab === "project") await loadProjectEdits();
+      else await loadSceneEdits();
     } finally {
-      setReverting(null);
+      setReverting((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
     }
   };
 
@@ -245,25 +297,47 @@ export default function EditHistoryPanel({
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">reverted</span>
                 )}
               </div>
-              {event ? (
-                <p className="text-xs text-gray-600 mb-1.5">{cs.changes[0]?.field_name || "Action"}</p>
-              ) : (
-                <ul className="text-xs text-gray-600 space-y-1.5 mb-1.5">
-                  {cs.changes.map((c, j) => (
-                    <FieldChangeRow key={j} change={c} />
-                  ))}
-                </ul>
-              )}
-              {cs.change_set_id && cs.revertable && (isOwner || cs.user_id === currentUserId) && (
-                <button
-                  type="button"
-                  onClick={() => handleRevert(cs)}
-                  disabled={reverting === cs.change_set_id}
-                  className="text-xs font-medium text-[#7C3AED] hover:text-[#6D28D9] disabled:opacity-50"
-                >
-                  {reverting === cs.change_set_id ? "Reverting…" : cs.reverted ? "Redo" : "Revert"}
-                </button>
-              )}
+              {(() => {
+                const canAct = isOwner || cs.user_id === currentUserId;
+                // Actionable rows that aren't yet reverted → "Revert all"; if all are
+                // already reverted → "Redo all".
+                const actionableIds = cs.revertable_field_ids;
+                const allReverted =
+                  actionableIds.length > 0 &&
+                  cs.changes
+                    .filter((c) => c.id != null && actionableIds.includes(c.id))
+                    .every((c) => c.reverted);
+                const anyBusy = actionableIds.some((id) => reverting.has(id));
+                return (
+                  <>
+                    {event ? (
+                      <p className="text-xs text-gray-600 mb-1.5">{cs.changes[0]?.field_name || "Action"}</p>
+                    ) : (
+                      <ul className="text-xs text-gray-600 space-y-1.5 mb-1.5">
+                        {cs.changes.map((c, j) => (
+                          <FieldChangeRow
+                            key={c.id ?? j}
+                            change={c}
+                            canAct={canAct}
+                            busy={c.id != null && reverting.has(c.id)}
+                            onRevert={(rowId) => handleRevertFields([rowId])}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                    {canAct && actionableIds.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRevertFields(actionableIds)}
+                        disabled={anyBusy}
+                        className="text-xs font-medium text-[#7C3AED] hover:text-[#6D28D9] disabled:opacity-50"
+                      >
+                        {anyBusy ? "Processing…" : allReverted ? "Redo all" : "Revert all"}
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
             </li>
           );
         })}

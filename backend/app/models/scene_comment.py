@@ -47,6 +47,8 @@ class SceneComment(Base):
     )
 
     user = relationship("User")
+    project = relationship("Project", back_populates="scene_comments")
+    scene = relationship("Scene", back_populates="comments")
 
 
 Index("ix_scene_comment_project_scene", SceneComment.project_id, SceneComment.scene_id)

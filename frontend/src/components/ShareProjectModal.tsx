@@ -111,12 +111,6 @@ export default function ShareProjectModal({
         </p>
 
         {isOwner && (
-          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">
-            Collaborators can use your credits when regenerating or editing this video.
-          </p>
-        )}
-
-        {isOwner && (
           <div className="mb-4">
             <div className="flex gap-2">
               <input
@@ -138,7 +132,7 @@ export default function ShareProjectModal({
               </button>
             </div>
             {atLimit && (
-              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mt-2">
+              <p className="text-xs text-red-600 mt-2">
                 Maximum of 5 collaborators reached. Remove someone to invite another.
               </p>
             )}
@@ -194,11 +188,18 @@ export default function ShareProjectModal({
           )}
         </div>
 
-        <div className="flex justify-end mt-5">
+        <div className="flex items-center justify-between gap-3 mt-5">
+          {isOwner ? (
+            <p className="text-xs text-amber-600 flex-1 min-w-0">
+              Collaborators can use your credits when regenerating or editing this video.
+            </p>
+          ) : (
+            <span className="flex-1" />
+          )}
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors shrink-0"
           >
             Done
           </button>
