@@ -144,6 +144,16 @@ def broadcast_scene_edit(
     })
 
 
+def broadcast_project_reload(project_id: int) -> None:
+    """Tell live collaborators to refetch the whole project.
+
+    Used after bulk jobs (template change, script/voice regen) that rewrite many
+    fields + scene descriptors at once — too much to sync field-by-field, so the
+    client reloads authoritative state.
+    """
+    collab_manager.broadcast_from_sync(project_id, {"type": "project_reloaded"})
+
+
 def _authenticate(token: Optional[str], db) -> Optional[User]:
     if not token:
         return None
@@ -171,26 +181,34 @@ async def collab_socket(
     project_id: int,
     token: Optional[str] = Query(default=None),
 ):
-    db = SessionLocal()
     conn: Optional[_Conn] = None
     try:
-        user = _authenticate(token, db)
-        if user is None:
-            await websocket.close(code=4401)  # unauthorized
-            return
+        # Auth + seed use a short-lived session that is CLOSED before the receive
+        # loop — a socket must not hold a pool connection while idle, or many open
+        # sockets exhaust the pool (QueuePool timeout). Per-edit handling opens its
+        # own session on demand.
+        db = SessionLocal()
+        try:
+            user = _authenticate(token, db)
+            if user is None:
+                await websocket.close(code=4401)  # unauthorized
+                return
 
-        project = db.query(Project).filter(Project.id == project_id, Project.is_active == True).first()  # noqa: E712
-        if project is None or not _can_access(project, user, db):
-            await websocket.close(code=4404)  # not found / no access
-            return
+            project = db.query(Project).filter(Project.id == project_id, Project.is_active == True).first()  # noqa: E712
+            if project is None or not _can_access(project, user, db):
+                await websocket.close(code=4404)  # not found / no access
+                return
 
-        await websocket.accept()
-        collab_manager.bind_loop(asyncio.get_running_loop())
-        conn = _Conn(websocket, user.id, user.name, user.picture)
-        collab_manager.add(project_id, conn)
+            await websocket.accept()
+            collab_manager.bind_loop(asyncio.get_running_loop())
+            conn = _Conn(websocket, user.id, user.name, user.picture)
+            collab_manager.add(project_id, conn)
 
-        # Seed the joining client with the current published state + peers.
-        snapshot = collab_draft.build_published_snapshot(project, db)
+            # Seed the joining client with the current published state + peers.
+            snapshot = collab_draft.build_published_snapshot(project, db)
+        finally:
+            db.close()
+
         await websocket.send_text(json.dumps({
             "type": "init",
             "state": snapshot,
@@ -211,7 +229,7 @@ async def collab_socket(
                 msg = json.loads(raw)
             except Exception:
                 continue
-            await _handle_message(msg, project_id, user, conn, db)
+            await _handle_message(msg, project_id, user, conn)
 
     except WebSocketDisconnect:
         pass
@@ -220,17 +238,18 @@ async def collab_socket(
     finally:
         if conn is not None:
             collab_manager.remove(project_id, conn)
+            remaining = collab_manager.peers(project_id)
+            logger.info("[COLLAB_WS] disconnect user=%s project=%s remaining=%d", conn.user_id, project_id, len(remaining))
             try:
                 await collab_manager.broadcast(
                     project_id,
-                    {"type": "presence", "event": "leave", "peers": collab_manager.peers(project_id)},
+                    {"type": "presence", "event": "leave", "peers": remaining},
                 )
             except Exception:
                 pass
-        db.close()
 
 
-async def _handle_message(msg: dict, project_id: int, user: User, conn: _Conn, db) -> None:
+async def _handle_message(msg: dict, project_id: int, user: User, conn: _Conn) -> None:
     mtype = msg.get("type")
 
     if mtype == "leave":
@@ -238,9 +257,11 @@ async def _handle_message(msg: dict, project_id: int, user: User, conn: _Conn, d
         # room immediately, then close. More reliable than waiting for the TCP
         # disconnect, which an idle socket may not surface for a while.
         collab_manager.remove(project_id, conn)
+        remaining = collab_manager.peers(project_id)
+        logger.info("[COLLAB_WS] leave msg user=%s project=%s remaining=%d", user.id, project_id, len(remaining))
         await collab_manager.broadcast(
             project_id,
-            {"type": "presence", "event": "leave", "peers": collab_manager.peers(project_id)},
+            {"type": "presence", "event": "leave", "peers": remaining},
         )
         try:
             await conn.ws.close()
@@ -267,43 +288,49 @@ async def _handle_message(msg: dict, project_id: int, user: User, conn: _Conn, d
         return
 
     if mtype == "edit":
-        # Re-check access on every edit so a revoked user can't keep writing.
-        project = db.query(Project).filter(Project.id == project_id, Project.is_active == True).first()  # noqa: E712
-        if project is None or not _can_access(project, user, db):
-            await conn.ws.close(code=4403)
-            return
-
-        scope = msg.get("scope")  # "scene" | "project"
-        field = msg.get("field")
-        value = msg.get("value")
-        change_set_id = msg.get("change_set_id") or new_change_set_id()
-
+        # Open a short-lived session only for this edit — never hold a pool
+        # connection across the idle receive loop.
+        db = SessionLocal()
         try:
-            if scope == "scene":
-                updated = collab_draft.apply_scene_field(
-                    project, int(msg["scene_id"]), field, value,
-                    user_id=user.id, change_set_id=change_set_id, db=db,
-                )
-                await collab_manager.broadcast(
-                    project_id,
-                    {
-                        "type": "edit", "scope": "scene", "scene_id": msg["scene_id"],
-                        "field": field, "value": value, "user_id": user.id,
-                        "name": user.name, "change_set_id": change_set_id,
-                    },
-                )
-            elif scope == "project":
-                collab_draft.apply_project_field(
-                    project, field, value,
-                    user_id=user.id, change_set_id=change_set_id, db=db,
-                )
-                await collab_manager.broadcast(
-                    project_id,
-                    {
-                        "type": "edit", "scope": "project", "field": field, "value": value,
-                        "user_id": user.id, "name": user.name, "change_set_id": change_set_id,
-                    },
-                )
-        except ValueError as e:
-            await conn.ws.send_text(json.dumps({"type": "error", "detail": str(e)}))
+            # Re-check access on every edit so a revoked user can't keep writing.
+            project = db.query(Project).filter(Project.id == project_id, Project.is_active == True).first()  # noqa: E712
+            if project is None or not _can_access(project, user, db):
+                await conn.ws.close(code=4403)
+                return
+
+            scope = msg.get("scope")  # "scene" | "project"
+            field = msg.get("field")
+            value = msg.get("value")
+            change_set_id = msg.get("change_set_id") or new_change_set_id()
+
+            try:
+                if scope == "scene":
+                    collab_draft.apply_scene_field(
+                        project, int(msg["scene_id"]), field, value,
+                        user_id=user.id, change_set_id=change_set_id, db=db,
+                    )
+                    await collab_manager.broadcast(
+                        project_id,
+                        {
+                            "type": "edit", "scope": "scene", "scene_id": msg["scene_id"],
+                            "field": field, "value": value, "user_id": user.id,
+                            "name": user.name, "change_set_id": change_set_id,
+                        },
+                    )
+                elif scope == "project":
+                    collab_draft.apply_project_field(
+                        project, field, value,
+                        user_id=user.id, change_set_id=change_set_id, db=db,
+                    )
+                    await collab_manager.broadcast(
+                        project_id,
+                        {
+                            "type": "edit", "scope": "project", "field": field, "value": value,
+                            "user_id": user.id, "name": user.name, "change_set_id": change_set_id,
+                        },
+                    )
+            except ValueError as e:
+                await conn.ws.send_text(json.dumps({"type": "error", "detail": str(e)}))
+        finally:
+            db.close()
         return

@@ -3453,6 +3453,7 @@ export default function ProjectView() {
             isOwner={project.user_id === user?.id}
             onRemoteEdit={handleRemoteCollabEdit}
             onRemoteComment={loadCommentCounts}
+            onRemoteReload={handleCollabDraftResolved}
             onDraftResolved={handleCollabDraftResolved}
           >
           <div className="glass-card overflow-hidden flex flex-col">

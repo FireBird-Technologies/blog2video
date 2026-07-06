@@ -35,6 +35,8 @@ interface ProviderProps {
   isOwner: boolean;
   onRemoteEdit?: (edit: CollabEdit) => void;
   onRemoteComment?: (event: CommentEvent) => void;
+  /** A bulk job finished elsewhere — refetch the whole project. */
+  onRemoteReload?: () => void;
   onDraftResolved?: () => void;
   children: ReactNode;
 }
@@ -51,6 +53,7 @@ export function CollabProvider({
   isOwner,
   onRemoteEdit,
   onRemoteComment,
+  onRemoteReload,
   onDraftResolved,
   children,
 }: ProviderProps) {
@@ -63,6 +66,7 @@ export function CollabProvider({
     enabled: true,
     onEdit: onRemoteEdit,
     onComment: onRemoteComment,
+    onReload: onRemoteReload,
   });
 
   const openInvite = useCallback(() => setInviteOpen(true), []);

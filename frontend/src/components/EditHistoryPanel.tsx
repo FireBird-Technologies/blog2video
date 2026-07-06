@@ -34,12 +34,13 @@ function ValueDelta({ change }: { change: LeafChange }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="inline-flex align-middle ml-1 text-[#7C3AED] hover:text-[#6D28D9]"
+          className="inline-flex items-center gap-0.5 align-middle ml-1 text-[11px] font-medium text-[#7C3AED] hover:text-[#6D28D9]"
           aria-label={expanded ? "Collapse" : "Expand"}
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d={expanded ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
           </svg>
+          {expanded ? "less" : "more"}
         </button>
       )}
     </div>

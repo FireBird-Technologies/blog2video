@@ -770,6 +770,10 @@ def _run_project_template_change_job(job_id: int) -> None:
         db.commit()
         if not finalized.rowcount:
             logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s already reaped; skipping completion", job_id)
+        else:
+            # Done — collaborators reload to see the finished template + layouts.
+            from app.routers.collab_ws import broadcast_project_reload
+            broadcast_project_reload(project.id)
     except Exception as e:
         logger.exception("[PROJECT_TEMPLATE_CHANGE] job=%s failed: %s", job_id, e)
         # Don't clobber a reaper that already failed/reverted this job.
@@ -1015,6 +1019,11 @@ async def change_project_template_regenerate_layouts(
     )
     db.commit()
     db.refresh(job)
+
+    # Tell live collaborators to refetch so they see the "generating" state as the
+    # template regeneration begins (it rewrites colors + every scene's layout).
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project.id)
 
     # Match pipeline behavior: run in asyncio-managed executor.
     loop = asyncio.get_event_loop()
@@ -2216,6 +2225,10 @@ def _run_regenerate_script_stage_b(job_id: int) -> None:
         db.commit()
         if not finalized.rowcount:
             logger.warning("[REGENERATE_SCRIPT_JOB] stage B job=%s already reaped; skipping completion", job_id)
+        else:
+            # Done — collaborators reload to see the regenerated script + audio.
+            from app.routers.collab_ws import broadcast_project_reload
+            broadcast_project_reload(project.id)
 
         # Success — the new audio is committed, drop the backup.
         _cleanup_audio_backup(job_project_id, job_id)
@@ -2368,6 +2381,10 @@ async def regenerate_script(
     db.commit()
     db.refresh(job)
 
+    # Tell live collaborators to refetch so they see the script regeneration start.
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project.id)
+
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
     return job
@@ -2466,6 +2483,10 @@ async def verify_regenerate_script(
     db.commit()
     db.refresh(job)
 
+    # Tell live collaborators to refetch as scene/voiceover generation begins.
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id)
+
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _run_regenerate_script_stage_b, job.id)
     return job
@@ -2510,6 +2531,10 @@ async def reject_regenerate_script(
         project.status = ProjectStatus.SCRIPT_REGENERATING
     db.commit()
     db.refresh(job)
+
+    if project:
+        from app.routers.collab_ws import broadcast_project_reload
+        broadcast_project_reload(project.id)
 
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
@@ -4772,6 +4797,9 @@ async def _run_voice_change(project_id: int, job_id: int) -> None:
         if finalized.rowcount:
             _cleanup_audio_backup(project_id, job_id)
             voice_change_progress.finish(project_id)
+            # Done — collaborators reload to see the regenerated audio.
+            from app.routers.collab_ws import broadcast_project_reload
+            broadcast_project_reload(project_id)
         else:
             logger.warning("[VOICE-CHANGE] job=%s already reaped; skipping completion", job_id)
             voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
@@ -4929,6 +4957,10 @@ async def change_project_voice(
     )
     db.commit()
     db.refresh(job)
+
+    # Tell live collaborators to refetch so they see the voice regeneration start.
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id)
 
     # Seed progress and kick off regeneration in the background.
     voice_change_progress.start(project_id, len(scenes))
@@ -5150,6 +5182,9 @@ async def _run_delete_voiceover(project_id: int, job_id: int) -> None:
         if finalized.rowcount:
             _cleanup_audio_backup(project_id, backup_id)
             voice_change_progress.finish(project_id)
+            # Done — collaborators reload to see the voiceover removed.
+            from app.routers.collab_ws import broadcast_project_reload
+            broadcast_project_reload(project_id)
         else:
             logger.warning("[DELETE-VOICEOVER] job=%s already reaped; skipping completion", job_id)
             voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
@@ -5277,6 +5312,10 @@ async def delete_project_voiceover(
     db.add(job)
     db.commit()
     db.refresh(job)
+
+    # Tell live collaborators to refetch so they see the voiceover removal start.
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id)
 
     voice_change_progress.start(project_id, len(scenes), kind="delete")
     background_tasks.add_task(_run_delete_voiceover, project_id, job.id)

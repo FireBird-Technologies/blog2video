@@ -37,6 +37,8 @@ interface UseCollabSocketOpts {
   enabled: boolean;
   onEdit?: (edit: CollabEdit) => void;
   onComment?: (event: CommentEvent) => void;
+  /** A bulk job (template change, regen) finished — refetch the whole project. */
+  onReload?: () => void;
 }
 
 interface UseCollabSocket {
@@ -71,20 +73,29 @@ export function useCollabSocket({
   enabled,
   onEdit,
   onComment,
+  onReload,
 }: UseCollabSocketOpts): UseCollabSocket {
   const [connected, setConnected] = useState(false);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [state, setState] = useState<ProjectState | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closedByUsRef = useRef(false);
 
   // Keep latest callbacks without re-opening the socket.
-  const cbRef = useRef({ onEdit, onComment });
-  cbRef.current = { onEdit, onComment };
+  const cbRef = useRef({ onEdit, onComment, onReload });
+  cbRef.current = { onEdit, onComment, onReload };
 
   const connect = useCallback(() => {
     if (!enabled || !token) return;
+    console.log("[COLLAB] connect() called, projectId=", projectId, "existing readyState=", wsRef.current?.readyState);
+    // Don't open a second socket if one is already open or connecting — prevents a
+    // pile of orphaned server-side connections when connect() runs more than once.
+    const existing = wsRef.current;
+    if (existing && (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
     closedByUsRef.current = false;
 
     const scheme = BACKEND_URL.startsWith("https") ? "wss" : window.location.protocol === "https:" ? "wss" : "ws";
@@ -114,6 +125,7 @@ export function useCollabSocket({
           setPeers((msg.peers as Peer[]) || []);
           break;
         case "presence":
+          console.log("[COLLAB] presence", msg.event, "peers:", (msg.peers as Peer[])?.length);
           setPeers((msg.peers as Peer[]) || []);
           break;
         case "edit":
@@ -123,6 +135,9 @@ export function useCollabSocket({
         case "comment_added":
         case "comment_deleted":
           cbRef.current.onComment?.(msg as unknown as CommentEvent);
+          break;
+        case "project_reloaded":
+          cbRef.current.onReload?.();
           break;
         default:
           break;
@@ -137,7 +152,8 @@ export function useCollabSocket({
       if (!closedByUsRef.current && !noRetry && enabled) {
         const delay = Math.min(1000 * 2 ** retryRef.current, 15000);
         retryRef.current += 1;
-        setTimeout(connect, delay);
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(connect, delay);
       }
     };
 
@@ -151,9 +167,16 @@ export function useCollabSocket({
   }, [enabled, token, projectId]);
 
   useEffect(() => {
+    console.log("[COLLAB] hook effect MOUNT, projectId=", projectId);
     connect();
     return () => {
+      console.log("[COLLAB] hook effect CLEANUP, projectId=", projectId);
       closedByUsRef.current = true;
+      // Cancel any pending reconnect so it can't open a socket after unmount.
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
         // Tell the server we're leaving so it drops us from presence immediately,
