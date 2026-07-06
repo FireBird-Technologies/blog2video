@@ -69,6 +69,7 @@ class CommentOut(BaseModel):
     scene_id: int
     body: str
     created_at: datetime
+    parent_id: Optional[int] = None
     user_id: Optional[int] = None
     user_name: Optional[str] = None
     user_picture: Optional[str] = None
@@ -76,6 +77,7 @@ class CommentOut(BaseModel):
 
 class CommentCreate(BaseModel):
     body: str
+    parent_id: Optional[int] = None
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────
@@ -512,6 +514,7 @@ def _comment_out(c, user_by_id: dict) -> CommentOut:
         scene_id=c.scene_id,
         body=c.body,
         created_at=c.created_at,
+        parent_id=getattr(c, "parent_id", None),
         user_id=c.user_id,
         user_name=u.name if u else None,
         user_picture=u.picture if u else None,
@@ -563,7 +566,41 @@ def create_comment(
     if not body:
         raise HTTPException(status_code=400, detail="Comment cannot be empty.")
 
-    comment = SceneComment(project_id=project_id, scene_id=scene_id, user_id=user.id, body=body)
+    # Threaded reply: the parent must be a comment on the same scene/project.
+    parent_id = payload.parent_id
+    if parent_id is not None:
+        parent = (
+            db.query(SceneComment)
+            .filter(
+                SceneComment.id == parent_id,
+                SceneComment.project_id == project_id,
+                SceneComment.scene_id == scene_id,
+            )
+            .first()
+        )
+        if parent is None:
+            raise HTTPException(status_code=404, detail="The comment you're replying to was not found.")
+
+        # Replies are capped at level 2 (root = 0). You can only reply to a level-0 or
+        # level-1 comment; the parent's depth must be < 2.
+        depth = 0
+        cursor = parent
+        while cursor.parent_id is not None and depth < 2:
+            depth += 1
+            cursor = (
+                db.query(SceneComment).filter(SceneComment.id == cursor.parent_id).first()
+            )
+            if cursor is None:
+                break
+        if depth >= 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Replies can only go two levels deep.",
+            )
+
+    comment = SceneComment(
+        project_id=project_id, scene_id=scene_id, user_id=user.id, body=body, parent_id=parent_id
+    )
     db.add(comment)
     db.commit()
     db.refresh(comment)
@@ -596,7 +633,29 @@ def delete_comment(
         raise HTTPException(status_code=403, detail="You can only delete your own comments.")
 
     scene_id = comment.scene_id
-    db.delete(comment)
+
+    # Cascade to all nested replies. Collect the subtree by walking parent_id within
+    # this scene (guaranteed regardless of DB-level FK enforcement).
+    scene_comments = (
+        db.query(SceneComment)
+        .filter(SceneComment.project_id == project_id, SceneComment.scene_id == scene_id)
+        .all()
+    )
+    children_by_parent: dict[int, list[int]] = {}
+    for c in scene_comments:
+        if c.parent_id is not None:
+            children_by_parent.setdefault(c.parent_id, []).append(c.id)
+
+    to_delete: list[int] = []
+    stack = [comment_id]
+    while stack:
+        cid = stack.pop()
+        to_delete.append(cid)
+        stack.extend(children_by_parent.get(cid, []))
+
+    db.query(SceneComment).filter(SceneComment.id.in_(to_delete)).delete(
+        synchronize_session=False
+    )
     db.commit()
 
     _broadcast_comment(

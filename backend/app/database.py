@@ -443,6 +443,18 @@ def _migrate_sqlite(eng) -> None:
                         text(f"ALTER TABLE project_members ADD COLUMN {col_name} {col_def}")
                     )
 
+    # ─── Scene comments (threaded replies) ───────────────────────────
+    if "scene_comments" in insp.get_table_names():
+        sc_cols = {c["name"] for c in insp.get_columns("scene_comments")}
+        # Nullable self-reference to the parent comment (null = root comment).
+        sc_migrations = {"parent_id": "INTEGER"}
+        with eng.begin() as conn:
+            for col_name, col_def in sc_migrations.items():
+                if col_name not in sc_cols:
+                    conn.execute(
+                        text(f"ALTER TABLE scene_comments ADD COLUMN {col_name} {col_def}")
+                    )
+
 
 def _backfill_owner_members(eng) -> None:
     """Ensure every project has an OWNER ProjectMember row for its ``user_id``.

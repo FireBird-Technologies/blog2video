@@ -104,6 +104,8 @@ export interface SceneComment {
   scene_id: number;
   body: string;
   created_at: string;
+  /** Parent comment id for a threaded reply; null for a root comment. */
+  parent_id: number | null;
   user_id: number | null;
   user_name: string | null;
   user_picture: string | null;
@@ -114,8 +116,17 @@ export const listComments = (projectId: number, sceneId?: number) =>
     params: sceneId != null ? { scene_id: sceneId } : undefined,
   });
 
-export const addComment = (projectId: number, sceneId: number, body: string) =>
-  api.post<SceneComment>(`/projects/${projectId}/scenes/${sceneId}/comments`, { body });
+/** Post a comment, or a threaded reply when `parentId` is given. */
+export const addComment = (
+  projectId: number,
+  sceneId: number,
+  body: string,
+  parentId?: number | null,
+) =>
+  api.post<SceneComment>(`/projects/${projectId}/scenes/${sceneId}/comments`, {
+    body,
+    parent_id: parentId ?? null,
+  });
 
 export const deleteComment = (projectId: number, commentId: number) =>
   api.delete(`/projects/${projectId}/comments/${commentId}`);

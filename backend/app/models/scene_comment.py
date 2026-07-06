@@ -40,6 +40,13 @@ class SceneComment(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
+    # Threaded replies: null for a root comment, else the comment being replied to.
+    # Deleting a comment cascades to its replies (DB-level where FKs are enforced;
+    # also enforced in the delete endpoint for robustness).
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("scene_comments.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
     body: Mapped[str] = mapped_column(Text, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
