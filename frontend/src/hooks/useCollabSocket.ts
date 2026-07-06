@@ -39,6 +39,8 @@ interface UseCollabSocketOpts {
   onComment?: (event: CommentEvent) => void;
   /** A bulk job (template change, regen) finished — refetch the whole project. */
   onReload?: () => void;
+  /** The owner revoked this user's access — show a message and leave the project. */
+  onRevoked?: (message?: string) => void;
 }
 
 interface UseCollabSocket {
@@ -74,6 +76,7 @@ export function useCollabSocket({
   onEdit,
   onComment,
   onReload,
+  onRevoked,
 }: UseCollabSocketOpts): UseCollabSocket {
   const [connected, setConnected] = useState(false);
   const [peers, setPeers] = useState<Peer[]>([]);
@@ -84,8 +87,8 @@ export function useCollabSocket({
   const closedByUsRef = useRef(false);
 
   // Keep latest callbacks without re-opening the socket.
-  const cbRef = useRef({ onEdit, onComment, onReload });
-  cbRef.current = { onEdit, onComment, onReload };
+  const cbRef = useRef({ onEdit, onComment, onReload, onRevoked });
+  cbRef.current = { onEdit, onComment, onReload, onRevoked };
 
   const connect = useCallback(() => {
     if (!enabled || !token) return;
@@ -138,6 +141,9 @@ export function useCollabSocket({
           break;
         case "project_reloaded":
           cbRef.current.onReload?.();
+          break;
+        case "access_revoked":
+          cbRef.current.onRevoked?.(msg.message as string | undefined);
           break;
         default:
           break;

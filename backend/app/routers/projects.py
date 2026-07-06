@@ -929,6 +929,9 @@ def update_project(
 
         setattr(project, field, value)
 
+    from app.services.edit_tracker import prune_project_history
+    prune_project_history(db, project.id)
+
     db.commit()
     db.refresh(project)
 
@@ -1011,12 +1014,13 @@ async def change_project_template_regenerate_layouts(
     # Surface "generating" state during relayout via existing status pipeline.
     project.status = ProjectStatus.GENERATING
     # Log a non-revertable history entry for the template change (visibility only).
-    from app.services.edit_tracker import log_project_event
+    from app.services.edit_tracker import log_project_event, prune_project_history
     log_project_event(
         db, project_id=project.id,
         label=f"Template changed to {target_template}",
         user_id=user.id,
     )
+    prune_project_history(db, project.id)
     db.commit()
     db.refresh(job)
 
@@ -2374,10 +2378,11 @@ async def regenerate_script(
     # exception or crash recovery); kept once the regeneration succeeds.
     payer.videos_used_this_period += 1
     # Log a non-revertable history entry for the script regeneration.
-    from app.services.edit_tracker import log_project_event
+    from app.services.edit_tracker import log_project_event, prune_project_history
     log_project_event(
         db, project_id=project.id, label="Script regenerated", user_id=user.id,
     )
+    prune_project_history(db, project.id)
     db.commit()
     db.refresh(job)
 
@@ -3378,6 +3383,19 @@ def update_scene(
                 parsed_descriptor = json.loads(value)
                 if isinstance(parsed_descriptor, dict):
                     value = json.dumps(_sanitize_descriptor_for_data_viz(parsed_descriptor))
+                    # Skip when the descriptor is semantically unchanged: the frontend
+                    # always re-sends remotion_code even for a title-only edit, and
+                    # re-serialization (key order / whitespace / sanitization) can
+                    # differ from the stored string. Compare parsed dicts, not strings,
+                    # so we don't record a spurious remotion_code edit.
+                    old_raw = getattr(scene, key)
+                    try:
+                        old_parsed = json.loads(old_raw) if old_raw else None
+                    except Exception:
+                        old_parsed = None
+                    new_parsed = json.loads(value)
+                    if old_parsed == new_parsed:
+                        continue
             except Exception:
                 pass
 
@@ -3397,6 +3415,9 @@ def update_scene(
 
         setattr(scene, key, value)
         _broadcast_changes.append((key, value))
+
+    from app.services.edit_tracker import prune_project_history
+    prune_project_history(db, project.id)
 
     db.commit()
     db.refresh(scene)
@@ -4951,10 +4972,11 @@ async def change_project_voice(
     )
     db.add(job)
     # Log a non-revertable history entry for the audio regeneration (attributed to actor).
-    from app.services.edit_tracker import log_project_event
+    from app.services.edit_tracker import log_project_event, prune_project_history
     log_project_event(
         db, project_id=project_id, label="Audio regenerated (voice change)", user_id=user.id,
     )
+    prune_project_history(db, project_id)
     db.commit()
     db.refresh(job)
 

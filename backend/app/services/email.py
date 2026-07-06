@@ -808,20 +808,22 @@ class EmailService:
 
         text_content = (
             f"{first_name} invited you to collaborate on the video “{proj}” on Blog2Video.\n\n"
-            f"You'll be able to edit the video's scenes together. Open the invite to accept "
+            f"You'll be able to edit the video together. Open the invite to accept "
             f"(sign in with this email address, {to_email}):\n\n"
             f"{accept_link}\n\n"
             f"Team Blog2Video\n"
         )
-        html_content = (
-            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
-            f"{html.escape(first_name)} invited you to collaborate on the video "
-            f"“{html.escape(proj)}” on Blog2Video.\n\n"
-            f"You'll be able to edit the video's scenes together. Open the invite to accept "
-            f"(sign in with this email address, {html.escape(to_email)}):\n\n"
-            f"{html.escape(accept_link)}\n\n"
-            f"Team Blog2Video"
-            f"</pre>"
+        html_content = self._build_html(
+            headline=f"{html.escape(first_name)} invited you to collaborate",
+            body_paragraph=(
+                f"You've been invited to co-edit the video "
+                f"<strong style=\"color:#111827;\">“{html.escape(proj)}”</strong> on Blog2Video. "
+                f"You'll be able to edit the video together. "
+                f"Accept the invite by signing in with this email address "
+                f"(<strong style=\"color:#111827;\">{html.escape(to_email)}</strong>)."
+            ),
+            cta_label="Accept invite",
+            cta_url=accept_link,
         )
         self.provider.send_email(
             to=to_email,

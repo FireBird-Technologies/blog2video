@@ -36,6 +36,7 @@ class MemberStatus(str, enum.Enum):
     PENDING = "pending"      # invited by email, not yet accepted
     ACCEPTED = "accepted"    # active collaborator
     REVOKED = "revoked"      # access removed by owner
+    REJECTED = "rejected"    # invite declined by the invitee
 
 
 class ProjectMember(Base):

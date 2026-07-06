@@ -109,6 +109,40 @@ class ConnectionManager:
                 # Drop dead sockets; disconnect handler will clean up too.
                 self.remove(project_id, c)
 
+    async def notify_and_kick_user(self, project_id: int, user_id: int, message: dict) -> None:
+        """Send a final message to a user's connections, then remove them from the room.
+
+        Send happens before removal so the message is never lost to the kick.
+        """
+        payload = json.dumps(message, default=str)
+        for c in list(self._rooms.get(project_id, set())):
+            if c.user_id != user_id:
+                continue
+            try:
+                if c.ws.application_state == WebSocketState.CONNECTED:
+                    await c.ws.send_text(payload)
+            except Exception:
+                pass
+            self.remove(project_id, c)
+
+    def notify_and_kick_user_from_sync(self, project_id: int, user_id: int, message: dict) -> None:
+        """Schedule notify_and_kick_user from a sync (threadpool) REST context.
+
+        Used by the revoke endpoint: notifies the collaborator their access was cut,
+        then drops their sockets — atomically on the event loop so the notify always
+        precedes the kick. Best-effort: no-op if no socket is connected.
+        """
+        loop = self._loop
+        room = self._rooms.get(project_id)
+        if loop is None or not room:
+            return
+        try:
+            asyncio.run_coroutine_threadsafe(
+                self.notify_and_kick_user(project_id, user_id, message), loop
+            )
+        except Exception as e:
+            logger.warning("[COLLAB_WS] notify_and_kick_user_from_sync failed project=%s: %s", project_id, e)
+
     def kick_user(self, project_id: int, user_id: int) -> None:
         """Remove a revoked user's connections from the room (called on revoke).
 

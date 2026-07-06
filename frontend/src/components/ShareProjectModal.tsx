@@ -6,6 +6,7 @@ import {
   inviteMember,
   revokeMember,
 } from "../api/collaboration";
+import ConfirmDeleteModal from "./ConfirmDeleteModal";
 
 interface Props {
   open: boolean;
@@ -32,6 +33,7 @@ export default function ShareProjectModal({
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<Member | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,18 +74,26 @@ export default function ShareProjectModal({
     }
   };
 
-  const handleRevoke = async (memberId: number) => {
+  const handleConfirmRemove = async () => {
+    if (!pendingRemoval) return;
     try {
-      await revokeMember(projectId, memberId);
+      await revokeMember(projectId, pendingRemoval.id);
       await load();
     } catch {
       setError("Failed to remove collaborator.");
+      throw new Error("revoke failed"); // keep the confirm modal open on failure
     }
   };
 
   if (!open) return null;
 
-  return ReactDOM.createPortal(
+  // Owner is not a collaborator; cap collaborators at 5.
+  const collaboratorCount = members.filter((m) => m.role !== "owner").length;
+  const atLimit = collaboratorCount >= 5;
+
+  return (
+    <>
+      {ReactDOM.createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
       <div
@@ -95,10 +105,16 @@ export default function ShareProjectModal({
         <h3 id="share-title" className="text-base font-semibold text-gray-900 mb-1">
           Share “{projectName}”
         </h3>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-gray-500 mb-3">
           Invite people to co-edit this video. Collaborators can edit scenes; only you can finalise
           and delete.
         </p>
+
+        {isOwner && (
+          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+            Collaborators can use your credits when regenerating or editing this video.
+          </p>
+        )}
 
         {isOwner && (
           <div className="mb-4">
@@ -107,20 +123,25 @@ export default function ShareProjectModal({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+                onKeyDown={(e) => e.key === "Enter" && !atLimit && handleInvite()}
                 placeholder="collaborator@email.com"
-                className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40"
-                disabled={inviting}
+                className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40 disabled:bg-gray-50 disabled:text-gray-400"
+                disabled={inviting || atLimit}
               />
               <button
                 type="button"
                 onClick={handleInvite}
-                disabled={inviting || !email.trim()}
+                disabled={inviting || atLimit || !email.trim()}
                 className="px-4 py-2 text-sm font-medium text-white bg-[#7C3AED] hover:bg-[#6D28D9] rounded-lg transition-colors disabled:opacity-60 disabled:pointer-events-none"
               >
                 {inviting ? "Sending…" : "Invite"}
               </button>
             </div>
+            {atLimit && (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mt-2">
+                Maximum of 5 collaborators reached. Remove someone to invite another.
+              </p>
+            )}
             {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
           </div>
         )}
@@ -160,7 +181,7 @@ export default function ShareProjectModal({
                   {isOwner && m.role !== "owner" && (
                     <button
                       type="button"
-                      onClick={() => handleRevoke(m.id)}
+                      onClick={() => setPendingRemoval(m)}
                       className="text-xs text-gray-400 hover:text-red-600 flex-shrink-0"
                       title="Remove access"
                     >
@@ -184,6 +205,20 @@ export default function ShareProjectModal({
         </div>
       </div>
     </div>,
-    document.body
+        document.body
+      )}
+
+      <ConfirmDeleteModal
+        open={pendingRemoval !== null}
+        onClose={() => setPendingRemoval(null)}
+        title="Remove collaborator?"
+        subtitle={pendingRemoval ? pendingRemoval.name || pendingRemoval.email : undefined}
+        warningMessage="They'll lose access to this video immediately. You can re-invite them later."
+        confirmLabel="Remove"
+        confirmLoadingLabel="Removing…"
+        iconVariant="warning"
+        onConfirm={handleConfirmRemove}
+      />
+    </>
   );
 }

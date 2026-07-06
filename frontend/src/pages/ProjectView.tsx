@@ -987,6 +987,9 @@ export default function ProjectView() {
 
   const reviewState = project?.review_state ?? null;
   const isFirstProject = reviewState?.project_sequence === 1;
+  // Review prompts are for the project owner only — a collaborator viewing a shared
+  // project should never be asked to review it.
+  const isProjectOwner = project != null && user != null && project.user_id === user.id;
   const clearReviewPopupTimer = useCallback(() => {
     if (reviewPopupTimerRef.current) {
       clearTimeout(reviewPopupTimerRef.current);
@@ -1074,6 +1077,7 @@ export default function ProjectView() {
     clearReviewPopupTimer();
     if (
       !project?.id ||
+      !isProjectOwner ||
       !reviewState ||
       reviewState.has_review_for_project ||
       !pipelineFinished ||
@@ -1090,6 +1094,7 @@ export default function ProjectView() {
     return clearReviewPopupTimer;
   }, [
     project?.id,
+    isProjectOwner,
     reviewState?.has_review_for_project,
     pipelineFinished,
     isFirstProject,
@@ -2644,14 +2649,17 @@ export default function ProjectView() {
     project.status
   );
   const showInlineReviewPrompt = Boolean(
-    inlineReviewSubmitted ||
-      (
-        !reviewState?.has_review_for_project &&
+    isProjectOwner &&
+    (
+      inlineReviewSubmitted ||
         (
-          reviewState?.should_show_inline ||
-          (isFirstProject && firstProjectPopupDismissed)
+          !reviewState?.has_review_for_project &&
+          (
+            reviewState?.should_show_inline ||
+            (isFirstProject && firstProjectPopupDismissed)
+          )
         )
-      )
+    )
   );
 
   // ─── Distribute blog images across scenes (match VideoPreview logic) ────────────────
@@ -3454,6 +3462,12 @@ export default function ProjectView() {
             onRemoteEdit={handleRemoteCollabEdit}
             onRemoteComment={loadCommentCounts}
             onRemoteReload={handleCollabDraftResolved}
+            onRemoteRevoked={(message) =>
+              showNotice(
+                message || "Oops, your access has been revoked, you cannot access the project.",
+                { title: "Access revoked", onClose: () => navigate("/dashboard", { replace: true }) },
+              )
+            }
             onDraftResolved={handleCollabDraftResolved}
           >
           <div className="glass-card overflow-hidden flex flex-col">
@@ -4766,9 +4780,8 @@ export default function ProjectView() {
         projectId={project.id}
         scenes={project.scenes.map((s) => ({ id: s.id, order: s.order, title: s.title }))}
         isOwner={project.user_id === user?.id}
-        onReverted={handleCollabDraftResolved}
         currentUserId={user?.id}
-        ownerId={project.user_id === user?.id ? user?.id : undefined}
+        onReverted={handleCollabDraftResolved}
       />
 
       {showSlidesExportMenu &&

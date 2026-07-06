@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.models.project import Project
 from app.models.scene import Scene
-from app.services.edit_tracker import track_scene_edit, track_project_edit
+from app.services.edit_tracker import track_scene_edit, track_project_edit, prune_project_history
 
 
 # Fields a collaborator may edit on a scene (mirrors MANUAL_TRACKED_FIELDS in
@@ -128,6 +128,7 @@ def apply_scene_field(
         target="published",
     )
     setattr(scene, field_name, new_value)
+    prune_project_history(db, project.id)
     db.commit()
     return _scene_snapshot(scene)
 
@@ -161,5 +162,6 @@ def apply_project_field(
         target="published",
     )
     setattr(project, field_name, new_value)
+    prune_project_history(db, project.id)
     db.commit()
     return _project_snapshot(project)

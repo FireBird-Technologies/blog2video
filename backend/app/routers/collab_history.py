@@ -170,7 +170,8 @@ def revert_change_set(
     Toggles the change-set's ``reverted`` flag and applies the matching values to the
     live rows: reverting writes each row's ``old_value``, redoing writes ``new_value``.
     No new change-set is recorded — the ``reverted`` flag is the single source of
-    truth. Owner-only, since it changes the live video. Returns updated history.
+    truth. The owner may revert/redo any change-set; a collaborator may revert/redo
+    only change-sets they authored. Returns updated history.
     """
     project = get_accessible_project(project_id, user, db)
 
@@ -197,9 +198,16 @@ def revert_change_set(
     if any(not getattr(r, "revertable", True) for r in (*scene_rows, *proj_rows)):
         raise HTTPException(status_code=400, detail="This action can't be reverted.")
 
-    # Reverts change the live video — restrict to the owner.
-    if project.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can revert changes.")
+    # Reverts change the live video. The owner may revert/redo any change-set;
+    # a collaborator may only revert/redo change-sets they authored themselves.
+    is_owner = project.user_id == user.id
+    if not is_owner:
+        editors = {r.user_id for r in (*scene_rows, *proj_rows)}
+        if editors != {user.id}:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only revert changes you made.",
+            )
 
     # Currently reverted? Then this call is a REDO (re-apply new_value); otherwise a
     # REVERT (apply old_value). Read the state from the first row.

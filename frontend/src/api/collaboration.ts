@@ -18,7 +18,9 @@ export interface PendingInvite {
   project_id: number;
   project_name: string;
   invited_by: string | null;
+  invited_email: string;
   invite_token: string;
+  status: string;
 }
 
 export interface FieldChange {
@@ -59,8 +61,15 @@ export const revokeMember = (projectId: number, memberId: number) =>
 
 export const listMyInvites = () => api.get<PendingInvite[]>(`/collab/invites`);
 
+/** Public lookup of a single invite by token — works signed out or as any user. */
+export const getInviteByToken = (token: string) =>
+  api.get<PendingInvite>(`/collab/invites/by-token/${token}`);
+
 export const acceptInvite = (token: string) =>
   api.post<{ project_id: number; status: string }>(`/collab/invites/${token}/accept`);
+
+export const rejectInvite = (token: string) =>
+  api.post<{ project_id: number; status: string }>(`/collab/invites/${token}/reject`);
 
 // ─── History / revert ─────────────────────────────────────
 

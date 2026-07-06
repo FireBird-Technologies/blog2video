@@ -67,7 +67,9 @@ class InviteOut(BaseModel):
     project_id: int
     project_name: str
     invited_by: Optional[str] = None
+    invited_email: str
     invite_token: str
+    status: str
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────
@@ -103,7 +105,7 @@ def list_members(
         db.query(ProjectMember)
         .filter(
             ProjectMember.project_id == project_id,
-            ProjectMember.status != MemberStatus.REVOKED,
+            ProjectMember.status.in_([MemberStatus.PENDING, MemberStatus.ACCEPTED]),
         )
         .order_by(ProjectMember.created_at.asc())
         .all()
@@ -126,8 +128,18 @@ def invite_member(
     if email == user.email.lower():
         raise HTTPException(status_code=400, detail="You already own this project.")
 
-    # Idempotent on (project_id, invited_email): re-inviting a revoked/existing
-    # member reuses the row.
+    # Cap collaborators at 5. The owner isn't a ProjectMember row, so the count is
+    # just the pending + accepted members (rejected/revoked don't occupy a slot).
+    active_count = (
+        db.query(ProjectMember)
+        .filter(
+            ProjectMember.project_id == project_id,
+            ProjectMember.status.in_([MemberStatus.PENDING, MemberStatus.ACCEPTED]),
+        )
+        .count()
+    )
+
+    # Idempotent on (project_id, invited_email): re-inviting an existing row reuses it.
     existing = (
         db.query(ProjectMember)
         .filter(
@@ -139,12 +151,18 @@ def invite_member(
     if existing:
         if existing.status == MemberStatus.ACCEPTED:
             raise HTTPException(status_code=409, detail="This user is already a collaborator.")
-        # Re-open a revoked/pending invite.
+        # Reopening a rejected/revoked invite adds an active slot, so it must respect
+        # the cap; re-sending a still-pending invite doesn't change the count.
+        if existing.status != MemberStatus.PENDING and active_count >= 5:
+            raise HTTPException(status_code=409, detail="Maximum of 5 collaborators reached.")
         existing.status = MemberStatus.PENDING
         existing.role = MemberRole.EDITOR
         existing.error_message = None
         member = existing
     else:
+        if active_count >= 5:
+            raise HTTPException(status_code=409, detail="Maximum of 5 collaborators reached.")
+
         # Bind user_id now if an account with this email already exists.
         invitee = db.query(User).filter(User.email == email).first()
         member = ProjectMember(
@@ -200,13 +218,20 @@ def revoke_member(
     member.status = MemberStatus.REVOKED
     db.commit()
 
-    # Disconnect any live collaboration sockets this user has on the project.
+    # Notify any live collaboration sockets this user has, then disconnect them.
     try:
         from app.routers.collab_ws import collab_manager
         if member.user_id is not None:
-            collab_manager.kick_user(project_id, member.user_id)
+            collab_manager.notify_and_kick_user_from_sync(
+                project_id,
+                member.user_id,
+                {
+                    "type": "access_revoked",
+                    "message": "Oops, your access has been revoked, you cannot access the project.",
+                },
+            )
     except Exception as e:
-        logger.warning("[COLLAB] Failed to kick revoked user %s: %s", member.user_id, e)
+        logger.warning("[COLLAB] Failed to notify/kick revoked user %s: %s", member.user_id, e)
 
     return None
 
@@ -241,10 +266,44 @@ def my_pending_invites(
                 project_id=m.project_id,
                 project_name=project.name,
                 invited_by=inviter.name if inviter else None,
+                invited_email=m.invited_email,
                 invite_token=m.invite_token,
+                status=m.status.value,
             )
         )
     return out
+
+
+@accept_router.get("/invites/by-token/{token}", response_model=InviteOut)
+def invite_by_token(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """Look up a single invite by its token — public (no auth).
+
+    Lets the invite page show which project/email the link is for even before the
+    user signs in, or when signed in with a different account. Does not reveal
+    anything past the invited email + project name.
+    """
+    member = db.query(ProjectMember).filter(ProjectMember.invite_token == token).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    if member.status == MemberStatus.REVOKED:
+        raise HTTPException(status_code=410, detail="This invite has been revoked.")
+
+    project = db.query(Project).filter(Project.id == member.project_id, Project.is_active == True).first()  # noqa: E712
+    if not project:
+        raise HTTPException(status_code=404, detail="Project no longer exists.")
+
+    inviter = db.query(User).filter(User.id == member.invited_by_id).first() if member.invited_by_id else None
+    return InviteOut(
+        project_id=member.project_id,
+        project_name=project.name,
+        invited_by=inviter.name if inviter else None,
+        invited_email=member.invited_email,
+        invite_token=member.invite_token,
+        status=member.status.value,
+    )
 
 
 @accept_router.post("/invites/{token}/accept")
@@ -277,3 +336,34 @@ def accept_invite(
     db.commit()
 
     return {"project_id": member.project_id, "status": "accepted"}
+
+
+@accept_router.post("/invites/{token}/reject")
+def reject_invite(
+    token: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Decline a collaboration invite. The logged-in email must match the invite.
+
+    Rejected invites don't count toward the collaborator cap and can be re-sent
+    later by the owner (the re-invite reopens the row as PENDING).
+    """
+    member = db.query(ProjectMember).filter(ProjectMember.invite_token == token).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Invite not found")
+
+    if member.status == MemberStatus.REVOKED:
+        raise HTTPException(status_code=410, detail="This invite has been revoked.")
+
+    if member.invited_email.lower() != user.email.lower():
+        raise HTTPException(
+            status_code=403,
+            detail="This invite was sent to a different email address.",
+        )
+
+    member.user_id = user.id
+    member.status = MemberStatus.REJECTED
+    db.commit()
+
+    return {"project_id": member.project_id, "status": "rejected"}
