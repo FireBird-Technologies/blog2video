@@ -1,11 +1,15 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import {
   GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
   GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY,
 } from "../constants";
 import { glass, COLORS } from "../utils/styles";
+<<<<<<< HEAD
+=======
+import { ZoomCropImg } from "../components/ZoomCropImg";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 // Custom SVG Component for the Gridcraft Icon
 const GridcraftSVG = ({ color, size = 80 }: { color: string; size?: number }) => (
@@ -31,8 +35,9 @@ const GridcraftSVG = ({ color, size = 80 }: { color: string; size?: number }) =>
 export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   title,
   subtitle,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   textColor,
   category,
@@ -148,7 +153,11 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         }}
       >
         {imageUrl ? (
-          <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <ZoomCropImg
+            src={imageUrl}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={imageZoom}
+          />
         ) : (
           <>
             <GridcraftSVG 

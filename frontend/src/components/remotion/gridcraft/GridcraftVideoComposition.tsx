@@ -1,10 +1,14 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { GRIDCRAFT_LAYOUT_REGISTRY } from "./layouts";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "./constants";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
 import { Blobs } from "./components/Blobs";
 import { COLORS } from "./utils/styles";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // Modern slide-up wipe transition for gridcraft
 const GridcraftTransition: React.FC<{ bgColor?: string }> = ({ bgColor }) => {
@@ -37,9 +41,13 @@ export interface GridcraftSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: GridcraftLayoutType;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -53,8 +61,19 @@ export interface GridcraftVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
+<<<<<<< HEAD
+=======
+  playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const GridcraftVideoComposition: React.FC<
@@ -68,10 +87,22 @@ export const GridcraftVideoComposition: React.FC<
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
+<<<<<<< HEAD
+=======
+  playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
   let currentFrame = 0;
 
   return (
@@ -84,7 +115,11 @@ export const GridcraftVideoComposition: React.FC<
       <Blobs />
 
       {scenes.map((scene, index) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -101,6 +136,11 @@ export const GridcraftVideoComposition: React.FC<
           textColor: textColor || COLORS.DARK,
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
+<<<<<<< HEAD
+=======
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily,
         };
 
@@ -115,7 +155,24 @@ export const GridcraftVideoComposition: React.FC<
             <AbsoluteFill style={{ zIndex: 1 }}>
               <LayoutComponent {...layoutProps} />
             </AbsoluteFill>
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.voiceoverUrl && (
+              <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            )}
+            {captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                    : undefined
+                }
+              />
+            )}
             {index < scenes.length - 1 && (
               <Sequence from={durationFrames - 15} durationInFrames={15}>
                 <GridcraftTransition bgColor={bgColor || COLORS.BG} />
@@ -136,6 +193,11 @@ export const GridcraftVideoComposition: React.FC<
           />
         </AbsoluteFill>
       )}
+    
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
+      )}
     </AbsoluteFill>
   );
 };
+

@@ -1,5 +1,9 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+<<<<<<< HEAD
+=======
+import { AccentBars, FilmGrain, LightDust, SpotlightBeam } from "../components/SpotlightArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -15,8 +19,9 @@ import type { SpotlightLayoutProps } from "../types";
  */
 export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -53,7 +58,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
 
       {/* Image layer */}
       {imageUrl ? (
@@ -69,7 +74,10 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
             style={{
               width: "100%",
               height: "100%",
-              objectFit: "cover",
+              objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                transform: `scale(${imageZoom ?? 1})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
             }}
           />
         </div>
@@ -133,6 +141,12 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
         }}
       />
 
+      {/* Decorative artifacts — a stage light sweeps the reveal, dust + bars anchor it. */}
+      <SpotlightBeam mode="land" targetX={50} startFrame={2} intensity={0.55} />
+      <LightDust count={18} seed={15} />
+      <AccentBars accentColor={accentColor} position="top-right" count={2} startFrame={12} />
+      <FilmGrain intensity={0.7} />
+
       {/* Caption bar — larger text area */}
       <div
         style={{
@@ -190,3 +204,4 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

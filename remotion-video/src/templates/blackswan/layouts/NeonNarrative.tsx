@@ -2,6 +2,10 @@ import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
+<<<<<<< HEAD
+=======
+import { ZoomCropImg } from "../components/ZoomCropImg";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette } from "./blackswanAccent";
@@ -171,10 +175,19 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
       {/* Background image — full screen, very low opacity with black overlay so all content remains legible */}
       {props.imageUrl && (
+<<<<<<< HEAD
         <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
           <img
             src={props.imageUrl}
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.18 }}
+=======
+        <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 0.18, overflow: "hidden" }}>
+          <ZoomCropImg
+            src={props.imageUrl}
+            imageObjectPosition={props.imageObjectPosition}
+            imageZoom={props.imageZoom}
+            alt=""
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           />
           {/* Modified: Reduced the opacity of the dark overlay from 0.5 to 0.35 */}
           <div style={{ position: "absolute", inset: 0, backgroundColor: bgColor, opacity: 0.35 }} />

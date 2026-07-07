@@ -1,6 +1,25 @@
 from datetime import datetime
+<<<<<<< HEAD
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import Optional
+=======
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
+from typing import Optional, Union
+
+MIN_PLAYBACK_SPEED = 0.5
+MAX_PLAYBACK_SPEED = 2.5
+
+VALID_CAPTION_POSITIONS = {"top_center", "bottom_center"}
+
+
+def _normalize_caption_position(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    n = (v or "").strip().lower()
+    if n not in VALID_CAPTION_POSITIONS:
+        raise ValueError("caption_position must be 'top_center' or 'bottom_center'")
+    return n
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 # ─── Project ───────────────────────────────────────────────
@@ -20,10 +39,47 @@ class ProjectCreate(BaseModel):
     logo_opacity: Optional[float] = 0.9  # 0.0 - 1.0
     logo_size: Optional[float] = 100.0  # percentage, e.g. 100 = 100%
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
+    voice_emotion: Optional[str] = None      # narration emotion/tone key (paid); neutral/None = default v2 path
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
+<<<<<<< HEAD
     video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
     video_length: Optional[str] = "auto"  # auto | short (6-8) | medium (12-15) | detailed (15-20)
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
+=======
+    video_style: Optional[str] = "auto"   # auto | explainer | promotional | storytelling (auto = LLM picks after scraping)
+    video_length: Optional[str] = "auto"  # auto | short (4-5) | medium (12-15) | detailed (23-30) | more_detailed (35-40)
+    playback_speed: Optional[float] = 1.0
+    content_language: Optional[str] = None     # preferred target language (ISO code or name)
+    bgm_track_id: Optional[str] = None
+    bgm_volume: Optional[float] = 0.10
+    captions_enabled: Optional[bool] = False
+    caption_position: Optional[str] = "bottom_center"  # bottom_center | top_center
+    caption_font_family: Optional[str] = "inter"
+    caption_font_size: Optional[str] = "36"
+    caption_offset: Optional[int] = 0  # vertical shift within bottom region: -100..+100 (0 = default, + = up)
+
+    @field_validator("bgm_volume")
+    @classmethod
+    def validate_create_bgm_volume(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return 0.10
+        return round(max(0.0, min(1.0, float(v))), 2)
+
+    @field_validator("caption_position")
+    @classmethod
+    def validate_create_caption_position(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_caption_position(v)
+
+    @field_validator("playback_speed")
+    @classmethod
+    def validate_create_playback_speed(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        value = round(float(v), 2)
+        if value < MIN_PLAYBACK_SPEED or value > MAX_PLAYBACK_SPEED:
+            raise ValueError("playback_speed must be between 0.5 and 2.5")
+        return value
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class ProjectUpdate(BaseModel):
@@ -34,6 +90,46 @@ class ProjectUpdate(BaseModel):
     content_language: Optional[str] = None
     video_length: Optional[str] = None
     aspect_ratio: Optional[str] = None  # "landscape" | "portrait"
+<<<<<<< HEAD
+=======
+    playback_speed: Optional[float] = None
+    bgm_track_id: Optional[str] = None
+    bgm_volume: Optional[float] = None
+    captions_enabled: Optional[bool] = None
+    caption_position: Optional[str] = None
+    caption_font_family: Optional[str] = None
+    caption_font_size: Optional[Union[str, int]] = None
+    caption_offset: Optional[int] = None
+
+    @field_validator("caption_font_size", mode="before")
+    @classmethod
+    def coerce_caption_font_size(cls, v: Optional[Union[str, int]]) -> Optional[str]:
+        if v is None:
+            return None
+        return str(v)
+
+    @field_validator("caption_offset", mode="before")
+    @classmethod
+    def clamp_caption_offset(cls, v: Optional[Union[str, int]]) -> Optional[int]:
+        if v is None or v == "":
+            return None
+        try:
+            return max(-100, min(100, int(v)))
+        except (TypeError, ValueError):
+            return None
+
+    @field_validator("bgm_volume")
+    @classmethod
+    def validate_bgm_volume(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        return round(max(0.0, min(1.0, float(v))), 2)
+
+    @field_validator("caption_position")
+    @classmethod
+    def validate_update_caption_position(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_caption_position(v)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     @field_validator("aspect_ratio")
     @classmethod
@@ -45,6 +141,27 @@ class ProjectUpdate(BaseModel):
             raise ValueError("aspect_ratio must be 'landscape' or 'portrait'")
         return n
 
+<<<<<<< HEAD
+=======
+    @field_validator("playback_speed")
+    @classmethod
+    def validate_playback_speed(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        value = round(float(v), 2)
+        if value < MIN_PLAYBACK_SPEED or value > MAX_PLAYBACK_SPEED:
+            raise ValueError("playback_speed must be between 0.5 and 2.5")
+        return value
+
+
+class ProjectVoiceChange(BaseModel):
+    """Body for changing a project's voice and regenerating all voiceovers."""
+    voice_gender: Optional[str] = None
+    voice_accent: Optional[str] = None
+    custom_voice_id: Optional[str] = None
+    voice_emotion: Optional[str] = None
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 class ProjectTemplateChangeRequest(BaseModel):
     template: str
@@ -65,6 +182,27 @@ class ProjectTemplateChangeJobOut(BaseModel):
 
     class Config:
         from_attributes = True
+<<<<<<< HEAD
+=======
+
+
+class ProjectRegenerateScriptJobOut(BaseModel):
+    id: int
+    project_id: int
+    user_id: int
+    status: str
+    current_step: str = "analyzing_instruction"
+    total_scenes: int
+    processed_scenes: int
+    error_message: Optional[str] = None
+    user_instruction: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 class SceneOut(BaseModel):
     id: int
@@ -75,13 +213,34 @@ class SceneOut(BaseModel):
     display_text: Optional[str] = None
     visual_description: str
     remotion_code: Optional[str] = None
+    preferred_layout: Optional[str] = None
+    scene_type: Optional[str] = None
     voiceover_path: Optional[str] = None
     duration_seconds: float
     extra_hold_seconds: Optional[float] = None
+<<<<<<< HEAD
+=======
+    bgm_volume: Optional[float] = None
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class RegenerateScriptPreviewScene(BaseModel):
+    """A previous (pre-regeneration) scene, for the verify-step before/after comparison."""
+    order: int
+    title: str
+    display_text: Optional[str] = None
+    narration_text: str
+    visual_description: str
+    remotion_code: Optional[str] = None
+    preferred_layout: Optional[str] = None
+
+
+class RegenerateScriptPreviewOut(BaseModel):
+    previous_scenes: list[RegenerateScriptPreviewScene] = []
 
 
 class AssetOut(BaseModel):
@@ -170,6 +329,35 @@ class ReviewSubmitResponse(BaseModel):
     review_state: ReviewStateOut
 
 
+<<<<<<< HEAD
+=======
+class TemplateRatingOut(BaseModel):
+    id: int
+    user_id: int
+    custom_template_id: int
+    rating: int
+    suggestion: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TemplateRatingSubmit(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    suggestion: Optional[str] = None
+
+    @field_validator("suggestion")
+    @classmethod
+    def normalize_suggestion(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        trimmed = v.strip()
+        return trimmed or None
+
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 class ProjectOut(BaseModel):
     id: int
     name: str
@@ -194,12 +382,29 @@ class ProjectOut(BaseModel):
     logo_opacity: float = 0.9
     logo_size: float = 100.0  # percentage
     custom_voice_id: Optional[str] = None
+    voice_emotion: Optional[str] = None
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
     video_length: str = "auto"
+<<<<<<< HEAD
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
+=======
+    playback_speed: float = 1.0
+    bgm_track_id: Optional[str] = None
+    bgm_volume: float = 0.10
+    bgm_track_url: Optional[str] = None
+    captions_enabled: bool = False
+    caption_position: str = "bottom_center"
+    caption_font_family: str = "inter"
+    caption_font_size: str = "36"
+    caption_offset: int = 0
+    content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
+    ai_assisted_editing_count: int = 0
+    custom_theme: Optional[dict] = None
+    custom_image_box_aspect_ratios: Optional[dict] = None
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     custom_template_missing: bool = False
     brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None
@@ -217,6 +422,13 @@ class ProjectOut(BaseModel):
             p = float(v)
             return max(50.0, min(200.0, p))
         return 100.0
+
+    @model_validator(mode="after")
+    def populate_bgm_track_url(self) -> "ProjectOut":
+        if self.bgm_track_id and not self.bgm_track_url:
+            from app.services.background_music import get_track_r2_url
+            self.bgm_track_url = get_track_r2_url(self.bgm_track_id)
+        return self
 
     class Config:
         from_attributes = True
@@ -241,6 +453,32 @@ class BulkProjectItem(BaseModel):
     aspect_ratio: Optional[str] = "landscape"
     content_language: Optional[str] = None
     video_length: Optional[str] = "auto"
+<<<<<<< HEAD
+=======
+    playback_speed: Optional[float] = 1.0
+    voice_emotion: Optional[str] = None
+    bgm_track_id: Optional[str] = None
+    bgm_volume: Optional[float] = 0.10
+    captions_enabled: Optional[bool] = False
+    caption_position: Optional[str] = "bottom_center"
+    caption_font_family: Optional[str] = "inter"
+    caption_font_size: Optional[str] = "medium"
+
+    @field_validator("caption_position")
+    @classmethod
+    def validate_bulk_caption_position(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_caption_position(v)
+
+    @field_validator("playback_speed")
+    @classmethod
+    def validate_bulk_playback_speed(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        value = round(float(v), 2)
+        if value < MIN_PLAYBACK_SPEED or value > MAX_PLAYBACK_SPEED:
+            raise ValueError("playback_speed must be between 0.5 and 2.5")
+        return value
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class BulkCreateResponse(BaseModel):
@@ -289,6 +527,17 @@ class SceneUpdate(BaseModel):
     remotion_code: Optional[str] = None
     duration_seconds: Optional[float] = None
     extra_hold_seconds: Optional[float] = None
+<<<<<<< HEAD
+=======
+    bgm_volume: Optional[float] = None
+
+    @field_validator("bgm_volume")
+    @classmethod
+    def validate_scene_bgm_volume(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        return round(max(0.0, min(1.0, float(v))), 2)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 # ─── Scene Editing ──────────────────────────────────────────

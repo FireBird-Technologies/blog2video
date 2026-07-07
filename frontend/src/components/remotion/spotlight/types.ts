@@ -1,6 +1,8 @@
 import type { SocialsMap } from "../SocialIcons";
 
 /** Spotlight template layout types. */
+import type { SocialsMap } from "../SocialIcons";
+
 export type SpotlightLayoutType =
   | "impact_title"
   | "statement"
@@ -10,6 +12,11 @@ export type SpotlightLayoutType =
   | "versus"
   | "spotlight_image"
   | "rapid_points"
+<<<<<<< HEAD
+=======
+  | "spotlight_data"
+  | "spotlight_table"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   | "closer"
   | "ending_socials";
 
@@ -17,6 +24,8 @@ export interface SpotlightLayoutProps {
   title: string;
   narration: string;
   imageUrl?: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   accentColor: string;
   bgColor: string;
   textColor: string;
@@ -43,8 +52,42 @@ export interface SpotlightLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+<<<<<<< HEAD
+=======
+
+  // ── spotlight_data (chart) — uses the shared chartTable data-viz contract ──
+  /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
+  chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
+  /** "line" | "bar" | "histogram" | "auto" (infer from label shape). */
+  chartType?: "auto" | "line" | "bar" | "histogram";
+  /** Prose beside the chart; empty → auto-summary from chartTable. */
+  chartSummary?: string;
+  /** Y-axis tick label overrides (top → bottom). */
+  chartYAxisTicks?: string[];
+  /** X-axis / category caption; empty uses chartTable.headers[0]. */
+  subtitle?: string;
+  /** Y-axis title; empty uses chartTable.headers[1]. */
+  yAxisLabel?: string;
+  /** Chart color overrides. */
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+
+  // ── spotlight_table (data table) — uses the shared tickerTable contract ──
+  tickerTable?: { headers: string[]; rows: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  /** 0-based column index to color-code +/- (e.g. % change). -1 disables. */
+  tickerHighlightCol?: number;
+
+  // ending_socials
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+<<<<<<< HEAD
+=======
+  /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
+  ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

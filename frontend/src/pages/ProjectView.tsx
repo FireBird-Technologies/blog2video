@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import { LinkIcon } from "@heroicons/react/24/outline";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
@@ -14,14 +14,14 @@ import {
   fetchVideoBlob,
   downloadStudioZip,
   launchStudio,
-  toggleAssetExclusion,
+  deleteAsset,
   uploadProjectDocuments,
   reorderScenes,
   updateScene,
   updateSceneImage,
-  generateSceneImage,
+  assignExistingImageToScene,
+  updateSceneImageFocus,
   deleteScene,
-  deleteAsset,
   getValidLayouts,
   updateProjectLogo,
   uploadLogo,
@@ -31,20 +31,42 @@ import {
   bulkUpdateSceneTypography,
   submitProjectReview,
   updateProject,
+<<<<<<< HEAD
+=======
+  getMe,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   getTemplates,
   listCustomTemplates,
   changeProjectTemplateRegenerateLayouts,
   getProjectTemplateChangeStatus,
+<<<<<<< HEAD
   type TemplateMeta,
   type CustomTemplateItem,
+=======
+  regenerateScript,
+  getRegenerateScriptStatus,
+  getRegenerateScriptPreview,
+  verifyRegenerateScript,
+  rejectRegenerateScript,
+  type ProjectRegenerateScriptJob,
+  type RegenerateScriptPreviewScene,
+  generateEmbedToken,
+  type TemplateMeta,
+  type CraftedTemplateItem,
+  type CustomTemplateItem,
+  getBgmTracks,
+  type BgmTrack,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import { useNoticeModal } from "../contexts/NoticeModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
+<<<<<<< HEAD
 import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSizesFromSchema } from "../components/SceneEditModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
@@ -56,13 +78,57 @@ import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../c
 import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
+=======
+import SceneEditModal, {
+  SceneImageItem,
+  resolveDefaultFontSizesForScene,
+} from "../components/SceneEditModal";
+import GenerateSceneImageModal from "../components/GenerateSceneImageModal";
+import ChatPanel from "../components/ChatPanel";
+import UpgradeModal from "../components/UpgradeModal";
+import UpgradePlanModal from "../components/UpgradePlanModal";
+import OutOfVideosOfferModal from "../components/OutOfVideosOfferModal";
+import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
+import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
+import VideoPreview, { type CaptionSettings } from "../components/VideoPreview";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import RegenerateScriptModal from "../components/RegenerateScriptModal";
+import VerifyScriptModal from "../components/VerifyScriptModal";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
+import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
+import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
+import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
+import VoiceOperationModal from "../components/VoiceOperationModal";
+import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
+import SceneListRow from "../components/SceneListRow";
+import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
+import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
+import GetMoreTemplatesModal from "../components/GetMoreTemplatesModal";
+import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
+<<<<<<< HEAD
+=======
+import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
+import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
+import type { PlayerRef } from "@remotion/player";
+import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sceneSlideExport";
+import { getSceneExportGlobalFrame, SCENE_EXPORT_TIMELINE_FRACTION } from "../utils/sceneFrameSchedule";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
-type Tab = "script" | "scenes" | "images" | "audio" | "settings";
+type Tab = ProjectTabId;
+type SlideExportWizardState = { format: "pptx" | "pdf" | "zip"; fractions: number[]; stepIndex: number };
+type PlaybackSpeedOption = number;
+const PLAYBACK_SPEED_OPTIONS: readonly number[] = [0.5, 1, 1.5, 2, 2.5] as const;
 
+/** Image framing modal: uniform zoom only (no rectangular crop resize). */
+const IMAGE_ADJUST_ZOOM_MIN = 0.1;
+const IMAGE_ADJUST_ZOOM_MAX = 8;
 const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
 const TABS_CONTAINER_STEP: Step = {
   target: '[data-tour="tabs-container"]',
@@ -76,6 +142,18 @@ const SCENE_EDIT_FIRST_STEP: Step = {
   disableBeacon: true,
   placement: "right",
 };
+const CAPTIONS_STEP: Step = {
+  target: '[data-tour="captions"]',
+  content: "Turn on captions here: enable subtitles for your video, then fine-tune their font, size, and timing.",
+  disableBeacon: true,
+  placement: "top",
+};
+const PLAYBACK_SPEED_STEP: Step = {
+  target: '[data-tour="playback-speed"]',
+  content: "Adjust the playback speed here — speed up or slow down your video with a preset, or drag the slider for a custom speed.",
+  disableBeacon: true,
+  placement: "top",
+};
 const PROJECT_JOYRIDE_STYLES = {
   options: { primaryColor: "#7c3aed", width: 280 },
   tooltip: { fontSize: 13 },
@@ -87,9 +165,48 @@ const PROJECT_JOYRIDE_STYLES = {
 function buildProjectTourSteps(project: Project | null): Step[] {
   const steps: Step[] = [TABS_CONTAINER_STEP];
   if (project?.scenes?.length) steps.push(SCENE_EDIT_FIRST_STEP);
+  // Captions require a voiceover to have anything to transcribe; the CC button is
+  // only rendered when the project has narration audio.
+  const hasVoiceover = project?.scenes?.some((s) => s.voiceover_path) ?? false;
+  if (hasVoiceover) steps.push(CAPTIONS_STEP);
+  steps.push(PLAYBACK_SPEED_STEP);
   return steps;
 }
 
+<<<<<<< HEAD
+=======
+function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | null): string | null {
+  if (!template) return null;
+  const directLogo = Array.isArray(template.logo_urls)
+    ? template.logo_urls.find((url) => typeof url === "string" && url.trim())
+    : null;
+  if (directLogo) return directLogo;
+
+  const publicAssets = template.public_asset_urls;
+  if (publicAssets && typeof publicAssets === "object") {
+    const preferredEntry = Object.entries(publicAssets).find(([key]) =>
+      /(?:^|\/)(?:laduc-)?(?:brand-)?logo\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+    const fallbackEntry = Object.entries(publicAssets).find(([key]) =>
+      /logo.*\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+
+    const resolved = preferredEntry?.[1] || fallbackEntry?.[1];
+    if (resolved) return resolved;
+  }
+
+  if (template.id === "crafted_laduc_bundle" && typeof template.preview_image_url === "string") {
+    return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/laduc/laduc-brand-logo.png");
+  }
+
+  if (template.id === "crafted_fj_market_brief_bundle" && typeof template.preview_image_url === "string") {
+    return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/fj_market_brief/fj-brand-logo.png");
+  }
+
+  return null;
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 /** Display string for ETA from total seconds (smoothed server/client estimate). */
 function formatEtaSecondsRounded(sec: number): string {
   if (!Number.isFinite(sec) || sec < 0) return "";
@@ -117,22 +234,68 @@ const PIPELINE_STEPS_UPLOAD = [
   { id: 3, label: "Scenes" },
 ] as const;
 
+// Tips shown while generation runs — teach the editing capabilities available
+// once the video is ready (rotated one at a time in <GenerationTips />).
+const GENERATION_TIPS = [
+  { tab: "Edit Scenes", text: "Refine any scene from the Edit Scenes tab — use AI-assisted changes or edit the text and layout manually." },
+  { tab: "Script", text: "Not happy with the narration? Regenerate the whole script from the Script tab with your own instructions." },
+  { tab: "Images", text: "Add or remove images per scene from the Images tab — you can also drop in your own logo." },
+  { tab: "Settings", text: "Switch the template, colors, and fonts anytime from the Settings tab." },
+  { tab: "Edit Scenes", text: "Edit a scene's narration and regenerate just that voiceover." },
+  { tab: "Edit Scenes", text: "Reorder, duplicate, or delete scenes from the Edit Scenes tab to shape the final flow." },
+] as const;
+
+// Rotating product tips for the generation loading screen. Self-contained so its
+// hooks stay stable (not re-created inside renderGenerationLoader on every render).
+function GenerationTips() {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx((i) => (i + 1) % GENERATION_TIPS.length);
+        setVisible(true);
+      }, 250);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
+  const tip = GENERATION_TIPS[idx];
+  return (
+    <div className="mt-6 pt-5 border-t border-gray-100">
+      <div
+        className="min-h-[3.5rem] flex flex-col items-center justify-center gap-1.5 px-2"
+        style={{ opacity: visible ? 1 : 0, transition: "opacity 0.25s ease" }}
+      >
+        <span className="text-[10px] font-semibold tracking-wide text-purple-500 uppercase">
+          💡 {tip.tab}
+        </span>
+        <p className="text-sm font-medium text-gray-600 leading-relaxed max-w-xs text-center">
+          {tip.text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── URL Helpers ─────────────────────────────────────────────
 
 /**
  * Resolve the best URL for an asset: R2 URL if available, else local media path.
  */
 function resolveAssetUrl(asset: { r2_url: string | null; filename: string; asset_type: string }, projectId: number): string {
-  // In local dev, prefer local media files over R2 URLs
-  const isLocalDev = !BACKEND_URL || BACKEND_URL.includes('localhost') || BACKEND_URL.includes('127.0.0.1');
-  
-  if (!isLocalDev && asset.r2_url) return asset.r2_url;
-  
+  const mediaBaseUrl =
+    (BACKEND_URL && BACKEND_URL.trim()) ||
+    (typeof window !== "undefined" && window.location.hostname === "localhost"
+      ? "http://localhost:8000"
+      : "");
+
+  if (asset.r2_url) return asset.r2_url;
+
   const subdir = asset.asset_type === "image" ? "images" : "audio";
   const localPath = `/media/projects/${projectId}/${subdir}/${asset.filename}`;
-  
-  // Use relative URL in local dev (goes through Vite proxy), absolute in production
-  return isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
+
+  return `${mediaBaseUrl}${localPath}`;
 }
 
 /**
@@ -180,25 +343,90 @@ function resolveVoiceoverUrl(
     const sep = base.includes("?") ? "&" : "?";
     return `${base}${sep}v=${latest.id}`;
   }
-  const isLocalDev = !BACKEND_URL || BACKEND_URL.includes("localhost") || BACKEND_URL.includes("127.0.0.1");
+  const mediaBaseUrl =
+    (BACKEND_URL && BACKEND_URL.trim()) ||
+    (typeof window !== "undefined" && window.location.hostname === "localhost"
+      ? "http://localhost:8000"
+      : "");
   const localPath = `/media/projects/${projectId}/audio/${audioFilename}`;
-  return isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
+  return `${mediaBaseUrl}${localPath}`;
 }
 
 // ─── Audio Player Row ────────────────────────────────────────
+// Ensures only one background-music preview plays at a time across every
+// AudioRow and the project-level Music card. Calling it stops the previous one.
+let activeBgmPreviewStop: (() => void) | null = null;
+
 function AudioRow({
   scene,
   projectId,
   audioAssets,
+  hasBgm,
+  bgmTrackUrl,
+  projectBgmVolume,
+  onBgmSaved,
 }: {
   scene: Scene;
   projectId: number;
   audioAssets: import("../api/client").Asset[];
+  hasBgm: boolean;
+  bgmTrackUrl: string | null;
+  projectBgmVolume: number;
+  onBgmSaved?: () => void;
 }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Per-scene background-music volume. null override → falls back to project default.
+  const savedBgmVol = scene.bgm_volume ?? projectBgmVolume;
+  const [bgmVol, setBgmVol] = useState<number>(savedBgmVol);
+  const [lastNonZeroBgm, setLastNonZeroBgm] = useState<number>(savedBgmVol > 0 ? savedBgmVol : (projectBgmVolume || 0.10));
+  const [savingBgm, setSavingBgm] = useState(false);
+  const [bgmPreviewPlaying, setBgmPreviewPlaying] = useState(false);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+  const bgmDirty = Math.round(bgmVol * 100) !== Math.round(savedBgmVol * 100);
+
+  useEffect(() => {
+    setBgmVol(scene.bgm_volume ?? projectBgmVolume);
+  }, [scene.bgm_volume, projectBgmVolume]);
+
+  // Stop music preview on unmount.
+  useEffect(() => {
+    return () => { bgmAudioRef.current?.pause(); };
+  }, []);
+
+  const toggleBgmPreview = () => {
+    if (bgmPreviewPlaying) {
+      bgmAudioRef.current?.pause();
+      setBgmPreviewPlaying(false);
+      activeBgmPreviewStop = null;
+      return;
+    }
+    if (!bgmTrackUrl) return;
+    activeBgmPreviewStop?.(); // stop any other preview (scene or project card)
+    bgmAudioRef.current?.pause();
+    const audio = new Audio(bgmTrackUrl);
+    audio.loop = true;
+    audio.volume = Math.max(0, Math.min(1, bgmVol));
+    audio.play().catch(() => {});
+    bgmAudioRef.current = audio;
+    setBgmPreviewPlaying(true);
+    activeBgmPreviewStop = () => { audio.pause(); setBgmPreviewPlaying(false); };
+  };
+
+  const saveBgmVolume = async () => {
+    setSavingBgm(true);
+    try {
+      await updateScene(projectId, scene.id, { bgm_volume: Math.round(bgmVol * 100) / 100 });
+      onBgmSaved?.();
+    } catch {
+      // keep slider value; surfaced by parent error handling on reload
+    } finally {
+      setSavingBgm(false);
+    }
+  };
 
   // Extract audio filename; use latest asset by id (regenerated scene = new asset) and cache-bust URL
   const audioFilename = extractAudioFilename(scene.voiceover_path) || `scene_${scene.order}.mp3`;
@@ -258,7 +486,8 @@ function AudioRow({
   const pct = duration > 0 ? (progress / duration) * 100 : 0;
 
   return (
-    <div className="glass-card p-4 flex items-center gap-4">
+    <div className="glass-card p-4">
+      <div className="flex items-center gap-4">
       {/* Scene number */}
       <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
         <span className="text-xs font-semibold text-purple-600">
@@ -309,6 +538,7 @@ function AudioRow({
             style={{ width: `${pct}%` }}
           />
         </div>
+
       </div>
 
       {/* Status indicator */}
@@ -319,6 +549,70 @@ function AudioRow({
           <span className="w-2 h-2 rounded-full bg-gray-200 block" />
         )}
       </div>
+      </div>
+
+      {/* Background music — per-scene volume. Preview live, Save when changed. */}
+      {hasBgm && bgmTrackUrl && (
+        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={toggleBgmPreview}
+            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors bg-purple-50 text-purple-600 hover:bg-purple-100"
+            title="Preview background music at this scene's volume"
+          >
+            {bgmPreviewPlaying ? (
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+            ) : (
+              <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+            )}
+          </button>
+          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider flex-shrink-0 w-10">Music</span>
+          <button
+            type="button"
+            onClick={() => {
+              const v = bgmVol === 0 ? (lastNonZeroBgm || projectBgmVolume || 0.10) : 0;
+              if (bgmVol > 0) setLastNonZeroBgm(bgmVol);
+              setBgmVol(v);
+              if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+            }}
+            className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors ${bgmVol === 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            title={bgmVol === 0 ? "Unmute music for this scene" : "Mute music for this scene"}
+          >
+            {bgmVol === 0 ? (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" d="M17 9l4 4m0-4l-4 4" /></svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+            )}
+            {bgmVol === 0 ? "Unmute" : "Mute"}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round(bgmVol * 100)}
+            onChange={(e) => {
+              const v = Number(e.target.value) / 100;
+              setBgmVol(v);
+              if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+            }}
+            className="flex-1 accent-purple-600 cursor-pointer"
+          />
+          <span className="text-[10px] tabular-nums text-gray-500 w-9 text-right flex-shrink-0">{Math.round(bgmVol * 100)}%</span>
+          {bgmDirty ? (
+            <button
+              type="button"
+              onClick={saveBgmVolume}
+              disabled={savingBgm}
+              className="px-3 py-1 rounded-lg text-[11px] font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 flex-shrink-0"
+            >
+              {savingBgm ? "Saving…" : "Save"}
+            </button>
+          ) : (
+            <span className="inline-block w-[46px] flex-shrink-0" />
+          )}
+        </div>
+      )}
 
       {/* Hidden audio element */}
       {audioUrl && (
@@ -335,6 +629,7 @@ function AudioRow({
   );
 }
 
+<<<<<<< HEAD
 /** Built-in or custom template preview for settings / picker (matches BlogUrlForm step 2 styling). */
 function TemplateAssignPreview({
   templateId,
@@ -433,6 +728,8 @@ function TemplateAssignPreview({
   );
 }
 
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function normalizeProjectAspectRatio(ar: string | undefined | null): "landscape" | "portrait" {
   return ar === "portrait" ? "portrait" : "landscape";
 }
@@ -443,8 +740,9 @@ export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const offer = useOutOfVideosOffer();
 
   const [project, setProject] = useState<Project | null>(null);
   const projectRef = useRef<Project | null>(null);
@@ -452,7 +750,12 @@ export default function ProjectView() {
     projectRef.current = project;
   }, [project]);
   const hasStudioAccess = isPro || (project?.studio_unlocked ?? false);
-  const [activeTab, setActiveTab] = useState<Tab>("script");
+  const [activeTab, setActiveTab] = useState<Tab>("scenes");
+  const tabManuallyChanged = useRef(false);
+  const handleTabChange = useCallback((tab: Tab) => {
+    tabManuallyChanged.current = true;
+    setActiveTab(tab);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const { showError } = useErrorModal();
@@ -475,12 +778,40 @@ export default function ProjectView() {
   const [settingsFontId, setSettingsFontId] = useState<string | null>(null);
   const [savingFontFamily, setSavingFontFamily] = useState(false);
   const [showFontDropdown, setShowFontDropdown] = useState(false);
+<<<<<<< HEAD
+=======
+  const [playbackSpeedDraft, setPlaybackSpeedDraft] = useState<number>(1);
+  const [savingPlaybackSpeed, setSavingPlaybackSpeed] = useState(false);
+  // Captions
+  const [captionsEnabledDraft, setCaptionsEnabledDraft] = useState(false);
+  const [captionFontFamilyDraft, setCaptionFontFamilyDraft] = useState<string>("inter");
+  const [captionSettingsKey, setCaptionSettingsKey] = useState(0);
+  const [captionFontSizeDraft, setCaptionFontSizeDraft] = useState<number>(36);
+  const [captionOffsetDraft, setCaptionOffsetDraft] = useState<number>(0);
+  const [savingCaptions, setSavingCaptions] = useState(false);
+  // Background music
+  const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
+  const [bgmTrackDraft, setBgmTrackDraft] = useState<string | null>(null);
+  const [bgmVolumeDraft, setBgmVolumeDraft] = useState<number>(0.10);
+  const [lastNonZeroProjectBgm, setLastNonZeroProjectBgm] = useState<number>(0.10);
+  const [savingBgm, setSavingBgm] = useState(false);
+  const [bgmPlayingId, setBgmPlayingId] = useState<string | null>(null);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+  const savingPlaybackSpeedRef = useRef(false);
+  const pendingPlaybackSpeedRef = useRef<number | null>(null);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const fontDropdownRef = useRef<HTMLDivElement>(null);
   const [templateMetas, setTemplateMetas] = useState<TemplateMeta[]>([]);
   const [customTemplatesList, setCustomTemplatesList] = useState<CustomTemplateItem[]>([]);
   const [customTemplatesLoading, setCustomTemplatesLoading] = useState(true);
   const [showTemplateChangeModal, setShowTemplateChangeModal] = useState(false);
+<<<<<<< HEAD
   const [templateChangePickerTab, setTemplateChangePickerTab] = useState<"builtin" | "custom">("builtin");
+=======
+  const [showGetMoreTemplates, setShowGetMoreTemplates] = useState(false);
+  const [showDesignerRequest, setShowDesignerRequest] = useState(false);
+  const [templateChangePickerTab, setTemplateChangePickerTab] = useState<"builtin" | "custom" | "crafted">("builtin");
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [templateChangeDraft, setTemplateChangeDraft] = useState<string>("default");
   const [templateRelayoutPendingId, setTemplateRelayoutPendingId] = useState<string | null>(null);
   const [templateRelayoutJob, setTemplateRelayoutJob] = useState<{
@@ -492,7 +823,42 @@ export default function ProjectView() {
   } | null>(null);
   const [submittingTemplateRelayout, setSubmittingTemplateRelayout] = useState(false);
   const templateRelayoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+<<<<<<< HEAD
+=======
+  const [regenerateScriptJob, setRegenerateScriptJob] = useState<ProjectRegenerateScriptJob | null>(null);
+  const [showRegenerateScriptConfirm, setShowRegenerateScriptConfirm] = useState(false);
+  // The "Regenerate" action at the verify step reuses the same modal, pre-filled with the
+  // job's prior instruction; on confirm it re-runs stage A instead of creating a new job.
+  const [showRegenerateScriptRetry, setShowRegenerateScriptRetry] = useState(false);
+  const [regenerateScriptVerifying, setRegenerateScriptVerifying] = useState(false);
+  // Previous (pre-regeneration) scenes for the verify popup's before/after comparison.
+  // null = loading; [] = loaded with no previous scenes (treat all as new).
+  const [regenScriptPreviousScenes, setRegenScriptPreviousScenes] =
+    useState<RegenerateScriptPreviewScene[] | null>(null);
+  const regenerateScriptPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // True once the user has clicked "Proceed". The DB write that flips the job from
+  // "awaiting_review" to "running" may not be visible to the very next poll, so we ignore
+  // any stale "awaiting_review" reads while this is set — otherwise the UI bounces back to
+  // the verify step. Reset whenever a fresh stage-A run starts (initiate / regenerate).
+  const regenerateScriptProceededRef = useRef(false);
+  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
+  useEffect(() => {
+    if (!project?.template?.startsWith("crafted_")) return;
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    if (!found?.frontend_files) {
+      void ensureCraftedTemplateDetail(project.template);
+    }
+  }, [project?.template, craftedTemplates, ensureCraftedTemplateDetail]);
+
+  const craftedTemplateLogoUrl = useMemo(() => {
+    if (!project?.template?.startsWith("crafted_")) return null;
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    return resolveCraftedTemplateLogoUrl(found);
+  }, [project?.template, craftedTemplates]);
+
+  const displayLogoUrl = project?.logo_r2_url || craftedTemplateLogoUrl;
 
   useEffect(() => {
     if (project) {
@@ -504,9 +870,47 @@ export default function ProjectView() {
       setSettingsBgColor(project.bg_color || "#FFFFFF");
       setSettingsTextColor(project.text_color || "#000000");
       setSettingsFontId(project.font_family ?? null);
+<<<<<<< HEAD
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
       project?.accent_color, project?.bg_color, project?.text_color, project?.font_family]);
+=======
+      const current = Number(project.playback_speed ?? 1);
+      setPlaybackSpeedDraft(Math.min(2.5, Math.max(0.5, Number.isFinite(current) ? current : 1)));
+      setBgmTrackDraft(project.bgm_track_id ?? null);
+      setBgmVolumeDraft(project.bgm_volume ?? 0.10);
+      setCaptionsEnabledDraft(project.captions_enabled ?? false);
+      setCaptionFontFamilyDraft(project.caption_font_family ?? "inter");
+      setCaptionFontSizeDraft(project.caption_font_size ? Number(project.caption_font_size) || 36 : 36);
+      setCaptionOffsetDraft(typeof project.caption_offset === "number" ? project.caption_offset : 0);
+      // Seed global typography sliders from the first scene that has stored values.
+      // This avoids the slider defaulting to 60 when e.g. mosaic_metric scenes have 131.
+      if (project.scenes && project.scenes.length > 0) {
+        for (const s of project.scenes) {
+          if (!s.remotion_code) continue;
+          try {
+            const d = JSON.parse(s.remotion_code);
+            const lp = d.layoutProps ?? d.layoutConfig ?? {};
+            if (typeof lp.titleFontSize === "number") {
+              setGlobalTitleSize(Math.min(200, Math.max(20, lp.titleFontSize)));
+            }
+            if (typeof lp.descriptionFontSize === "number") {
+              setGlobalDescSize(Math.min(80, Math.max(12, lp.descriptionFontSize)));
+            }
+            break;
+          } catch { /* ignore */ }
+        }
+      }
+    }
+  }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
+      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family, project?.playback_speed,
+      // Re-seed caption drafts whenever the project refreshes after a voice add/delete
+      // (the backend toggles captions_enabled with voiceover presence). Without these
+      // deps the draft goes stale and the toggle shows the wrong state until a hard refresh.
+      project?.captions_enabled,
+      project?.caption_font_family, project?.caption_font_size, project?.caption_offset,
+      project?.scenes?.some((s) => !!s.voiceover_path)]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   useEffect(() => {
     if (project) {
@@ -516,9 +920,20 @@ export default function ProjectView() {
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity]);
 
+  // Fetch BGM tracks once
+  useEffect(() => {
+    getBgmTracks().then((r) => setBgmTracks(r.data)).catch(() => {});
+  }, []);
+
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
   const PIPELINE_STEPS = isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL;
+
+  // Page-level voiceover add/change/delete progress modal (survives tab switches
+  // and page refresh — see VoiceOperationModal). Set to kick it off instantly.
+  const [voiceOpKickstart, setVoiceOpKickstart] = useState<
+    { kind: "voice_change" | "delete"; total: number } | null
+  >(null);
 
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
@@ -539,6 +954,14 @@ export default function ProjectView() {
   const [rendered, setRendered] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingStudio, setDownloadingStudio] = useState(false);
+  const [sceneExporting, setSceneExporting] = useState(false);
+  const [showSlidesExportMenu, setShowSlidesExportMenu] = useState(false);
+  const [slideExportWizard, setSlideExportWizard] = useState<SlideExportWizardState | null>(null);
+  const previewPlayerRef = useRef<PlayerRef | null>(null);
+  const modalPreviewPlayerRef = useRef<PlayerRef | null>(null);
+  const slidesExportAnchorRef = useRef<HTMLDivElement | null>(null);
+  const videoPreviewContainerRef = useRef<HTMLDivElement | null>(null);
+  const slideExportWizardPrevRef = useRef<SlideExportWizardState | null>(null);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderFrames, setRenderFrames] = useState({ rendered: 0, total: 0 });
   const [renderEtaLabel, setRenderEtaLabel] = useState<string | null>(null);
@@ -579,7 +1002,14 @@ export default function ProjectView() {
 
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showEmbedModal, setShowEmbedModal] = useState(false);
+  const [embedToken, setEmbedToken] = useState<string | null>(null);
+  const [embedLoading, setEmbedLoading] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
+  const [showShareDropdown, setShowShareDropdown] = useState(false);
+  const [showPreviewLinkModal, setShowPreviewLinkModal] = useState(false);
+  const [previewLinkUrl, setPreviewLinkUrl] = useState<string | null>(null);
+  const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
   const [showReRenderWarning, setShowReRenderWarning] = useState(false);
@@ -590,6 +1020,16 @@ export default function ProjectView() {
   const [aspectFormatPending, setAspectFormatPending] = useState<"landscape" | "portrait" | null>(null);
   const [aspectFormatSaving, setAspectFormatSaving] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onClickOutside = (evt: MouseEvent) => {
+      const target = evt.target as Node;
+      if (fontDropdownRef.current && !fontDropdownRef.current.contains(target)) {
+        setShowFontDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
 
   useEffect(() => {
     const onClickOutside = (evt: MouseEvent) => {
@@ -603,14 +1043,48 @@ export default function ProjectView() {
   }, []);
 
   // Scenes tab: expanded scene detail, edit modal, drag reorder
-  const [expandedScene, setExpandedScene] = useState<number | null>(null);
+  const [expandedScene, setExpandedScene] = useState<number | null>(
+    project?.scenes?.[0]?.id ?? null
+  );
+  const firstSceneAutoExpandedRef = useRef(false);
+  useEffect(() => {
+    if (firstSceneAutoExpandedRef.current) return;
+    const firstId = project?.scenes?.[0]?.id;
+    if (firstId != null) {
+      firstSceneAutoExpandedRef.current = true;
+      setExpandedScene(firstId);
+    }
+  }, [project?.scenes?.[0]?.id]);
   const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
+  const [imageAdjustSceneId, setImageAdjustSceneId] = useState<number | null>(null);
+  const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
+  const [isAdjustDragging, setIsAdjustDragging] = useState(false);
+  const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
+  const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
+  const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  const [savingImageAdjust, setSavingImageAdjust] = useState(false);
+  const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
+  const imageAdjustPanRef = useRef<{
+    startX: number;
+    startY: number;
+    startFx: number;
+    startFy: number;
+  } | null>(null);
   const [draggedSceneId, setDraggedSceneId] = useState<number | null>(null);
   const [dragOverSceneId, setDragOverSceneId] = useState<number | null>(null);
   const [reorderSaving, setReorderSaving] = useState(false);
   const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
+  const [imageSourceChooserSceneId, setImageSourceChooserSceneId] = useState<number | null>(null);
+  const [scrapedImagesPickerSceneId, setScrapedImagesPickerSceneId] = useState<number | null>(null);
+  const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
+  const [localUploadTargetSceneId, setLocalUploadTargetSceneId] = useState<number | null>(null);
+  const [assigningExistingImage, setAssigningExistingImage] = useState(false);
+  const [imageGenModalSceneId, setImageGenModalSceneId] = useState<number | null>(null);
   const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
   const [generatedImageSceneId, setGeneratedImageSceneId] = useState<number | null>(null);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
@@ -637,6 +1111,10 @@ export default function ProjectView() {
   const [showReviewPopup, setShowReviewPopup] = useState(false);
   const [firstProjectPopupDismissed, setFirstProjectPopupDismissed] = useState(false);
   const reviewPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+<<<<<<< HEAD
+=======
+  const localSceneImageInputRef = useRef<HTMLInputElement>(null);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const dismissTabsGuide = useCallback(() => {
     if (tourShownThisSessionRef.current && user) localStorage.setItem(tabsGuideSeenKey, "true");
     tourShownThisSessionRef.current = false;
@@ -646,6 +1124,18 @@ export default function ProjectView() {
   const projectTourSteps = buildProjectTourSteps(project);
   const scenesLoaded = (project?.scenes?.length ?? 0) > 0;
   const pipelineFinished = project?.status === "generated" || project?.status === "done";
+<<<<<<< HEAD
+=======
+
+  // Force back to scenes tab when video finishes generating, resetting the manual-change flag.
+  useEffect(() => {
+    if (pipelineFinished) {
+      tabManuallyChanged.current = false;
+      setActiveTab("scenes");
+    }
+  }, [pipelineFinished]);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const reviewState = project?.review_state ?? null;
   const isFirstProject = reviewState?.project_sequence === 1;
   const clearReviewPopupTimer = useCallback(() => {
@@ -846,8 +1336,12 @@ export default function ProjectView() {
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const fontPendingRef = useRef<Record<number, { title: number; desc: number }>>({});
 
-  // Images tab: toggling exclusion
-  const [togglingAsset, setTogglingAsset] = useState<number | null>(null);
+  // Images tab: delete asset confirmation
+  const [deletingImageAssetId, setDeletingImageAssetId] = useState<number | null>(null);
+  const [imageAssetDeletePending, setImageAssetDeletePending] = useState<{
+    id: number;
+    filename: string;
+  } | null>(null);
 
   // Video blob URL for playback (fetched via backend to avoid CORS, loads completely)
   const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
@@ -987,10 +1481,124 @@ export default function ProjectView() {
     [projectId, showError],
   );
 
+<<<<<<< HEAD
+=======
+  const handlePreviewPlaybackSpeedChange = useCallback(
+    async (speed: number) => {
+      if (!project) return;
+      const normalized = Math.min(2.5, Math.max(0.5, Math.round(speed * 10) / 10));
+      setPlaybackSpeedDraft(normalized);
+      pendingPlaybackSpeedRef.current = normalized;
+      if (savingPlaybackSpeedRef.current) return;
+
+      setSavingPlaybackSpeed(true);
+      savingPlaybackSpeedRef.current = true;
+      try {
+        while (pendingPlaybackSpeedRef.current !== null) {
+          const nextSpeed = pendingPlaybackSpeedRef.current;
+          pendingPlaybackSpeedRef.current = null;
+          await updateProject(project.id, { playback_speed: nextSpeed });
+          await loadProject();
+        }
+      } catch (err) {
+        showError(getErrorMessage(err, "Failed to save playback speed."));
+      } finally {
+        setSavingPlaybackSpeed(false);
+        savingPlaybackSpeedRef.current = false;
+      }
+    },
+    [project, loadProject, showError],
+  );
+
+  const handleCaptionSettingsChange = useCallback(
+    async (settings: CaptionSettings) => {
+      if (!project) return;
+      setSavingCaptions(true);
+      try {
+        await updateProject(project.id, {
+          captions_enabled: settings.captionsEnabled,
+          caption_font_family: settings.captionFontFamily,
+          caption_font_size: settings.captionFontSize,
+          caption_offset: settings.captionOffset,
+        });
+        // Sync draft state so the settings panel reflects changes made via the player button.
+        setCaptionsEnabledDraft(settings.captionsEnabled);
+        setCaptionFontFamilyDraft(settings.captionFontFamily);
+        setCaptionFontSizeDraft(settings.captionFontSize);
+        setCaptionOffsetDraft(settings.captionOffset);
+        setCaptionSettingsKey((k) => k + 1);
+        await loadProject();
+      } catch (err) {
+        const msg = getErrorMessage(err, "Failed to save caption settings.");
+        // "Captions require a voiceover" is a soft prerequisite, not a failure —
+        // show it as a warning so the user isn't alarmed.
+        const isVoiceoverWarning = /captions? require a voiceover/i.test(msg);
+        showError(msg, isVoiceoverWarning ? { variant: "warning" } : undefined);
+      } finally {
+        setSavingCaptions(false);
+      }
+    },
+    [project, loadProject, showError],
+  );
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const stopTemplateRelayoutPolling = useCallback(() => {
     if (templateRelayoutPollRef.current) {
       clearInterval(templateRelayoutPollRef.current);
       templateRelayoutPollRef.current = null;
+<<<<<<< HEAD
+=======
+    }
+  }, []);
+
+  const startTemplateRelayoutPolling = useCallback(() => {
+    stopTemplateRelayoutPolling();
+    templateRelayoutPollRef.current = setInterval(async () => {
+      try {
+        const res = await getProjectTemplateChangeStatus(projectId);
+        const job = res.data;
+        if (!job) return;
+        setTemplateRelayoutJob(job);
+        if (job.status === "completed") {
+          stopTemplateRelayoutPolling();
+          setTemplateRelayoutJob({
+            ...job,
+            processed_scenes: 0,
+            total_scenes: 0,
+          });
+          await loadProject();
+        } else if (job.status === "failed") {
+          stopTemplateRelayoutPolling();
+          setTemplateRelayoutJob(null);
+          await loadProject();
+          showError(
+            job.error_message ||
+              "We faced an unforeseen error while processing your request. Please retry — your video count has not been deducted.",
+            { variant: "pipeline" }
+          );
+        }
+      } catch {
+        stopTemplateRelayoutPolling();
+      }
+    }, 2000);
+  }, [loadProject, projectId, stopTemplateRelayoutPolling, showError]);
+
+  const stopRegenerateScriptPolling = useCallback(() => {
+    if (regenerateScriptPollRef.current) {
+      clearInterval(regenerateScriptPollRef.current);
+      regenerateScriptPollRef.current = null;
+    }
+  }, []);
+
+  // Load the previous scenes for the verify popup. On error, fall back to [] so the popup
+  // isn't stuck on a loading spinner (it then treats every scene as new, no comparison).
+  const loadRegenerateScriptPreview = useCallback(async () => {
+    try {
+      const res = await getRegenerateScriptPreview(projectId);
+      setRegenScriptPreviousScenes(res.data?.previous_scenes ?? []);
+    } catch {
+      setRegenScriptPreviousScenes([]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
   }, []);
 
@@ -1056,6 +1664,116 @@ export default function ProjectView() {
     };
     refreshTemplateJob();
   }, [projectId, startTemplateRelayoutPolling]);
+
+  const startRegenerateScriptPolling = useCallback(() => {
+    stopRegenerateScriptPolling();
+    regenerateScriptPollRef.current = setInterval(async () => {
+      try {
+        const res = await getRegenerateScriptStatus(projectId);
+        const job = res.data;
+        if (!job) return;
+        // After the user proceeds, the persisted status may briefly still read
+        // "awaiting_review" (DB write not yet visible to this read). Ignore those stale
+        // reads so the UI doesn't bounce back to the verify step — keep polling until the
+        // status catches up to running/completed/failed.
+        if (job.status === "awaiting_review" && regenerateScriptProceededRef.current) {
+          return;
+        }
+        setRegenerateScriptJob(job);
+        if (job.status === "awaiting_review") {
+          // Paused for verification — stop polling, load the new scenes, and fetch the previous
+          // scenes so the verify popup can show the before/after comparison.
+          stopRegenerateScriptPolling();
+          await loadProject();
+          setRegenerateScriptJob(job);
+          loadRegenerateScriptPreview();
+        } else if (job.status === "completed") {
+          regenerateScriptProceededRef.current = false;
+          setRegenScriptPreviousScenes(null);
+          stopRegenerateScriptPolling();
+          // Clear any pipeline state that may have been set by a spurious auto-start
+          // (e.g. if the project was stuck in "scripted" on mount and kickOffGeneration fired).
+          stopPolling();
+          setPipelineRunning(false);
+          await loadProject();
+          setRegenerateScriptJob(null);
+        } else if (job.status === "failed") {
+          regenerateScriptProceededRef.current = false;
+          setRegenScriptPreviousScenes(null);
+          stopRegenerateScriptPolling();
+          stopPolling();
+          setPipelineRunning(false);
+          setRegenerateScriptJob(null);
+          await loadProject();
+          showError(
+            job.error_message
+              ? `We're sorry — we couldn't regenerate your script. Your previous version has been restored and no video credit was deducted.`
+              : "We're sorry — something went wrong while regenerating your script. Your previous version has been restored and no video credit was deducted. Please try again.",
+            { variant: "pipeline" }
+          );
+        }
+      } catch {
+        stopRegenerateScriptPolling();
+      }
+    }, 2000);
+  }, [loadProject, projectId, stopRegenerateScriptPolling, showError, loadRegenerateScriptPreview]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCustomTemplatesLoading(true);
+    getTemplates()
+      .then((r) => {
+        if (!cancelled) setTemplateMetas(r.data || []);
+      })
+      .catch(() => {});
+    listCustomTemplates()
+      .then((r) => {
+        if (!cancelled) setCustomTemplatesList(r.data || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCustomTemplatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      stopTemplateRelayoutPolling();
+    };
+  }, [stopTemplateRelayoutPolling]);
+
+  useEffect(() => {
+    const refreshTemplateJob = async () => {
+      try {
+        const res = await getProjectTemplateChangeStatus(projectId);
+        if (!res.data) return;
+        setTemplateRelayoutJob(res.data);
+        if (res.data.status === "queued" || res.data.status === "running") {
+          startTemplateRelayoutPolling();
+        }
+      } catch {
+        // ignore
+      }
+    };
+    refreshTemplateJob();
+  }, [projectId, startTemplateRelayoutPolling]);
+
+  useEffect(() => {
+    const refreshRegenerateScriptJob = async () => {
+      try {
+        const res = await getRegenerateScriptStatus(projectId);
+        if (!res.data) return;
+        setRegenerateScriptJob(res.data);
+        if (res.data.status === "queued" || res.data.status === "running") {
+          startRegenerateScriptPolling();
+        } else if (res.data.status === "awaiting_review") {
+          // Resume the verify popup on reload / navigating back into the project.
+          loadRegenerateScriptPreview();
+        }
+      } catch {
+        // ignore
+      }
+    };
+    refreshRegenerateScriptJob();
+  }, [projectId, startRegenerateScriptPolling, loadRegenerateScriptPreview]);
 
   // Handle ?purchased=true redirect from Stripe per-video checkout
   useEffect(() => {
@@ -1228,6 +1946,21 @@ export default function ProjectView() {
             );
           }
           await loadProject({ silent404: true });
+<<<<<<< HEAD
+=======
+          // Trigger A: free user just finished their last available video → out-of-videos offer.
+          // We re-fetch the user directly because refreshUser() updates context async
+          // and the closure's `user` is still stale here.
+          try {
+            const me = await getMe();
+            await refreshUser();
+            if (me.data.plan === "free" && me.data.can_create_video === false) {
+              offer.open();
+            }
+          } catch {
+            // ignore — eligibility just won't fire this tick
+          }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           return;
         }
 
@@ -1363,7 +2096,14 @@ export default function ProjectView() {
         if (err?.response?.status === 403) {
           const baseMsg = message || "Video limit reached. Re-render counts as a video. Upgrade your plan or buy more credits to continue.";
           const hasExisting = Boolean(project?.r2_video_url);
+<<<<<<< HEAD
           showError(baseMsg, { showUpgrade: true });
+=======
+          const opened = user?.plan === "free" ? offer.open() : false;
+          if (!opened) {
+            showError(baseMsg, { showUpgrade: true });
+          }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           setHasError(true);
           setRendering(false);
           if (hasExisting) setRendered(true);
@@ -1717,6 +2457,91 @@ export default function ProjectView() {
     }
   };
 
+  const openSlideExportWizard = useCallback(
+    (format: "pptx" | "pdf" | "zip") => {
+      if (!project?.scenes?.length) return;
+      if (missingCustomTemplate) {
+        showError("This project cannot export slides because its custom template is missing.");
+        return;
+      }
+      if (!previewPlayerRef.current) {
+        showError("Wait until the preview has finished loading, then try again.");
+        return;
+      }
+      setShowSlidesExportMenu(false);
+      const defaultFractions = project.scenes.map(() => SCENE_EXPORT_TIMELINE_FRACTION);
+      setSlideExportWizard({
+        format,
+        fractions: defaultFractions,
+        stepIndex: 0,
+      });
+    },
+    [project, missingCustomTemplate, showError]
+  );
+
+  const runSlideExportWithFractions = useCallback(
+    async (format: "pptx" | "pdf" | "zip", fractions: number[]) => {
+      if (!project) return;
+      const exportPlayer = modalPreviewPlayerRef.current ?? previewPlayerRef.current;
+      setSceneExporting(true);
+      try {
+        const player = exportPlayer;
+        if (!player) { showError("Wait until the preview has finished loading, then try again."); return; }
+        if (format === "pptx") await exportScenesPptx(player, project, fractions);
+        else if (format === "pdf") await exportScenesPdf(player, project, fractions);
+        else await exportScenesPng(player, project, fractions);
+      } catch (err) {
+        showError(getErrorMessage(err, "Could not export scenes."));
+      } finally {
+        setSceneExporting(false);
+        setSlideExportWizard(null);
+      }
+    },
+    [project, showError]
+  );
+
+  useEffect(() => {
+    if (slideExportWizard && !slideExportWizardPrevRef.current) {
+      queueMicrotask(() => {
+        videoPreviewContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+    slideExportWizardPrevRef.current = slideExportWizard;
+  }, [slideExportWizard]);
+
+  // No capture effect needed — modal uses a live VideoPreview with initialFrame.
+
+  const handleGetEmbedLink = async () => {
+    if (!project) return;
+    setEmbedLoading(true);
+    setShowShareDropdown(false);
+    try {
+      const res = await generateEmbedToken(project.id);
+      setEmbedToken(res.data.embed_token);
+      setShowEmbedModal(true);
+    } catch {
+      showError("Could not generate embed link. Please try again.");
+    } finally {
+      setEmbedLoading(false);
+    }
+  };
+
+  const handleCopyPreviewLink = async () => {
+    if (!project) return;
+    setShowShareDropdown(false);
+    setEmbedLoading(true);
+    try {
+      const res = await generateEmbedToken(project.id);
+      const previewUrl = `${import.meta.env.VITE_APP_URL || window.location.origin}/preview/${res.data.embed_token}`;
+      setPreviewLinkUrl(previewUrl);
+      setPreviewLinkCopied(false);
+      setShowPreviewLinkModal(true);
+    } catch {
+      showError("Could not generate preview link. Please try again.");
+    } finally {
+      setEmbedLoading(false);
+    }
+  };
 
   const handleCopyDownloadLink = async () => {
     try {
@@ -1780,25 +2605,23 @@ export default function ProjectView() {
     }
   };
 
-  const handleToggleExclusion = async (assetId: number) => {
-    if (!project || !isPro) return;
-    setTogglingAsset(assetId);
+  const handleRequestDeleteBlogImage = (asset: { id: number; filename: string }) => {
+    if (!project) return;
+    setImageAssetDeletePending({ id: asset.id, filename: asset.filename });
+  };
+
+  const handleConfirmDeleteBlogImage = async () => {
+    if (!project || !imageAssetDeletePending) return;
+    const id = imageAssetDeletePending.id;
+    setDeletingImageAssetId(id);
     try {
-      const res = await toggleAssetExclusion(projectId, assetId);
-      // Update local state
-      setProject((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          assets: prev.assets.map((a) =>
-            a.id === assetId ? { ...a, excluded: res.data.excluded } : a
-          ),
-        };
-      });
-    } catch {
-      // Silently fail
+      await deleteAsset(project.id, id);
+      setImageAssetDeletePending(null);
+      await loadProject();
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to delete image."));
     } finally {
-      setTogglingAsset(null);
+      setDeletingImageAssetId(null);
     }
   };
 
@@ -1823,8 +2646,140 @@ export default function ProjectView() {
     }
   };
 
+<<<<<<< HEAD
   const assignedTemplateId = project?.template || "default";
   const readyCustomForPicker = customTemplatesList.filter((ct) => !!ct.intro_code);
+=======
+  const applyRegenerateScript = async (instruction: string) => {
+    if (!project) return;
+    try {
+      const res = await regenerateScript(project.id, { user_instruction: instruction });
+      regenerateScriptProceededRef.current = false; // fresh run — the verify pause is expected
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+      // 422 = out-of-context instruction; the modal already shows it inline, so don't also toast it.
+      if (status !== 422) {
+        showError(
+          getErrorMessage(err, "Failed to start script regeneration."),
+          status === 403 ? { showUpgrade: true } : undefined
+        );
+      }
+      throw err; // let the modal surface the error inline
+    }
+  };
+
+  // Verify step — "Proceed": approve the regenerated script and resume scene generation.
+  const handleVerifyRegenerateScript = async () => {
+    if (!project) return;
+    setRegenerateScriptVerifying(true);
+    regenerateScriptProceededRef.current = true; // ignore stale "awaiting_review" reads from now on
+    try {
+      const res = await verifyRegenerateScript(project.id);
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to continue script generation."));
+    } finally {
+      setRegenerateScriptVerifying(false);
+    }
+  };
+
+  // Verify step — "Regenerate" (modal confirm): discard and re-run stage A with the
+  // (optionally edited) instruction. No credit is charged for re-runs.
+  const applyRejectRegenerateScript = async (instruction: string) => {
+    if (!project) return;
+    try {
+      const res = await rejectRegenerateScript(project.id, { user_instruction: instruction });
+      regenerateScriptProceededRef.current = false; // re-run reaches the verify pause again
+      setRegenerateScriptJob(res.data);
+      startRegenerateScriptPolling();
+    } catch (err) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+      // 422 = out-of-context instruction; the modal already shows it inline, so don't also toast it.
+      if (status !== 422) {
+        showError(getErrorMessage(err, "Failed to regenerate the script."));
+      }
+      throw err; // let the modal surface the error inline
+    }
+  };
+
+  const assignedTemplateId = project?.template || "default";
+  const readyCustomForPicker = customTemplatesList.filter((ct) => !!ct.intro_code);
+  const readyCraftedForPicker = (craftedTemplates || []).filter((ct: CraftedTemplateItem) => !!ct.theme);
+
+  useEffect(() => {
+    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
+  }, [imageAdjustFocusX, imageAdjustFocusY]);
+
+  useEffect(() => {
+    if (!isAdjustDragging || !imageAdjustSceneId || !imageAdjustSrc) return;
+    const pan = imageAdjustPanRef.current;
+    if (!pan) return;
+
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = imageAdjustPreviewRef.current;
+      if (!el || !imageAdjustPanRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setImageAdjustFocusX(clamp(startFx - dxPct));
+      setImageAdjustFocusY(clamp(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [isAdjustDragging, imageAdjustSceneId, imageAdjustSrc]);
+
+  useLayoutEffect(() => {
+    if (imageAdjustSceneId === null || !imageAdjustSrc) return;
+    const el = imageAdjustPreviewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      setImageAdjustZoom((z) => {
+        const factor = delta > 0 ? 0.97 : 1.03;
+        const next = Math.min(
+          IMAGE_ADJUST_ZOOM_MAX,
+          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor)
+        );
+        return Math.round(next * 100) / 100;
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustSceneId, imageAdjustSrc]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   if (loading) {
     return (
@@ -1856,11 +2811,23 @@ export default function ProjectView() {
     navigate(`/dashboard?${params.toString()}`);
   };
 
+<<<<<<< HEAD
   const tabs: { id: Tab; label: string }[] = [
+=======
+  const tabs: ProjectTabItem[] = [
+    {
+      id: "scenes",
+      label: "Edit Scenes",
+      icon: (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      ),
+    },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
-    ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
-    { id: "scenes", label: "Scenes" },
+    ...(project.voice_gender !== "none" || project.bgm_track_id ? [{ id: "audio" as Tab, label: "Audio" }] : []),
     { id: "settings", label: "Settings" },
   ];
 
@@ -1889,6 +2856,10 @@ export default function ProjectView() {
       if (ad !== bd) return ad - bd;
       return (a.id ?? 0) - (b.id ?? 0);
     });
+  const scrapedImageOptions = imageAssets.map((asset) => ({
+    asset,
+    url: resolveAssetUrl(asset, project.id),
+  }));
   const sceneImageMap: Record<number, string[]> = {};
   const sceneImageAssetsMap: Record<number, SceneImageItem[]> = {};
   const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
@@ -1904,9 +2875,7 @@ export default function ProjectView() {
 
     const usedGenericFiles = new Set<string>();
 
-    // 1) First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
-    // This ensures images move with their scenes when reordered, and scenes explicitly
-    // marked hideImage=true never get an auto-assigned generic image.
+    // 1) Honor stored assignedImage (any filename); multiple scenes may share one file.
     project.scenes.forEach((scene, idx) => {
       let layoutProps: Record<string, unknown> = {};
       if (scene.remotion_code) {
@@ -1921,38 +2890,20 @@ export default function ProjectView() {
       const hideImage = Boolean((layoutProps as any).hideImage);
       hideImageFlags[idx] = hideImage;
       if (hideImage) {
-        // Skip auto-assignment for scenes with hideImage=true
         return;
       }
 
       const assignedImage = layoutProps.assignedImage as string | undefined;
       if (assignedImage && filenameToAsset.has(assignedImage)) {
-        const m = assignedImage.match(/^scene_(\d+)_/);
-        if (m) {
-          // Scene-specific assignment must match current scene id (one image per scene)
-          const assignedSceneId = parseInt(m[1], 10);
-          if (assignedSceneId === scene.id) {
-            const asset = filenameToAsset.get(assignedImage)!;
-            const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx] = [url];
-            sceneImageAssetsMap[idx] = [{ url, asset }];
-            usedGenericFiles.add(assignedImage);
-          }
-        } else {
-          // Generic assignment: enforce 1 generic -> 1 scene (one image per scene)
-          if (!usedGenericFiles.has(assignedImage)) {
-            const asset = filenameToAsset.get(assignedImage)!;
-            const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx] = [url];
-            sceneImageAssetsMap[idx] = [{ url, asset }];
-            usedGenericFiles.add(assignedImage);
-          }
-        }
+        const asset = filenameToAsset.get(assignedImage)!;
+        const url = resolveAssetUrl(asset, project.id);
+        sceneImageMap[idx] = [url];
+        sceneImageAssetsMap[idx] = [{ url, asset }];
+        usedGenericFiles.add(assignedImage);
       }
     });
 
-    // 2) Second pass: Scene-specific images (overwrite stored assignments)
-    // Scene-specific images: filename "scene_<sceneId>_<timestamp>.*" (from AI edit upload)
+    // 2) Orphan scene_<id>_ files on disk with no layoutProps — bind to matching scene only
     const sceneSpecific: { sceneId: number; url: string; asset: (typeof activeImageAssets)[0] }[] = [];
     const genericAssets: typeof activeImageAssets = [];
     for (const asset of activeImageAssets) {
@@ -1968,18 +2919,32 @@ export default function ProjectView() {
         genericAssets.push(asset);
       }
     }
-    // Apply scene-specific images (later uploads overwrite by same scene_id)
     for (const { sceneId, url, asset } of sceneSpecific) {
       const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
+<<<<<<< HEAD
       if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
         // Overwrite any existing assignment; scene-specific re-enables images
         sceneImageMap[sceneIdx] = [url];
         sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
+=======
+      if (sceneIdx < 0 || hideImageFlags[sceneIdx]) continue;
+      let layoutProps: Record<string, unknown> = {};
+      if (project.scenes[sceneIdx].remotion_code) {
+        try {
+          const descriptor = JSON.parse(project.scenes[sceneIdx].remotion_code!);
+          layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+        } catch {
+          /* legacy */
+        }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       }
+      if (layoutProps.assignedImage || layoutProps.hideImage) continue;
+      sceneImageMap[sceneIdx] = [url];
+      sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
+      usedGenericFiles.add(asset.filename);
     }
 
-    // 3) Third pass: Generic images: assign in order to scenes that don't have one yet
-    // IMPORTANT: Skip scenes with hideImage=true. Find next unused generic per scene (match backend).
+    // 3) Auto-fill remaining scenes with unused generic images (match backend)
     let genericIdx = 0;
     for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
       if (sceneImageMap[sceneIdx].length > 0 || hideImageFlags[sceneIdx]) continue;
@@ -1996,10 +2961,29 @@ export default function ProjectView() {
     }
   }
 
-  const handleRemoveSceneImage = async (assetId: number) => {
+  const handleRemoveSceneImage = async (scene: Scene, assetId: number) => {
     setRemovingAssetId(assetId);
     try {
-      await deleteAsset(project.id, assetId);
+      let descriptor: Record<string, unknown> = {};
+      if (scene.remotion_code) {
+        try {
+          descriptor = JSON.parse(scene.remotion_code);
+        } catch {
+          descriptor = {};
+        }
+      }
+      const layoutProps: Record<string, unknown> = {
+        ...((descriptor.layoutProps as Record<string, unknown>) || {}),
+        hideImage: true,
+      };
+      delete layoutProps.assignedImage;
+      delete layoutProps.imageFocusX;
+      delete layoutProps.imageFocusY;
+      delete layoutProps.imageZoom;
+      descriptor.layoutProps = layoutProps;
+      await updateScene(project.id, scene.id, {
+        remotion_code: JSON.stringify(descriptor),
+      });
       await loadProject();
     } finally {
       setRemovingAssetId(null);
@@ -2016,59 +3000,214 @@ export default function ProjectView() {
     }
   };
 
+  const handleOpenImageSourceChooser = (sceneId: number) => {
+    setImageSourceChooserSceneId(sceneId);
+    setSelectedExistingAssetId(null);
+  };
+
+  const handleChooseLocalUpload = () => {
+    if (!imageSourceChooserSceneId) return;
+    setLocalUploadTargetSceneId(imageSourceChooserSceneId);
+    setImageSourceChooserSceneId(null);
+    localSceneImageInputRef.current?.click();
+  };
+
+  const handleChooseScrapedImages = () => {
+    if (!imageSourceChooserSceneId) return;
+    setScrapedImagesPickerSceneId(imageSourceChooserSceneId);
+    setImageSourceChooserSceneId(null);
+    setSelectedExistingAssetId(null);
+  };
+
+  const handleLocalSceneFilePicked = (file: File | null) => {
+    if (!file || !localUploadTargetSceneId) return;
+    handleAddSceneImage(localUploadTargetSceneId, file).catch((err) =>
+      showError(getErrorMessage(err) || DEFAULT_ERROR_MESSAGE)
+    );
+  };
+
+  const handleAssignExistingImageToScene = async () => {
+    if (!scrapedImagesPickerSceneId || !selectedExistingAssetId) return;
+    setAssigningExistingImage(true);
+    try {
+      await assignExistingImageToScene(project.id, scrapedImagesPickerSceneId, selectedExistingAssetId);
+      setScrapedImagesPickerSceneId(null);
+      setSelectedExistingAssetId(null);
+      await loadProject();
+    } catch (err) {
+      showError(getErrorMessage(err) || DEFAULT_ERROR_MESSAGE);
+    } finally {
+      setAssigningExistingImage(false);
+    }
+  };
+
+  const clampFocus = (value: number) => Math.max(0, Math.min(100, value));
+
+  const getSceneFocus = (scene: Scene): { x: number; y: number } => {
+    try {
+      if (!scene.remotion_code) return { x: 50, y: 50 };
+      const parsed = JSON.parse(scene.remotion_code) as { layoutProps?: { imageFocusX?: unknown; imageFocusY?: unknown } };
+      const xRaw = typeof parsed.layoutProps?.imageFocusX === "number" ? parsed.layoutProps.imageFocusX : 50;
+      const yRaw = typeof parsed.layoutProps?.imageFocusY === "number" ? parsed.layoutProps.imageFocusY : 50;
+      return { x: clampFocus(xRaw), y: clampFocus(yRaw) };
+    } catch {
+      return { x: 50, y: 50 };
+    }
+  };
+
+  const getSceneImageZoom = (scene: Scene): number => {
+    try {
+      if (!scene.remotion_code) return 1;
+      const parsed = JSON.parse(scene.remotion_code) as { layoutProps?: { imageZoom?: unknown } };
+      const zoomRaw = typeof parsed.layoutProps?.imageZoom === "number" ? parsed.layoutProps.imageZoom : 1;
+      return Math.max(IMAGE_ADJUST_ZOOM_MIN, zoomRaw);
+    } catch {
+      return 1;
+    }
+  };
+
+  const openSceneImageAdjustModal = (scene: Scene, src: string) => {
+    const focus = getSceneFocus(scene);
+    const zoom = getSceneImageZoom(scene);
+
+    // Compute the correct aspect ratio for the modal preview
+    let ar: string;
+    let circular = false;
+    if (project?.template?.startsWith("custom_") && project) {
+      ar = resolveCustomImageBoxAr(scene, project);
+    } else {
+      let layoutId: string | null = null;
+      try {
+        if (scene.remotion_code) {
+          const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutConfig?: { arrangement?: string } };
+          // Intentionally exclude sceneTypeOverride — "intro"/"content"/"outro" are not layout IDs
+          // and would incorrectly map to built-in layout dims via the alias table.
+          layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? null;
+        }
+      } catch { /* ignore */ }
+      const templateCfg = getTemplateConfig(project?.template || "default");
+      ar = getImageBoxAspectRatio(
+        layoutId ? normalizeLayoutId(layoutId) : null,
+        project?.aspect_ratio || "landscape",
+        templateCfg.baseWidth,
+        templateCfg.baseHeight,
+      );
+      circular = isImageBoxCircular(layoutId);
+    }
+    setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(circular);
+
+    setImageAdjustSceneId(scene.id);
+    setImageAdjustSrc(src);
+    setIsAdjustDragging(false);
+    setImageAdjustFocusX(focus.x);
+    setImageAdjustFocusY(focus.y);
+    setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, zoom)));
+    imageAdjustPanRef.current = null;
+  };
+
+  const closeSceneImageAdjustModal = () => {
+    if (savingImageAdjust) return;
+    setImageAdjustSceneId(null);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+  };
+
+  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const saveSceneImageAdjust = async () => {
+    if (!imageAdjustSceneId) return;
+    setSavingImageAdjust(true);
+    try {
+      const zoomToSave = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
+      const targetScene = project.scenes.find((s) => s.id === imageAdjustSceneId);
+      if (targetScene?.remotion_code) {
+        const descriptor = JSON.parse(targetScene.remotion_code) as { layoutProps?: Record<string, unknown> };
+        const layoutProps = { ...(descriptor.layoutProps || {}) };
+        layoutProps.imageFocusX = clampFocus(imageAdjustFocusX);
+        layoutProps.imageFocusY = clampFocus(imageAdjustFocusY);
+        layoutProps.imageZoom = zoomToSave;
+        layoutProps.hideImage = false;
+        descriptor.layoutProps = layoutProps;
+        await updateScene(project.id, imageAdjustSceneId, {
+          remotion_code: JSON.stringify(descriptor),
+        });
+      } else {
+        await updateSceneImageFocus(
+          project.id,
+          imageAdjustSceneId,
+          clampFocus(imageAdjustFocusX),
+          clampFocus(imageAdjustFocusY),
+          zoomToSave
+        );
+      }
+      await loadProject();
+      setImageAdjustSceneId(null);
+      setImageAdjustSrc(null);
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    } catch (err) {
+      showError(getErrorMessage(err) || DEFAULT_ERROR_MESSAGE);
+    } finally {
+      setSavingImageAdjust(false);
+    }
+  };
+
   const handleGenerateSceneImageClick = (sceneId: number) => {
     if (!isPro) {
       setShowAiImageUpgradeModal(true);
       return;
     }
-    handleGenerateSceneImage(sceneId);
-  };
-
-  const handleGenerateSceneImage = async (sceneId: number) => {
     setGenerateImageError(null);
     setGenerateErrorSceneId(null);
-    setGeneratingImageSceneId(sceneId);
-    try {
-      const res = await generateSceneImage(project.id, sceneId);
-      setGeneratedImageBase64(res.data.image_base64);
-      setGeneratedPrompt(res.data.refined_prompt);
-      setGeneratedImageSceneId(sceneId);
-    } catch (err: unknown) {
-      const status = err && typeof err === "object" && "response" in err
-        ? (err as { response?: { status?: number } }).response?.status
-        : 0;
-      if (status === 403) {
-        setShowAiImageUpgradeModal(true);
-      } else {
-        const msg =
-          err && typeof err === "object" && "response" in err
-            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-            : "Image generation failed";
-        setGenerateImageError(String(msg));
-        setGenerateErrorSceneId(sceneId);
-      }
-      setGeneratedImageSceneId(null);
-    } finally {
-      setGeneratingImageSceneId(null);
-    }
+    setImageGenModalSceneId(sceneId);
+  };
+
+  const handleSceneImageReady = (sceneId: number, imageBase64: string, refinedPrompt: string) => {
+    setGeneratedImageBase64(imageBase64);
+    setGeneratedPrompt(refinedPrompt);
+    setGeneratedImageSceneId(sceneId);
+    setGenerateImageError(null);
+    setGenerateErrorSceneId(null);
   };
 
   const handleKeepGeneratedSceneImage = (sceneId: number) => {
     if (!generatedImageBase64) return;
     const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    // Close preview modal immediately so the spinner shows in the scene row
+    setGeneratedImageSceneId(null);
+    setGeneratedImageBase64(null);
+    setGeneratedPrompt(null);
     setGenerateImageError(null);
+    setGenerateErrorSceneId(null);
     fetch(dataUrl)
       .then((r) => r.blob())
       .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
       .then((file) =>
         handleAddSceneImage(sceneId, file)
-          .then(() => {
-            setGeneratedImageBase64(null);
-            setGeneratedPrompt(null);
-            setGenerateImageError(null);
-            setGenerateErrorSceneId(null);
-            setGeneratedImageSceneId(null);
-          })
           .catch(() => setGenerateImageError("Failed to use generated image"))
       )
       .catch(() => setGenerateImageError("Failed to use generated image"));
@@ -2132,8 +3271,23 @@ export default function ProjectView() {
   // ─── Generation loader ────────────────────────────────────
   const templateRelayoutRunning =
     templateRelayoutJob?.status === "running" || templateRelayoutJob?.status === "queued";
+<<<<<<< HEAD
   const statusForBadge = templateRelayoutRunning ? "regenerating" : project.status;
   const renderGenerationLoader = (mode: "pipeline" | "template-relayout" = "pipeline") => {
+=======
+  // Also treat the project's own "script_regenerating" status as running so the loader stays
+  // visible during the brief window before the job poll loads (and on resume after reload).
+  // "awaiting_review" must keep the loader up too: at the running→awaiting_review transition the
+  // job poll sets the status before loadProject refreshes project.status, so without this the
+  // loader would briefly drop out and flash the completed video.
+  const regenerateScriptRunning =
+    regenerateScriptJob?.status === "running" ||
+    regenerateScriptJob?.status === "queued" ||
+    regenerateScriptJob?.status === "awaiting_review" ||
+    project.status === "script_regenerating";
+  const statusForBadge = templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
+  const renderGenerationLoader = (mode: "pipeline" | "template-relayout" | "regenerate-script" = "pipeline") => {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const relayoutProgressRaw =
       templateRelayoutJob && templateRelayoutJob.total_scenes > 0
         ? (templateRelayoutJob.processed_scenes / templateRelayoutJob.total_scenes) * 100
@@ -2141,12 +3295,50 @@ export default function ProjectView() {
         ? 8
         : 0;
     const relayoutProgress = Math.max(8, Math.min(98, Math.round(relayoutProgressRaw)));
+<<<<<<< HEAD
     const stepLabels =
       mode === "template-relayout"
         ? []
         : PIPELINE_STEPS.map((s) => s.label);
     const currentStepIdx =
       mode === "template-relayout"
+=======
+    // Regenerate-script is shown as discrete backend phases instead of a percentage.
+    // The "verify" step is a user-gated pause between the script and scene stages.
+    const REGEN_SCRIPT_STEPS = [
+      { id: "analyzing_instruction", label: "Analyzing instruction" },
+      { id: "generating_script", label: "Generating script" },
+      { id: "verify", label: "Verify script" },
+      { id: "generating_scenes", label: "Generating scenes" },
+    ] as const;
+    const regenScriptAwaitingReview = regenerateScriptJob?.status === "awaiting_review";
+    const regenScriptStepId =
+      regenScriptAwaitingReview
+        ? "verify"
+        : regenerateScriptJob?.current_step ??
+          (regenerateScriptJob && regenerateScriptJob.total_scenes > 0
+            ? "generating_scenes"
+            : regenerateScriptJob?.status === "queued"
+            ? "analyzing_instruction"
+            : "generating_script");
+    const regenScriptCompleted = regenerateScriptJob?.status === "completed";
+    const regenScriptStepIdx =
+      regenScriptCompleted
+        ? REGEN_SCRIPT_STEPS.length
+        : Math.max(0, REGEN_SCRIPT_STEPS.findIndex((step) => step.id === regenScriptStepId));
+    // Fill for the progress bar above the step circles. Each step maps to a fixed percentage
+    // (the last step stays below 100% — it only completes when the run actually finishes).
+    const REGEN_SCRIPT_PROGRESS = [15, 40, 60, 80];
+    const regenScriptProgress = regenScriptCompleted
+      ? 100
+      : REGEN_SCRIPT_PROGRESS[Math.min(regenScriptStepIdx, REGEN_SCRIPT_PROGRESS.length - 1)];
+    const stepLabels =
+      mode === "template-relayout" || mode === "regenerate-script"
+        ? []
+        : PIPELINE_STEPS.map((s) => s.label);
+    const currentStepIdx =
+      mode === "template-relayout" || mode === "regenerate-script"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         ? 0
         : Math.max(0, pipelineStep - 1);
     const progress = mode === "template-relayout" ? relayoutProgress : smoothProgress;
@@ -2156,23 +3348,34 @@ export default function ProjectView() {
         className="glass-card flex items-center justify-center"
         style={{ minHeight: "60vh" }}
       >
-        <div className="w-full max-w-md text-center px-6 py-12">
+          <div className="w-full max-w-md text-center px-4 sm:px-6 py-10 sm:py-12">
           <div className="w-12 h-12 mx-auto mb-6 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xs animate-pulse">
             B2V
           </div>
 
           <h2 className="text-base font-semibold text-gray-900 mb-1">
+<<<<<<< HEAD
             {mode === "template-relayout" ? "Regenerating scene layouts" : "Generating your video"}
+=======
+            {mode === "regenerate-script"
+              ? "Regenerating script"
+              : mode === "template-relayout"
+              ? "Regenerating scene layouts"
+              : "Generating your video"}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </h2>
           <p className="text-xs text-gray-400 mb-8">{project.name}</p>
 
-          <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
-            <div
-              className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+          {mode !== "regenerate-script" && (
+            <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
+              <div
+                className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
 
+<<<<<<< HEAD
           {mode !== "template-relayout" && (
             <div className="flex items-center justify-between mb-8">
               {stepLabels.map((label, i) => {
@@ -2237,6 +3440,137 @@ export default function ProjectView() {
                 : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
             </span>
           </div>
+=======
+          {/* Regenerate-script: a standalone progress bar (fills purple as the run proceeds)
+              above a row of independent step circles — the circles are NOT connected. */}
+          {mode === "regenerate-script" && (
+            <div className="mb-8 mt-2">
+              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
+                <div
+                  className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${regenScriptProgress}%` }}
+                />
+              </div>
+              <div className="flex items-start justify-between">
+                {REGEN_SCRIPT_STEPS.map(({ id, label }, i) => {
+                  const isDone = i < regenScriptStepIdx;
+                  const isActive = i === regenScriptStepIdx;
+                  return (
+                    <div key={id} className="flex flex-col items-center gap-2 w-16 sm:w-20">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                          isDone
+                            ? "bg-green-100 text-green-600"
+                            : isActive
+                            ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {isDone ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <span
+                        className={`text-[11px] sm:text-xs font-medium text-center leading-tight ${
+                          isDone ? "text-green-600" : isActive ? "text-purple-600" : "text-gray-400"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {mode !== "template-relayout" && mode !== "regenerate-script" && (
+            <div className="flex items-center justify-between mb-8">
+              {stepLabels.map((label, i) => {
+                const isActive = i === currentStepIdx;
+                const isDone =
+                  i < currentStepIdx ||
+                  pipelineStep > PIPELINE_STEPS.length;
+                return (
+                  <div
+                    key={label}
+                    className="flex flex-col items-center gap-2"
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                        isDone
+                          ? "bg-green-100 text-green-600"
+                          : isActive
+                          ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
+                          : "bg-gray-100 text-gray-400"
+                      }`}
+                    >
+                      {isDone ? (
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      ) : (
+                        i + 1
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs font-medium ${
+                        isDone
+                          ? "text-green-600"
+                          : isActive
+                          ? "text-purple-600"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {mode === "regenerate-script" && regenScriptAwaitingReview ? (
+            /* Verify step — paused for review. Actions live in the (non-closeable) verify popup. */
+            <div className="flex flex-col items-center gap-1.5">
+              <span className="text-sm text-gray-700 font-medium">Verify the script</span>
+              <span className="text-xs text-gray-400 max-w-xs">
+                Review the changes in the popup, then proceed or regenerate.
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+              <span className="text-xs text-gray-400">
+                {mode === "regenerate-script"
+                  ? regenScriptCompleted
+                    ? "Regeneration complete..."
+                    : `${REGEN_SCRIPT_STEPS[regenScriptStepIdx]?.label ?? "Finishing up"}...`
+                  : mode === "template-relayout"
+                  ? `${progress}% complete`
+                  : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
+              </span>
+            </div>
+          )}
+
+          {!(mode === "regenerate-script" && regenScriptAwaitingReview) && (
+            <GenerationTips />
+          )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
           {hasError && (
             <div className="mt-6">
@@ -2263,7 +3597,7 @@ export default function ProjectView() {
             className="glass-card flex items-center justify-center"
             style={{ minHeight: "60vh" }}
           >
-            <div className="w-full max-w-md text-center px-6 py-12">
+            <div className="w-full max-w-md text-center px-4 sm:px-6 py-10 sm:py-12">
               <div className="w-14 h-14 mx-auto mb-6 bg-purple-600 rounded-2xl flex items-center justify-center">
                 <svg
                   className="w-7 h-7 text-white"
@@ -2316,6 +3650,8 @@ export default function ProjectView() {
                 Feel free to browse other tabs — just don't close this one.
               </p>
 
+              <GenerationTips />
+
               {hasError && (
                 <div className="mt-4">
                   <button
@@ -2347,7 +3683,7 @@ export default function ProjectView() {
             className="glass-card flex items-center justify-center"
             style={{ minHeight: "60vh" }}
           >
-            <div className="w-full max-w-sm text-center px-6 py-12">
+            <div className="w-full max-w-sm text-center px-4 sm:px-6 py-10 sm:py-12">
               <div className="w-14 h-14 mx-auto mb-6 bg-green-600 rounded-2xl flex items-center justify-center">
                 <svg
                   className="w-7 h-7 text-white"
@@ -2396,16 +3732,22 @@ export default function ProjectView() {
         {!rendering && !saving && (
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200/30">
-              <div className="flex items-center gap-3">
-                <h2 className="text-sm font-medium text-gray-900">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-3">
+              <div className="flex items-center gap-3 min-w-0" style={{ maxWidth: "55%" }}>
+                <h2 className="text-sm font-medium text-gray-900 truncate min-w-0">
                   {project.name}
                 </h2>
                 <StatusBadge status={statusForBadge} />
               </div>
+<<<<<<< HEAD
               <div className="flex items-center gap-2">
                 {/* Video format (landscape / portrait) — left of download */}
                 <div className="flex items-center shrink-0">
+=======
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Video format (landscape / portrait) — left of download */}
+                <div className="flex items-center shrink-0" data-action="aspect-ratio">
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
                     <button
                       type="button"
@@ -2533,11 +3875,61 @@ export default function ProjectView() {
                   </button>
                 )} */}
 
-                {/* Download MP4 */}
-                {!rendered ? (
+                {/* Download — MP4 plus slide exports (PowerPoint, PDF, PNG) in one menu */}
+                <div className="relative" ref={slidesExportAnchorRef}>
+                  <button
+                    type="button"
+                    data-action="render-button"
+                    onClick={() => {
+                      setShowShareDropdown(false);
+                      setShowSlidesExportMenu((v) => !v);
+                    }}
+                    disabled={missingCustomTemplate || sceneExporting || downloading}
+                    title="MP4 video, or slides — PowerPoint, PDF, or one PNG per scene (pick the frame per scene before export; default ~85%)."
+                    className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                      missingCustomTemplate
+                        ? "bg-gray-300 text-white cursor-not-allowed"
+                        : !rendered
+                        ? hasError
+                          ? "bg-orange-500 hover:bg-orange-600 text-white"
+                          : "bg-purple-600 hover:bg-purple-700 text-white"
+                        : "bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-100 disabled:text-gray-400"
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {downloading ? (
+                      <>
+                        <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Downloading…
+                      </>
+                    ) : sceneExporting ? (
+                      <>
+                        <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Exporting…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          />
+                        </svg>
+                        Download
+                        <svg className="w-3 h-3 ml-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {rendered && (
                   <button
                     onClick={() => {
                       if (missingCustomTemplate) {
+<<<<<<< HEAD
                         showError("You can't render this video because its custom template has been deleted.");
                         return;
                       }
@@ -2553,53 +3945,28 @@ export default function ProjectView() {
                         ? "bg-orange-500 hover:bg-orange-600"
                         : "bg-purple-600 hover:bg-purple-700"
                     }`}
+=======
+                        showError("You can't re-render this video because its custom template has been deleted.");
+                        return;
+                      }
+                      setShowReRenderWarning(true);
+                    }}
+                    disabled={rendering || missingCustomTemplate}
+                    className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d={hasError
-                          ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                          : "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                        }
-                      />
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    {hasError ? "Resume Download" : "Download MP4"}
+                    Re-render
                   </button>
-                ) : (
-                  <>
-                    {/* Download MP4 */}
-                    <button
-                      onClick={() => {
-                        setDownloadWarningMode("download");
-                        setShowDownloadWarning(true);
-                      }}
-                      disabled={downloading}
-                      className="px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
-                    >
-                      {downloading ? (
-                        <>
-                          <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Downloading...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                          Download MP4
-                        </>
-                      )}
-                    </button>
+                )}
 
-                    {/* Re-render — re-create video with latest changes (deducts video count) */}
+                {/* Share — purple; menu includes rendered-video options when MP4 exists */}
+                {project?.scenes && project.scenes.length > 0 && (
+                  <div className="relative" ref={shareAnchorRef}>
                     <button
+<<<<<<< HEAD
                       onClick={() => {
                         if (missingCustomTemplate) {
                           showError("You can't re-render this video because its custom template has been deleted.");
@@ -2609,29 +3976,25 @@ export default function ProjectView() {
                       }}
                       disabled={rendering || missingCustomTemplate}
                       className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+=======
+                      type="button"
+                      onClick={() => {
+                        setShowSlidesExportMenu(false);
+                        setShowShareDropdown((v) => !v);
+                      }}
+                      disabled={embedLoading}
+                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
-                      Re-render
+                      {embedLoading ? "Loading..." : "Share"}
+                      <svg className="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                      </svg>
                     </button>
-
-                    {/* Share button — inline next to Download */}
-                    {project.r2_video_url && (
-                      <div className="relative" ref={shareAnchorRef}>
-                        <button
-                          onClick={() => setShowShareMenu((v) => !v)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                          </svg>
-                          Share
-                        </button>
-
-                      </div>
-                    )}
-                  </>
+                  </div>
                 )}
               </div>
             </div>
@@ -2660,18 +4023,32 @@ export default function ProjectView() {
                         </div>
                       )}
                     <div
+                      ref={videoPreviewContainerRef}
                       className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
-                      style={
-                        project.aspect_ratio === "portrait"
-                          ? { minHeight: "70vh" }
-                          : undefined
-                      }
+                      style={{
+                        position: "relative",
+                        ...(project.aspect_ratio === "portrait" ? { minHeight: "70vh" } : {}),
+                      }}
                     >
                       <VideoPreview
+<<<<<<< HEAD
                         project={project}
                         logoSizeOverride={logoSize}
                         logoOpacityOverride={logoOpacity}
                         logoPositionOverride={logoPosition}
+=======
+                        ref={previewPlayerRef}
+                        project={project}
+                        layoutPropSchema={layoutPropSchema !== null ? layoutPropSchema : undefined}
+                        logoSizeOverride={logoSize}
+                        logoOpacityOverride={logoOpacity}
+                        logoPositionOverride={logoPosition}
+                        onPlaybackSpeedChange={handlePreviewPlaybackSpeedChange}
+                        playbackSpeedSaving={savingPlaybackSpeed}
+                        onCaptionSettingsChange={handleCaptionSettingsChange}
+                        captionsSaving={savingCaptions}
+                        captionSettingsKey={captionSettingsKey}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       />
                     </div>
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
@@ -2720,6 +4097,7 @@ export default function ProjectView() {
   };
 
   return (
+    <>
     <div className="space-y-6">
       <UpgradePlanModal
         open={showUpgrade}
@@ -2729,6 +4107,32 @@ export default function ProjectView() {
         subtitle="Custom templates and the template builder require a paid plan. Pick a plan to continue."
       />
 
+<<<<<<< HEAD
+=======
+      <OutOfVideosOfferModal
+        open={offer.isOpen}
+        onClose={offer.dismiss}
+        secondsRemaining={offer.secondsRemaining}
+        isWindowLive={offer.isWindowLive}
+        onExpand={offer.expand}
+      />
+
+      {/* Page-level voiceover add/change/delete progress — survives tab switches and
+          page refresh (it re-detects an in-flight op from the server on mount). */}
+      <VoiceOperationModal
+        projectId={projectId}
+        onComplete={async () => {
+          await loadProject();
+          setVoiceOpKickstart(null);
+        }}
+        onError={(msg) => {
+          setVoiceOpKickstart(null);
+          showError(msg);
+        }}
+        kickstart={voiceOpKickstart}
+      />
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       {showReviewPopup && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9997] flex items-center justify-center px-4">
           <div
@@ -2828,6 +4232,106 @@ export default function ProjectView() {
       )}
 
       {/* Download warning — show before starting download when video is already rendered */}
+      {showEmbedModal && embedToken && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowEmbedModal(false); setEmbedCopied(false); }} />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-7 transition-all" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => { setShowEmbedModal(false); setEmbedCopied(false); }}
+              className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Embed this video</h3>
+            <p className="text-sm text-gray-600 mb-5">Paste this snippet into your website to show the live preview — no rendering required.</p>
+            <div className="relative">
+              <textarea
+                readOnly
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 pr-10 text-xs font-mono text-gray-700 resize-none focus:outline-none"
+                rows={5}
+                value={`<iframe\n  src="${(import.meta.env.VITE_APP_URL || window.location.origin)}/preview/${embedToken}"\n  width="800"\n  height="${project?.aspect_ratio === 'portrait' ? '711' : '450'}"\n  frameborder="0"\n  allowfullscreen\n  style="border:none;"\n  data-powered-by="https://blog2video.app"\n  data-creator="https://www.firebird-technologies.com/about"\n></iframe>`}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    `<iframe\n  src="${(import.meta.env.VITE_APP_URL || window.location.origin)}/preview/${embedToken}"\n  width="800"\n  height="${project?.aspect_ratio === 'portrait' ? '711' : '450'}"\n  frameborder="0"\n  allowfullscreen\n  style="border:none;"\n  data-powered-by="https://blog2video.app"\n  data-creator="https://www.firebird-technologies.com/about"\n></iframe>`
+                  );
+                  setEmbedCopied(true);
+                  setTimeout(() => setEmbedCopied(false), 2000);
+                }}
+                className="absolute top-2 right-2 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                title="Copy to clipboard"
+              >
+                {embedCopied ? (
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+    
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showPreviewLinkModal && previewLinkUrl && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowPreviewLinkModal(false); setPreviewLinkCopied(false); }} />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-7 transition-all" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => { setShowPreviewLinkModal(false); setPreviewLinkCopied(false); }}
+              className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Link to Preview</h3>
+            <p className="text-sm text-gray-600 mb-5">Share this link to let anyone view the video preview — no account required.</p>
+            <div className="relative">
+              <input
+                readOnly
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 pr-10 text-xs font-mono text-gray-700 focus:outline-none"
+                value={previewLinkUrl}
+                onFocus={(e) => e.target.select()}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(previewLinkUrl).then(() => {
+                    setPreviewLinkCopied(true);
+                    setTimeout(() => setPreviewLinkCopied(false), 2000);
+                  }).catch(() => {
+                    // clipboard blocked — user can select and copy manually
+                  });
+                }}
+                className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                title="Copy to clipboard"
+              >
+                {previewLinkCopied ? (
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {showDownloadWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDownloadWarning(false)} />
@@ -2836,9 +4340,28 @@ export default function ProjectView() {
               {downloadWarningMode === "download" ? "Before you download" : "Before you render"}
             </h3>
             <p className="text-sm text-gray-600 mb-6">
+<<<<<<< HEAD
               {downloadWarningMode === "download"
                 ? "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video. "
                 : "Make sure You have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count."}
+=======
+              {downloadWarningMode === "download" ? (
+                "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video."
+              ) : (
+                <>
+                  <span>
+                    Make sure you have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count.
+                  </span>
+                  {playbackSpeedDraft !== 1 && (() => {
+                    const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+                    const mins = Math.floor(renderedSecs / 60);
+                    const secs = Math.round(renderedSecs % 60);
+                    const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                    return <><br /><br /><span className="text-xs text-yellow-600">Your video will be rendered at <strong>{playbackSpeedDraft}×</strong> speed — approximately <strong>{timeStr}</strong> long.</span></>;
+                  })()}
+                </>
+              )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </p>
 
 
@@ -2928,9 +4451,16 @@ export default function ProjectView() {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowReRenderWarning(false); setRenderConfirmLoading(false); }} />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Re-render video</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-gray-600 mb-4">
               This will deduct your video count. Continue only if you have new changes in your video.
             </p>
+            {playbackSpeedDraft !== 1 && (() => {
+              const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+              const mins = Math.floor(renderedSecs / 60);
+              const secs = Math.round(renderedSecs % 60);
+              const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+              return <p className="text-xs text-yellow-600 mb-6">Your video will be re-rendered at <strong>{playbackSpeedDraft}×</strong> speed — approximately <strong>{timeStr}</strong> long.</p>;
+            })()}
             <div className="flex gap-3">
               <button
                 type="button"
@@ -2970,6 +4500,7 @@ export default function ProjectView() {
       {/* Cancel render warning */}
       {showCancelRenderWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+<<<<<<< HEAD
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => {
@@ -3282,51 +4813,814 @@ export default function ProjectView() {
       {showShareMenu && project?.r2_video_url && (
         <>
           <div className="fixed inset-0 z-[9998]" onClick={() => setShowShareMenu(false)} />
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <div
-            className="fixed z-[9999] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex gap-1"
-            style={(() => {
-              const rect = shareAnchorRef.current?.getBoundingClientRect();
-              if (!rect) return {};
-              return { top: rect.top - 48, left: rect.right - 130 };
-            })()}
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => {
+              if (!cancellingRender) setShowCancelRenderWarning(false);
+            }}
+          />
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* TikTok */}
-            <button
-              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
-              title="Copy link for TikTok"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
-              </svg>
-            </button>
-            {/* YouTube */}
-            <button
-              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
-              title="Copy link for YouTube"
-            >
-              <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-              </svg>
-            </button>
-            {/* Facebook */}
-            <button
-              onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
-              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
-              title="Share on Facebook"
-            >
-              <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-            </button>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel rendering?</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              This will stop your current render process. You can start rendering again anytime.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={cancellingRender}
+                onClick={async () => {
+                  await handleCancelRender();
+                  setShowCancelRenderWarning(false);
+                }}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-70 disabled:cursor-wait flex items-center justify-center gap-2"
+              >
+                {cancellingRender ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Cancelling…
+                  </>
+                ) : (
+                  "Yes, cancel render"
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={cancellingRender}
+                onClick={() => setShowCancelRenderWarning(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-60"
+              >
+                Keep rendering
+              </button>
+            </div>
           </div>
-        </>
+        </div>,
+        document.body
       )}
 
+      <GetMoreTemplatesModal
+        open={showGetMoreTemplates}
+        onClose={() => setShowGetMoreTemplates(false)}
+        onChooseLink={() => {
+          setShowGetMoreTemplates(false);
+          openCraftCustomTemplateFromProjectSettings();
+        }}
+        onChooseDesigner={() => {
+          setShowGetMoreTemplates(false);
+          setShowDesignerRequest(true);
+        }}
+      />
+      <DesignerTemplateRequestModal
+        open={showDesignerRequest}
+        onClose={() => setShowDesignerRequest(false)}
+      />
+
+      <ConfirmDeleteModal
+        open={showTemplateRelayoutWarning}
+        onClose={() => {
+          setShowTemplateRelayoutWarning(false);
+          setTemplateRelayoutPendingId(null);
+        }}
+        title="Proceed with video regeneration?"
+        subtitle={project?.name}
+        warningMessage="This will deduct 1 video count from your quota. Do you want to continue?"
+        confirmLabel="Proceed"
+        confirmLoadingLabel="Starting..."
+        iconVariant="warning"
+        onConfirm={applyTemplateRelayout}
+      />
+
+      <RegenerateScriptModal
+        open={showRegenerateScriptConfirm}
+        projectName={project?.name}
+        onClose={() => setShowRegenerateScriptConfirm(false)}
+        onConfirm={async (instruction) => {
+          await applyRegenerateScript(instruction);
+        }}
+      />
+
+      {/* Verify-step "Regenerate": re-run the script (optionally with an edited instruction),
+          pre-filled with the instruction the paused job used. */}
+      <RegenerateScriptModal
+        open={showRegenerateScriptRetry}
+        projectName={project?.name}
+        initialInstruction={regenerateScriptJob?.user_instruction ?? ""}
+        confirmLabel="Regenerate"
+        // Re-running the already-paid paused job — no credit is charged (the
+        // reject endpoint does not deduct), so don't show the credit warning.
+        showsCreditWarning={false}
+        onClose={() => setShowRegenerateScriptRetry(false)}
+        onConfirm={async (instruction) => {
+          await applyRejectRegenerateScript(instruction);
+        }}
+      />
+
+      {/* Non-closeable verify popup — walks the user through new-vs-old scene comparisons.
+          Shown whenever the regeneration is paused awaiting review (persists across reloads). */}
+      <VerifyScriptModal
+        open={regenerateScriptJob?.status === "awaiting_review" && !showRegenerateScriptRetry}
+        projectName={project?.name}
+        newScenes={project?.scenes ?? []}
+        previousScenes={regenScriptPreviousScenes}
+        verifying={regenerateScriptVerifying}
+        onProceed={handleVerifyRegenerateScript}
+        onRegenerate={() => setShowRegenerateScriptRetry(true)}
+      />
+
+      <ConfirmDeleteModal
+        open={imageAssetDeletePending != null}
+        onClose={() => setImageAssetDeletePending(null)}
+        title="Delete this image?"
+        subtitle={imageAssetDeletePending?.filename}
+        warningMessage="This removes the file from the project. Scenes that used it will hide their image. This cannot be undone."
+        confirmLabel="Yes, delete"
+        confirmLoadingLabel="Deleting…"
+        onConfirm={handleConfirmDeleteBlogImage}
+      />
+
+      {showTemplateChangeModal &&
+        project &&
+        ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+              onClick={() => !submittingTemplateRelayout && setShowTemplateChangeModal(false)}
+              aria-hidden
+            />
+            <div
+              className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border border-gray-200/80 bg-white shadow-2xl overflow-hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="template-change-title"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h3 id="template-change-title" className="text-base font-semibold text-gray-900">
+                  Change template
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateChangeModal(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                  aria-label="Close"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+                <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setTemplateChangePickerTab("builtin")}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      templateChangePickerTab === "builtin"
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    Built-in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTemplateChangePickerTab("custom")}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      templateChangePickerTab === "custom"
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    Custom
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTemplateChangePickerTab("crafted")}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      templateChangePickerTab === "crafted"
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    Designer Templates
+                  </button>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">Selected preview</p>
+                  <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.08)]">
+                    <div className="relative aspect-video overflow-hidden">
+                      <TemplateAssignPreview
+                        templateId={templateChangeDraft}
+                        customTemplates={customTemplatesList}
+                        craftedTemplates={readyCraftedForPicker}
+                        projectCustomTheme={project.custom_theme ?? null}
+                        projectName={project.name}
+                        variant="large"
+                        previewCompileScope={user?.id != null ? String(user.id) : undefined}
+                      />
+                    </div>
+                    <div className="px-3 py-2 bg-purple-50/80 flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-gray-800 truncate">
+                        {templateChangeDraft.startsWith("custom_")
+                          ? customTemplatesList.find(
+                              (c) => c.id === parseInt(templateChangeDraft.replace("custom_", ""), 10)
+                            )?.name ?? "Custom"
+                          : templateChangeDraft.startsWith("crafted_")
+                            ? readyCraftedForPicker.find((c) => c.id === templateChangeDraft)?.name ?? "Designer"
+                          : TEMPLATE_DESCRIPTIONS[templateChangeDraft]?.title ?? templateMetas.find((m) => m.id === templateChangeDraft)?.name ?? templateChangeDraft}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">
+                    All {templateChangePickerTab === "builtin" ? "built-in" : templateChangePickerTab === "custom" ? "custom" : "designer"} templates
+                  </p>
+                  <div className="border border-gray-200/60 rounded-xl p-4 max-h-[240px] overflow-y-auto bg-gray-50/40">
+                    {templateChangePickerTab === "builtin" ? (
+                      templateMetas.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-4">
+                          {[...templateMetas].sort((a, b) => {
+                            const rank = (t: typeof a) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+                            return rank(a) - rank(b);
+                          }).map((t) => {
+                            const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                            const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                            const isSel = templateChangeDraft === t.id;
+                            const isNew = t.new_template === true;
+                            const isPopular = t.popular_template === true;
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setTemplateChangeDraft(t.id)}
+                                className={`text-left rounded-lg overflow-hidden transition-all ${
+                                  isSel
+                                    ? "ring-2 ring-purple-500 ring-offset-1 ring-offset-gray-50"
+                                    : isNew
+                                    ? "ring-1 ring-purple-400/60 hover:ring-purple-500"
+                                    : isPopular
+                                    ? "ring-1 ring-amber-400/60 hover:ring-amber-500"
+                                    : "ring-1 ring-gray-200/60 hover:ring-purple-300/60"
+                                }`}
+                              >
+                                <div className="relative h-[70px] overflow-hidden">
+                                  {PreviewComp ? (
+                                    <PreviewComp key={`pick-${t.id}`} thumbnailMode />
+                                  ) : (
+                                    <div className="w-full min-h-[56px] bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 px-1">
+                                      {t.name}
+                                    </div>
+                                  )}
+                                  {isNew && (
+                                    <div className="absolute top-0.5 left-0.5 z-[1]">
+                                      <NewTemplateBadge />
+                                    </div>
+                                  )}
+                                  {!isNew && isPopular && (
+                                    <div className="absolute top-0.5 left-0.5 z-[1]">
+                                      <PopularTemplateBadge />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className={`px-2 py-1 ${isSel ? "bg-purple-50/90" : "bg-white/90"}`}>
+                                  <div className="text-[10px] font-semibold text-gray-800 truncate">{desc?.title ?? t.name}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-500 py-6 text-center">No built-in templates loaded.</p>
+                      )
+                    ) : templateChangePickerTab === "custom" ? (
+                      <div className="grid grid-cols-3 gap-4">
+                        <CraftYourTemplateCard
+                          variant="default"
+                          isPro={isPro}
+                          onClick={() => {
+                            if (!isPro) { setShowUpgrade(true); return; }
+                            setShowGetMoreTemplates(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              if (!isPro) { setShowUpgrade(true); return; }
+                              setShowGetMoreTemplates(true);
+                            }
+                          }}
+                        />
+                        {readyCustomForPicker.map((ct) => {
+                          const cid = `custom_${ct.id}`;
+                          const isSel = templateChangeDraft === cid;
+                          return (
+                            <button
+                              key={cid}
+                              type="button"
+                              onClick={() => {
+                                if (!isPro) {
+                                  setShowUpgrade(true);
+                                  return;
+                                }
+                                setTemplateChangeDraft(cid);
+                              }}
+                              className={`text-left rounded-lg overflow-hidden border-2 transition-all ${
+                                isSel ? "border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.12)]" : "border-gray-200/60 hover:border-purple-300/60"
+                              }`}
+                            >
+                              <div className="relative isolate h-[70px] overflow-hidden">
+                                {/* Previews use canvas/Remotion; without pointer-events-none clicks never reach the button. */}
+                                <div className="relative z-0 h-full pointer-events-none">
+                                  <CustomPreviewLandscape
+                                    theme={ct.theme}
+                                    name={ct.name}
+                                    introCode={ct.intro_code || undefined}
+                                    outroCode={ct.outro_code || undefined}
+                                    contentCodes={ct.content_codes || undefined}
+                                    contentArchetypeIds={ct.content_archetype_ids || undefined}
+                                    previewImageUrl={ct.preview_image_url}
+                                    logoUrls={ct.logo_urls}
+                                    ogImage={ct.og_image}
+                                    thumbnailMode
+                                  />
+                                </div>
+                                {!isPro && (
+                                  <div
+                                    className="pointer-events-none absolute top-1 left-1 z-20 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white shadow-sm"
+                                    aria-hidden
+                                  >
+                                    Pro
+                                  </div>
+                                )}
+                              </div>
+                              <div className={`px-2 py-1 ${isSel ? "bg-purple-50/80" : "bg-white/80"}`}>
+                                <div className="text-[10px] font-semibold text-gray-800 truncate">{ct.name}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {customTemplatesLoading && (
+                          <div
+                            className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" aria-hidden />
+                            <p className="text-[10px] text-gray-500 leading-snug">
+                              Loading custom templates, please wait.
+                            </p>
+                          </div>
+                        )}
+                        {!customTemplatesLoading && readyCustomForPicker.length === 0 && (
+                          <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
+                            No custom templates ready yet.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-4">
+                        {readyCraftedForPicker.map((ct) => {
+                          const craftedId = ct.id;
+                          const isSel = templateChangeDraft === craftedId;
+                          return (
+                            <button
+                              key={craftedId}
+                              type="button"
+                              onClick={() => setTemplateChangeDraft(craftedId)}
+                              className={`text-left rounded-lg overflow-hidden border-2 transition-all ${
+                                isSel ? "border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.12)]" : "border-gray-200/60 hover:border-purple-300/60"
+                              }`}
+                            >
+                              <div className="relative isolate h-[70px] overflow-hidden">
+                                <div className="relative z-0 h-full pointer-events-none">
+                                  <CraftedTemplatePreview
+                                    templateId={craftedId}
+                                    compileCacheScope={user?.id != null ? String(user.id) : undefined}
+                                    previewSource={ct.preview_file ?? null}
+                                    previewImageUrl={ct.preview_image_url ?? null}
+                                    name={ct.name}
+                                    thumbnailMode
+                                    showLoaderOnEmptyOrError
+                                  />
+                                </div>
+                                <div className="pointer-events-none absolute top-1 left-1 z-20 px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-500 text-white shadow-sm">
+                                  Designer
+                                </div>
+                              </div>
+                              <div className={`px-2 py-1 ${isSel ? "bg-purple-50/80" : "bg-white/80"}`}>
+                                <div className="text-[10px] font-semibold text-gray-800 truncate">{ct.name}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {craftedTemplatesLoading && (
+                          <div
+                            className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <span className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin shrink-0" aria-hidden />
+                            <p className="text-[10px] text-gray-500 leading-snug">
+                              Loading designer templates, please wait.
+                            </p>
+                          </div>
+                        )}
+                        {!craftedTemplatesLoading && readyCraftedForPicker.length === 0 && (
+                          <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
+                            No designer templates available.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateChangeModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={templateChangeDraft === assignedTemplateId || templateRelayoutRunning}
+                  onClick={() => {
+                    if (templateChangeDraft === assignedTemplateId) return;
+                    setTemplateRelayoutPendingId(templateChangeDraft);
+                    setShowTemplateChangeModal(false);
+                    setShowTemplateRelayoutWarning(true);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 disabled:cursor-not-allowed rounded-xl"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {showShareDropdown &&
+        project?.scenes &&
+        project.scenes.length > 0 &&
+        ReactDOM.createPortal(
+          <>
+            <div className="fixed inset-0 z-[9998]" onClick={() => setShowShareDropdown(false)} />
+            <div
+              className="fixed z-[9999] w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden"
+              style={(() => {
+                const el = shareAnchorRef.current;
+                if (!el) return {};
+                const rect = el.getBoundingClientRect();
+                const panelW = 224;
+                let left = rect.right - panelW;
+                if (left < 8) left = 8;
+                if (left + panelW > window.innerWidth - 8) {
+                  left = Math.max(8, window.innerWidth - panelW - 8);
+                }
+                return { top: rect.bottom + 8, left };
+              })()}
+            >
+              <button
+                type="button"
+                disabled={embedLoading}
+                onClick={() => {
+                  void handleCopyPreviewLink();
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Share Preview Link
+              </button>
+              <button
+                type="button"
+                disabled={embedLoading}
+                onClick={() => {
+                  void handleGetEmbedLink();
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Embed
+              </button>
+              {project.r2_video_url && (
+                <>
+                  <div className="border-t border-gray-100 my-0.5" />
+                  <p className="px-4 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                    Rendered video
+                  </p>
+                  <div className="px-4 pb-2 flex gap-1 justify-start">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(project.r2_video_url!);
+                        setShowShareDropdown(false);
+                      }}
+                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
+                      title="Copy link for TikTok"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(project.r2_video_url!);
+                        setShowShareDropdown(false);
+                      }}
+                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
+                      title="Copy link for YouTube"
+                    >
+                      <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.open(
+                          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`,
+                          "_blank"
+                        );
+                        setShowShareDropdown(false);
+                      }}
+                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                      title="Share on Facebook"
+                    >
+                      <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                      </svg>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </>,
+          document.body
+        )}
+
+      {showSlidesExportMenu &&
+        !missingCustomTemplate &&
+        ReactDOM.createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[9998]"
+              onClick={() => setShowSlidesExportMenu(false)}
+            />
+            <div
+              className="fixed z-[9999] w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden"
+              style={(() => {
+                const el = slidesExportAnchorRef.current;
+                if (!el) return {};
+                const rect = el.getBoundingClientRect();
+                const panelW = 224;
+                let left = rect.right - panelW;
+                if (left < 8) left = 8;
+                if (left + panelW > window.innerWidth - 8) {
+                  left = Math.max(8, window.innerWidth - panelW - 8);
+                }
+                return { top: rect.bottom + 8, left };
+              })()}
+            >
+              <button
+                type="button"
+                data-action="render-button"
+                data-action-download="download-video"
+                disabled={downloading || sceneExporting}
+                onClick={() => {
+                  setShowSlidesExportMenu(false);
+                  if (!rendered) {
+                    setHasError(false);
+                    setDownloadWarningMode("render");
+                    setShowDownloadWarning(true);
+                  } else {
+                    setDownloadWarningMode("download");
+                    setShowDownloadWarning(true);
+                  }
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+              >
+                {hasError && !rendered ? "Resume MP4 download" : "MP4 video"}
+              </button>
+              {project?.scenes && project.scenes.length > 0 && (
+                <>
+                  <div className="border-t border-gray-100 my-0.5" />
+                  <button
+                    type="button"
+                    disabled={sceneExporting || downloading}
+                    onClick={() => openSlideExportWizard("pptx")}
+                    className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+                  >
+                    PowerPoint (.pptx)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sceneExporting || downloading}
+                    onClick={() => openSlideExportWizard("pdf")}
+                    className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+                  >
+                    PDF
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sceneExporting || downloading}
+                    onClick={() => openSlideExportWizard("zip")}
+                    className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+                  >
+                    PNG images (one per scene)
+                  </button>
+                </>
+              )}
+            </div>
+          </>,
+          document.body
+        )}
+
+
+      {slideExportWizard &&
+        project?.scenes?.length &&
+        ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center sm:p-6">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/50 backdrop-blur-[2px] border-0 cursor-default"
+              aria-label="Close"
+              onClick={() => { setSlideExportWizard(null); }}
+            />
+            <div
+              className="relative w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-gray-100 p-5 sm:p-7"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="slide-export-wizard-title"
+            >
+              <h2 id="slide-export-wizard-title" className="text-sm font-semibold text-gray-900">
+                Choose the frame for each slide
+              </h2>
+              <p className="mt-1 text-xs text-gray-500 leading-snug">
+                The preview below updates while you adjust the slider. Go through each scene, then download — your choices are used for PowerPoint, PDF, and PNG export.
+              </p>
+              {(() => {
+                const w = slideExportWizard;
+                const scenes = project.scenes;
+                const idx = w.stepIndex;
+                const scene = scenes[idx]!;
+                const title = scene.title?.trim() || `Scene ${idx + 1}`;
+                const n = scenes.length;
+                const rawFraction = w.fractions[idx];
+                const safeFraction = Number.isFinite(rawFraction)
+                  ? Math.max(0, Math.min(1, Number(rawFraction)))
+                  : SCENE_EXPORT_TIMELINE_FRACTION;
+                const pct = Math.round(safeFraction * 100);
+                const downloadLabel =
+                  w.format === "pptx"
+                    ? "Download PowerPoint"
+                    : w.format === "pdf"
+                    ? "Download PDF"
+                    : "Download PNGs";
+                return (
+                  <>
+                    <div className="mt-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-800">
+                          Scene {idx + 1} of {n}
+                          <span className="font-normal text-gray-500"> · {title}</span>
+                        </p>
+                        <p className="mt-1 text-[11px] text-gray-500">
+                          Preview at <span className="font-medium text-gray-700">{pct}%</span> of this scene
+                        </p>
+                        {sceneExporting && (
+                          <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-purple-200 bg-purple-50 px-2.5 py-1.5">
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-purple-300 border-t-purple-700 animate-spin" />
+                            <span className="text-[11px] font-medium text-purple-800">
+                              Download in progress...
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Live Remotion player — pixel-perfect, no html2canvas needed.
+                        Key includes frame so it remounts (and seeks) on every change. */}
+                    <div className="mt-4 rounded-xl overflow-hidden w-full aspect-video bg-black">
+                      <VideoPreview
+                        key={`modal-preview-${idx}-${pct}`}
+                        ref={modalPreviewPlayerRef}
+                        project={project}
+                        layoutPropSchema={layoutPropSchema !== null ? layoutPropSchema : undefined}
+                        logoSizeOverride={logoSize}
+                        logoOpacityOverride={logoOpacity}
+                        logoPositionOverride={logoPosition}
+                        initialFrame={getSceneExportGlobalFrame(project, idx, safeFraction)}
+                        hideControls
+                      />
+                    </div>
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1">
+                        <span>Position in scene</span>
+                        <span className="tabular-nums font-medium text-gray-700">{pct}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={pct}
+                        onChange={(e) => {
+                          const v = Number(e.target.value) / 100;
+                          setSlideExportWizard((prev) => {
+                            if (!prev) return prev;
+                            const fractions = [...prev.fractions];
+                            fractions[prev.stepIndex] = v;
+                            return { ...prev, fractions };
+                          });
+                        }}
+                        className="w-full h-2 accent-purple-600 cursor-pointer"
+                      />
+                    </div>
+                    <div className="mt-3 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSlideExportWizard((prev) =>
+                            prev && prev.stepIndex > 0 ? { ...prev, stepIndex: prev.stepIndex - 1 } : prev
+                          )
+                        }
+                        disabled={idx <= 0 || sceneExporting}
+                        className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSlideExportWizard((prev) =>
+                            prev && prev.stepIndex < n - 1
+                              ? { ...prev, stepIndex: prev.stepIndex + 1 }
+                              : prev
+                          )
+                        }
+                        disabled={idx >= n - 1 || sceneExporting}
+                        className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void runSlideExportWithFractions(
+                          w.format,
+                          w.fractions.map((v) =>
+                            Number.isFinite(v) ? Math.max(0, Math.min(1, Number(v))) : SCENE_EXPORT_TIMELINE_FRACTION
+                          )
+                        )
+                      }
+                      disabled={sceneExporting}
+                      className="mt-4 w-full py-2.5 text-xs font-semibold rounded-xl bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+                    >
+                      {downloadLabel}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSlideExportWizard(null); }}
+                      className="mt-2 w-full py-2 text-xs font-medium text-gray-500 hover:text-gray-800"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* Upper area: loader when running, editor when complete */}
+<<<<<<< HEAD
       {pipelineRunning || templateRelayoutRunning ? (
         renderGenerationLoader(templateRelayoutRunning ? "template-relayout" : "pipeline")
+=======
+      {pipelineRunning || templateRelayoutRunning || regenerateScriptRunning ? (
+        renderGenerationLoader(
+          regenerateScriptRunning ? "regenerate-script"
+          : templateRelayoutRunning ? "template-relayout"
+          : "pipeline"
+        )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       ) : pipelineComplete && project.scenes.length > 0 ? (
         renderCompleted()
       ) : (
@@ -3387,21 +5681,7 @@ export default function ProjectView() {
         />
       )}
       {/* Pill tabs */}
-      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit" data-tour="tabs-container">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              activeTab === tab.id
-                ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <ProjectTabs tabs={tabs} active={activeTab} onChange={handleTabChange} containerDataTour="tabs-container" />
 
       {/* Tab content */}
       <div>
@@ -3409,15 +5689,41 @@ export default function ProjectView() {
           <ScriptPanel
             scenes={project.scenes}
             projectName={project.name}
+            projectId={project.id}
+            onSceneUpdate={(updatedScene) => {
+              setProject((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      scenes: prev.scenes.map((s) =>
+                        s.id === updatedScene.id ? updatedScene : s
+                      ),
+                    }
+                  : prev
+              );
+            }}
+            onRegenerateScript={() => setShowRegenerateScriptConfirm(true)}
+            isRegenerating={regenerateScriptRunning}
+            disabled={!["generated", "done"].includes(project.status)}
+            onEditScene={(scene) => setSceneEditModal(scene)}
           />
         )}
 
         {activeTab === "scenes" && (
           <div>
             {project.scenes.length === 0 ? (
-              <p className="text-center py-16 text-xs text-gray-400">
-                Scenes will appear here once generated.
-              </p>
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <div className="flex items-center gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-2 h-2 rounded-full bg-purple-400 animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400">Scenes are being generated, please wait…</p>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-2">
@@ -3426,7 +5732,7 @@ export default function ProjectView() {
                       {project.name}
                     </h2>
                     <span className="text-xs text-gray-400">
-                      {project.scenes.length} scenes — {imageAssets.length} images. Drag to reorder.
+                      {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its text, narration, or layout. Drag to reorder.
                     </span>
                   </div>
                 </div>
@@ -3451,9 +5757,31 @@ export default function ProjectView() {
                     const isDropTarget = dragOverSceneId === scene.id && !isDragging;
 
                     return (
-                      <div
+                      <SceneListRow
                         key={scene.id}
-                        data-scene-row
+                        scene={scene}
+                        index={idx}
+                        expanded={isExpanded}
+                        showAudio={project.voice_gender !== "none"}
+                        isDragging={isDragging}
+                        isDropTarget={isDropTarget}
+                        onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
+                        onEdit={() => setSceneEditModal(scene)}
+                        onDelete={() => setSceneToDelete(scene)}
+                        onDragHandleStart={(e) => {
+                          setDraggedSceneId(scene.id);
+                          e.dataTransfer.setData("text/plain", String(scene.id));
+                          e.dataTransfer.effectAllowed = "move";
+                          const row = (e.currentTarget as HTMLElement).closest("[data-scene-row]");
+                          if (row) {
+                            const rect = row.getBoundingClientRect();
+                            e.dataTransfer.setDragImage(row as Element, e.clientX - rect.left, e.clientY - rect.top);
+                          }
+                        }}
+                        onDragHandleEnd={() => {
+                          setDraggedSceneId(null);
+                          setDragOverSceneId(null);
+                        }}
                         onDragOver={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -3484,8 +5812,8 @@ export default function ProjectView() {
                             .then(() => loadProject())
                             .finally(() => setReorderSaving(false));
                         }}
-                        className={`transition-all duration-150 ${isDragging ? "opacity-40 scale-[0.98]" : ""} ${isDropTarget ? "ring-2 ring-purple-400 ring-inset rounded-lg" : ""}`}
                       >
+<<<<<<< HEAD
                         <div className="flex items-stretch gap-0">
                           {/* Drag handle — only this area starts the drag */}
                           <div
@@ -3611,6 +5939,9 @@ export default function ProjectView() {
 
                             {/* Expanded scene detail */}
                             {isExpanded && (
+=======
+                        {isExpanded && (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                               <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
                                 {/* Narration */}
                                 <div>
@@ -3676,8 +6007,22 @@ export default function ProjectView() {
                                     const layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? "text_narration";
                                     const template = project.template ?? "default";
                                     const aspectRatio = project.aspect_ratio ?? "landscape";
+<<<<<<< HEAD
                                     const schemaDefaults = getDefaultFontSizesFromSchema(layoutPropSchema ?? undefined, layoutId, aspectRatio);
                                     const defaults = schemaDefaults ?? getDefaultFontSizes(template, layoutId, aspectRatio);
+=======
+                                    const craftedFrontendFiles =
+                                      template.startsWith("crafted_")
+                                        ? (craftedTemplates.find((ct) => ct.id === template)?.frontend_files as Record<string, string> | null) || null
+                                        : null;
+                                    const defaults = resolveDefaultFontSizesForScene({
+                                      template,
+                                      layoutId,
+                                      aspectRatio,
+                                      layoutPropSchema: layoutPropSchema ?? undefined,
+                                      craftedFrontendFiles,
+                                    });
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                     const override = sceneFontOverrides[scene.id];
                                     const isCustomTpl = (template).startsWith("custom_");
                                     const storedTitle = isCustomTpl ? desc.layoutConfig?.titleFontSize : desc.layoutProps?.titleFontSize;
@@ -3730,7 +6075,7 @@ export default function ProjectView() {
                                         </h4>
                                         <div className="space-y-3">
                                           <div>
-                                            <label className="text-xs text-gray-400 mb-1 block">Title font size</label>
+                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Metric size" : layoutId === "mosaic_punch" ? "Punch size" : "Title font size"}</label>
                                             <div className="flex items-center gap-2">
                                               <input
                                                 type="range"
@@ -3753,12 +6098,17 @@ export default function ProjectView() {
                                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                   </svg>
                                                 ) : null}
-                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{titleClamped}</span>
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">
+                                                  {titleClamped}
+                                                  {storedTitle == null && override?.title == null && (
+                                                    <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                                                  )}
+                                                </span>
                                               </div>
                                             </div>
                                           </div>
                                           <div>
-                                            <label className="text-xs text-gray-400 mb-1 block">Display text font size</label>
+                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Label size" : "Display text font size"}</label>
                                             <div className="flex items-center gap-2">
                                               <input
                                                 type="range"
@@ -3781,7 +6131,12 @@ export default function ProjectView() {
                                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                   </svg>
                                                 ) : null}
-                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{descClamped}</span>
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">
+                                                  {descClamped}
+                                                  {storedDesc == null && override?.desc == null && (
+                                                    <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                                                  )}
+                                                </span>
                                               </div>
                                             </div>
                                           </div>
@@ -3817,6 +6172,11 @@ export default function ProjectView() {
                                     } catch { return null; }
                                   })();
                                   const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(sceneLayout);
+                                  const isCustomTpl = (project.template || "").startsWith("custom_");
+                                  const ctId = isCustomTpl ? parseInt((project.template || "").replace("custom_", ""), 10) : NaN;
+                                  const ctOgImage = isCustomTpl
+                                    ? (customTemplatesList.find((ct) => ct.id === ctId)?.og_image || "")
+                                    : "";
                                   return (
                                     <div>
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
@@ -3825,25 +6185,99 @@ export default function ProjectView() {
                                       {sceneSupportsImage ? (
                                         <>
                                         <div className="flex flex-wrap gap-2 items-start">
+                                          {isCustomTpl && !(sceneImageAssetsMap[idx] || []).length && ctOgImage && (
+                                            <div className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0">
+                                              {(() => {
+                                                let focusX = 50; let focusY = 50; let zoom = 1;
+                                                try {
+                                                  if (scene.remotion_code) {
+                                                    const p = JSON.parse(scene.remotion_code) as { layoutProps?: { imageFocusX?: unknown; imageFocusY?: unknown; imageZoom?: unknown } };
+                                                    if (typeof p.layoutProps?.imageFocusX === "number") focusX = p.layoutProps.imageFocusX;
+                                                    if (typeof p.layoutProps?.imageFocusY === "number") focusY = p.layoutProps.imageFocusY;
+                                                    if (typeof p.layoutProps?.imageZoom === "number") zoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, p.layoutProps.imageZoom);
+                                                  }
+                                                } catch { /* ignore */ }
+                                                return (
+                                                  <img
+                                                    src={ctOgImage}
+                                                    alt=""
+                                                    className="h-24 w-20 object-cover"
+                                                    style={{ objectPosition: `${focusX}% ${focusY}%`, transform: `scale(${zoom})`, transformOrigin: "center center" }}
+                                                    loading="lazy"
+                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                                  />
+                                                );
+                                              })()}
+                                              <button
+                                                type="button"
+                                                onClick={() => openSceneImageAdjustModal(scene, ctOgImage)}
+                                                className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                                title="Adjust image"
+                                              >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                                                </svg>
+                                              </button>
+                                            </div>
+                                          )}
                                           {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
                                             <div
                                               key={asset.id}
                                               className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
                                             >
+                                              {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && (
+                                                <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
+                                                  <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                                </div>
+                                              )}
+                                              {(() => {
+                                                let focusX = 50;
+                                                let focusY = 50;
+                                                let zoom = 1;
+                                                try {
+                                                  if (scene.remotion_code) {
+                                                    const parsed = JSON.parse(scene.remotion_code) as {
+                                                      layoutProps?: { imageFocusX?: unknown; imageFocusY?: unknown; imageZoom?: unknown };
+                                                    };
+                                                    if (typeof parsed.layoutProps?.imageFocusX === "number") focusX = clampFocus(parsed.layoutProps.imageFocusX);
+                                                    if (typeof parsed.layoutProps?.imageFocusY === "number") focusY = clampFocus(parsed.layoutProps.imageFocusY);
+                                                    if (typeof parsed.layoutProps?.imageZoom === "number") zoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, parsed.layoutProps.imageZoom);
+                                                  }
+                                                } catch {
+                                                  /* ignore */
+                                                }
+                                                return (
                                               <img
                                                 src={url}
                                                 alt=""
-                                                className="h-24 w-auto object-cover"
+                                                className="h-24 w-20 object-cover"
+                                                style={{
+                                                  objectPosition: `${focusX}% ${focusY}%`,
+                                                  transform: `scale(${zoom})`,
+                                                  transformOrigin: "center center",
+                                                }}
                                                 loading="lazy"
                                                 onError={(e) => {
                                                   (e.target as HTMLImageElement).style.display = "none";
                                                 }}
                                               />
+                                                );
+                                              })()}
                                               <button
                                                 type="button"
-                                                onClick={() => handleRemoveSceneImage(asset.id)}
+                                                onClick={() => openSceneImageAdjustModal(scene, url)}
+                                                className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                                title="Adjust image"
+                                              >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                                                </svg>
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleRemoveSceneImage(scene, asset.id)}
                                                 disabled={removingAssetId === asset.id}
-                                                className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
+                                                className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                                               >
                                                 {removingAssetId === asset.id ? (
                                                   <span className="text-[10px]">…</span>
@@ -3855,64 +6289,43 @@ export default function ProjectView() {
                                               </button>
                                             </div>
                                           ))}
+                                          {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && !(sceneImageAssetsMap[idx] || []).length && !(isCustomTpl && ctOgImage) && (
+                                            <div className="flex items-center justify-center w-20 h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0">
+                                              <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                            </div>
+                                          )}
                                           <button
                                             type="button"
                                             onClick={() => handleGenerateSceneImageClick(scene.id)}
-                                            disabled={
-                                              !(scene.title || "").trim() && !(scene.narration_text || "").trim()
-                                                || generatingImageSceneId === scene.id
-                                            }
-                                            className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700 flex-shrink-0"
+                                            className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 flex-shrink-0"
+                                            title="Generate image with AI"
                                           >
-                                            {generatingImageSceneId === scene.id ? (
-                                              <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                            ) : (
-                                              <>
-                                                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                                                </svg>
-                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center z-10">
-                                                  {(scene.title || "").trim() || (scene.narration_text || "").trim()
-                                                    ? "Generate Image with AI"
-                                                    : "Add title or narration to generate an image"}
-                                                </span>
-                                              </>
-                                            )}
+                                            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                            </svg>
+                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center z-10">
+                                              Generate image with AI
+                                            </span>
                                           </button>
-                                          <label
-                                            className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
-                                              uploadingSceneId === scene.id && generatedImageSceneId !== scene.id
-                                                ? "border-purple-300 bg-purple-50/50 cursor-wait"
-                                                : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
-                                            }`}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenImageSourceChooser(scene.id)}
+                                            disabled={uploadingSceneId === scene.id}
+                                            className="flex items-center justify-center w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors"
                                           >
-                                            <input
-                                              type="file"
-                                              accept="image/png,image/jpeg,image/webp,image/jpg"
-                                              className="hidden"
-                                              disabled={uploadingSceneId === scene.id}
-                                              onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                  handleAddSceneImage(scene.id, file);
-                                                  e.target.value = "";
-                                                }
-                                              }}
-                                            />
-                                            {uploadingSceneId === scene.id && generatedImageSceneId !== scene.id ? (
-                                              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                                            ) : (
-                                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                              </svg>
-                                            )}
-                                          </label>
+                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                          </button>
                                         </div>
+                                        {generatingImageSceneId === scene.id && (
+                                          <p className="text-xs text-purple-500 mt-1.5 flex items-center gap-1.5">
+                                            <span className="w-3 h-3 border border-purple-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                            Generating image…
+                                          </p>
+                                        )}
                                         {(generateImageError && (generateErrorSceneId === scene.id || generatedImageSceneId === scene.id)) && (
                                           <p className="text-xs text-red-600 mt-1.5">{generateImageError}</p>
-                                        )}
-                                        {!(scene.title || "").trim() && !(scene.narration_text || "").trim() && (
-                                          <p className="text-xs text-gray-400 mt-1.5">Add title or narration to use AI image generation.</p>
                                         )}
                                         </>
                                       ) : (
@@ -3925,24 +6338,248 @@ export default function ProjectView() {
                                 })()}
                               </div>
                             )}
-                          </div>
-                        </div>
-                      </div>
+                      </SceneListRow>
                     );
                   })}
                 </div>
                 </div>
 
-                {/* Scene edit modal */}
-                {sceneEditModal && (
-                  <SceneEditModal
-                    open={!!sceneEditModal}
-                    onClose={() => setSceneEditModal(null)}
-                    scene={sceneEditModal}
-                    project={project}
-                    imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
-                    onSaved={loadProject}
-                  />
+                <input
+                  ref={localSceneImageInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/jpg"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    handleLocalSceneFilePicked(file);
+                    e.target.value = "";
+                    setLocalUploadTargetSceneId(null);
+                  }}
+                />
+
+                {imageSourceChooserSceneId !== null && ReactDOM.createPortal(
+                  <div className="fixed inset-0 z-[125] flex items-center justify-center p-4">
+                    <div
+                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                      onClick={() => setImageSourceChooserSceneId(null)}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-5">
+                        <h3 className="text-lg font-semibold text-gray-900">Add scene image</h3>
+                        <p className="text-xs text-gray-500 mt-1">Choose where to pick the image from.</p>
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={handleChooseScrapedImages}
+                            className="w-full h-24 p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
+                            </svg>
+                            From existing scraped images
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleChooseLocalUpload}
+                            className="w-full h-24 p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" />
+                            </svg>
+                            File upload
+                          </button>
+                        </div>
+                      </div>
+                  </div>,
+                  document.body
+                )}
+
+                {scrapedImagesPickerSceneId !== null && ReactDOM.createPortal(
+                  <div className="fixed inset-0 z-[126] flex items-center justify-center p-4">
+                    <div
+                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                      onClick={() => !assigningExistingImage && setScrapedImagesPickerSceneId(null)}
+                    />
+                    <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+                      <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">Select scraped image</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">Pick one image to assign to this scene.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setScrapedImagesPickerSceneId(null)}
+                          disabled={assigningExistingImage}
+                          className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors disabled:opacity-50"
+                          title="Close"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="p-5 bg-gray-50 max-h-[60vh] overflow-auto">
+                        {scrapedImageOptions.length === 0 ? (
+                          <p className="text-sm text-gray-500">No images available.</p>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            {scrapedImageOptions.map(({ asset, url }) => {
+                              const selected = selectedExistingAssetId === asset.id;
+                              return (
+                                <button
+                                  key={asset.id}
+                                  type="button"
+                                  onClick={() => setSelectedExistingAssetId(asset.id)}
+                                  className={`relative rounded-xl overflow-hidden border-2 transition-colors ${
+                                    selected ? "border-purple-500" : "border-gray-200 hover:border-purple-300"
+                                  }`}
+                                >
+                                  <img src={url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                                  {selected && (
+                                    <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center">
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-5 py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+                        <button
+                          type="button"
+                          onClick={() => setScrapedImagesPickerSceneId(null)}
+                          disabled={assigningExistingImage}
+                          className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAssignExistingImageToScene}
+                          disabled={!selectedExistingAssetId || assigningExistingImage}
+                          className="px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm disabled:opacity-60"
+                        >
+                          {assigningExistingImage ? "Saving..." : "Save"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>,
+                  document.body
+                )}
+
+                {/* Scene image adjust modal (from expanded images section) */}
+                {imageAdjustSceneId !== null && imageAdjustSrc && ReactDOM.createPortal(
+                  <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 min-h-0">
+                    <div
+                      className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+                      onClick={closeSceneImageAdjustModal}
+                    />
+                    <div
+                      className="relative w-full max-w-3xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden min-h-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-900">Adjust image framing</h3>
+                          <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                            Drag to pan when zoomed in. Use the slider or scroll wheel to zoom, then save.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={closeSceneImageAdjustModal}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                          title="Close"
+                          disabled={savingImageAdjust}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+                        <div className="p-4 sm:p-5">
+                        <div
+                          ref={imageAdjustPreviewRef}
+                          onMouseDown={handleAdjustMouseDown}
+                          onTouchStart={handleAdjustTouchStart}
+                          style={{
+                            aspectRatio: imageAdjustAspectRatio,
+                            maxHeight: "70vh",
+                            maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                            ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
+                          }}
+                          className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                            isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
+                          }`}
+                        >
+                          <img
+                            src={imageAdjustSrc}
+                            alt="Adjust preview"
+                            className="absolute inset-0 w-full h-full"
+                            style={{
+                              objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
+                              objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                              transform: `scale(${imageAdjustZoom})`,
+                              transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                            }}
+                            draggable={false}
+                          />
+                        </div>
+                        <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
+                          <label className="flex items-center gap-3 text-sm text-gray-700">
+                            <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                            <input
+                              type="range"
+                              min={IMAGE_ADJUST_ZOOM_MIN}
+                              max={IMAGE_ADJUST_ZOOM_MAX}
+                              step={0.05}
+                              value={imageAdjustZoom}
+                              onChange={(e) =>
+                                setImageAdjustZoom(
+                                  Math.min(
+                                    IMAGE_ADJUST_ZOOM_MAX,
+                                    Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(e.target.value))
+                                  )
+                                )
+                              }
+                              className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                            />
+                            <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                              {imageAdjustZoom.toFixed(2)}×
+                            </span>
+                          </label>
+                        </div>
+                        <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
+                          Position: X {Math.round(imageAdjustFocusX)}% · Y {Math.round(imageAdjustFocusY)}% · Zoom{" "}
+                          {imageAdjustZoom.toFixed(2)}×
+                        </div>
+                        </div>
+                      </div>
+                      <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+                        <button
+                          type="button"
+                          onClick={closeSceneImageAdjustModal}
+                          className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+                          disabled={savingImageAdjust}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveSceneImageAdjust}
+                          className="px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm disabled:opacity-60"
+                          disabled={savingImageAdjust}
+                        >
+                          {savingImageAdjust ? "Saving..." : "Save framing"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>,
+                  document.body
                 )}
 
                 {/* Delete scene confirmation modal */}
@@ -3967,6 +6604,38 @@ export default function ProjectView() {
                 />
 
 
+<<<<<<< HEAD
+=======
+                {project && imageGenModalSceneId !== null && (() => {
+                  const imageGenScene = project.scenes?.find((s) => s.id === imageGenModalSceneId);
+                  if (!imageGenScene) return null;
+                  return (
+                    <GenerateSceneImageModal
+                      open
+                      scene={imageGenScene}
+                      project={project}
+                      isPro={isPro}
+                      onClose={() => setImageGenModalSceneId(null)}
+                      onUpgrade={() => setShowAiImageUpgradeModal(true)}
+                      onGenerateStart={() => {
+                        setGeneratingImageSceneId(imageGenModalSceneId);
+                        setImageGenModalSceneId(null);
+                      }}
+                      onGenerateError={(message) => {
+                        setGeneratingImageSceneId(null);
+                        setGenerateImageError(message);
+                        setGenerateErrorSceneId(imageGenModalSceneId);
+                      }}
+                      onImageReady={(imageBase64, refinedPrompt) => {
+                        setGeneratingImageSceneId(null);
+                        handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
+                        setImageGenModalSceneId(null);
+                      }}
+                    />
+                  );
+                })()}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 {/* AI generated image preview modal */}
                 {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(
                   <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -4009,11 +6678,6 @@ export default function ProjectView() {
                           alt="AI generated"
                           className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
                         />
-                        {uploadingSceneId === generatedImageSceneId && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 rounded-lg">
-                            <span className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>,
@@ -4031,8 +6695,26 @@ export default function ProjectView() {
           </div>
         )}
 
+        {/* Scene edit modal — rendered outside the tab blocks so it opens from both
+            the Edit Scenes tab and the Script tab. */}
+        {sceneEditModal && (
+          <SceneEditModal
+            open={!!sceneEditModal}
+            onClose={() => setSceneEditModal(null)}
+            scene={sceneEditModal}
+            project={project}
+            imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
+            availableImageItems={activeImageAssets.map((asset) => ({
+              asset,
+              url: resolveAssetUrl(asset, project.id),
+            }))}
+            onSaved={loadProject}
+          />
+        )}
+
        {activeTab === "settings" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-visible">
+<<<<<<< HEAD
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Font family</h2>
             <p className="text-xs text-gray-400 mb-5">
@@ -4221,12 +6903,471 @@ export default function ProjectView() {
             </div>
           </div>
 
+=======
+          {/* 1. Template */}
+          <div data-tour="template-picker">
+          <ProjectTemplateSettingsCard
+            templateId={assignedTemplateId}
+            customTemplates={customTemplatesList}
+            craftedTemplates={readyCraftedForPicker}
+            projectCustomTheme={project?.custom_theme ?? null}
+            projectName={project?.name}
+            templateMetas={templateMetas}
+            previewCompileScope={user?.id != null ? String(user.id) : undefined}
+            disabled={submittingTemplateRelayout || templateRelayoutRunning || missingCustomTemplate}
+            onChangeTemplate={() => {
+              setTemplateChangeDraft(assignedTemplateId);
+              setTemplateChangePickerTab(
+                assignedTemplateId.startsWith("custom_")
+                  ? "custom"
+                  : assignedTemplateId.startsWith("crafted_")
+                    ? "crafted"
+                    : "builtin"
+              );
+              setShowTemplateChangeModal(true);
+            }}
+          />
+          </div>
+
+          {/* 2. Voiceover — Add (when muted) / Change + Delete (when present) */}
+          {(
+            <>
+              <ProjectVoiceSettingsCard
+                projectId={project.id}
+                voiceGender={project.voice_gender}
+                voiceAccent={project.voice_accent}
+                customVoiceId={project.custom_voice_id}
+                voiceEmotion={project.voice_emotion ?? null}
+                isPro={isPro}
+                onError={(msg) => showError(msg)}
+                onUpgrade={() => setShowUpgrade(true)}
+                onOperationStarted={(op) => setVoiceOpKickstart(op)}
+              />
+
+              {/* 3. Playback Speed */}
+              <div>
+                <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
+                <p className="text-xs text-gray-400 mb-5">
+                  Applies to preview and final rendered video (including voiceover).
+                </p>
+                <div className="glass-card p-6 flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {PLAYBACK_SPEED_OPTIONS.map((speed) => {
+                      const active = playbackSpeedDraft === speed;
+                      return (
+                        <button
+                          key={speed}
+                          type="button"
+                          onClick={() => setPlaybackSpeedDraft(speed)}
+                          className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                            active
+                              ? "bg-purple-50 text-purple-700 border-purple-300"
+                              : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                          }`}
+                        >
+                          {speed}x
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                      <span>Custom speed</span>
+                      <span className="text-purple-600 font-semibold tabular-nums">
+                        {playbackSpeedDraft.toFixed(1)}x
+                      </span>
+                    </label>
+                    <input
+                      type="range"
+                      min={0.5}
+                      max={2.5}
+                      step={0.1}
+                      value={playbackSpeedDraft}
+                      onChange={(e) => setPlaybackSpeedDraft(Number(e.target.value))}
+                      className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                    />
+                  </div>
+                  <div className="flex justify-end mt-auto">
+                    <button
+                      type="button"
+                      disabled={savingPlaybackSpeed}
+                      onClick={async () => {
+                        setSavingPlaybackSpeed(true);
+                        try {
+                          const normalized = Math.min(2.5, Math.max(0.5, Math.round(playbackSpeedDraft * 10) / 10));
+                          await updateProject(project.id, { playback_speed: normalized });
+                          await loadProject();
+                        } catch (err) {
+                          showError(getErrorMessage(err, "Failed to save playback speed."));
+                        } finally {
+                          setSavingPlaybackSpeed(false);
+                        }
+                      }}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      {savingPlaybackSpeed ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save speed"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3b. Captions */}
+              {(() => {
+              const hasVoiceover = (project.scenes || []).some((s) => !!s.voiceover_path);
+              return (
+              <div>
+                <h2 className="text-base font-medium text-gray-900 mb-1">Captions</h2>
+                <p className="text-xs text-gray-400 mb-5">
+                  Enable the cc, It applies to preview and the final rendered video.
+                </p>
+                <div className="glass-card p-6 flex flex-col gap-4">
+                  <label className={`flex items-center gap-3 select-none ${hasVoiceover ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
+                    <input
+                      type="checkbox"
+                      checked={captionsEnabledDraft && hasVoiceover}
+                      disabled={!hasVoiceover}
+                      onChange={(e) => setCaptionsEnabledDraft(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 accent-purple-600 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Enable captions</span>
+                  </label>
+
+                  {!hasVoiceover && (
+                    <p className="text-[11px] text-gray-400">
+                      Captions need a voiceover to sync to. Add a voice to this video to enable captions.
+                    </p>
+                  )}
+
+                  {captionsEnabledDraft && hasVoiceover && (
+                    <div className="flex flex-col gap-2">
+                      {/* Row 1: Offset (2-col) + Size slider */}
+                      <div className="grid grid-cols-2 gap-2 items-start">
+
+                        {/* Offset — always bottom; slider nudges up/down */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide">Offset</label>
+                            <button
+                              type="button"
+                              onClick={() => setCaptionOffsetDraft(0)}
+                              className={`text-[10px] font-semibold ${captionOffsetDraft === 0 ? "text-gray-400" : "text-purple-600 hover:text-purple-700"}`}
+                            >
+                              {captionOffsetDraft === 0 ? "Default" : "Reset"}
+                            </button>
+                          </div>
+                          <div className="flex flex-col justify-center pt-1">
+                            <input
+                              type="range"
+                              min={-100}
+                              max={100}
+                              step={1}
+                              value={captionOffsetDraft}
+                              onChange={(e) => setCaptionOffsetDraft(Number(e.target.value))}
+                              className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
+                            />
+                            <div className="flex justify-between mt-1">
+                              <span className="text-[9px] text-gray-400">Down</span>
+                              <span className="text-[9px] text-gray-400">Up</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Font Size — free slider 12–64px */}
+                        <div>
+                          <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">Size</label>
+                          <div className="flex flex-col justify-center pt-1">
+                            <input
+                              type="range"
+                              min={12}
+                              max={64}
+                              step={1}
+                              value={captionFontSizeDraft}
+                              onChange={(e) => setCaptionFontSizeDraft(Number(e.target.value))}
+                              className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
+                            />
+                            <div className="flex justify-between mt-1">
+                              <span className="text-[9px] text-gray-400">12</span>
+                              <span className="text-[9px] font-semibold text-purple-600">{captionFontSizeDraft}px</span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-end justify-between mt-auto gap-3">
+                    {/* Font Family — shown in save row when captions enabled */}
+                    {captionsEnabledDraft && hasVoiceover ? (
+                      <div className="relative flex-1 max-w-[180px]">
+                        <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5">Font</label>
+                        <div className="relative">
+                          <select
+                            value={captionFontFamilyDraft}
+                            onChange={(e) => setCaptionFontFamilyDraft(e.target.value)}
+                            style={{ fontFamily: FONT_REGISTRY[captionFontFamilyDraft as keyof typeof FONT_REGISTRY]?.cssFamily }}
+                            className="w-full text-[11px] font-medium text-gray-700 bg-white border border-gray-200 rounded-md pl-2 pr-6 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-400/40 focus:border-purple-300 cursor-pointer appearance-none"
+                          >
+                            {(["inter","poppins","montserrat","roboto_slab","oswald","lora","patrick_hand","arimo","archivo_black","merriweather","playfair_display","fira_code"] as const).map((fontId) => (
+                              <option key={fontId} value={fontId} style={{ fontFamily: FONT_REGISTRY[fontId]?.cssFamily }}>
+                                {FONT_REGISTRY[fontId]?.label ?? fontId}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center">
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-gray-400">
+                              <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    ) : <div />}
+                    <button
+                      type="button"
+                      disabled={savingCaptions || !hasVoiceover}
+                      onClick={async () => {
+                        setSavingCaptions(true);
+                        try {
+                          await updateProject(project.id, {
+                            captions_enabled: captionsEnabledDraft && hasVoiceover,
+                            caption_font_family: captionFontFamilyDraft,
+                            caption_font_size: captionFontSizeDraft,
+                            caption_offset: captionOffsetDraft,
+                          });
+                          setCaptionSettingsKey((k) => k + 1);
+                          await loadProject();
+                        } catch (err) {
+                          showError(getErrorMessage(err, "Failed to save captions."));
+                        } finally {
+                          setSavingCaptions(false);
+                        }
+                      }}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      {savingCaptions ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save caption settings"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              );
+              })()}
+
+            </>
+          )}
+
+          {/* 4. Colors & Font */}
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
+            <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
+            <div className="glass-card p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 overflow-visible relative z-30">
+              {/* Colors */}
+              <div className="flex flex-col gap-5">
+                <p className="text-xs font-semibold text-gray-900">Colors</p>
+                {(
+                  [
+                    { label: "Accent color", value: settingsAccentColor, setter: setSettingsAccentColor, hint: "Buttons, highlights, and brand color" },
+                    { label: "Text color", value: settingsTextColor, setter: setSettingsTextColor, hint: "Primary on-screen text" },
+                    { label: "Background color", value: settingsBgColor, setter: setSettingsBgColor, hint: "Scene background" },
+                  ] as const
+                ).map(({ label, value, setter, hint }) => (
+                  <div key={label} className="flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-700">{label}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div
+                        className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm cursor-pointer overflow-hidden"
+                        style={{ backgroundColor: value }}
+                        onClick={() => (document.getElementById(`color-input-${label}`) as HTMLInputElement)?.click()}
+                      >
+                        <input
+                          id={`color-input-${label}`}
+                          type="color"
+                          value={value}
+                          onChange={(e) => setter(e.target.value)}
+                          className="opacity-0 w-full h-full cursor-pointer"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setter(v);
+                        }}
+                        className="w-24 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300 bg-white"
+                        placeholder="#000000"
+                        maxLength={7}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={savingColors}
+                    onClick={async () => {
+                      setSavingColors(true);
+                      try {
+                        await updateProject(project.id, {
+                          accent_color: settingsAccentColor,
+                          bg_color: settingsBgColor,
+                          text_color: settingsTextColor,
+                        });
+                        await loadProject();
+                      } catch (err) {
+                        showError(getErrorMessage(err, "Failed to save colors."));
+                      } finally {
+                        setSavingColors(false);
+                      }
+                    }}
+                    className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                  >
+                    {savingColors ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save colors"
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Font family */}
+              <div className="flex flex-col gap-4 sm:border-l sm:border-gray-100 sm:pl-6">
+                <div>
+                  <p className="text-xs font-semibold text-gray-900">Font family</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Leave as Default to use the template’s built-in fonts.</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div ref={fontDropdownRef} className="relative w-full max-w-sm">
+                    <button
+                      type="button"
+                      onClick={() => setShowFontDropdown((v) => !v)}
+                      className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between"
+                      data-action="font-selector"
+                    >
+                      <span>
+                        {settingsFontId
+                          ? FONT_REGISTRY[settingsFontId as keyof typeof FONT_REGISTRY]?.label || settingsFontId
+                          : "Default (template)"}
+                      </span>
+                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {showFontDropdown && (
+                      <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 max-h-72 overflow-y-auto">
+                        <div className="grid grid-cols-1 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSettingsFontId(null);
+                              setShowFontDropdown(false);
+                            }}
+                            className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                              !settingsFontId ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            Default
+                          </button>
+                          {Object.values(FONT_REGISTRY)
+                            .filter((opt) => opt.id !== "fira_code")
+                            .map((opt) => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => {
+                                  setSettingsFontId(opt.id);
+                                  setShowFontDropdown(false);
+                                }}
+                                className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                  settingsFontId === opt.id
+                                    ? "bg-purple-50 text-purple-700"
+                                    : "hover:bg-gray-50 text-gray-700"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {settingsFontId && (
+                  <div className="mt-2">
+                    <p className="text-[11px] text-gray-500 mb-1">Preview</p>
+                    <div
+                      className="px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
+                      style={{
+                        fontFamily:
+                          resolveFontFamily(settingsFontId) ??
+                          "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                      }}
+                    >
+                      The quick brown fox jumps over the lazy dog.
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={savingFontFamily}
+                    onClick={async () => {
+                      setSavingFontFamily(true);
+                      try {
+                        await updateProject(project.id, {
+                          font_family: settingsFontId || null,
+                        });
+                        await loadProject();
+                      } catch (err) {
+                        showError(getErrorMessage(err, "Failed to save font family."));
+                      } finally {
+                        setSavingFontFamily(false);
+                      }
+                    }}
+                    className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                  >
+                    {savingFontFamily ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save font"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. Global Text Sizes */}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
-            <p className="text-xs text-gray-400 mb-5">Applied to all scenes at once.</p>
-            <div className="glass-card p-6 flex flex-col gap-6">
+            <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
+            <div className="glass-card p-4 flex flex-col gap-2">
               <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
                   <span>Title font size</span>
                   <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
                 </label>
@@ -4241,7 +7382,7 @@ export default function ProjectView() {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
                   <span>Display text size</span>
                   <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
                 </label>
@@ -4255,7 +7396,7 @@ export default function ProjectView() {
                   className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
                 />
               </div>
-              <div className="flex justify-end mt-auto">
+              <div className="flex justify-end">
                 <button
                   type="button"
                   disabled={savingGlobalTypography}
@@ -4288,6 +7429,7 @@ export default function ProjectView() {
             </div>
           </div>
 
+<<<<<<< HEAD
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Colors</h2>
             <p className="text-xs text-gray-400 mb-5">Theme colors applied across all scenes.</p>
@@ -4366,6 +7508,8 @@ export default function ProjectView() {
             </div>
           </div>
 
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
       )}
 
@@ -4379,29 +7523,9 @@ export default function ProjectView() {
                     Blog Images
                   </h2>
                   <span className="text-xs text-gray-400">
-                    {imageAssets.filter((a) => !a.excluded).length} active
-                    {imageAssets.some((a) => a.excluded) &&
-                      ` / ${imageAssets.filter((a) => a.excluded).length} excluded`}
+                    {imageAssets.length} image{imageAssets.length !== 1 ? "s" : ""}
                   </span>
                 </div>
-                {!isPro && (
-                  <span className="text-[10px] text-gray-300 flex items-center gap-1">
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                    Pro — exclude images
-                  </span>
-                )}
               </div>
               {imageAssets.length === 0 ? (
                 <p className="text-sm text-gray-400 py-8">
@@ -4411,16 +7535,12 @@ export default function ProjectView() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {imageAssets.map((asset) => {
                     const url = resolveAssetUrl(asset, project.id);
-                    const isToggling = togglingAsset === asset.id;
+                    const isDeleting = deletingImageAssetId === asset.id;
 
                     return (
                       <div
                         key={asset.id}
-                        className={`relative group rounded-xl overflow-hidden border transition-all ${
-                          asset.excluded
-                            ? "border-red-200 opacity-50"
-                            : "border-gray-200/40 hover:border-gray-300"
-                        }`}
+                        className="relative group rounded-xl overflow-hidden border border-gray-200/40 hover:border-gray-300 transition-all"
                       >
                         <img
                           src={url}
@@ -4433,27 +7553,6 @@ export default function ProjectView() {
                           }}
                         />
 
-                        {/* Excluded overlay */}
-                        {asset.excluded && (
-                          <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-                            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
-                              <svg
-                                className="w-6 h-6 text-red-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Info bar */}
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6">
                           <p className="text-[10px] text-white/80 truncate">
@@ -4461,47 +7560,31 @@ export default function ProjectView() {
                           </p>
                         </div>
 
-                        {/* Toggle exclude button (Pro only) */}
-                        {isPro && (
-                          <button
-                            onClick={() => handleToggleExclusion(asset.id)}
-                            disabled={isToggling}
-                            className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-all border ${
-                              asset.excluded
-                                ? "border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600"
-                                : "border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 opacity-0 group-hover:opacity-100"
-                            } ${isToggling ? "animate-pulse" : ""}`}
-                            title={
-                              asset.excluded
-                                ? "Include this image"
-                                : "Exclude this image"
-                            }
-                          >
-                            {isToggling ? (
-                              <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                            ) : asset.excluded ? (
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={2.5}
-                                viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={2.5}
-                                viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            )}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRequestDeleteBlogImage(asset)}
+                          disabled={isDeleting}
+                          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all border border-red-200/90 text-red-600 bg-white/90 hover:bg-red-600 hover:text-white hover:border-red-600 opacity-0 group-hover:opacity-100 disabled:opacity-60"
+                          title="Delete this image from the project"
+                        >
+                          {isDeleting ? (
+                            <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                          ) : (
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                     );
                   })}
@@ -4519,12 +7602,12 @@ export default function ProjectView() {
                 className="hidden"
                 onChange={handleUploadLogo}
               />
-              {project.logo_r2_url ? (
+              {displayLogoUrl ? (
                 <div className="glass-card p-6 space-y-6">
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2">
                       <img
-                        src={project.logo_r2_url}
+                        src={displayLogoUrl}
                         alt="Current logo"
                         className="h-14 w-14 object-contain rounded border border-gray-200"
                       />
@@ -4532,6 +7615,7 @@ export default function ProjectView() {
                     </div>
                     <button
                       type="button"
+                      data-action="upload-logo"
                       onClick={() => logoFileInputRef.current?.click()}
                       disabled={logoUploading}
                       className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all disabled:opacity-60 disabled:pointer-events-none"
@@ -4630,18 +7714,132 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
+                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below. Premium only. */}
+                {isPro && bgmTracks.length > 0 && (
+                  <div className="glass-card p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="text-base font-medium text-gray-900">Music</h2>
+                      <span className="text-[11px] text-gray-400">Project default — fine-tune per scene below</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                      <div className="flex-1">
+                        <label className="text-[11px] text-gray-500 mb-1 block">Track</label>
+                        <BgmTrackDropdown
+                          tracks={bgmTracks}
+                          value={bgmTrackDraft}
+                          onChange={setBgmTrackDraft}
+                          triggerSize="md"
+                        />
+                      </div>
+                      {bgmTrackDraft && (
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-medium text-gray-600">Volume</span>
+                            <span className="text-[11px] text-gray-400 tabular-nums">{Math.round(bgmVolumeDraft * 100)}%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const track = bgmTracks.find((t) => t.track_id === bgmTrackDraft);
+                                if (!track) return;
+                                if (bgmPlayingId === track.track_id) {
+                                  bgmAudioRef.current?.pause();
+                                  setBgmPlayingId(null);
+                                  activeBgmPreviewStop = null;
+                                } else {
+                                  activeBgmPreviewStop?.(); // stop any other preview (scene rows)
+                                  bgmAudioRef.current?.pause();
+                                  const audio = new Audio(track.r2_url);
+                                  audio.loop = true;
+                                  audio.volume = Math.max(0, Math.min(1, bgmVolumeDraft));
+                                  audio.onended = () => setBgmPlayingId(null);
+                                  audio.play().catch(() => {});
+                                  bgmAudioRef.current = audio;
+                                  setBgmPlayingId(track.track_id);
+                                  activeBgmPreviewStop = () => { audio.pause(); setBgmPlayingId(null); };
+                                }
+                              }}
+                              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-purple-50 text-purple-600 hover:bg-purple-100"
+                              title="Preview track"
+                            >
+                              {bgmPlayingId === bgmTrackDraft ? (
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+                              ) : (
+                                <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const v = bgmVolumeDraft === 0 ? (lastNonZeroProjectBgm || 0.10) : 0;
+                                if (bgmVolumeDraft > 0) setLastNonZeroProjectBgm(bgmVolumeDraft);
+                                setBgmVolumeDraft(v);
+                                if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+                              }}
+                              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors ${bgmVolumeDraft === 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                              title={bgmVolumeDraft === 0 ? "Unmute music for all scenes" : "Mute music for all scenes"}
+                            >
+                              {bgmVolumeDraft === 0 ? (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" d="M17 9l4 4m0-4l-4 4" /></svg>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                              )}
+                              {bgmVolumeDraft === 0 ? "Unmute" : "Mute"}
+                            </button>
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={Math.round(bgmVolumeDraft * 100)}
+                              onChange={(e) => {
+                                const v = Number(e.target.value) / 100;
+                                setBgmVolumeDraft(v);
+                                if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+                              }}
+                              className="flex-1 accent-purple-600 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        disabled={savingBgm}
+                        onClick={async () => {
+                          setSavingBgm(true);
+                          try {
+                            await updateProject(project.id, {
+                              bgm_track_id: bgmTrackDraft,
+                              bgm_volume: Math.round(bgmVolumeDraft * 100) / 100,
+                            });
+                            await loadProject();
+                          } catch (err) {
+                            showError(getErrorMessage(err, "Failed to save background music."));
+                          } finally {
+                            setSavingBgm(false);
+                          }
+                        }}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white text-xs font-semibold rounded-xl transition-colors flex-shrink-0"
+                      >
+                        {savingBgm ? "Saving…" : "Save music"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-4">
                     <h2 className="text-base font-medium text-gray-900">
-                      Voiceovers
+                      {project.voice_gender !== "none" ? "Voiceovers" : "Scenes"}
                     </h2>
                     <span className="text-xs text-gray-400">
-                      {audioScenes.length} / {project.scenes.length} scenes
-                      {totalAudioDuration > 0 &&
-                        ` -- ${Math.round(totalAudioDuration)}s total`}
+                      {project.voice_gender !== "none"
+                        ? `${audioScenes.length} / ${project.scenes.length} scenes${totalAudioDuration > 0 ? ` -- ${Math.round(totalAudioDuration)}s total` : ""}`
+                        : "No voiceover — text-only video"}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                  <div className={`flex items-center gap-2 text-[11px] text-gray-400 ${project.voice_gender === "none" ? "hidden" : ""}`}>
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-green-400" />
                       Ready
@@ -4660,6 +7858,10 @@ export default function ProjectView() {
                       scene={scene}
                       projectId={projectId}
                       audioAssets={audioAssets}
+                      hasBgm={isPro && !!project.bgm_track_id}
+                      bgmTrackUrl={project.bgm_track_url ?? null}
+                      projectBgmVolume={project.bgm_volume ?? 0.10}
+                      onBgmSaved={loadProject}
                     />
                   ))}
                 </div>
@@ -4670,5 +7872,36 @@ export default function ProjectView() {
 
       </div>
     </div>
-  );
+
+    {/* Image generation toast — top-right, no backdrop, always visible */}
+
+    {generatingImageSceneId !== null && ReactDOM.createPortal(
+      <div className="fixed top-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl bg-white text-gray-900 min-w-[260px] border border-purple-100 ring-1 ring-purple-200">
+        <div className="w-5 h-5 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin flex-shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-purple-700 leading-tight">Generating image…</p>
+          <p className="text-xs text-gray-400 mt-0.5">This may take a moment</p>
+        </div>
+      </div>,
+      document.body,
+    )}
+
+    {generateImageError && generateErrorSceneId !== null && ReactDOM.createPortal(
+      <div className="fixed top-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl bg-white text-gray-900 min-w-[260px] border border-red-100 ring-1 ring-red-200">
+        <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">!</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-red-600 leading-tight">Image generation failed</p>
+          <p className="text-xs text-gray-400 mt-0.5 truncate">{generateImageError}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => { setGenerateImageError(null); setGenerateErrorSceneId(null); }}
+          className="text-gray-300 hover:text-gray-600 text-xl leading-none flex-shrink-0 ml-1"
+        >×</button>
+      </div>,
+      document.body,
+    )}
+    </>
+
+);
 }

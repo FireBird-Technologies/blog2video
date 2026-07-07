@@ -1,5 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { GeometricBackground } from "../components/GeometricBackground";
+import { FlybyPlane } from "../components/FlybyPlane";
 
 export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   title,
@@ -13,6 +15,10 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+<<<<<<< HEAD
+=======
+  sceneIndex,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -62,6 +68,9 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
         overflow: "hidden",
       }}
     >
+      <GeometricBackground accentColor={accentColor} frame={frame} sceneIndex={sceneIndex} />
+      {/* Decorative flyby — different startFrame + slightly lower yZone than BulletList */}
+      <FlybyPlane accentColor={accentColor} startFrame={50} yZone={0.16} />
       {/* Glow effect */}
       <div
         style={{

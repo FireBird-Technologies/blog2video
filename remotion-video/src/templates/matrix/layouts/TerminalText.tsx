@@ -1,7 +1,12 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+<<<<<<< HEAD
+=======
+import { buildHudStatus, CodeFragments, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * TerminalText — Green Terminal Typewriter
@@ -11,8 +16,9 @@ import type { MatrixLayoutProps } from "../types";
  */
 export const TerminalText: React.FC<MatrixLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   highlightWord,
   accentColor,
   bgColor,
@@ -100,6 +106,14 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
 
+<<<<<<< HEAD
+=======
+      {/* Decorative artifacts — full terminal HUD, floating readouts, CRT texture. */}
+      <TerminalHUD accentColor={accent} statusText={buildHudStatus("EXEC", title)} startFrame={2} seed={11} />
+      <CodeFragments accentColor={accent} count={9} seed={55} startFrame={8} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.9} />
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       {/* Main content block (Image + Text Wrapper) */}
       {/* The overall content block itself no longer has an entrance animation, 
           as image and text now have their specific entrance animations. */}
@@ -128,9 +142,10 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
               position: "relative",
             }}
           >
-            <Img
+            <ZoomCropImg
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
             />
             {/* Scanline overlay */}
             <div
@@ -220,3 +235,4 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

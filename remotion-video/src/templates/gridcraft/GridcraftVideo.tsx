@@ -15,8 +15,11 @@ import {
 import { resolveFontFamily } from "../../fonts/registry";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
 import { Blobs } from "./components/Blobs";
 import { COLORS } from "./utils/styles";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -25,9 +28,13 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
+  narrationText?: string;
   layout: GridcraftLayoutType;
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
 }
@@ -41,9 +48,21 @@ interface VideoData {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
-  logoSize?: string;
+  logoSize?: number | string;
   aspectRatio?: string;
+<<<<<<< HEAD
   fontFamily?: string | null;
+=======
+  playbackSpeed?: number;
+  fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  captionOffset?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
@@ -89,11 +108,15 @@ export const calculateGridcraftMetadata: CalculateMetadataFunction<VideoProps> =
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-      const totalSeconds = data.scenes.reduce(
-        (sum, s) => sum + (s.durationSeconds || 5),
-        0
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+      const sceneFrames = data.scenes.map((s) =>
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
+<<<<<<< HEAD
       const totalFrames = Math.ceil(totalSeconds * FPS);
+=======
+      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       const isPortrait = data.aspectRatio === "portrait";
 
@@ -301,6 +324,7 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   }
 
   const FPS = 30;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
   let currentFrame = 0;
 
   return (
@@ -314,7 +338,11 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       <Blobs />
       
       {data.scenes.map((scene, index) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -335,6 +363,11 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || COLORS.DARK,
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+<<<<<<< HEAD
+=======
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily: resolvedFontFamily || undefined,
         };
 
@@ -351,7 +384,24 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             </AbsoluteFill>
 
             {scene.voiceoverFile && (
-              <Audio src={staticFile(scene.voiceoverFile)} />
+              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
+
+            {/* Captions — narration text, synced to this scene's voiceover window */}
+            {data.captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={data.captionPosition || "bottom_center"}
+                aspectRatio={data.aspectRatio || "landscape"}
+                fontFamily={data.captionFontFamily ? (resolveFontFamily(data.captionFontFamily) || data.captionFontFamily) : (resolvedFontFamily || undefined)}
+                fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                offset={data.captionOffset ?? 0}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
             )}
 
             {index < data.scenes.length - 1 && (
@@ -374,6 +424,11 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             />
         </AbsoluteFill>
       )}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
+      )}
     </AbsoluteFill>
   );
 };
+

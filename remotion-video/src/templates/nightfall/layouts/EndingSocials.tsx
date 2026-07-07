@@ -4,6 +4,10 @@ import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
+<<<<<<< HEAD
+=======
+import { resolveCtas } from "../../shared/resolveCtas";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const EndingSocials: React.FC<NightfallLayoutProps> = ({
   title,
@@ -12,6 +16,10 @@ export const EndingSocials: React.FC<NightfallLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+<<<<<<< HEAD
+=======
+  ctas,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   bgColor,
   textColor,
@@ -59,11 +67,22 @@ export const EndingSocials: React.FC<NightfallLayoutProps> = ({
   const contentOpacity = interpolate(frame, [15, 35], [0, 1], { extrapolateRight: "clamp" });
 
   const subtext = (narration ?? "").trim();
+<<<<<<< HEAD
   const resolvedWebsiteLink = (websiteLink ?? "").trim();
   const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   const bodyFont = (fontFamily ?? "").trim() || "'Playfair Display', Georgia, serif";
 
+=======
+  const bodyFont = (fontFamily ?? "").trim() || "'Playfair Display', Georgia, serif";
+
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const hasAnyCard = cards.length > 0;
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground bgColor={bgColor} />
@@ -149,12 +168,18 @@ export const EndingSocials: React.FC<NightfallLayoutProps> = ({
             />
           </div>
 
+<<<<<<< HEAD
           {/* Bottom Section: Text-Only CTA (TitleSize - 5) and Link */}
           {showWebsiteCta && (
+=======
+          {/* Bottom Section: Text-Only CTAs (1-3 columns) */}
+          {hasAnyCard && (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             <div
               style={{
                 marginTop: 30,
                 display: "flex",
+<<<<<<< HEAD
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 8,
@@ -229,6 +254,105 @@ export const EndingSocials: React.FC<NightfallLayoutProps> = ({
                   </svg>
                 </div>
               </div>
+=======
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                alignItems: "flex-start",
+                gap: p ? 18 : 28,
+                width: "100%",
+                opacity: contentOpacity,
+              }}
+            >
+              {cards.map((card, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 8,
+                    flex: cards.length === 1 ? "0 1 auto" : "1 1 0",
+                    minWidth: p ? 200 : 220,
+                    maxWidth: cards.length === 1 ? "100%" : cards.length === 2 ? "48%" : "32%",
+                  }}
+                >
+                  {/* Pure Text CTA */}
+                  <div
+                    style={{
+                      fontSize: cards.length === 1 ? ctaFontSize : Math.max(20, ctaFontSize - 10),
+                      fontWeight: 800,
+                      color: accentColor || "#7C3AED",
+                      fontFamily: bodyFont,
+                      letterSpacing: "-0.01em",
+                      textTransform: "uppercase",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 15,
+                      textAlign: "center",
+                    }}
+                  >
+                    <span>{card.ctaButtonText.trim() || "Get started"}</span>
+                    <span>→</span>
+                  </div>
+
+                  {/* Website Link Below CTA — cursor anim only on the first card */}
+                  <div style={{ position: "relative" }}>
+                    {idx === 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: -4,
+                          right: -4,
+                          top: -2,
+                          bottom: -2,
+                          width: `${selectionWidth}%`,
+                          backgroundColor: `${accentColor || "#7C3AED"}33`,
+                          borderRadius: 4,
+                          zIndex: 1,
+                        }}
+                      />
+                    )}
+                    <div
+                      style={{
+                        position: "relative",
+                        zIndex: 2,
+                        fontSize: p ? 20 : 18,
+                        fontWeight: 600,
+                        color: textColor || "#E2E8F0",
+                        fontFamily: bodyFont,
+                        opacity: 0.7,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {card.websiteLink}
+                    </div>
+
+                    {idx === 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          top: "10%",
+                          opacity: interpolate(localFrame, [0, 5, 80, 90], [0, 1, 1, 0]),
+                          transform: `translateX(${cursorX}px) translateY(${cursorY}px)`,
+                          zIndex: 100,
+                        }}
+                      >
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <path
+                            d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.83-4.83 2.87 6.58a.5.5 0 0 0 .66.26l2.31-1.01a.5.5 0 0 0 .26-.66l-2.87-6.58h6.1a.5.5 0 0 0 .35-.85L6.35 2.86a.5.5 0 0 0-.85.35Z"
+                            fill="white"
+                            stroke="black"
+                            strokeWidth="1.2"
+                          />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
           )}
         </div>

@@ -4,7 +4,11 @@ export const defaultCta: PageCta = {
   title: "Turn your existing content into a video this week",
   body:
     "Paste a URL, upload a document, or use an existing newsletter archive and convert it into a polished video without starting from a blank timeline.",
+<<<<<<< HEAD
   primaryLabel: "Start with 3 free videos",
+=======
+  primaryLabel: "Start with 2 free videos",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   primaryHref: "/",
   secondaryLabel: "See pricing",
   secondaryHref: "/pricing",
@@ -80,7 +84,11 @@ export const templateProfiles: TemplateProfile[] = [
   },
   {
     slug: "whiteboard",
+<<<<<<< HEAD
     name: "Whiteboard",
+=======
+    name: "Stick Man",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     description:
       "A classroom-friendly visual system built for teaching, diagrams, and guided explanation.",
     bestFor: "Course content, tutorials, lesson plans, onboarding, and process walkthroughs.",
@@ -128,7 +136,11 @@ export const templateProfiles: TemplateProfile[] = [
     name: "Newscast",
     description:
       "A broadcast news package with desk-style glass panels, ticker, lower third, and crimson-navy visuals.",
+<<<<<<< HEAD
     bestFor: "Briefings, updates, explainers, and stories that should feel like television news — not print.",
+=======
+    bestFor: "Briefings, updates, explainers, stories that should feel like television news rather than print, and student or classroom newscasts.",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     differentiator:
       "Puts your article into a live-broadcast frame: globe, chrome, and on-air typography without stock b-roll.",
     styleFit: "Best for summaries, fact-first updates, and editorial storytelling with a TV desk rhythm.",
@@ -146,18 +158,367 @@ export const templateProfiles: TemplateProfile[] = [
       "ending_socials",
     ],
     longDescription:
+<<<<<<< HEAD
       "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from Newscast Opening and Anchor Narrative to Live Metrics Board, Briefing Code Panel, Headline Insight, Side-by-Side Brief, Segment Break, and Field Image Focus — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows.",
+=======
+      "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from Newscast Opening and Anchor Narrative to Live Metrics Board, Briefing Code Panel, Headline Insight, Side-by-Side Brief, Segment Break, and Field Image Focus — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows. It also works well as a student newscast template: paste a class summary, book report, or current-events assignment into Blog2Video and it generates a narrated, broadcast-style video automatically, without needing a camera, classroom set, or assigned anchor roles.",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     idealFor: [
       "Weekly briefings and industry roundups",
       "Policy and regulatory explainers",
       "Crisis or fast-moving story updates",
       "Data-backed segments with charts and metrics",
       "Editorial voiceovers that need a serious broadcast tone",
+<<<<<<< HEAD
+=======
+      "Student newscasts, classroom current-events projects, and school news segments",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     exampleTopics: [
       "Markets close higher after central bank signals",
       "Five takeaways from the climate summit",
       "What the new rules mean for your sector",
+<<<<<<< HEAD
+=======
+      "This week in our classroom: a student current-events newscast",
+    ],
+  },
+  {
+    slug: "blackswan",
+    name: "BlackSwan",
+    description:
+      "A dark, cinematic template with fluid motion, neon-lit water effects, and dramatic storytelling energy.",
+    bestFor: "Cinematic narratives, brand films, high-stakes stories, and visually immersive content.",
+    differentiator:
+      "Delivers a full cinematic feel — fluid animations, neon water effects, and arc-driven layouts — without needing a film crew.",
+    styleFit: "Best for cinematic storytelling and content that demands visual drama.",
+    previewSceneKey: "preview-blackswan",
+    layouts: [
+      "droplet_intro",
+      "neon_narrative",
+      "arc_features",
+      "flight_path",
+      "dive_insight",
+      "signal_split",
+      "pulse_metric",
+      "reactor_code",
+      "ending_socials",
+    ],
+    longDescription:
+      "BlackSwan is a cinematic dark template built for content that needs to feel visually immersive and emotionally resonant. Fluid neon-water animations, glowing arc shapes, and bird-in-flight motion create a sense of scale and drama that most AI video templates can't match. Layouts like Droplet Intro, Neon Narrative, Flight Path, and Dive Insight are designed for storytelling-first content — brand films, long-form explainers, and high-stakes narratives where the visual intensity matches the weight of the message.",
+    idealFor: [
+      "Brand films and company story videos",
+      "High-stakes product or technology narratives",
+      "Cinematic explainers and long-form storytelling",
+      "Event recaps and keynote highlight reels",
+      "Founder manifestos and vision statements",
+    ],
+    exampleTopics: [
+      "Why we built this company from nothing",
+      "The technology that changes everything",
+      "A cinematic look at five years of product evolution",
+    ],
+  },
+  {
+    slug: "mosaic",
+    name: "Mosaic",
+    description:
+      "A bold, art-forward template that fragments visuals into tiled compositions with expressive typography.",
+    bestFor: "Creative content, art direction, culture writing, design showcases, and editorial pieces.",
+    differentiator:
+      "Turns written content into an art-directed visual experience — fragmented image tiles, kinetic text, and expressive color work together to feel designed rather than generated.",
+    styleFit: "Best for art, design, culture, and creatively-led content.",
+    previewSceneKey: "preview-mosaic",
+    layouts: [
+      "mosaic_title",
+      "mosaic_text",
+      "mosaic_phrases",
+      "mosaic_stream",
+      "mosaic_punch",
+      "mosaic_metric",
+      "mosaic_close",
+      "ending_socials",
+    ],
+    longDescription:
+      "Mosaic is an art-forward template that fragments images into tiled compositions and pairs them with expressive kinetic typography. The template is built for content where visual identity matters as much as the message — design showcases, culture writing, editorial art direction, and creative campaigns. Layouts like Mosaic Phrases, Mosaic Stream, and Mosaic Punch prioritize rhythm and visual flow, making the final video feel like a designed artifact rather than an auto-generated slide deck.",
+    idealFor: [
+      "Art and design showcases",
+      "Culture, fashion, and lifestyle editorial content",
+      "Creative agency and portfolio pieces",
+      "Music, film, and entertainment content",
+      "Brand identity and campaign storytelling",
+    ],
+    exampleTopics: [
+      "The design principles behind our rebrand",
+      "How street culture shapes modern product aesthetics",
+      "Five artists redefining visual storytelling in 2025",
+    ],
+  },
+  {
+    slug: "bloomberg",
+    name: "Bloomberg",
+    description:
+      "A terminal-style financial template with live-data aesthetics, ticker chrome, and market-desk authority.",
+    bestFor: "Finance content, market analysis, economic explainers, and data-driven business reporting.",
+    differentiator:
+      "Gives financial and data-heavy content the visual authority of a professional trading terminal — ticker feeds, dashboard panels, and chart overlays without the custom build cost.",
+    styleFit: "Best for finance, economics, business data, and market reporting.",
+    previewSceneKey: "preview-bloomberg",
+    layouts: [
+      "terminal_boot",
+      "terminal_narrative",
+      "terminal_metric",
+      "terminal_chart",
+      "terminal_dashboard",
+      "terminal_list",
+      "terminal_split",
+      "terminal_table",
+      "terminal_ticker",
+      "terminal_data_viz",
+      "terminal_profile",
+      "terminal_options",
+      "ending_socials",
+    ],
+    longDescription:
+      "Bloomberg is a terminal-style template that brings the visual language of professional financial media to video content. Dark backgrounds, amber-on-black monospace data panels, live-market ticker chrome, and chart overlays create an aesthetic that immediately signals credibility to finance audiences. Layouts cover the full range of financial storytelling — from Terminal Boot and Narrative panels to Metric dashboards, Chart overlays, Split comparisons, Table data views, and Ticker feeds — so market analysis, economic explainers, and data-heavy business reporting all render with appropriate authority.",
+    idealFor: [
+      "Market analysis and financial commentary",
+      "Economic explainers and macro trend breakdowns",
+      "Earnings reports and company performance recaps",
+      "Investment thesis and portfolio strategy content",
+      "Fintech product and API explainers",
+    ],
+    exampleTopics: [
+      "Q3 earnings breakdown: what the numbers actually mean",
+      "Why the yield curve inversion matters for your portfolio",
+      "How central bank policy shapes startup valuations",
+    ],
+  },
+  {
+    slug: "chronicle",
+    name: "Chronicle",
+    description:
+      "A richly textured historical template with parchment, wax seals, illuminated drop caps, and archival gravitas.",
+    bestFor: "History content, long-form narrative journalism, biographical storytelling, and archival research.",
+    differentiator:
+      "Wraps written history and narrative journalism in a visual system that feels genuinely archival — illuminated manuscripts, embossed imagery, book-page transitions, and quill-ink motion give the content earned gravitas.",
+    styleFit: "Best for history, biography, long-form narrative, and archival storytelling.",
+    previewSceneKey: "preview-chronicle",
+    layouts: [
+      "book_open",
+      "parchment_scroll",
+      "chapter_plate",
+      "chronicle_timeline",
+      "illuminated_quote",
+      "ledger_stats",
+      "map_reveal",
+      "decree_seal",
+      "versus_folio",
+      "ending_socials",
+    ],
+    longDescription:
+      "Chronicle is a historically-styled template that draws from illuminated manuscripts, archival documents, and antique cartography to create a visual language appropriate for serious historical and biographical content. Parchment textures, wax seal transitions, embossed imagery, ornamental borders, and quill-ink animations give the template a sense of earned authority. Layouts like Book Open, Chronicle Timeline, Map Reveal, and Decree Seal are purpose-built for narrative history, long-form journalism, and biographical storytelling where the visual weight should match the depth of the content.",
+    idealFor: [
+      "Historical analysis and documentary-style content",
+      "Biographical profiles and life-story narratives",
+      "Long-form narrative journalism",
+      "Academic and archival research explainers",
+      "Heritage, culture, and tradition storytelling",
+    ],
+    exampleTopics: [
+      "The rise and fall of the Roman grain trade",
+      "Ada Lovelace: the first programmer the world forgot",
+      "How the Silk Road shaped the modern global economy",
+    ],
+  },
+  {
+    slug: "economist",
+    name: "The Economist",
+    description:
+      "A precise editorial template in the style of a printed weekly — red masthead, serif headlines, ruled charts, and data tables.",
+    bestFor: "Business and finance analysis, economic explainers, data-driven journalism, and policy briefings.",
+    differentiator:
+      "Renders your content as a genuine print-weekly spread — house-red accents, column layouts, and signature ruled charts — giving analytical writing instant editorial authority.",
+    styleFit: "Best for serious, data-forward analysis and editorial journalism.",
+    previewSceneKey: "preview-economist",
+    layouts: [
+      "cover_reveal",
+      "leader_article",
+      "section_divider",
+      "chart_line",
+      "chart_bar",
+      "data_table",
+      "pros_cons",
+      "key_indicators",
+      "leader_quote",
+      "image_feature",
+      "ending_socials",
+    ],
+    longDescription:
+      "The Economist template renders written analysis as a printed weekly newspaper, complete with a red masthead, serif headlines, multi-column body copy, and the publication's signature ruled charts. Layouts like Cover Reveal, Leader Article, Chart Line, Chart Bar, Data Table, Pros & Cons, and Key Indicators are purpose-built for business, finance, and economic content where precision and editorial authority matter. The result reads like a feature in a serious newspaper rather than a generic AI video — ideal for turning analytical writing and data-heavy reporting into video.",
+    idealFor: [
+      "Business and finance analysis",
+      "Economic and policy explainers",
+      "Data-driven journalism and reporting",
+      "Market and industry briefings",
+      "Editorial commentary and opinion pieces",
+    ],
+    exampleTopics: [
+      "Why central banks are split on cutting rates",
+      "The numbers behind the global trade slowdown",
+      "What the latest jobs report really tells us",
+    ],
+  },
+  {
+    slug: "stickman_football",
+    name: "Stickmen Football Match",
+    description:
+      "A playful hand-drawn football template with animated stickman players, a match-day pitch, and chalkboard-style charts and tickers.",
+    bestFor: "Sports recaps, match analysis, fan content, and any energetic, lighthearted explainer.",
+    differentiator:
+      "Brings your content to life with animated stickman footballers dribbling, passing, and scoring — a hand-drawn match-day world that no stock-footage tool can replicate.",
+    styleFit: "Best for sports storytelling, playful explainers, and content that should feel fun and kinetic.",
+    previewSceneKey: "preview-stickman-football",
+    layouts: [
+      "kickoff_title",
+      "passing_play",
+      "ball_control",
+      "freekick_setup",
+      "corner_kick",
+      "goal_moment",
+      "injury_break",
+      "match_stats",
+      "football_data_viz",
+      "football_ticker",
+      "text_narration",
+      "ending_socials",
+    ],
+    longDescription:
+      "Stickman Football turns written content into an animated match-day broadcast played out by hand-drawn stickman footballers. Players run on, trap long balls, dribble, set up free kicks, and celebrate goals across a green pitch, while chalkboard-style data visualizations, match-stat cards, and league tickers carry the numbers. Layouts like Kickoff Title, Passing Play, Goal Moment, Match Stats, and Football Data Viz make sports recaps, tactical breakdowns, and fan explainers feel energetic and alive without any footage, presenters, or production crew.",
+    idealFor: [
+      "Match recaps and weekend round-ups",
+      "Tactical breakdowns and player analysis",
+      "Sports newsletters and fan-channel content",
+      "League standings and stat-driven updates",
+      "Playful explainers that need a fun, kinetic tone",
+    ],
+    exampleTopics: [
+      "Five takeaways from the weekend's biggest match",
+      "How the underdogs pulled off the upset",
+      "The numbers behind this season's title race",
+    ],
+  },
+  {
+    slug: "stickman_2",
+    name: "Stickmen 2: Night Edition",
+    description:
+      "A moody hand-drawn chalk template with glowing stickman characters telling stories under a starlit night sky.",
+    bestFor: "Reflective storytelling, late-night explainers, creative narratives, and atmospheric content.",
+    differentiator:
+      "Sets your story against a glowing chalk-on-black night world — stickman characters, shooting stars, lanterns, and constellations — for an intimate, cinematic feel built entirely from hand-drawn animation.",
+    styleFit: "Best for narrative, reflective, and atmospheric content that benefits from a calm, cinematic mood.",
+    previewSceneKey: "preview-stickman-2",
+    layouts: [
+      "chalk_title",
+      "night_walk",
+      "shooting_star",
+      "lantern_dialogue",
+      "constellation_stats",
+      "moonphase_chart",
+      "shadow_comparison",
+      "signal_fire_scene",
+      "neon_countdown",
+      "data_visualisation",
+      "ticker_table",
+      "ending_socials",
+    ],
+    longDescription:
+      "Stickman 2 is a hand-drawn chalk template that stages your content as glowing white line-art on a deep night sky. Stickman characters walk beneath the stars, watch shooting stars streak overhead, trade lantern-lit dialogue, and gather around signal fires, while constellation stat boards, moon-phase charts, and chalk data visualizations carry the information. Layouts like Chalk Title, Night Walk, Lantern Dialogue, Shadow Comparison, and Neon Countdown give reflective stories, creative narratives, and atmospheric explainers an intimate, cinematic feel without any footage or production setup.",
+    idealFor: [
+      "Reflective and narrative-driven storytelling",
+      "Late-night or atmospheric explainers",
+      "Creative and personal-brand content",
+      "Calm, mood-first educational pieces",
+      "Stories that benefit from a cinematic, hand-drawn aesthetic",
+    ],
+    exampleTopics: [
+      "A quiet reflection on why we build at night",
+      "The story behind a single big idea",
+      "Lessons learned, told under the stars",
+    ],
+  },
+  {
+    slug: "magazine",
+    name: "Magazine",
+    description:
+      "A glossy editorial cover-story template that puts your subject on the cover of a TIME-style magazine, complete with feature spreads, pull quotes, and by-the-numbers panels.",
+    bestFor: "Personal-brand features, founder and customer profiles, milestone announcements, and prestige storytelling that should feel like a magazine cover story.",
+    differentiator:
+      "Puts you — or your subject — on the cover of a TIME-style magazine, then unfolds the story as a designed editorial spread: cover reveals, feature layouts, interview Q&As, and by-the-numbers panels that no stock-footage tool can replicate.",
+    styleFit: "Best for prestige, personal-brand, and milestone content that should feel like a cover story.",
+    previewSceneKey: "preview-magazine",
+    layouts: [
+      "magazine_cover",
+      "feature",
+      "editorial_quote",
+      "interview_qa",
+      "by_the_numbers",
+      "colorblock",
+      "comparison",
+      "timeline_journey",
+      "magazine_data_visualization",
+      "magazine_ticker",
+      "text_narration",
+      "ending_socials",
+    ],
+    longDescription:
+      "Magazine turns written content into a glossy editorial cover story. It opens by putting your subject on the cover of a TIME-style magazine — masthead, cover lines, and hero portrait — then unfolds the rest as a designed print spread. Layouts like Magazine Cover, Feature, Editorial Quote, Interview Q&A, By the Numbers, and Colorblock give founder profiles, personal-brand pieces, and milestone announcements the weight and prestige of a published feature. Pull quotes, data charts, and ticker tables carry the substance, so the final video reads like a cover story a real editorial team art-directed rather than an auto-generated slideshow.",
+    idealFor: [
+      "Personal-brand features and founder profiles",
+      "Customer and case-study spotlights",
+      "Milestone and launch announcements that deserve prestige treatment",
+      "Award, list, and 'person of the year' style features",
+      "Interview and Q&A content packaged as an editorial spread",
+    ],
+    exampleTopics: [
+      "Put yourself on the cover: a founder's year in review",
+      "Customer of the month: how one team shipped 12 videos in an afternoon",
+      "The interview issue: five questions with our lead designer",
+    ],
+  },
+  {
+    slug: "custom",
+    name: "Custom Templates",
+    description:
+      "A fully branded template generated from your own website — your exact colors, fonts, and style applied to every scene.",
+    bestFor: "Brand, marketing, and product teams that need every video to look on-brand without manual design work.",
+    differentiator:
+      "Paste any URL and Blog2Video extracts your brand — colors, typography, and style — into a custom video template, so the output looks like your design team made it instead of a generic stock theme.",
+    styleFit: "Best for teams that need pixel-perfect brand consistency across every video they publish.",
+    layouts: [
+      "brand_intro",
+      "key_point",
+      "feature_grid",
+      "data_highlight",
+      "quote_callout",
+      "comparison",
+      "step_flow",
+      "outro_cta",
+    ],
+    longDescription:
+      "Custom Templates turn your brand into a reusable video system. Drop in a website URL and Blog2Video reads its design language — accent and surface colors, heading and body fonts, border radius, and animation style — then generates a bespoke template that applies that identity to every scene. Instead of restyling each piece of content by hand, you get branded intros, content scenes, data highlights, pull quotes, and outros that already match your guidelines. The result is video that looks like your design team produced it, generated automatically from your articles and kept consistent across product, marketing, and education channels.",
+    idealFor: [
+      "Brand and marketing teams enforcing visual consistency",
+      "Agencies producing on-brand video for multiple clients",
+      "Product teams turning docs and changelogs into branded clips",
+      "Companies repurposing a blog archive without re-designing each video",
+      "Anyone who wants their exact colors and fonts in every scene",
+    ],
+    exampleTopics: [
+      "Turn your latest product announcement into an on-brand explainer",
+      "Repurpose your blog archive with your brand on every frame",
+      "Generate a branded video series straight from your website",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
   },
 ];

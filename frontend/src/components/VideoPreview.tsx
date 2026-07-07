@@ -1,19 +1,62 @@
+<<<<<<< HEAD
 import React, { useMemo, useEffect, useState, useCallback } from "react";
 import { Player } from "@remotion/player";
+=======
+import React, { useMemo, useEffect, useState, useCallback, useRef, forwardRef } from "react";
+import { createPortal } from "react-dom";
+import { Player } from "@remotion/player";
+import type { PlayerRef } from "@remotion/player";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   AbsoluteFill,
   Sequence,
   Audio,
 } from "remotion";
+<<<<<<< HEAD
 import { BACKEND_URL, Project, getTemplateCode } from "../api/client";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
 import {
   compileComponentCode,
+=======
+import { TransitionSeries, linearTiming } from "@remotion/transitions";
+import {
+  BACKEND_URL,
+  Project,
+  getTemplateCode,
+  getValidLayouts,
+  type CraftedTemplateDetail,
+  type CraftedTemplateItem,
+} from "../api/client";
+import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
+import { isBuiltinDataVizChartLayout, isBuiltinTickerLayout } from "./sceneEditBuiltinDataViz";
+import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
+import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
+import { resolveFontFamily } from "../fonts/registry";
+import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
+import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
+import { computeSakuraVideoTotalFrames } from "./remotion/sakura/SakuraVideoComposition";
+import { planMagazineBoundaries, resolveMagazineLayout } from "./remotion/magazine/MagazineVideoComposition";
+import {
+  compileComponentCode,
+  compileModuleGraphEntry,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   type SceneProps,
 } from "../utils/compileComponent";
 import { LogoOverlay } from "./remotion/LogoOverlay";
 import { CtaOverlay } from "./remotion/CtaOverlay";
+<<<<<<< HEAD
+=======
+import { BackgroundMusic } from "./remotion/BackgroundMusic";
+import { CaptionTrack } from "./remotion/CaptionTrack";
+// Brand exit-flourish between scenes — mirrors the headless render so the
+// "all scenes together" preview shows the SAME transitions the final video has.
+import { pickGeneratedTransition } from "./remotion/generated/generatedTransitions";
+// Dedicated data-viz scenes (custom templates) — same kit components the render
+// uses, so preview matches the final video.
+import { DataChartScene, DataTableScene } from "./remotion/generated/kit";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -22,6 +65,13 @@ const StableCustomComposition: React.FC<any> = ({
   project,
   numContentVariants,
   resolvedFontFamily,
+<<<<<<< HEAD
+=======
+  captionsEnabled,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   if (!isCustom || !compiledScenes) return null;
 
@@ -44,6 +94,22 @@ const StableCustomComposition: React.FC<any> = ({
   const aspectRatio = (project.aspect_ratio || "landscape") as "landscape" | "portrait";
   const totalScenes = scenes.length;
   const FPS = 30;
+<<<<<<< HEAD
+=======
+  const playbackSpeed = 1;
+
+  // Brand transition family (motion personality) — drives which real two-scene
+  // transition plays between scenes, matching the render. Falls back to the
+  // default pool.
+  const transitionFamily = (project.custom_theme as { motion?: { transitionFamily?: string[] } } | undefined)
+    ?.motion?.transitionFamily;
+  const canvasW = aspectRatio === "portrait" ? 1080 : 1920;
+  const canvasH = aspectRatio === "portrait" ? 1920 : 1080;
+  if (typeof console !== "undefined") {
+    // eslint-disable-next-line no-console
+    console.log(`[F7-DEBUG][V3][PREVIEW-TRANSITION] injecting ${Math.max(0, totalScenes - 1)} transitions, family=${transitionFamily ? transitionFamily.join(",") : "default"}`);
+  }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const sceneAssignments: { type: string; variantKey: string }[] = [];
   let contentIdx = 0;
@@ -52,6 +118,15 @@ const StableCustomComposition: React.FC<any> = ({
     let sceneType = "content";
     let variantIdx = 0;
 
+<<<<<<< HEAD
+=======
+    // Dedicated data-viz scenes route by scene_type (set on the DB scene).
+    if (scene?.scene_type === "dataviz_chart" || scene?.scene_type === "dataviz_table") {
+      sceneAssignments.push({ type: scene.scene_type, variantKey: scene.scene_type });
+      continue;
+    }
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if (scene?.remotion_code) {
       try {
         const desc = JSON.parse(scene.remotion_code);
@@ -87,6 +162,7 @@ const StableCustomComposition: React.FC<any> = ({
   let offset = 0;
   for (const s of scenes) {
     frameOffsets.push(offset);
+<<<<<<< HEAD
     const dur = Math.max(1, Math.round(s.durationSeconds * FPS));
     frameDurations.push(dur);
     offset += dur;
@@ -104,10 +180,53 @@ const StableCustomComposition: React.FC<any> = ({
         if (!SceneComp) return null;
 
         const sc = (s.structuredContent || {}) as Record<string, unknown>;
+=======
+    const dur = getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed);
+    frameDurations.push(dur);
+    offset += dur;
+  }
+  // Real two-scene transitions (TransitionSeries). Each non-last sequence is held
+  // by exactly its transition's frames, so total duration + audio start frames
+  // (frameOffsets) stay the back-to-back schedule — totalDurationFrames and audio
+  // sync are unchanged. See generatedTransitions.ts.
+  const transitions = scenes.map((_: unknown, i: number) =>
+    i < totalScenes - 1
+      ? pickGeneratedTransition(i, transitionFamily, canvasW, canvasH, brandColors.accent)
+      : null,
+  );
+
+  return (
+    <AbsoluteFill style={{ fontFamily: resolvedFontFamily || undefined }}>
+      <TransitionSeries>
+      {scenes.map((s: any, i: number) => {
+        const assignment = sceneAssignments[i];
+        const isDataViz =
+          assignment.type === "dataviz_chart" || assignment.type === "dataviz_table";
+        const SceneComp: React.ComponentType<Record<string, unknown>> = isDataViz
+          ? ((assignment.type === "dataviz_chart" ? DataChartScene : DataTableScene) as unknown as React.ComponentType<Record<string, unknown>>)
+          : ((compiledScenes[assignment.variantKey] ||
+             compiledScenes["intro"] ||
+             Object.values(compiledScenes)[0]) as unknown as React.ComponentType<Record<string, unknown>>);
+
+        const t = transitions[i];
+
+        const sc = (s.structuredContent || {}) as Record<string, unknown>;
+        const focusX = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusX ?? 50);
+        const focusY = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusY ?? 50);
+        const imageZoom = Math.max(
+          1,
+          Number((s.layoutProps as Record<string, unknown> | undefined)?.imageZoom ?? 1),
+        );
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         const sceneProps: SceneProps = {
           displayText: s.narration || s.title,
           narrationText: s.narration || "",
           imageUrl: s.imageUrl,
+<<<<<<< HEAD
+=======
+          imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
+          imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           sceneIndex: i,
           totalScenes,
           logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
@@ -131,6 +250,7 @@ const StableCustomComposition: React.FC<any> = ({
         };
 
         // console.log(`[F7-DEBUG] [CustomComp] scene ${i}: displayText=${sceneProps.displayText?.substring(0,60)}, contentType=${sceneProps.contentType}, bullets=${sceneProps.bullets?.length}`);
+<<<<<<< HEAD
         return (
           <Sequence key={s.id} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
             {s.ctaProps ? (
@@ -150,6 +270,89 @@ const StableCustomComposition: React.FC<any> = ({
           </Sequence>
         );
       })}
+=======
+        const visual = !SceneComp ? (
+          <AbsoluteFill />
+        ) : s.ctaProps ? (
+          <CtaOverlay
+            ctaProps={s.ctaProps as any}
+            brandColors={brandColors}
+            aspectRatio={aspectRatio}
+            headingFont={headingFont}
+            bodyFont={bodyFont}
+            title={sceneProps.displayText}
+            logoUrl={sceneProps.logoUrl}
+          />
+        ) : (
+          <AbsoluteFill
+            style={{
+              ["--img-pos" as string]: sceneProps.imageObjectPosition,
+              ["--img-zoom" as string]: String(imageZoom),
+            }}
+          >
+            <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
+            <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
+              {isDataViz ? (
+                <SceneComp
+                  {...(sceneProps as unknown as Record<string, unknown>)}
+                  displayText={s.title || sceneProps.displayText}
+                  chartTable={(s.layoutProps as Record<string, unknown>)?.chartTable}
+                  chartType={(s.layoutProps as Record<string, unknown>)?.chartType}
+                  chartSummary={(s.layoutProps as Record<string, unknown>)?.chartSummary}
+                />
+              ) : (
+                <SceneComp {...sceneProps} />
+              )}
+            </div>
+          </AbsoluteFill>
+        );
+
+        const sequence = (
+          <TransitionSeries.Sequence
+            key={`seq-${s.id}`}
+            durationInFrames={frameDurations[i] + (t ? t.frames : 0)}
+          >
+            {visual}
+          </TransitionSeries.Sequence>
+        );
+        if (!t) return sequence;
+        return (
+          <React.Fragment key={`scene-${s.id}`}>
+            {sequence}
+            <TransitionSeries.Transition
+              presentation={t.presentation}
+              timing={linearTiming({ durationInFrames: t.frames })}
+            />
+          </React.Fragment>
+        );
+      })}
+      </TransitionSeries>
+
+      {/* Voiceover lives on a parallel absolute timeline (NOT inside the
+          TransitionSeries) so transition overlap never warps audio sync —
+          frameOffsets is the plain back-to-back schedule. */}
+      {scenes.map((s: any, i: number) =>
+        s.voiceoverUrl ? (
+          <Sequence key={`audio-${s.id}`} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
+            <Audio src={s.voiceoverUrl} playbackRate={1} />
+            {captionsEnabled && (s.narrationText || s.narration) && (
+              <CaptionTrack
+                text={s.narrationText || s.narration}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : undefined}
+                fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
+                speechDurationFrames={
+                  s.speechDurationSeconds
+                    ? getSceneDurationFrames(s.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
+            )}
+          </Sequence>
+        ) : null,
+      )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       {project.logo_r2_url && (
         <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>
@@ -162,20 +365,60 @@ const StableCustomComposition: React.FC<any> = ({
           />
         </AbsoluteFill>
       )}
+<<<<<<< HEAD
+=======
+
+      {project.bgm_track_url && (
+        <BackgroundMusic
+          src={project.bgm_track_url}
+          volume={project.bgm_volume ?? 0.10}
+          scenes={(project.scenes ?? []).map((s: { duration_seconds?: number; extra_hold_seconds?: number | null; bgm_volume?: number | null }) => ({
+            durationSeconds: (Number(s.duration_seconds) || 5) + (Number(s.extra_hold_seconds) || 0),
+            bgmVolume: s.bgm_volume ?? null,
+          }))}
+        />
+      )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </AbsoluteFill>
   );
 };
 
 interface VideoPreviewProps {
   project: Project;
+  /**
+   * `layout_prop_schema` from backend `meta.json` (via GET `/projects/:id/layouts`).
+   * When omitted, VideoPreview loads it itself (unless template is custom).
+   */
+  layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
   logoSizeOverride?: number;
   logoOpacityOverride?: number;
   logoPositionOverride?: string;
+<<<<<<< HEAD
+=======
+  onPlaybackSpeedChange?: (speed: number) => void | Promise<void>;
+  playbackSpeedSaving?: boolean;
+  onCaptionSettingsChange?: (settings: CaptionSettings) => void | Promise<void>;
+  captionsSaving?: boolean;
+  captionSettingsKey?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   precompiledTemplateData?: {
     intro_code: string | null;
     content_codes: string[] | null;
     outro_code: string | null;
   };
+<<<<<<< HEAD
+=======
+  /** Start the player at this frame and keep it paused there (for modal preview). */
+  initialFrame?: number;
+  /** Hide the Remotion playback controls bar. */
+  hideControls?: boolean;
+  /**
+   * Pre-fetched crafted template detail (e.g. from a public embed response).
+   * When provided, bypasses `useCraftedTemplates()` / `ensureCraftedTemplateDetail`,
+   * which require an authenticated user and are unavailable on public preview pages.
+   */
+  precompiledCraftedDetail?: CraftedTemplateDetail | null;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 interface SceneInput {
@@ -189,10 +432,12 @@ interface SceneInput {
   structuredContent?: Record<string, unknown>;
   ctaProps?: Record<string, unknown>;
   durationSeconds: number;
+  bgmVolume?: number | null;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
 
+<<<<<<< HEAD
 /** Map of scene type keys ("intro", "content_0", ..., "outro") to compiled React components. */
 type CompiledSceneMap = Record<string, React.FC<SceneProps>>;
 
@@ -208,6 +453,964 @@ export default function VideoPreview({
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
   const isCustom = templateId.startsWith("custom_");
+=======
+function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | CraftedTemplateDetail | null): string | null {
+  if (!template) return null;
+  const directLogo = Array.isArray(template.logo_urls)
+    ? template.logo_urls.find((url) => typeof url === "string" && url.trim())
+    : null;
+  if (directLogo) return directLogo;
+
+  const publicAssets = template.public_asset_urls;
+  if (publicAssets && typeof publicAssets === "object") {
+    const preferredEntry = Object.entries(publicAssets).find(([key]) =>
+      /(?:^|\/)(?:laduc-)?(?:brand-)?logo\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+    const fallbackEntry = Object.entries(publicAssets).find(([key]) =>
+      /logo.*\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+
+    const resolved = preferredEntry?.[1] || fallbackEntry?.[1];
+    if (resolved) return resolved;
+  }
+
+  if (template.id === "crafted_laduc_bundle" && typeof template.preview_image_url === "string") {
+    return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/laduc/laduc-brand-logo.png");
+  }
+
+  if (template.id === "crafted_fj_market_brief_bundle" && typeof template.preview_image_url === "string") {
+    return template.preview_image_url.replace(/\/assets\/preview\.[a-z0-9]+(?:\?.*)?$/i, "/public/templates/fj_market_brief/fj-brand-logo.png");
+  }
+
+  return null;
+}
+
+/** Map of scene type keys ("intro", "content_0", ..., "outro") to compiled React components. */
+type CompiledSceneMap = Record<string, React.FC<SceneProps>>;
+
+/** Fill missing title/description font sizes from meta.json layout_prop_schema (matches SceneEditModal). */
+function mergeMetaFontSizesIntoLayoutProps(
+  layoutProps: Record<string, unknown>,
+  layoutId: string | null | undefined,
+  aspectRatio: string,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  if (!layoutId || !schema || Object.keys(schema).length === 0) return layoutProps;
+  const titleRaw = layoutProps.titleFontSize;
+  const descRaw = layoutProps.descriptionFontSize;
+  const hasTitle = typeof titleRaw === "number" && Number.isFinite(titleRaw);
+  const hasDesc = typeof descRaw === "number" && Number.isFinite(descRaw);
+  if (hasTitle && hasDesc) return layoutProps;
+  const ar = aspectRatio === "portrait" ? "portrait" : "landscape";
+  const fromSchema = getDefaultFontSizesFromSchema(schema, layoutId, ar);
+  if (!fromSchema) return layoutProps;
+  const next = { ...layoutProps };
+  if (!hasTitle) next.titleFontSize = fromSchema.title;
+  if (!hasDesc) next.descriptionFontSize = fromSchema.desc;
+  return next;
+}
+
+/**
+ * For LaDuc `market_annotation*` layouts, fill in `chartTable` (and
+ * `chartType`) from meta.json defaults when the stored layoutProps don't
+ * carry one. Mirrors the backend renderer's defaults-merge in
+ * `remotion.py:932-953`, so the project preview shows the same chart that
+ * the rendered MP4 produces.
+ *
+ * Narrowly scoped to the chart fields only — does not touch any other defaults.
+ * Keep in sync with `mergeMarketAnnotationChartDefaultsForLayout` in SceneEditModal.
+ */
+function mergeMarketAnnotationChartDefaults(
+  layoutProps: Record<string, unknown>,
+  templateId: string | null | undefined,
+  layoutId: string | null | undefined,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  const isChartLayout =
+    (!!layoutId && layoutId.startsWith("market_annotation")) ||
+    isBuiltinDataVizChartLayout(templateId, layoutId);
+  const isTickerLayout = isBuiltinTickerLayout(templateId, layoutId);
+  if (!layoutId || (!isChartLayout && !isTickerLayout)) return layoutProps;
+  if (!schema || Object.keys(schema).length === 0) return layoutProps;
+  const defaults = schema[layoutId]?.defaults;
+  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  if (isTickerLayout) {
+    const existingTickerTable = layoutProps.tickerTable;
+    const existingTickerTableHasRows =
+      existingTickerTable &&
+      typeof existingTickerTable === "object" &&
+      Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+      ((existingTickerTable as { rows: unknown[] }).rows.length > 0);
+    if (existingTickerTableHasRows) return layoutProps;
+    if (defaults.tickerTable && typeof defaults.tickerTable === "object") {
+      return { ...layoutProps, tickerTable: defaults.tickerTable };
+    }
+    return layoutProps;
+  }
+
+  const existingTable = layoutProps.chartTable;
+  const existingTableHasRows =
+    existingTable &&
+    typeof existingTable === "object" &&
+    Array.isArray((existingTable as { rows?: unknown }).rows) &&
+    ((existingTable as { rows: unknown[] }).rows.length > 0);
+  if (existingTableHasRows && layoutProps.chartType) return layoutProps;
+
+  const next = { ...layoutProps };
+  if (!existingTableHasRows && defaults.chartTable && typeof defaults.chartTable === "object") {
+    next.chartTable = defaults.chartTable;
+  }
+  if (!layoutProps.chartType && typeof defaults.chartType === "string") {
+    next.chartType = defaults.chartType;
+  }
+  return next;
+}
+
+export interface CaptionSettings {
+  captionsEnabled: boolean;
+  captionFontFamily: string;
+  captionFontSize: number;
+  /** Vertical fine-tune within the bottom region: -100..+100 (0 = default, + = up). */
+  captionOffset: number;
+}
+
+function buildCaptionSettingsFromProject(project: Project): CaptionSettings {
+  const hasVoiceover = (project.scenes || []).some((s) => !!s.voiceover_path);
+  return {
+    captionsEnabled: (project.captions_enabled ?? false) && hasVoiceover,
+    captionFontFamily: project.caption_font_family ?? "inter",
+    captionFontSize: project.caption_font_size ? Number(project.caption_font_size) || 36 : 36,
+    captionOffset: typeof project.caption_offset === "number" ? project.caption_offset : 0,
+  };
+}
+
+// ─── YouTube-style playback speed control ────────────────────────────────────
+
+const SPEED_OPTIONS: (0.5 | 1 | 1.5 | 2 | 2.5)[] = [0.5, 1, 1.5, 2, 2.5];
+
+function PlaybackSpeedControl({
+  currentSpeed,
+  saving,
+  onChange,
+  playerContainerRef,
+}: {
+  currentSpeed: number;
+  saving: boolean;
+  onChange?: (speed: number) => void | Promise<void>;
+  playerContainerRef?: React.RefObject<PlayerRef | null>;
+}) {
+  // Keep Remotion's control bar visible while cursor is inside this component.
+  // Remotion hides controls on "mouseleave" from its container; dispatching a
+  // synthetic "mousemove" on that container tricks it into staying shown.
+  const keepPlayerControlsVisible = useCallback(() => {
+    const container = playerContainerRef?.current?.getContainerNode();
+    if (!container) return;
+    container.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true }));
+  }, [playerContainerRef]);
+  const [open, setOpen] = useState(false);
+  const [sliderSpeed, setSliderSpeed] = useState(currentSpeed);
+  const ref = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const lastCommittedSpeedRef = useRef<number>(currentSpeed);
+  // Popup is rendered via portal into document.body so no ancestor overflow/transform clips it
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    setSliderSpeed(currentSpeed);
+    lastCommittedSpeedRef.current = currentSpeed;
+  }, [currentSpeed]);
+
+  const commitSliderSpeed = useCallback(() => {
+    const next = Math.min(2.5, Math.max(0.5, Math.round(sliderSpeed * 10) / 10));
+    if (Math.abs(next - lastCommittedSpeedRef.current) < 0.001) return;
+    lastCommittedSpeedRef.current = next;
+    void onChange?.(next);
+  }, [onChange, sliderSpeed]);
+
+  // Calculate fixed-position coordinates for the popup so it is never clipped
+  const openPopup = useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const POPUP_HEIGHT = 290; // approximate height of the popup
+    const rightOffset = window.innerWidth - rect.right;
+    // Prefer opening upward; fall back to downward on small screens
+    if (rect.top >= POPUP_HEIGHT + 6) {
+      setPopupStyle({
+        position: "fixed",
+        bottom: window.innerHeight - rect.top + 6,
+        right: rightOffset,
+        zIndex: 9999,
+      });
+    } else {
+      setPopupStyle({
+        position: "fixed",
+        top: rect.bottom + 6,
+        right: rightOffset,
+        zIndex: 9999,
+      });
+    }
+    setOpen(true);
+  }, []);
+
+  // Close on outside click or touch — check both the button wrapper and the portal popup
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent | TouchEvent) => {
+      const target = (e.type === "touchstart"
+        ? (e as TouchEvent).touches[0]?.target
+        : (e as MouseEvent).target) as Node | null;
+      if (
+        ref.current?.contains(target) ||
+        popupRef.current?.contains(target)
+      ) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler as EventListener);
+    document.addEventListener("touchstart", handler as EventListener, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handler as EventListener);
+      document.removeEventListener("touchstart", handler as EventListener);
+    };
+  }, [open]);
+
+  const btnStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    border: "none",
+    background: open ? "rgba(255,255,255,0.15)" : "transparent",
+    cursor: saving || !onChange ? "default" : "pointer",
+    color: "#f9fafb",
+    transition: "background 150ms",
+    position: "relative",
+  };
+
+  return (
+    <div
+      ref={ref}
+      onMouseEnter={keepPlayerControlsVisible}
+      onMouseMove={keepPlayerControlsVisible}
+      style={{
+        position: "absolute",
+        // Sit inside the Remotion control bar row, just to the left of the fullscreen button
+        right: 40,
+        bottom: 30,
+        zIndex: 40,
+        pointerEvents: "auto",
+      }}
+    >
+      {/* Popup menu — rendered via portal into document.body so no ancestor overflow/transform clips it */}
+      {open && createPortal(
+        <div
+          ref={popupRef}
+          style={{
+            ...popupStyle,
+            background: "#ffffff",
+            border: "1px solid rgba(15,23,42,0.12)",
+            borderRadius: 12,
+            backdropFilter: "blur(6px)",
+            padding: "8px 0",
+            minWidth: 200,
+            boxShadow: "0 12px 28px rgba(15,23,42,0.2)",
+          }}
+        >
+          <p
+            style={{
+              color: "#64748b",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              textTransform: "none",
+              padding: "0 14px 8px",
+              margin: 0,
+              borderBottom: "1px solid rgba(15,23,42,0.1)",
+            }}
+          >
+            Playback speed
+          </p>
+          {SPEED_OPTIONS.map((speed) => {
+            const active = speed === currentSpeed;
+            return (
+              <button
+                key={speed}
+                onClick={() => {
+                  if (speed === currentSpeed) { setOpen(false); return; }
+                  setOpen(false);
+                  setSliderSpeed(speed);
+                  void onChange?.(speed);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  background: active ? "rgba(147,51,234,0.25)" : "transparent",
+                  border: "none",
+                  color: active ? "#7c3aed" : "#0f172a",
+                  fontSize: 12,
+                  fontWeight: active ? 600 : 500,
+                  padding: "8px 14px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "background 120ms",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "rgba(15,23,42,0.06)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                }}
+              >
+                <span>{speed === 1 ? "Normal" : `${speed}×`}</span>
+                {active && (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="#7c3aed" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+          <div style={{ padding: "10px 14px", borderTop: "1px solid rgba(15,23,42,0.1)" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 500, color: "#64748b" }}>Custom speed</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed" }}>
+                {sliderSpeed.toFixed(1)}×
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0.5}
+              max={2.5}
+              step={0.1}
+              value={sliderSpeed}
+              onChange={(e) => {
+                setSliderSpeed(Number(e.target.value));
+              }}
+              onMouseUp={commitSliderSpeed}
+              onTouchEnd={commitSliderSpeed}
+              onKeyUp={commitSliderSpeed}
+              onBlur={commitSliderSpeed}
+              style={{
+                width: "100%",
+                cursor: "pointer",
+                accentColor: "#a855f7",
+                height: 3,
+              }}
+              aria-label="Playback speed slider"
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Icon button */}
+      <button
+        data-tour="playback-speed"
+        onClick={() => { if (!saving && onChange) { open ? setOpen(false) : openPopup(); } }}
+        style={btnStyle}
+        title={`Playback speed: ${currentSpeed.toFixed(1)}×`}
+        aria-label="Playback speed"
+      >
+        {saving ? (
+          /* Spinner */
+          <svg width="22" height="22" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 0.8s linear infinite" }}>
+            <circle cx="8" cy="8" r="6" stroke="rgba(255,255,255,0.25)" strokeWidth="2"/>
+            <path d="M14 8a6 6 0 0 0-6-6" stroke="#f9fafb" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        ) : (
+          /* Speedometer / gauge icon (matches YouTube style) */
+          <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+            {/* Outer arc */}
+            <path
+              d="M3.5 13.5A7.5 7.5 0 1 1 16.5 13.5"
+              stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none"
+            />
+            {/* Tick marks */}
+            <line x1="10" y1="3" x2="10" y2="4.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            <line x1="4.5" y1="5.5" x2="5.6" y2="6.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            <line x1="15.5" y1="5.5" x2="14.4" y2="6.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            {/* Needle pointing toward top-right */}
+            <line x1="10" y1="10" x2="13.8" y2="6.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            {/* Center dot */}
+            <circle cx="10" cy="10" r="1.2" fill="currentColor"/>
+          </svg>
+        )}
+        {/* Speed label */}
+        {!saving && (
+          <span style={{
+            position: "absolute",
+            bottom: -1,
+            right: -1,
+            fontSize: 8,
+            fontWeight: 700,
+            lineHeight: 1,
+            color: "#fff",
+            borderRadius: 3,
+            padding: "1px 2px",
+          }}>
+            {`${currentSpeed.toFixed(1)}×`}
+          </span>
+        )}
+      </button>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+// ─── CC (captions) control button ────────────────────────────────────────────
+
+const CAPTION_FONT_OPTIONS: { id: string; label: string }[] = [
+  { id: "inter", label: "Inter" },
+  { id: "poppins", label: "Poppins" },
+  { id: "montserrat", label: "Montserrat" },
+  { id: "roboto_slab", label: "Roboto Slab" },
+  { id: "oswald", label: "Oswald" },
+  { id: "lora", label: "Lora" },
+  { id: "patrick_hand", label: "Patrick Hand" },
+  { id: "arimo", label: "Arimo" },
+  { id: "archivo_black", label: "Archivo Black" },
+  { id: "merriweather", label: "Merriweather" },
+  { id: "playfair_display", label: "Playfair Display" },
+  { id: "fira_code", label: "Fira Code" },
+];
+
+function CaptionControl({
+  captionsEnabled,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+  saving,
+  onSave,
+  onPreviewChange,
+  playerContainerRef,
+}: {
+  captionsEnabled: boolean;
+  captionFontFamily: string;
+  captionFontSize: number;
+  captionOffset: number;
+  saving: boolean;
+  onSave?: (settings: CaptionSettings) => void | Promise<void>;
+  onPreviewChange?: (settings: CaptionSettings | null) => void;
+  playerContainerRef?: React.RefObject<PlayerRef | null>;
+}) {
+  const savedSettings = useMemo(
+    (): CaptionSettings => ({
+      captionsEnabled,
+      captionFontFamily,
+      captionFontSize,
+      captionOffset,
+    }),
+    [captionsEnabled, captionFontFamily, captionFontSize, captionOffset],
+  );
+
+  const keepPlayerControlsVisible = useCallback(() => {
+    const container = playerContainerRef?.current?.getContainerNode();
+    if (!container) return;
+    container.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true }));
+  }, [playerContainerRef]);
+
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<CaptionSettings>(savedSettings);
+  const ref = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (!open) setDraft(savedSettings);
+  }, [open, savedSettings]);
+
+  const closePopup = useCallback(() => {
+    setOpen(false);
+    onPreviewChange?.(null);
+  }, [onPreviewChange]);
+
+  const openPopup = useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const POPUP_HEIGHT = 420;
+    const rightOffset = window.innerWidth - rect.right;
+    setDraft(savedSettings);
+    onPreviewChange?.(null);
+    if (rect.top >= POPUP_HEIGHT + 6) {
+      setPopupStyle({ position: "fixed", bottom: window.innerHeight - rect.top + 6, right: rightOffset, zIndex: 9999 });
+    } else {
+      setPopupStyle({ position: "fixed", top: rect.bottom + 6, right: rightOffset, zIndex: 9999 });
+    }
+    setOpen(true);
+  }, [onPreviewChange, savedSettings]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent | TouchEvent) => {
+      const target = (e.type === "touchstart"
+        ? (e as TouchEvent).touches[0]?.target
+        : (e as MouseEvent).target) as Node | null;
+      if (ref.current?.contains(target) || popupRef.current?.contains(target)) return;
+      closePopup();
+    };
+    document.addEventListener("mousedown", handler as EventListener);
+    document.addEventListener("touchstart", handler as EventListener, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handler as EventListener);
+      document.removeEventListener("touchstart", handler as EventListener);
+    };
+  }, [open, closePopup]);
+
+  const updateDraft = useCallback((patch: Partial<CaptionSettings>) => {
+    setDraft((prev) => {
+      const next = { ...prev, ...patch };
+      onPreviewChange?.(next);
+      return next;
+    });
+  }, [onPreviewChange]);
+
+  const hasUnsavedChanges =
+    draft.captionsEnabled !== savedSettings.captionsEnabled
+    || draft.captionFontFamily !== savedSettings.captionFontFamily
+    || draft.captionFontSize !== savedSettings.captionFontSize
+    || draft.captionOffset !== savedSettings.captionOffset;
+
+  const handleSave = useCallback(async () => {
+    if (!onSave || saving) return;
+    await onSave(draft);
+    closePopup();
+  }, [closePopup, draft, onSave, saving]);
+
+  // Enable captions directly (with save) without opening the popup. Used when the
+  // user clicks the CC button while captions are off — a one-click turn-on.
+  const handleQuickEnable = useCallback(async () => {
+    if (!onSave || saving) return;
+    await onSave({ ...savedSettings, captionsEnabled: true });
+  }, [onSave, saving, savedSettings]);
+
+  const handleCcButtonClick = useCallback(() => {
+    if (saving || !onSave) return;
+    if (open) {
+      closePopup();
+      return;
+    }
+    // Off → enable in one click and save. On → open the popup so the user can
+    // tweak settings or turn captions off (which requires an explicit Save).
+    if (!captionsEnabled) {
+      void handleQuickEnable();
+    } else {
+      openPopup();
+    }
+  }, [saving, onSave, open, closePopup, captionsEnabled, handleQuickEnable, openPopup]);
+
+  const btnStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    border: "none",
+    background: open ? "rgba(255,255,255,0.15)" : "transparent",
+    cursor: saving || !onSave ? "default" : "pointer",
+    color: captionsEnabled ? "#f9fafb" : "rgba(249,250,251,0.4)",
+    transition: "background 150ms, color 150ms",
+    position: "relative",
+  };
+
+  return (
+    <div
+      ref={ref}
+      onMouseEnter={keepPlayerControlsVisible}
+      onMouseMove={keepPlayerControlsVisible}
+      style={{ position: "absolute", right: 84, bottom: 30, zIndex: 40, pointerEvents: "auto" }}
+    >
+      {open && createPortal(
+        <div
+          ref={popupRef}
+          style={{
+            ...popupStyle,
+            background: "#ffffff",
+            border: "1px solid rgba(15,23,42,0.12)",
+            borderRadius: 12,
+            backdropFilter: "blur(6px)",
+            padding: "8px 0",
+            minWidth: 220,
+            boxShadow: "0 12px 28px rgba(15,23,42,0.2)",
+          }}
+        >
+          <p style={{ color: "#64748b", fontSize: 11, fontWeight: 600, padding: "0 14px 8px", margin: 0, borderBottom: "1px solid rgba(15,23,42,0.1)" }}>
+            Captions
+          </p>
+
+          {/* Enable toggle */}
+          <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: "#0f172a" }}>Enable captions</span>
+            <button
+              onClick={() => updateDraft({ captionsEnabled: !draft.captionsEnabled })}
+              style={{
+                width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer",
+                background: draft.captionsEnabled ? "#7c3aed" : "#cbd5e1",
+                position: "relative", transition: "background 150ms", flexShrink: 0,
+              }}
+            >
+              <span style={{
+                position: "absolute", top: 2, left: draft.captionsEnabled ? 18 : 2,
+                width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                transition: "left 150ms", display: "block",
+              }} />
+            </button>
+          </div>
+
+          {draft.captionsEnabled && (
+            <>
+              {/* Vertical position — always bottom-anchored; slider fine-tunes
+                  up (right/positive) or down (left/negative). Center = default. */}
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Offset</p>
+                  <button
+                    onClick={() => updateDraft({ captionOffset: 0 })}
+                    style={{ fontSize: 10, fontWeight: 600, color: draft.captionOffset === 0 ? "#94a3b8" : "#7c3aed", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    {draft.captionOffset === 0 ? "Default" : "Reset"}
+                  </button>
+                </div>
+                <input
+                  type="range"
+                  min={-100}
+                  max={100}
+                  step={1}
+                  value={draft.captionOffset}
+                  onChange={(e) => updateDraft({ captionOffset: Number(e.target.value) })}
+                  style={{ width: "100%", cursor: "pointer", accentColor: "#a855f7", height: 3 }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                  <span style={{ fontSize: 9, color: "#94a3b8" }}>Down</span>
+                  <span style={{ fontSize: 9, color: "#94a3b8" }}>Up</span>
+                </div>
+              </div>
+
+              {/* Font size */}
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Size</p>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed" }}>{draft.captionFontSize}px</span>
+                </div>
+                <input
+                  type="range"
+                  min={12}
+                  max={64}
+                  step={1}
+                  value={draft.captionFontSize}
+                  onChange={(e) => updateDraft({ captionFontSize: Number(e.target.value) })}
+                  style={{ width: "100%", cursor: "pointer", accentColor: "#a855f7", height: 3 }}
+                />
+              </div>
+
+              {/* Font family */}
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
+                <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Font</p>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={draft.captionFontFamily}
+                    onChange={(e) => updateDraft({ captionFontFamily: e.target.value })}
+                    style={{
+                      width: "100%", padding: "6px 28px 6px 8px", borderRadius: 6,
+                      border: "1px solid rgba(15,23,42,0.12)", background: "#fff",
+                      fontSize: 12, fontWeight: 500, color: "#0f172a",
+                      cursor: "pointer", appearance: "none", outline: "none",
+                    }}
+                  >
+                    {CAPTION_FONT_OPTIONS.map(({ id, label }) => (
+                      <option key={id} value={id}>{label}</option>
+                    ))}
+                  </select>
+                  <div style={{ pointerEvents: "none", position: "absolute", inset: 0, right: 8, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ color: "#94a3b8" }}>
+                      <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div style={{ padding: "10px 14px 6px", borderTop: "1px solid rgba(15,23,42,0.08)" }}>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !onSave || !hasUnsavedChanges}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "none",
+                background: saving || !onSave || !hasUnsavedChanges ? "#e2e8f0" : "#7c3aed",
+                color: saving || !onSave || !hasUnsavedChanges ? "#94a3b8" : "#ffffff",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: saving || !onSave || !hasUnsavedChanges ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              {saving ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 0.8s linear infinite" }}>
+                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="20" strokeLinecap="round" opacity="0.35" />
+                    <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  Saving…
+                </>
+              ) : (
+                "Save caption settings"
+              )}
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* CC button */}
+      <button
+        data-tour="captions"
+        onClick={handleCcButtonClick}
+        style={btnStyle}
+        title="Captions"
+        aria-label="Captions"
+      >
+        {saving ? (
+          <svg width="22" height="22" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 0.8s linear infinite" }}>
+            <circle cx="8" cy="8" r="6" stroke="rgba(255,255,255,0.25)" strokeWidth="2"/>
+            <path d="M14 8a6 6 0 0 0-6-6" stroke="#f9fafb" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        ) : (
+          /* CC icon — rounded rectangle with "CC" text */
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="1.5" y="5" width="19" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.6"/>
+            <text x="11" y="14.5" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" fontFamily="system-ui, sans-serif">CC</text>
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function VideoPreview(
+  {
+    project,
+    layoutPropSchema,
+    logoSizeOverride,
+    logoOpacityOverride,
+    logoPositionOverride,
+    onPlaybackSpeedChange,
+    playbackSpeedSaving = false,
+    onCaptionSettingsChange,
+    captionsSaving = false,
+    captionSettingsKey = 0,
+    precompiledTemplateData,
+    initialFrame,
+    hideControls = false,
+    precompiledCraftedDetail,
+  },
+  ref
+) {
+  const templateId = normalizeBuiltInTemplateId(project.template);
+  const isCustom = templateId.startsWith("custom_");
+  const isCrafted = templateId.startsWith("crafted_");
+  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
+
+  // ─── Crafted template: fetch + JIT-compile R2-bundled frontend ─────────
+  // Crafted templates use the same data shape as a built-in (scenes with a
+  // `layout` string), but the composition lives in R2 instead of the repo.
+  // We pull the matching entry from /crafted-templates, runtime-compile its
+  // frontend bundle, and use that compiled component as the Player composition.
+  // Without this, getTemplateConfig falls back to `default` and the project
+  // view shows DefaultVideoComposition with crafted layout names it can't map.
+  const craftedItem = useMemo<CraftedTemplateItem | null>(() => {
+    if (!isCrafted) return null;
+    return craftedTemplates.find((d) => d.id === project.template) ?? null;
+  }, [craftedTemplates, isCrafted, project.template]);
+  const craftedDetail = useMemo<CraftedTemplateDetail | null>(() => {
+    if (!craftedItem) return null;
+    if (craftedItem.frontend_files && craftedItem.frontend_entry_rel) {
+      return craftedItem as CraftedTemplateDetail;
+    }
+    return null;
+  }, [craftedItem]);
+  // Pre-fetched detail (e.g. from a public embed response) takes precedence
+  // over the auth-only CraftedTemplatesContext, which is unavailable to
+  // logged-out viewers.
+  const effectiveCraftedItem: CraftedTemplateItem | null = precompiledCraftedDetail ?? craftedItem;
+  const effectiveCraftedDetail: CraftedTemplateDetail | null = precompiledCraftedDetail ?? craftedDetail;
+  const [compiledCrafted, setCompiledCrafted] = useState<React.ComponentType<any> | null>(null);
+  const [isCompilingCrafted, setIsCompilingCrafted] = useState(false);
+  const craftedTemplateLogoUrl = useMemo(
+    () => resolveCraftedTemplateLogoUrl(effectiveCraftedDetail || effectiveCraftedItem),
+    [effectiveCraftedDetail, effectiveCraftedItem],
+  );
+
+  useEffect(() => {
+    if (!isCrafted) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    // Still waiting on the crafted item fetch — keep the player locked behind
+    // the loading overlay so it never falls back to DefaultVideoComposition
+    // with unknown layout names mid-mount.
+    if (!effectiveCraftedItem) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      return;
+    }
+    if (!effectiveCraftedDetail) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      if (!precompiledCraftedDetail) {
+        void ensureCraftedTemplateDetail(templateId);
+      }
+      return;
+    }
+    if (!effectiveCraftedDetail.frontend_files || !effectiveCraftedDetail.frontend_entry_rel) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    let cancelled = false;
+    setIsCompilingCrafted(true);
+    compileModuleGraphEntry(
+      effectiveCraftedDetail.frontend_files,
+      effectiveCraftedDetail.frontend_entry_rel,
+      effectiveCraftedDetail.public_asset_urls,
+    )
+      .then((result) => {
+        if (cancelled) return;
+        if (result.success) {
+          setCompiledCrafted(() => result.component);
+        } else {
+          console.error("[VideoPreview] Crafted bundle compile failed:", result.error);
+          setCompiledCrafted(null);
+        }
+        setIsCompilingCrafted(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[VideoPreview] Crafted bundle compile threw:", err);
+        setCompiledCrafted(null);
+        setIsCompilingCrafted(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCrafted, effectiveCraftedItem, effectiveCraftedDetail, precompiledCraftedDetail, ensureCraftedTemplateDetail, templateId]);
+
+  const [fetchedLayoutPropSchema, setFetchedLayoutPropSchema] = useState<Record<
+    string,
+    { defaults?: Record<string, unknown> }
+  > | null>(null);
+  const [fetchedValidLayouts, setFetchedValidLayouts] = useState<readonly string[] | null>(null);
+
+  useEffect(() => {
+    if (layoutPropSchema !== undefined || !project.id || isCustom) {
+      return;
+    }
+    let cancelled = false;
+    void getValidLayouts(project.id).then((lr) => {
+      if (cancelled) return;
+      const s = lr.data.layout_prop_schema;
+      setFetchedLayoutPropSchema(
+        s && typeof s === "object" ? (s as Record<string, { defaults?: Record<string, unknown> }>) : null,
+      );
+      const layouts = lr.data.layouts;
+      setFetchedValidLayouts(Array.isArray(layouts) && layouts.length > 0 ? layouts : null);
+    }).catch(() => {
+      if (!cancelled) {
+        setFetchedLayoutPropSchema(null);
+        setFetchedValidLayouts(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, project.template, isCustom, layoutPropSchema]);
+
+  const config = useMemo(() => {
+    const base = getTemplateConfig(templateId);
+    if (isCrafted && effectiveCraftedItem) {
+      const validLayouts =
+        Array.isArray(effectiveCraftedItem.valid_layouts) && effectiveCraftedItem.valid_layouts.length > 0
+          ? new Set(effectiveCraftedItem.valid_layouts)
+          : base.validLayouts;
+      const fallbackLayout = effectiveCraftedItem.fallback_layout || base.fallbackLayout;
+      const heroLayout = effectiveCraftedItem.hero_layout || base.heroLayout;
+      const previewColors = effectiveCraftedItem.preview_colors;
+      return {
+        ...base,
+        validLayouts,
+        fallbackLayout,
+        heroLayout,
+        defaultColors: previewColors
+          ? {
+              accent: previewColors.accent || base.defaultColors.accent,
+              bg: previewColors.bg || base.defaultColors.bg,
+              text: previewColors.text || base.defaultColors.text,
+            }
+          : base.defaultColors,
+      };
+    }
+    if (!isCustom && fetchedValidLayouts && fetchedValidLayouts.length > 0) {
+      return {
+        ...base,
+        validLayouts: new Set(fetchedValidLayouts),
+      };
+    }
+    return base;
+  }, [templateId, isCrafted, effectiveCraftedItem, isCustom, fetchedValidLayouts]);
+
+  const effectiveLayoutPropSchema = useMemo((): Record<string, { defaults?: Record<string, unknown> }> | null => {
+    if (layoutPropSchema !== undefined) {
+      return layoutPropSchema;
+    }
+    if (fetchedLayoutPropSchema && Object.keys(fetchedLayoutPropSchema).length > 0) {
+      return fetchedLayoutPropSchema;
+    }
+    if (
+      isCrafted &&
+      craftedItem?.layout_prop_schema &&
+      typeof craftedItem.layout_prop_schema === "object"
+    ) {
+      return craftedItem.layout_prop_schema as Record<string, { defaults?: Record<string, unknown> }>;
+    }
+    return null;
+  }, [layoutPropSchema, fetchedLayoutPropSchema, isCrafted, craftedItem]);
+
+  const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
+
+  // Ref to Remotion Player — passed to PlaybackSpeedControl and forwarded for slide export.
+  const playerRef = useRef<PlayerRef | null>(null);
+  const setPlayerRef = useCallback(
+    (node: PlayerRef | null) => {
+      playerRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        (ref as React.MutableRefObject<PlayerRef | null>).current = node;
+      }
+    },
+    [ref]
+  );
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
   const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
@@ -264,15 +1467,16 @@ export default function VideoPreview({
       const subdir = asset.asset_type === "image" ? "images" : "audio";
       const localPath = `/media/projects/${project.id}/${subdir}/${asset.filename}`;
       
-      // In local dev, prefer local media files over R2 URLs
-      // R2 URLs may not be accessible or may have connection issues locally
+      // In local dev, prefer R2 when available so projects still preview
+      // even if local /media files were cleaned up.
       const isLocalDev = !BACKEND_URL || 
                          BACKEND_URL.includes('localhost') || 
                          BACKEND_URL.includes('127.0.0.1');
       
       let base: string;
       if (isLocalDev) {
-        base = localPath;
+        base = asset.r2_url ? asset.r2_url : localPath;
+        console.log("base", base);
       } else {
         base = asset.r2_url ? asset.r2_url : `${BACKEND_URL}${localPath}`;
       }
@@ -301,14 +1505,12 @@ export default function VideoPreview({
       const filenameToAsset = new Map<string, typeof imageAssets[0]>();
       imageAssets.forEach((asset) => filenameToAsset.set(asset.filename, asset));
 
-      // 1) First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
-      // This ensures images move with their scenes when reordered, and scenes explicitly
-      // marked hideImage=true never get an auto-assigned generic image.
-      project.scenes.forEach((scene, idx) => {
+      // 1) Honor stored assignedImage (any filename); multiple scenes may share one file.
+      project.scenes.forEach((sceneRow, idx) => {
         let layoutProps: Record<string, unknown> = {};
-        if (scene.remotion_code) {
+        if (sceneRow.remotion_code) {
           try {
-            const descriptor = JSON.parse(scene.remotion_code);
+            const descriptor = JSON.parse(sceneRow.remotion_code);
             layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
           } catch {
             /* legacy */
@@ -317,64 +1519,64 @@ export default function VideoPreview({
 
         const hideImage = Boolean((layoutProps as any).hideImage);
         hideImageFlags[idx] = hideImage;
+        if (hideImage) {
+          return;
+        }
 
         const assignedImage = layoutProps.assignedImage as string | undefined;
-        if (!hideImage && assignedImage && filenameToAsset.has(assignedImage)) {
-          const m = assignedImage.match(/^scene_(\d+)_/);
-          if (m) {
-            // Scene-specific assignment must match current scene id
-            const assignedSceneId = parseInt(m[1], 10);
-            if (assignedSceneId === scene.id) {
-              sceneImageMap[idx] = resolveUrl(filenameToAsset.get(assignedImage)!);
-            }
-          } else {
-            // Generic assignment: enforce 1 generic -> 1 scene in preview
-            if (!usedGenericFiles.has(assignedImage)) {
-              usedGenericFiles.add(assignedImage);
-              sceneImageMap[idx] = resolveUrl(filenameToAsset.get(assignedImage)!);
-            }
-          }
+        if (assignedImage && filenameToAsset.has(assignedImage)) {
+          const asset = filenameToAsset.get(assignedImage)!;
+          sceneImageMap[idx] = resolveUrl(asset);
+          usedGenericFiles.add(assignedImage);
         }
       });
 
-      // 2) Second pass: Scene-specific images (overwrite stored assignments)
-      // Scene-specific images: filename "scene_<sceneId>_<timestamp>.*" (from AI edit upload)
-      const sceneSpecificAssets: { sceneId: number; url: string }[] = [];
+      // 2) Orphan scene_<id>_ files with no layoutProps — bind to matching scene only
+      const sceneSpecificAssets: { sceneId: number; url: string; asset: (typeof imageAssets)[0] }[] =
+        [];
       const genericAssets: typeof imageAssets = [];
       for (const asset of imageAssets) {
         const match = asset.filename.match(/^scene_(\d+)_/);
         if (match) {
           const sceneId = parseInt(match[1], 10);
-          sceneSpecificAssets.push({ sceneId, url: resolveUrl(asset) });
+          sceneSpecificAssets.push({ sceneId, url: resolveUrl(asset), asset });
         } else {
           genericAssets.push(asset);
         }
       }
-      // Apply scene-specific images (later uploads overwrite by same scene_id)
-      for (const { sceneId, url } of sceneSpecificAssets) {
+      for (const { sceneId, url, asset } of sceneSpecificAssets) {
         const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
+<<<<<<< HEAD
         if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
           sceneImageMap[sceneIdx] = url;
+=======
+        if (sceneIdx < 0 || hideImageFlags[sceneIdx]) continue;
+        let layoutProps: Record<string, unknown> = {};
+        if (project.scenes[sceneIdx].remotion_code) {
+          try {
+            const descriptor = JSON.parse(project.scenes[sceneIdx].remotion_code!);
+            layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+          } catch {
+            /* legacy */
+          }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         }
+        if (layoutProps.assignedImage || layoutProps.hideImage) continue;
+        sceneImageMap[sceneIdx] = url;
+        usedGenericFiles.add(asset.filename);
       }
 
-      // 3) Third pass: Assign generic images to scenes without one yet and not hideImage
+      // 3) Auto-fill remaining scenes with unused generic images
       let genericIdx = 0;
-      for (
-        let sceneIdx = 0;
-        sceneIdx < project.scenes.length && genericIdx < genericAssets.length;
-        sceneIdx++
-      ) {
-        if (sceneImageMap[sceneIdx] == null && !hideImageFlags[sceneIdx]) {
-          // Pick next unused generic asset (enforce 1:1)
-          while (genericIdx < genericAssets.length) {
-            const candidate = genericAssets[genericIdx];
-            genericIdx++;
-            if (usedGenericFiles.has(candidate.filename)) continue;
-            usedGenericFiles.add(candidate.filename);
-            sceneImageMap[sceneIdx] = resolveUrl(candidate);
-            break;
-          }
+      for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
+        if (sceneImageMap[sceneIdx] != null || hideImageFlags[sceneIdx]) continue;
+        while (genericIdx < genericAssets.length) {
+          const candidate = genericAssets[genericIdx];
+          genericIdx++;
+          if (usedGenericFiles.has(candidate.filename)) continue;
+          usedGenericFiles.add(candidate.filename);
+          sceneImageMap[sceneIdx] = resolveUrl(candidate);
+          break;
         }
       }
     }
@@ -397,6 +1599,13 @@ export default function VideoPreview({
             if (descriptor.ctaProps) {
               ctaProps = descriptor.ctaProps;
             }
+<<<<<<< HEAD
+=======
+            // Custom templates also store image controls in layoutProps.
+            // Without this, imageFocusX/imageFocusY/imageZoom from remotion_code
+            // are ignored in preview even though they exist in DB.
+            layoutProps = descriptor.layoutProps || {};
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             if (descriptor.layoutConfig) {
               layoutConfig = descriptor.layoutConfig;
               layout = descriptor.layoutConfig.arrangement || "full-center";
@@ -477,25 +1686,46 @@ export default function VideoPreview({
 
       const onScreenText = scene.display_text ?? scene.narration_text;
 
+      if (!isCustom) {
+        layoutProps = mergeLayoutSchemaDefaults(
+          layoutProps,
+          layout,
+          effectiveLayoutPropSchema ?? undefined,
+          project.aspect_ratio || "landscape",
+          templateId,
+        );
+      }
+
       return {
         id: scene.id,
         order: scene.order,
         title: scene.title,
         narration: onScreenText,
+        narrationText: scene.narration_text || "",
         layout,
         layoutProps,
         ...(layoutConfig ? { layoutConfig } : {}),
         ...(structuredContent ? { structuredContent } : {}),
         ...(ctaProps ? { ctaProps } : {}),
         durationSeconds: (Number(scene.duration_seconds) || 5) + (Number(scene.extra_hold_seconds) || 0),
+<<<<<<< HEAD
+=======
+        // Spoken-audio window for caption timing: scene.duration_seconds = audio + ~1s pad,
+        // so speech ≈ duration - 1.0s. Only meaningful when a voiceover exists.
+        speechDurationSeconds: scene.voiceover_path
+          ? Math.max(0.5, (Number(scene.duration_seconds) || 5) - 1.0)
+          : 0,
+        bgmVolume: scene.bgm_volume ?? null,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
       };
     });
-  }, [project, config]);
+  }, [project, config, isCustom, effectiveLayoutPropSchema]);
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
+<<<<<<< HEAD
     const sceneFrames = project.scenes.map((s) => {
       const base = Number(s.duration_seconds) || 5;
       const extra = Number(s.extra_hold_seconds) || 0;
@@ -518,6 +1748,90 @@ export default function VideoPreview({
   );
   const mediaSourcesKey = useMemo(() => mediaSources.join("||"), [mediaSources]);
 
+=======
+    // Chronicle uses TransitionSeries with scene-minimum enforcement and last-scene
+    // trimming, so its actual rendered length differs from a raw sum. Use its own
+    // calculator to keep the Player duration in sync (no brown tail at the end).
+    if (templateId === "chronicle") {
+      const chronicleScenes = scenes.map((s) => ({
+        id: s.id,
+        order: s.order,
+        title: s.title,
+        narration: s.narration,
+        layout: s.layout,
+        layoutProps: s.layoutProps,
+        durationSeconds: s.durationSeconds,
+        imageUrl: s.imageUrl,
+        voiceoverUrl: s.voiceoverUrl,
+      }));
+      return computeChronicleVideoTotalFrames(chronicleScenes, 1);
+    }
+    if (templateId === "sakura") {
+      // Sakura renders as a TransitionSeries whose neighbouring scenes OVERLAP by the
+      // transition length, so its real length is the raw per-scene sum minus the overlaps.
+      // Use its own calculator so the Player's declared length matches the render.
+      const sakuraScenes = scenes.map((s) => ({
+        id: s.id,
+        order: s.order,
+        title: s.title,
+        narration: s.narration,
+        layout: s.layout,
+        layoutProps: s.layoutProps,
+        durationSeconds: s.durationSeconds,
+        imageUrl: s.imageUrl,
+        voiceoverUrl: s.voiceoverUrl,
+      }));
+      return computeSakuraVideoTotalFrames(sakuraScenes);
+    }
+    if (templateId === "magazine") {
+      // Magazine renders as a black-bridged TransitionSeries whose real length is NOT the
+      // raw per-scene sum (each boundary adds a net black bridge). Use the SAME planner the
+      // composition uses so the Player's declared length matches it exactly — otherwise the
+      // Player clips the tail. Mirrors MagazinePreview / Template Studio.
+      if (scenes.length === 0) return FPS * 5;
+      const layoutKeys = scenes.map((s) => resolveMagazineLayout(String(s.layout)));
+      const per = scenes.map((s) =>
+        Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS)),
+      );
+      const { totalFrames } = planMagazineBoundaries(
+        layoutKeys,
+        per,
+        project.accent_color || "#D71921",
+      );
+      return Math.max(totalFrames, FPS * 5);
+    }
+    const sceneFrames = project.scenes.map((s) => {
+      const base = Number(s.duration_seconds) || 5;
+      const extra = Number(s.extra_hold_seconds) || 0;
+      return getSceneDurationFrames(base + extra, FPS, 1);
+    });
+    const sum = sceneFrames.reduce((a, b) => a + b, 0);
+    return Math.max(sum, FPS * 5);
+  }, [project.scenes, project.aspect_ratio, project.accent_color, templateId, scenes]);
+
+  // `initialFrame` (used by PPT/scene export) is computed from a raw frame sum,
+  // but templates with TransitionSeries overlap (FJ Market Brief, Chronicle)
+  // have a shorter true composition length. Clamp to totalDurationFrames - 1 so
+  // the Player never gets an out-of-range initialFrame (Remotion throws otherwise).
+  const safeInitialFrame = useMemo(() => {
+    if (initialFrame === undefined) return undefined;
+    const max = Math.max(0, totalDurationFrames - 1);
+    return Math.max(0, Math.min(max, Math.floor(initialFrame)));
+  }, [initialFrame, totalDurationFrames]);
+
+  // Preload images and voiceover so they're in browser cache when Remotion renders
+  const [mediaReady, setMediaReady] = useState(false);
+  const [isPreloadingMedia, setIsPreloadingMedia] = useState(false);
+  const mediaSources = useMemo(
+    () =>
+      scenes
+        .flatMap((s) => [s.imageUrl, s.voiceoverUrl])
+        .filter(Boolean) as string[],
+    [scenes],
+  );
+  const mediaSourcesKey = useMemo(() => mediaSources.join("||"), [mediaSources]);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   useEffect(() => {
     let cancelled = false;
     const cleanupFns: Array<() => void> = [];
@@ -594,19 +1908,59 @@ export default function VideoPreview({
   }, [mediaSourcesKey]);
 
   const isPortrait = project.aspect_ratio === "portrait";
+  const currentPlaybackSpeed = Math.max(0.5, Math.min(2.5, getPlaybackSpeed(project.playback_speed)));
+
+  const savedCaptionSettings = useMemo(
+    () => buildCaptionSettingsFromProject(project),
+    [
+      project.captions_enabled,
+      project.caption_font_family,
+      project.caption_font_size,
+      project.caption_offset,
+      project.scenes,
+      captionSettingsKey,
+    ],
+  );
+  const [captionPreviewOverride, setCaptionPreviewOverride] = useState<CaptionSettings | null>(null);
+
+  useEffect(() => {
+    setCaptionPreviewOverride(null);
+  }, [savedCaptionSettings]);
+
+  const activeCaptionSettings = captionPreviewOverride ?? savedCaptionSettings;
 
   const colors = config.defaultColors;
 
   const inputProps = {
     scenes,
+    projectName: project.name,
     accentColor: project.accent_color || colors.accent,
     bgColor: project.bg_color || colors.bg,
     textColor: project.text_color || colors.text,
-    logo: project.logo_r2_url || null,
+    playbackSpeed: 1,
+    logo: project.logo_r2_url || craftedTemplateLogoUrl || null,
     logoPosition: logoPositionOverride ?? project.logo_position ?? "bottom_right",
     logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
     logoSize: logoSizeOverride ?? (typeof project.logo_size === "number" ? project.logo_size : 100),
     aspectRatio: project.aspect_ratio || "landscape",
+<<<<<<< HEAD
+=======
+    bgmUrl: project.bgm_track_url || null,
+    bgmVolume: project.bgm_volume ?? 0.10,
+    // Captions ride on the voiceover — never show them when there's no audio,
+    // even if the stored flag is stale.
+    captionsEnabled: activeCaptionSettings.captionsEnabled,
+    // Resolve the caption font ID (e.g. "poppins") to a CSS family here so every
+    // preview composition — including JIT-compiled crafted templates that can't
+    // import the font registry — receives a usable font-family rather than a bare
+    // ID that the browser can't match. (The render side resolves from the data
+    // JSON independently.)
+    captionFontFamily:
+      resolveFontFamily(activeCaptionSettings.captionFontFamily) ||
+      activeCaptionSettings.captionFontFamily,
+    captionFontSize: activeCaptionSettings.captionFontSize,
+    captionOffset: activeCaptionSettings.captionOffset,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ...(resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {}),
     ...(project.custom_theme ? { theme: project.custom_theme } : {}),
   };
@@ -616,9 +1970,23 @@ export default function VideoPreview({
     ? Object.keys(compiledScenes).filter((k) => k.startsWith("content_")).length
     : 0;
 
+<<<<<<< HEAD
   const Composition = (isCustom && compiledScenes) ? StableCustomComposition : config.component;
 
   const isPreviewLoading = (isCustom && isCompiling) || isPreloadingMedia || !mediaReady;
+=======
+  const Composition = (isCustom && compiledScenes)
+    ? StableCustomComposition
+    : (isCrafted && compiledCrafted)
+      ? compiledCrafted
+      : config.component;
+
+  const isPreviewLoading =
+    (isCustom && isCompiling) ||
+    (isCrafted && (craftedTemplatesLoading || !craftedItem || isCompilingCrafted || !compiledCrafted)) ||
+    isPreloadingMedia ||
+    !mediaReady;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Show unified loader until template + media are fully ready.
   if (isPreviewLoading) {
@@ -684,6 +2052,7 @@ export default function VideoPreview({
     >
       <div
         style={{
+          position: "relative",
           maxWidth: "min(100%, 90vw)",
           maxHeight: "min(100%, 90vh)",
           width: isPortrait ? "auto" : "100%",
@@ -696,7 +2065,11 @@ export default function VideoPreview({
         }}
       >
         <Player
+<<<<<<< HEAD
           key={`preview-${project.id}-${isPortrait ? "p" : "l"}`}
+=======
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${safeInitialFrame !== undefined ? `-f${safeInitialFrame}` : ""}-ck${captionSettingsKey}`}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           component={Composition}
           inputProps={{
             ...inputProps,
@@ -711,7 +2084,10 @@ export default function VideoPreview({
           compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
           compositionHeight={isPortrait ? config.baseWidth : config.baseHeight}
           fps={30}
-          controls
+          ref={setPlayerRef}
+          playbackRate={currentPlaybackSpeed}
+          {...(safeInitialFrame !== undefined ? { initialFrame: safeInitialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
+          controls={!hideControls}
           style={{
             width: "100%",
             height: "100%",
@@ -719,7 +2095,25 @@ export default function VideoPreview({
             overflow: "hidden",
           }}
         />
+        <CaptionControl
+          captionsEnabled={savedCaptionSettings.captionsEnabled}
+          captionFontFamily={savedCaptionSettings.captionFontFamily}
+          captionFontSize={savedCaptionSettings.captionFontSize}
+          captionOffset={savedCaptionSettings.captionOffset}
+          saving={captionsSaving}
+          onSave={onCaptionSettingsChange}
+          onPreviewChange={setCaptionPreviewOverride}
+          playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
+        />
+        <PlaybackSpeedControl
+          currentSpeed={currentPlaybackSpeed}
+          saving={playbackSpeedSaving}
+          onChange={onPlaybackSpeedChange}
+          playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
+        />
       </div>
     </div>
   );
-}
+});
+
+export default VideoPreview;

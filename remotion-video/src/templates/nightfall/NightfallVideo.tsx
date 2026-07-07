@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
-  interpolate,
   Sequence,
   staticFile,
-  useCurrentFrame,
   CalculateMetadataFunction,
 } from "remotion";
 import "../../fonts/nightfall-defaults";
@@ -13,6 +11,10 @@ import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { NightfallSceneTransition } from "./NightfallSceneTransition";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 /** Convert schema format (barChartRows, etc.) to component format (barChart, etc.) for data_visualization */
 function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
@@ -55,9 +57,13 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
+  narrationText?: string;
   layout: NightfallLayoutType;
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
 }
@@ -71,49 +77,27 @@ interface VideoData {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
-  logoSize?: string;
+  logoSize?: number | string;
   aspectRatio?: string;
+<<<<<<< HEAD
   fontFamily?: string | null;
+=======
+  playbackSpeed?: number;
+  fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  captionOffset?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
 interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
-
-// Cinematic dark transition with blur + scale for nightfall
-const NightfallTransition: React.FC = () => {
-  const frame = useCurrentFrame();
-
-  // Smooth ease-in opacity
-  const opacity = interpolate(frame, [0, 12], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Subtle scale up for a cinematic "push" feel
-  const scale = interpolate(frame, [0, 15], [1, 1.06], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Blur ramps up to soften the scene before cutting
-  const blur = interpolate(frame, [0, 10], [0, 8], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: "#0A0A1A",
-        opacity,
-        transform: `scale(${scale})`,
-        backdropFilter: `blur(${blur}px)`,
-      }}
-    />
-  );
-};
 
 // ─── Metadata ─────────────────────────────────────────────────
 
@@ -126,11 +110,15 @@ export const calculateNightfallMetadata: CalculateMetadataFunction<VideoProps> =
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-      const totalSeconds = data.scenes.reduce(
-        (sum, s) => sum + (s.durationSeconds || 5),
-        0
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+      const sceneFrames = data.scenes.map((s) =>
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
+<<<<<<< HEAD
       const totalFrames = Math.ceil(totalSeconds * FPS);
+=======
+      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       const isPortrait = data.aspectRatio === "portrait";
 
@@ -199,6 +187,7 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   }
 
   const FPS = 30;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
   let currentFrame = 0;
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
@@ -210,7 +199,11 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       }}
     >
       {data.scenes.map((scene, index) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -221,9 +214,13 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
+<<<<<<< HEAD
         const rawLayoutProps = scene.layout === "data_visualization"
           ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
           : scene.layoutProps;
+=======
+        const rawLayoutProps = scene.layoutProps;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
         const layoutProps: NightfallLayoutProps = {
@@ -235,27 +232,13 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#E2E8F0",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+<<<<<<< HEAD
+=======
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily: resolvedFontFamily || undefined,
         };
-
-        // Debug: Log layoutProps for data_visualization scenes
-        if (scene.layout === "data_visualization") {
-          console.log("[NightfallVideo] data_visualization scene:", {
-            layout: scene.layout,
-            layoutProps: scene.layoutProps,
-            mergedLayoutProps: layoutProps,
-          });
-        }
-
-        // Debug: Log imageUrl for glass_image scenes
-        if (scene.layout === "glass_image") {
-          console.log("[NightfallVideo] glass_image scene:", {
-            layout: scene.layout,
-            sceneImages: scene.images,
-            imageUrl,
-            layoutProps: layoutProps,
-          });
-        }
 
         return (
           <Sequence
@@ -264,16 +247,34 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <LayoutComponent {...layoutProps} />
+            <NightfallSceneTransition
+              durationInFrames={durationFrames}
+              sceneIndex={index}
+              sceneCount={data.scenes.length}
+              layoutType={scene.layout}
+            >
+              <LayoutComponent {...layoutProps} />
+            </NightfallSceneTransition>
 
             {scene.voiceoverFile && (
-              <Audio src={staticFile(scene.voiceoverFile)} />
+              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
             )}
 
-            {index < data.scenes.length - 1 && (
-              <Sequence from={durationFrames - 15} durationInFrames={15}>
-                <NightfallTransition />
-              </Sequence>
+            {/* Captions — narration text, synced to this scene's voiceover window */}
+            {data.captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={data.captionPosition || "bottom_center"}
+                aspectRatio={data.aspectRatio || "landscape"}
+                fontFamily={data.captionFontFamily ? (resolveFontFamily(data.captionFontFamily) || data.captionFontFamily) : (resolvedFontFamily || undefined)}
+                fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                offset={data.captionOffset ?? 0}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
             )}
           </Sequence>
         );
@@ -288,6 +289,11 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
+      )}
     </AbsoluteFill>
   );
 };
+

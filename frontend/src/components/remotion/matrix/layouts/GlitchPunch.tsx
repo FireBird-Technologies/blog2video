@@ -1,7 +1,12 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+<<<<<<< HEAD
+=======
+import { CipherRing, CodeFragments, GlitchSlice, ScanlinesOverlay } from "../components/MatrixArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 const GLITCH_CHARS = "アイウエオ0123456789!@#$%^&*<>{}[]|/\\";
 
@@ -18,8 +23,9 @@ function seededRandom(seed: number): number {
  */
 export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
   word,
-  title,
-  imageUrl,
+  title,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   aspectRatio,
@@ -63,6 +69,15 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.15} fontFamily={resolvedFontFamily} />
+<<<<<<< HEAD
+=======
+
+      {/* Decorative artifacts — cipher dial, glitch ticks, floating readouts, CRT texture. */}
+      {!hasImage && <CipherRing accentColor={accent} startFrame={settleFrame} seed={9} />}
+      <GlitchSlice accentColor={accent} every={58} seed={21} />
+      <CodeFragments accentColor={accent} count={8} seed={53} startFrame={settleFrame} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.85} />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       <div
         style={{
@@ -88,9 +103,10 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
               border: `1px solid ${accent}33`,
             }}
           >
-            <Img
+            <ZoomCropImg
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
             />
           </div>
         )}
@@ -146,3 +162,4 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

@@ -1,0 +1,198 @@
+"""
+Affiliate / referral program endpoints.
+
+Referral link generation and invites are disabled — new referral codes are no
+longer created or exposed to users. Existing referral codes still grant bonuses
+on signup (see `_apply_referral_bonus` in routers/auth.py). The survey endpoint
+remains active. The disabled referral code/link/invite logic is kept below,
+commented out, for easy re-enabling.
+"""
+# import re                          # only used by disabled referral-code logic
+# from typing import List            # only used by disabled invite logic
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.auth import get_current_user
+from app.config import settings
+from app.database import get_db
+from app.models.user import User
+# from app.models.referral import (   # only used by disabled referral logic
+#     Referral,
+#     ReferralInvite,
+#     REFERRAL_BONUS_VIDEOS,
+#     REFERRAL_MAX_SIGNUPS,
+# )
+from app.models.survey import SurveyResponse
+# from app.services.email import EmailService   # only used by disabled invite logic
+
+router = APIRouter(prefix="/api/affiliate", tags=["affiliate"])
+# _email_service = EmailService()
+
+
+# --- Share B2V (referral/invite) disabled ---
+# class AffiliateStats(BaseModel):
+#     link: str
+#     signups_count: int
+#     bonus_earned: int
+#     max_signups: int = REFERRAL_MAX_SIGNUPS
+#     bonus_per_signup: int = REFERRAL_BONUS_VIDEOS
+#
+#
+# class InviteRequest(BaseModel):
+#     emails: List[str]
+#
+#
+# class InviteResponse(BaseModel):
+#     sent: int
+#     failed: int
+
+
+class SurveyRequest(BaseModel):
+    rating: str | None = None
+    use_case: str | None = None
+    target_audience: str | None = None
+    desired_feature: str | None = None
+    heard_from: str | None = None
+
+
+class SurveyResponseResult(BaseModel):
+    submitted: bool
+    promo_code: str | None = None
+
+
+# --- Share B2V (referral/invite) disabled ---
+# def _build_referral_code(user: User) -> str:
+#     """
+#     Build stable referral code using username + user id (e.g. mehdi12).
+#     Keeps code <= 36 chars to fit DB column.
+#     """
+#     user_id = str(user.id)
+#     raw_name = (user.name or user.email.split("@")[0] if user.email else "user").strip().lower()
+#     normalized_name = re.sub(r"[^a-z0-9]+", "", raw_name)
+#     if not normalized_name:
+#         normalized_name = "user"
+#     max_name_len = max(1, 36 - len(user_id))
+#     return f"{normalized_name[:max_name_len]}{user_id}"
+#
+#
+# def _get_or_create_referral(user: User, db: Session) -> Referral:
+#     expected_code = _build_referral_code(user)
+#     referral = db.query(Referral).filter_by(referrer_id=user.id, is_active=True).first()
+#     if not referral:
+#         referral = Referral(
+#             referrer_id=user.id,
+#             code=expected_code,
+#             is_active=True,
+#         )
+#         db.add(referral)
+#         db.commit()
+#         db.refresh(referral)
+#     elif referral.code != expected_code:
+#         # Auto-upgrade older UUID style codes to username+id format.
+#         referral.code = expected_code
+#         db.commit()
+#         db.refresh(referral)
+#     return referral
+#
+#
+# def _build_referral_link(code: str) -> str:
+#     return f"{settings.FRONTEND_URL}/?ref={code}"
+
+
+# --- Share B2V (referral/invite) disabled ---
+# @router.get("/link")
+# def get_referral_link(
+#     user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     referral = _get_or_create_referral(user, db)
+#     return {"link": _build_referral_link(referral.code)}
+#
+#
+# @router.get("/stats", response_model=AffiliateStats)
+# def get_affiliate_stats(
+#     user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     referral = _get_or_create_referral(user, db)
+#     signups_count = user.referrals_given or 0
+#     bonus_earned = user.referral_video_bonus or 0
+#     return AffiliateStats(
+#         link=_build_referral_link(referral.code),
+#         signups_count=signups_count,
+#         bonus_earned=bonus_earned,
+#     )
+
+
+@router.post("/survey", response_model=SurveyResponseResult)
+def submit_survey(
+    body: SurveyRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    existing = db.query(SurveyResponse).filter_by(user_id=user.id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Survey already submitted")
+
+    try:
+        db.add(SurveyResponse(
+            user_id=user.id,
+            rating=(body.rating or None),
+            use_case=(body.use_case or None),
+            target_audience=(body.target_audience or None),
+            desired_feature=(body.desired_feature or None),
+            heard_from=(body.heard_from or None),
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Survey already submitted")
+
+    return SurveyResponseResult(submitted=True, promo_code=settings.SURVEY_PROMO_CODE or None)
+
+
+# --- Share B2V (referral/invite) disabled ---
+# @router.post("/invite", response_model=InviteResponse)
+# def send_invites(
+#     body: InviteRequest,
+#     user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     if not body.emails:
+#         raise HTTPException(status_code=400, detail="No emails provided")
+#     if len(body.emails) > 50:
+#         raise HTTPException(status_code=400, detail="Maximum 50 invites per request")
+#
+#     referral = _get_or_create_referral(user, db)
+#     link = _build_referral_link(referral.code)
+#
+#     sent = 0
+#     failed = 0
+#     for email in body.emails:
+#         normalized = str(email).strip().lower()
+#         try:
+#             _email_service.send_referral_invite_email(
+#                 to_email=normalized,
+#                 referrer_name=user.name,
+#                 referral_link=link,
+#             )
+#             db.add(ReferralInvite(
+#                 referral_id=referral.id,
+#                 invited_email=normalized,
+#                 status="sent",
+#             ))
+#             sent += 1
+#         except Exception as exc:
+#             db.add(ReferralInvite(
+#                 referral_id=referral.id,
+#                 invited_email=normalized,
+#                 status="failed",
+#                 error_message=str(exc)[:500],
+#             ))
+#             failed += 1
+#
+#     db.commit()
+#
+#     return InviteResponse(sent=sent, failed=failed)

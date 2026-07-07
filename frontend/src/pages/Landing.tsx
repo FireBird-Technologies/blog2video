@@ -1,17 +1,42 @@
+<<<<<<< HEAD
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+=======
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
+<<<<<<< HEAD
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 // import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
+=======
+import CoverflowCarousel, { type CoverflowTemplate, type CoverflowOrientation } from "../components/CoverflowCarousel";
+import OrientationToggle from "../components/OrientationToggle";
+import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS } from "../components/templatePreviewRegistry";
+import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
+import YourOwnBrandPreviewPortrait from "../components/templatePreviews/portrait/YourOwnBrandPreviewPortrait";
+import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
+import ContactModal from "../components/ContactModal";
+import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
+import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
+import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
+// import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
+import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import { detectInAppBrowser } from "../lib/inAppBrowser";
+import AccountDeletedModal from "../components/AccountDeletedModal";
+import LandingResourceSection from "../components/public/LandingResourceSection";
+import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
+import UserReviewsSection from "../components/UserReviewsSection";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import PublicFooter from "../components/public/PublicFooter";
 import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
@@ -77,6 +102,16 @@ async function fetchOgData(url: string): Promise<{ image?: string; title?: strin
     return {};
   }
 }
+
+const CAROUSEL_TEMPLATES: CoverflowTemplate[] = Object.entries(TEMPLATE_PREVIEWS).map(
+  ([id, Preview]) => ({
+    id,
+    Preview,
+    PreviewPortrait: TEMPLATE_PREVIEWS_PORTRAIT[id],
+    name: TEMPLATE_DESCRIPTIONS[id]?.title ?? id,
+    subtitle: TEMPLATE_DESCRIPTIONS[id]?.subtitle ?? "",
+  })
+);
 
 const NAV_LINKS = [
   { href: "#demo", label: "Demo" },
@@ -275,7 +310,11 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
   }`;
 
   return (
+<<<<<<< HEAD
     <section id="demo" className="py-20 border-t border-gray-100">
+=======
+    <section id="demo" className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div className="max-w-6xl mx-auto px-6">
         <div className="reveal">
           <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -290,6 +329,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
         </div>
 
         {demos.length > 1 && (
+<<<<<<< HEAD
           <div className="flex items-center justify-center gap-2 mb-8 reveal">
             {demos.map((video, idx) => (
               <button
@@ -305,6 +345,26 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
                 {video.title}
               </button>
             ))}
+=======
+          <div className="flex items-center justify-center mb-8 reveal">
+            <div className="inline-flex p-1 rounded-full border border-white/60 backdrop-blur-xl" style={{ background: "rgba(255,255,255,0.50)", boxShadow: "0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
+              {demos.map((video, idx) => (
+                <button
+                  key={video.id}
+                  type="button"
+                  onClick={() => setActiveVideoIdx(idx)}
+                  className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 ${
+                    activeVideoIdx === idx
+                      ? "text-gray-900"
+                      : "text-gray-400 hover:text-gray-700"
+                  }`}
+                  style={activeVideoIdx === idx ? { background: "rgba(255,255,255,0.90)", boxShadow: "0 1px 6px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)" } : {}}
+                >
+                  {video.title}
+                </button>
+              ))}
+            </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
         )}
 
@@ -316,7 +376,11 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
               href={v.blogUrl}
               target="_blank"
               rel="noopener noreferrer"
+<<<<<<< HEAD
               className="glass-card overflow-hidden group hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all flex flex-col"
+=======
+              className="overflow-hidden group transition-all duration-300 flex flex-col rounded-2xl border border-white/70 hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.90)" }}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             >
               <div className="aspect-[16/9] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden flex-shrink-0">
                 {v.blogImage ? (
@@ -393,7 +457,11 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
               </div>
             </div>
 
+<<<<<<< HEAD
             <div className="glass-card overflow-hidden flex flex-col ring-2 ring-purple-100 hover:ring-purple-200 transition-all hover:shadow-[0_4px_20px_rgba(124,58,237,0.1)]">
+=======
+            <div className="overflow-hidden flex flex-col transition-all duration-300 rounded-2xl border border-purple-100/60 hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.08), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               {/* YouTube host stays outside opacity/transform cross-fade — animating the grid broke iframe API in several browsers */}
               <div className="aspect-[16/9] relative flex-shrink-0 bg-black w-full overflow-hidden">
                 <div id={LANDING_YT_HOST_ID} className="absolute inset-0 z-0 w-full h-full" />
@@ -435,15 +503,118 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 }
 
 export default function Landing() {
+<<<<<<< HEAD
   const { login } = useAuth();
   const navigate = useNavigate();
+=======
+  const { login, user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const { showError } = useErrorModal();
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
   const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
   const [pendingCredential, setPendingCredential] = useState<string | null>(null);
   const [reactivating, setReactivating] = useState(false);
+<<<<<<< HEAD
+=======
+  const [heroUrl, setHeroUrl] = useState("");
+  const [typedPlaceholder, setTypedPlaceholder] = useState("");
+  const [designerOpen, setDesignerOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [templatesOrientation, setTemplatesOrientation] = useState<CoverflowOrientation>("landscape");
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const scrollRef = useScrollReveal();
+
+  // "Your Own Brand" CTA card: logged-in users get the in-app designer request
+  // modal; logged-out visitors get the contact form modal.
+  const handleBrandClick = () => {
+    if (user) setDesignerOpen(true);
+    else setContactOpen(true);
+  };
+
+  // Insert the "Your Own Brand" CTA right after Whiteboard (before Newspaper),
+  // and recompute the initial index against the augmented list so Whiteboard
+  // stays centered with the brand card one step to its right.
+  const carouselTemplates = useMemo<CoverflowTemplate[]>(() => {
+    const list = [...CAROUSEL_TEMPLATES];
+    const wbIdx = list.findIndex((t) => t.id === "whiteboard");
+    const insertAt = wbIdx >= 0 ? wbIdx + 1 : 1;
+    list.splice(insertAt, 0, {
+      id: "your-own-brand",
+      name: "Your Own Brand",
+      subtitle: "Get a custom template tailored to your brand",
+      Preview: YourOwnBrandPreview,
+      PreviewPortrait: YourOwnBrandPreviewPortrait,
+      onSelect: handleBrandClick,
+    });
+    return list;
+  }, [user]);
+  const carouselInitialIndex = Math.max(
+    0,
+    carouselTemplates.findIndex((t) => t.id === "whiteboard")
+  );
+
+  const HERO_PLACEHOLDERS = [
+    "https://yourbloglink.com/convert-to-video",
+    "https://yoursubstack.substack.com/p/my-latest-post",
+    "https://medium.com/@you/my-article",
+    "https://dev.to/you/building-in-public",
+  ];
+
+  useEffect(() => {
+    if (heroUrl) return;
+    let cancelled = false;
+    let idx = 0;
+
+    const run = async () => {
+      while (!cancelled) {
+        const word = HERO_PLACEHOLDERS[idx % HERO_PLACEHOLDERS.length];
+        // type forward
+        for (let i = 0; i <= word.length; i++) {
+          if (cancelled) return;
+          setTypedPlaceholder(word.slice(0, i));
+          await new Promise((r) => setTimeout(r, 38));
+        }
+        // pause at full word
+        await new Promise((r) => setTimeout(r, 1400));
+        // erase
+        for (let i = word.length; i >= 0; i--) {
+          if (cancelled) return;
+          setTypedPlaceholder(word.slice(0, i));
+          await new Promise((r) => setTimeout(r, 18));
+        }
+        await new Promise((r) => setTimeout(r, 300));
+        idx++;
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [heroUrl]);
+
+  // Persist referral code from URL so it survives the Google OAuth redirect
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) localStorage.setItem("b2v_ref_code", ref);
+  }, [searchParams]);
+
+  // Auto-trigger Google sign-in when redirected here with ?signin=1
+  useEffect(() => {
+    if (searchParams.get("signin") !== "1") return;
+    // Give the Google SDK ~800ms to mount the button, then click it. In an in-app
+    // browser the GIS button no-ops, so reveal the escape UI instead of clicking.
+    const t = setTimeout(() => {
+      if (detectInAppBrowser().isInApp) {
+        googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
+      btn?.click();
+    }, 800);
+    return () => clearTimeout(t);
+  }, [searchParams]);
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
   useEffect(() => {
@@ -471,11 +642,61 @@ export default function Landing() {
     return () => { cancelled = true; };
   }, []);
 
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [signingIn, setSigningIn] = useState(false);
+  const isInApp = detectInAppBrowser().isInApp;
+
+  const handleGenerateClick = () => {
+    // Inside an in-app browser the hidden Google (GIS) button silently no-ops,
+    // because Google blocks OAuth in embedded webviews. Reveal the sign-in block
+    // so the GoogleAuthButton's escape/instructions UI is usable instead.
+    if (isInApp) {
+      googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
+    btn?.click();
+  };
+
+  // "Explore the MCP connector" CTA: go straight there if signed in, otherwise
+  // start Google sign-in and route to /mcp-connector once authenticated.
+  const handleExploreMcp = () => {
+    if (user) {
+      navigate("/mcp-connector");
+      return;
+    }
+    localStorage.setItem("b2v_pending_mcp", "1");
+    handleGenerateClick();
+  };
+
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
+    setSigningIn(true);
+    const refCode = localStorage.getItem("b2v_ref_code");
     try {
-      const res = await googleLogin(response.credential);
+      const res = await googleLogin(response.credential, false, refCode);
+      localStorage.removeItem("b2v_ref_code");
       login(res.data.access_token, res.data.user);
+
+      const pendingDownload = localStorage.getItem("b2v_pending_template_download");
+      if (pendingDownload) {
+        localStorage.removeItem("b2v_pending_template_download");
+        let slug: string;
+        try { slug = JSON.parse(pendingDownload); } catch { slug = ""; }
+        if (slug) {
+          const { triggerTemplateDownload } = await import("./FreeTemplatesPage");
+          void triggerTemplateDownload(slug);
+          navigate(`/tools/free-remotion-templates?downloaded=${encodeURIComponent(slug)}`);
+          return;
+        }
+      }
+
+      if (localStorage.getItem("b2v_pending_mcp")) {
+        localStorage.removeItem("b2v_pending_mcp");
+        navigate("/mcp-connector");
+        return;
+      }
+
       navigate("/dashboard");
     } catch (err: any) {
       if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
@@ -484,6 +705,10 @@ export default function Landing() {
       } else {
         showError(getErrorMessage(err, "Authentication failed. Please try again."));
       }
+<<<<<<< HEAD
+=======
+      setSigningIn(false);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
   };
 
@@ -495,6 +720,14 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       setAccountDeletedOpen(false);
       setPendingCredential(null);
+<<<<<<< HEAD
+=======
+      if (localStorage.getItem("b2v_pending_mcp")) {
+        localStorage.removeItem("b2v_pending_mcp");
+        navigate("/mcp-connector");
+        return;
+      }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       navigate("/dashboard");
     } catch (err: any) {
       showError(getErrorMessage(err, "Failed to reactivate account."));
@@ -512,9 +745,15 @@ export default function Landing() {
         schema={homepageSchema()}
       />
       {/* ─── Nav ─── */}
+<<<<<<< HEAD
       <nav className="bg-white/60 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/50">
         {/* Banner above navbar so it appears first on scroll */}
         <DiscountBanner containerClassName="max-w-6xl" />
+=======
+      <nav className="sticky top-0 z-50 border-b border-white/50 backdrop-blur-2xl" style={{ background: "rgba(255,255,255,0.60)", boxShadow: "0 1px 0 rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.03)" }}>
+        {/* Banner above navbar so it appears first on scroll */}
+        {/* <DiscountBanner containerClassName="max-w-6xl" /> */}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -525,7 +764,7 @@ export default function Landing() {
               Blog2Video
             </span>
           </div>
-          {/* Desktop: horizontal links */}
+          {/* Desktop: horizontal links + login */}
           <div className="hidden md:flex items-center gap-6">
             {NAV_LINKS.map(({ href, label }) =>
               href.startsWith("#") ? (
@@ -546,9 +785,26 @@ export default function Landing() {
                 </Link>
               )
             )}
+<<<<<<< HEAD
+=======
+            <button
+              type="button"
+              onClick={handleGenerateClick}
+              className="text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 px-4 py-1.5 rounded-lg transition-colors"
+            >
+              Sign in
+            </button>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
-          {/* Mobile: dropdown trigger */}
-          <div className="relative md:hidden">
+          {/* Mobile: login + dropdown trigger */}
+          <div className="relative md:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateClick}
+              className="text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Sign in
+            </button>
             <button
               type="button"
               onClick={() => setNavOpen((o) => !o)}
@@ -568,7 +824,11 @@ export default function Landing() {
                   aria-hidden="true"
                   onClick={() => setNavOpen(false)}
                 />
+<<<<<<< HEAD
                 <div className="absolute right-0 top-full mt-1 py-2 w-48 bg-white rounded-xl border border-gray-200/80 shadow-lg z-50">
+=======
+                <div className="absolute right-0 top-full mt-1 py-2 w-48 rounded-xl border border-white/60 backdrop-blur-2xl z-50" style={{ background: "rgba(255,255,255,0.80)", boxShadow: "0 8px 32px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   {NAV_LINKS.map(({ href, label }) =>
                     href.startsWith("#") ? (
                       <a
@@ -599,43 +859,43 @@ export default function Landing() {
 
       {/* ─── Hero ─── */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-purple-500/[0.03] rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-violet-500/[0.03] rounded-full blur-3xl" />
-        </div>
-
         <div className="relative max-w-4xl mx-auto px-6 pt-28 pb-20 text-center hero-animate">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-100 mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/70 backdrop-blur-sm mb-8" style={{ background: "rgba(255,255,255,0.60)", boxShadow: "0 1px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-            <span className="text-xs font-medium text-purple-700">For bloggers, technical writers &amp; educators</span>
+            <span className="text-xs font-medium text-purple-700">For solopreneurs, creators &amp; lean teams</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-[1.1] tracking-tight mb-6">
-            Your voice,
+            Convert your written voice
             <br />
             <span className="bg-gradient-to-r from-purple-600 to-violet-500 bg-clip-text text-transparent">
-              now in video
+              into video
             </span>
           </h1>
 
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-6 leading-relaxed">
-            Turn any blog post or article into a narrated explainer video that
-            preserves every detail, code snippet, and diagram. 
-            Your readers become viewers — no video editing skills needed.
+          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
+            Turn blog posts and updates into narrated videos in minutes.
           </p>
 
+<<<<<<< HEAD
           <p className="text-sm text-gray-400 mb-10 max-w-xl mx-auto">
             Perfect for technical writers who need their content to reach everywhere,
             researchers presenting findings, and teachers turning lessons into visual guides.
           </p>
 
           <div className="flex flex-col items-center gap-4">
+=======
+          {/* Hidden Google button — triggered programmatically on form submit.
+              In an in-app browser it's revealed so the escape/instructions UI shows. */}
+          <div ref={googleBtnRef} className={isInApp ? "mt-4 flex justify-center" : "hidden"}>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}
               text="continue_with"
               width="300"
             />
+<<<<<<< HEAD
             <p className="text-xs text-gray-400">
               3 videos free — no credit card required
             </p>
@@ -645,21 +905,94 @@ export default function Landing() {
             >
               Learn more: Blog to video converter →
             </Link>
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleGenerateClick();
+            }}
+            className="w-full max-w-xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+          >
+            <input
+              type="url"
+              value={heroUrl}
+              onChange={(e) => setHeroUrl(e.target.value)}
+              placeholder={heroUrl ? "" : typedPlaceholder + "|"}
+              className="flex-1 px-4 py-3 text-sm text-gray-800 placeholder-gray-400 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-400 transition-all"
+              style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
+            />
+            <button
+              type="submit"
+              className="px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-xl transition-colors whitespace-nowrap"
+              style={{ boxShadow: "0 2px 8px rgba(124,58,237,0.25)" }}
+            >
+              Get Started →
+            </button>
+          </form>
+          <p className="text-xs text-gray-400 mt-3">2 videos free — no credit card required</p>
         </div>
       </section>
 
+<<<<<<< HEAD
+      <LandingDemoSection demos={demos} />
+=======
+      {/* Platform + Reviews share one grey band (Reviews flows out of Platform) */}
+      <div style={{ background: "rgba(246,247,249,0.70)" }}>
+        <PlatformShowcaseSection />
+
+        <UserReviewsSection />
+      </div>
+
+       {/* ─── Coverflow template carousel ─── */}
+      <section id="templates" className="py-20 border-t border-gray-100 overflow-x-clip">
+        <div className="max-w-6xl mx-auto px-6">
+          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+          Templates Showcase
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
+            Pick your video's look
+          </h2>
+          <p className="text-sm text-gray-500 text-center max-w-lg mx-auto mb-12 leading-relaxed">
+            From broadcast newscasts to hand-drawn whiteboards, every template comes fully animated with its own layouts, motion, and color theme.
+          </p>
+          <OrientationToggle orientation={templatesOrientation} onChange={setTemplatesOrientation} className="mb-8" />
+          {/* key forces a clean remount on orientation change — resets every
+              preview at once instead of swapping in place (which flickered). */}
+          <CoverflowCarousel key={templatesOrientation} templates={carouselTemplates} initialIndex={carouselInitialIndex} orientation={templatesOrientation} showInputShowcase />
+        </div>
+      </section>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
+
+
       <LandingDemoSection demos={demos} />
 
-      {/* ─── Multiple templates ─── */}
+      {/* ─── Multiple templates ───
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
           <FullTemplateShowcase />
         </div>
+<<<<<<< HEAD
       </section>
 
       {/* ─── Custom template showcase ─── */}
       <section className="py-20 border-t border-gray-100">
+=======
+      </section> */}
+
+
+      {/* ─── Connect to AI (MCP) ─── */}
+      <section className="py-14 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <MCPConnectorShowcase onExplore={handleExploreMcp} />
+        </div>
+      </section>
+
+      {/* ─── Custom template showcase ─── */}
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <div className="max-w-5xl mx-auto px-6">
           <CustomTemplateShowcase />
         </div>
@@ -680,38 +1013,38 @@ export default function Landing() {
       </section>
 
       {/* ─── Pain points / value props ─── */}
-      <section className="py-20 border-t border-gray-100">
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
           <div className="reveal">
             <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
               The problem
             </p>
             <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
-              Your writing is great. Video shouldn't be the bottleneck.
+              You already know what to say. Video should not require a team.
             </h2>
             <p className="text-sm text-gray-500 text-center max-w-2xl mx-auto mb-16 leading-relaxed">
-              You've spent hours crafting the perfect article. But turning it into video
-              means learning editing software, recording yourself, or hiring someone.
-              What if your blog could become a video — automatically?
+              You have updates worth sharing: product launches, lessons learned, new offers, and fresh insights.
+              But turning them into video usually means learning editing software, recording yourself, or hiring someone.
+              Blog2Video lets you turn what you already wrote into content your audience can actually keep up with.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 reveal-group">
             {[
               {
-                icon: "🎙️",
-                title: "Exact blog voice",
-                desc: "AI reads your article and generates a script that mirrors your writing style — every nuance, every technical term, preserved.",
+                icon: "🚀",
+                title: "Publish without outside help",
+                desc: "Paste a link and get a polished video without hiring editors, designers, or voiceover talent.",
               },
               {
-                icon: "📋",
-                title: "Every detail included",
-                desc: "Code snippets become animated code blocks. Key points become bullet reveals. Architectures become flow diagrams. Nothing is lost.",
+                icon: "📅",
+                title: "Stay consistent with updates",
+                desc: "Turn every blog post, changelog, launch recap, or newsletter into video so your audience hears from you more often.",
               },
               {
-                icon: "🎓",
-                title: "Easy to follow",
-                desc: "Scene-by-scene narration with professional voiceover makes complex topics as easy to follow as your original blog post.",
+                icon: "♻️",
+                title: "Reuse what you already create",
+                desc: "Your written content becomes narrated video with visuals, so one update can work across your site, YouTube, and social channels.",
               },
             ].map((item) => (
               <div key={item.title} className="glass-card p-8 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all reveal">
@@ -776,7 +1109,7 @@ export default function Landing() {
             </div>
 
             {/* Solution */}
-            <div className="glass-card p-7 relative overflow-hidden ring-2 ring-purple-100 reveal">
+            <div className="p-7 relative overflow-hidden rounded-2xl border border-purple-100/60 reveal" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.08), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
               <div className="absolute top-0 left-0 w-full h-1 bg-purple-500" />
               <div className="flex items-center gap-2.5 mb-4">
                 <span className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-sm font-bold">3</span>
@@ -794,7 +1127,7 @@ export default function Landing() {
           </div>
 
           {/* Key differentiator callout */}
-          <div className="mt-10 glass-card p-6 bg-purple-50/50 border border-purple-100 text-center reveal">
+          <div className="mt-10 p-6 rounded-2xl border border-white/70 text-center reveal" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
             <p className="text-sm text-gray-700 leading-relaxed max-w-2xl mx-auto">
               <span className="font-semibold">The key insight:</span> Instead of using expensive AI image
               and video models, Blog2Video uses AI to <span className="font-semibold text-purple-700">write code</span> that
@@ -806,7 +1139,7 @@ export default function Landing() {
       </section>
 
       {/* ─── 4-Step Process ─── */}
-      <section id="how" className="py-20">
+      <section id="how" className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
           <div className="reveal">
             <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -845,8 +1178,8 @@ export default function Landing() {
               },
               {
                 step: "4",
-                title: "Render & share",
-                desc: "Preview instantly, render to MP4 and download or share.",
+                title: "Render & export",
+                desc: "Preview instantly, render to MP4, or export as PowerPoint, PDF, or PNG slides.",
                 icon: (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 ),
@@ -870,7 +1203,7 @@ export default function Landing() {
       </section>
 
       {/* ─── Features ─── */}
-      <section id="features" className="py-20 border-t border-gray-100">
+      <section id="features" className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
           <div className="reveal">
             <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -923,6 +1256,11 @@ export default function Landing() {
                 desc: "Watch your video come to life with a live Remotion Player preview. Render to MP4 with real-time progress tracking — frame by frame.",
                 tag: null,
               },
+              {
+                title: "Export as slides — PowerPoint, PDF & PNG",
+                desc: "Every scene doubles as a presentation slide. Export as a PowerPoint deck, PDF, or PNG images — ready to upload as LinkedIn or Instagram carousels, or drop into any presentation.",
+                tag: null,
+              },
             ].map((f) => (
               <div key={f.title} className="glass-card p-8 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all reveal">
                 <div className="flex items-start justify-between gap-4 mb-2">
@@ -941,23 +1279,23 @@ export default function Landing() {
       </section>
 
       {/* ─── Who is it for ─── */}
-      <section className="py-20">
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
           <div className="reveal">
             <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
               Built for
             </p>
             <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-16">
-              Writers, researchers and educators who want to be seen
+              Solopreneurs who need to stay visible while building
             </h2>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 reveal-group">
             {[
-              { icon: "✍️", title: "Technical bloggers", desc: "Turn dev.to and Medium posts into YouTube-ready explainers" },
-              { icon: "🔬", title: "Researchers", desc: "Present papers and findings as accessible video summaries" },
-              { icon: "👩‍🏫", title: "Teachers & educators", desc: "Convert lesson plans and course material into visual guides" },
-              { icon: "📝", title: "Technical writers", desc: "Repurpose documentation and how-tos as video walkthroughs" },
+              { icon: "🧑‍💻", title: "Solo founders", desc: "Share product updates, launches, and behind-the-scenes thinking without building a content team" },
+              { icon: "🛠️", title: "Indie makers", desc: "Turn build logs, feature drops, and roadmap notes into videos people actually watch" },
+              { icon: "💼", title: "Consultants & coaches", desc: "Repurpose expertise from articles and newsletters into video that builds trust at scale" },
+              { icon: "📨", title: "Newsletter operators", desc: "Keep subscribers engaged by turning each written update into a companion video" },
             ].map((p) => (
               <div key={p.title} className="glass-card p-6 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all reveal">
                 <div className="text-2xl mb-3">{p.icon}</div>
@@ -969,44 +1307,59 @@ export default function Landing() {
         </div>
       </section>
 
+
       {/* ─── Pricing preview ─── */}
-      <section className="py-20">
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-6xl mx-auto px-6 text-center reveal">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">Pricing</p>
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
             Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
+<<<<<<< HEAD
             Your first 3 videos are free. Then $3/video pay-as-you-go, $25/month
             (or $20/mo annual), $50/month with unlimited AI edit & image generation,
+=======
+            Your first 2 videos are free. Then from $2.80/video pay-as-you-go, $34.99/month,
+            $59.99/month with unlimited AI edit & image generation,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             or custom plans for enterprise teams.
           </p>
 
-          <div className="flex flex-row items-center justify-center gap-3 overflow-x-auto pb-2">
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
+<<<<<<< HEAD
               <p className="text-xs text-gray-400 mt-1">3 videos free</p>
+=======
+              <p className="text-xs text-gray-400 mt-1">2 videos free</p>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
+<<<<<<< HEAD
               <p className="text-3xl font-bold text-gray-900">$3</p>
               <p className="text-xs text-gray-400 mt-1">pay as you go</p>
+=======
+              <p className="text-3xl font-bold text-gray-900">$3.99</p>
+              <p className="text-xs text-gray-400 mt-1">from $2.80 bulk</p>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
-              <p className="text-3xl font-bold text-gray-900">$25<span className="text-sm font-normal text-gray-400">/mo</span></p>
-              <p className="text-xs text-gray-400 mt-1">or $20/mo annual</p>
+              <p className="text-3xl font-bold text-gray-900">$27.99<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">30 videos</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0 ring-1 ring-purple-200 relative">
+            <div className="relative px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/60" style={{ background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.10), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.95)" }}>
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                 <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Best value</span>
               </div>
               <p className="text-sm font-medium text-gray-900 mb-1">Pro</p>
-              <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
-              <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
+              <p className="text-3xl font-bold text-gray-900">$47.99<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">100 videos</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0 border-2 border-purple-300">
+            <div className="px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/50" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
               <p className="text-sm font-medium text-gray-900 mb-1">Customized</p>
               <p className="text-3xl font-bold text-gray-900">Custom</p>
               <p className="text-xs text-gray-400 mt-1">Enterprise & teams</p>
@@ -1026,27 +1379,48 @@ export default function Landing() {
       <LandingResourceSection />
 
       {/* ─── CTA ─── */}
-      <section className="py-20 border-t border-gray-100">
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-3xl mx-auto px-6 text-center reveal">
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
-            Your next blog post deserves a video
+            Keep your audience updated in video
           </h2>
           <p className="text-sm text-gray-500 mb-8 max-w-lg mx-auto">
-            Join bloggers, researchers, and educators who are turning their best
-            writing into engaging video content — in minutes, not hours.
+            Turn the content you already publish into videos you can share everywhere, without freelancers, agencies, or extra production overhead.
           </p>
           <div className="flex justify-center">
+<<<<<<< HEAD
             <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}
               text="continue_with"
               width="300"
             />
+=======
+            <div className="flex flex-col items-center gap-3 px-8 py-6 rounded-2xl border border-white/70" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
+              <GoogleAuthButton
+                onSuccess={handleGoogleSuccess}
+                onError={() => showError("Google sign-in failed")}
+                text="continue_with"
+                width="300"
+              />
+              <p className="text-xs text-gray-400">2 videos free — no credit card required</p>
+            </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
         </div>
       </section>
 
       <PublicFooter />
+<<<<<<< HEAD
+=======
+
+      {signingIn && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
+          <div className="w-10 h-10 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin mb-4" />
+          <p className="text-sm font-medium text-gray-700">Signing you in…</p>
+        </div>
+      )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       <AccountDeletedModal
         open={accountDeletedOpen}
@@ -1054,6 +1428,19 @@ export default function Landing() {
         onReactivate={handleReactivate}
         reactivating={reactivating}
       />
+<<<<<<< HEAD
+=======
+
+      <DesignerTemplateRequestModal open={designerOpen} onClose={() => setDesignerOpen(false)} />
+      <ContactModal
+        open={contactOpen}
+        onClose={() => setContactOpen(false)}
+        title="Request a Designer Template"
+        description="Tell us about your brand and the template you'd like. Our design team will build a template that makes every video you publish look like it belongs in the same league as your writing."
+        messagePlaceholder="Describe your ideal template, your brand, and any reference links."
+        isDesignerRequest
+      />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { SocialIcons } from "../SocialIcons";
+<<<<<<< HEAD
+=======
+import { resolveCtas } from "../shared/resolveCtas";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import type { GeneratedSceneData } from "./types";
 
 type CtaProps = NonNullable<GeneratedSceneData["ctaProps"]>;
@@ -53,9 +57,19 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
     [0.8, 1],
   );
 
+<<<<<<< HEAD
   const showWebsiteCta =
     ctaProps.showWebsiteButton !== false &&
     (ctaProps.websiteLink ?? "").trim().length > 0;
+=======
+  // CTA cards: only render cards that have a visible pill (toggle on + link).
+  // Empty cards (user added but never filled in) are dropped to avoid blank columns.
+  const cards = resolveCtas(ctaProps).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const hasAnyCard = cards.length > 0;
+  const cardCount = Math.min(Math.max(cards.length, 1), 3);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const hasSocials =
     ctaProps.socials &&
@@ -67,8 +81,23 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
   const titleFont = headingFont || bodyFont || "'Inter', sans-serif";
   const font = bodyFont || "'Inter', sans-serif";
 
+<<<<<<< HEAD
   return (
     <AbsoluteFill style={{ backgroundColor: bg, overflow: "hidden" }}>
+=======
+  // Column widths: 1 → comfortable centered; 2 → ~45%; 3 → ~30%.
+  const cardBasis = cardCount === 1 ? (p ? "80%" : "60%") : cardCount === 2 ? "45%" : "30%";
+
+  // Brand-accent atmosphere — two soft radial glows give the outro a richer,
+  // on-brand backdrop than a flat fill (v3 bookend polish). Static + low-alpha,
+  // so it never flickers in headless render.
+  const backdrop = `radial-gradient(circle at 18% 22%, ${accent}14 0%, transparent 42%), radial-gradient(circle at 82% 80%, ${accent}10 0%, transparent 46%)`;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bg, overflow: "hidden" }}>
+      {/* Brand atmosphere backdrop */}
+      <div style={{ position: "absolute", inset: 0, background: backdrop, opacity: interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" }) }} />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       {/* Accent bar at bottom */}
       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 6, backgroundColor: accent }} />
 
@@ -128,6 +157,7 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
           }}
         />
 
+<<<<<<< HEAD
         {/* CTA button + website */}
         {showWebsiteCta && (
           <div
@@ -136,10 +166,24 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
               flexDirection: "column",
               alignItems: "center",
               gap: p ? 10 : 12,
+=======
+        {/* CTA cards — 1/2/3 columns based on count */}
+        {hasAnyCard && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "flex-start",
+              gap: p ? 18 : 28,
+              width: "100%",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               opacity: ctaOp,
               transform: `scale(${ctaScale})`,
             }}
           >
+<<<<<<< HEAD
             <div
               style={{
                 display: "inline-flex",
@@ -173,6 +217,59 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
         )}
 
         {/* Social icons */}
+=======
+            {cards.map((card, idx) => {
+              const ctaLabel = card.ctaButtonText.trim() || "Get started";
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    flex: `0 1 ${cardBasis}`,
+                    maxWidth: cardBasis,
+                    minWidth: p ? 220 : 240,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: p ? 10 : 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      borderRadius: 999,
+                      padding: p ? "16px 28px" : "14px 26px",
+                      backgroundColor: accent,
+                      color: "#FFFFFF",
+                      fontSize: p ? 26 : 24,
+                      fontWeight: 700,
+                      fontFamily: font,
+                    }}
+                  >
+                    <span>{ctaLabel}</span>
+                    <span style={{ fontSize: p ? 28 : 26 }}>→</span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: p ? 22 : 20,
+                      fontWeight: 600,
+                      color: `${text}AA`,
+                      fontFamily: font,
+                      maxWidth: "100%",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {card.websiteLink}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Global socials row */}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         {hasSocials && (
           <div style={{ marginTop: p ? 8 : 14, width: "100%", opacity: socialsOp }}>
             <SocialIcons

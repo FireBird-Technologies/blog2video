@@ -1,9 +1,15 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+<<<<<<< HEAD
 import { Player } from "@remotion/player";
+=======
+import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "../PlayerScaledCanvas";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+<<<<<<< HEAD
 // ─── Enlarged Logical Dimensions (9:16)
 // Lower values here make the content (text/images) appear larger in the box
 const INTERNAL_W = 240; 
@@ -52,6 +58,10 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+=======
+const INTERNAL_W = 270;
+const INTERNAL_H = 480;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const NEWCAST_PREVIEW_SCENES = [
   {
@@ -116,6 +126,7 @@ const NEWCAST_PREVIEW_SCENES = [
 
 const T_COLORS = { accent: "#E82020", bg: "#060614", text: "#B8C8E0" };
 
+<<<<<<< HEAD
 export default function NewscastPreviewPortrait() {
   const [activeIdx, setActiveIdx] = useState(0);
   const activeScene = NEWCAST_PREVIEW_SCENES[activeIdx];
@@ -136,10 +147,40 @@ export default function NewscastPreviewPortrait() {
   const inputProps = useMemo(() => ({
     ...activeScene.layoutProps,
     scenes: [activeScene],
+=======
+const FPS = 30;
+function sceneFrames(s: { durationSeconds: number }): number {
+  return Math.round(s.durationSeconds * FPS) + 45;
+}
+
+export default function NewscastPreviewPortrait({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const playerRef = useRef<PlayerRef>(null);
+  const config = getTemplateConfig("newscast");
+  const Composition = config.component as React.ComponentType<any>;
+
+  // Pass ALL scenes at once so Remotion cuts between them internally — the Player
+  // props never change, so it never remounts (avoids the per-scene flicker).
+  const sceneOffsets = useMemo(() => {
+    const offs: number[] = [];
+    let acc = 0;
+    for (const s of NEWCAST_PREVIEW_SCENES) { offs.push(acc); acc += sceneFrames(s); }
+    return offs;
+  }, []);
+  const durationInFrames = useMemo(
+    () => NEWCAST_PREVIEW_SCENES.reduce((sum, s) => sum + sceneFrames(s), 0),
+    [],
+  );
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 100);
+
+  const inputProps = useMemo(() => ({
+    scenes: NEWCAST_PREVIEW_SCENES,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     accentColor: T_COLORS.accent,
     bgColor: T_COLORS.bg,
     textColor: T_COLORS.text,
     aspectRatio: "portrait",
+<<<<<<< HEAD
   }), [activeScene]);
 
   return (
@@ -160,6 +201,61 @@ export default function NewscastPreviewPortrait() {
             acknowledgeRemotionLicense
             style={{ width: "100%", height: "100%" }}
           />
+=======
+  }), []);
+
+  // Side (thumbnail) cards park on a static frame and never play, so off-center
+  // Players don't keep rendering ~30fps each (the carousel slowdown).
+  useEffect(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    if (thumbnailMode) {
+      p.pause();
+      p.seekTo(thumbnailFrame);
+      return;
+    }
+    setActiveIdx(0);
+    p.seekTo(0);
+    p.play();
+  }, [thumbnailMode, thumbnailFrame]);
+
+  // Keep the active dot in sync with playback.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    const p = playerRef.current;
+    if (!p) return;
+    const onFrame = () => {
+      const f = p.getCurrentFrame();
+      let idx = 0;
+      for (let i = sceneOffsets.length - 1; i >= 0; i--) {
+        if (f >= sceneOffsets[i]) { idx = i; break; }
+      }
+      setActiveIdx((prev) => (prev === idx ? prev : idx));
+    };
+    p.addEventListener("frameupdate", onFrame);
+    return () => p.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, sceneOffsets]);
+
+  return (
+    <div className="relative w-full h-full overflow-hidden" style={{ background: T_COLORS.bg }}>
+      <PlayerScaledCanvas internalWidth={INTERNAL_W} internalHeight={INTERNAL_H}>
+          <Player
+            ref={playerRef}
+            component={Composition}
+            inputProps={inputProps}
+            durationInFrames={durationInFrames}
+            initialFrame={thumbnailMode ? thumbnailFrame : 0}
+            compositionWidth={1080}
+            compositionHeight={1920}
+            fps={FPS}
+            controls={false}
+            autoPlay={!thumbnailMode}
+            loop={!thumbnailMode}
+            acknowledgeRemotionLicense
+            style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
+          />
+      </PlayerScaledCanvas>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           
           {/* Compact navigation dots — no scene titles */}
           <div
@@ -187,8 +283,11 @@ export default function NewscastPreviewPortrait() {
               />
             ))}
           </div>
+<<<<<<< HEAD
         </div>
       </ScaledCanvas>
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </div>
   );
 }

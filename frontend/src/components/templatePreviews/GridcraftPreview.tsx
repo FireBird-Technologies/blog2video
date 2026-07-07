@@ -11,7 +11,10 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const update = () => setScale(el.getBoundingClientRect().width / INTERNAL_W);
+    const update = () => {
+      const s = Math.max(el.offsetWidth / INTERNAL_W, el.offsetHeight / INTERNAL_H);
+      if (s > 0) setScale(s);
+    };
     update();
     const obs = new ResizeObserver(update);
     obs.observe(el);
@@ -211,22 +214,32 @@ function SlideDots({ total, current, onDotClick }: { total: number; current: num
 const SLIDES = [SlideBentoHero, SlideBentoFeatures, SlideKpiGrid];
 const SLIDE_DURATION = 3500;
 
-export default function GridcraftPreview() {
+export default function GridcraftPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [current, setCurrent] = useState(0);
   const [active, setActive] = useState(false);
 
   useEffect(() => {
+    // Side cards play the first slide's intro once and rest on its settled
+    // state (no slide cycling). Pinning to slide 0 also means the animation
+    // restarts from the top when the card returns to center.
+    setCurrent(0);
+    if (thumbnailMode) {
+      setActive(true);
+      return;
+    }
+    setActive(false);
     const t = setTimeout(() => setActive(true), 200);
     return () => clearTimeout(t);
-  }, []);
+  }, [thumbnailMode]);
 
   useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => {
       setActive(false);
       setTimeout(() => { setCurrent((c) => (c + 1) % SLIDES.length); setActive(true); }, 150);
     }, SLIDE_DURATION);
     return () => clearInterval(id);
-  }, []);
+  }, [thumbnailMode]);
 
   const handleDot = (i: number) => {
     setActive(false);

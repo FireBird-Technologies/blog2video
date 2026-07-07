@@ -2,6 +2,10 @@ import { Link, useLocation } from "react-router-dom";
 import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
 import Seo from "../components/seo/Seo";
+<<<<<<< HEAD
+=======
+import { ComparisonUrlDemoWidget } from "../components/ComparisonUrlDemoWidget";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   getMarketingPage,
   getStructuredInternalLinks,
@@ -10,6 +14,12 @@ import {
 import NotFoundPage from "./NotFoundPage";
 import { marketingPageSchema } from "../seo/schema";
 
+<<<<<<< HEAD
+=======
+const CUSTOM_TEMPLATE_ID = "custom-branded-templates";
+const CUSTOM_TEMPLATE_LINK = "/custom-branded-video-templates";
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export default function MarketingPageView() {
   const location = useLocation();
   const page = getMarketingPage(location.pathname);
@@ -17,6 +27,23 @@ export default function MarketingPageView() {
   if (!page) return <NotFoundPage />;
 
   const recommendedTemplate = getTemplateProfile(page.recommendedTemplate);
+<<<<<<< HEAD
+=======
+  const recommendedTemplateCard =
+    page.recommendedTemplate === CUSTOM_TEMPLATE_ID
+      ? {
+          name: "Custom Templates",
+          href: CUSTOM_TEMPLATE_LINK,
+          ctaLabel: "Explore custom templates",
+        }
+      : recommendedTemplate
+        ? {
+            name: recommendedTemplate.name,
+            href: `/templates/${recommendedTemplate.slug}`,
+            ctaLabel: "Explore the template",
+          }
+        : null;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const relatedLinks = getStructuredInternalLinks(page.relatedPaths);
 
   return (
@@ -72,6 +99,15 @@ export default function MarketingPageView() {
           </div>
         </section>
 
+<<<<<<< HEAD
+=======
+        {page.demoWidget && (
+          <section className="mx-auto max-w-6xl px-6 py-12">
+            <ComparisonUrlDemoWidget />
+          </section>
+        )}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <section className="mx-auto max-w-6xl px-6 py-16">
           <div className="grid gap-6 md:grid-cols-3">
             {page.proofPoints.map((proofPoint) => (
@@ -127,22 +163,37 @@ export default function MarketingPageView() {
             </div>
 
             <aside className="space-y-6">
+<<<<<<< HEAD
               {recommendedTemplate ? (
+=======
+              {recommendedTemplateCard ? (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-6">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
                     Recommended Template
                   </p>
                   <h3 className="text-xl font-semibold text-gray-900">
+<<<<<<< HEAD
                     {recommendedTemplate.name}
+=======
+                    {recommendedTemplateCard.name}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   </h3>
                   <p className="mt-3 text-sm leading-relaxed text-gray-600">
                     {page.recommendedTemplateReason}
                   </p>
                   <Link
+<<<<<<< HEAD
                     to={`/templates/${recommendedTemplate.slug}`}
                     className="mt-4 inline-flex text-sm font-medium text-purple-700 hover:text-purple-800"
                   >
                     Explore the template
+=======
+                    to={recommendedTemplateCard.href}
+                    className="mt-4 inline-flex text-sm font-medium text-purple-700 hover:text-purple-800"
+                  >
+                    {recommendedTemplateCard.ctaLabel}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   </Link>
                 </div>
               ) : null}

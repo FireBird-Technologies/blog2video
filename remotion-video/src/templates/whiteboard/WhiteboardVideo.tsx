@@ -12,29 +12,50 @@ import { WHITEBOARD_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { WhiteboardLayoutType, WhiteboardLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 interface SceneData {
   id: number;
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
+  narrationText?: string;
   layout: WhiteboardLayoutType;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
 }
 
 interface VideoData {
   projectName: string;
+  heroImage?: string | null;
   accentColor: string;
   bgColor: string;
   textColor: string;
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
+  logoSize?: number | string;
   aspectRatio?: string;
+<<<<<<< HEAD
   fontFamily?: string | null;
+=======
+  playbackSpeed?: number;
+  fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  captionOffset?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
@@ -60,8 +81,11 @@ export const calculateWhiteboardMetadata: CalculateMetadataFunction<VideoProps> 
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-      const totalSeconds = data.scenes.reduce((sum, s) => sum + (s.durationSeconds || 5), 0);
-      const totalFrames = Math.ceil(totalSeconds * FPS);
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+      const sceneFrames = data.scenes.map((s) =>
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
+      );
+      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
       const isPortrait = data.aspectRatio === "portrait";
 
       return {
@@ -113,6 +137,7 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   if (!data) return <AbsoluteFill style={{ backgroundColor: "#F7F3E8" }} />;
 
   const FPS = 30;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
   let currentFrame = 0;
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
@@ -124,7 +149,11 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       }}
     >
       {data.scenes.map((scene, index) => {
-        const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -141,13 +170,36 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#111827",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+<<<<<<< HEAD
+=======
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily: resolvedFontFamily || undefined,
         };
 
         return (
           <Sequence key={scene.id} from={startFrame} durationInFrames={durationFrames} name={scene.title}>
             <LayoutComponent {...layoutProps} />
-            {scene.voiceoverFile && <Audio src={staticFile(scene.voiceoverFile)} />}
+            {scene.voiceoverFile && (
+              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
+            {/* Captions — narration text, synced to this scene's voiceover window */}
+            {data.captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={data.captionPosition || "bottom_center"}
+                aspectRatio={data.aspectRatio || "landscape"}
+                fontFamily={data.captionFontFamily ? (resolveFontFamily(data.captionFontFamily) || data.captionFontFamily) : (resolvedFontFamily || undefined)}
+                fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+                offset={data.captionOffset ?? 0}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
+            )}
             {index < data.scenes.length - 1 && (
               <Sequence from={Math.max(0, durationFrames - 14)} durationInFrames={14}>
                 <WhiteboardTransition bgColor={data.bgColor || "#F7F3E8"} />
@@ -162,9 +214,15 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
+          size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
+      )}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
       )}
     </AbsoluteFill>
   );
 };
+

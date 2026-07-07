@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+<<<<<<< HEAD
+=======
+import PlayerScaledCanvas from "./PlayerScaledCanvas";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import "@fontsource/righteous/400.css";
 import {
   BlackswanVideoComposition,
@@ -15,6 +19,7 @@ const ACCENT = "#00E5FF";
 const TEXT = "#DFFFFF";
 const BG = "#000000";
 
+<<<<<<< HEAD
 function ScaledCanvas({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
@@ -54,6 +59,8 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
   );
 }
 
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 /** Short carousel: hero, code matrix, dive insight, signal split — same registry as full renders. */
 const PREVIEW_SCENES: BlackswanSceneInput[] = [
   {
@@ -175,6 +182,7 @@ function SlideDots({
   );
 }
 
+<<<<<<< HEAD
 export default function BlackswanPreview() {
   const playerRef = useRef<PlayerRef>(null);
   const [sceneIndex, setSceneIndex] = useState(0);
@@ -188,12 +196,33 @@ export default function BlackswanPreview() {
   const inputProps = useMemo(
     () => ({
       scenes: PREVIEW_SCENES,
+=======
+export default function BlackswanPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
+  const playerRef = useRef<PlayerRef>(null);
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const scenes = useMemo(() => (thumbnailMode ? PREVIEW_SCENES.slice(0, 1) : PREVIEW_SCENES), [thumbnailMode]);
+
+  const durationInFrames = useMemo(() => {
+    const total = totalDurationFrames(scenes, FPS);
+    return total;
+  }, [scenes, thumbnailMode]);
+  const thumbnailFrame = useMemo(() => Math.max(0, Math.floor(durationInFrames * 0.85) - 1), [durationInFrames]);
+  const starts = useMemo(() => sceneStarts(scenes, FPS), [scenes]);
+
+  const inputProps = useMemo(
+    () => ({
+      scenes,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       accentColor: ACCENT,
       bgColor: BG,
       textColor: TEXT,
       aspectRatio: "landscape" as const,
     }),
+<<<<<<< HEAD
     []
+=======
+    [scenes]
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   );
 
   useEffect(() => {
@@ -201,12 +230,35 @@ export default function BlackswanPreview() {
     if (!p) return;
     const onFrame = () => {
       const frame = p.getCurrentFrame();
+<<<<<<< HEAD
       setSceneIndex(sceneIndexAtFrame(frame, PREVIEW_SCENES, FPS, durationInFrames));
+=======
+      setSceneIndex(sceneIndexAtFrame(frame, scenes, FPS, durationInFrames));
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     };
     p.addEventListener("frameupdate", onFrame);
     onFrame();
     return () => p.removeEventListener("frameupdate", onFrame);
+<<<<<<< HEAD
   }, [durationInFrames]);
+=======
+  }, [durationInFrames, scenes]);
+
+  // When the card reaches center, restart the timeline from the top so the
+  // animation plays fresh — and stop it the moment it moves away. (In thumbnail
+  // mode the Player has autoPlay off and is parked on the static thumbnail frame.)
+  useEffect(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    if (thumbnailMode) {
+      p.pause();
+      return;
+    }
+    setSceneIndex(0);
+    p.seekTo(0);
+    p.play();
+  }, [thumbnailMode]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const seekToScene = (i: number) => {
     const p = playerRef.current;
@@ -218,19 +270,33 @@ export default function BlackswanPreview() {
   };
 
   return (
+<<<<<<< HEAD
     <ScaledCanvas>
       <div style={{ width: "100%", height: "100%", position: "relative", background: BG }}>
+=======
+    <div className="relative w-full h-full overflow-hidden" style={{ background: BG }}>
+      <PlayerScaledCanvas>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <Player
           ref={playerRef}
           component={BlackswanVideoComposition}
           durationInFrames={durationInFrames}
+<<<<<<< HEAD
+=======
+          initialFrame={thumbnailMode ? thumbnailFrame : 0}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           compositionWidth={1920}
           compositionHeight={1080}
           fps={FPS}
           inputProps={inputProps}
           controls={false}
+<<<<<<< HEAD
           autoPlay
           loop
+=======
+          autoPlay={!thumbnailMode}
+          loop={!thumbnailMode}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           acknowledgeRemotionLicense
           style={{
             width: INTERNAL_W,
@@ -238,6 +304,7 @@ export default function BlackswanPreview() {
             display: "block",
           }}
         />
+<<<<<<< HEAD
         <SlideDots
           total={PREVIEW_SCENES.length}
           current={sceneIndex}
@@ -245,5 +312,17 @@ export default function BlackswanPreview() {
         />
       </div>
     </ScaledCanvas>
+=======
+      </PlayerScaledCanvas>
+        <SlideDots
+          total={scenes.length}
+          current={sceneIndex}
+          onDotClick={(i) => {
+            if (thumbnailMode) return;
+            seekToScene(i);
+          }}
+        />
+    </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   );
 }

@@ -26,6 +26,18 @@ else:
     if "sslmode" not in settings.DATABASE_URL:
         connect_args["sslmode"] = "require"
 
+    # TCP keepalives prevent Neon (and intermediate firewalls/NATs) from
+    # killing connections that sit idle while a long DSPy/LLM call awaits.
+    # pool_pre_ping only checks on checkout; a connection already held by an
+    # active session is not re-pinged, so a 30-60s LLM await can silently
+    # break the socket and the next commit fails with "server closed the
+    # connection unexpectedly". Keepalives keep the socket warm at the OS
+    # level — first probe at 30s idle, then every 10s, give up after 5.
+    connect_args["keepalives"] = 1
+    connect_args["keepalives_idle"] = 30
+    connect_args["keepalives_interval"] = 10
+    connect_args["keepalives_count"] = 5
+
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
@@ -76,13 +88,29 @@ def _migrate_sqlite(eng) -> None:
             "logo_r2_url": "VARCHAR(2048)",
             "logo_position": "VARCHAR(20) DEFAULT 'bottom_right'",
             "logo_opacity": "REAL DEFAULT 0.9",
-            "logo_size": "REAL DEFAULT 100",
+            "logo_size": "REAL DEFAULT 70",
             "custom_voice_id": "VARCHAR(100)",
             "template": "VARCHAR(50) DEFAULT 'default'",
+            "crafted_template_id": "INTEGER",
             "video_style": "VARCHAR(30) DEFAULT 'explainer'",
             "aspect_ratio": "VARCHAR(20) DEFAULT 'landscape'",
             "ai_assisted_editing_count": "INTEGER DEFAULT 0",
             "font_family": "VARCHAR(255)",
+<<<<<<< HEAD
+=======
+            "is_active": "BOOLEAN DEFAULT 1",
+            "embed_token": "VARCHAR(64)",
+            "video_length": "VARCHAR(10) DEFAULT 'auto'",
+            "playback_speed": "REAL DEFAULT 1.0",
+            "captions_enabled": "BOOLEAN DEFAULT 0",
+            "caption_position": "VARCHAR(20) DEFAULT 'bottom_center'",
+            "caption_font_family": "VARCHAR(50) DEFAULT 'inter'",
+            "caption_font_size": "VARCHAR(10) DEFAULT '36'",
+            "caption_offset": "INTEGER DEFAULT 0",
+            "content_language": "VARCHAR(10)",
+            "created_at": "DATETIME",
+            "updated_at": "DATETIME",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         }
         with eng.begin() as conn:
             for col_name, col_def in migrations.items():
@@ -101,10 +129,18 @@ def _migrate_sqlite(eng) -> None:
             "stripe_subscription_id": "VARCHAR(255)",
             "videos_used_this_period": "INTEGER DEFAULT 0",
             "video_limit_bonus": "INTEGER DEFAULT 0",
+            "custom_template_bonus": "INTEGER DEFAULT 0",
+            "custom_templates_created": "INTEGER DEFAULT 0",
             "period_start": "DATETIME",
             "is_active": "BOOLEAN DEFAULT 1",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",
+            "retention_offer_shown_count": "INTEGER DEFAULT 0",
+            "retention_offer_suppressed": "BOOLEAN DEFAULT 0",
+            "email_unsubscribed": "BOOLEAN DEFAULT 0",
+            "last_coupon_email_at": "DATETIME",
+            "referrals_given": "INTEGER DEFAULT 0",
+            "referral_video_bonus": "INTEGER DEFAULT 0",
         }
         with eng.begin() as conn:
             for col_name, col_def in user_migrations.items():
@@ -167,7 +203,6 @@ def _migrate_sqlite(eng) -> None:
         ct_migrations = {
             "source_url": "VARCHAR(2048)",
             "category": "VARCHAR(50) DEFAULT 'blog'",
-            "supported_video_style": "VARCHAR(30) DEFAULT 'explainer'",
             "theme": "TEXT",
             "generated_prompt": "TEXT",
             "preview_image_url": "VARCHAR(2048)",
@@ -178,6 +213,13 @@ def _migrate_sqlite(eng) -> None:
             "current_version_id": "INTEGER",
             "content_codes": "TEXT",
             "content_archetype_ids": "TEXT",
+<<<<<<< HEAD
+=======
+            "image_box_aspect_ratios": "TEXT",
+            "generation_failed": "BOOLEAN DEFAULT 0",
+            "created_at": "DATETIME",
+            "updated_at": "DATETIME",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         }
         with eng.begin() as conn:
             for col_name, col_def in ct_migrations.items():
@@ -226,6 +268,7 @@ def _migrate_sqlite(eng) -> None:
             "canceled_at": "DATETIME",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",
+            "quantity": "INTEGER DEFAULT 1",
         }
         with eng.begin() as conn:
             for col_name, col_def in sub_migrations.items():
@@ -344,6 +387,27 @@ def _migrate_sqlite(eng) -> None:
                         text(f"ALTER TABLE saved_voices ADD COLUMN {col_name} {col_def}")
                     )
 
+<<<<<<< HEAD
+=======
+    # ─── Project template change jobs ────────────────────────────────
+    if "project_template_change_jobs" in insp.get_table_names():
+        tcj_cols = {c["name"] for c in insp.get_columns("project_template_change_jobs")}
+        with eng.begin() as conn:
+            if "scene_snapshot" not in tcj_cols:
+                conn.execute(
+                    text("ALTER TABLE project_template_change_jobs ADD COLUMN scene_snapshot TEXT")
+                )
+
+    # ─── Project voice change jobs ───────────────────────────────────
+    if "project_voice_change_jobs" in insp.get_table_names():
+        vcj_cols = {c["name"] for c in insp.get_columns("project_voice_change_jobs")}
+        with eng.begin() as conn:
+            if "voice_snapshot" not in vcj_cols:
+                conn.execute(
+                    text("ALTER TABLE project_voice_change_jobs ADD COLUMN voice_snapshot TEXT")
+                )
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 def init_db():
     """
@@ -357,6 +421,8 @@ def init_db():
         BrandKit,
         ChatMessage,
         CustomTemplate,
+        CraftedTemplate,
+        CraftedTemplateEntitlement,
         Project,
         CustomVoice,
         SavedVoice,
@@ -367,10 +433,23 @@ def init_db():
         ProjectEditHistory,
         SceneEditHistory,
         TemplateVersion,
+<<<<<<< HEAD
         # Ensure SQLite creates the prebuilt_voices table in dev/local.
         PrebuiltVoice,
         Review,
         ProjectTemplateChangeJob,
+=======
+        PrebuiltVoice,
+        Review,
+        TemplateRating,
+        ProjectTemplateChangeJob,
+        ProjectRegenerateScriptJob,
+        ProjectVoiceChangeJob,
+        Referral,
+        ReferralSignup,
+        SupportConversation,
+        SupportMessage,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     )
     from app.models.subscription import seed_plans
 

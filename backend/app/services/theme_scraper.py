@@ -9,6 +9,10 @@ import time
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
 
+<<<<<<< HEAD
+=======
+import requests
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from firecrawl import Firecrawl
 from app.config import settings
 
@@ -31,7 +35,14 @@ USER_THEME_SCRAPE_NOT_CONFIGURED = (
     "Theme extraction isn't available on this server. Please contact support."
 )
 
+<<<<<<< HEAD
 _MAX_HTML_CHARS = 15_000
+=======
+# HTML budget sent to the theme LM. Sized so the prepended CSS block (up to
+# _MAX_CSS_CHARS, where colors/fonts live) does NOT crowd out the HTML structure
+# the model needs to infer visual patterns (cards, decor, layout). ~10K CSS + ~18K HTML.
+_MAX_HTML_CHARS = 28_000
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 _MAX_MARKDOWN_CHARS = 2_000
 _MAX_CSS_CHARS = 10_000
 
@@ -71,6 +82,32 @@ def _is_in_nav(tag) -> bool:  # type: ignore[no-untyped-def]
     return False
 
 
+<<<<<<< HEAD
+=======
+def _is_url_reachable(url: str, timeout: float = 3.0) -> bool:
+    """HEAD-check a URL; retry with a byte-range GET if the server rejects HEAD.
+    Used to filter last-resort favicon fallbacks that many SPAs don't actually
+    serve (e.g. Binance's /favicon.ico returns 404), preventing broken URLs from
+    polluting the brand kit.
+    """
+    if not url or not url.startswith(("http://", "https://")):
+        return False
+    try:
+        resp = requests.head(url, timeout=timeout, allow_redirects=True)
+        if resp.status_code < 400:
+            return True
+        if resp.status_code in (403, 405, 501):
+            resp = requests.get(
+                url, timeout=timeout, stream=True,
+                headers={"Range": "bytes=0-0"},
+            )
+            return resp.status_code < 400
+    except Exception:
+        pass
+    return False
+
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _svg_to_data_uri(svg_tag) -> str | None:  # type: ignore[no-untyped-def]
     """Serialize a BeautifulSoup SVG tag to a base64 data URI. Returns None if too large."""
     svg_str = str(svg_tag)
@@ -139,7 +176,13 @@ def _extract_logo_urls(html: str, base_url: str, og_image: str = "") -> list[str
             if any(r == "apple-touch-icon" for r in rels):
                 tiers[4].append(urljoin(base_url, href))
             elif any(r in ("icon", "shortcut") for r in rels):
+<<<<<<< HEAD
                 tiers[6].append(urljoin(base_url, href))
+=======
+                icon_url = urljoin(base_url, href)
+                if _is_url_reachable(icon_url):
+                    tiers[6].append(icon_url)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     except Exception:
         pass  # Never let logo extraction break the scrape
@@ -148,8 +191,15 @@ def _extract_logo_urls(html: str, base_url: str, og_image: str = "") -> list[str
     if og_image:
         tiers[5].append(og_image)
 
+<<<<<<< HEAD
     # ── Tier 8: /favicon.ico ──────────────────────────────────────────────
     tiers[7].append(urljoin(base_url, "/favicon.ico"))
+=======
+    # ── Tier 8: /favicon.ico (only if the server actually serves it) ──────
+    favicon_url = urljoin(base_url, "/favicon.ico")
+    if _is_url_reachable(favicon_url):
+        tiers[7].append(favicon_url)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # Merge tiers in order, deduplicate, cap at 5
     seen: set[str] = set()
@@ -208,7 +258,15 @@ def _extract_css_content(html: str, base_url: str = "") -> str:
                 break
             try:
                 resp = _requests.get(css_url, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
+<<<<<<< HEAD
                 if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("text/css"):
+=======
+                # Accept by content-type OR by .css URL — some CDNs serve CSS with a
+                # generic/missing content-type, which previously dropped real stylesheets.
+                ctype = resp.headers.get("content-type", "")
+                looks_css = ctype.startswith("text/css") or "css" in ctype or css_url.split("?")[0].endswith(".css")
+                if resp.status_code == 200 and looks_css:
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     remaining = _MAX_CSS_CHARS - total
                     text = resp.text[:remaining].strip()
                     if text:
@@ -232,7 +290,7 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
 
     t_scrape_start = time.time()
     try:
-        doc = app.scrape(url, formats=["html", "markdown"])
+        doc = app.scrape(url, formats=["html", "rawHtml", "markdown"])
     except Exception as e:
         logger.warning(
             "Firecrawl scrape failed for %s: %s",
@@ -244,6 +302,12 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
 
     html_content = (getattr(doc, "html", None) or "").strip()
     markdown_text = (getattr(doc, "markdown", None) or "").strip()
+    # rawHtml is the FULL original HTML (incl. <head> + <link rel=stylesheet>),
+    # whereas Firecrawl's cleaned `html` drops the head — so external stylesheets
+    # (where most brand colors/fonts live) are only discoverable via rawHtml.
+    raw_html = (getattr(doc, "raw_html", None) or getattr(doc, "rawHtml", None) or "").strip()
+    # Prefer rawHtml for CSS + logo discovery; fall back to cleaned html.
+    style_source_html = raw_html or html_content
     metadata = getattr(doc, "metadata", None) or {}
     if not isinstance(metadata, dict):
         metadata = metadata.__dict__ if hasattr(metadata, "__dict__") else {}
@@ -259,6 +323,7 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
         or ""
     )
 
+<<<<<<< HEAD
     # Extract CSS from full HTML (inline + external stylesheets) and prepend to truncated HTML
     css_content = _extract_css_content(html_content, base_url=url)
     html_with_css = (f"<style>{css_content}</style>\n" + html_content) if css_content else html_content
@@ -268,6 +333,18 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
 
     t_scrape_total = time.time() - t_scrape_start
     print(f"[F7-DEBUG] [SCRAPE] Done in {t_scrape_total:.1f}s — HTML={len(html_content)} chars, CSS={len(css_content)} chars, logos={len(logo_urls)}")
+=======
+    # Extract CSS from the fullest HTML available (inline + external stylesheets)
+    # and prepend to truncated HTML so the AI sees real brand colors/fonts.
+    css_content = _extract_css_content(style_source_html, base_url=url)
+    html_with_css = (f"<style>{css_content}</style>\n" + html_content) if css_content else html_content
+
+    # Extract logos from the fullest HTML (with og:image and favicon fallbacks)
+    logo_urls = _extract_logo_urls(style_source_html, url, og_image=og_image)
+
+    t_scrape_total = time.time() - t_scrape_start
+    print(f"[F7-DEBUG] [SCRAPE] Done in {t_scrape_total:.1f}s — HTML={len(html_content)} chars, rawHTML={len(raw_html)} chars, CSS={len(css_content)} chars, logos={len(logo_urls)}")
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     return ScrapedThemeData(
         url=url,

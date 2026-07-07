@@ -17,6 +17,1420 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+<<<<<<< HEAD
+=======
+    slug: "biggest-update-magazine-captions-custom-templates",
+    title: "Our Biggest Update Yet: The Magazine Template, Automatic Captions, and a Custom Template Generator",
+    description:
+      "A new Magazine template puts you on the cover of TIME, automatic captions now run on every video, and a Custom Template Generator lets you build your own look — plus upgrades across every existing template.",
+    category: "Product updates",
+    heroImage: "/blog/blog-cover-biggest-update-magazine-captions-custom-templates.png",
+    heroImageAlt:
+      "Blog2Video's biggest update: a TIME-style Magazine cover template, automatic captions, and a custom template generator.",
+    publishedAt: "2026-07-03",
+    readTime: "4 min read",
+    heroEyebrow: "Product updates",
+    heroTitle: "We're shipping our biggest update yet.",
+    heroDescription:
+      "A new Magazine template puts you on the cover of TIME. Automatic captions now run on every video. A Custom Template Generator lets you build your own look. Plus upgrades across every existing template.",
+    primaryKeyword: "blog2video magazine template",
+    keywordVariant: "automatic video captions",
+    relatedPaths: [
+      "/templates/magazine",
+      "/custom-branded-video-templates",
+      "/blog-to-video",
+      "/blogs/whats-new-in-blog2video-six-features",
+    ],
+    sections: [
+      {
+        heading: "A new Magazine template puts you on the cover of TIME",
+        paragraphs: [
+          "This is the one people have been asking for.",
+          "The Magazine template turns your content into a glossy editorial cover story — starting with your subject on the cover of a TIME-style magazine, masthead and cover lines included. From there it unfolds as a designed print spread: feature layouts, editorial pull quotes, interview Q&As, by-the-numbers panels, and data charts.",
+          "It's built for the content that deserves prestige treatment — founder profiles, customer spotlights, milestone announcements, and personal-brand pieces. Instead of a slideshow, you get something that looks like a real editorial team art-directed it.",
+        ],
+        ctaPath: "/templates/magazine",
+        ctaLabel: "See the Magazine template",
+      },
+      {
+        heading: "Automatic captions now run on every video",
+        paragraphs: [
+          "Most video gets watched on mute. Now every video you generate comes with captions automatically — no extra step, no separate tool, no manual timing.",
+          "Captions are burned in and synced to the narration, so your content stays readable in the feed whether the sound is on or off. It's on by default across every template.",
+        ],
+      },
+      {
+        heading: "A Custom Template Generator lets you build your own look",
+        paragraphs: [
+          "Our templates cover a lot of ground, but sometimes you want something that's unmistakably yours.",
+          "The Custom Template Generator lets you build your own look. Point it at your brand — your colors, your fonts, your style — and it generates a bespoke template that applies that identity to every scene, so your videos look like your design team made them instead of a generic theme.",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "Build a custom template",
+      },
+      {
+        heading: "Plus upgrades across every existing template",
+        paragraphs: [
+          "We didn't just add new things — we went back through every existing template and made it better. Cleaner layouts, smoother motion, sharper typography, and better handling of images and data across the board.",
+          "If you have a template you already love, it just got an upgrade too.",
+        ],
+      },
+      {
+        heading: "Not a subscription person? Lifetime access, for a limited time",
+        paragraphs: [
+          "We know subscriptions aren't for everyone. For a limited time, a handful of users can grab lifetime access instead — pay once, keep it.",
+          "It's a small batch and it won't last, so if the pay-once model is more your speed, this is the window.",
+        ],
+        ctaPath: "/pricing",
+        ctaLabel: "See lifetime access",
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "Turn any idea into a share-ready video in minutes. Everything above is live now at blog2video.app.",
+          "Made with love by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What is the new Magazine template?",
+        answer:
+          "Magazine is a glossy editorial template that turns your content into a cover story — it puts your subject on the cover of a TIME-style magazine, then unfolds the rest as a designed print spread with feature layouts, pull quotes, interview Q&As, and by-the-numbers panels.",
+      },
+      {
+        question: "Do I have to turn captions on?",
+        answer:
+          "No. Automatic captions now run on every video by default, synced to the narration and burned in, so your content stays readable whether viewers watch with the sound on or off.",
+      },
+      {
+        question: "What does the Custom Template Generator do?",
+        answer:
+          "It lets you build your own look. Give it your brand — colors, fonts, and style — and it generates a bespoke template that applies that identity to every scene, so your videos match your brand instead of using a generic theme.",
+      },
+      {
+        question: "What changed in the existing templates?",
+        answer:
+          "Every existing template received upgrades — cleaner layouts, smoother motion, sharper typography, and better handling of images and data — so templates you already use look better too.",
+      },
+      {
+        question: "How does lifetime access work?",
+        answer:
+          "For a limited time, a small batch of users can buy lifetime access instead of a subscription — a one-time purchase. It's limited availability, so it's offered while the batch lasts.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Our Biggest Update Yet: Magazine Template, Automatic Captions, and Custom Templates",
+        angle:
+          "Announce the Magazine cover-story template, automatic captions on every video, the Custom Template Generator, template-wide upgrades, and limited lifetime access in one product-update article.",
+      },
+      {
+        channel: "video",
+        title: "Put Yourself on the Cover: The New Magazine Template in 60 Seconds",
+        angle: "Show a video made with the Magazine template as a cover story, then cut to captions and the custom generator.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped: cover-story videos, captions everywhere, and bring-your-own-brand templates",
+        angle: "Written-first creators get concrete shipping notes tied to prestige packaging and accessibility.",
+      },
+      {
+        channel: "twitter",
+        title: "Biggest update yet: Magazine template + automatic captions + custom templates",
+        angle: "Thread the four headline features with a lifetime-access mention as the closer.",
+      },
+    ],
+  },
+  {
+    slug: "new-template-finance-publication",
+    title: "70% of Our Users Are Finance Publishers. Here's the Template We Built for Them.",
+    description:
+      "Almost 70% of Blog2Video's paid users are stock and investment research firms. We built a new finance publication template for sober, substantive content — and used it to cover the SpaceX IPO.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-new-template-finance-publication.png",
+    heroImageAlt:
+      "Blog2Video finance publication template showcasing a SpaceX IPO analysis video made from a Yahoo Finance post, styled after major financial news publications.",
+    publishedAt: "2026-06-14",
+    readTime: "4 min read",
+    heroEyebrow: "New Template",
+    heroTitle: "We didn't expect finance publishers to be our biggest users.",
+    heroDescription:
+      "Almost 70% of Blog2Video's paid users are stock and investment research firms. We built a template specifically for their content — sober, authoritative, and styled after the publications they read every day.",
+    primaryKeyword: "finance publication video template",
+    keywordVariant: "investment research video generator",
+    relatedPaths: [
+      "/blog-to-video",
+      "/templates",
+      "/blogs/whats-new-in-blog2video-six-features",
+      "/article-to-video",
+    ],
+    sections: [
+      {
+        heading: "Almost 70% of our paid users are in finance",
+        paragraphs: [
+          "When we launched Blog2Video, we expected bloggers, newsletters, and content teams to be our core audience. We did not expect stock and investment research firms.",
+          "Nearly 70% of our paid users are finance publications — analysts, investment researchers, and financial media outlets who use Blog2Video to turn written research into videos. They publish on social media, distribute investment analysis on Substack and X, and create internal presentations from the same source material.",
+          "This wasn't a segment we targeted. It found us.",
+        ],
+      },
+      {
+        heading: "Finance publishers are also our biggest template buyers",
+        paragraphs: [
+          "Beyond the volume, finance publishers are the heaviest buyers of our custom designer templates — the service where our design team takes a client's brand identity and translates it into a fully custom video template.",
+          "The reason isn't surprising once you understand the use case. Finance publications have distinct visual identities and credibility signals built into their design. A Bloomberg chart doesn't look like a TikTok slide. Their audiences expect a certain visual register, and the template has to match it.",
+          "Our designers have been building for that expectation — fitting brand guidelines, color systems, typography, and data-forward layouts into templates that feel native to financial media rather than borrowed from general-purpose video tools.",
+        ],
+      },
+      {
+        heading: "Explainer videos and carousels are a natural fit for technical content",
+        paragraphs: [
+          "Finance content is technical and educational, not entertainment. An earnings breakdown, a macro thesis, a rate cycle explainer — these aren't pieces built for passive scrolling. They're built to inform.",
+          "That's exactly where Blog2Video excels. The format we produce — structured scenes, clear narration, visual hierarchy — fits technical content the way a slide deck fits a conference presentation. Finance publishers told us the same thing: explainer videos and carousels generated by Blog2Video map cleanly onto the way they already think about their content.",
+          "Other video generators are optimized for instagrammable content: fast cuts, motion graphics, trending audio. Ours is built for sober, substantive content that respects the reader's intelligence.",
+        ],
+      },
+      {
+        heading: "Finance Substacks are a perfect fit",
+        paragraphs: [
+          "Among our finance users, Substack writers are a particularly active group. The economics make sense: a finance Substack is built on research, and research takes hours to write. Turning that same post into a video or carousel for X, LinkedIn, or YouTube takes three minutes in Blog2Video. Same intellectual work, twice the surface area.",
+          "The format also reinforces the brand. Finance Substack writers are building authority — every piece of content they publish either adds to or dilutes the credibility they've spent months constructing. A polished, on-brand explainer video signals that the analysis behind it is just as serious. A rough auto-generated clip signals the opposite.",
+          "Two of our clients who've made this part of their workflow are Laduc Trading and FJ Research. Both run finance Substacks and both use Blog2Video to extend their written research into video — keeping the same analytical tone and visual identity across every channel they post to.",
+        ],
+      },
+      {
+        heading: "How to grow a finance Substack with video",
+        paragraphs: [
+          "Substack growth is a distribution problem as much as a content problem. Most finance Substacks produce exceptional writing but limit their reach to email open rates and direct search. Video gives that same research a second life on platforms where finance audiences are already scrolling.",
+          "The playbook is simple. Publish the research note on Substack. Paste the URL into Blog2Video. In a few minutes you have a structured explainer video and a set of carousel slides. Post the video to X and LinkedIn with a link to the full Substack piece. The video gets the click; the Substack gets the subscriber.",
+          "Laduc Trading uses this loop to drive readers from X threads back to their Substack. FJ Research publishes carousel summaries on LinkedIn that link to the full research note. Both treat video not as a separate content format but as a distribution layer on top of research they were already writing.",
+        ],
+        bullets: [
+          "Turn every research note into a video without rewriting anything",
+          "Post to X, LinkedIn, and YouTube to reach audiences who won't open a cold Substack email",
+          "Carousel slides from the same content work as standalone LinkedIn posts",
+          "Consistent visual style across video and Substack builds recognizable authority",
+          "Short-form clips from longer analysis are the highest-leverage thing a finance writer can post",
+        ],
+      },
+      {
+        heading: "Introducing the Finance Publication template",
+        paragraphs: [
+          "We built the Finance Publication template by studying how the best financial media outlets present information: editorial typography, restrained color palettes, data-forward layouts, and a visual authority that signals credibility before the first word is read.",
+          "The template is now available to all Blog2Video users.",
+          "To showcase it, we made a video covering the SpaceX IPO — starting from a Yahoo Finance post, no additional writing needed. The result is below.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try the Finance Publication template",
+      },
+      {
+        heading: "If you cover markets, research, or investment ideas — this was made for you",
+        paragraphs: [
+          "Paste a link to any financial article, research note, or Substack post. Blog2Video reads the content, structures it into scenes, adds narration, and applies the Finance Publication template. You get a polished video in minutes, ready for social media, your newsletter, or internal distribution.",
+          "Made with love by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Who is the Finance Publication template for?",
+        answer:
+          "It's built for stock analysts, investment researchers, financial media outlets, and anyone producing content about markets, macro, or economics. The design language is editorial and data-forward — the same visual register as major financial news publications.",
+      },
+      {
+        question: "Can I use the Finance Publication template on any blog post or article?",
+        answer:
+          "Yes. Paste a URL to any article — a Yahoo Finance post, a Substack research note, an internal report — and Blog2Video will generate a video using the Finance Publication template. No extra writing needed.",
+      },
+      {
+        question: "What is a custom designer template?",
+        answer:
+          "Custom templates are made by our design team specifically for your brand. We take your brand identity — colors, typography, visual style — and build a fully custom video template. Finance publishers have been the biggest buyers of this service.",
+      },
+      {
+        question: "What's the difference between Blog2Video and other video generators?",
+        answer:
+          "Most video generators are optimized for short-form, entertainment-style content. Blog2Video is built for written-first, substantive content: research reports, explainers, educational articles. The output respects the original source material rather than stripping it down to a hook.",
+      },
+      {
+        question: "How do finance Substacks use Blog2Video to grow their audience?",
+        answer:
+          "The most common workflow is: publish the research note on Substack, paste the URL into Blog2Video, and post the resulting video or carousel to X and LinkedIn with a link back to the full piece. The video reaches audiences who don't subscribe to your Substack yet. Clients like Laduc Trading and FJ Research use this loop to drive readers from social back to their Substack.",
+      },
+      {
+        question: "How do I access the Finance Publication template?",
+        answer:
+          "The template is available to all Blog2Video users in the template selector when you create or edit a project. No additional subscription required.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "70% of Our Users Are Finance Publishers. Here's the Template We Built for Them.",
+        angle:
+          "Founder-voice product announcement framing the finance user discovery, their custom template behavior, and the new Finance Publication template launch with SpaceX IPO showcase.",
+      },
+      {
+        channel: "video",
+        title: "We made a SpaceX IPO video from a Yahoo Finance post using our new Finance Publication template",
+        angle:
+          "Show the SpaceX IPO video output, then walk through how it was made — paste URL, template selection, scene review, publish.",
+      },
+      {
+        channel: "substack",
+        title: "70% of our users were a surprise. Here's what we built for them.",
+        angle:
+          "Personal founder reflection on the finance user discovery, the custom template demand, and the design philosophy behind the new template.",
+      },
+      {
+        channel: "twitter",
+        title: "Finance publishers are 70% of our paid users. New template built for them.",
+        angle:
+          "Lead with the surprising stat, show the SpaceX IPO video, end with the template availability announcement.",
+      },
+    ],
+  },
+  {
+    slug: "free-stock-visualizer-price-history-financials",
+    title: "We Built a Free Stock Data Visualizer — Price History, Income Statements, and Three Financial Media Themes",
+    description:
+      "Blog2Video's free stock visualizer pulls live price history and financial statements for any ticker, styled after Newscast, Bloomberg Terminal, and Newspaper visual themes. Here's why we built it and how finance publishers are using it.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-stock-visualizer.png",
+    heroImageAlt:
+      "Blog2Video free stock data visualizer showing SPCX price chart in Bloomberg Terminal, Newscast, and Newspaper themes alongside income statement and balance sheet tables.",
+    publishedAt: "2026-06-30",
+    readTime: "5 min read",
+    heroEyebrow: "New Free Tool",
+    heroTitle: "A free stock visualizer built for finance publishers.",
+    heroDescription:
+      "Pull live price history and annual financial statements for any ticker. Choose from Newscast, Bloomberg Terminal, or Newspaper visual themes. No credit card, no paywall — sign in free and start visualizing.",
+    primaryKeyword: "free stock data visualizer",
+    keywordVariant: "stock price history chart tool",
+    relatedPaths: [
+      "/tools/stock-visualizer",
+      "/blog-to-video",
+      "/blogs/new-template-finance-publication",
+      "/templates",
+    ],
+    sections: [
+      {
+        heading: "Finance publishers are 70% of our paid users. We built something for them.",
+        paragraphs: [
+          "When we launched Blog2Video, we didn't expect finance publishers to become our biggest audience. Today, nearly 70% of our paid users are stock analysts, investment researchers, financial media outlets, and Substack writers who cover markets.",
+          "They use Blog2Video to turn written research into narrated explainer videos and carousels. The Finance Publication template — styled after major financial news outlets — was the first thing we built specifically for them. The stock visualizer is the second.",
+          "The idea was simple: finance writers need a fast, polished way to see the data behind a story before they write about it, not just a basic chart library. So we built a tool styled the way financial media actually presents data.",
+        ],
+      },
+      {
+        heading: "What the tool does",
+        paragraphs: [
+          "The stock visualizer pulls live price history and financial statements for any publicly traded ticker from Yahoo Finance, using the yfinance Python library on our backend.",
+          "The default view loads SPCX with 30 days of price data — no sign-in required. Once you create a free Blog2Video account, you can search any ticker, switch between 7, 30, and 60-day windows, and view annual income statements and balance sheets from the last four reporting periods.",
+        ],
+        bullets: [
+          "7, 30, or 60-day closing price history with an area chart",
+          "Annual income statement: Total Revenue, Net Income, Operating Income, Gross Profit, EBITDA",
+          "Annual balance sheet: Total Assets, Total Liabilities, Stockholders Equity, Total Debt, Cash",
+          "Current price, previous close, 1-day change, market cap, P/E ratio, and dividend yield",
+        ],
+      },
+      {
+        heading: "Three themes: Newscast, Bloomberg Terminal, and Newspaper",
+        paragraphs: [
+          "The most deliberate decision we made was the visual design. Finance data tools usually look like data tools — gray backgrounds, generic sans-serif, default charting library blues. We wanted something that looked like the publications finance writers actually read.",
+          "Newscast uses a dark navy background with a red broadcast header bar and a blue area chart — the aesthetic of a live market segment on cable news. Bloomberg mirrors the terminal's black-and-orange palette that traders have used for decades. Newspaper renders everything in editorial black and white with a cream-tinted background, the way a financial broadsheet would.",
+          "The theme doesn't change the data — it changes how you see it. And for finance publishers whose credibility is tied to their visual brand, that matters.",
+        ],
+      },
+      {
+        heading: "Why we didn't put it behind a paywall",
+        paragraphs: [
+          "The full tool — any ticker, any time range, full financial statements, all three themes — is free with a Blog2Video account. No credit card, no trial period, no paywall.",
+          "Our reasoning: finance writers are the users most likely to become long-term Blog2Video subscribers, and the best way to earn that relationship is to give them something genuinely useful before asking them to pay. The stock visualizer is useful on its own. If it helps a writer see the story in a dataset and they then paste that research note into Blog2Video to make a video — that's the outcome we're optimizing for.",
+          "The data comes from Yahoo Finance via yfinance. That makes it free to serve. Passing that along to users at no cost is an easy call.",
+        ],
+      },
+      {
+        heading: "How to use it with Blog2Video",
+        paragraphs: [
+          "The stock visualizer and Blog2Video are designed to work together. The workflow is:",
+        ],
+        bullets: [
+          "Open the stock visualizer, search your ticker, and review the price history and financial metrics.",
+          "Write your research note, market commentary, or explainer based on what you see.",
+          "Paste the article URL or text into Blog2Video.",
+          "Generate a narrated video using the Finance Publication template — the same visual register as the Bloomberg and Newscast themes in the visualizer.",
+          "Post the video to X, LinkedIn, or YouTube and link back to your full Substack post or research note.",
+        ],
+        ctaPath: "/tools/stock-visualizer",
+        ctaLabel: "Open the stock visualizer",
+      },
+      {
+        heading: "A note on data accuracy",
+        paragraphs: [
+          "The stock visualizer uses Yahoo Finance as its data source via the yfinance Python library. Yahoo Finance data is generally reliable for US equities, ETFs, and major international stocks, but it may lag by 15–20 minutes during market hours and can have gaps around corporate actions or delisting events.",
+          "For investment decisions, always cross-reference with your primary data provider. This tool is designed for content research and visualization, not for trading signals.",
+          "ETFs like SPCX or SPY typically do not have income statements or balance sheets in Yahoo Finance — they're pass-through vehicles and don't file traditional corporate financials. The income statement and balance sheet tables are most useful for operating companies like AAPL, MSFT, NVDA, or TSLA.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is the stock visualizer free?",
+        answer:
+          "Yes. The default SPCX chart loads without any sign-in. A free Blog2Video account unlocks custom tickers, time range controls, and financial statement tables.",
+      },
+      {
+        question: "Which tickers are supported?",
+        answer:
+          "Any ticker available on Yahoo Finance — US equities, ETFs, index funds, and most major international stocks. If a ticker has no data, the tool shows a clear error message.",
+      },
+      {
+        question: "Can I use this for ETFs?",
+        answer:
+          "Yes for price history. ETFs show 7, 30, and 60-day price charts. Financial statements (income statement and balance sheet) are typically not available for ETFs since they are pass-through vehicles, not operating companies.",
+      },
+      {
+        question: "Can I turn the visualized data into a video?",
+        answer:
+          "Yes. Write a research note or market commentary about the ticker, paste it into Blog2Video, and generate a narrated video using the Finance Publication template. The visual language matches the Bloomberg and Newscast themes in the visualizer.",
+      },
+      {
+        question: "Why does yfinance sometimes return no financial data?",
+        answer:
+          "Yahoo Finance doesn't have complete financial statement coverage for all tickers — particularly small-caps, foreign-listed stocks, and ETFs. If the income statement or balance sheet is blank, that data isn't available in Yahoo Finance for that ticker.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "We Built a Free Stock Data Visualizer — Price History, Income Statements, and Three Financial Media Themes",
+        angle:
+          "Founder-voice launch post explaining why we built a finance visualization tool for the 70% of Blog2Video users who are finance publishers, what it does, and the three visual themes.",
+      },
+      {
+        channel: "video",
+        title: "Free stock visualizer — Newscast, Bloomberg, and Newspaper themes explained",
+        angle:
+          "Screen recording showing the tool loading SPCX, switching themes, searching AAPL, viewing the income statement, then pasting the article into Blog2Video to generate a Finance Publication video.",
+      },
+      {
+        channel: "substack",
+        title: "We built a free stock tool for the 70% of our users who are finance publishers",
+        angle:
+          "Personal note from the team explaining the user discovery, the design decisions behind the three themes, and the connection to the Finance Publication template.",
+      },
+      {
+        channel: "twitter",
+        title: "Free stock visualizer: price history + financials in Newscast, Bloomberg, and Newspaper themes",
+        angle:
+          "GIF or screenshot showing the three themes side-by-side, then link to the free tool and the blog post.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-just-shipped-june-2026",
+    title: "Blog2Video Just Shipped: MCP Server, Voice Control, and the Biggest Editor Update Yet",
+    description:
+      "Blog2Video's June release ships an MCP server for full AI-pipeline automation, ElevenLabs voice control, add/delete voiceovers per scene, script regeneration, and a redesigned scene editor.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-just-shipped-june-2026.png",
+    heroImageAlt:
+      "Blog2Video June 2026 release showing MCP server connections to Claude, OpenAI, n8n and Make alongside the redesigned scene editor and ElevenLabs voice controls.",
+    publishedAt: "2026-06-10",
+    readTime: "6 min read",
+    heroEyebrow: "Product Update - June 2026",
+    heroTitle: "The biggest Blog2Video release yet is live.",
+    heroDescription:
+      "An MCP server that connects Blog2Video to any AI agent, granular ElevenLabs voice controls, per-scene voiceover management, one-click script regeneration, and a fully redesigned scene editor — all shipped in one release.",
+    primaryKeyword: "blog2video product update",
+    keywordVariant: "blog2video june 2026 updates",
+    relatedPaths: [
+      "/blog-to-video",
+      "/mcp-server",
+      "/ai-voice-over",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "800 daily users, 1,000 videos, and counting",
+        paragraphs: [
+          "Before the features: a quick look at where Blog2Video stands. 800 users create every day. 1,000 videos published. 120,000 scenes generated. 10,000 voiceovers added. 2,000 manual edits made.",
+          "Every feature in this release was shaped by watching how those numbers move and where the workflow breaks down. The goal is the same as always: paste a link, get a video — but faster, more controllable, and with less cleanup between draft and publish.",
+        ],
+      },
+      {
+        heading: "MCP server: automate Blog2Video from any AI agent",
+        paragraphs: [
+          "The single biggest unlock in this release is the Blog2Video MCP server.",
+          "MCP — Model Context Protocol — is how AI agents talk to tools. With the Blog2Video MCP server, you can connect Claude, OpenAI, Gemini CLI, n8n, or Make directly to Blog2Video and drive the full creation workflow from a single prompt. Describe the video you want, and the agent handles scenes, voiceover, and render end to end without you touching the product.",
+          "For teams running content pipelines, this means Blog2Video fits inside automated workflows rather than sitting outside them. One prompt. One finished video. No manual handoffs.",
+        ],
+        bullets: [
+          "Works with Claude, OpenAI, Gemini CLI, n8n, and Make",
+          "Drives scenes, voiceover, and render from a single instruction",
+          "Drop Blog2Video into any existing AI or automation pipeline",
+        ],
+        ctaPath: "/mcp-server",
+        ctaLabel: "Explore the MCP server",
+      },
+      {
+        heading: "ElevenLabs voice control: emotion, speed, and tonal exaggeration",
+        paragraphs: [
+          "Voiceovers now sound exactly how you want them to.",
+          "The ElevenLabs integration now exposes three parameters directly in the Blog2Video interface: emotion, delivery speed, and tonal exaggeration. Pick the emotional register — calm, energetic, authoritative, warm — dial the pace to match your edit, and push or pull the expressiveness to fit how the script should land.",
+          "Generic AI narration sounds generic because it sits at the average of everything. These controls let you move away from the average and toward the voice your content actually needs.",
+        ],
+        bullets: [
+          "Choose the emotional tone of every voiceover",
+          "Control delivery speed independently from script length",
+          "Adjust tonal exaggeration through the ElevenLabs API directly",
+        ],
+        ctaPath: "/ai-voice-over",
+        ctaLabel: "Try voice controls",
+      },
+      {
+        heading: "Add or delete a voiceover from any scene, any time",
+        paragraphs: [
+          "Not every scene needs narration. And sometimes you want to add one later, after you've already reviewed the edit.",
+          "You can now attach or remove a voiceover from any individual scene in any project without re-generating the whole video. Add narration to a scene you left silent. Remove it from one that works better without words. Change your mind three times if you want — there are no re-renders required just because you updated a single track.",
+        ],
+      },
+      {
+        heading: "Script regeneration: rewrite any scene in a new direction",
+        paragraphs: [
+          "The first draft is often close but not quite right. Maybe the tone is off, the angle is too broad, or the hook isn't landing the way the rest of the script does.",
+          "Script regeneration lets you give the scene a new direction — change the tone, sharpen the angle, reframe the message — and Blog2Video rewrites it on the spot. No export, no copy-paste into another tool, no starting over. Just a direction and a new draft in seconds.",
+        ],
+      },
+      {
+        heading: "Redesigned scene editor: cleaner, faster, better",
+        paragraphs: [
+          "The scene editor is where most of the editing time actually goes. This release ships a full redesign: cleaner layout, better-organized controls, and a faster interaction model so the work between first draft and final cut is shorter.",
+          "It now feels like it was designed for editing rather than assembled incrementally. If you have been in the old editor often, the new one will feel immediately different.",
+        ],
+      },
+      {
+        heading: "Everything is live now",
+        paragraphs: [
+          "Every part of this release is already available on blog2video.app. Whether you want to wire Blog2Video into an AI pipeline, get precise with your voiceovers, or just spend less time in the editor — this is a strong moment to try it.",
+          "Made with love by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What is the Blog2Video MCP server?",
+        answer:
+          "The MCP server connects Blog2Video to AI agents like Claude, OpenAI, Gemini CLI, n8n, and Make. Once connected, you can instruct the agent to create a video and Blog2Video handles scenes, voiceover, and render automatically.",
+      },
+      {
+        question: "What ElevenLabs voice settings can I control?",
+        answer:
+          "You can set the emotional tone, delivery speed, and tonal exaggeration level for each voiceover, all directly inside Blog2Video via the ElevenLabs API.",
+      },
+      {
+        question: "Can I add or remove a voiceover after a project is created?",
+        answer:
+          "Yes. You can attach or remove a voiceover from any individual scene in any project at any time, without regenerating the whole video.",
+      },
+      {
+        question: "What is script regeneration?",
+        answer:
+          "Script regeneration lets you give a scene a new direction — a different tone, angle, or framing — and Blog2Video rewrites the script for that scene instantly.",
+      },
+      {
+        question: "What changed in the scene editor redesign?",
+        answer:
+          "The scene editor got a cleaner layout, better-organized controls, and a faster interaction model. The goal was to reduce the time between first draft and publishable video.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video Just Shipped: MCP Server, Voice Control, and the Biggest Editor Update Yet",
+        angle:
+          "Product update post covering the MCP server, ElevenLabs voice controls, per-scene voiceover management, script regeneration, and scene editor redesign.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video June 2026: MCP server, voice controls, and a redesigned editor",
+        angle:
+          "Walk through the MCP server connection flow, show the ElevenLabs voice sliders, demonstrate add/delete voiceover, script regeneration, and close on the new editor.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped in June: an MCP server, real voice controls, and a better editor",
+        angle:
+          "Written-first creators get a direct explanation of how each feature saves time in the workflow they already use.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video June release: automation, voice, and editing improvements",
+        angle:
+          "Break down why the MCP server changes the automation story and how voice controls close the gap between AI narration and human delivery.",
+      },
+    ],
+  },
+  {
+    slug: "whats-new-in-blog2video-six-features",
+    title: "What's New in Blog2Video: Six Features Worth Talking About",
+    description:
+      "Bloomberg Terminal and Chronicle templates, per-orientation image framing, PPT/PDF/MP4/PNG export, share URLs and iframes, plus referrals and bulk pricing — all live now.",
+    category: "Product updates",
+    heroImage: "/blog/blog-cover-whats-new-in-blog2video-six-features.png",
+    heroImageAlt:
+      "Overview of Blog2Video product updates including new templates, exports, embeddings, and pricing.",
+    publishedAt: "2026-05-01",
+    readTime: "6 min read",
+    heroEyebrow: "Product updates",
+    heroTitle: "What's New in Blog2Video: Six Features Worth Talking About",
+    heroDescription:
+      "We've been building quietly. Here's what just shipped — new templates, smarter images, flexible exports, effortless embedding, and simpler ways to share and save.",
+    primaryKeyword: "blog2video updates",
+    keywordVariant: "blog2video new features",
+    relatedPaths: [
+      "/blog-to-video",
+      "/pricing",
+      "/templates/geometric-explainer",
+      "/blogs/best-templates-for-explainer-videos",
+    ],
+    sections: [
+      {
+        heading: "1. Bloomberg Terminal template",
+        paragraphs: [
+          "Finance writers, this one's for you.",
+          "The Bloomberg Terminal template mimics the iconic trading-terminal aesthetic: amber text on a dark canvas, a live ticker rail, monospaced precision, and that unmistakable sense of authority. Whether you're writing about macroeconomics, earnings, rates, or market structure, charts and data render with terminal-grade visual confidence.",
+          "It's calm. It's serious. It's credible.",
+        ],
+      },
+      {
+        heading: "2. Chronicle template",
+        paragraphs: [
+          "Some stories deserve more than a slideshow.",
+          "Chronicle turns long-form posts into something that feels like a page from a carefully printed volume: cream backgrounds, tall serif type, illuminated drop caps on opening letters, ornamental borders, and chapter-like motion — built so history essays, biographies, and narrative explainers get the pace and weight they deserve.",
+          "History buffs will feel right at home.",
+        ],
+      },
+      {
+        heading: "3. Per-orientation image adjustment",
+        paragraphs: [
+          "Images now adapt to whichever layout you're using.",
+          "Landscape or portrait, built-in templates or custom ones — reposition and re-crop so subjects stay framed. No more awkward crops or off-center heroes; one asset, tuned for the frame it lives in.",
+        ],
+      },
+      {
+        heading: "4. Download as PPT, PDF, MP4, or PNG",
+        paragraphs: [
+          "Export the way your audience actually consumes content.",
+          "Blog2Video now supports four outputs: full MP4 video, individual PNG slides, a shareable PDF deck, and PowerPoint. PNG export is especially handy for LinkedIn carousels — turn a video script into slide-by-slide assets ready for your feed.",
+          "One script. Four formats. Every channel covered.",
+        ],
+      },
+      {
+        heading: "5. URL and iframe embeddings",
+        paragraphs: [
+          "Your videos can live wherever you do.",
+          "Every output includes a shareable URL and a ready-to-paste iframe snippet. Drop it into a site, newsletter, Notion page, or docs — no extra upload to a third-party host. Copy, paste, done.",
+        ],
+      },
+      {
+        heading: "6. Referral program and bulk pricing",
+        paragraphs: [
+          "We wanted to make it easy to share Blog2Video with people who'd love it.",
+          "Referrals: share your link. When someone signs up through it, they get five free videos — and so do you. No strings, no clawbacks.",
+          "Bulk pricing scales with volume: 1–9 videos at $4 each, 10–29 at $3 each, and 30+ at $2.80 each. The more you make, the less you pay per video.",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "All six features are live now at blog2video.app.",
+          "Made with love by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where can I use the new Bloomberg Terminal and Chronicle templates?",
+        answer:
+          "They are available in the product today alongside your other template choices. Pick the look that matches your story before you generate or export.",
+      },
+      {
+        question: "What can I download from a project?",
+        answer:
+          "You can download MP4 video, a PowerPoint deck, a PDF, or PNG slides — so you can publish as video, slides, print-style PDF, or per-frame images (for example carousels).",
+      },
+      {
+        question: "How do share URLs and iframes work?",
+        answer:
+          "Each output includes a link you can send and an iframe snippet you can paste into webpages or tools that accept embeds, without uploading files elsewhere.",
+      },
+      {
+        question: "How does the referral credit work?",
+        answer:
+          "When someone signs up with your referral link, both you and they receive bonus videos according to the current referral terms — designed so sharing is simple and mutual.",
+      },
+      {
+        question: "How does bulk pricing work?",
+        answer:
+          "Pricing tiers by volume: $4 per video for 1–9, $3 each for 10–29, and $2.80 each for 30 or more, so higher output lowers your per-video cost.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "What's New in Blog2Video: Six Features Worth Talking About",
+        angle:
+          "Announce templates, image controls, multi-format export, embeds, referrals, and bulk pricing in one product-update article.",
+      },
+      {
+        channel: "video",
+        title: "Six New Blog2Video Features in One Tour",
+        angle: "Reuse the embedded YouTube walkthrough and clip per-feature segments for Shorts or LinkedIn.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped: terminal aesthetics, Chronicle layouts, and four-way export",
+        angle: "Written-first creators get concrete shipping notes they can relate to their own workflows.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video product notes — templates, exports, embeds, pricing",
+        angle: "Medium-long commentary on why exports and embeds matter for distribution.",
+      },
+    ],
+  },
+  {
+    slug: "ai-linkedin-carousel-generator-from-existing-content",
+    title: "AI LinkedIn Carousel Generator From Existing Content",
+    description:
+      "Turn articles, PDFs, docs, and existing written content into LinkedIn carousel slides you can download as PowerPoint, PDF, or PNG.",
+    category: "Slide workflow",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Editorial illustration of written content being transformed into polished LinkedIn carousel slides and downloadable presentation assets.",
+    publishedAt: "2026-04-30",
+    readTime: "7 min read",
+    heroEyebrow: "Slide workflow",
+    heroTitle: "The best AI LinkedIn carousel workflow starts with real content, not a blank canvas.",
+    heroDescription:
+      "If the article, PDF, or document already exists, the fastest path to a LinkedIn carousel is turning that structure into slides you can export as PDF, PowerPoint, or PNG.",
+    primaryKeyword: "ai linkedin carousel generator",
+    keywordVariant: "linkedin carousel from article",
+    relatedPaths: [
+      "/blog-to-linkedin-video",
+      "/article-to-video",
+      "/pptx-to-video",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why carousel creation works better from existing content",
+        paragraphs: [
+          "Most LinkedIn carousels are just structured ideas presented slide by slide: a hook, a few supporting points, proof, and a close. That means the strongest source material is often something you already wrote, such as an article, an explainer page, a PDF, or internal notes.",
+          "Instead of rebuilding the same argument manually in a design tool, an AI carousel workflow can start from the content itself, preserve the logic, and turn it into slides that are already organized around the story.",
+        ],
+      },
+      {
+        heading: "Why the export format matters",
+        paragraphs: [
+          "A carousel is not just one design artifact. You usually need different outputs for different jobs: a PDF for LinkedIn upload, a PowerPoint for editing or client review, and PNG slides for reuse in posts, ads, or other channels.",
+          "That is where most AI carousel tools fall short. They may help generate ideas, but they do not always produce download-ready formats you can actually use across the workflow.",
+        ],
+        bullets: [
+          "PDF is useful for LinkedIn carousel publishing",
+          "PowerPoint is useful when the slides still need editing or review",
+          "PNG slides are useful for repurposing individual frames across channels",
+        ],
+      },
+      {
+        heading: "How Blog2Video fits the workflow",
+        paragraphs: [
+          "Blog2Video already turns written content into structured scenes. That same scene structure can now be exported as slides, which makes it useful for carousel production as well as video.",
+          "You can generate the scenes from the source content, choose the best frame for each slide, then download the result as PowerPoint, PDF, or one PNG per scene. That gives one source asset multiple distribution formats instead of forcing a separate design pass for each one.",
+        ],
+      },
+      {
+        heading: "What this is best for",
+        paragraphs: [
+          "This workflow is strongest for founder posts, B2B explainers, educational threads, research summaries, product lessons, and any content that already has a clear progression from problem to takeaway.",
+          "If the content already teaches something valuable, the carousel becomes a packaging layer rather than a separate content ideation job.",
+        ],
+        bullets: [
+          "Turn an article into a LinkedIn-ready PDF carousel",
+          "Give the same scenes to a teammate as a PowerPoint deck",
+          "Export PNGs for lightweight social reuse",
+        ],
+      },
+      {
+        heading: "A better AI carousel workflow",
+        paragraphs: [
+          "1. Start with a URL, article, PDF, or document you already trust.",
+          "2. Let Blog2Video structure that content into scenes automatically.",
+          "3. Pick the best frame for each scene, then download the slides as PowerPoint, PDF, or PNG depending on where they need to go next.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn content into slides and video",
+      },
+    ],
+    faq: [
+      {
+        question: "Can I use Blog2Video for LinkedIn carousel creation?",
+        answer:
+          "Yes. Once your content is structured into scenes, you can export those slides as a PDF for carousel posting, as a PowerPoint deck for editing, or as PNG files for per-slide reuse.",
+      },
+      {
+        question: "Why is PDF export important for LinkedIn carousels?",
+        answer:
+          "Because LinkedIn carousel workflows commonly rely on PDF uploads. If your AI workflow can generate structured slides and export them as PDF, the jump from source content to publishable carousel becomes much shorter.",
+      },
+      {
+        question: "What is the role of PowerPoint and PNG export here?",
+        answer:
+          "PowerPoint is useful for review, client edits, or team collaboration. PNG export is useful when you want each slide as a separate image for social reuse, asset libraries, or design handoff.",
+      },
+      {
+        question: "What source content works best for AI carousel generation?",
+        answer:
+          "Articles, explainers, PDFs, research summaries, documentation, and strong internal notes all work well because they already contain the sequence of ideas a carousel needs.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "AI LinkedIn Carousel Generator From Existing Content",
+        angle: "Capture search intent around turning articles, PDFs, and docs into downloadable LinkedIn carousel slides.",
+      },
+      {
+        channel: "video",
+        title: "Turn Articles Into LinkedIn Carousels With AI",
+        angle: "Show a source article becoming scenes, then export the slides as PDF, PowerPoint, and PNG.",
+      },
+      {
+        channel: "substack",
+        title: "The fastest carousel workflow starts with content you already wrote",
+        angle: "Frame carousel production as repackaging structured ideas rather than designing every slide from zero.",
+      },
+      {
+        channel: "medium",
+        title: "Why the best AI LinkedIn carousel generator is really a content-structuring workflow",
+        angle: "Explain why source material quality and export flexibility matter more than blank-canvas slide generation.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-turn-a-link-into-a-powerpoint-with-ai",
+    title: "How To Turn a Link Into a PowerPoint With AI",
+    description:
+      "Use a published URL as the source, generate structured slides automatically, and download the result as PowerPoint, PDF, or PNG.",
+    category: "Presentation workflow",
+    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImageAlt:
+      "Editorial illustration of a webpage link being transformed into a PowerPoint deck with structured slides and downloadable outputs.",
+    publishedAt: "2026-04-30",
+    readTime: "7 min read",
+    heroEyebrow: "Presentation workflow",
+    heroTitle: "A good link-to-PowerPoint workflow does not copy the page. It restructures the idea.",
+    heroDescription:
+      "If a URL already explains something clearly, AI should help turn that page into a slide deck you can actually download and reuse.",
+    primaryKeyword: "link to powerpoint",
+    keywordVariant: "link into ppt",
+    relatedPaths: [
+      "/url-to-video",
+      "/pptx-to-video",
+      "/article-to-video",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why link-to-PPT is a real workflow need",
+        paragraphs: [
+          "A lot of useful presentation material already lives on the web: landing pages, help-center articles, founder essays, research posts, product launch notes, and internal documentation. The problem is that web pages are written for scrolling, not for slides.",
+          "A useful link-to-PowerPoint workflow should identify the structure inside the page, pull out the main sections, and turn them into a deck that is easier to present, review, or repurpose elsewhere.",
+        ],
+      },
+      {
+        heading: "What usually goes wrong",
+        paragraphs: [
+          "The weak version of this workflow is screenshotting a page or dumping paragraphs directly onto slides. That creates decks that feel dense, repetitive, and clearly not designed for presentation.",
+          "The stronger version is restructuring. The AI should convert the page into scene-level or slide-level units, each with one job to do, rather than pretending the webpage layout itself is already a deck.",
+        ],
+        bullets: [
+          "Do not treat a webpage like a finished slide deck",
+          "Extract the logic, not just the text blocks",
+          "Use the URL as the source of truth, then rebuild for presentation",
+        ],
+      },
+      {
+        heading: "Why downloadable formats matter",
+        paragraphs: [
+          "The point of turning a link into slides is not only generating them. It is being able to use them afterward. Some teams need a PowerPoint deck. Some need a PDF to share quickly. Others want individual PNG slides for a content workflow.",
+          "Once Blog2Video structures the source page into scenes, those scenes can now be downloaded as PowerPoint, PDF, or one PNG per scene, which makes the workflow useful beyond video alone.",
+        ],
+      },
+      {
+        heading: "How Blog2Video handles it",
+        paragraphs: [
+          "1. Paste the URL and let Blog2Video read the source structure.",
+          "2. Generate scenes that turn the written material into a clearer presentation sequence.",
+          "3. Review each scene, choose the best frame for the slide, then export as PowerPoint, PDF, or PNG depending on the next step in the workflow.",
+        ],
+        ctaPath: "/url-to-video",
+        ctaLabel: "Start from a URL",
+      },
+      {
+        heading: "Who this is best for",
+        paragraphs: [
+          "This is especially useful for marketers repackaging posts into sales material, operators turning documentation into internal decks, founders converting launch pages into presentation assets, and educators adapting article-style content into teaching slides.",
+          "The source page already did the hard part by organizing the idea. The deck is just a more portable format for the same insight.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Can I really turn a URL into a PowerPoint deck?",
+        answer:
+          "Yes. If the page already contains a structured explanation, Blog2Video can turn that material into scenes and then export those scenes as a downloadable PowerPoint deck.",
+      },
+      {
+        question: "Why export as PDF or PNG too?",
+        answer:
+          "Because different workflows need different outputs. PowerPoint is useful for editing, PDF is useful for quick sharing, and PNG slides are useful for reusing the deck one frame at a time.",
+      },
+      {
+        question: "What kind of links work best for this?",
+        answer:
+          "Explainer pages, long-form articles, launch posts, documentation, thought-leadership pieces, and educational guides work best because they already have a natural sequence of ideas.",
+      },
+      {
+        question: "Is this better than manually copying a page into slides?",
+        answer:
+          "Yes. Manual copy-paste usually produces bloated decks. A structured workflow is better because it turns the page into presentation units instead of simply transferring webpage text onto slides.",
+      },
+      {
+        question: "Can I turn a link into a PPT, not just a PowerPoint file?",
+        answer:
+          "Yes — PPT and PowerPoint refer to the same .pptx format here. Paste the URL into Blog2Video, generate the scenes, and export the result as a .pptx deck you can open in PowerPoint, Google Slides, or Keynote.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How To Turn a Link Into a PowerPoint With AI",
+        angle: "Capture intent around URL-to-PPT conversion and downloadable slide generation.",
+      },
+      {
+        channel: "video",
+        title: "Paste a Link, Get a PowerPoint Deck",
+        angle: "Show a webpage becoming scenes, then a PowerPoint, PDF, and PNG slide export.",
+      },
+      {
+        channel: "substack",
+        title: "The fastest way to make a deck is to start with a page that already explains the idea",
+        angle: "Lead with the leverage of repackaging existing web content into presentation assets.",
+      },
+      {
+        channel: "medium",
+        title: "Link to PowerPoint with AI: why restructuring matters more than screenshotting",
+        angle: "Explain why the strongest URL-to-PPT workflows rebuild the message for slides instead of copying the page.",
+      },
+    ],
+  },
+  {
+    slug: "ai-ppt-generator-for-articles-pdfs-and-docs",
+    title: "AI PPT Generator for Articles, PDFs, and Docs",
+    description:
+      "Use existing written content as the source for a downloadable PowerPoint deck, PDF handout, or PNG slide set instead of starting from blank slides.",
+    category: "Presentation workflow",
+    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImageAlt:
+      "Editorial illustration of articles, PDFs, and documents flowing into an AI-generated PowerPoint deck and slide export workflow.",
+    publishedAt: "2026-04-30",
+    readTime: "8 min read",
+    heroEyebrow: "Presentation workflow",
+    heroTitle: "The most useful AI PPT generator is the one that starts from content you already trust.",
+    heroDescription:
+      "If the article, PDF, or document already contains the thinking, AI should help package it into slides you can edit, share, and repurpose.",
+    primaryKeyword: "ai ppt generator",
+    keywordVariant: "ai powerpoint generator from content",
+    relatedPaths: [
+      "/pptx-to-video",
+      "/pdf-to-video",
+      "/article-to-video",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why AI PPT demand keeps growing",
+        paragraphs: [
+          "Teams already have a huge amount of presentation-ready knowledge in article libraries, PDFs, internal docs, product pages, and educational content. The bottleneck is not always writing the material. It is packaging that material into a usable deck.",
+          "That is why AI PPT demand is growing. People want a faster way to turn trusted source content into slides without recreating the same argument from scratch every time.",
+        ],
+      },
+      {
+        heading: "The best AI PPT workflow is content-first",
+        paragraphs: [
+          "A deck is usually just a compressed explanation. If the source content already has a clear sequence of problem, insight, evidence, and conclusion, the strongest AI workflow is using that structure rather than generating disconnected slide copy from a prompt box.",
+          "This is especially true for explainers, lessons, research summaries, internal training, and product marketing. In those cases, the source content is the asset. The deck is one output format built from it.",
+        ],
+        bullets: [
+          "Start from a source asset you already trust",
+          "Let AI extract sections and convert them into slide-level units",
+          "Use export formats that match how the deck will actually be used",
+        ],
+      },
+      {
+        heading: "Why PowerPoint alone is not enough",
+        paragraphs: [
+          "A lot of teams do want PowerPoint, but not only PowerPoint. They also need PDF handouts for sharing and PNG slides for lightweight design or social workflows.",
+          "Now that Blog2Video can export scene-based slides as PowerPoint, PDF, or one PNG per scene, the same content can support presentation, distribution, review, and repurposing without additional manual rebuilding.",
+        ],
+      },
+      {
+        heading: "Where Blog2Video fits",
+        paragraphs: [
+          "Blog2Video already turns written material into scenes for video. That means the underlying structure needed for a deck is already there: one idea at a time, organized into a progression.",
+          "Once the scenes exist, you can adjust the frame for each slide and export the result in the format you need. That makes Blog2Video useful not only for video creation, but also for slide-based outputs built from the same source content.",
+        ],
+      },
+      {
+        heading: "How to use it",
+        paragraphs: [
+          "1. Start from an article, PDF, doc, or URL.",
+          "2. Generate scenes from that source material.",
+          "3. Export the slide version as PowerPoint, PDF, or PNG depending on whether the next job is presenting, sharing, or repurposing.",
+        ],
+        ctaPath: "/pptx-to-video",
+        ctaLabel: "See the PPT workflow",
+      },
+    ],
+    faq: [
+      {
+        question: "What makes a good AI PPT generator?",
+        answer:
+          "The best ones start from real source material, preserve the structure of the underlying idea, and output formats you can actually use afterward such as PowerPoint, PDF, or PNG slides.",
+      },
+      {
+        question: "Can Blog2Video generate PowerPoint decks from articles or PDFs?",
+        answer:
+          "Yes. It can turn structured source content into scenes, then export those slides as a PowerPoint deck. The same scenes can also be exported as PDF or PNG files.",
+      },
+      {
+        question: "Why would I want PNG slide export too?",
+        answer:
+          "PNG export is useful when you want to reuse individual slides in social posts, creative workflows, design review, or asset libraries without opening the full deck.",
+      },
+      {
+        question: "Who benefits most from this kind of AI PPT workflow?",
+        answer:
+          "Marketers, educators, founders, researchers, operators, and documentation teams all benefit because they already create structured written material that can be repackaged into decks.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "AI PPT Generator for Articles, PDFs, and Docs",
+        angle: "Capture search demand around AI-generated PowerPoint decks built from existing source content.",
+      },
+      {
+        channel: "video",
+        title: "Use AI to Turn Articles and PDFs Into PowerPoint Slides",
+        angle: "Show written content becoming scenes, then a downloadable PPT, PDF, and PNG slide set.",
+      },
+      {
+        channel: "substack",
+        title: "AI PPT is most useful when it packages content you already wrote",
+        angle: "Frame AI presentations as repurposing leverage rather than blank-slide generation.",
+      },
+      {
+        channel: "medium",
+        title: "What an AI PPT generator should actually do for content teams",
+        angle: "Explain why source-asset reuse and export flexibility matter more than generic slide generation.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-embed-preview-no-render-needed",
+    title: "Blog2Video Now Lets You Embed and Share Video Previews Without Rendering",
+    description:
+      "Blog2Video now lets you generate an embed link for any video draft with scenes so teammates, clients, and readers can preview and share it before the final render.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-embed-preview-no-render-needed.png",
+    heroImageAlt:
+      "A website page with an embedded Blog2Video preview player and share link, showing a video draft before final render.",
+    publishedAt: "2026-04-23",
+    readTime: "4 min read",
+    heroEyebrow: "Product Update - April 2026",
+    heroTitle: "Any video draft can now be previewed, embedded, and shared before rendering.",
+    heroDescription:
+      "If a project already has scenes, you can now generate a live embed link and let other people review the video in a browser or on your site without waiting for a final render.",
+    primaryKeyword: "embed video preview without rendering",
+    keywordVariant: "share video preview before render",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/distribution-flywheel",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "The bottleneck used to be the render",
+        paragraphs: [
+          "Before this update, sharing a work-in-progress video often meant waiting for a full render just to get feedback. That slowed down approvals, client review, and simple publishing workflows where the main question was whether the scenes, pacing, and structure already worked.",
+          "The new embed feature removes that bottleneck. As soon as a project has scenes, Blog2Video can generate a shareable preview link that plays the live video draft directly in the browser.",
+        ],
+      },
+      {
+        heading: "What the new embed feature actually does",
+        paragraphs: [
+          "You can now generate an embed snippet for any project with scenes and place it inside a website, article, knowledge-base page, or internal tool. The person opening it sees the live preview version of the video instead of a rendered export.",
+          "That means the project becomes reviewable and shareable earlier in the workflow. You do not need to spend a render just to show someone what the video is shaping up to look like.",
+        ],
+        bullets: [
+          "Create a shareable preview as soon as scenes exist",
+          "Embed the video draft with an iframe snippet",
+          "Let teammates or clients review the current version before final export",
+        ],
+      },
+      {
+        heading: "Why this matters in real workflows",
+        paragraphs: [
+          "The biggest win is speed. Teams can review structure, branding, voice fit, and scene order before committing to the final render. That makes the render step feel more like publishing and less like guesswork.",
+          "It also makes distribution more flexible. A marketing team can drop the preview into a draft blog post, a founder can send it to a client for approval, and an editor can collect feedback without generating a final file every time something small changes.",
+        ],
+        bullets: [
+          "Faster stakeholder review before publishing",
+          "Less wasted rendering on early drafts",
+          "Easier sharing across blogs, docs, and client workflows",
+        ],
+      },
+      {
+        heading: "A better fit for written-first creation",
+        paragraphs: [
+          "Blog2Video already starts from written content, then turns that material into a scene-by-scene video draft you can edit. The embed feature extends that logic. The draft is no longer trapped inside the editor while you wait for export.",
+          "If your workflow involves article pages, landing pages, newsletters, course portals, or internal review loops, the preview itself is now something you can distribute while the project is still being refined.",
+        ],
+      },
+      {
+        heading: "When to render and when not to",
+        paragraphs: [
+          "Rendering is still the right step when you need the final downloadable asset for YouTube, direct uploads, or polished delivery. But not every moment in the workflow requires that final file.",
+          "If the goal is review, approval, or embedding the current version in a page, the live preview is often enough. That helps teams save renders for the moments when output quality and file delivery actually matter.",
+        ],
+      },
+      {
+        heading: "This is live now",
+        paragraphs: [
+          "Any Blog2Video project with scenes can now generate an embed link and be shared without rendering first. The result is a faster loop from draft to feedback to publish.",
+          "If you already use Blog2Video to turn posts, PDFs, or articles into videos, this update makes the review and sharing part of that workflow much lighter.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Create a video draft from an article",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to render the video before I can embed it?",
+        answer:
+          "No. If the project already has scenes, Blog2Video can generate an embed link that shows the live preview version without requiring a final render first.",
+      },
+      {
+        question: "What is the embed preview useful for?",
+        answer:
+          "It is useful for client review, internal approvals, draft blog embeds, documentation pages, landing pages, and any workflow where people need to see the current version before export.",
+      },
+      {
+        question: "Does rendering still matter after this update?",
+        answer:
+          "Yes. Rendering is still important when you need the final downloadable video file for publishing, uploads, or polished delivery. The new feature simply removes unnecessary rendering during review and sharing.",
+      },
+      {
+        question: "Can I share the preview outside the Blog2Video editor?",
+        answer:
+          "Yes. The feature generates an iframe-based embed snippet, so the preview can be opened or embedded outside the editor as part of your normal content and review workflow.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video Now Lets You Embed and Share Video Previews Without Rendering",
+        angle: "Product update announcing that any project with scenes can now be embedded and shared as a live preview before the final render.",
+      },
+      {
+        channel: "video",
+        title: "Share Blog2Video drafts before rendering",
+        angle: "Show a project with scenes, generate the embed link, paste the iframe snippet, and explain how this speeds up review and approvals.",
+      },
+      {
+        channel: "substack",
+        title: "Why removing the render bottleneck matters",
+        angle: "Frame the update around faster stakeholder feedback, fewer wasted renders, and smoother written-to-video workflows.",
+      },
+      {
+        channel: "medium",
+        title: "The missing step between video draft and final render",
+        angle: "Explain why preview-first sharing is a better workflow than rendering every iteration just to gather feedback.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-just-shipped-april-2026",
+    title: "Blog2Video Just Shipped: Templates, Mobile, Smarter Newscast, and More",
+    description:
+      "Blog2Video's latest release adds two new templates, full mobile support, a smarter Newscast workflow, faster review controls, better voiceovers, and expert-built custom templates.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-just-shipped-april-2026.png",
+    heroImageAlt:
+      "Blog2Video April 2026 release showing new Mosaic and Black Swan templates on desktop and mobile alongside Newscast broadcast visuals.",
+    publishedAt: "2026-04-16",
+    readTime: "5 min read",
+    heroEyebrow: "Product Update - April 2026",
+    heroTitle: "One of our biggest Blog2Video releases yet is live now.",
+    heroDescription:
+      "This release adds Mosaic and Black Swan, makes the app fully responsive on mobile and tablet, upgrades Newscast structure and data visuals, improves playback and render controls, and raises voiceover quality across the board.",
+    primaryKeyword: "blog2video product update",
+    keywordVariant: "blog2video april 2026 updates",
+    relatedPaths: [
+      "/blog-to-video",
+      "/templates/newscast",
+      "/custom-branded-video-templates",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "Still the same simple loop",
+        paragraphs: [
+          "If you are new to Blog2Video, the core workflow has not changed: paste a link, pick a voice and a template, then hit generate. That simplicity is still the point. This release improves what happens around that loop so creation feels faster, sharper, and more reliable without making the product more complicated.",
+          "Whether you are turning a long article into a polished explainer or publishing a recurring weekly show, the update is designed to reduce the amount of cleanup, waiting, and manual adjustment between source material and finished video.",
+        ],
+      },
+      {
+        heading: "Two new templates: Mosaic and Black Swan",
+        paragraphs: [
+          "Mosaic is built for editorial, multi-panel, brand-forward storytelling. The layout system leans on clean grids, strong typography, and a visual rhythm that feels closer to a serious publisher than a generic slideshow.",
+          "Black Swan takes the opposite approach: dark, cinematic, and high-contrast, with the kind of neon energy that fits launches, announcements, and moments that should feel more dramatic than a standard blog recap.",
+          "Both templates are production-ready the moment you select them, so teams can choose the tone that fits the story without needing a separate design pass.",
+        ],
+        bullets: [
+          "Mosaic: editorial, modular, and brand-forward",
+          "Black Swan: dark, cinematic, and launch-friendly",
+          "Both templates are ready to use immediately",
+        ],
+      },
+      {
+        heading: "The full product now works properly on mobile",
+        paragraphs: [
+          "Blog2Video is now fully responsive across phone and tablet. Creation, editing, controls, and project management are no longer treated like a compressed desktop view. The product behaves like something designed for smaller screens from the start.",
+          "That matters in real workflows. If you need to tweak a script while commuting, review a scene from the couch, or approve a render away from your desk, you can do it without fighting the interface.",
+        ],
+      },
+      {
+        heading: "Newscast got smarter and data got cleaner",
+        paragraphs: [
+          "The Newscast template now handles story structure more cleanly, treats source material more accurately, and avoids more of the awkward AI transitions that break the illusion of a polished broadcast segment.",
+          "Data-heavy scenes also look more like television graphics and less like pasted spreadsheet content. Chart-style visuals, including line-style trend treatments, now read the way viewers expect a briefing or update to read on screen.",
+        ],
+        bullets: [
+          "Better story structure for broadcast-style videos",
+          "Cleaner handling of source material and fewer awkward AI moments",
+          "Chart-style visuals that present numbers like broadcast graphics",
+        ],
+        ctaPath: "/templates/newscast",
+        ctaLabel: "Explore the Newscast template",
+      },
+      {
+        heading: "Faster review controls and more natural voiceovers",
+        paragraphs: [
+          "Playback and render speed are now more controllable, which makes review less tedious. You can move faster when checking pacing or catching typos, then render at full quality when the project is ready to publish.",
+          "Voiceover quality also improved across pronunciation, rhythm, and delivery. Those changes are subtle individually, but together they make explainers and product narration sound more human and easier to stay with from start to finish.",
+        ],
+        bullets: [
+          "Review faster with adjustable playback behavior",
+          "Render at full quality when you are ready to publish",
+          "Get clearer pronunciation and more natural narration rhythm",
+        ],
+      },
+      {
+        heading: "Custom templates can now be built with a designer and illustrator",
+        paragraphs: [
+          "The biggest unlock for some teams is not just picking a built-in template. It is commissioning a custom one built by a motion designer working with an illustrator, using your website, decks, and tone of voice as the source material.",
+          "That process goes beyond a theme swap. The result can include brand-matched layout systems, typography decisions, motion beats, and bespoke frame art so the finished output feels authored for your company rather than adapted from a generic preset.",
+          "You can iterate through written feedback until the template matches how your team actually presents itself on camera and across content.",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "Learn about custom templates",
+      },
+      {
+        heading: "Everything above is live now",
+        paragraphs: [
+          "Every part of this release is already live on blog2video.app. If you have been waiting for a better moment to turn a backlog of posts into video, this is a strong one: more visual range, better mobile usability, smarter news-style output, and cleaner narration in the same simple workflow.",
+          "Questions or a custom-template brief? Open the product, start from any article URL, and the workflow begins there.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Start from an article URL",
+      },
+    ],
+    faq: [
+      {
+        question: "What is included in this Blog2Video release?",
+        answer:
+          "The release adds two new templates called Mosaic and Black Swan, full mobile and tablet responsiveness, a smarter Newscast workflow with better data visuals, more control over playback and render speed, stronger voiceover quality, and access to expert-built custom templates.",
+      },
+      {
+        question: "Does Blog2Video now work on phones and tablets?",
+        answer:
+          "Yes. The app is now fully responsive, so creation, editing, controls, and project management work properly on mobile and tablet rather than feeling like a squeezed desktop interface.",
+      },
+      {
+        question: "What changed in the Newscast template?",
+        answer:
+          "Newscast now structures stories more cleanly, handles source material more accurately, reduces awkward AI transitions, and presents charts and trend data in a more broadcast-style format.",
+      },
+      {
+        question: "Can I get a custom template made for my brand?",
+        answer:
+          "Yes. Blog2Video now offers custom-template work with a motion designer and illustrator who can build a template from your site, decks, and brand voice, then refine it through written feedback.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video Just Shipped: Templates, Mobile, Smarter Newscast, and More",
+        angle: "Product update post covering new templates, mobile responsiveness, Newscast improvements, faster review controls, better voiceovers, and custom-template services.",
+      },
+      {
+        channel: "video",
+        title: "Biggest Blog2Video update yet: Mosaic, Black Swan, mobile, and smarter Newscast",
+        angle: "YouTube caption: Walk through the new templates, show mobile editing in action, highlight the upgraded Newscast data visuals, and close on expert-built custom templates now live.",
+      },
+      {
+        channel: "substack",
+        title: "Why this Blog2Video release matters for written-first teams",
+        angle: "Frame the update around speed, usability, and stronger output quality for teams turning articles into repeatable video.",
+      },
+      {
+        channel: "medium",
+        title: "What changed in Blog2Video: templates, mobile workflows, Newscast upgrades, and better voiceovers",
+        angle: "Break down the release by workflow impact rather than by feature list.",
+      },
+    ],
+  },
+  {
+    slug: "faceless-videos-for-writers-and-marketers",
+    title: "Faceless Videos for Writers and Marketers",
+    description:
+      "How to create faceless videos from blog posts, newsletters, and explainers without becoming a full-time on-camera creator.",
+    category: "Strategy",
+    heroImage: "/blog/blog-cover-faceless-videos-for-writers-and-marketers.png",
+    heroImageAlt:
+      "Written blog content transforming into a narrated faceless video with microphone waveform and distribution icons for YouTube and LinkedIn.",
+    publishedAt: "2026-04-16",
+    readTime: "8 min read",
+    heroEyebrow: "Creator strategy",
+    heroTitle: "Faceless videos work best when the content is already strong",
+    heroDescription:
+      "You do not need a talking-head workflow to build a real video channel. For many writers, educators, and B2B teams, faceless videos are the fastest way to turn existing content into something watchable and repeatable.",
+    primaryKeyword: "faceless videos",
+    keywordVariant: "how to make faceless videos",
+    relatedPaths: [
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+      "/article-to-video",
+      "/distribution-flywheel",
+    ],
+    sections: [
+      {
+        heading: "Why faceless videos are attractive in the first place",
+        paragraphs: [
+          "A lot of creators do not want the friction of cameras, lighting, retakes, and on-screen performance. Faceless videos remove that bottleneck. You can publish more consistently because the workflow depends on ideas and structure, not whether you are ready to be on camera that day.",
+          "That makes faceless video especially useful for writers, technical educators, founder-marketers, and newsletter operators. If your real strength is explaining, teaching, or making an argument clearly, the format can carry the message without requiring your face to be the product.",
+        ],
+        bullets: [
+          "No camera setup or recording session required",
+          "Easier to publish consistently from written content",
+          "Strong fit for educational, technical, and B2B topics",
+        ],
+      },
+      {
+        heading: "The best faceless videos usually start from written content",
+        paragraphs: [
+          "The biggest mistake is starting with empty video software and hoping a concept appears. A better workflow starts with an asset that already exists: a blog post, newsletter issue, product explainer, lesson outline, or research summary.",
+          "When the structure already exists in writing, the faceless video becomes an adaptation exercise instead of a blank-page exercise. That means faster production, better clarity, and less generic output.",
+        ],
+        bullets: [
+          "Use an article or script with a clear headline and sections",
+          "Keep one main point per scene",
+          "Reuse screenshots, diagrams, quotes, and charts where possible",
+        ],
+      },
+      {
+        heading: "What makes faceless videos feel high quality instead of generic",
+        paragraphs: [
+          "The format works when the viewer feels guided, not flooded. Strong narration, readable layouts, visual rhythm, and clear section transitions matter more than flashy filler. The goal is not hiding the fact that the video is faceless. The goal is making that choice feel intentional.",
+          "In practice, that means choosing templates and visuals that support comprehension. If the voiceover is natural and the scenes actually reflect the content, viewers do not care that there is no talking head.",
+        ],
+        bullets: [
+          "Open with a strong hook in the first few seconds",
+          "Use on-screen text to reinforce the main point, not repeat every word",
+          "Prefer clarity, pacing, and structure over random stock footage",
+        ],
+      },
+      {
+        heading: "Faceless videos are a strong distribution layer",
+        paragraphs: [
+          "A faceless workflow is useful because it multiplies content that already works elsewhere. One article can become a full YouTube explainer, a shorter teaser, an embedded on-page video, and social cutdowns without turning every publish into a production project.",
+          "That is where the compounding value appears. The blog captures search. The video improves retention and creates another discovery surface. The short-form cut creates reach. One idea starts doing more work.",
+        ],
+      },
+      {
+        heading: "How Blog2Video helps",
+        paragraphs: [
+          "1. Start from a URL, article, or document - Blog2Video uses the content you already wrote as the source of truth.",
+          "2. Pick a voice and template - choose a visual style that fits explainers, commentary, or educational content without needing to be on camera.",
+          "3. Generate and publish - create a faceless video you can use on YouTube, embed in the original post, or cut into additional formats.",
+        ],
+        component: "blog-workflow",
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video for faceless videos",
+      },
+    ],
+    faq: faq("faceless videos", "creating narration-led videos without being on camera"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Canonical faceless video guide",
+        angle: "Own the search intent around faceless video creation.",
+      },
+      {
+        channel: "substack",
+        title: "Creator workflow note",
+        angle: "Explain why writers do not need a camera-first workflow.",
+      },
+      {
+        channel: "medium",
+        title: "Why faceless videos are underrated",
+        angle: "Lead with the leverage and consistency angle.",
+      },
+      {
+        channel: "video",
+        title: "Faceless video explainer",
+        angle: "Show how one written asset turns into a publishable faceless video.",
+      },
+    ],
+  },
+  {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     slug: "blog2video-vs-heygen",
     title: "Blog2Video vs HeyGen: Which One Is Better for Turning Blog Posts Into Videos?",
     description:
@@ -1498,6 +2912,30 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
+<<<<<<< HEAD
+=======
+        heading: "Control over script, music, and emotional tone",
+        paragraphs: [
+          "NotebookLM gives you almost no control over its output. You cannot edit the script it narrates, choose music, or adjust how the AI hosts sound — you get one fixed conversational style and that is the only option.",
+          "Blog2Video generates a first draft automatically, but you can take over at any point. Edit the script scene by scene before you render. Add a background music track and set its volume against the narration. On paid plans, you also get direct control over the ElevenLabs voice tuning — emotion, delivery speed, and tonal exaggeration — so a product walkthrough can sound calm and authoritative while a recap video sounds energetic.",
+          "This level of control is layered, not all-or-nothing: the free plan covers script edits, voice selection, and music so you can ship a finished video without paying anything. The fine-grained emotional tone controls are part of the paid plans, for teams that want to direct narration the way they would direct a voice actor.",
+        ],
+        bullets: [
+          "Per-scene script editing before you render",
+          "Background music library with adjustable volume",
+          "Emotion, delivery speed, and tonal exaggeration controls (paid plans)",
+        ],
+      },
+      {
+        heading: "Built so non-technical teams can run it, not just developers",
+        paragraphs: [
+          "NotebookLM's interface is a research tool — notebooks, sources, a chat panel. It assumes you are comfortable navigating a fairly technical workspace.",
+          "Blog2Video's interface is built for marketers, founders, and content teams who have never opened a video editor. Switching templates, changing the aspect ratio between landscape and portrait, swapping the voiceover, or rewriting a line of script are all single clicks in a visual picker — nothing requires touching a timeline or a code-style configuration screen.",
+          "That matters because the person who needs the video is often not the person who is technical. A non-technical marketer can take a finished draft, swap the template to match a new campaign, switch to portrait for Reels, and re-render without asking anyone for help.",
+        ],
+      },
+      {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         heading: "One flow for every post: three steps, every time",
         paragraphs: [
           "NotebookLM requires you to upload documents, set up a notebook, wait for processing, and then interact with the interface to get what you need. It is a research session, not a production pipeline.",
@@ -1524,6 +2962,22 @@ export const blogPosts: BlogPost[] = [
           "One person can cover the video layer across an entire editorial calendar",
         ],
       },
+<<<<<<< HEAD
+=======
+      {
+        heading: "Where NotebookLM still wins",
+        paragraphs: [
+          "Neither tool is strictly better — they are built for different jobs, and NotebookLM is genuinely the better choice for some of them.",
+          "If you need to drop in dozens of sources — PDFs, Drive docs, websites, audio — and ask questions across all of them with citations back to the original text, that is NotebookLM's core strength, and Blog2Video does not attempt it. NotebookLM also generates mind maps and study guides for working through dense material, which has no equivalent in Blog2Video.",
+          "NotebookLM is also free and lives natively inside Google Drive and Workspace, so if your sources are already there and your goal is personal or team comprehension rather than publishing a branded video, it is the lower-friction choice.",
+        ],
+        bullets: [
+          "Multi-document research with cited Q&A across many sources",
+          "Mind maps and study guides for learning dense material",
+          "Free, with native Google Drive/Workspace integration",
+        ],
+      },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     faq: [
       {
@@ -1551,6 +3005,24 @@ export const blogPosts: BlogPost[] = [
         answer:
           "Yes. The three-step flow is fast enough that occasional publishers can add video to every post without it becoming a project. You do not need to commit to a high publishing cadence to get value from it.",
       },
+<<<<<<< HEAD
+=======
+      {
+        question: "Can I control the script, music, and emotional tone of the narration?",
+        answer:
+          "Yes. You can edit the generated script scene by scene, choose a background music track and set its volume, and select the voice on every plan. Fine-grained emotion, delivery speed, and tonal exaggeration controls for the voiceover are available on paid plans.",
+      },
+      {
+        question: "Do I need technical or video editing skills to use Blog2Video?",
+        answer:
+          "No. Templates, aspect ratio, voiceover, and script edits are all changed through a visual picker — there is no timeline or video editor to learn. The interface is built for marketers and content teams, not just developers.",
+      },
+      {
+        question: "Is NotebookLM ever the better choice over Blog2Video?",
+        answer:
+          "Yes, for a different job. NotebookLM is better when you need to research across many sources with cited Q&A, generate mind maps for studying, or work for free natively inside Google Drive. Blog2Video is better when the goal is a finished, branded, publishable video.",
+      },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     distributionPlan: [
       {
@@ -1577,7 +3049,11 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "blog-to-video-before-after",
+<<<<<<< HEAD
     title: "Blog to Video: Before vs After",
+=======
+    title: "Blog to Video: Before vs After (Manual vs AI Workflow)",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     description:
       "See exactly what changes when you stop manually turning blog posts into videos and use Blog2Video instead. 45 minutes down to 3.",
     category: "Workflow",
@@ -1589,8 +3065,13 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "What it actually looks like to turn a blog into a video in 3 minutes",
     heroDescription:
       "The manual workflow — read, script, record, edit — takes 45 minutes every time. Blog2Video replaces that with three steps: paste a URL, pick a template and voice, hit generate.",
+<<<<<<< HEAD
     primaryKeyword: "blog to video",
     keywordVariant: "turn blog post into video",
+=======
+    primaryKeyword: "manual blog to video workflow",
+    keywordVariant: "blog to video time comparison",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     relatedPaths: [
       "/how-to-turn-a-blog-post-into-a-video",
       "/blog-to-video",
@@ -1771,8 +3252,41 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/blog-to-video",
         ctaLabel: "Try the blog to video converter free",
       },
+<<<<<<< HEAD
     ],
     faq: faq("blog post to video", "repurposing one article into multiple formats"),
+=======
+      {
+        heading: "The manual approach, if you're not ready for a tool",
+        paragraphs: [
+          "You can do this without dedicated software. Paste the article into an AI chat tool and ask it to condense the piece into a spoken-style script that keeps the original argument and examples. Then record a voiceover yourself or generate one with a separate text-to-speech tool, source or screenshot the visuals the article already references, and assemble everything in a general-purpose video editor.",
+          "This works, but every step — scripting, voice, visuals, assembly — is a separate manual task with its own learning curve. It's a reasonable way to test whether blog-to-video is worth doing at all before adopting a dedicated tool that automates all four steps from a single URL.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "How long does it take to turn a blog post into a video?",
+        answer:
+          "Manually — scripting, recording or generating a voiceover, sourcing visuals, and editing — typically takes 30-60+ minutes per post depending on length. With Blog2Video, pasting the URL and generating a first draft takes under 3 minutes; review and refinement adds a few minutes more.",
+      },
+      {
+        question: "Is there a free way to turn a blog post into a video?",
+        answer:
+          "Yes. The fully manual route (AI-assisted scripting plus a free TTS voice and a free editor) costs nothing but your time. Blog2Video also offers free starting videos with no watermark if you'd rather automate the process.",
+      },
+      {
+        question: "What's the best tool to convert a blog post into a video?",
+        answer:
+          "It depends on your source content. Avatar-first tools like HeyGen and Synthesia are built for presenter-led scripts. Stock-footage tools like Lumen5 and Pictory work well for marketing content. Blog2Video is built specifically for preserving the structure of technical and long-form writing without a rewrite step.",
+      },
+      {
+        question: "Does the video need to match the blog post exactly?",
+        answer:
+          "No, and it shouldn't. Video needs tighter pacing than text — open with the core point, compress transitional copy, and let each section resolve one idea. The goal is to preserve the argument and examples, not narrate the post word for word.",
+      },
+    ],
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     distributionPlan: [
       { channel: "site", title: "Canonical workflow article", angle: "Own the search intent on the site first." },
       { channel: "substack", title: "Behind-the-scenes creator note", angle: "Explain why the article made a strong video candidate." },
@@ -3307,6 +4821,106 @@ export const blogPosts: BlogPost[] = [
     ],
   },
   {
+<<<<<<< HEAD
+=======
+    slug: "how-to-convert-pdf-to-video",
+    title: "How To Convert a PDF Into a Video",
+    description:
+      "A step-by-step PDF-to-video workflow for turning whitepapers, lesson notes, research summaries, and guides into narrated explainer videos.",
+    category: "How-to",
+    heroImage: "/blog/blog-cover-pdf-educators.png",
+    heroImageAlt:
+      "Editorial illustration of a PDF document being converted into a structured narrated explainer video.",
+    publishedAt: "2026-06-21",
+    readTime: "7 min read",
+    heroEyebrow: "Document how-to",
+    heroTitle: "Turn a PDF into a video by keeping its structure, not just its text",
+    heroDescription:
+      "Most PDF-to-video tools either read the file page by page as a slideshow or summarize it into a generic avatar script. Neither approach keeps the original document's logic. Here is a workflow that does.",
+    primaryKeyword: "how to convert pdf to video",
+    keywordVariant: "how to make a pdf into a video",
+    relatedPaths: [
+      "/pdf-to-video",
+      "/for-educators",
+      "/for-researchers",
+      "/blogs/pdf-to-video-fastest-workflow-for-educators",
+    ],
+    sections: [
+      {
+        heading: "Start with a PDF that already has a teaching arc",
+        paragraphs: [
+          "PDF-to-video works best when the source document already explains something in order: a whitepaper, a lesson handout, a research summary, a guide, or a report with headings and sections. If the PDF is just a scanned form or a dense, unstructured dump of text, the video will inherit that confusion.",
+          "Documents with headings, bullet lists, diagrams, and worked examples convert especially well because that structure becomes the scene outline almost directly.",
+        ],
+      },
+      {
+        heading: "Don't treat every page as one video frame",
+        paragraphs: [
+          "The weakest version of PDF-to-video is a literal slideshow: render each page as a frame, add narration, done. That ignores the fact that PDF pages are a print layout decision, not a video pacing decision — a dense page might need three scenes, and three short pages might collapse into one.",
+          "A stronger workflow reads the PDF's actual structure — headings, sections, and supporting content — and maps that structure to scenes, independent of where the original page breaks fell.",
+        ],
+        bullets: [
+          "Use headings and subheadings as scene boundaries, not page boundaries.",
+          "Let dense sections (data tables, multi-step processes) split into multiple scenes.",
+          "Carry diagrams and charts into the video as visuals instead of narrating around them.",
+        ],
+      },
+      {
+        heading: "Keep the narration grounded in the document",
+        paragraphs: [
+          "A PDF-to-video conversion should sound like a narrated version of the document, not a generic AI summary that happens to share a topic with it. That distinction matters most for research papers, technical guides, and lesson material where precision is the point.",
+          "If the conversion strips out specific numbers, caveats, or examples in favor of a smoother-sounding script, it has solved the wrong problem.",
+        ],
+      },
+      {
+        heading: "Pick a template that matches the document's purpose",
+        paragraphs: [
+          "A whitepaper, a lesson PDF, and a research summary do not need the same visual treatment. Whiteboard-style templates suit teaching material and step-by-step explanations. Cleaner editorial templates suit whitepapers and research summaries where credibility matters more than pacing energy.",
+        ],
+      },
+      {
+        heading: "How Blog2Video handles this",
+        paragraphs: [
+          "1. Upload your PDF — Blog2Video reads the full document structure, including headings, paragraphs, lists, and images, and maps it into a scene outline.",
+          "2. Choose a template — Whiteboard is the strongest default for lesson notes and teaching material; pick a cleaner editorial template for whitepapers and research summaries.",
+          "3. Generate and review — Each scene follows a section of the original PDF. Edit any scene in the AI editor, then export as MP4, or as PNG, PDF, or PowerPoint slides if you want a deck alongside the video.",
+        ],
+        component: "document-education",
+        ctaPath: "/pdf-to-video",
+        ctaLabel: "Convert a PDF to video",
+      },
+    ],
+    faq: [
+      {
+        question: "How do I make a PDF into a video?",
+        answer:
+          "Upload the PDF into Blog2Video. It reads the document's headings, paragraphs, and images, maps them into a scene-by-scene outline, adds narration, and generates a video you can edit before exporting as MP4.",
+      },
+      {
+        question: "Will the video just be my PDF pages turned into a slideshow?",
+        answer:
+          "No. Instead of rendering each page as one frame, Blog2Video maps the document's actual section structure to scenes, so dense pages can split into multiple scenes and short pages can combine — the pacing follows the content, not the original page breaks.",
+      },
+      {
+        question: "Does this work for research papers and whitepapers, not just lesson PDFs?",
+        answer:
+          "Yes. The same structure-preserving approach works for whitepapers, research summaries, reports, and guides — anything with headings and a logical sequence of ideas.",
+      },
+      {
+        question: "Can I get something other than an MP4 out of the same PDF?",
+        answer:
+          "Yes. The same generated scenes can be exported as PNG slides, a PDF deck, or a PowerPoint file, so one PDF upload can produce a video and a slide deck without a second production pass.",
+      },
+    ],
+    distributionPlan: [
+      { channel: "site", title: "Canonical PDF-to-video how-to", angle: "Capture 'how to convert pdf to video' and 'how to make a pdf into a video' search intent." },
+      { channel: "substack", title: "PDF-to-video workflow note", angle: "Explain why page-by-page slideshow conversion loses the document's logic." },
+      { channel: "medium", title: "Why most PDF-to-video tools get the pacing wrong", angle: "Lead with the structure-vs-page-breaks framing." },
+      { channel: "video", title: "PDF-to-video walkthrough", angle: "Show a dense PDF page splitting into multiple well-paced scenes." },
+    ],
+  },
+  {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     slug: "how-to-turn-a-powerpoint-into-a-video",
     title: "How To Turn a PowerPoint Into a Video",
     description:
@@ -3717,7 +5331,11 @@ export const blogPosts: BlogPost[] = [
           "Lumen5 ($19/mo) — The original blog-to-video platform. Paste a URL and it generates a storyboard with stock footage, text overlays, and music. Strong brand kit support and a large stock library (500M+ assets on higher tiers). Limitation: rigid templates, no AI avatars, and the free tier is watermarked at 720p with a 5-video cap.",
           "Pictory ($25/mo) — Converts blog posts, scripts, and URLs into video with auto-captioning and auto-summarization. Also supports text-based editing of existing videos. Limitation: minute-based pricing is confusing, AI voice minutes are capped separately, and output relies heavily on stock footage.",
           "InVideo AI ($25/mo) — Prompt-first AI video generator that can also import blog content. Generates full videos with script, footage, voiceover, and music from a text description. Limitation: not optimized specifically for blog-to-video — it is a general AI video tool, so article structure is often lost in translation.",
+<<<<<<< HEAD
           "Fliki ($28/mo) — Specializes in text-to-video with an emphasis on voice. Offers 2,000+ AI voices in 80+ languages and converts blogs, PPTs, and tweets into video. Limitation: visuals are mostly stock-based and the output can feel template-driven despite the voice quality.",
+=======
+          "Fliki ($27.99/mo) — Specializes in text-to-video with an emphasis on voice. Offers 2,000+ AI voices in 80+ languages and converts blogs, PPTs, and tweets into video. Limitation: visuals are mostly stock-based and the output can feel template-driven despite the voice quality.",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           "Synthesia ($29/mo) — AI avatar platform that converts text and URLs into videos featuring realistic AI presenters. Strong in corporate training and localization with 230+ avatars and 140+ languages. Limitation: expensive per-minute model, avatar-heavy approach does not suit all blog content, and creative control over visual styles is limited.",
           "VideoGen ($12/mo) — Fast, affordable text-to-video generator that claims under-30-second generation. Blog URL import, auto-subtitles, and AI b-roll matching. Limitation: simpler feature set than heavyweight competitors, smaller stock library on lower tiers, and no free permanent tier.",
           "Revid.ai ($39/mo) — AI video platform with 100+ tools focused on short-form viral content for TikTok, Reels, and Shorts. Includes a blog-to-video converter and uses Google Veo3 and OpenAI Sora 2 models. Limitation: expensive entry point, credit-based system, and the platform is optimized for viral hooks rather than long-form educational content.",
@@ -3798,7 +5416,11 @@ export const blogPosts: BlogPost[] = [
       {
         question: "What is the best free blog-to-video tool?",
         answer:
+<<<<<<< HEAD
           "Blog2Video offers three free videos with no watermark. Lumen5 has a free tier limited to 5 videos at 720p with a watermark. Fliki offers 5 free minutes per month. Most other tools either have no free tier or restrict free usage to trials. For technical content, Blog2Video's free tier provides the highest-fidelity output.",
+=======
+          "Blog2Video offers two free videos with no watermark. Lumen5 has a free tier limited to 5 videos at 720p with a watermark. Fliki offers 5 free minutes per month. Most other tools either have no free tier or restrict free usage to trials. For technical content, Blog2Video's free tier provides the highest-fidelity output.",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       },
       {
         question: "Can Blog2Video handle code blocks and diagrams?",
@@ -3835,7 +5457,11 @@ export const blogPosts: BlogPost[] = [
     description:
       "Google surfaces video results in 26% of searches. Pages with video are 53x more likely to hit page 1. Here's how SEO agencies can add video to every client post without extra production overhead.",
     category: "SEO Strategy",
+<<<<<<< HEAD
     heroImage: "/blog/blog-cover-blog-to-video.png",
+=======
+    heroImage: "/blog/blog-cover-video-seo-ranking-traffic-blog2video.png",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A blog post ranking on Google with a video result appearing alongside it, driving additional traffic.",
     publishedAt: "2026-03-26",
     readTime: "5 min read",
@@ -3976,7 +5602,11 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets brands save fully custom video templates with their own colors, fonts, logos, and layout preferences. Every video you generate after setup carries your brand identity automatically — no manual styling on each project.",
     category: "Feature",
+<<<<<<< HEAD
     heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+=======
+    heroImage: "/blog/blog-cover-custom-templates-for-brands.png",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A brand kit with custom colors, fonts, and logo applied to a video template inside Blog2Video.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -4097,7 +5727,11 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video's new Newscast template brings broadcast news aesthetics to your content. Deep navy, crimson accents, ticker bars, lower thirds, and glass-panel anchor layouts — built for briefings, roundups, and editorial updates that should feel authoritative.",
     category: "Feature",
+<<<<<<< HEAD
     heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+=======
+    heroImage: "/blog/blog-cover-new-template-newscast.png",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A Blog2Video Newscast template scene showing a deep navy background, crimson accent, ticker bar, and anchor-style lower third.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -4224,7 +5858,11 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now appends a branded call-to-action scene to the end of every generated video automatically. No manual scene editing required — your CTA, link, and branding are there from the first generation.",
     category: "Feature",
+<<<<<<< HEAD
     heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+=======
+    heroImage: "/blog/blog-cover-automatic-call-to-action-end-of-video.png",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A Blog2Video generated video ending with a branded call-to-action scene showing a website link and subscribe prompt.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
@@ -4338,7 +5976,11 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets users set their target video duration before generating. Whether you need a 60-second short, a 3-minute explainer, or a 10-minute deep dive, the platform adapts scene count and pacing to hit your target length.",
     category: "Feature",
+<<<<<<< HEAD
     heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
+=======
+    heroImage: "/blog/blog-cover-video-duration-control.png",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A video duration slider in Blog2Video set to 3 minutes, with a generated video timeline showing scene count adjusted to match.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
@@ -4445,4 +6087,3270 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+<<<<<<< HEAD
+=======
+  {
+    slug: "how-devrel-teams-can-turn-docs-into-videos",
+    title: "How DevRel Teams Can Turn Docs Into Videos Without Rebuilding Everything",
+    description:
+      "A practical workflow for developer relations teams that want to turn docs, API guides, and release notes into useful videos without losing technical clarity.",
+    category: "Use case",
+    heroImage: "/blog/blog-cover-documentation-walkthroughs.png",
+    heroImageAlt:
+      "Editorial illustration of developer documentation, API guides, and release notes turning into a structured product video for technical audiences.",
+    publishedAt: "2026-04-14",
+    readTime: "8 min read",
+    heroEyebrow: "DevRel workflow",
+    heroTitle: "Your docs already explain the product. DevRel video should start there.",
+    heroDescription:
+      "Developer relations teams do not need a separate content factory for every launch, tutorial, or onboarding flow. The strongest video workflow often begins with the docs you already maintain.",
+    primaryKeyword: "devrel docs to video",
+    keywordVariant: "developer relations documentation video",
+    relatedPaths: ["/for-technical-writers", "/docx-to-video", "/code-snippet-to-video"],
+    sections: [
+      {
+        heading: "Documentation is one of DevRel's highest-leverage source assets",
+        paragraphs: [
+          "Most developer relations teams already have the hard part: structured technical content. Setup guides, quickstarts, API references, changelogs, migration notes, and release announcements all explain real product behavior in language developers can trust.",
+          "That makes docs a better starting point for video than a blank script. Instead of inventing a new narrative for every launch, DevRel can turn proven documentation into a video layer that helps more developers discover, understand, and adopt the product.",
+        ],
+      },
+      {
+        heading: "Use video to extend docs, not replace them",
+        paragraphs: [
+          "The job of a DevRel video is not to make the docs unnecessary. It is to make the docs easier to enter. A short walkthrough can show the flow, explain why the feature matters, and point developers toward the exact guide they should use next.",
+          "That is especially effective for launch content, new SDK releases, onboarding sequences, and feature education where developers want both a quick overview and a precise written reference.",
+        ],
+        bullets: [
+          "Turn quickstarts into narrated onboarding videos.",
+          "Turn changelogs into release recap videos developers can skim fast.",
+          "Turn API guides into walkthroughs that show sequence and context.",
+          "Turn migration docs into clearer implementation explainers.",
+        ],
+      },
+      {
+        heading: "Why docs-to-video fits lean DevRel teams",
+        paragraphs: [
+          "Many DevRel teams are small. Sometimes it is one developer advocate trying to support launches, docs, demos, community questions, and content distribution at the same time. In that environment, every extra production step matters.",
+          "Docs-first video works because it reduces reinvention. The language, structure, edge cases, and examples are already in the source material. That means less scripting, fewer review cycles, and a faster path from published docs to a shareable video for YouTube, social, embedded docs, or launch emails.",
+        ],
+      },
+      {
+        heading: "The output has to stay technically credible",
+        paragraphs: [
+          "Developers will forgive simple visuals faster than vague explanations. What they do not forgive is a video that sounds polished while skipping prerequisites, flattening code examples, or misrepresenting the real workflow.",
+          "That is why docs are such a strong input. They already carry the implementation truth. A good docs-to-video workflow preserves headings, steps, examples, and caution points so the video stays aligned with the source developers will actually use.",
+        ],
+      },
+      {
+        heading: "How Blog2Video helps DevRel repurpose docs",
+        paragraphs: [
+          "1. Paste a documentation URL or upload a source document. Blog2Video reads the structure and turns headings, steps, and supporting detail into scenes.",
+          "2. Generate a narrated explainer that keeps the technical flow intact, including code-oriented sections and educational pacing.",
+          "3. Publish the result wherever DevRel already distributes: product launch posts, help centers, YouTube, social clips, and onboarding sequences.",
+        ],
+        ctaPath: "/for-technical-writers",
+        ctaLabel: "See the docs-to-video workflow",
+      },
+    ],
+    faq: [
+      {
+        question: "Why is documentation a good source for DevRel video?",
+        answer:
+          "Because documentation is already structured around real developer tasks. It contains the setup steps, terminology, caveats, and examples that make technical video credible instead of generic.",
+      },
+      {
+        question: "What kinds of DevRel content work best for docs-to-video?",
+        answer:
+          "Quickstarts, integration guides, release notes, migration docs, SDK walkthroughs, and feature launch documentation are all strong candidates because they already have a clear teaching structure.",
+      },
+      {
+        question: "Will a docs-based video feel too dry for developer audiences?",
+        answer:
+          "Not if the format is handled well. Developers usually want clarity more than hype. A strong docs-based video gives them the flow and context quickly, then sends them to the full written guide for implementation detail.",
+      },
+      {
+        question: "Is this useful for solo DevRel operators too?",
+        answer:
+          "Yes. In fact, the workflow is especially useful when one person is covering launches, docs, distribution, and community education. Reusing documentation as the source reduces the amount of custom video production work required for each release.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How DevRel Teams Can Turn Docs Into Videos Without Rebuilding Everything",
+        angle: "Capture developer-relations intent around docs, onboarding, API education, and launch content repurposing.",
+      },
+      {
+        channel: "video",
+        title: "Turn Developer Docs Into Videos: A Better DevRel Workflow",
+        angle: "Show a documentation page becoming a narrated explainer and position it as a workflow for launches, onboarding, and SDK education.",
+      },
+      {
+        channel: "substack",
+        title: "Your docs team is already producing half of your DevRel video strategy.",
+        angle: "Lead with leverage for lean teams: reuse the source of truth instead of scripting every technical video from zero.",
+      },
+      {
+        channel: "medium",
+        title: "Why developer relations teams should treat documentation as a video source, not just a support asset",
+        angle: "Explain how docs-first video improves distribution while preserving technical credibility.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-vs-seedance",
+    title: "Blog2Video vs Seedance: Which One Makes More Sense for Scalable Video Generation?",
+    description:
+      "Seedance is an AI video generation model with per-clip costs that add up fast for long videos. Blog2Video uses a Remotion-based workflow that is dramatically cheaper for structured, repeatable video production.",
+    category: "Comparison",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Comparison-style illustration showing an AI video model workflow beside a programmatic Remotion-based video workflow for structured content.",
+    publishedAt: "2026-04-14",
+    readTime: "9 min read",
+    heroEyebrow: "Blog2Video vs Seedance",
+    heroTitle: "Seedance is priced like a generation model. Blog2Video is built like video infrastructure.",
+    heroDescription:
+      "The key difference is not just output style. It is the underlying economics. Seedance charges per generated clip, while Blog2Video's Remotion-based approach turns templates into renderable video assets with compute costs that stay extremely low.",
+    primaryKeyword: "blog2video vs seedance",
+    keywordVariant: "seedance alternative for video generation",
+    relatedPaths: [
+      "/blog-to-video",
+      "/custom-branded-video-templates",
+      "/ai-video-generator-for-bloggers",
+      "/blogs/blog-to-video-tools-compared",
+    ],
+    sections: [
+      {
+        heading: "The core difference: generation model vs programmatic rendering",
+        paragraphs: [
+          "Seedance is an AI video generation model. You describe the output you want, then the system generates clips. That is useful when the value comes from producing net-new photorealistic or model-generated visuals from prompts.",
+          "Blog2Video solves a different problem. It is designed for turning structured written content into repeatable videos using templates, scenes, narration, and programmatic rendering. Under the hood, that means a Remotion-based workflow rather than paying a generative model fee every time a user wants another five-second clip.",
+        ],
+        bullets: [
+          "Seedance: prompt-led video generation priced by clip output",
+          "Blog2Video: template-led video generation priced like rendering infrastructure",
+          "Seedance: stronger for model-generated visuals and open-ended generative output",
+          "Blog2Video: stronger for structured explainers, branded templates, and repeated content production",
+        ],
+      },
+      {
+        heading: "Why the economics diverge so much",
+        paragraphs: [
+          "Based on the pricing snapshot you shared, direct Seedance 2.0 pricing ranges from 20 credits for a 5-second 480p clip to 90 credits for a 5-second 1080p clip. For a five-minute video, you need sixty 5-second generations. That means roughly 1,200 credits at 480p, 2,400 credits at 720p, or 5,400 credits at 1080p.",
+          "The same snapshot shows one-time credit packs such as 500 credits for $4.99, 1,000 for $9.99, 2,500 for $24.99, and 5,000 for $49.99, along with subscription plans like 3,000 credits for $19.9/month, 8,000 credits for $39.9/month, and 15,000 credits for $69.9/month. In practice, that means long-form video generation can get expensive very quickly if every segment is billed like a fresh AI generation job.",
+        ],
+        bullets: [
+          "5-minute video in 5-second Seedance clips = 60 generations",
+          "Estimated direct credit consumption: 1,200 to 5,400 credits depending on resolution",
+          "Subscription cost scales with how often you need long-form output",
+          "Per-video margins stay under pressure because generation cost repeats every time",
+        ],
+      },
+      {
+        heading: "What the API pricing implies",
+        paragraphs: [
+          "Via the fal.ai API, the pricing snapshot you provided shows about $0.18 for a 5-second 720p Seedance clip. Multiply that across sixty clips and the cost lands around $10.80 for a five-minute video at that clip rate. Your supplied comparison framed the rough API expectation at around $18 for a five-minute 720p video, which makes the broader point clearly: model-priced generation stays expensive once you move beyond short clips.",
+          "That is the main business issue for any templated video product. If the platform has to pay model rates every time a user generates a longer video, the cost basis remains high on every single render. The operator either eats the margin loss or passes those costs through to the user.",
+        ],
+      },
+      {
+        heading: "Why Remotion-based video is different",
+        paragraphs: [
+          "Remotion is not a text-to-video model. It is a framework for building video compositions in React and rendering them programmatically. According to the pricing information you shared, Remotion is free for individuals and companies up to three people. For larger commercial teams, the cost moves to licenses such as a Creators seat at $25 per seat per month or an Automators plan at $0.01 per render with a $100 monthly minimum.",
+          "Once the template system exists, the render costs are tiny. Based on the same pricing snapshot, a one-minute video render can cost roughly $0.017 in AWS Lambda compute and a ten-minute HD render roughly $0.10. For a five-minute video, the estimate comes out around $0.05 in rendering cost. That is a completely different economic profile from paying dollars per clip to a generative video model.",
+        ],
+        bullets: [
+          "Upfront effort goes into building templates, not paying generation fees forever",
+          "Per-render compute stays extremely low after the system is set up",
+          "Works especially well for repeated branded outputs at scale",
+          "Turns video generation into software infrastructure rather than clip-by-clip AI spend",
+        ],
+      },
+      {
+        heading: "Where Seedance is still the better fit",
+        paragraphs: [
+          "Seedance makes sense when you specifically want model-generated visuals and the value comes from visual novelty. If you need a short cinematic asset, prompt-led experimental video, or a one-off AI-generated visual sequence, paying a higher per-generation cost can still be worth it.",
+          "That is especially true when the goal is not repeatability. If each video is a separate creative experiment and the visuals need to be invented fresh each time, a generation model can be the right tool even if the economics are less attractive for long-form production.",
+        ],
+      },
+      {
+        heading: "Why Blog2Video is the stronger fit for structured content businesses",
+        paragraphs: [
+          "Blog2Video is built for a different category of work: turning blog posts, docs, explainers, launch notes, and educational content into reusable video formats. In that kind of system, the real leverage comes from building the template once, then using it across many pieces of content at very low render cost.",
+          "That is why the economics matter so much. For blog2video.app's use case, a Remotion-based system is not just cheaper in theory. It is structurally better aligned with the product. The upfront work goes into themes, scene layouts, brand systems, and content logic. After that, each new video render costs almost nothing compared with model-priced generation. That makes pricing, margins, and scaling much more sustainable.",
+        ],
+        bullets: [
+          "Better for branded templates and repeatable scene systems",
+          "Better for explainers, tutorials, and written-content repurposing",
+          "Better for operators who need predictable cost per render",
+          "Better when the business depends on many videos rather than one-off experiments",
+        ],
+      },
+      {
+        heading: "Which one should you choose?",
+        paragraphs: [
+          "Choose Seedance if you need AI-generated visual output and are comfortable paying model-level prices for each clip or each long-form sequence. Choose Blog2Video if you need a scalable system for converting structured content into video repeatedly without letting generation costs dominate the business.",
+          "The decision is less about whether one tool is universally better and more about what kind of engine you need. Seedance is a generation model. Blog2Video is a content-to-video workflow built on rendering infrastructure. For templated, branded, repeatable video generation, that difference is decisive.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try the blog-to-video workflow",
+      },
+    ],
+    faq: [
+      {
+        question: "Is Seedance cheaper than Blog2Video for long videos?",
+        answer:
+          "Based on the pricing snapshot you shared, no. Seedance can become significantly more expensive for longer videos because the cost compounds across many five-second generations, while a Remotion-based render stays extremely cheap once the template system exists.",
+      },
+      {
+        question: "Why is Blog2Video cheaper to operate than a generative video model?",
+        answer:
+          "Because Blog2Video relies on programmatic rendering rather than paying a model-generation fee for every clip. The major investment is in building the templates and workflow, then the ongoing per-render compute cost stays low.",
+      },
+      {
+        question: "When would someone choose Seedance over Blog2Video?",
+        answer:
+          "When the main goal is generating new AI visuals from prompts rather than turning structured written content into a repeatable branded video. Seedance is more suited to open-ended generative output than templated explainer production.",
+      },
+      {
+        question: "What kind of product benefits most from Blog2Video's Remotion-based approach?",
+        answer:
+          "Products that turn blogs, docs, tutorials, launch notes, or other structured content into videos repeatedly. The more often the workflow runs, the more valuable the low render cost and reusable template system become.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video vs Seedance: Which One Makes More Sense for Scalable Video Generation?",
+        angle: "Capture comparison intent around model-priced video generation versus Remotion-based rendering economics.",
+      },
+      {
+        channel: "video",
+        title: "Seedance vs Blog2Video: Why the Cost Structure Is Completely Different",
+        angle: "Walk through the per-clip math, explain the Remotion rendering model, and show why templated video products care about margin.",
+      },
+      {
+        channel: "substack",
+        title: "The hidden problem with model-priced video generation is not quality. It is economics.",
+        angle: "Lead with the business model insight: clip-based generation costs keep repeating, while rendering infrastructure gets cheaper at scale.",
+      },
+      {
+        channel: "medium",
+        title: "Seedance vs Remotion-based video generation: why the cost model matters more than the demo output",
+        angle: "Explain why prompt-generated visuals and programmatic template rendering serve different business cases.",
+      },
+    ],
+  },
+  {
+    slug: "zoom-recording-to-summary-video",
+    title: "How to Turn a Zoom Recording Into a Summary Video",
+    description:
+      "Turn Zoom meeting recordings into polished summary videos your team can watch, share, and reference — without sitting through the full replay.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-zoom-recording-to-summary-video.png",
+    heroImageAlt:
+      "Illustration of a Zoom meeting recording being structured into a summary video with scenes, narration, and branded visuals.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Nobody wants to watch a 90-minute Zoom replay. A summary video they will actually watch.",
+    heroDescription:
+      "Zoom recordings pile up and go unwatched. Turning the key moments into a structured summary video gives your team, clients, and stakeholders something worth their time.",
+    primaryKeyword: "zoom recording to summary video",
+    keywordVariant: "turn zoom meeting into video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/google-meet-recording-to-video",
+      "/blogs/microsoft-teams-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why Zoom recordings go unwatched",
+        paragraphs: [
+          "Most Zoom recordings are long. An hour-long meeting might contain ten minutes of real signal — a key decision, a product update, a process change. The rest is preamble, crosstalk, and follow-up questions. Asking someone to watch the full recording to find those ten minutes is not a reasonable ask.",
+          "A summary video solves this. It takes the most important points from the meeting and turns them into a tight, watchable asset that someone can absorb in under five minutes — without needing to scrub through the full replay.",
+        ],
+      },
+      {
+        heading: "Start with the transcript or AI summary",
+        paragraphs: [
+          "Zoom automatically generates a transcript for most recorded meetings when transcription is enabled. If you use Zoom AI Companion, you also get an auto-generated meeting summary with action items and key topics.",
+          "Either asset works as source material. The transcript captures everything verbatim. The AI summary distills the main points. Both can be exported and turned into a structured video.",
+        ],
+        bullets: [
+          "Enable Zoom transcription in your account settings before the meeting",
+          "Download the .vtt or .txt transcript after the meeting ends",
+          "Or export the Zoom AI Companion summary as plain text",
+          "If using a third-party recorder, export whatever text summary is available",
+        ],
+      },
+      {
+        heading: "Structure the content before you video it",
+        paragraphs: [
+          "A transcript needs light editing before it becomes a good video source. Remove the filler, the off-topic tangents, and the repeated points. Keep the decisions made, the action items assigned, the context that newcomers would need, and any data or metrics that were discussed.",
+          "A well-edited transcript or summary becomes a tight document: two to four paragraphs, a bullet list of decisions and next steps, and any key numbers. That is the right size for a three-to-five-minute video.",
+        ],
+      },
+      {
+        heading: "Turn it into a video with Blog2Video",
+        paragraphs: [
+          "Upload the edited transcript or summary as a document — PDF, Word, or plain text. Blog2Video reads the structure, extracts the key points, and maps them into a scene-by-scene outline.",
+          "Choose a template that fits the audience. Whiteboard works well for internal team updates. Nightfall or Newscast works for client-facing or executive briefings. Geometric Explainer is clean for product update videos that need clarity over flair.",
+          "Review the scenes, adjust any narration, then render. The output is a polished video your team can watch in minutes instead of rewinding through an hour-long recording.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Zoom transcript into a video",
+      },
+      {
+        heading: "Where to share the summary video",
+        paragraphs: [
+          "A Zoom summary video has multiple distribution paths. Share it as a link in the follow-up email so attendees can revisit decisions. Post it in the project Slack channel for async teammates. Embed it in the meeting notes doc or Notion page. For client-facing meetings, send it as a polished recap that replaces the traditional written summary.",
+          "Because it is a real video and not just another wall of text, people are far more likely to actually watch and absorb it.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Can I upload a Zoom transcript directly to Blog2Video?",
+        answer:
+          "Yes. Export the transcript as a .txt or .docx file and upload it as a document. Blog2Video structures the content into scenes automatically.",
+      },
+      {
+        question: "Does this work with Zoom AI Companion summaries?",
+        answer:
+          "Yes. Copy the Zoom AI Companion summary into a document, save it as PDF or Word, and upload it. The summary format — with key topics and action items — maps well into a structured video.",
+      },
+      {
+        question: "How long should the source document be for a good summary video?",
+        answer:
+          "A condensed summary of 300 to 600 words is ideal. If you're working from a full transcript, edit it down to the key decisions, action items, and context before uploading.",
+      },
+      {
+        question: "What template works best for meeting summary videos?",
+        answer:
+          "Whiteboard is approachable and clear for internal team updates. Newscast works well for executive briefings. Nightfall gives client-facing recaps a polished, premium feel.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Zoom Recording Into a Summary Video",
+        angle: "Capture intent from teams and managers who want a better way to share meeting outcomes than a long recording link.",
+      },
+      {
+        channel: "video",
+        title: "Zoom Transcript to Summary Video in 5 Minutes",
+        angle: "Screen demo: paste a Zoom transcript, generate scenes, pick a template, render.",
+      },
+      {
+        channel: "substack",
+        title: "Your Zoom recap deserves more than a recording link nobody will click.",
+        angle: "Frame the summary video as a respect-for-attention format for async teams.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn a Zoom meeting transcript into a summary video your team will actually watch",
+        angle: "Walk through the transcript-to-video workflow step by step with template recommendations.",
+      },
+    ],
+  },
+  {
+    slug: "google-meet-recording-to-video",
+    title: "How to Turn a Google Meet Recording Into a Summary Video",
+    description:
+      "Export your Google Meet transcript or Gemini summary and convert it into a shareable summary video — no editing software required.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-google-meet-recording-to-video.png",
+    heroImageAlt:
+      "Illustration of a Google Meet recording transcript being converted into a structured summary video asset.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Google Meet transcripts are underused. Turn them into videos your team will actually watch.",
+    heroDescription:
+      "Every recorded Google Meet generates a transcript in Google Drive. That text is all you need to produce a polished summary video — with no editing timeline, no cameras, and no post-production.",
+    primaryKeyword: "google meet recording to video",
+    keywordVariant: "turn google meet into summary video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/microsoft-teams-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "What Google Meet gives you after a recorded call",
+        paragraphs: [
+          "When you record a Google Meet session, two assets land in Google Drive automatically: the video recording file and a transcript document. The transcript is a time-stamped, speaker-labeled text file. If you have Google Workspace with Gemini features enabled, you may also receive an AI-generated meeting summary.",
+          "Most people open the recording. Almost nobody opens the transcript. That is a missed opportunity — the transcript is cleaner, faster to process, and far more useful as source material for a summary video.",
+        ],
+      },
+      {
+        heading: "Getting the transcript out of Google Drive",
+        paragraphs: [
+          "Open the meeting folder in Google Drive. Find the transcript file — it usually appears as a Google Doc named after the meeting. Open it, review the content, and export it as a Word document or plain text file.",
+          "Before exporting, do a light edit pass: remove off-topic exchanges, repeated points, and anything that would confuse someone who wasn't on the call. What remains should be the key context, decisions made, and next steps.",
+        ],
+        bullets: [
+          "Find the transcript in the meeting folder in Google Drive",
+          "Open it as a Google Doc and remove filler, tangents, and repeated points",
+          "Keep decisions, action items, data discussed, and key context",
+          "Export as .docx or copy the cleaned text into a new document",
+        ],
+      },
+      {
+        heading: "Using Gemini summaries as source material",
+        paragraphs: [
+          "If your Google Workspace plan includes Gemini, the meeting summary is often better source material than the raw transcript. Gemini summaries include a concise breakdown of what was discussed, who said what, and what was decided — all without the transcript noise.",
+          "Copy the Gemini summary into a Google Doc, add any context that was missing, and use that as your video source. A well-structured Gemini summary can become a three-to-five-minute video with minimal editing.",
+        ],
+      },
+      {
+        heading: "Turning the document into a summary video",
+        paragraphs: [
+          "Upload the exported document to Blog2Video. The system reads the structure, pulls out the key points, and generates a scene-by-scene outline. You can review and edit each scene before rendering.",
+          "For internal updates, the Whiteboard or Geometric Explainer templates keep things clear and approachable. For cross-functional or leadership briefings, Newscast or Nightfall give the output a more polished, professional look.",
+          "Once rendered, share the video link instead of the recording — people are far more likely to watch a five-minute summary than scrub through an hour-long replay.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Meet transcript into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I find my Google Meet transcript?",
+        answer:
+          "After a recorded meeting, Google Drive automatically saves both the video and a transcript document in a folder named after the meeting. Find it in Drive and open it as a Google Doc.",
+      },
+      {
+        question: "Can I use a Gemini meeting summary instead of the full transcript?",
+        answer:
+          "Yes. Gemini summaries are already condensed and structured, which makes them ideal source material. Copy the summary, add any missing context, and upload it as a document.",
+      },
+      {
+        question: "What file format should I export the transcript in?",
+        answer:
+          "Export as .docx from Google Docs, or copy the text and save it as a plain text file. Both formats upload cleanly to Blog2Video.",
+      },
+      {
+        question: "What template works best for Google Meet summary videos?",
+        answer:
+          "Whiteboard and Geometric Explainer work well for internal team recaps. Newscast and Nightfall are better for leadership briefings or client-facing summaries where a polished look matters.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Google Meet Recording Into a Summary Video",
+        angle: "Capture async-team and remote-work intent around Google Workspace workflows and meeting documentation.",
+      },
+      {
+        channel: "video",
+        title: "Google Meet Transcript to Video in Minutes",
+        angle: "Screen demo: export the transcript from Google Drive, upload to Blog2Video, generate and render.",
+      },
+      {
+        channel: "substack",
+        title: "The Google Meet transcript sitting in your Drive is worth more than you think.",
+        angle: "Frame as a no-effort async video workflow for distributed teams.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn a Google Meet transcript into a summary video using AI",
+        angle: "Step-by-step walkthrough covering transcript export, Gemini summaries, and Blog2Video rendering.",
+      },
+    ],
+  },
+  {
+    slug: "fireflies-recording-to-summary-video",
+    title: "How to Turn a Fireflies.ai Recording Into a Summary Video",
+    description:
+      "Export your Fireflies.ai transcript or AI summary and convert it into a polished summary video — shareable, watchable, and built from content you already captured.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-fireflies-recording-to-summary-video.png",
+    heroImageAlt:
+      "Illustration of a Fireflies.ai meeting transcript being converted into a structured summary video with scenes and narration.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Fireflies.ai captures everything. Now make it watchable.",
+    heroDescription:
+      "Fireflies.ai automatically transcribes and summarizes your meetings. That structured output is exactly what you need to create a tight summary video — without re-watching or re-editing the recording.",
+    primaryKeyword: "fireflies recording to summary video",
+    keywordVariant: "turn fireflies ai meeting into video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/google-meet-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "What Fireflies.ai gives you after a meeting",
+        paragraphs: [
+          "Fireflies.ai joins your calls as a bot and automatically generates a full transcript, a structured AI summary, and a list of action items. These outputs are available immediately after the meeting ends and can be accessed from the Fireflies dashboard or shared directly with your team.",
+          "The AI summary is particularly well-structured: it breaks the meeting into topic sections, captures key decisions, and pulls out follow-up items. That structure is ideal source material for a summary video — you don't need to do much work before it's ready to use.",
+        ],
+      },
+      {
+        heading: "Exporting the summary from Fireflies",
+        paragraphs: [
+          "In your Fireflies dashboard, open the meeting you want to convert. You can copy the AI-generated summary directly, or export the full transcript as a text or PDF file.",
+          "For video production, the AI summary works better than the raw transcript. It is already condensed and organized around topics rather than time codes. If you want more detail in specific sections, you can add context from the transcript before uploading.",
+        ],
+        bullets: [
+          "Open the meeting in the Fireflies dashboard",
+          "Copy the AI summary or export the transcript as PDF or text",
+          "Add any context that the summary compressed too aggressively",
+          "Keep decisions, action items, data points, and key conclusions",
+        ],
+      },
+      {
+        heading: "Why the Fireflies summary structure makes great video source material",
+        paragraphs: [
+          "Most meeting transcripts are noisy — speaker labels, filler words, repeated questions, and tangents. Fireflies AI summaries strip that noise and leave behind a document that already reads like a well-organized brief.",
+          "That brief structure maps directly onto a scene-based video. Each topic section becomes a scene. Each key decision or action item becomes a bullet or callout. The video reflects the actual meeting outcome rather than its unedited transcript.",
+        ],
+      },
+      {
+        heading: "Generating the video",
+        paragraphs: [
+          "Upload the Fireflies summary document to Blog2Video. The system reads the structure, generates scene descriptions and narration, and builds a scene outline you can review.",
+          "For internal team updates or retrospectives, the Whiteboard or Geometric Explainer templates keep the tone collaborative and clear. For sales call summaries or client briefings, Nightfall or Newscast give the output a more authoritative feel.",
+          "Render the video, share the link in your Slack, email, or project tool, and let the team absorb the meeting in five minutes instead of fifty.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Fireflies summary into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Does Blog2Video work with Fireflies.ai transcripts?",
+        answer:
+          "Yes. Export the Fireflies transcript or AI summary as a PDF or text file and upload it to Blog2Video. The structured summary format converts into scenes cleanly.",
+      },
+      {
+        question: "Should I use the Fireflies AI summary or the full transcript?",
+        answer:
+          "The AI summary is usually better source material because it's already organized by topic and free of transcript noise. Use the full transcript if you need more detail in specific sections.",
+      },
+      {
+        question: "How long does the Fireflies summary need to be?",
+        answer:
+          "A typical Fireflies AI summary for a 30-to-60-minute meeting is already the right length — 300 to 700 words. That generates a three-to-five-minute summary video without further editing.",
+      },
+      {
+        question: "What template works best for meeting summary videos from Fireflies?",
+        answer:
+          "Whiteboard or Geometric Explainer for internal team content. Nightfall or Newscast for client-facing or leadership-level briefings.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Fireflies.ai Recording Into a Summary Video",
+        angle: "Capture intent from Fireflies users looking to do more with their AI meeting summaries.",
+      },
+      {
+        channel: "video",
+        title: "Fireflies.ai Summary to Video in Minutes",
+        angle: "Demo: export the Fireflies AI summary, upload to Blog2Video, generate and render.",
+      },
+      {
+        channel: "substack",
+        title: "Your Fireflies summary is already a video script. You just need to render it.",
+        angle: "Frame as the missing step in the Fireflies workflow for teams who want better async communication.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn Fireflies.ai meeting summaries into summary videos",
+        angle: "Workflow walkthrough covering export, upload, template selection, and async sharing.",
+      },
+    ],
+  },
+  {
+    slug: "microsoft-teams-recording-to-video",
+    title: "How to Turn a Microsoft Teams Recording Into a Summary Video",
+    description:
+      "Export your Teams meeting transcript or Copilot summary and convert it into a polished summary video your team can actually watch — no editing timeline required.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-microsoft-teams-recording-to-video.png",
+    heroImageAlt:
+      "Illustration of a Microsoft Teams meeting recording being converted into a structured summary video for async sharing.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Teams records everything. The summary video is what your team will actually consume.",
+    heroDescription:
+      "Microsoft Teams automatically transcribes recorded meetings and, with Copilot, generates structured summaries. Turn that output into a video your team can watch in five minutes instead of replaying an hour-long call.",
+    primaryKeyword: "microsoft teams recording to summary video",
+    keywordVariant: "turn teams meeting into video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/google-meet-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "What Microsoft Teams gives you after a recorded meeting",
+        paragraphs: [
+          "When you record a Teams meeting, the recording is saved to SharePoint or OneDrive, and a transcript is generated automatically if transcription is enabled. If your organization uses Microsoft 365 Copilot, you also get an AI-generated meeting summary with key discussion points, decisions, and action items.",
+          "The Copilot summary is the most useful asset for video production. It is already organized, condensed, and structured around meeting outcomes rather than raw verbatim dialogue.",
+        ],
+      },
+      {
+        heading: "Getting the transcript or Copilot summary",
+        paragraphs: [
+          "After the meeting ends, open the meeting in your Teams calendar. The transcript and Copilot Recap are accessible from the meeting details panel. You can copy the Copilot summary directly or download the transcript as a .docx or .vtt file from the recording controls.",
+          "For a summary video, the Copilot Recap is usually the better starting point. If Copilot is not available, clean up the raw transcript — remove filler speech, repeated questions, and anything tangential to the main outcomes.",
+        ],
+        bullets: [
+          "Open the meeting in Teams calendar and find the Recap or transcript",
+          "Copy the Copilot Recap summary or download the .docx transcript",
+          "Edit the transcript down to decisions, action items, and key context",
+          "Save as a Word document or plain text file for upload",
+        ],
+      },
+      {
+        heading: "Why summary videos work better than recording links for async teams",
+        paragraphs: [
+          "A recording link shared in Teams or Outlook asks something unreasonable of teammates who weren't there: watch an hour of footage to find the five minutes that matter to them. Most people don't. The meeting's outcomes get lost in a recording nobody replays.",
+          "A summary video changes the format. It is short, structured, and watchable. It fits in an email, a Teams message, or a SharePoint page. People who weren't on the call can catch up without committing to the full replay.",
+        ],
+      },
+      {
+        heading: "Converting the summary to video",
+        paragraphs: [
+          "Upload the Teams Copilot Recap or edited transcript to Blog2Video as a document. The system structures the content into scenes with narration and visual layouts automatically.",
+          "Newscast works well for formal briefings and cross-functional updates. Whiteboard or Geometric Explainer suits internal team recaps. Nightfall is a strong choice when the meeting outcome is being shared with external stakeholders or leadership.",
+          "Share the rendered video in the Teams channel, attach it to the follow-up email, or embed it in the relevant SharePoint page alongside the written notes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Teams summary into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I find the transcript for a recorded Teams meeting?",
+        answer:
+          "Open the meeting in your Teams calendar. The transcript and Copilot Recap appear in the meeting details panel. You can copy the text or download the transcript as a .docx file.",
+      },
+      {
+        question: "Can I use Microsoft Copilot summaries as source material?",
+        answer:
+          "Yes. Copilot Recap summaries are already structured around topics and action items, which makes them ideal for video. Copy the summary, add any missing context, and upload it as a document.",
+      },
+      {
+        question: "What if my organization doesn't have Microsoft 365 Copilot?",
+        answer:
+          "Use the standard Teams transcript. Download it as a .docx, edit out the filler and tangents, and keep decisions, action items, and key context. That document works just as well as a Copilot summary.",
+      },
+      {
+        question: "What template works best for Teams meeting summary videos?",
+        answer:
+          "Newscast for formal cross-functional briefings. Whiteboard or Geometric Explainer for internal team updates. Nightfall for leadership or stakeholder-facing outputs.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Microsoft Teams Recording Into a Summary Video",
+        angle: "Target enterprise and Microsoft 365 users looking for better async meeting documentation than raw recording links.",
+      },
+      {
+        channel: "video",
+        title: "Teams Copilot Recap to Summary Video",
+        angle: "Demo: copy the Copilot Recap, upload to Blog2Video, generate scenes, render and share.",
+      },
+      {
+        channel: "substack",
+        title: "Nobody is watching your Teams recordings. A summary video they will.",
+        angle: "Frame async video as a respect-for-time default for enterprise teams on Microsoft 365.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn Microsoft Teams meeting summaries into short videos your team will actually watch",
+        angle: "Step-by-step workflow using Copilot Recap export and Blog2Video with template recommendations.",
+      },
+    ],
+  },
+  {
+    slug: "loom-recording-to-summary-video",
+    title: "How to Turn a Loom Recording Into a Summary Video",
+    description:
+      "Use Loom's transcript or AI summary to create a structured summary video — easier to share, watch, and distribute than a raw screen recording.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-loom-recording-to-summary-video.png",
+    heroImageAlt:
+      "Illustration of a Loom screen recording transcript being converted into a structured, shareable summary video.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Recording workflow",
+    heroTitle: "Loom records the walkthrough. A summary video makes it distributable.",
+    heroDescription:
+      "Loom is great for async communication — but a ten-minute screen recording walkthrough is not always the right format for every audience. Turn the Loom transcript or AI summary into a polished summary video that works anywhere.",
+    primaryKeyword: "loom recording to summary video",
+    keywordVariant: "turn loom into video summary",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/fireflies-recording-to-summary-video",
+    ],
+    sections: [
+      {
+        heading: "When a Loom is not enough",
+        paragraphs: [
+          "Loom is excellent for casual async communication — quick walkthroughs, developer handoffs, product feedback, and async status updates. But a raw Loom recording has real distribution limits. It lives in the Loom platform, requires an account to view in some contexts, and does not embed cleanly in all destinations.",
+          "A summary video solves the distribution problem. It takes the substance of the Loom walkthrough — the key points, the decisions, the instructions — and packages it into a format that works in emails, newsletters, docs, websites, and any platform that accepts video embeds.",
+        ],
+      },
+      {
+        heading: "Getting the transcript from Loom",
+        paragraphs: [
+          "Every Loom recording automatically generates a transcript. Open the recording, find the Transcript tab, and copy the text. Loom also offers AI-powered summaries that condense the recording into a short overview — these are available on Pro and Business plans.",
+          "For a summary video, the AI summary is the better starting point. It strips the verbal filler, repetition, and false starts that make raw transcripts noisy. If you need more detail, pull specific sections from the full transcript and weave them in.",
+        ],
+        bullets: [
+          "Open the Loom recording and find the Transcript tab",
+          "Copy the AI summary if available, or the full transcript",
+          "Edit down to the key points, steps, or decisions",
+          "Save as a plain text or Word document for upload",
+        ],
+      },
+      {
+        heading: "What types of Loom recordings convert best",
+        paragraphs: [
+          "Product walkthroughs, feature explanations, onboarding tutorials, code reviews, and async feedback sessions all work extremely well as summary video source material. These Looms already have a clear structure: here is the context, here is what we built, here is what it does, here is what you need to do.",
+          "Internal process documentation Looms are also strong candidates. If someone recorded a walkthrough of a complex internal tool or workflow, a summary video can replace it as the onboarding asset — easier to embed in documentation, easier to update, and easier to share with new hires.",
+        ],
+      },
+      {
+        heading: "Converting the Loom summary to video",
+        paragraphs: [
+          "Upload the Loom summary or edited transcript to Blog2Video. The platform structures the content into a scene outline, generates narration, and maps each section to an appropriate visual layout.",
+          "For walkthroughs and technical explanations, Geometric Explainer or Matrix keeps things clear and code-friendly. For product demos or feature announcements, Nightfall or Spotlight gives the output a polished, professional finish. For educational or onboarding content, Whiteboard keeps the tone approachable.",
+          "Once rendered, the video can be embedded anywhere, shared as a direct link, or downloaded as MP4, PDF, or PNG slides depending on how you want to distribute it.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Loom transcript into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I find the transcript for a Loom recording?",
+        answer:
+          "Open the recording in your Loom library and select the Transcript tab. You can copy the full text from there. AI summaries are available on Pro and Business plans under the Summary tab.",
+      },
+      {
+        question: "Should I use the Loom AI summary or the full transcript?",
+        answer:
+          "The AI summary is usually better — it's already condensed and removes the verbal filler that makes raw transcripts hard to work with. Use the full transcript for detail-heavy walkthroughs where the steps need to stay precise.",
+      },
+      {
+        question: "What types of Loom recordings work best as summary videos?",
+        answer:
+          "Product walkthroughs, onboarding tutorials, feature explanations, code reviews, and async process documentation all convert well because they already have a clear structure the video can follow.",
+      },
+      {
+        question: "Can I distribute the summary video outside of Loom?",
+        answer:
+          "Yes. Blog2Video generates a standard MP4 video with a shareable URL and iframe embed code. You can distribute it anywhere — emails, websites, Notion docs, Slack, or embedded in help documentation.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Loom Recording Into a Summary Video",
+        angle: "Capture intent from Loom users who want better distribution options and a more structured output format.",
+      },
+      {
+        channel: "video",
+        title: "Loom Transcript to Summary Video",
+        angle: "Demo: copy the Loom AI summary, upload to Blog2Video, generate scenes, render, embed.",
+      },
+      {
+        channel: "substack",
+        title: "Loom recordings are great for async — but summary videos travel further.",
+        angle: "Frame as a distribution upgrade for teams who already rely on Loom for async communication.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn a Loom recording into a structured summary video with AI",
+        angle: "Workflow walkthrough covering transcript export, AI summary, Blog2Video scene generation, and distribution options.",
+      },
+    ],
+  },
+  // ── Ultimate competitor comparison ──────────────────────────────────────────
+  {
+    slug: "blog2video-ultimate-competitor-comparison-2026",
+    title: "Blog2Video vs Every Competitor: The Ultimate Comparison Guide (2026)",
+    description:
+      "A complete 2026 comparison of Blog2Video against Lumen5, Pictory, InVideo AI, Fliki, Synthesia, HeyGen, VEED, Descript, Revid.ai, VideoGen, Flixier, and Predis.ai — pricing, features, and which tool wins for each use case.",
+    category: "Comparison",
+    heroImage: "/blog/blog-cover-blog2video-ultimate-competitor-comparison-2026.png",
+    heroImageAlt:
+      "Side-by-side comparison grid showing Blog2Video and twelve competitor tools across pricing, features, and content fidelity.",
+    publishedAt: "2026-05-16",
+    readTime: "16 min read",
+    heroEyebrow: "Ultimate comparison guide",
+    heroTitle: "Blog2Video vs every competitor: the honest 2026 breakdown.",
+    heroDescription:
+      "There are now more than a dozen tools that claim to turn written content into video. The pricing ranges from $0 to $200 a month. The architectures are fundamentally different. And most review articles treat them as interchangeable when they are not. This guide covers Blog2Video against twelve competitors — pricing verified in May 2026, features tested, honest about where each tool wins.",
+    primaryKeyword: "blog2video vs competitors 2026",
+    keywordVariant: "best blog to video software 2026",
+    relatedPaths: [
+      "/blog-to-video",
+      "/pricing",
+      "/blogs/blog-to-video-tools-compared",
+      "/blogs/blog2video-vs-heygen",
+      "/blogs/blog2video-vs-veed",
+    ],
+    sections: [
+      {
+        heading: "Why this comparison exists",
+        paragraphs: [
+          "Most tool comparison articles are written by affiliate marketers who rank platforms by commission rate, not by how well they actually solve the problem. This one is written by the team that builds Blog2Video. That means we have a bias — but it also means we have tested every tool on this list with real articles, not demo content.",
+          "The core question this guide answers is: if you have a blog post, guide, or article and want to turn it into a video, which tool gives you the best result for the least friction? The answer is different depending on whether your content is technical, narrative, short-form, long-form, avatar-dependent, or code-heavy.",
+          "We have organized this guide as a tool-by-tool breakdown with current pricing, then a feature matrix, then a use-case routing section that tells you which tool to pick for each specific scenario. Skip to whichever section is most useful to you.",
+        ],
+        bullets: [
+          "All prices verified against each tool's pricing page in May 2026.",
+          "Feature assessments based on live testing, not marketing copy.",
+          "We note where competitors are the stronger choice — this is not a one-sided pitch.",
+          "Free tiers, trial limits, and credit caps are called out explicitly.",
+        ],
+      },
+      {
+        heading: "Blog2Video: what it is and how it's priced",
+        paragraphs: [
+          "Blog2Video is built for one specific problem: turning a published article, blog post, PDF, or document into a structured video without losing the content. Unlike most tools on this list, it does not use stock footage. Every scene is rendered programmatically using React components, which means code blocks appear as syntax-highlighted code, bullet lists render as visual layouts, and comparisons become structured side-by-side panels.",
+          "The input is a URL or uploaded document. Blog2Video reads the full structure — headings, paragraphs, bullets, code blocks, images — and maps each section to a video scene. After generation, you can edit individual scenes using the AI scene editor without re-rendering the whole video.",
+          "Templates available in 2026: Nightfall, Spotlight, Whiteboard, Gridcraft, Matrix, Newspaper, Bloomberg Terminal, Chronicle, Geometric Explainer, Mosaic, Newscast, and Blackswan — 12 in total with 60+ layouts across them. Exports include MP4 video, PNG slides (for LinkedIn carousels), PDF decks, and PowerPoint. Every video also gets a shareable URL and an iframe embed code.",
+        ],
+        bullets: [
+          "Free: 2 videos, no watermark, no credit card required.",
+          "Pay-as-you-go: $3.99/video (1–9), $3/video (10–30), $2.80/video (31–200).",
+          "Standard: $34.99/month ($27.99/month billed annually) — 30 videos/month.",
+          "Pro: $59.99/month ($47.99/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
+          "No minute caps, no per-voice upsells, no credit system on subscription plans.",
+        ],
+      },
+      {
+        heading: "Lumen5 — the original blog-to-video platform",
+        paragraphs: [
+          "Lumen5 is the tool that popularized the category. Paste a URL and it generates a storyboard with stock footage, text overlays, and background music. The brand kit support is strong, the stock library is large (500M+ assets on higher tiers), and the interface is genuinely easy to use.",
+          "The limitation is architectural: Lumen5 is built around stock footage overlays, not content fidelity. It reads your article and picks clips that match keywords — not the argument flow, not the examples, not the data. The result looks like a generic marketing video, which may or may not be what you need.",
+          "Pricing (as of May 2026): Free tier (watermarked, 720p, 5-video cap), then paid plans starting around $19/month. No AI avatars on any tier. No code block support. Scene editing requires manual intervention per scene.",
+        ],
+        bullets: [
+          "Best for: generic marketing content, brand-kit consistency, high-volume social clips.",
+          "Limitation: stock footage replaces content rather than preserving it; no technical content support.",
+          "Pricing: Free (watermarked) → paid from ~$19/month.",
+        ],
+      },
+      {
+        heading: "Pictory — auto-summarization and stock footage",
+        paragraphs: [
+          "Pictory converts blog URLs, scripts, and long-form text into video using auto-summarization and stock footage. Its standout feature is text-based editing of existing videos — you can edit the video by editing the transcript, which is genuinely useful for post-production. It also supports auto-captioning and AI voice in multiple languages.",
+          "The pricing model is the most common complaint. The Starter plan at $25/month (annual) gives 200 video minutes and 100 AI credits, but AI voice minutes are capped separately and ElevenLabs voices add another layer of limits. Users frequently hit caps at the worst possible moment.",
+          "Technical content — code, diagrams, data tables — is not preserved. Pictory auto-summarizes the article and layers the summary over stock clips. For general marketing content this works fine; for educational or technical writing the output loses the specificity that made the article useful.",
+        ],
+        bullets: [
+          "Best for: general content repurposing, text-based video editing, moderate-volume marketing teams.",
+          "Limitation: minute-based pricing is confusing; technical content is stripped by auto-summarization.",
+          "Pricing: Starter $25/month annual ($29 monthly) — 200 video minutes, 100 AI credits. Professional $34.99/month annual. Team $119/month annual. 14-day free trial.",
+        ],
+      },
+      {
+        heading: "InVideo AI — prompt-first AI video at scale",
+        paragraphs: [
+          "InVideo AI is a general-purpose AI video generator that can also import blog content. Its 2026 version gives access to 200+ AI models including Veo 3.1, Sora 2 Pro, Kling 3.0, and ElevenLabs — the model roster is more extensive than any other tool on this list. It can generate up to 30 minutes of video from a single prompt.",
+          "The trade-off is that InVideo AI is optimized for prompt-first creation, not article-first. When you paste a blog URL, the tool extracts a rough summary and treats it the same as if you typed a sentence. The article's headings, progressional structure, examples, and supporting logic are not preserved — the AI rewrites from the summary.",
+          "Pricing in 2026: Free plan with watermark and 10 export cap per week. Plus at $25/month ($20/month annual) removes the watermark, gives 50 AI videos per month at 1080p. Max at $59.99/month ($47.99/month annual) adds 120 videos/month, 4K, 320 iStock downloads, and unlimited voice cloning. Credit system — unused credits do not roll over.",
+        ],
+        bullets: [
+          "Best for: high-volume short-form video from prompts, access to cutting-edge generative models.",
+          "Limitation: article structure is lost in the prompt abstraction; credit system is confusing.",
+          "Pricing: Free (watermarked) → Plus $25/mo ($20 annual) → Max $59.99/mo ($48 annual).",
+        ],
+      },
+      {
+        heading: "Fliki — voice-first text to video",
+        paragraphs: [
+          "Fliki specializes in text-to-video with an emphasis on voice quality. It offers 2,000+ AI voices in 80+ languages and dialects, which is the deepest voice library on this list. It converts blog posts, PowerPoint files, and even tweets into video, and includes a series feature for managing ongoing content.",
+          "The visual output is stock-footage-based. Fliki matches clips to your text using keyword detection, but the results are interchangeable with what you'd get from Lumen5 or Pictory for the same article. The voice quality is the real differentiator — if you need multilingual voiceover at scale, Fliki's library is genuinely broader than most alternatives.",
+          "Pricing: Free tier with 3 credits/month (1-minute videos, 720p, watermarked, no commercial use). Standard plan with 1,000+ voices, 15-minute video length, YouTube publishing, and voice cloning. Premium adds 2,000+ voices, 40-minute videos, and AI video clip generation. Enterprise with custom credits and API access. Annual billing saves 25%.",
+        ],
+        bullets: [
+          "Best for: multilingual voiceover, voice-first content repurposing, creators who prioritize audio quality.",
+          "Limitation: visuals are stock-footage-based; no code block or technical content support.",
+          "Pricing: Free (watermarked, 3 credits/mo) → Standard → Premium → Enterprise. Annual saves 25%.",
+        ],
+      },
+      {
+        heading: "Synthesia — the enterprise AI avatar platform",
+        paragraphs: [
+          "Synthesia is the most established AI avatar platform on the market. Its 230+ photorealistic avatars and 140+ language support make it the leading choice for corporate training, compliance content, localized onboarding, and any scenario where a human-looking presenter is part of the value proposition.",
+          "For blog-to-video specifically, Synthesia is an indirect fit. You write a script, assign an avatar, and the tool renders the presenter delivering your content. There is no mechanism to read a URL and preserve article structure — you start from a script, not a source document. The output is always avatar-led.",
+          "Pricing: Basic (Free) — 10 minutes/month, 9 avatars, 160+ languages. Starter — $18/month annual ($29 monthly), 120 minutes/year, 125+ avatars, Full HD, AI dubbing. Creator — $64/month annual ($89 monthly), 360 minutes/year, 180+ avatars, Brand Kits, API access, interactive videos. Enterprise — unlimited minutes, 240+ avatars, SSO, SCIM.",
+        ],
+        bullets: [
+          "Best for: corporate training, localized presenter content, compliance video, multilingual spokesperson videos.",
+          "Limitation: script-first only — no blog URL input, no content structure preservation.",
+          "Pricing: Free (10 min/mo) → Starter $18/mo annual ($29 monthly) → Creator $64/mo annual ($89 monthly) → Enterprise custom.",
+        ],
+      },
+      {
+        heading: "HeyGen — avatars, translation, and presenter workflows",
+        paragraphs: [
+          "HeyGen is strong in three specific areas: photorealistic AI avatars (including custom Digital Twin clones), video translation and dubbing across 175+ languages, and interactive video formats with branching logic. For teams building localized presenter content, sales videos, or customer-facing spokesperson workflows, HeyGen is a natural fit.",
+          "Like Synthesia, HeyGen is script-first. You provide the narration, assign an avatar, and the tool handles the video. There is no blog URL import that preserves article structure — the tool's architecture optimizes for the presenter, not the source document.",
+          "Pricing: Free — 3 videos/month (max 1 minute, 720p). Creator — $29/month ($24 annual), 600 credits, up to 30 minutes, 1080p, voice cloning. Pro — $49/month, 1,000 credits, 4K export, faster processing. Business — $149/month, 1,500 credits, 60-minute videos, 5 Digital Twins, SSO, team collaboration. Enterprise — custom.",
+        ],
+        bullets: [
+          "Best for: avatar-led presenter videos, multilingual dubbing, interactive branching video, spokesperson content.",
+          "Limitation: presenter-first architecture means article structure is manually reconstructed into a script.",
+          "Pricing: Free (3 videos/mo, 1 min max) → Creator $29/mo ($24 annual) → Pro $49/mo → Business $149/mo → Enterprise custom.",
+        ],
+      },
+      {
+        heading: "VEED — the browser-based AI video editor",
+        paragraphs: [
+          "VEED is a strong all-in-one browser-based video editor with subtitles, stock media, screen recording, avatar generation, and an expanding AI toolkit. Its appeal is breadth — you can do most video editing tasks in VEED without installing anything. The auto-subtitle generator and text-based editing tools are genuinely polished.",
+          "Blog-to-video is one feature in VEED's larger editing platform, not the core product. You can convert a script or article into a video, but the workflow routes through the general editor rather than a dedicated article-to-video pipeline. For teams who already edit video regularly, this is an advantage. For teams who just want to convert articles quickly, it adds friction.",
+          "Pricing (2026): Five tiers — Free (limited, watermarked), Creator (~$20/month, 1080p, watermark removed), Pro (adds 4K, 2-hour video length, 500GB storage, brand kit), Studio (~$34.99/month, heavier AI usage), Enterprise (custom security and support). All plans are per-user — a three-person team on Pro pays 3× the listed price.",
+        ],
+        bullets: [
+          "Best for: general video editing, subtitles, screen recording workflows, teams who also do post-production.",
+          "Limitation: blog-to-video is a bolt-on feature; per-user pricing makes team costs scale quickly.",
+          "Pricing: Free → Creator ~$20/mo → Pro → Studio ~$34.99/mo → Enterprise custom. Per-user billing.",
+        ],
+      },
+      {
+        heading: "Descript — post-production editing with AI",
+        paragraphs: [
+          "Descript approaches video from the editing side rather than the generation side. Its core innovation is text-based video editing — you edit the transcript and the video edits itself. The Underlord AI suite adds overdub (voice cloning), filler-word removal, screen recording, and video generation from scripts.",
+          "For teams who already have video recordings and want to edit them efficiently, Descript is excellent. For teams trying to convert blog posts into video without existing footage, Descript is a more complex path — you would write a script, record or use an AI avatar, and then edit. The workflow is designed for post-production, not article-first generation.",
+          "Pricing: Free ($0). Hobbyist — $16/month ($24 annual), 10 hrs media/month, 400 AI credits, 1080p. Creator — $24/month ($35 annual), 30 hrs/month, 800 AI credits, 4K, full AI suite including video generation. Business — $50/month ($65 annual), 40 hrs/month, 1,500 AI credits, brand studio, video translation, custom avatars. Enterprise — custom.",
+        ],
+        bullets: [
+          "Best for: editing existing recordings, podcasts, interview footage, post-production-heavy workflows.",
+          "Limitation: article-to-video requires manual scripting and recording before editing can begin.",
+          "Pricing: Free → Hobbyist $16/mo ($24 annual) → Creator $24/mo ($35 annual) → Business $50/mo ($65 annual) → Enterprise.",
+        ],
+      },
+      {
+        heading: "Revid.ai — viral short-form video at scale",
+        paragraphs: [
+          "Revid.ai is built for a specific and narrow use case: generating viral short-form content for TikTok, Instagram Reels, and YouTube Shorts. It includes 100+ AI video tools, access to a library of 3M+ viral videos to remix, integration with Google Veo3 and Sora 2 models, and Auto-Mode workers that can generate content autonomously.",
+          "Revid.ai does include a blog-to-video converter, but the architecture is optimized for viral hooks and short-form engagement — not structured educational content. If you want your blog post turned into a punchy 60-second Reel with motion graphics and a hook designed for algorithmic discovery, Revid.ai is a viable choice. If you want the article's argument preserved across a 5-minute explainer, it is the wrong tool.",
+          "Pricing: Hobby — $39/month. Growth (currently discounted from $99 to $39/month, labeled best value) — 2,000 AI credits, 3 Auto-Mode Workers, 70+ language voiceovers, TikTok/Instagram/YouTube publishing, AI avatars, face swaps, full API and CLI access. Ultra — $199/month, 12,000 credits, 10 Auto-Mode Workers, voice cloning.",
+        ],
+        bullets: [
+          "Best for: viral short-form content, TikTok/Reels/Shorts optimization, high-volume automated posting.",
+          "Limitation: not designed for long-form structured content; credit-based system limits volume at lower tiers.",
+          "Pricing: Growth $39/mo (discounted from $99) → Ultra $199/mo.",
+        ],
+      },
+      {
+        heading: "VideoGen — fast and affordable text-to-video",
+        paragraphs: [
+          "VideoGen positions itself on speed and price. It claims sub-30-second video generation from text or URLs, includes AI voiceover, auto-subtitles, and AI b-roll matching. For teams that need high-volume, low-cost video output and are not concerned about content fidelity, VideoGen is the most affordable subscription on this list.",
+          "The feature set is narrower than heavier competitors — smaller stock library on lower tiers, fewer template options, no advanced scene editing. But if the use case is generating a large number of short marketing clips from blog URLs quickly, VideoGen delivers on that promise at a price point that makes it easy to justify.",
+          "Pricing: Pro — $12/month billed annually, 2,000 credits, 50GB storage, full feature access including AI avatars, image editing, and API. Enterprise — custom. Free tier exists but details are limited on the pricing page. Commercial use rights included on all paid plans.",
+        ],
+        bullets: [
+          "Best for: high-volume, budget-conscious marketing teams who need simple clip generation at scale.",
+          "Limitation: narrower feature set; article structure is not preserved — output is keyword-matched stock footage.",
+          "Pricing: Pro $12/mo (annual billing required) → Enterprise custom.",
+        ],
+      },
+      {
+        heading: "Flixier — cloud video editor with AI blog-to-video",
+        paragraphs: [
+          "Flixier is primarily a cloud-based video editor with extremely fast rendering times and multilingual subtitle support across 130+ languages. Its AI blog-to-video feature converts articles into video and can also convert blogs into podcast-style audio. The collaborative editing features are strong for agency teams.",
+          "Like VEED and Descript, Flixier's blog-to-video capability is one feature inside a broader video editing platform. The AI generation is solid but the workflow routes through the editor rather than being a dedicated article-first pipeline. Pricing is listed per seat in Singapore dollars.",
+          "Pricing (approximate USD conversion): Free (watermarked, 10 min/month export, 720p, 500 AI credits). Starter — ~$19/seat/month, 60 min/month, 1080p, no watermark, 2,000 credits. Creator — ~$40/seat/month, unlimited exports, 4K, 4M+ stock assets, brand kit, 10,000 credits. Business — ~$71/seat/month, unlimited everything, priority support, 30,000 credits. Annual billing saves approximately 53%.",
+        ],
+        bullets: [
+          "Best for: agency teams needing fast cloud rendering, multilingual subtitles, and collaborative editing.",
+          "Limitation: per-seat pricing scales quickly for teams; blog-to-video is a secondary feature.",
+          "Pricing: Free → Starter ~$19/seat/mo → Creator ~$40/seat/mo → Business ~$71/seat/mo (USD approx, annual saves 53%).",
+        ],
+      },
+      {
+        heading: "Predis.ai — social media content platform with video",
+        paragraphs: [
+          "Predis.ai is a social media content platform that generates videos, carousels, captions, and hashtags from blog content and schedules them directly to multiple social platforms. If your primary workflow is social media distribution — not a dedicated video product — Predis.ai is the only tool on this list that handles generation and scheduling in one place.",
+          "Video is one output among many in Predis.ai, not the core product. Videos max out at 30 seconds to 5 minutes, and the credit system limits how many you can generate at each tier. For teams whose goal is social media management with AI-generated video as a component, Predis.ai makes sense. For teams whose primary output is video, it is not the right fit.",
+          "Pricing: Core — $19/month, 1,300 credits (enough for 26 videos or 65 images), 1 brand, 10 social accounts. Rise (most popular) — $40/month, 3,200+ credits, 4 brands, 20 social accounts, 2 auto posts/day, competitor analysis included. Enterprise+ — $212/month, 10,000+ credits, unlimited brands, 60 social accounts. 7-day free trial, no permanent free tier.",
+        ],
+        bullets: [
+          "Best for: social media managers who want content generation and scheduling unified in one tool.",
+          "Limitation: video is a secondary output (max 5 min); credit-based limits; no permanent free tier.",
+          "Pricing: 7-day trial → Core $19/mo → Rise $40/mo → Enterprise+ $212/mo.",
+        ],
+      },
+      {
+        heading: "Feature matrix: what each tool actually does",
+        paragraphs: [
+          "The breakdown below maps the features that matter most for blog-to-video workflows across all 13 tools. A check means the feature is available on at least one paid plan.",
+        ],
+        bullets: [
+          "Blog URL input — Blog2Video ✓, Lumen5 ✓, Pictory ✓, InVideo AI ✓, Fliki ✓, Synthesia ✗, HeyGen ✗, VEED partial, Descript ✗, Revid.ai ✓, VideoGen ✓, Flixier ✓, Predis.ai ✓",
+          "Preserves full article structure — Blog2Video ✓, all others ✗",
+          "Code block rendering (syntax highlighted) — Blog2Video ✓, all others ✗",
+          "Programmatic scenes (no stock footage) — Blog2Video ✓, all others ✗",
+          "AI avatars — Blog2Video ✗, Pictory ✓, InVideo AI ✓, Fliki ✓, Synthesia ✓, HeyGen ✓, VEED ✓, Descript ✓, Revid.ai ✓, VideoGen ✓, Flixier ✓, Lumen5 ✗, Predis.ai ✗",
+          "Scene-level editing (one scene, no full re-render) — Blog2Video ✓, VEED ✓, Descript ✓, Flixier ✓, others partial or ✗",
+          "Multi-format export (MP4 + PDF + PPT + PNG) — Blog2Video ✓, others MP4-primary",
+          "Iframe and URL embed — Blog2Video ✓, VEED ✓, Flixier ✓, others ✗",
+          "Flat subscription pricing (no credits or minutes) — Blog2Video ✓, others use credit or minute caps",
+          "Free tier without watermark — Blog2Video ✓ (2 videos), Synthesia ✓ (10 min/mo), others watermarked or trial-only",
+          "Multilingual voiceover (2,000+ voices) — Fliki ✓, HeyGen ✓, Synthesia ✓, Predis.ai ✓, Blog2Video via ElevenLabs integration",
+          "Social media scheduling — Predis.ai ✓, others ✗",
+        ],
+      },
+      {
+        heading: "Pricing comparison at a glance",
+        paragraphs: [
+          "Entry-point pricing for each tool (cheapest paid plan, billed monthly unless noted), and what the mid-tier looks like for comparison.",
+        ],
+        bullets: [
+          "Blog2Video: Free (2 videos, no watermark) → $3.99/video pay-as-you-go → Standard $34.99/mo (30 videos) → Pro $59.99/mo (100 videos + unlimited AI)",
+          "Lumen5: Free (watermarked, 5 videos, 720p) → paid from ~$19/mo",
+          "Pictory: 14-day trial → Starter $29/mo ($25 annual, 200 min, 100 AI credits) → Professional $59/mo ($35 annual) → Team $199/mo ($119 annual)",
+          "InVideo AI: Free (watermarked, 10 exports/week) → Plus $25/mo ($20 annual, 50 videos, 1080p) → Max $59.99/mo ($48 annual, 120 videos, 4K)",
+          "Fliki: Free (3 credits/mo, watermarked) → Standard → Premium → Enterprise (annual saves 25%)",
+          "Synthesia: Free (10 min/mo, 9 avatars) → Starter $29/mo ($18 annual) → Creator $89/mo ($64 annual) → Enterprise",
+          "HeyGen: Free (3 videos/mo, 1 min max) → Creator $29/mo ($24 annual) → Pro $49/mo → Business $149/mo → Enterprise",
+          "VEED: Free (limited) → Creator ~$20/mo → Pro → Studio ~$34.99/mo → Enterprise (per-user pricing)",
+          "Descript: Free → Hobbyist $16/mo ($24 annual) → Creator $24/mo ($35 annual) → Business $50/mo ($65 annual) → Enterprise",
+          "Revid.ai: Growth $39/mo (discounted from $99) → Ultra $199/mo",
+          "VideoGen: Pro $12/mo (annual billing) → Enterprise custom",
+          "Flixier: Free (watermarked) → Starter ~$19/seat/mo → Creator ~$40/seat/mo → Business ~$71/seat/mo (USD approx)",
+          "Predis.ai: 7-day trial → Core $19/mo → Rise $40/mo → Enterprise+ $212/mo",
+        ],
+      },
+      {
+        heading: "Use case routing: which tool wins for each scenario",
+        paragraphs: [
+          "Every tool on this list is the right answer for at least one use case. Here is the honest routing guide — pick the row that matches your actual workflow.",
+        ],
+        bullets: [
+          "Technical blog posts with code, diagrams, or data → Blog2Video. The only tool that renders syntax-highlighted code blocks as scenes.",
+          "Educational long-form content where argument flow matters → Blog2Video. Scenes follow the article structure, not a keyword summary.",
+          "AI avatar presenter videos for training or internal comms → Synthesia (most avatars, most languages at scale) or HeyGen (Digital Twin cloning, dubbing).",
+          "Multilingual video dubbing and translation → HeyGen. Strongest translation pipeline on this list.",
+          "Viral TikToks, Reels, and Shorts at high volume → Revid.ai. Built specifically for short-form algorithmic content.",
+          "Social media scheduling + video generation unified → Predis.ai. Only tool that combines generation and multi-platform scheduling.",
+          "Podcast or interview footage editing → Descript. Text-based editing of existing recordings is its core strength.",
+          "Multilingual voiceover with the widest voice library → Fliki. 2,000+ voices in 80+ languages.",
+          "Cheapest possible video output at volume → VideoGen ($12/mo annual). Narrowest features, most affordable subscription.",
+          "Agency teams needing fast cloud rendering and collaboration → Flixier. Cloud-first workflow with per-seat collaboration.",
+          "High-volume general marketing clips → InVideo AI. 200+ generative models, broad content types.",
+          "Teams who already do video editing and want AI assistance → VEED or Descript.",
+          "Budget creators who need any video output at minimal cost → InVideo AI Free or Fliki Free to start.",
+        ],
+      },
+      {
+        heading: "Where Blog2Video is the clear choice",
+        paragraphs: [
+          "Blog2Video wins when the written content is the product — when the headings, examples, code, and argument flow in the original article are what make it valuable, and you want those preserved in the video rather than summarized away.",
+          "The programmatic rendering architecture is a genuine technical differentiator. No tool on this list renders scenes from React components. Every other platform either overlays stock footage on a keyword summary or requires a script and records an avatar. Blog2Video is the only path from blog URL to structured explainer video where the original content structure survives intact.",
+          "The pricing model is also structurally different. Most tools use credits, minutes, or per-feature upsells that make the actual monthly cost hard to predict. Blog2Video's subscription plans have flat video limits with no hidden caps — 30 videos on Standard, 100 on Pro — no per-minute or per-AI-feature charges on top.",
+          "For teams that create content across different formats — YouTube, LinkedIn, newsletters, embedded blog posts — the multi-format export (MP4, PDF deck, PPT, PNG slides) means one generation run covers multiple distribution channels simultaneously.",
+        ],
+        bullets: [
+          "Best fit: technical bloggers, developer advocates, educators, SaaS content teams, SEO-driven blogs.",
+          "Unique differentiator: programmatic scene rendering — code, structure, and argument flow are preserved, not replaced by stock footage.",
+          "Pricing advantage: flat plans, no minute caps, no credit system, no per-feature upsells on subscription.",
+          "Multi-format output: one generation run produces MP4, PDF, PPT, and PNG from the same content.",
+        ],
+      },
+      {
+        heading: "Start with the free tier — then decide",
+        paragraphs: [
+          "Blog2Video gives you two videos free with no watermark and no credit card required. If your content is technical, educational, or structured — use one of the free slots on a real post and compare the output side by side with a Lumen5 or Pictory export of the same article. The difference is most visible with content that has headings, bullets, and more than two distinct sections.",
+          "Every tool on this list has a free entry point of some kind. Synthesia gives 10 free minutes per month. HeyGen gives three one-minute videos. InVideo AI has a watermarked free plan. Descript's free tier covers editing but not video generation. Use the free tiers before committing to any paid plan — the right tool for your workflow will be obvious after one real test.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free — no credit card required",
+      },
+    ],
+    faq: [
+      {
+        question: "How is Blog2Video different from Lumen5 or Pictory?",
+        answer:
+          "Lumen5 and Pictory both overlay stock footage on a keyword summary of your article. Blog2Video reads the full article structure — headings, bullet lists, code blocks, examples — and renders each section as a distinct visual scene using React components. No stock footage. The result is a video that reflects the actual content of the article rather than a generic marketing clip.",
+      },
+      {
+        question: "Which blog-to-video tool is best for technical content with code?",
+        answer:
+          "Blog2Video is the only tool on this list that detects and renders code blocks as syntax-highlighted scenes. Every other platform either ignores code or renders it as plain text over a stock-footage background. For developer blogs, technical tutorials, and API documentation, Blog2Video is the purpose-built choice.",
+      },
+      {
+        question: "Are Synthesia or HeyGen better than Blog2Video for AI avatars?",
+        answer:
+          "Yes, for avatar-led content. Synthesia and HeyGen are the strongest avatar platforms on this list — 230+ and 500+ avatars respectively, multilingual dubbing, and presenter-style workflows. Blog2Video does not have built-in AI avatars. If a human-looking presenter is part of the output, use Synthesia or HeyGen. If structured content fidelity is the goal, Blog2Video is the better fit.",
+      },
+      {
+        question: "Which blog-to-video tool is cheapest in 2026?",
+        answer:
+          "VideoGen at $12/month (annual billing) is the cheapest subscription. Blog2Video's pay-as-you-go tier starts at $3.99/video with no monthly commitment, which is the most affordable entry point for low-volume users. For teams producing 10+ videos per month, Blog2Video Standard at $34.99/month and Predis.ai Core at $19/month are the most affordable mid-tier options.",
+      },
+      {
+        question: "Does any blog-to-video tool offer a free plan without a watermark?",
+        answer:
+          "Blog2Video gives two videos free with no watermark and no credit card. Most other tools either watermark the free tier (Lumen5, InVideo AI, Fliki, Flixier) or have no permanent free tier (Predis.ai's 7-day trial, VideoGen). Synthesia's free Basic plan includes 10 minutes per month without a watermark but limits you to 9 avatars.",
+      },
+      {
+        question: "What is the best blog-to-video tool for SEO content teams?",
+        answer:
+          "Blog2Video is built for exactly this use case: you have a ranking article and want a video that reinforces it — not a generic stock clip, but a structured explainer that covers the same points. The multi-format export (MP4, PDF, PPT, PNG slides) also means one generation run produces assets for YouTube, LinkedIn, and newsletter simultaneously.",
+      },
+      {
+        question: "Can Blog2Video make short-form content for TikTok or Reels?",
+        answer:
+          "Yes — Blog2Video supports vertical and square aspect ratios for short-form output. However, if your primary goal is viral TikTok and Reels content with hooks and trending audio formats, Revid.ai is more purpose-built for that workflow. Blog2Video is stronger for structured educational short-form rather than entertainment-optimized virality.",
+      },
+      {
+        question: "How does Blog2Video pricing compare to Pictory?",
+        answer:
+          "Pictory Starter is $29/month (or $25 annual) and gives 200 video minutes plus 100 AI credits — a dual-cap system that trips users up. Blog2Video Standard is $34.99/month (or $28 annual) and gives 30 complete videos per month with no minute or credit caps. For teams that consistently hit Pictory's limits, Blog2Video's flat pricing is more predictable at scale.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video vs every competitor — ultimate 2026 comparison",
+        angle: "Capture high-intent 'vs' and 'best X tool' searches across all 12 competitor brand names.",
+      },
+      {
+        channel: "substack",
+        title: "I compared 13 blog-to-video tools so you don't have to",
+        angle: "Lead with the use-case routing table — give readers the one-paragraph answer for their specific scenario first.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video vs Lumen5 vs Pictory vs 10 more: the honest 2026 breakdown",
+        angle: "Story-driven comparison focusing on the architectural difference between stock-footage tools and programmatic rendering.",
+      },
+      {
+        channel: "video",
+        title: "13 blog-to-video tools compared: which one actually keeps your content?",
+        angle: "Show real output side by side — paste the same article URL into Blog2Video, Lumen5, and Pictory and compare the results on screen.",
+      },
+    ],
+  },
+  // ── Pricing: minutes-per-month comparison ──────────────────────────────────
+  {
+    slug: "video-minutes-per-month-pricing-comparison-2026",
+    title: "$35 vs $29: How Many Minutes of Video Do You Actually Get? (2026 Pricing Breakdown)",
+    description:
+      "Most AI video tools publish a monthly price but not the number that decides if it works for you: total video minutes per month. We converted six tools' 2026 pricing pages into that one number — the gap is bigger than the sticker prices suggest.",
+    category: "Comparison",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Side-by-side bar comparison showing total video minutes available per month across Blog2Video, HeyGen, Synthesia, Pictory, and InVideo AI plans at similar price points.",
+    publishedAt: "2026-06-20",
+    readTime: "7 min read",
+    heroEyebrow: "Pricing Breakdown",
+    heroTitle: "$35 a month buys 240 minutes of video on Blog2Video. On HeyGen, the same money buys about 30.",
+    heroDescription:
+      "Every AI video tool advertises a price. Almost none advertise the number that actually decides whether that price works for your publishing schedule: total video minutes per month. We converted six 2026 pricing pages into that one comparable unit.",
+    primaryKeyword: "blog to video pricing comparison minutes per month",
+    keywordVariant: "heygen vs blog2video pricing",
+    relatedPaths: [
+      "/pricing",
+      "/blog-to-video",
+      "/blogs/blog2video-vs-heygen",
+      "/blogs/blog2video-ultimate-competitor-comparison-2026",
+    ],
+    sections: [
+      {
+        heading: "The number that matters more than the sticker price",
+        paragraphs: [
+          "Every AI video tool publishes a monthly price. Almost none of them publish the number that actually determines whether that price works for you: how many minutes of finished video you can produce before the plan runs out.",
+          "We pulled the published June 2026 pricing pages for five of the most-compared blog-to-video and AI avatar tools and converted every plan into the same unit — total video minutes available per month at that price. The gap between tools priced within a few dollars of each other is bigger than the sticker prices suggest.",
+        ],
+      },
+      {
+        heading: "Blog2Video: flat plans, no credit math",
+        paragraphs: [
+          "Blog2Video's subscription plans are priced by video count, not by minute or credit. A video runs as long as the source article needs — typically 5 to 8 minutes for the Detailed preset most explainer content uses — and there's no separate meter running underneath the plan once you're inside your monthly video count.",
+          "At the Detailed preset's upper bound of roughly 8 minutes per video, that works out to up to 240 minutes a month on Standard and up to 800 minutes a month on Pro. Scaling from Standard to Pro costs 71% more per month and buys 233% more video.",
+        ],
+        bullets: [
+          "Standard — $34.99/mo ($27.99/mo billed annually): 30 videos/month, up to ~240 minutes total",
+          "Pro — $59.99/mo ($47.99/mo billed annually): 100 videos/month, up to ~800 minutes total",
+          "No credits, no per-minute add-on charges, no separate AI-feature cap layered on top",
+        ],
+      },
+      {
+        heading: "HeyGen: the same $29–$49 buys about a tenth of the video",
+        paragraphs: [
+          "HeyGen's Creator plan is priced close to Blog2Video Standard — $29/month versus $34.99/month. But HeyGen doesn't sell video minutes directly. It sells credits, and its premium avatar rendering burns through them fast.",
+          "Creator includes 200 monthly credits, and HeyGen's Avatar IV avatars cost about 20 credits per minute of rendered video. That caps Creator at roughly 30 minutes of avatar video a month, even though the plan is marketed around unlimited video count. Pro, at $49/month, raises the pool to 1,000 credits — about 50 minutes of the same avatar video. Scaling from Creator to Pro costs 69% more per month for 67% more video.",
+        ],
+        bullets: [
+          "Creator — $29/mo ($24/mo annual): ~200 credits ≈ 30 minutes of avatar video/month",
+          "Pro — $49/mo: ~1,000 credits ≈ 50 minutes of avatar video/month",
+          "Business — $149/mo: ~1,500 credits, 60-minute cap per individual render",
+        ],
+      },
+      {
+        heading: "It isn't just HeyGen — most avatar and stock-footage tools meter by the minute or credit",
+        paragraphs: [
+          "Synthesia and InVideo AI use the same structure as HeyGen: a published price, and a separate minute or credit allowance underneath it that determines what the price actually buys.",
+        ],
+        bullets: [
+          "Synthesia Starter — $29/mo ($18/mo annual): 10 minutes/month",
+          "Synthesia Creator — $89/mo ($64/mo annual): 30 minutes/month",
+          "InVideo AI Plus — $25/mo ($20/mo annual): ~50 AI-generation minutes/month",
+          "InVideo AI Max — $59.99/mo ($47.99/mo annual): ~200 AI-generation minutes/month",
+        ],
+      },
+      {
+        heading: "The one competitor that's actually close: Pictory",
+        paragraphs: [
+          "Pictory's headline minute allowance is the exception in this comparison. Starter, at $29/month ($25 billed annually), advertises 200 video minutes a month — in the same range as Blog2Video on paper — and Professional at $59/month advertises 600.",
+          "The catch is that Pictory runs two caps at once: the minute allowance sits on top of a separate, much smaller pool of AI credits (100 on Starter), and AI-heavy operations like voice generation and auto-summarization draw from that smaller pool first. In practice, most Pictory users hit the credit ceiling well before they use the full minute allowance. Blog2Video's video count is the only cap on its plans — there's no second meter running underneath it.",
+        ],
+        bullets: [
+          "Pictory Starter — $29/mo ($25/mo annual): 200 video minutes, gated by a separate 100-credit AI allowance",
+          "Pictory Professional — $59/mo ($34.99/mo annual): 600 video minutes, same dual-cap structure",
+        ],
+      },
+      {
+        heading: "What it costs per minute",
+        paragraphs: [
+          "Converting every plan to a price-per-minute makes the comparison concrete — and shows where the real gaps are, not just the headline numbers.",
+        ],
+        bullets: [
+          "Blog2Video Standard: $35 ÷ 240 min ≈ $0.15/minute",
+          "Blog2Video Pro: $60 ÷ 800 min ≈ $0.08/minute",
+          "HeyGen Creator: $29 ÷ 30 min ≈ $0.97/minute",
+          "HeyGen Pro: $49 ÷ 50 min ≈ $0.98/minute",
+          "Synthesia Starter: $29 ÷ 10 min ≈ $2.90/minute",
+          "InVideo AI Plus: $25 ÷ 50 min ≈ $0.50/minute",
+          "Pictory Starter (nominal, before its credit cap typically binds): $29 ÷ 200 min ≈ $0.15/minute",
+        ],
+      },
+      {
+        heading: "Why the gap exists",
+        paragraphs: [
+          "This isn't because templated video generation is magic — avatar rendering is genuinely more expensive to produce per minute than templated scene rendering. Lip sync, voice cloning, and photorealistic presenter rendering all cost more compute per minute of output, so avatar-first platforms like HeyGen and Synthesia have to price and ration by the minute to stay viable.",
+          "That's a reasonable tradeoff if a human presenter or video translation is actually part of what you need. But if your source content is already a written article doing the explanatory work, you're paying avatar-rendering prices for a problem you don't have.",
+        ],
+      },
+      {
+        heading: "What this looks like on a real publishing schedule",
+        paragraphs: [
+          "A team publishing one article-to-video conversion a week at 6 minutes each uses 24 minutes a month — comfortably inside any of these plans. Push to twice a week at the same length and you're at 48 minutes a month, which already exceeds HeyGen Creator's ~30-minute cap and forces an upgrade to Pro. Blog2Video Standard's 240-minute allowance has room for that same team to publish daily and still have headroom left over.",
+          "The pattern holds at higher volume too: a content team producing 30 videos a month at the Detailed preset's 8-minute ceiling fits entirely inside Blog2Video Standard. The equivalent video minutes on HeyGen would require its $149/month Business plan.",
+        ],
+        ctaPath: "/pricing",
+        ctaLabel: "See Blog2Video plans and pricing",
+      },
+    ],
+    faq: [
+      {
+        question: "How much video can I actually make on Blog2Video's $34.99/month plan?",
+        answer:
+          "Up to 240 minutes — 30 videos a month, each as long as the source article needs (typically 5 to 8 minutes for a Detailed-preset explainer). There's no separate credit pool layered on top of the video count.",
+      },
+      {
+        question: "Why does HeyGen cost about the same as Blog2Video but produce so much less video?",
+        answer:
+          "HeyGen's Creator plan sells credits, not minutes, and its premium Avatar IV rendering burns about 20 credits per minute. At $29/month and 200 credits, that caps out around 30 minutes of avatar video even though the plan markets unlimited video count. Blog2Video's plans are priced by video count with no credit conversion.",
+      },
+      {
+        question: "Is any competitor's pricing actually comparable to Blog2Video's?",
+        answer:
+          "Pictory's headline minute allowance — 200 minutes on its $29/month Starter plan — is the closest on paper. But Pictory runs a second, smaller credit pool underneath that minute cap, and AI-heavy features draw from it first, so most users hit that ceiling before using the full 200 minutes. Blog2Video has one cap: video count.",
+      },
+      {
+        question: "Why do avatar tools like HeyGen and Synthesia cap minutes so aggressively?",
+        answer:
+          "Avatar rendering — lip sync, voice cloning, photorealistic presenters — is computationally expensive per minute of output, so those platforms have to price and ration by the minute. Blog2Video and Pictory generate templated or animated scenes instead of rendering a presenter, which is why their limits are based on video count rather than raw render minutes.",
+      },
+      {
+        question: "Which tool should I use if I need an AI avatar instead of a templated explainer?",
+        answer:
+          "HeyGen and Synthesia are stronger choices when a presenter or avatar is part of the format — sales videos, training, localized spokesperson content. Blog2Video is built for the opposite case: turning an already-written article into a structured, narrated video without an avatar.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "$35 vs $29: how many minutes of video do you actually get?",
+        angle: "Capture pricing-comparison and 'X vs Y pricing' search intent with a concrete, sourced minutes-per-dollar number.",
+      },
+      {
+        channel: "substack",
+        title: "The pricing page number nobody publishes: minutes per month",
+        angle: "Lead with the per-minute cost table — let readers do their own math against their publishing schedule.",
+      },
+      {
+        channel: "medium",
+        title: "I converted six AI video pricing pages into one number. Here's what it showed.",
+        angle: "Methodology-first framing — show the conversion work, then the table, then the conclusion.",
+      },
+      {
+        channel: "video",
+        title: "How many minutes of video does $29 actually buy you?",
+        angle: "Visualize the per-minute cost bars side by side for a fast, shareable comparison clip.",
+      },
+    ],
+  },
+  {
+    slug: "bloghub-product-hunt-for-blogs",
+    title: "Introducing BlogHub: The Discovery Platform Built for Blogs and Publications",
+    description:
+      "BlogHub is a Product Hunt-style platform for blogs and publications. Get free backlinks, an SEO and AEO-optimized profile page, and community rankings that help early-stage writers get discovered.",
+    category: "Product updates",
+    heroImage: "/blog/blog-cover-bloghub-product-hunt-for-blogs.png",
+    heroImageAlt:
+      "BlogHub platform showing a ranked feed of blogs and publications with community upvotes and SEO-optimized profile pages.",
+    publishedAt: "2026-05-23",
+    readTime: "5 min read",
+    heroEyebrow: "Product updates",
+    heroTitle: "Your first posts deserve to be found. BlogHub fixes the discovery problem.",
+    heroDescription:
+      "After five years of building and studying publications, one pattern keeps showing up: great early content goes unread — not because it's bad, but because nobody knows the writer exists yet. BlogHub is built to change that.",
+    primaryKeyword: "product hunt for blogs",
+    keywordVariant: "blog discovery platform",
+    relatedPaths: [
+      "/blog-to-video",
+      "/blogs/whats-new-in-blog2video-six-features",
+      "/blogs/ai-linkedin-carousel-generator-from-existing-content",
+    ],
+    sections: [
+      {
+        heading: "The problem: early publications are invisible by default",
+        paragraphs: [
+          "After 5+ years of blogging, one thing became painfully clear: your first posts almost always go unnoticed. Not because the writing is weak — but because discoverability is a compounding advantage. Publications that already have readers get more readers. Publications starting from zero have almost no mechanism to break in.",
+          "Google takes months to index and rank new sites. Social algorithms reward accounts that already have engagement. Directories are cluttered with spam. There has never been a good platform purpose-built for early-stage publications to get legitimate visibility.",
+        ],
+      },
+      {
+        heading: "What is BlogHub?",
+        paragraphs: [
+          "BlogHub is a discovery platform for blogs and publications, designed the same way Product Hunt is designed for products: community-ranked, SEO-optimized, and built so quality rises to the top through reader support.",
+          "If you are starting or growing a publication, BlogHub gives you a structured way to get in front of readers who are actively looking for new things to follow — rather than waiting months for search traffic to compound.",
+        ],
+      },
+      {
+        heading: "Free backlinks to your publication and posts",
+        paragraphs: [
+          "Every publication listed on BlogHub gets a free backlink to the publication itself, plus up to five backlinks to individual blog posts.",
+          "These are real, indexed links from a domain built around discoverability. For a new publication that has almost no external links yet, even a small number of quality backlinks meaningfully changes how search engines understand and rank the site.",
+        ],
+      },
+      {
+        heading: "An SEO and AEO-optimized profile page",
+        paragraphs: [
+          "Each publication gets a dedicated profile page on BlogHub that is built to rank in Google search and to appear in AI-generated answers — sometimes called AEO, or Answer Engine Optimization.",
+          "As AI search tools like ChatGPT, Perplexity, and Claude increasingly surface recommendations in response to queries like 'what are the best newsletters about X,' a well-structured profile page on an authoritative directory is one of the most direct ways to appear in those results. BlogHub profile pages are structured for exactly this.",
+        ],
+      },
+      {
+        heading: "Community rankings that give quality a path upward",
+        paragraphs: [
+          "The ranked feed works like Product Hunt's: readers can upvote publications they genuinely find valuable, and quality rises through community support rather than paid placement or existing authority.",
+          "This creates a discovery flywheel. New publications that produce strong content can get real visibility the same week they launch, not after six months of SEO grinding.",
+        ],
+      },
+      {
+        heading: "Why BlogHub, and why now",
+        paragraphs: [
+          "Blog2Video was built to help creators repurpose written content into video — expanding distribution to channels beyond the blog itself. BlogHub tackles the earlier problem: getting the blog noticed in the first place.",
+          "Both tools are built around the same underlying belief: content that took time and care to produce deserves more than an empty analytics dashboard.",
+          "If you are building a publication from zero, BlogHub is the fastest way to get indexed backlinks, a discoverable profile, and an early audience — without paying for ads or waiting months for organic traction.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your publication on BlogHub",
+      },
+    ],
+    faq: [
+      {
+        question: "Is BlogHub free to list a publication?",
+        answer:
+          "Yes. Listing your publication on BlogHub is free. You get a profile page, backlinks to your publication and up to five blog posts, and community ranking — all at no cost.",
+      },
+      {
+        question: "What makes BlogHub different from other blog directories?",
+        answer:
+          "Most blog directories are static lists with little SEO value and no community layer. BlogHub is built like Product Hunt: community-ranked so quality rises, and profile pages are structured for both Google search and AI answer engines, meaning your publication can appear in AI-generated recommendations, not just traditional search results.",
+      },
+      {
+        question: "What does AEO-optimized mean for my profile page?",
+        answer:
+          "AEO stands for Answer Engine Optimization — structuring content so that AI tools like ChatGPT, Perplexity, and Claude can surface it in response to conversational queries. BlogHub profile pages are built with structured data and clear topical signals so that when someone asks an AI 'what are the best blogs about X,' your publication has a real chance of appearing.",
+      },
+      {
+        question: "Who is BlogHub built for?",
+        answer:
+          "BlogHub is built for writers and publications that are in early growth — blogs with real content but not yet enough authority or distribution to be easily discovered. If you have been publishing for a while and still feel invisible, BlogHub gives you a structured mechanism to change that.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Introducing BlogHub: The Discovery Platform Built for Blogs and Publications",
+        angle:
+          "Target writers searching for blog directories, backlink sources for new blogs, and 'how to get my blog discovered' — position BlogHub as the first purpose-built discovery layer for publications.",
+      },
+      {
+        channel: "video",
+        title: "BlogHub: Product Hunt for blogs — here's how it works",
+        angle:
+          "Walk through listing a publication, show the profile page, explain the backlink structure, and demonstrate how community ranking works — keep it under three minutes.",
+      },
+      {
+        channel: "substack",
+        title: "I built a discovery platform for publications — here's the problem it solves",
+        angle:
+          "First-person founder note to newsletter readers who have experienced the early-publication invisibility problem firsthand. Lead with the pain, then introduce the solution.",
+      },
+      {
+        channel: "medium",
+        title: "Why your blog goes unread in year one — and what BlogHub does about it",
+        angle:
+          "Longer analytical piece on the discoverability gap for early publications, positioning BlogHub as the structural fix rather than another growth hack.",
+      },
+    ],
+  },
+  {
+    slug: "claude-chat-to-video",
+    title: "How to Turn Your Claude AI Chat Into a Video",
+    description:
+      "Convert a Claude conversation into a structured, shareable video in minutes. Share the chat link first, then paste it into Blog2Video.",
+    category: "AI workflow",
+    heroImage: "/blog/blog-cover-claude-chat-to-video.png",
+    heroImageAlt:
+      "A Claude AI chat conversation being transformed into a polished explainer video with structured slides.",
+    publishedAt: "2026-05-22",
+    readTime: "5 min read",
+    heroEyebrow: "AI workflow",
+    heroTitle: "Your best Claude answers deserve to be more than a chat thread.",
+    heroDescription:
+      "If you asked Claude something worth keeping — a deep research answer, a step-by-step breakdown, a strategic explainer — you can turn that conversation into a shareable video in minutes, without rewriting a word.",
+    primaryKeyword: "claude chat to video",
+    keywordVariant: "convert claude conversation to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/chatgpt-conversation-to-video",
+      "/blogs/gemini-chat-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why Claude chats make great video source material",
+        paragraphs: [
+          "Claude is unusually good at structured reasoning. When you ask it to explain a concept, break down a decision, or walk through a process, the answer often comes back with natural headings, logical steps, and a clear narrative arc.",
+          "That structure is exactly what a good explainer video needs. Instead of re-drafting the content from scratch, you can capture the conversation and let Blog2Video turn that logic into scenes.",
+        ],
+      },
+      {
+        heading: "Step 1: Share your Claude chat to get a public link",
+        paragraphs: [
+          "Claude conversations are private by default. Before Blog2Video can read the content, you need to make the chat public.",
+          "Open the conversation in Claude.ai, then click the Share button in the top-right corner of the chat. Toggle the link to 'Public' and copy the URL. That link is what you will paste into Blog2Video.",
+        ],
+        bullets: [
+          "Open your Claude conversation at claude.ai",
+          "Click the Share icon in the top-right corner",
+          "Set visibility to Public and copy the URL",
+        ],
+      },
+      {
+        heading: "Step 2: Paste the URL into Blog2Video",
+        paragraphs: [
+          "Go to Blog2Video and paste the shared Claude URL into the input field. Blog2Video fetches the conversation, reads the message thread, and extracts the key points, structure, and explanations from Claude's responses.",
+          "You do not need to copy-paste text manually or reformat anything. The tool works directly from the public URL.",
+        ],
+      },
+      {
+        heading: "Step 3: Generate and export your video",
+        paragraphs: [
+          "Blog2Video builds a scene-by-scene video from the conversation content. Each major point in Claude's answer becomes a slide, keeping the logical flow intact.",
+          "Pick a template that matches the tone — technical, educational, professional — then export as MP4, PDF, PowerPoint, or PNG slides. The same generation run gives you a video for YouTube, slides for LinkedIn, and a deck for wherever else it needs to go.",
+        ],
+      },
+      {
+        heading: "What Claude chats work best",
+        paragraphs: [
+          "The highest-value chats to convert are ones where Claude gave you a thorough, structured answer: research breakdowns, how-to walkthroughs, comparison analyses, code explanations, strategic plans, or concept deep dives.",
+          "If you have ever re-read a Claude thread and thought 'I should turn this into a post,' the video path is faster.",
+        ],
+        bullets: [
+          "Research summaries and topic deep dives",
+          "Step-by-step how-to explanations",
+          "Comparison and pros-and-cons breakdowns",
+          "Technical concept explainers",
+          "Strategic plans and decision frameworks",
+        ],
+      },
+      {
+        heading: "Try it now",
+        paragraphs: [
+          "Share a Claude conversation, copy the link, and paste it into Blog2Video. The video is ready in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert Claude chat to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Does my Claude chat need to be public for Blog2Video to read it?",
+        answer:
+          "Yes. Claude conversations are private by default. You need to click Share inside the conversation and set the link to Public before Blog2Video can access the content. You can remove public access again after generating the video.",
+      },
+      {
+        question: "Can Blog2Video read both sides of the conversation — my questions and Claude's answers?",
+        answer:
+          "Blog2Video focuses on the content in the conversation and structures the key points into video scenes. Claude's detailed answers typically form the bulk of the useful content, and the tool is optimized to extract and sequence those clearly.",
+      },
+      {
+        question: "What video formats can I export from a Claude chat?",
+        answer:
+          "You can export as MP4 video, PDF slides, PowerPoint, or PNG frames — the same options available for any Blog2Video project. That means one Claude conversation can produce a YouTube video, a LinkedIn carousel PDF, and a shareable deck from one generation run.",
+      },
+      {
+        question: "Does this work with long Claude conversations?",
+        answer:
+          "Yes. Blog2Video reads the full conversation and extracts the most structured, informative content. Longer threads that cover multiple topics can be trimmed or split into focused scenes during the editing step.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn Your Claude AI Chat Into a Video",
+        angle:
+          "Capture searches from people who get great Claude answers and want a repeatable way to repurpose them as video or slides.",
+      },
+      {
+        channel: "video",
+        title: "Claude chat → Blog2Video: turn AI answers into shareable videos",
+        angle:
+          "Screen-record the three-step flow: open Claude, hit Share, paste URL into Blog2Video, watch the video generate.",
+      },
+      {
+        channel: "substack",
+        title: "The fastest way to repurpose a Claude conversation",
+        angle:
+          "Written-first newsletter readers who use Claude for research will recognize the value immediately — position it as a distribution unlock.",
+      },
+      {
+        channel: "medium",
+        title: "Stop letting great Claude answers die in a chat tab",
+        angle:
+          "Frame the post around the waste of letting a well-structured AI answer live only as a conversation, and show the three-step path to video.",
+      },
+    ],
+  },
+  {
+    slug: "chatgpt-conversation-to-video",
+    title: "How to Turn a ChatGPT Conversation Into a Video",
+    description:
+      "Convert a ChatGPT chat into a structured explainer video. Share the conversation link first, then paste it into Blog2Video to generate slides and MP4 in minutes.",
+    category: "AI workflow",
+    heroImage: "/blog/blog-cover-chatgpt-conversation-to-video.png",
+    heroImageAlt:
+      "A ChatGPT conversation thread being converted into a polished video with structured slides and narration.",
+    publishedAt: "2026-05-22",
+    readTime: "5 min read",
+    heroEyebrow: "AI workflow",
+    heroTitle: "Great ChatGPT answers shouldn't live and die in a browser tab.",
+    heroDescription:
+      "If ChatGPT helped you think through a problem, draft a strategy, or break down a complex topic, that conversation is already a video script. Here's how to turn it into one.",
+    primaryKeyword: "chatgpt conversation to video",
+    keywordVariant: "convert chatgpt chat to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/claude-chat-to-video",
+      "/blogs/gemini-chat-to-video",
+    ],
+    sections: [
+      {
+        heading: "The problem with great ChatGPT answers",
+        paragraphs: [
+          "ChatGPT regularly produces answers that are genuinely useful: detailed explanations, structured frameworks, step-by-step walkthroughs, and comparative analyses. The problem is that those answers stay locked inside a conversation thread that almost no one else will ever see.",
+          "Converting a ChatGPT conversation to video solves that. Instead of starting from scratch or manually reformatting the content, you can take the structure that already exists in the chat and publish it as a shareable video.",
+        ],
+      },
+      {
+        heading: "Step 1: Share your ChatGPT conversation",
+        paragraphs: [
+          "ChatGPT conversations are private by default, so the first step is generating a public link.",
+          "Open the conversation in ChatGPT, click the Share button (the upload icon near the top of the chat), and choose 'Copy link.' That public URL is what you will paste into Blog2Video. The link can be revoked any time after you finish generating the video.",
+        ],
+        bullets: [
+          "Open your conversation at chatgpt.com",
+          "Click the Share icon at the top of the thread",
+          "Select 'Copy link' to get the public URL",
+        ],
+      },
+      {
+        heading: "Step 2: Paste the link into Blog2Video",
+        paragraphs: [
+          "Head to Blog2Video and paste your ChatGPT share link into the input. Blog2Video fetches the conversation, parses the thread, and structures the key insights, steps, and explanations into video-ready scenes.",
+          "No copy-pasting text, no manual outlining. The extraction happens automatically from the public URL.",
+        ],
+      },
+      {
+        heading: "Step 3: Choose a template and export",
+        paragraphs: [
+          "After Blog2Video generates scenes from the conversation, pick a visual template that fits the content tone. Technical answers work well with clean, minimal layouts; strategy and business content fits presentation-style templates.",
+          "Export as MP4 for YouTube or social video, PDF for a shareable slide deck, PowerPoint for editing, or PNG for individual carousel frames. One ChatGPT chat, multiple distribution formats.",
+        ],
+      },
+      {
+        heading: "Best ChatGPT chats to convert",
+        paragraphs: [
+          "The conversations that produce the highest-quality videos are ones where ChatGPT gave a thorough, well-organized response. Short one-liners rarely have enough substance; rich, multi-paragraph answers with internal structure are ideal.",
+        ],
+        bullets: [
+          "How-to guides and tutorials ChatGPT walked you through",
+          "Research summaries and literature reviews",
+          "Business strategy or decision frameworks",
+          "Technical explanations of tools, concepts, or systems",
+          "Comparison tables and pros-and-cons breakdowns",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "Share a ChatGPT conversation, copy the public link, and paste it into Blog2Video. The video generates in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert ChatGPT chat to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to share my ChatGPT conversation publicly to use Blog2Video?",
+        answer:
+          "Yes. ChatGPT conversations are private until you generate a share link. Click the Share icon inside the conversation and copy the public link — that is what Blog2Video reads. You can revoke the public link after your video is generated.",
+      },
+      {
+        question: "Will Blog2Video use my questions and ChatGPT's answers, or just one side?",
+        answer:
+          "Blog2Video reads the full conversation and structures the informative content into scenes. In practice, ChatGPT's detailed answers form the basis of the video content, though your questions provide context that helps determine the scene flow.",
+      },
+      {
+        question: "Can I convert a long ChatGPT conversation with many topics?",
+        answer:
+          "Yes, though longer conversations that span many unrelated topics work best when you focus on one thread or section. Blog2Video will extract the most structured content and you can trim or reorder scenes before exporting.",
+      },
+      {
+        question: "What formats can I download after converting a ChatGPT chat?",
+        answer:
+          "MP4 video, PDF slides, PowerPoint, and PNG frames. This means one ChatGPT conversation can produce a YouTube video, a LinkedIn carousel, and a shareable presentation from a single generation run.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a ChatGPT Conversation Into a Video",
+        angle:
+          "Target users who regularly get valuable ChatGPT answers and want a repeatable repurposing workflow without manual reformatting.",
+      },
+      {
+        channel: "video",
+        title: "ChatGPT chat → Blog2Video: the three-step conversion",
+        angle:
+          "Screen-record the exact flow: open ChatGPT, hit Share, paste the URL into Blog2Video, export the result — under two minutes of actual work.",
+      },
+      {
+        channel: "substack",
+        title: "How I repurpose ChatGPT threads into video in three steps",
+        angle:
+          "First-person workflow note for newsletter writers who use ChatGPT for research and want video distribution without a separate production step.",
+      },
+      {
+        channel: "medium",
+        title: "Stop leaving your best ChatGPT answers in a tab no one will read",
+        angle:
+          "Position the share-link-to-video flow as the simplest possible repurposing path for AI-assisted content creators.",
+      },
+    ],
+  },
+  {
+    slug: "gemini-chat-to-video",
+    title: "How to Turn a Google Gemini Chat Into a Video",
+    description:
+      "Convert a Gemini conversation into a shareable explainer video. Share the Gemini chat link first, then paste it into Blog2Video to generate structured slides and MP4.",
+    category: "AI workflow",
+    heroImage: "/blog/blog-cover-gemini-chat-to-video.png",
+    heroImageAlt:
+      "A Google Gemini AI conversation being converted into a structured video with professional slides.",
+    publishedAt: "2026-05-22",
+    readTime: "5 min read",
+    heroEyebrow: "AI workflow",
+    heroTitle: "Gemini gave you a great answer. Now make it a video.",
+    heroDescription:
+      "Google Gemini produces thorough, well-structured explanations. If you have a Gemini conversation worth keeping, you can turn it into a video in three steps — no rewriting required.",
+    primaryKeyword: "gemini chat to video",
+    keywordVariant: "convert gemini conversation to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/claude-chat-to-video",
+      "/blogs/chatgpt-conversation-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why Gemini conversations translate well to video",
+        paragraphs: [
+          "Google Gemini tends to give answers that are detailed, factual, and well-structured — especially for research questions, technical topics, and anything that benefits from Google's knowledge integration. That combination of structure and depth is exactly what makes a strong explainer video.",
+          "Instead of taking notes from a Gemini answer and building a video from scratch, you can route the conversation directly into Blog2Video and let the existing structure do the work.",
+        ],
+      },
+      {
+        heading: "Step 1: Share your Gemini conversation to get a public link",
+        paragraphs: [
+          "Gemini conversations are private by default. To let Blog2Video read the content, you need to create a shareable link first.",
+          "Open the conversation at gemini.google.com, click the Share and Export button (the icon in the top-right area of the chat), and choose 'Create a public link.' Copy that URL — it is what you will paste into Blog2Video. You can disable the link at any time from your Gemini settings.",
+        ],
+        bullets: [
+          "Open your conversation at gemini.google.com",
+          "Click Share and Export near the top of the chat",
+          "Choose 'Create a public link' and copy the URL",
+        ],
+      },
+      {
+        heading: "Step 2: Paste the Gemini link into Blog2Video",
+        paragraphs: [
+          "Go to Blog2Video and paste the shared Gemini URL into the input field. Blog2Video fetches the conversation and structures the key points, explanations, and steps from Gemini's responses into video-ready scenes.",
+          "The extraction is automatic — no text editing, no manual outlining.",
+        ],
+      },
+      {
+        heading: "Step 3: Generate scenes, pick a template, and export",
+        paragraphs: [
+          "Blog2Video turns the conversation into a sequence of scenes, each covering one key idea or step. Choose a visual template that fits the content: clean and minimal for technical topics, bold and structured for educational content.",
+          "Export as MP4 for video platforms, PDF or PowerPoint for presentation use, or PNG slides for LinkedIn carousels. One Gemini conversation becomes assets for every channel in one step.",
+        ],
+      },
+      {
+        heading: "The Gemini answers worth converting",
+        paragraphs: [
+          "The best source material is any Gemini answer where the response is thorough and logically organized. Quick factual answers are thinner; deep explanations, multi-step processes, and comparative analyses generate the richest video content.",
+        ],
+        bullets: [
+          "Research questions with detailed multi-paragraph answers",
+          "How-to and step-by-step guides",
+          "Concept explanations with definitions and examples",
+          "Comparisons between tools, approaches, or products",
+          "Summaries of reports, topics, or current events",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "Share a Gemini conversation, copy the public link, and paste it into Blog2Video. Your video is ready in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert Gemini chat to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to make my Gemini chat public before using Blog2Video?",
+        answer:
+          "Yes. Gemini conversations are private until you generate a share link. Inside Gemini, click Share and Export, then 'Create a public link.' Paste that URL into Blog2Video. You can turn off the public link from your Gemini settings once the video is generated.",
+      },
+      {
+        question: "Can Blog2Video handle Gemini's longer, research-style answers?",
+        answer:
+          "Yes. Gemini often gives thorough multi-section answers, and Blog2Video is designed to handle that length. Each major section or point becomes its own scene, keeping the detail intact while giving the video a clear structure.",
+      },
+      {
+        question: "What if my Gemini conversation covers multiple unrelated topics?",
+        answer:
+          "You can still convert the full conversation, then trim or reorder scenes before exporting. For conversations that span many topics, it often works better to focus on a single thread — one Gemini answer — and run it as its own video project.",
+      },
+      {
+        question: "What can I export from a Gemini chat converted with Blog2Video?",
+        answer:
+          "MP4 video, PDF, PowerPoint, and PNG slides. The same conversation can produce a YouTube explainer, a LinkedIn PDF carousel, and a shareable deck without any duplicate work.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Google Gemini Chat Into a Video",
+        angle:
+          "Capture search intent from Gemini users who want to repurpose AI conversations as video without a separate production workflow.",
+      },
+      {
+        channel: "video",
+        title: "Gemini chat → Blog2Video: share link to video in three steps",
+        angle:
+          "Screen-record the workflow: open Gemini, click Share, paste the URL into Blog2Video, export — keep it under ninety seconds to show how fast the turnaround is.",
+      },
+      {
+        channel: "substack",
+        title: "Gemini gave me a great research answer — here's how I turned it into a video",
+        angle:
+          "First-person case study for newsletter writers who use Gemini for research and want an effortless path from AI answer to distributed video content.",
+      },
+      {
+        channel: "medium",
+        title: "The easiest way to repurpose a Gemini conversation as a video",
+        angle:
+          "Position the workflow as the missing distribution step for Gemini power users — the answer already exists, the video is three steps away.",
+      },
+    ],
+  },
+  {
+    slug: "how-we-make-custom-branded-video-templates",
+    title: "How We Make Custom Branded Video Templates at Blog2Video",
+    description:
+      "An inside look at how our designers research, document, and build custom branded video templates for clients, from gathering brand essentials to final delivery.",
+    category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-how-we-make-custom-branded-video-templates.png",
+    heroImageAlt:
+      "Blog2Video designers building a custom branded video template using an AI-assisted motion graphics editor.",
+    publishedAt: "2026-05-29",
+    readTime: "7 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "How we make custom branded video templates at Blog2Video",
+    heroDescription:
+      "A custom template is not a skin swap or a color tweak. It is a designed product built around your specific brand. Here is exactly how our team makes them.",
+    primaryKeyword: "custom branded video templates",
+    keywordVariant: "how to make branded video templates",
+    relatedPaths: [
+      "/custom-branded-video-templates",
+      "/for-finance-publishers",
+      "/for-substack-writers",
+      "/pricing",
+    ],
+    sections: [
+      {
+        heading: "Why we build templates the way we do",
+        paragraphs: [
+          "Most video tools give you a library of templates and ask you to pick the closest one to your brand. That works well enough when brand consistency is not a priority. But for writers, analysts, authors, and publishers who have built a recognizable identity, a generic template is not a starting point. It is a compromise.",
+          "Custom branded templates exist for people who refuse that compromise. The goal is a video template that your existing audience recognizes immediately as yours, built around your actual fonts, colors, layout logic, and content style, not approximated from someone else's design.",
+          "Here is how our team builds them.",
+        ],
+      },
+      {
+        heading: "Step one: gathering the essentials",
+        paragraphs: [
+          "Every custom template starts with research. Before we open a design tool, we need to understand your brand from the ground up.",
+          "We collect the fundamentals: your website, social pages, fonts, colors, themes, and your brand design philosophy. We also look at the design patterns common in your industry, because good branded content does not just reflect the client, it fits naturally into the visual context their audience already lives in.",
+          "We ask you for this directly, and we also do our own research into whatever branded material we can find publicly. The combination of what you tell us and what we observe gives us a complete picture before we write a single line of the design document.",
+        ],
+        bullets: [
+          "Website and social presence",
+          "Fonts, colors, and visual themes",
+          "Brand design philosophy and tone",
+          "Industry-specific design patterns and conventions",
+        ],
+      },
+      {
+        heading: "Step two: writing the design document",
+        paragraphs: [
+          "Once we have the research, we write an extensive design document before anything is built. This is not a brief or a mood board. It is a detailed specification that covers every aspect of how the template should look, behave, and feel.",
+          "The design document draws on everything we gathered from you, and it also draws on the collective knowledge our team has built up working across all our clients, with particular depth in whatever industry you work in. We have made templates for finance publishers, newsletter writers, technical bloggers, book authors, and many others. That accumulated experience feeds every new document we write.",
+          "We give the document to our design experts to review and refine. We also feed it through our AI systems to stress-test the logic and surface anything that might be inconsistent or underdeveloped. Only once the document is solid do we move to production.",
+        ],
+      },
+      {
+        heading: "Step three: building in our custom AI editor",
+        paragraphs: [
+          "We have built a custom AI editor internally, designed specifically for motion graphics production. This is not an off-the-shelf tool. It is a system our team built around the specific workflow of creating video templates, with all the controls and feedback loops that process requires.",
+          "The design document feeds into the editor to produce an initial skin for the template. From there, a dedicated designer takes over. They review every scene individually, request regenerations where the output is not right, add detail manually, and fix every element precisely in place. Nothing ships because it looks close enough. It ships because the designer has confirmed it is right.",
+          "Our designers also have access to other AI tools that let them bring additional reference material into the template as needed: brand artifacts, image assets, typography samples, layout references. The editor is a harness, not an autopilot.",
+        ],
+      },
+      {
+        heading: "Step four: client review and refinement",
+        paragraphs: [
+          "Once we have a complete initial template, we share it with the client. We walk through every scene and ask for honest feedback. What looks right, what does not, and what is missing.",
+          "We incorporate that feedback and refine. This step is not a courtesy round. It is a genuine part of the process, because the client knows their brand better than anyone else, and there are always things that only become visible once the template is in front of them.",
+          "We keep refining until the client is confident. The template we deliver is one they can use immediately and indefinitely, knowing that every video produced from it will look like their brand on first impression.",
+        ],
+      },
+      {
+        heading: "What the finished template includes",
+        paragraphs: [
+          "A finished custom template is a complete video production system built around your brand. It is not a single scene or a single look. It covers the full range of content types you are likely to produce.",
+        ],
+        bullets: [
+          "Branded templates are infinitely reusable with no additional design cost per video.",
+          "Custom charts, infographics, animations, and typefaces built in from the start.",
+          "Support for every content type in your publishing workflow.",
+          "The option to add customizations at any point as your brand evolves.",
+        ],
+      },
+      {
+        heading: "What clients say",
+        paragraphs: [
+          "Cosmo DeStefano is a finance strategist and author of Wealth Your Way, a book and Substack newsletter focused on practical financial independence. He was skeptical going in.",
+          "\"As a book author and Substack writer, I was genuinely skeptical that any tool or team could translate my writing into video content that actually sounded like me. Blog2Video changed my mind completely. The production quality is sharp, turnaround has been consistently fast, and the team has been genuinely responsive at every step. What impressed me most was their commitment to building a custom template that matched my brand rather than simply dropping my posts into a generic layout. The result is video content that feels like a natural extension of my writing, not a diluted version of it. The experience has been professional, collaborative, and worth every dollar, at a fraction of what traditional video production would have cost.\"",
+          "Cosmo DeStefano, Finance Strategist and Author, Wealth Your Way",
+        ],
+      },
+      {
+        heading: "Request your own custom template",
+        paragraphs: [
+          "If you publish written content and want video that looks like your brand rather than a generic production, a custom template is the most direct path there.",
+          "Tell us about your brand, your content, and your audience. We will take it from there.",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "Request a custom template",
+      },
+    ],
+    faq: [
+      {
+        question: "How is a custom template different from your standard templates?",
+        answer:
+          "Standard templates are high quality and designed for broad use. A custom template is built entirely from scratch around your specific brand: your fonts, colors, layout preferences, and content style. Every video produced from it is unmistakably yours.",
+      },
+      {
+        question: "What do you need from me to get started?",
+        answer:
+          "We ask for the basics: your website, any social pages, your fonts and colors if you have them, and a sense of your brand philosophy. We supplement that with our own research. The more you can share, the faster and more accurate the first draft will be.",
+      },
+      {
+        question: "How many rounds of revision are included?",
+        answer:
+          "We refine until you are satisfied. The review step is a genuine part of our process, not a single pass. We continue until the template accurately represents your brand.",
+      },
+      {
+        question: "Can the template be updated later?",
+        answer:
+          "Yes. As your brand evolves you can request updates and additional customizations. The template grows with you rather than locking you into the design decisions made at launch.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How we make custom branded video templates at Blog2Video",
+        angle:
+          "Behind-the-scenes explainer that builds trust with potential custom template clients by showing the rigour and care behind every template we produce.",
+      },
+      {
+        channel: "substack",
+        title: "The four-step process behind every Blog2Video custom template",
+        angle:
+          "Newsletter-friendly breakdown for writers and publishers curious about what a custom template actually involves before they commit.",
+      },
+      {
+        channel: "medium",
+        title: "What goes into a custom branded video template",
+        angle:
+          "Process-focused post for content creators and brand managers who want to understand what separates a purpose-built template from a generic one.",
+      },
+      {
+        channel: "video",
+        title: "Inside our custom template process",
+        angle:
+          "Short walkthrough showing the four stages from brand research to final delivery, with examples of what the design document and editor workflow look like in practice.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-increase-your-audience-on-linkedin",
+    title: "How to Increase Your Audience on LinkedIn",
+    description:
+      "Five practical ways to grow your LinkedIn audience in 2026 — from posting consistently to turning your existing content into video and carousels that drive both engagement and external traffic.",
+    category: "Strategy",
+    heroImage: "/blog/blog-cover-how-to-increase-your-audience-on-linkedin.png",
+    heroImageAlt:
+      "A creator publishing a mix of text posts, carousels, and short videos to grow their LinkedIn audience.",
+    publishedAt: "2026-05-31",
+    readTime: "6 min read",
+    heroEyebrow: "LinkedIn growth",
+    heroTitle: "Five ways to grow your LinkedIn audience — including one most people skip entirely.",
+    heroDescription:
+      "Consistency, comments, and hashtags will only take you so far. The creators who build audiences fastest combine those fundamentals with a content format that most of their competitors are not producing yet.",
+    primaryKeyword: "how to increase your audience on linkedin",
+    keywordVariant: "grow linkedin audience",
+    relatedPaths: [
+      "/blog-to-linkedin-video",
+      "/blog-to-video",
+      "/blogs/ai-linkedin-carousel-generator-from-existing-content",
+      "/pricing",
+    ],
+    sections: [
+      {
+        heading: "1. Post consistently — even when reach feels low",
+        paragraphs: [
+          "LinkedIn's algorithm rewards accounts that show up regularly. A profile that posts three to five times a week builds a pattern the algorithm recognises — and over time, that pattern gets rewarded with broader distribution.",
+          "The goal is not to go viral. The goal is to stay visible long enough that your name appears in someone's feed right when they need what you offer. Consistency is the simplest edge that most people abandon too early.",
+        ],
+        bullets: [
+          "Aim for three to five posts per week as a sustainable baseline.",
+          "Use a content calendar to batch and schedule ahead so weeks do not go dark.",
+          "Repurpose existing work — a blog post, a meeting recap, or a lesson learned — rather than inventing from scratch every time.",
+        ],
+      },
+      {
+        heading: "2. Write for comments, not just impressions",
+        paragraphs: [
+          "LinkedIn's feed is driven by engagement signals, and comments carry more weight than likes. A post that sparks a genuine reply from five people will outperform a post that gets fifty passive likes.",
+          "The easiest way to invite comments is to end a post with a direct question, a contrarian take, or a genuine ask for experience. Something that makes reading it feel incomplete without responding.",
+        ],
+        bullets: [
+          "Close posts with a specific, answerable question rather than a vague \"thoughts?\"",
+          "Share a position that readers might push back on — polite disagreement drives thread depth.",
+          "Reply to every comment in the first hour to extend the window the algorithm watches.",
+        ],
+      },
+      {
+        heading: "3. Optimise your profile before you grow it",
+        paragraphs: [
+          "Traffic you generate through content lands on your profile. If the profile does not immediately communicate who you help and why it matters, you lose the follow even when the post earns the click.",
+          "The headline is the most important field. It should not describe your job title — it should describe the outcome you create for the people you work with. A summary that opens with a specific result beats one that opens with a resume.",
+        ],
+        bullets: [
+          "Rewrite your headline around the outcome you deliver, not your current role.",
+          "Add a Featured section with your best post, a lead magnet, or a relevant link.",
+          "Pin a recent post that represents the clearest version of what you talk about.",
+        ],
+      },
+      {
+        heading: "4. Engage with your target audience before you expect them to find you",
+        paragraphs: [
+          "Outbound engagement is underrated. Spending fifteen minutes a day leaving substantive comments on posts from people in your target audience does two things: it puts your name in front of their followers, and it starts a relationship before you ever need anything from them.",
+          "The accounts that grow fastest on LinkedIn are rarely passive broadcasters. They are people who show up in the comments of relevant conversations and add something worth reading.",
+        ],
+        bullets: [
+          "Follow twenty to thirty creators in your niche and comment on their posts daily.",
+          "Add insight rather than agreement — \"great post\" does not surface your name.",
+          "DM people whose content you genuinely find useful before you need anything from them.",
+        ],
+      },
+      {
+        heading: "5. Turn your written content into video and carousels with Blog2Video",
+        paragraphs: [
+          "This is the tactic that separates fast-growing LinkedIn accounts from stalled ones: publishing content formats that the majority of your competitors are not producing.",
+          "Most people on LinkedIn post text. Some post images. Very few post polished short videos or multi-slide carousels — and those formats get meaningfully more reach per post because LinkedIn actively promotes them in the feed.",
+          "Blog2Video lets you take an article, blog post, or any written piece and convert it into a LinkedIn-ready video or carousel in minutes. You paste the URL or text, choose a visual template, and export the result as an MP4 video to post directly, a PDF carousel to upload as a LinkedIn document post, or individual PNG slides to use across other channels.",
+          "The compounding effect is significant. A single blog post becomes a video your LinkedIn audience watches in the feed, a carousel your followers swipe through and save, and an asset you can share externally — driving traffic back to your original article from people who would never have found the text version alone.",
+          "For creators who already write regularly, Blog2Video closes the gap between the content they produce and the formats that actually grow an audience on LinkedIn. You are not writing twice — you are distributing once.",
+        ],
+        bullets: [
+          "Paste a blog post URL and generate a full video in minutes — no editing software needed.",
+          "Export as MP4 for LinkedIn video posts, PDF for carousel document posts, or PNG slides for feed images.",
+          "Drive external traffic back to your original article from viewers who discover the video first.",
+          "Maintain a consistent visual identity across every piece of video content you publish.",
+        ],
+        ctaPath: "/blog-to-linkedin-video",
+        ctaLabel: "Turn your blog into a LinkedIn video",
+      },
+    ],
+    faq: [
+      {
+        question: "How often should I post on LinkedIn to grow my audience?",
+        answer:
+          "Three to five times per week is a reliable baseline for most creators. What matters more than frequency is showing up consistently — an account that posts four times a week every week outperforms one that posts daily for two weeks and then disappears.",
+      },
+      {
+        question: "What type of content gets the most reach on LinkedIn?",
+        answer:
+          "Video and carousel posts typically receive broader organic distribution than text-only posts because LinkedIn's algorithm actively promotes formats that keep users on the platform longer. Short video posts in particular are underused by most creators, which means less competition for that distribution.",
+      },
+      {
+        question: "How do I use Blog2Video to grow my LinkedIn audience?",
+        answer:
+          "You paste a blog post URL or text into Blog2Video, choose a visual template, and export the result as an MP4 video or PDF carousel. Post the video directly on LinkedIn for organic reach, or upload the PDF as a document post. Both formats outperform plain text posts and drive viewers back to your original written content.",
+      },
+      {
+        question: "Does posting video on LinkedIn actually increase followers?",
+        answer:
+          "Yes. LinkedIn video posts consistently reach non-followers through the feed and Discover sections, which text posts rarely do. Viewers who find value in the video tend to visit the poster's profile and follow, especially when the profile headline clearly communicates what the account is about.",
+      },
+      {
+        question: "Can I repurpose one piece of content for LinkedIn and other platforms at the same time?",
+        answer:
+          "Yes, and that is exactly the workflow Blog2Video is built for. A single blog post can become a LinkedIn MP4 video, a PDF carousel, individual PNG slides for Instagram or Twitter, and a shareable link — without writing or designing anything new.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Increase Your Audience on LinkedIn",
+        angle:
+          "SEO-driven guide targeting creators looking for LinkedIn growth strategies, with a natural product placement around Blog2Video for video and carousel creation.",
+      },
+      {
+        channel: "video",
+        title: "Five Ways to Grow Your LinkedIn Audience (Including One Most People Skip)",
+        angle:
+          "Short walkthrough of the five tips with a demo of Blog2Video converting a blog post into a LinkedIn carousel — shareable on LinkedIn itself as a meta-demonstration.",
+      },
+      {
+        channel: "substack",
+        title: "Why your LinkedIn reach stalled — and what to do about it",
+        angle:
+          "Newsletter-format take aimed at writers who already post but are not seeing follower growth, with video and carousel formats framed as the missing distribution layer.",
+      },
+      {
+        channel: "medium",
+        title: "How to grow on LinkedIn in 2026: five tactics that actually work",
+        angle:
+          "Practical breakdown for content creators and founders who want a LinkedIn strategy that compounds, with Blog2Video positioned as the workflow that unlocks video without extra production effort.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-n8n",
+    title: "How to Use the Blog2Video MCP Server with n8n",
+    description:
+      "A complete guide to connecting the Blog2Video MCP server to n8n. Two copy-paste workflows: a simple chat-to-preview-URL agent and a dynamic form that lets users pick template, voice, preview, and render.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-n8n.png",
+    heroImageAlt:
+      "n8n workflow diagram showing Blog2Video MCP tools turning a blog URL into a previewable video.",
+    publishedAt: "2026-06-04",
+    readTime: "10 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle:
+      "Turn any blog URL into a finished video from inside n8n — using the Blog2Video MCP server.",
+    heroDescription:
+      "The Blog2Video MCP server exposes every core action — create, preview, render, list templates, list voices — as callable tools. Drop the endpoint into an n8n AI Agent, set the timeout to 600 seconds, and your automation handles the rest.",
+    primaryKeyword: "blog2video mcp server n8n",
+    keywordVariant: "blog to video n8n automation",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/what-is-a-blog-video"],
+    sections: [
+      {
+        heading: "What is the Blog2Video MCP server?",
+        paragraphs: [
+          "Model Context Protocol (MCP) is an open standard that lets AI agents call external tools over a standard HTTP transport. Blog2Video exposes its entire video-creation pipeline as an MCP server at https://api.blog2video.app/mcp/sse.",
+          "That means any MCP-compatible host — n8n, Claude, ChatGPT, or your own code — can call Blog2Video tools the same way. In n8n specifically, you connect the endpoint to an AI Agent node and the agent decides which tools to call and in what order.",
+          "Every call to the server requires an Authorization header: Bearer followed by the JWT you copy from the Connect to AI page in Blog2Video. Without it the server returns 401 and the tool list is empty.",
+        ],
+      },
+      {
+        heading: "Prerequisites",
+        paragraphs: [
+          "You need a Blog2Video account and a valid JWT. Get it from Settings → Connect to AI → Connect to n8n → Copy token.",
+          "You also need an OpenAI or Anthropic API key for the AI Agent's Chat Model node. The agent will not run without one.",
+          "For the dynamic-form example you need the community node n8n-nodes-mcp installed. Go to n8n Settings → Community Nodes → Install and search for n8n-nodes-mcp. The built-in MCP Client Tool node is agent-only; the community node's Execute Tool mode runs standalone so it can feed dropdowns.",
+        ],
+        bullets: [
+          "Blog2Video account + JWT from Connect to AI page.",
+          "OpenAI or Anthropic API key for the Chat Model.",
+          "n8n-nodes-mcp community node (Example 2 only).",
+          "n8n workflow timeout raised to at least 600 seconds (Settings → Timeout).",
+        ],
+      },
+      {
+        heading: "The Blog2Video MCP tools you should know",
+        paragraphs: [
+          "The MCP server exposes more than a dozen tools but most n8n workflows only need a handful. The three most important are create_video, get_preview_url, and render_video.",
+          "create_video takes a blog URL and does everything in one call: it scrapes the article, generates a script, builds scenes, and returns the project. It runs for one to five minutes and blocks internally until done. You do not need a polling loop — just set the node timeout to 600000 milliseconds and wait.",
+          "get_preview_url mints a shareable watch link from a project id. render_video converts a generated project to a downloadable MP4 in three to eight minutes, also blocking until complete.",
+          "Two data tools are especially useful for building dynamic forms: get_templates_json returns a plain JSON array of template objects, and get_voices_json returns all available voices with their ids. Use these instead of the list_templates and list_voices widget tools, which render interactive galleries for claude.ai and return no usable data in n8n.",
+        ],
+        bullets: [
+          "create_video — one call: scrape, script, scenes. Blocks 1–5 min. Returns project id.",
+          "get_preview_url — mint a shareable /preview/<token> link from a project id.",
+          "render_video — produce a downloadable MP4. Blocks 3–8 min.",
+          "get_templates_json — plain JSON template list for dropdowns.",
+          "get_voices_json — plain JSON voice list with voice_id values.",
+        ],
+      },
+      {
+        heading: "Example 1: chat to preview URL (the simplest setup)",
+        paragraphs: [
+          "The first example is a single Chat Trigger connected to a single AI Agent. The user pastes a blog URL in the chat; the agent calls create_video, then get_preview_url, and replies with the preview link.",
+          "Configure the Chat Trigger with default settings and connect it to an AI Agent. In the agent's System Message tell it to call create_video with the user's URL, take the project id from the result, call get_preview_url, and reply with only the preview URL. Set Max Iterations to 10.",
+          "Attach a Chat Model sub-node using your OpenAI or Anthropic key. Attach an MCP Client Tool sub-node with Transport set to HTTP Streamable, Endpoint URL https://api.blog2video.app/mcp/sse, Authentication Bearer Auth with your JWT, Tools to Include set to Selected with create_video and get_preview_url ticked, and Timeout set to 600000.",
+          "Keep Tools to Include on Selected, not All. On All the agent may call setup_video — a claude.ai widget tool — and stall forever waiting for a gallery click that never comes in n8n.",
+        ],
+      },
+      {
+        heading: "Example 2: dynamic form with template, voice, preview, and render",
+        paragraphs: [
+          "The second example is a multi-page form where the user picks a template and voice from live dropdowns, sees the preview URL inline, and chooses whether to render an MP4.",
+          "The flow is: Form page 1 captures the blog URL. Two standalone MCP Execute Tool nodes call get_templates_json and get_voices_json. A Code node parses both responses and builds the dropdown definitions plus a voice-name-to-id map. Form page 2 shows the dynamic dropdowns. A Set node resolves the chosen voice name to its voice_id. An AI Agent calls create_video and get_preview_url and writes the result through a Structured Output Parser. Form page 3 shows the preview URL and asks whether to render. An IF node branches to either a second AI Agent that calls render_video, or a final form ending that shows the preview link only.",
+          "The most important technical detail is that any field in n8n that uses the {{ }} expression syntax must be switched to Expression mode. In Fixed mode, curly braces are treated as literal text. This applies to the Form Fields JSON field on page 2, all Set node expressions, and every Prompt field on the agent nodes.",
+          "Node names matter because n8n's $('Name') selector matches by exact title. If you rename Get Templates to Fetch Templates your Build Form code node will throw a referenced node doesn't exist error. Use the names listed in the setup exactly.",
+        ],
+        bullets: [
+          "Both MCP Client Tool nodes need Timeout 600000 — create_video and render_video each run for minutes.",
+          "Use get_templates_json and get_voices_json, not list_templates or list_voices.",
+          "The Structured Output Parser forces a clean { project_id, preview_url } shape — without it the agent may return markdown tables.",
+          "Raise the workflow-level timeout in Settings → Timeout so render_video is not cut off.",
+          "Test the form via the Production or Test URL, not the editor — form pages do not render inside the n8n canvas.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I get the Blog2Video JWT for n8n?",
+        answer:
+          "Log in to Blog2Video, go to Settings → Connect to AI → Connect to n8n, and click Copy token. Paste that value as the Bearer token in your MCP Client Tool node credential.",
+      },
+      {
+        question: "Why does create_video time out in n8n?",
+        answer:
+          "The default MCP Client Tool timeout is around 60 seconds. create_video can take one to five minutes. Set the node's Timeout option to 600000 (ten minutes) to avoid MCP error -32001.",
+      },
+      {
+        question: "Why are the template and voice dropdowns empty in Example 2?",
+        answer:
+          "This usually means the community node returned data in an unexpected shape, or a node was renamed. The node names Get Templates and Get Voices must match exactly — case-sensitive — in the Build Form code node.",
+      },
+      {
+        question: "Can I skip get_preview_url and just use the project id?",
+        answer:
+          "No. The preview URL is not stored on the project object. You must call get_preview_url with the project_id to mint the shareable /preview/<token> link.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Use the Blog2Video MCP Server with n8n",
+        angle:
+          "Target n8n users and content automation teams searching for blog-to-video workflow automation.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video + n8n: Full MCP Workflow Walkthrough",
+        angle:
+          "Screen-record the two example flows from form to finished preview link.",
+      },
+      {
+        channel: "substack",
+        title: "Automate blog-to-video inside your n8n stack with one MCP endpoint",
+        angle:
+          "Frame it as the missing piece for teams already using n8n for content distribution.",
+      },
+      {
+        channel: "medium",
+        title: "A complete n8n + Blog2Video MCP guide: two real-world workflow examples",
+        angle:
+          "Comprehensive technical walkthrough for the n8n developer audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-chatgpt",
+    title: "How to Connect the Blog2Video MCP Server to ChatGPT",
+    description:
+      "Step-by-step guide to using the Blog2Video MCP server inside ChatGPT. Turn a blog URL into a finished, previewable video using ChatGPT's native MCP connector support.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-chatgpt.png",
+    heroImageAlt:
+      "ChatGPT interface with Blog2Video MCP connector enabled, showing a blog URL being converted to video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Use ChatGPT as the brain behind your blog-to-video pipeline.",
+    heroDescription:
+      "ChatGPT's MCP connector support lets you point it at the Blog2Video server and let GPT-4o handle the rest — scrape the article, pick a template, generate scenes, and return a shareable preview link, all from a single chat message.",
+    primaryKeyword: "blog2video mcp chatgpt",
+    keywordVariant: "connect mcp server chatgpt blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "What is MCP and why ChatGPT supports it",
+        paragraphs: [
+          "Model Context Protocol is an open standard that lets AI models call external tools over a standard HTTP transport. Rather than building a custom plugin for every application, a service publishes one MCP server and any compatible AI host can use it.",
+          "OpenAI added remote MCP support to ChatGPT in 2025 and expanded it throughout 2026. ChatGPT can now talk to any HTTP Streamable or SSE MCP endpoint directly — no middleware, no custom plugin review, and no backend code on your side.",
+          "Blog2Video publishes its full video pipeline as an MCP server at https://api.blog2video.app/mcp/sse. Connect that endpoint to ChatGPT and you can turn any blog URL into a finished video just by chatting.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The server exposes the complete Blog2Video pipeline as callable tools. The two most useful ones in ChatGPT are create_video and get_preview_url.",
+          "create_video takes a blog URL and handles everything: it scrapes the article, writes a narrated script, generates scene layouts, and returns a project with a unique id. It runs for one to five minutes because it is doing real work.",
+          "get_preview_url takes the project id and returns a shareable /preview/<token> link you can open in any browser. If you want a downloadable MP4 you can also call render_video, which takes three to eight minutes.",
+        ],
+      },
+      {
+        heading: "Prerequisites",
+        paragraphs: [
+          "You need a ChatGPT Plus, Pro, Team, or Enterprise account. Free plan users do not have access to the MCP connector configuration.",
+          "You need a Blog2Video account and a valid JWT. Get it from Blog2Video → Settings → Connect to AI → Copy token.",
+        ],
+        bullets: [
+          "ChatGPT Plus, Pro, Team, or Enterprise subscription.",
+          "Blog2Video account with a copied JWT token.",
+          "A blog URL you want to convert.",
+        ],
+      },
+      {
+        heading: "Step-by-step: connect Blog2Video to ChatGPT",
+        paragraphs: [
+          "Open ChatGPT and go to Settings. Find Apps & Connectors → Advanced settings and toggle Developer Mode to ON. This unlocks the custom connector configuration screen.",
+          "Navigate to Settings → Connectors → Create. Enter the endpoint URL: https://api.blog2video.app/mcp/sse. Set authentication to Bearer Auth and paste your Blog2Video JWT as the token. Save the connector.",
+          "Start a new conversation. Click the connector toggle to enable it for this chat. You will see the Blog2Video tools listed as available.",
+          "Now type your request — for example: Turn this blog into a video and give me a preview link: https://example.com/my-post. ChatGPT will call create_video, wait for it to finish, then call get_preview_url and return the link.",
+        ],
+        bullets: [
+          "Settings → Apps & Connectors → Advanced settings → Developer Mode ON.",
+          "Settings → Connectors → Create → paste the Blog2Video endpoint URL.",
+          "Authentication: Bearer Auth → paste your JWT.",
+          "Enable the connector per conversation using the toggle in the chat interface.",
+        ],
+      },
+      {
+        heading: "What you can do with Blog2Video inside ChatGPT",
+        paragraphs: [
+          "Beyond the basic blog-to-preview flow, you can use ChatGPT's reasoning to make smarter decisions about template and voice. Ask it to pick the most appropriate template for a finance article from the available list, or choose a voice that matches a professional tone.",
+          "You can also chain calls: create the video, review the scene descriptions, ask ChatGPT to rewrite a specific scene using update_scene, then get a new preview — all in one conversation.",
+          "For high-volume use, you can ask ChatGPT to call render_video after previewing so you end up with a downloadable MP4 in a single session.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Does the Blog2Video MCP server work with the ChatGPT free plan?",
+        answer:
+          "No. MCP connectors require Developer Mode, which is available on Plus, Pro, Team, and Enterprise plans only.",
+      },
+      {
+        question: "Why does ChatGPT take several minutes to respond after I give it a blog URL?",
+        answer:
+          "create_video runs for one to five minutes because it is actually scraping your article, writing a script, and generating scenes. This is expected. ChatGPT holds the connection open until the tool returns.",
+      },
+      {
+        question: "Can I use the Blog2Video MCP server with the OpenAI API directly?",
+        answer:
+          "Yes. The Responses API supports remote MCP servers. Add the Blog2Video endpoint in the tools parameter with type mcp and your Bearer token. The API will list available tools and let your code call them.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to ChatGPT",
+        angle:
+          "Capture ChatGPT + MCP search traffic from developers and content teams wanting to automate blog-to-video.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video Inside ChatGPT: Live Demo",
+        angle:
+          "Screen-record the full flow from enabling the connector to getting the preview link.",
+      },
+      {
+        channel: "substack",
+        title: "ChatGPT can now run your blog-to-video pipeline for you",
+        angle:
+          "Frame as a workflow upgrade for writers already using ChatGPT for content work.",
+      },
+      {
+        channel: "medium",
+        title: "Connecting Blog2Video to ChatGPT via MCP: a complete guide",
+        angle:
+          "Technical walkthrough for the developer and creator audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-claude",
+    title: "How to Connect the Blog2Video MCP Server to Claude",
+    description:
+      "Use the Blog2Video MCP server with Claude Desktop or claude.ai. Two methods: one-click Desktop Extensions and manual JSON config. Turn any blog URL into a video from inside Claude.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-claude.png",
+    heroImageAlt:
+      "Claude Desktop interface with Blog2Video MCP tools available, converting a blog post to video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Claude can turn your blog into a video. Here is how to connect it.",
+    heroDescription:
+      "Anthropic built MCP — so Claude has first-class support for it. Add the Blog2Video server to Claude Desktop or use it as a connector in claude.ai, and Claude can scrape articles, generate scripts, pick templates, and hand back preview links without leaving your conversation.",
+    primaryKeyword: "blog2video mcp server claude",
+    keywordVariant: "connect mcp server claude desktop blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Why Claude is the natural home for MCP tools",
+        paragraphs: [
+          "Anthropic invented Model Context Protocol. MCP was designed to give Claude a standardized way to call external tools without custom per-tool integrations, and Claude Desktop was the first client to support it.",
+          "That means MCP tooling in Claude is mature, well-documented, and keeps improving. Blog2Video's MCP server integrates cleanly because Claude knows how to handle long-running tools, multi-step reasoning, and structured outputs — all things the blog-to-video pipeline requires.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server exposes your full video-creation pipeline as callable tools. The most useful ones in Claude are create_video, get_preview_url, setup_video, list_templates, and list_voices.",
+          "Unlike n8n, Claude has a clickable UI so the widget tools work as intended. setup_video launches an interactive gallery that walks you through template and voice selection before creating the project. list_templates and list_voices render browsable galleries instead of raw JSON.",
+          "If you prefer a direct approach, you can skip the widgets and tell Claude to call create_video with a specific blog URL and template id. Claude will handle the full pipeline and return a preview link.",
+        ],
+      },
+      {
+        heading: "Method 1: Desktop Extensions (one click)",
+        paragraphs: [
+          "The easiest way to add Blog2Video to Claude Desktop is through the Extensions directory. Open Claude Desktop, go to Settings → Extensions → Browse extensions. Find Blog2Video in the directory and click Install. Claude will prompt you to enter your JWT if needed, then restart to load the server.",
+          "After the extension is installed, click the + button at the bottom of any chat, then Connectors, and toggle Blog2Video on for the conversation. Your tools are ready.",
+        ],
+      },
+      {
+        heading: "Method 2: manual JSON configuration",
+        paragraphs: [
+          "For full control over the connection, edit claude_desktop_config.json directly. On macOS and Windows, go to Claude Desktop → Settings → Developer → Edit Config to open the file.",
+          "Add an entry under mcpServers: give it a name like blog2video, set the transport to HTTP Streamable or SSE, and include your JWT in the Authorization header. Save the file and restart Claude Desktop completely — not just the window, but the application itself.",
+          "The server will appear in the Connectors panel once Claude has restarted and successfully connected to the endpoint.",
+        ],
+        bullets: [
+          "Config file: Settings → Developer → Edit Config in Claude Desktop.",
+          "Server key: blog2video.",
+          "Endpoint: https://api.blog2video.app/mcp/sse.",
+          "Auth: Authorization header with your JWT as a Bearer token.",
+          "Full application restart required after editing the config file.",
+        ],
+      },
+      {
+        heading: "Using Blog2Video tools in Claude",
+        paragraphs: [
+          "With the server connected, you can have a natural conversation: paste a blog URL and ask Claude to turn it into a video. Claude will use setup_video to let you browse templates and voices, then call create_video with your selections.",
+          "You can also edit the result. Ask Claude to change the narration on scene three, swap two scene images, or switch the whole project to a different template. Each of these maps to an MCP tool Claude can call directly.",
+          "When you are happy with the preview, ask Claude to render it to an MP4 download link. The render takes three to eight minutes; Claude will wait and surface the URL when it is ready.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need Claude Desktop or does claude.ai work too?",
+        answer:
+          "Both work. Claude Desktop supports MCP via local config or the Extensions directory. claude.ai supports remote MCP connectors — add the Blog2Video endpoint under Settings → Connectors.",
+      },
+      {
+        question: "Why does Claude show no tools available after I add the server?",
+        answer:
+          "The most common cause is a missing or incorrect JWT. Make sure the Authorization header is set to Bearer followed by your token with no extra spaces. Also confirm you fully restarted Claude Desktop, not just closed the window.",
+      },
+      {
+        question: "Can I use the widget tools such as setup_video and list_templates in Claude?",
+        answer:
+          "Yes — these tools were designed for Claude's chat interface. They render interactive galleries for template and voice selection that you can click through. They do not work in n8n but work exactly as intended in Claude.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Claude",
+        angle:
+          "Capture Claude + MCP search traffic and Anthropic-ecosystem users looking for blog automation tools.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video Inside Claude: MCP Setup and Live Demo",
+        angle:
+          "Show both the Extensions one-click install and the manual config path, then demo the full workflow.",
+      },
+      {
+        channel: "substack",
+        title: "Claude now has a direct line to Blog2Video's video pipeline",
+        angle:
+          "Frame as a workflow upgrade for writers and content teams already using Claude.",
+      },
+      {
+        channel: "medium",
+        title: "Connecting Blog2Video to Claude via MCP: Desktop Extensions and manual setup",
+        angle:
+          "Technical comparison of both methods for developers on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-gemini",
+    title: "How to Connect the Blog2Video MCP Server to Google Gemini",
+    description:
+      "Connect the Blog2Video MCP server to Google Gemini using the Gemini CLI, Firebase Studio, or Gemini Enterprise. Turn blog URLs into videos from inside Google's AI ecosystem.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-gemini.png",
+    heroImageAlt:
+      "Google Gemini CLI with Blog2Video MCP tools configured, converting a blog article to a video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Gemini plus Blog2Video MCP: add video creation to Google's AI in three steps.",
+    heroDescription:
+      "Google Gemini supports MCP through the Gemini CLI, Firebase Studio, and Gemini Enterprise. All three can talk to the Blog2Video MCP server. Pick the path that matches your stack and let Gemini handle article scraping, script generation, and video preview from a single prompt.",
+    primaryKeyword: "blog2video mcp server gemini",
+    keywordVariant: "connect mcp server google gemini blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Gemini and MCP: Google's open-standard support",
+        paragraphs: [
+          "Google adopted MCP across its AI tooling in 2025 and 2026, adding support to Gemini CLI, Firebase Studio, and Gemini Enterprise. All three surfaces use the same mcpServers configuration block, so connecting Blog2Video works the same way regardless of which one you use.",
+          "MCP acts as a bridge between Gemini's reasoning engine and external services. When you add the Blog2Video endpoint, Gemini can discover its tools, understand their parameters, and call them in response to natural-language requests — with no custom code needed on your side.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The server exposes the full Blog2Video pipeline as tools: create a project from a blog URL, get a shareable preview link, render a downloadable MP4, list templates and voices, and edit individual scenes. Every tool is callable over HTTP with a Bearer token.",
+          "The endpoint is https://api.blog2video.app/mcp/sse and it uses the SSE transport — the same transport the Gemini CLI and Firebase Studio expect. Your JWT from the Blog2Video Connect to AI page is the auth token.",
+        ],
+      },
+      {
+        heading: "Method 1: Gemini CLI",
+        paragraphs: [
+          "Gemini CLI stores its MCP configuration in a settings.json file. Add a mcpServers block with an entry for blog2video, specifying the server URL as https://api.blog2video.app/mcp/sse and the auth header as Authorization: Bearer followed by your JWT.",
+          "After saving the config, restart Gemini CLI. The Blog2Video tools will appear as available. You can enable or disable the server during a session with /mcp enable blog2video and /mcp disable blog2video.",
+          "If you are using environment variables for secrets, add the JWT to the env property of the server configuration and reference it in the header value.",
+        ],
+        bullets: [
+          "Add a blog2video entry to the mcpServers block in settings.json.",
+          "Server URL: https://api.blog2video.app/mcp/sse.",
+          "Auth header: Authorization: Bearer followed by your JWT.",
+          "Restart CLI, then confirm tools with /mcp enable blog2video.",
+        ],
+      },
+      {
+        heading: "Method 2: Firebase Studio",
+        paragraphs: [
+          "In Firebase Studio's Code view, open the Command Palette with Shift+Ctrl+P and run Firebase Studio: Add MCP Server. Enter the Blog2Video endpoint URL when prompted.",
+          "Alternatively, create or edit the .idx/mcp.json file in your project directory manually, adding a blog2video entry with the same URL and Authorization header.",
+          "The MCP server becomes available in the interactive chat panel. Click Customize Tools to see and enable Blog2Video tools.",
+        ],
+      },
+      {
+        heading: "Method 3: Gemini Enterprise",
+        paragraphs: [
+          "In the Google Cloud console, go to Gemini Enterprise → Connectors → Custom MCP Server. Enter the Blog2Video endpoint URL and your JWT. The connector integrates directly into the Gemini Enterprise data-source model.",
+          "Once connected, Gemini Enterprise can access Blog2Video tools alongside your internal data sources. This is useful for teams that want to include video creation in a larger AI-powered workflow that also reads from private databases or internal APIs.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Which Gemini surface should I use for Blog2Video?",
+        answer:
+          "For individual developer use, Gemini CLI is the fastest path. For web-app or IDE use, Firebase Studio is the right choice. For enterprise teams, Gemini Enterprise gives centralized connector management.",
+      },
+      {
+        question: "Do I need to store my JWT as a plain-text environment variable?",
+        answer:
+          "The Gemini CLI does not redact env values automatically. Store the JWT in an environment variable outside the config file and reference it there, or use a secret manager if security is a concern.",
+      },
+      {
+        question: "Does the SSE transport work with all Gemini surfaces?",
+        answer:
+          "Yes. The Blog2Video MCP endpoint uses SSE transport, which is supported by Gemini CLI, Firebase Studio, and Gemini Enterprise. You do not need to configure a different transport for each.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Google Gemini",
+        angle:
+          "Capture Google Gemini + MCP search traffic from developers and enterprise teams.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video + Gemini CLI: Add Video Creation to Google AI",
+        angle:
+          "Short demo showing the CLI config and a blog-to-preview workflow.",
+      },
+      {
+        channel: "substack",
+        title: "Gemini can now run your blog-to-video pipeline",
+        angle:
+          "Frame as practical AI workflow for content creators using Google tools.",
+      },
+      {
+        channel: "medium",
+        title: "Connecting Blog2Video to Gemini: CLI, Firebase Studio, and Enterprise",
+        angle:
+          "Technical comparison of three connection methods for the Google-ecosystem developer audience.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-deepseek",
+    title: "How to Connect the Blog2Video MCP Server to DeepSeek",
+    description:
+      "Three ways to connect the Blog2Video MCP server to DeepSeek V4. Use the OpenAI-compatible API, a local CLI config, or a hosted MCP endpoint to run blog-to-video pipelines with DeepSeek's open-weight models.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-deepseek.png",
+    heroImageAlt:
+      "DeepSeek AI model connected to Blog2Video MCP server, generating a video from a blog article.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "DeepSeek V4 plus Blog2Video MCP: open-weight models, real video output.",
+    heroDescription:
+      "DeepSeek V4 ships under the MIT license with a 1M-token context and strong agentic tool-calling performance. Add the Blog2Video MCP endpoint and you have a fully open-weight blog-to-video pipeline that runs wherever DeepSeek runs.",
+    primaryKeyword: "blog2video mcp server deepseek",
+    keywordVariant: "connect mcp server deepseek blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "DeepSeek and MCP: why open-weight models work here",
+        paragraphs: [
+          "DeepSeek V4 shipped in April 2026 in two variants: V4-Pro (1.6T MoE, 49B active parameters) and V4-Flash (284B MoE, 13B active). Both expose a 1M-token context and are released under the MIT license, meaning you can run them locally, on your own cloud, or via the DeepSeek API.",
+          "For MCP, DeepSeek uses an OpenAI-compatible function-calling format. Any MCP client that supports the OpenAI tools array can route DeepSeek against remote MCP servers — including Blog2Video — with no modification.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server sits at https://api.blog2video.app/mcp/sse and exposes the full video-creation pipeline: scrape a blog URL, generate a script and scenes, get a preview link, and render to MP4.",
+          "Authentication is a Bearer token you copy from Blog2Video's Connect to AI page. Every call from your DeepSeek-powered agent must include Authorization: Bearer followed by that token.",
+        ],
+      },
+      {
+        heading: "Method 1: OpenAI-compatible API (zero extra config)",
+        paragraphs: [
+          "DeepSeek's API is OpenAI-compatible, which means any MCP client or framework that speaks the OpenAI function-calling format can swap in deepseek-v4-pro or deepseek-v4-flash as the model name and it will just work.",
+          "Add the Blog2Video MCP server to your chosen MCP client (Claude Code, LiteLLM proxy, or any OpenAI-format agent framework), then point the model at the DeepSeek API endpoint with your DeepSeek API key. The MCP layer stays the same; only the model changes.",
+        ],
+      },
+      {
+        heading: "Method 2: local CLI config via Claude Code",
+        paragraphs: [
+          "If you use Claude Code, you can add the Blog2Video server as a remote MCP entry. Run: claude mcp add --transport http blog2video https://api.blog2video.app/mcp/sse --header 'Authorization: Bearer YOUR_BLOG2VIDEO_JWT'.",
+          "This stores the server in your Claude Code MCP settings. You can then route requests through DeepSeek by configuring LiteLLM or another proxy to forward model calls to the DeepSeek API endpoint.",
+        ],
+        bullets: [
+          "DeepSeek API is OpenAI-compatible — no custom MCP client needed.",
+          "Model names: deepseek-v4-pro or deepseek-v4-flash.",
+          "Blog2Video endpoint: https://api.blog2video.app/mcp/sse.",
+          "Auth header: Authorization: Bearer followed by your Blog2Video JWT.",
+        ],
+      },
+      {
+        heading: "Method 3: local npx server alongside Blog2Video",
+        paragraphs: [
+          "For a fully local setup, add the DeepSeek MCP server to your config file alongside the Blog2Video server. The DeepSeek server wraps the DeepSeek API; the Blog2Video server exposes the video pipeline. Your MCP host can use both in the same session.",
+          "Add to your mcpServers config: blog2video with the HTTP endpoint and your JWT header, and deepseek with the npx command pointing to @arikusi/deepseek-mcp-server with your DEEPSEEK_API_KEY in the env block.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Which DeepSeek model should I use for blog-to-video workflows?",
+        answer:
+          "V4-Pro is the better choice for multi-step agentic workflows where accurate tool selection matters. V4-Flash is faster and cheaper for simpler pipelines where the prompt is explicit about which tools to call.",
+      },
+      {
+        question: "Can I run DeepSeek locally and still use the Blog2Video MCP server?",
+        answer:
+          "Yes. The Blog2Video MCP server is a remote HTTP endpoint — it runs in Blog2Video's cloud regardless of where your model runs. You can use a locally hosted DeepSeek instance as the AI and still call the remote Blog2Video tools.",
+      },
+      {
+        question: "Do I need a DeepSeek API key and a Blog2Video JWT?",
+        answer:
+          "Yes, both. The DeepSeek API key authenticates your model access; the Blog2Video JWT authenticates your calls to the Blog2Video MCP server. They are separate credentials for separate services.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to DeepSeek",
+        angle:
+          "Capture DeepSeek + MCP traffic from open-weight AI enthusiasts and developers.",
+      },
+      {
+        channel: "video",
+        title: "DeepSeek V4 + Blog2Video MCP: Full Walkthrough",
+        angle:
+          "Demo the OpenAI-compatible path with a blog URL to preview link flow.",
+      },
+      {
+        channel: "substack",
+        title: "DeepSeek V4 can now run your blog-to-video pipeline",
+        angle:
+          "Frame for developers following open-weight model news who want practical applications.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video MCP + DeepSeek V4: three connection methods compared",
+        angle:
+          "Technical deep dive for the open-source AI developer audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-kimi",
+    title: "How to Connect the Blog2Video MCP Server to Kimi",
+    description:
+      "Connect the Blog2Video MCP server to Moonshot AI's Kimi K2 using Kimi Code CLI or MCP Agent Studio. Run a full blog-to-video pipeline with one of 2026's strongest agentic open-weight models.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-kimi.png",
+    heroImageAlt:
+      "Kimi AI CLI interface with Blog2Video MCP tools connected, processing a blog URL into a video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Kimi K2 plus Blog2Video MCP: the strongest open agentic model meets real video output.",
+    heroDescription:
+      "Moonshot AI's Kimi K2.6 tops 2026's public agentic tool-calling benchmarks. Combine it with Blog2Video's MCP server and you have a pipeline that turns a blog URL into a shareable video preview in one agentic session.",
+    primaryKeyword: "blog2video mcp server kimi",
+    keywordVariant: "connect mcp server kimi k2 blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Kimi K2 and MCP: built for agentic tool use",
+        paragraphs: [
+          "Moonshot AI's Kimi K2.6 shipped on April 20, 2026, and quickly became the leading open-weight model on agentic tool-calling benchmarks. Kimi Code CLI is Moonshot's official agent CLI, purpose-built for multi-step tool use — exactly the pattern Blog2Video's pipeline requires.",
+          "MCP is a first-class feature in Kimi Code CLI. You can add any MCP server in two lines of config and Kimi will discover its tools, reason about them, and call them in the right order to complete a task.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server exposes the full video-creation pipeline at https://api.blog2video.app/mcp/sse. Give Kimi a blog URL and it can call create_video to scrape the article and generate scenes, then get_preview_url to return a shareable link.",
+          "Every call requires Authorization: Bearer followed by your JWT from Blog2Video's Connect to AI page. The server supports the HTTP Streamable and SSE transports that Kimi Code CLI expects.",
+        ],
+      },
+      {
+        heading: "Method 1: Kimi Code CLI",
+        paragraphs: [
+          "Kimi Code CLI stores its MCP configuration in ~/.kimi/mcp.json, using the same format as Claude Desktop and other standard MCP clients. To add Blog2Video, run: kimi mcp add --transport http blog2video https://api.blog2video.app/mcp/sse.",
+          "Then open ~/.kimi/mcp.json and add your Authorization header to the blog2video entry's headers field: Authorization: Bearer followed by your JWT.",
+          "Restart Kimi CLI. The Blog2Video tools will appear in your session. Ask Kimi to turn a blog URL into a video and it will handle the multi-step flow automatically.",
+        ],
+        bullets: [
+          "Run: kimi mcp add --transport http blog2video https://api.blog2video.app/mcp/sse",
+          "Add Authorization header to ~/.kimi/mcp.json.",
+          "Restart CLI to load the new server.",
+          "Confirm tools are available by asking Kimi to list Blog2Video tools.",
+        ],
+      },
+      {
+        heading: "Method 2: MCP Agent Studio (no install required)",
+        paragraphs: [
+          "MCP Agent Studio is a browser-based tool that lets you connect any MCP server to Kimi K2.6 without installing anything locally. Click Add Server, paste the Blog2Video endpoint URL, add your Bearer token in the auth field, and select Kimi K2.6 from the model dropdown.",
+          "This is the fastest way to test the Blog2Video MCP server with Kimi without setting up a local development environment. New accounts include starter credits.",
+        ],
+      },
+      {
+        heading: "What you can build with Kimi and Blog2Video",
+        paragraphs: [
+          "Kimi K2's strong agentic reasoning means it can handle the full blog-to-video workflow with minimal prompting. Give it a URL and say make a video. It will pick the right tools in the right order without step-by-step instructions.",
+          "For more complex workflows, Kimi can also handle scene editing: update narration text, reorder scenes, swap images, or change the template. Each action maps to a specific MCP tool that Kimi can call based on your natural-language instruction.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I get Kimi Code CLI?",
+        answer:
+          "Install it from the Moonshot AI GitHub repository at github.com/MoonshotAI/kimi-cli, or follow the instructions at platform.kimi.ai. You will need a Moonshot AI API key.",
+      },
+      {
+        question: "Can I use Kimi's web interface instead of the CLI?",
+        answer:
+          "MCP connector support in Kimi's web interface is still limited. For reliable MCP tool use, the Kimi Code CLI or MCP Agent Studio are the recommended paths.",
+      },
+      {
+        question: "Does Kimi K2 handle the create_video wait time well?",
+        answer:
+          "Yes. create_video blocks for one to five minutes, but Kimi Code CLI holds the tool call open until it returns. You do not need to poll or retry.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Kimi",
+        angle:
+          "Capture Kimi K2 + MCP search traffic from developers following open-weight agentic models.",
+      },
+      {
+        channel: "video",
+        title: "Kimi K2 + Blog2Video MCP: Demo",
+        angle:
+          "Short CLI demo showing the config and a blog-to-preview flow.",
+      },
+      {
+        channel: "substack",
+        title: "Kimi K2 is 2026's best agentic model. Here is how to point it at Blog2Video.",
+        angle:
+          "Frame for developers following open-weight AI news who want a practical use case.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video MCP + Kimi K2: CLI setup and live demo",
+        angle:
+          "Technical walkthrough for the open-weight AI developer audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-qwen",
+    title: "How to Connect the Blog2Video MCP Server to Qwen",
+    description:
+      "Connect the Blog2Video MCP server to Alibaba's Qwen 3 using the Qwen-Agent framework, the OpenAI-compatible API, or Qwen Code CLI. Run blog-to-video pipelines with Qwen's open-weight models.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-qwen.png",
+    heroImageAlt:
+      "Qwen AI agent connected to Blog2Video MCP server, turning a blog post into a video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Qwen 3 plus Blog2Video MCP: Alibaba's open models, real video output.",
+    heroDescription:
+      "Qwen 3 from Alibaba supports MCP via an OpenAI-compatible function-calling format and the Qwen-Agent framework. Add the Blog2Video MCP endpoint and Qwen can scrape articles, generate scenes, and return preview links as part of any agentic task.",
+    primaryKeyword: "blog2video mcp server qwen",
+    keywordVariant: "connect mcp server qwen alibaba blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Qwen 3 and MCP: OpenAI-compatible tool calling",
+        paragraphs: [
+          "Alibaba's Qwen 3 family ships with strong tool-calling performance and an OpenAI-compatible function-calling interface. That means any MCP client designed for the OpenAI tools array — including standard MCP hosts — can route Qwen against remote MCP servers with no modification.",
+          "Qwen Code, Alibaba's coding agent CLI, also supports MCP natively, storing server configurations in a format compatible with other standard MCP clients.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server at https://api.blog2video.app/mcp/sse exposes the full video pipeline as callable tools. The most important are create_video (scrape a blog URL and generate a project), get_preview_url (get a shareable watch link), and render_video (produce a downloadable MP4).",
+          "Authentication is a Bearer token from Blog2Video's Connect to AI page. Every request from your Qwen-powered agent needs Authorization: Bearer followed by that token.",
+        ],
+      },
+      {
+        heading: "Method 1: Qwen-Agent framework",
+        paragraphs: [
+          "Qwen-Agent is Alibaba's official framework for building Qwen-powered agents. It supports MCP servers as tool sources. Configure an MCP tool with type mcp, server_protocol sse, the Blog2Video endpoint URL, and your Authorization header.",
+          "Once configured, create an agent with the MCP tool in its tools list and the Qwen model of your choice. The agent will automatically call the right Blog2Video tools in response to a blog URL.",
+        ],
+        bullets: [
+          "Tool type: mcp, protocol: sse.",
+          "Server URL: https://api.blog2video.app/mcp/sse.",
+          "Header: Authorization: Bearer followed by your JWT.",
+          "Model: qwen3.5-plus or any Qwen 3 model.",
+        ],
+      },
+      {
+        heading: "Method 2: OpenAI-compatible API",
+        paragraphs: [
+          "Since Qwen uses the OpenAI-compatible function-calling format, you can use the standard MCP client approach: add the Blog2Video server to your MCP host, set the model to a Qwen API endpoint, and use your Qwen API key for model access.",
+          "Use the Alibaba Cloud Model Studio API endpoint with your Qwen model name such as qwen3.5-plus and include the Blog2Video MCP server configuration as you would for any OpenAI-format MCP client.",
+        ],
+      },
+      {
+        heading: "Method 3: Qwen Code CLI",
+        paragraphs: [
+          "If you use Qwen Code, Alibaba's coding agent CLI, you can add Blog2Video as an MCP server in the same way as other standard clients. Add an entry to the mcpServers config block with the Blog2Video endpoint and your auth header. The configuration format is compatible with Claude Desktop, Kimi CLI, and other standard MCP clients.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Which Qwen model works best for blog-to-video workflows?",
+        answer:
+          "Qwen3.5-plus offers a good balance of reasoning capability and speed for multi-step agentic workflows. Larger models like qwen-max give better results when the blog content is long or complex.",
+      },
+      {
+        question: "Can I run Qwen locally and still use the Blog2Video MCP server?",
+        answer:
+          "Yes. The Blog2Video MCP server is a remote HTTP endpoint. You can run Qwen locally via Ollama or any local inference server and still call the remote Blog2Video tools from your local agent.",
+      },
+      {
+        question: "Is there an official Qwen MCP client?",
+        answer:
+          "Qwen Code CLI is Alibaba's official CLI agent with MCP support. For the Qwen-Agent framework, documentation is available at the Alibaba Cloud Model Studio docs.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Qwen",
+        angle:
+          "Capture Qwen + MCP search traffic from developers in the Alibaba AI ecosystem.",
+      },
+      {
+        channel: "video",
+        title: "Qwen 3 + Blog2Video MCP: Agent Setup Demo",
+        angle:
+          "Show the Qwen-Agent config and a full blog-to-preview workflow.",
+      },
+      {
+        channel: "substack",
+        title: "Qwen 3 can now run your blog-to-video pipeline",
+        angle:
+          "Frame for developers following Alibaba AI releases who want practical use cases.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video MCP + Qwen 3: three connection methods",
+        angle:
+          "Technical comparison for the open-source AI developer audience on Medium.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-mcp-server-mistral",
+    title: "How to Connect the Blog2Video MCP Server to Mistral",
+    description:
+      "Connect the Blog2Video MCP server to Mistral AI via Le Chat, Mistral Studio, or the Mistral API. Add blog-to-video capabilities to any Mistral model or agent workflow.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-blog2video-mcp-server-mistral.png",
+    heroImageAlt:
+      "Mistral AI Le Chat interface with Blog2Video MCP connector enabled, converting a blog to video.",
+    publishedAt: "2026-06-04",
+    readTime: "7 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Mistral plus Blog2Video MCP: European-grade AI, real video output.",
+    heroDescription:
+      "Mistral AI has one of the cleanest MCP connector experiences available. Add Blog2Video from Le Chat's connector directory, from Mistral Studio, or via the API — and immediately use it with any Mistral model or agent.",
+    primaryKeyword: "blog2video mcp server mistral",
+    keywordVariant: "connect mcp server mistral ai blog to video",
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    sections: [
+      {
+        heading: "Mistral and MCP: a first-class connector experience",
+        paragraphs: [
+          "Mistral AI introduced MCP connector support in Le Chat and Mistral Studio in 2025 and extended it to the API in 2026. Connectors are registered MCP servers that you can use as tools in conversations, agents, and API calls — without managing MCP transport locally.",
+          "Mistral's implementation is notably clean: you add a URL and auth token, click Connect, and the platform detects authentication requirements automatically. All connected servers are also available via the SDK with no extra configuration.",
+        ],
+      },
+      {
+        heading: "What the Blog2Video MCP server does",
+        paragraphs: [
+          "The Blog2Video MCP server at https://api.blog2video.app/mcp/sse exposes the full video-creation pipeline as callable tools. Give Mistral a blog URL and it can call create_video to scrape the article and generate scenes, get_preview_url to mint a shareable watch link, and render_video to produce a downloadable MP4.",
+          "Authentication is a Bearer JWT from Blog2Video's Connect to AI page. Mistral's platform handles the token storage and injection automatically once you configure the connector.",
+        ],
+      },
+      {
+        heading: "Method 1: Le Chat connector directory",
+        paragraphs: [
+          "In Le Chat, click the + Add Connector button on the right side of the page. This opens the MCP Connectors directory. If Blog2Video is listed, click it and follow the token prompts.",
+          "If Blog2Video is not yet in the directory, click Add custom connector. Enter a connector name such as blog2video, the server URL https://api.blog2video.app/mcp/sse, and paste your JWT as the Bearer token. Click Connect — Mistral detects the auth method and completes the connection.",
+        ],
+        bullets: [
+          "+ Add Connector → MCP Connectors directory → search Blog2Video.",
+          "Or: + Add Connector → Add custom connector.",
+          "Server URL: https://api.blog2video.app/mcp/sse.",
+          "Auth: Bearer token → paste your JWT.",
+          "Click Connect.",
+        ],
+      },
+      {
+        heading: "Method 2: Mistral Studio",
+        paragraphs: [
+          "In Mistral Studio (Intelligence → Connectors), click Add connector and select the Add custom connector tab. Enter the same URL and token. The connector becomes available in all Studio conversations and in your Mistral agents.",
+          "Once connected, create an agent in Studio and add Blog2Video as a tool. The agent will call Blog2Video tools in response to user messages that include a blog URL.",
+        ],
+      },
+      {
+        heading: "Method 3: Mistral API and SDK",
+        paragraphs: [
+          "All Mistral connectors — built-in and custom — are available via the Mistral API and Python or JavaScript SDKs. Reference your Blog2Video connector by name in the tools parameter of any chat completion call.",
+          "This is the right path for production integrations where you want Mistral's reasoning combined with Blog2Video's video pipeline in a server-side workflow. No chat interface required.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Does Blog2Video appear in Mistral's built-in connector directory?",
+        answer:
+          "Check the current directory at mistral.ai. If it is not listed yet, use the custom connector path — the URL and Bearer token setup takes under two minutes.",
+      },
+      {
+        question: "Can I use Blog2Video connectors inside Mistral agents?",
+        answer:
+          "Yes. Any connector you add in Mistral Studio or Le Chat can be assigned to an agent as a tool. The agent will call Blog2Video tools automatically when a user provides a blog URL.",
+      },
+      {
+        question: "Which Mistral model should I use for blog-to-video workflows?",
+        answer:
+          "Mistral Large or Mistral Medium work well for multi-step agentic workflows. Mistral Small is faster and cheaper if your prompt is explicit about which tools to call.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect the Blog2Video MCP Server to Mistral",
+        angle:
+          "Capture Mistral AI + MCP search traffic from European and enterprise developers.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video + Mistral MCP: Le Chat Connector Demo",
+        angle:
+          "Show the Le Chat connector setup and a full blog-to-preview workflow.",
+      },
+      {
+        channel: "substack",
+        title: "Mistral now has a direct line to Blog2Video's video pipeline",
+        angle:
+          "Frame as a workflow upgrade for content teams using Mistral for EU-compliant AI.",
+      },
+      {
+        channel: "medium",
+        title: "Connecting Blog2Video to Mistral: Le Chat, Studio, and API",
+        angle:
+          "Technical comparison of all three connection methods for the Mistral developer audience.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-grow-your-substack-newsletter",
+    title: "How to Grow Your Substack Newsletter in 2026 (Niche Guide + YouTube Channel Option)",
+    description:
+      "A niche-by-niche playbook for growing your Substack in finance, politics, and public policy — plus how launching a YouTube channel and using Blog2Video's designer templates can 10x your reach.",
+    category: "Educational",
+    heroImage: "/blog/blog-cover-how-to-grow-your-substack-newsletter.png",
+    heroImageAlt:
+      "Editorial illustration of a Substack newsletter being repurposed into YouTube video content using designer templates.",
+    publishedAt: "2026-06-09",
+    readTime: "11 min read",
+    heroEyebrow: "Growth playbook",
+    heroTitle: "Your Substack can be a media empire. Most writers treat it like a hobby.",
+    heroDescription:
+      "Finance writers, policy analysts, political commentators — Substack is yours to own. Here's the 2026 playbook for growing your list, picking the right niche, launching a YouTube channel to amplify it, and using Blog2Video's designer templates to make every post look and feel like a broadcast.",
+    primaryKeyword: "how to grow your substack",
+    keywordVariant: "grow substack newsletter",
+    relatedPaths: [
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+      "/templates/bloomberg-terminal",
+      "/blogs/whats-new-in-blog2video-six-features",
+    ],
+    sections: [
+      {
+        heading: "Why most Substack newsletters stall — and what actually moves the needle in 2026",
+        paragraphs: [
+          "Substack crossed 50,000 paid creators in late 2025. At least 50 of them now earn over $1 million per year. The platform is real, the money is real, and the audience is there.",
+          "But the writers who stall share a pattern: they publish inconsistently, treat every platform as a separate job, and never find a sharp enough niche for readers to feel they need the newsletter specifically — not just newsletters in general.",
+          "In 2026, 40% of all new Substack subscriptions come from inside the Substack network itself, through the Recommendations feature and Substack Notes. That number has quietly made Substack the most self-contained discovery engine in independent media. If you're not using Notes and Recommendations as your primary growth engine, you are leaving most of your potential audience on the table.",
+          "The writers who grow — fast — do three things differently: they pick a niche with urgency and buying intent, they show up in Notes every single day, and they build a content loop that pulls readers from everywhere else into one place.",
+        ],
+      },
+      {
+        heading: "Pick your niche: the categories that grow fastest on Substack",
+        paragraphs: [
+          "Niche selection is not about being narrow for its own sake. It's about being specific enough that a reader immediately recognizes you as the person who covers this — and broad enough that your addressable audience is large enough to grow. Here's how the highest-velocity niches break down.",
+        ],
+        bullets: [
+          "Finance & Markets: Readers here have high buying intent and will pay for an edge. The strongest newsletters combine original research, trade ideas, and macro analysis with a point of view the reader can't get from financial media. Topics that perform: FX and equities, earnings breakdowns, dividend investing (Buffett-style frameworks are consistently popular), and US fiscal policy. The Bloomberg Terminal aesthetic — amber text on dark canvas, data-dense but calm — matches what finance readers associate with authority.",
+          "Politics & Political Analysis: The political Substack space is large and growing. The top newsletters — The Bulwark, The Free Press — succeed because they take a clear stance and defend it rigorously. Cross-platform partnerships tied to election cycles and premium subscriber-only series have driven 18% paid conversion rate lifts for top political writers. Video town halls (subscriber-exclusive, weekly) have also proven powerful: Jim Acosta's weekly video format led to 20% growth in his paid tier within six months.",
+          "Public Policy & Research: Data-driven policy writing is underserved and high-trust. Readers include researchers, think-tank staff, journalists, and staffers who actually pay for sharp analysis. Content syndication works especially well here — Cathy Young's free speech series was syndicated across two major digital outlets and drove a 15% subscriber spike in a single month. Pair detailed policy breakdowns with a clear narrative voice and your newsletter becomes a citation source.",
+          "Personal Finance: Personal finance never goes out of style. The format that works best is step-by-step, example-driven, and jargon-light. Readers share these newsletters because the advice is immediately actionable. Positioning matters: 'money for people who hate spreadsheets' lands differently than 'personal finance tips.'",
+          "Investing & Wealth Research: Long-form, research-heavy issues on specific sectors — AI, defense, biotech, energy transition — attract readers who treat the newsletter like a research service. These readers convert to paid at higher rates than any other category.",
+        ],
+      },
+      {
+        heading: "The four pillars of Substack growth in 2026",
+        paragraphs: [
+          "Strategy one is Substack Notes. Twenty minutes a day. Write one or two Notes — short, punchy observations tied to your niche — and engage with three to five other writers in your space. Notes is the platform's internal discovery surface, and consistent use compounds over weeks, not days. This is your highest-leverage free action.",
+          "Strategy two is cross-promotions and Recommendations. Individual newsletter swaps — where you recommend a peer and they recommend you — consistently generate 50 to 100 new subscribers per activation for newsletters in the 1,000–10,000 subscriber range. The key is finding writers at a similar growth stage in adjacent niches. A finance writer and a personal finance writer cross-promoting each other serves both audiences without cannibalizing either.",
+          "This works even better within finance itself when the newsletters cover different angles on the same scale. A macro newsletter, an earnings-focused newsletter, and a dividend-investing newsletter at the same subscriber tier rarely compete for the same read — a reader can subscribe to all three without redundancy. Pair up with two or three finance writers at your scale, set a monthly Recommendation swap and a joint Notes thread reacting to the same earnings print or Fed decision, and you are effectively running a shared distribution desk without splitting revenue or merging mastheads.",
+          "Strategy three is consistency over frequency. One issue per week is the standard most fast-growing newsletters use in their first year. Publishing every Tuesday beats publishing three times one week and nothing the next. Readers set expectations, and broken expectations cost subscribers. Pick a day, hold it.",
+          "Strategy four is sequencing your paid tier correctly. Add paid subscriptions only after you reach 3,000 to 5,000 free subscribers. Before that point, your energy is better spent growing the free list. After it, your conversion math starts working: even a 5% conversion at 5,000 free subscribers is 250 paying readers — at $10/month, that's $2,500 monthly recurring revenue before you've done a single paid campaign.",
+        ],
+      },
+      {
+        heading: "The option most Substack writers overlook: launch a YouTube channel",
+        paragraphs: [
+          "In 2026, the most successful writer-creators run YouTube and Substack as a single integrated system — not as two separate jobs.",
+          "Here's how the flywheel works: YouTube brings in new readers through search and the recommendation algorithm (YouTube's discovery is enormously powerful for niche topics). Your best YouTube viewers — the ones who watch more than 70% of a video — are exactly the readers who will subscribe to your Substack for more depth. Substack then converts that warm traffic into paid subscribers at $5–$10/month. YouTube earns ad revenue. Substack earns subscription revenue. Both grow the other.",
+          "The content doesn't need to be rebuilt from scratch. Your newsletter is already the script. A 1,200-word Substack issue translates into a six-to-eight minute YouTube video almost word for word. Finance writers can break down a trade thesis on camera. Policy writers can do a desk breakdown of a new bill. Political commentators can react to breaking news with the depth that YouTube's algorithm rewards.",
+          "From one newsletter issue, you can produce: a full YouTube video, three to five YouTube Shorts, clip-length versions for LinkedIn and X, and PNG slides for a LinkedIn carousel — all without writing anything new. That is not content repurposing. That is a distribution system.",
+        ],
+      },
+      {
+        heading: "The new insight: Blog2Video turns your Substack posts into YouTube-ready videos",
+        paragraphs: [
+          "Here is where the workflow changes entirely.",
+          "Blog2Video was built for exactly this use case: you have a blog, a newsletter issue, or a policy brief — and you need it on video without rebuilding the narrative from scratch. Paste the URL or text, and Blog2Video structures it into scenes, generates voiceover, picks visuals, and produces a video you can upload to YouTube within minutes.",
+          "But the part most writers miss is the designer templates. Blog2Video's templates are not generic slideshow presets. They are niche-matched visual identities built to make your content feel authoritative on screen, not like a Canva export.",
+          "The Bloomberg Terminal template was designed specifically for finance writers. Amber text on a dark canvas, a live ticker rail, monospaced precision — it mirrors the aesthetic finance readers associate with serious market analysis. If you're writing about earnings, rates, fiscal policy, or macro, this template tells viewers in the first two seconds that you know what you're talking about.",
+          "The Chronicle template was built for long-form narratives: cream backgrounds, tall serif type, illuminated drop caps, ornamental borders, and chapter-like pacing. Policy writers, political historians, and research-heavy journalists will recognize the register immediately. It's the difference between looking like a blog post and looking like a piece of long-form journalism.",
+          "Beyond these two, Blog2Video's template library spans explainer-style, news-anchor, minimalist, bold editorial, and data-heavy formats — so whether you write about personal finance, geopolitics, or market structure, there is a visual identity that matches the tone of your writing.",
+          "And the exports close the loop. Download as MP4 for YouTube. Export individual PNG scenes for a LinkedIn carousel. Save as PDF for newsletter embeds or media kits. Use the iframe embed to drop the video directly into a Substack post — no third-party upload required. Your YouTube launch does not add hours to your workflow. It adds a single step at the end of writing.",
+        ],
+      },
+      {
+        heading: "The distribution loop: one issue, every channel",
+        paragraphs: [
+          "Here is what the full system looks like for a finance writer publishing once a week:",
+          "Write your newsletter issue on Tuesday. It goes out to your Substack list as normal. Paste the URL into Blog2Video — select the Bloomberg Terminal template for the authority aesthetic — and generate the video. Upload the MP4 to YouTube with your newsletter issue title as the video title. Cut three Shorts from the generated scenes. Export PNG slides for a LinkedIn carousel post. Embed the video back into the Substack issue via iframe so your email subscribers can watch it inline.",
+          "You published once. You distributed six times across four channels. Every piece traces back to the original writing. Nothing was rebuilt from scratch.",
+          "For politics writers, the Chronicle or editorial template gives the same gravitas on screen that your prose already has on the page. For public policy researchers, the clean data-heavy templates let charts and citations carry the visual weight — matching the credibility your readers already associate with your work.",
+          "This is how Substack writers scale without hiring a team. The writing is already done. The distribution just needs a system.",
+        ],
+        bullets: [
+          "Finance writers: Bloomberg Terminal template for terminal-grade market authority",
+          "Politics writers: Chronicle or bold editorial templates for narrative weight",
+          "Public policy: data-heavy and clean templates that let the research speak",
+          "Personal finance: explainer and friendly templates for step-by-step walkthroughs",
+          "Investing research: news-anchor and structured templates for deep-dive credibility",
+        ],
+      },
+      {
+        heading: "Start with the writing you already have",
+        paragraphs: [
+          "You don't need a video team. You don't need a studio. You need a sharp niche, a publishing rhythm, and a system that turns every newsletter issue into a cross-platform asset.",
+          "Blog2Video handles the video side of that system. Your Bloomberg Terminal walkthrough of this week's earnings, your Chronicle-style policy breakdown, your explainer on why rates matter for dividend stocks — all of it is a YouTube video waiting to happen.",
+          "Try it with your last newsletter issue. Paste the URL, pick the template that matches your niche, and see what your writing looks like on screen.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your newsletter into video",
+      },
+    ],
+    faq: [
+      {
+        question: "How many subscribers do I need before I launch a YouTube channel alongside my Substack?",
+        answer:
+          "There is no required threshold. Many writers launch both simultaneously because YouTube search traffic builds the Substack list faster than Substack alone. If you already have 500 or more free subscribers, you have enough proof-of-niche to start a YouTube channel with confidence. The content is the same either way — YouTube just gives it a second distribution path.",
+      },
+      {
+        question: "Which niches grow fastest on Substack in 2026?",
+        answer:
+          "Finance, investing research, politics, and public policy consistently show strong subscriber growth and paid conversion on Substack. Personal finance performs well for virality and sharing. The common factor across all of them is a sharp point of view: readers subscribe to you specifically, not to the topic in general.",
+      },
+      {
+        question: "How does Blog2Video help Substack writers specifically?",
+        answer:
+          "Blog2Video converts your newsletter issues into structured video scenes with voiceover, visuals, and designer templates matched to your niche — Bloomberg Terminal for finance, Chronicle for long-form narratives, editorial and explainer formats for everything else. You export the video for YouTube, cut Shorts from the scenes, and embed the result back into Substack via iframe — all from the same source content.",
+      },
+      {
+        question: "What is the Bloomberg Terminal template and who is it for?",
+        answer:
+          "The Bloomberg Terminal template is a Blog2Video designer template that mimics the iconic trading-terminal aesthetic: amber text on a dark canvas, monospaced precision, and a ticker rail. It was built specifically for finance writers covering earnings, rates, macro, and market structure — audiences that associate this visual register with credibility and authority.",
+      },
+      {
+        question: "How do I turn a Substack issue into a YouTube video without a production team?",
+        answer:
+          "Paste the Substack post URL into Blog2Video. The tool structures the content into video scenes, generates narration, and adds visuals. Pick a designer template that matches your niche, download the MP4, and upload it to YouTube. The full process from post to uploaded video takes under 15 minutes for most newsletter-length content.",
+      },
+      {
+        question: "When should I add paid subscriptions to my Substack?",
+        answer:
+          "Most growth research points to 3,000–5,000 free subscribers as the right time to introduce paid tiers. Before that, focus on building the free list through Notes, cross-promotions, and your YouTube channel. After that threshold, even a 5% conversion rate generates meaningful recurring revenue.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Grow Your Substack Newsletter in 2026 (Niche Guide + YouTube Channel Option)",
+        angle:
+          "Capture search intent from Substack writers in finance, politics, and policy who want a concrete growth playbook — with Blog2Video as the video distribution layer.",
+      },
+      {
+        channel: "video",
+        title: "How to Grow a Substack Newsletter in 2026 — Niche Strategy + YouTube Channel Setup",
+        angle:
+          "Walk through the Bloomberg Terminal and Chronicle templates live. Show a newsletter turning into a YouTube video in real time. Demo the embed-back-into-Substack workflow.",
+      },
+      {
+        channel: "substack",
+        title: "The distribution system that turns one newsletter issue into six pieces of content",
+        angle:
+          "Frame as a workflow upgrade for Substack writers who are already writing well but not distributing effectively. Blog2Video is the new step at the end of the writing process.",
+      },
+      {
+        channel: "medium",
+        title: "Substack + YouTube: The Two-Platform System for Independent Media Writers in 2026",
+        angle:
+          "Medium developer and creator audience — frame the YouTube flywheel analytically, with Blog2Video as the production tool that makes the system practical without a team.",
+      },
+    ],
+  },
+  {
+    slug: "why-finance-newsletters-are-switching-to-blog2video",
+    title: "Why Finance Newsletters Are Switching to Blog2Video",
+    description:
+      "Generic AI video tools make finance content look like a TikTok. Blog2Video uses branded templates and built-in data visualization to turn newsletters into video the way finance audiences expect.",
+    category: "Use Case",
+    heroImage: "/blog/blog-cover-why-finance-newsletters-are-switching-to-blog2video.png",
+    heroImageAlt:
+      "Comparison of generic TikTok-style AI video versus Blog2Video's branded finance newsletter video with data visualization charts and editorial typography.",
+    publishedAt: "2026-06-21",
+    readTime: "3 min read",
+    heroEyebrow: "Use Case",
+    heroTitle: "Why finance newsletters are switching to Blog2Video.",
+    heroDescription:
+      "Generic AI video tools weren't built for finance content. Blog2Video was — branded templates, built-in data visualization, and one piece of content that works everywhere your audience is.",
+    primaryKeyword: "finance newsletter video tool",
+    keywordVariant: "video tool for finance newsletters",
+    relatedPaths: [
+      "/for-newsletters",
+      "/blog-to-video",
+      "/templates",
+      "/blogs/new-template-finance-publication",
+    ],
+    sections: [
+      {
+        heading: "Generic AI video tools weren't built for finance content",
+        paragraphs: [
+          "Most AI video generators are tuned for one outcome: maximum watch time on social feeds. That means fast cuts, flashy transitions, and an entertainment-first pace borrowed from TikTok.",
+          "That's the wrong fit for finance content. A newsletter audience reading about earnings, rate cycles, or a research thesis isn't looking for a hook every two seconds — they're expecting serious, data-driven analysis presented clearly.",
+        ],
+      },
+      {
+        heading: "Branded templates that match the tone of your publication",
+        paragraphs: [
+          "Blog2Video is different. Templates are built to match the tone and identity of your publication, not to imitate short-form entertainment.",
+          "No gimmicks. No fluff. Just your analysis, clearly presented — the same editorial register your readers already trust from your written newsletter.",
+        ],
+      },
+      {
+        heading: "Data visualization, built in",
+        paragraphs: [
+          "Finance content lives or dies on its numbers. Data visualization is built into Blog2Video, so the charts and figures in your spreadsheets actually show up on screen the way finance content deserves — not as a screenshot, but as a designed visual.",
+        ],
+      },
+      {
+        heading: "One branded video, every format you need",
+        paragraphs: [
+          "Because the output is fully branded, the same video works across multiple formats: client presentations, live trading session recaps, and social media.",
+          "One piece of content, everywhere you need it — instead of producing separate assets for each channel.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video for your newsletter",
+      },
+    ],
+    faq: [
+      {
+        question: "Why don't generic AI video tools work well for finance content?",
+        answer:
+          "Generic tools are tuned for short-form entertainment — fast cuts, flashy transitions, and a pace built for social scrolling. Finance audiences expect serious, data-driven analysis, not an entertainment-first format.",
+      },
+      {
+        question: "How does Blog2Video handle the charts and numbers in my newsletter?",
+        answer:
+          "Data visualization is built into Blog2Video, so the charts and figures from your spreadsheets are rendered on screen as designed visuals rather than static screenshots.",
+      },
+      {
+        question: "Can the same video work for client presentations and social media?",
+        answer:
+          "Yes. Because the output is fully branded, the same video works across client presentations, live trading session recaps, and social media — one piece of content distributed everywhere you need it.",
+      },
+      {
+        question: "Do I need to redesign my newsletter content for video?",
+        answer:
+          "No. Branded templates match the tone and identity of your existing publication, so your analysis is presented clearly without gimmicks or fluff added on top.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Why Finance Newsletters Are Switching to Blog2Video",
+        angle:
+          "Use-case piece aimed at finance newsletter writers, contrasting generic AI video tools with Blog2Video's branded, data-forward approach.",
+      },
+      {
+        channel: "video",
+        title: "Why finance newsletters are switching to Blog2Video",
+        angle:
+          "Walk through a branded finance template, show built-in data visualization on a real chart, and the same video repurposed across presentation, recap, and social formats.",
+      },
+      {
+        channel: "twitter",
+        title: "Generic AI video tools make your finance newsletter look like a TikTok. Here's the fix.",
+        angle:
+          "Lead with the TikTok contrast, show the branded template and chart visualization, end with the one-video-many-formats point.",
+      },
+    ],
+  },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ];

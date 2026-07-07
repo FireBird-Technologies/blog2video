@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import {
   Scene,
@@ -6,22 +7,219 @@ import {
   Asset,
   updateScene,
   updateSceneImage,
-  generateSceneImage,
+  assignExistingImageToScene,
+  updateSceneImageFocus,
   regenerateScene,
   getValidLayouts,
   LayoutInfo,
+  type LayoutPropSchema,
+  type LayoutPropFieldType,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
+<<<<<<< HEAD
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
+=======
+import GenerateSceneImageModal from "./GenerateSceneImageModal";
+import { getSceneLayoutLabel } from "../utils/layoutLabels";
+import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
+import { compileDataModule } from "../utils/compileComponent";
+import { normalizeLayoutId, getImageBoxAspectRatio, isImageBoxCircular } from "./remotion/imageBoxConfig";
+import { getTemplateConfig } from "./remotion/templateConfig";
+import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
+import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
+
+/** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
+const IMAGE_ADJUST_ZOOM_MIN = 0.1;
+const IMAGE_ADJUST_ZOOM_MAX = 8;
+import { OHLCVTableEditor } from "./OHLCVTableEditor";
+import { SpreadsheetTable } from "./SpreadsheetTable";
+import { ImportPreviewSheet } from "./ImportPreviewSheet";
+import {
+  isBuiltinDataVizChartLayout,
+  isBuiltinTickerLayout,
+  isChartTickerDataVizLayout,
+  builtinChartKindForLayout,
+  builtinDataVizExampleTable,
+  builtinTickerExampleTable,
+  getEconomistChartExampleTable,
+} from "./sceneEditBuiltinDataViz";
+import * as XLSX from "xlsx";
+
+type CraftedImageBoxEntry = string | { landscape?: string; portrait?: string } | undefined;
+
+type CraftedImageBoxConfig = {
+  default?: CraftedImageBoxEntry;
+  layouts?: Record<string, CraftedImageBoxEntry>;
+} & Record<string, unknown>;
+
+type FontSizePair = { title: number; desc: number };
+type CraftedFontSizeLeaf = {
+  title?: number;
+  desc?: number;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
+};
+type CraftedFontSizeEntry = CraftedFontSizeLeaf | {
+  landscape?: CraftedFontSizeLeaf;
+  portrait?: CraftedFontSizeLeaf;
+};
+type CraftedFontSizeConfig = {
+  default?: CraftedFontSizeEntry;
+  layouts?: Record<string, CraftedFontSizeEntry>;
+} & Record<string, unknown>;
+
+const CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES = [
+  "frontend/imageBoxConfig.json",
+  "imageBoxConfig.json",
+  "frontend/config/imageBoxConfig.json",
+];
+const CRAFTED_FONT_SIZE_CONFIG_CANDIDATES = [
+  "frontend/fontSizeDefaults.json",
+  "frontend/fontDefaults.json",
+  "fontSizeDefaults.json",
+  "fontDefaults.json",
+  "frontend/config/fontSizeDefaults.json",
+];
+
+const _normalizeLayoutKey = (layoutId: string | null): string => {
+  return String(layoutId || "").trim().toLowerCase().replace(/[-\s]+/g, "_");
+};
+
+const _pickCraftedAr = (
+  entry: CraftedImageBoxEntry,
+  orientation: "landscape" | "portrait",
+): string | null => {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    const v = entry.trim();
+    return v || null;
+  }
+  const v = (entry[orientation] || entry.landscape || entry.portrait || "").trim();
+  return v || null;
+};
+
+const _resolveCraftedImageBoxArFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): string | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedImageBoxConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedImageBoxConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+
+  const directRecord = parsed as Record<string, CraftedImageBoxEntry>;
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedAr(hit, orientation);
+};
+
+const _toFiniteFontNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
+const _pickCraftedFontPair = (
+  entry: CraftedFontSizeEntry | undefined,
+  orientation: "landscape" | "portrait",
+): FontSizePair | null => {
+  if (!entry || typeof entry !== "object") return null;
+  const e = entry as Record<string, unknown>;
+  const oriented =
+    ((e[orientation] as Record<string, unknown> | undefined) || (e.landscape as Record<string, unknown> | undefined) || (e.portrait as Record<string, unknown> | undefined) || e);
+  const title =
+    _toFiniteFontNumber(oriented.title) ??
+    _toFiniteFontNumber(oriented.titleFontSize);
+  const desc =
+    _toFiniteFontNumber(oriented.desc) ??
+    _toFiniteFontNumber(oriented.descriptionFontSize);
+  if (title == null && desc == null) return null;
+  return {
+    title: Math.round(title ?? 44),
+    desc: Math.round(desc ?? 24),
+  };
+};
+
+const _resolveCraftedFontDefaultsFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): FontSizePair | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_FONT_SIZE_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedFontSizeConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedFontSizeConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+  const directRecord = parsed as Record<string, CraftedFontSizeEntry>;
+
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedFontPair(hit, orientation);
+};
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
   default: {
-    text_narration: { title: [34, 44], desc: [20, 23] },
+    text_narration: { title: [100, 72], desc: [40, 30] },
     hero_image: { title: [40, 54] },
     image_caption: { title: [26, 32], desc: [17, 20] },
     bullet_list: { title: [30, 40], desc: [18, 22] },
@@ -92,6 +290,36 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     data_snapshot: { title: [38, 50], desc: [14, 16] },
     fact_check: { title: [36, 48], desc: [22, 24] },
     news_timeline: { title: [36, 48], desc: [15, 18] },
+    expert_profile: { title: [55, 58], desc: [32, 26] },
+    perspective_split: { title: [68, 63], desc: [30, 25] },
+    data_visualisation: { title: [64, 51], desc: [33, 27] },
+    ticker_table: { title: [64, 51], desc: [33, 27] },
+    ending_socials: { title: [88, 72], desc: [35, 27] },
+  },
+  mosaic: {
+    mosaic_title: { title: [150, 100], desc: [64, 44] },
+    mosaic_text: { title: [86, 56], desc: [50, 32] },
+    mosaic_punch: { title: [200, 130], desc: [34, 22] },
+    mosaic_stream: { title: [76, 50], desc: [42, 28] },
+    mosaic_metric: { title: [162, 106], desc: [34, 24] },
+    mosaic_phrases: {  title: [90, 62], desc: [40, 26] },
+    mosaic_close: { title: [104, 72], desc: [52, 34] },
+  },
+  magazine: {
+    magazine_cover: { title: [92, 62], desc: [16, 19] },
+    editorial_quote: { title: [56, 72], desc: [18, 24] },
+    by_the_numbers: { title: [56, 72], desc: [20, 26] },
+    interview_qa: { title: [40, 52], desc: [16, 20] },
+    magazine_data_visualization: { title: [56, 52], desc: [28, 26] },
+    timeline_journey: { title: [40, 52], desc: [16, 20] },
+    text_narration: { title: [100, 72], desc: [72, 30] },
+    ending_socials: { title: [88, 72], desc: [35, 27] },
+    magazine_ticker: { title: [52, 42], desc: [28, 22] },
+    comparison: { title: [92, 93], desc: [52, 30] },
+  },
+  stickman_football: {
+    football_data_viz: { title: [72, 64], desc: [38, 30] },
+    football_ticker: { title: [68, 60], desc: [34, 28] },
   },
   custom: {
     // Custom template arrangements (font sizes are approximate)
@@ -119,6 +347,12 @@ const LEGACY_NEWSCAST_LAYOUT_ID_ALIASES: Record<string, string> = {
   newscast_kinetic_insight: "headline_insight",
 };
 
+<<<<<<< HEAD
+=======
+const TICKER_TABLE_MAX_COLS = 6;
+const TICKER_TABLE_MAX_ROWS = 20;
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function normalizeLegacyNewscastLayoutId(template: string, layoutId: string): string {
   const normalizedTemplate = (template || "").toLowerCase();
   if (normalizedTemplate !== "newscast" && normalizedTemplate !== "newsreport") return layoutId;
@@ -175,6 +409,40 @@ export function getDefaultFontSizesFromSchema(
   };
 }
 
+<<<<<<< HEAD
+=======
+export function resolveDefaultFontSizesForScene(args: {
+  template: string;
+  layoutId: string | null;
+  aspectRatio: string;
+  layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
+  craftedFrontendFiles?: Record<string, string> | null;
+}): { title: number; desc: number } {
+  const {
+    template,
+    layoutId,
+    aspectRatio,
+    layoutPropSchema,
+    craftedFrontendFiles,
+  } = args;
+  const craftedDefaults = _resolveCraftedFontDefaultsFromFiles(
+    craftedFrontendFiles || null,
+    layoutId,
+    aspectRatio
+  );
+  const schemaDefaults = getDefaultFontSizesFromSchema(
+    layoutPropSchema,
+    layoutId,
+    aspectRatio
+  );
+  return craftedDefaults ?? schemaDefaults ?? getDefaultFontSizes(
+    template,
+    layoutId,
+    aspectRatio
+  );
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 // ─── Layout text field definitions ──────────────────────────
 type FieldType =
   | "string"
@@ -183,7 +451,16 @@ type FieldType =
   | "string_array"
   | "object_array"
   | "chart_table"
+<<<<<<< HEAD
   | "select";
+=======
+  | "ohlcv_table"
+  | "pipe_table"
+  | "ticker_table"
+  | "select"
+  | "number"
+  | "range";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 interface FieldDef {
   key: string;
@@ -192,8 +469,19 @@ interface FieldDef {
   subFields?: { key: string; label: string; placeholder?: string }[];
   placeholder?: string;
   maxItems?: number;
+<<<<<<< HEAD
   /** Options when type === "select" */
   options?: { value: string; label: string }[];
+=======
+  minItems?: number;
+  /** Options when type === "select" */
+  options?: { value: string; label: string }[];
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Display/render default when the value hasn't been saved yet. */
+  default?: string | number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 function normalizeColorValue(input: unknown, fallback: string): string {
@@ -399,7 +687,11 @@ function hasLegacyHistogramData(lp: Record<string, unknown>): boolean {
 
 function getEmptyChartTableForMode(mode: Exclude<DataVizTableMode, "auto">): { headers: string[]; rows: string[][] } {
   if (mode === "line") {
+<<<<<<< HEAD
     return { headers: ["Label", "Series 1"], rows: [] };
+=======
+    return { headers: ["Category", "Value"], rows: [] };
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   }
   if (mode === "histogram") {
     return { headers: ["Bucket", "Frequency"], rows: [] };
@@ -411,6 +703,253 @@ function chartTableHasData(table: { headers: string[]; rows: string[][] }): bool
   return table.rows.some((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
 }
 
+<<<<<<< HEAD
+=======
+/** Maps LaDuc `market_annotation*` layout ids to a concrete chart kind for example-table seeding. */
+function getLaDucMarketAnnotationChartTypeForLayout(
+  layoutId: string,
+): "line" | "bar" | "histogram" | undefined {
+  switch (layoutId) {
+    case "market_annotation":
+      return "line";
+    case "market_annotation_bar":
+      return "bar";
+    case "market_annotation_histogram":
+      return "histogram";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Magazine default sample content — the SAME rows the layout renderers fall back
+ * to when their props are empty. Keeping the modal's seed identical to the
+ * renderer fallback is what makes the modal, the stored props, and the on-screen
+ * preview show the same default data (parity with the data_visualization flow).
+ *
+ * Values must stay byte-identical with:
+ *   - remotion/magazine/layouts/ByTheNumbers.tsx (stats fallback)
+ *   - remotion/magazine/layouts/TimelineJourney.tsx (milestones fallback)
+ */
+const MAGAZINE_SAMPLE_STATS: Array<{ value: string; label: string }> = [
+  { value: "2.4M", label: "Monthly readers" },
+  { value: "98%", label: "Renewal rate" },
+  { value: "150+", label: "Countries" },
+  { value: "47", label: "Issues in print" },
+];
+const MAGAZINE_SAMPLE_MILESTONES: Array<{ date: string; label: string; desc: string }> = [
+  { date: "2019", label: "Company founded", desc: "Two founders, one rented desk, a first prototype." },
+  { date: "2021", label: "Series A funding", desc: "Backed to grow the team and ship faster." },
+  { date: "2023", label: "One million users", desc: "Word of mouth carried it across new markets." },
+  { date: "2025", label: "Global expansion", desc: "Offices on three continents and counting." },
+];
+
+/**
+ * LaDuc `market_annotation` example datasets per chart type — mirrors the
+ * defaults shipped in `backend/templates/laduc/meta.json` for the
+ * `market_annotation` / `market_annotation_bar` / `market_annotation_histogram`
+ * studio variants. Used to swap chartTable when the user changes chartType so
+ * the preview renders cleanly with shape-appropriate labels (dates for line,
+ * categories for bar, bucket ranges for histogram).
+ */
+function getLaDucMarketAnnotationExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "line") {
+    return {
+      headers: ["Date", "Close", "Flow index", "Positioning"],
+      rows: [
+        ["2024-01-02", "298", "72", "41"],
+        ["2024-02-01", "308", "68", "44"],
+        ["2024-03-01", "315", "61", "39"],
+        ["2024-04-01", "324", "55", "36"],
+        ["2024-05-01", "318", "59", "33"],
+      ],
+    };
+  }
+  if (chartType === "bar") {
+    return {
+      headers: ["Sector", "Close", "Flow index", "Positioning"],
+      rows: [
+        ["Tech", "324", "72", "41"],
+        ["Energy", "308", "55", "36"],
+        ["Healthcare", "315", "61", "39"],
+        ["Financials", "298", "68", "44"],
+        ["Semis", "318", "59", "33"],
+      ],
+    };
+  }
+  return {
+    headers: ["Score bucket", "Flow index", "Positioning"],
+    rows: [
+      ["30 - 40", "0", "1"],
+      ["40 - 50", "0", "2"],
+      ["50 - 60", "2", "2"],
+      ["60 - 70", "2", "0"],
+      ["70 - 80", "1", "0"],
+    ],
+  };
+}
+
+function getFJResearchMarketAnnotationExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "line") {
+    return {
+      headers: ["Date", "Close", "Flow index", "Positioning"],
+      rows: [
+        ["2024-01-02", "298", "72", "41"],
+        ["2024-02-01", "308", "68", "44"],
+        ["2024-03-01", "315", "61", "39"],
+        ["2024-04-01", "324", "55", "36"],
+        ["2024-05-01", "318", "59", "33"],
+      ],
+    };
+  }
+  if (chartType === "bar") {
+    return {
+      headers: ["Sector", "Series A", "Series B"],
+      rows: [
+        ["Semis", "42", "28"],
+        ["Energy", "38", "35"],
+        ["Financials", "45", "32"],
+        ["Healthcare", "40", "38"],
+        ["Industrials", "36", "34"],
+        ["Tech", "50", "41"],
+      ],
+    };
+  }
+  return {
+    headers: ["Score bucket", "Count"],
+    rows: [
+      ["0–10", "2"],
+      ["10–20", "6"],
+      ["20–30", "14"],
+      ["30–40", "18"],
+      ["40–50", "10"],
+      ["50–60", "4"],
+    ],
+  };
+}
+
+/**
+ * Custom-template example datasets per chart type — the generic counterpart to
+ * the built-ins' themed examples. The "line" shape mirrors the backend
+ * `_CUSTOM_DATAVIZ_SEED` (pipeline.py) so it matches the renderer's fallback;
+ * "bar" uses category labels and "histogram" uses bucket ranges so the preview
+ * reads correctly for the chosen shape. Used when the user changes the chart
+ * type on a custom data-viz scene that has no real data yet.
+ */
+function getCustomDataVizExampleTable(
+  chartType: "line" | "bar" | "histogram",
+): { headers: string[]; rows: string[][] } {
+  if (chartType === "bar") {
+    return {
+      headers: ["Category", "Revenue", "Growth %"],
+      rows: [
+        ["Product A", "120", "8"],
+        ["Product B", "145", "12"],
+        ["Product C", "170", "17"],
+        ["Product D", "210", "24"],
+      ],
+    };
+  }
+  if (chartType === "histogram") {
+    return {
+      headers: ["Range", "Count"],
+      rows: [
+        ["0 - 50", "4"],
+        ["50 - 100", "9"],
+        ["100 - 150", "15"],
+        ["150 - 200", "11"],
+        ["200 - 250", "6"],
+      ],
+    };
+  }
+  // line — mirrors backend _CUSTOM_DATAVIZ_SEED
+  return {
+    headers: ["Quarter", "Revenue", "Growth %"],
+    rows: [
+      ["Q1", "120", "8"],
+      ["Q2", "145", "12"],
+      ["Q3", "170", "17"],
+      ["Q4", "210", "24"],
+    ],
+  };
+}
+
+/** True when `table` matches one of the custom example datasets (i.e. it is
+ * seeded placeholder data, not something the user typed). Used to decide whether
+ * a chart-type change may safely swap the table for a shape-appropriate example. */
+function isCustomDataVizExampleTable(table: { headers: string[]; rows: string[][] }): boolean {
+  const sig = (t: { headers: string[]; rows: string[][] }) =>
+    JSON.stringify([t.headers, t.rows]);
+  const current = sig(table);
+  return (["line", "bar", "histogram"] as const).some(
+    (k) => sig(getCustomDataVizExampleTable(k)) === current,
+  );
+}
+
+/**
+ * Mirrors `mergeMarketAnnotationChartDefaults()` in
+ * [VideoPreview.tsx](./VideoPreview.tsx) — fills `chartTable` (and
+ * `chartType`) from `meta.json` `layout_prop_schema[layout].defaults`
+ * when the stored layoutProps don't carry one. Keeps SceneEditModal's
+ * "Edit chart data" preview in sync with the project preview and the
+ * rendered MP4.
+ *
+ * Scoped to laduc `market_annotation*` layouts and the built-in data-viz
+ * templates' chart layouts (matrix/spotlight/chronicle `*_data*`).
+ * Keep this in sync with the VideoPreview copy.
+ */
+function mergeMarketAnnotationChartDefaultsForLayout(
+  layoutProps: Record<string, unknown>,
+  templateId: string | null | undefined,
+  layoutId: string | null | undefined,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  const isChartLayout =
+    (!!layoutId && layoutId.startsWith("market_annotation")) ||
+    isBuiltinDataVizChartLayout(templateId, layoutId);
+  const isTickerLayout = isBuiltinTickerLayout(templateId, layoutId);
+  if (!layoutId || (!isChartLayout && !isTickerLayout)) return layoutProps;
+  if (!schema || Object.keys(schema).length === 0) return layoutProps;
+  const defaults = schema[layoutId]?.defaults;
+  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  if (isTickerLayout) {
+    const existingTickerTable = layoutProps.tickerTable;
+    const existingTickerTableHasRows =
+      existingTickerTable &&
+      typeof existingTickerTable === "object" &&
+      Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+      ((existingTickerTable as { rows: unknown[] }).rows.length > 0);
+    if (existingTickerTableHasRows) return layoutProps;
+    if (defaults.tickerTable && typeof defaults.tickerTable === "object") {
+      return { ...layoutProps, tickerTable: defaults.tickerTable };
+    }
+    return layoutProps;
+  }
+
+  const existingTable = layoutProps.chartTable;
+  const existingTableHasRows =
+    existingTable &&
+    typeof existingTable === "object" &&
+    Array.isArray((existingTable as { rows?: unknown }).rows) &&
+    ((existingTable as { rows: unknown[] }).rows.length > 0);
+  if (existingTableHasRows && layoutProps.chartType) return layoutProps;
+
+  const next = { ...layoutProps };
+  if (!existingTableHasRows && defaults.chartTable && typeof defaults.chartTable === "object") {
+    next.chartTable = defaults.chartTable;
+  }
+  if (!layoutProps.chartType && typeof defaults.chartType === "string") {
+    next.chartType = defaults.chartType;
+  }
+  return next;
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function projectChartTableForMode(
   table: { headers: string[]; rows: string[][] },
   mode: DataVizTableMode,
@@ -683,6 +1222,97 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   data_stream: [{ key: "items", label: "Items", type: "string_array", maxItems: 8 }],
   cipher_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
     subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 3 }],
+<<<<<<< HEAD
+=======
+  // Mosaic template
+  mosaic_text: [
+    { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "diagonal", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_punch: [
+    { key: "word", label: "Word / phrase", type: "string" },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "scatter", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_stream: [
+    { key: "items", label: "Items", type: "string_array", maxItems: 8 },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "linear", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 5 },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "center", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_phrases: [
+    { key: "phrases", label: "Phrases", type: "string_array", maxItems: 8 },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "center", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_close: [
+    { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
+    { key: "cta", label: "Call to action", type: "string" },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "diagonal", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_title: [
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "scatter", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  ending_socials: [
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "center", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   data_visualization: [
     { key: "barChartRows", label: "Bar chart data", type: "object_array",
       subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
@@ -806,6 +1436,80 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   news_timeline: [
     { key: "stats", label: "Timeline events", type: "object_array", subFields: [{ key: "value", label: "Date" }, { key: "label", label: "Description" }], maxItems: 5 },
   ],
+  expert_profile: [
+    { key: "category", label: "Section badge", type: "string", placeholder: "e.g. Expert Voices" },
+    { key: "leftThought", label: "Expert name", type: "string", placeholder: "e.g. Dr. Jane Smith" },
+    { key: "rightThought", label: "Expert role / organisation", type: "string", placeholder: "e.g. Senior Policy Analyst" },
+    {
+      key: "stats",
+      label: "Key credential",
+      type: "object_array",
+      subFields: [
+        { key: "value", label: "Value (e.g. 20yr)" },
+        { key: "label", label: "Caption (e.g. in Federal Policy)" },
+      ],
+      maxItems: 1,
+    },
+  ],
+  perspective_split: [
+    { key: "leftThought", label: "Left perspective", type: "text", placeholder: "Supporters' argument" },
+    { key: "rightThought", label: "Right perspective", type: "text", placeholder: "Critics' argument" },
+    {
+      key: "stats",
+      label: "Panel labels & stats",
+      type: "object_array",
+      subFields: [
+        { key: "label", label: "Panel heading (e.g. SUPPORTERS SAY)" },
+        { key: "value", label: "Key stat (e.g. +14%)" },
+      ],
+      maxItems: 2,
+    },
+  ],
+  // LaDuc layouts
+  data_impact: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. April 2026 · The Stealth Bid" },
+    { key: "stats", label: "Data columns", type: "object_array", subFields: [{ key: "value", label: "Number / Amount" }, { key: "label", label: "Category Name" }], maxItems: 5 },
+  ],
+  deep_dive: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. Macro · Deep Dive" },
+    { key: "stats", label: "Fact rows", type: "object_array", subFields: [{ key: "label", label: "Tag (1–2 words)" }, { key: "value", label: "Supporting fact sentence" }], maxItems: 4 },
+    { key: "footerNote", label: "Footer tag", type: "string", placeholder: "e.g. Source: Bloomberg · Apr 2026" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  // LaDuc layouts that don't share IDs with other templates
+  two_column: [
+    { key: "category", label: "Eyebrow label", type: "string" },
+    { key: "leftTitle", label: "Left column title", type: "string" },
+    { key: "rightTitle", label: "Right column title", type: "string" },
+    { key: "leftBody", label: "Left body text", type: "text" },
+    { key: "rightBody", label: "Right body text", type: "text" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  framework_flow: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. The Process · 5 Steps" },
+    { key: "steps", label: "Steps", type: "object_array", subFields: [{ key: "number", label: "Number (01–06)" }, { key: "label", label: "Step name (short)" }, { key: "sub", label: "Subtitle (3–6 words)" }], maxItems: 6 },
+    { key: "footerNote", label: "Footer note", type: "string" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  sign_off: [
+    { key: "category", label: "Issue / session label", type: "string", placeholder: "e.g. Issue #12 · May 2026" },
+    { key: "signOff", label: "Closing line", type: "string", placeholder: "e.g. We make our own luck." },
+    { key: "footerNote", label: "Footer note", type: "string" },
+    { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+    { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+  ],
+  market_annotation: [
+    { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. $GOLD · Price trend" },
+    { key: "chartTable", label: "Chart data table", type: "chart_table" },
+    { key: "subtitle", label: "X-axis label", type: "string", placeholder: "e.g. Trading date" },
+    { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Price (Rs.)" },
+    { key: "barPrimaryColor", label: "Bar/line color 1", type: "color", placeholder: "#60939C" },
+    { key: "barSecondaryColor", label: "Bar/line color 2", type: "color", placeholder: "#CBBCA2" },
+    { key: "stats", label: "Trade levels (optional)", type: "object_array", subFields: [{ key: "label", label: "Label (ENTRY/TARGET/STOP)" }, { key: "value", label: "Level" }], maxItems: 3 },
+  ],
 };
 
 /** Template-specific overrides for layout fields (when same layout id exists in multiple templates with different props). */
@@ -832,11 +1536,29 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
   newscast: {
     data_visualization: [
       { key: "chartTable", label: "Chart data table", type: "chart_table" },
+<<<<<<< HEAD
+=======
+      {
+        key: "chartType",
+        label: "Chart Type",
+        type: "select",
+        default: "bar",
+        options: [
+          { label: "Bar", value: "bar" },
+          { label: "Line", value: "line" },
+          { label: "Histogram", value: "histogram" },
+        ],
+      },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       { key: "barPrimaryColor", label: "Bar color 1", type: "color", placeholder: "#FF3B30" },
       { key: "barSecondaryColor", label: "Bar color 2", type: "color", placeholder: "#1E5FD4" },
       { key: "barTertiaryColor", label: "Bar color 3", type: "color", placeholder: "#FF3B30" },
       { key: "lineUpColor", label: "Line color 1", type: "color", placeholder: "#3CE46A" },
       { key: "lineDownColor", label: "Line color 2", type: "color", placeholder: "#FF3B30" },
+<<<<<<< HEAD
+=======
+      { key: "lineThirdColor", label: "Line color 3", type: "color", placeholder: "#1E5FD4" },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
   },
   whiteboard: {
@@ -850,6 +1572,153 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "stats", label: "Source / publication", type: "object_array", subFields: [{ key: "label", label: "Source" }], maxItems: 1 },
     ],
   },
+<<<<<<< HEAD
+=======
+  /** Bloomberg Terminal — layout content keys. ending_socials uses the dedicated CTA / socials block. */
+  bloomberg: {
+    terminal_boot: [
+      { key: "items", label: "Boot log lines", type: "string_array", maxItems: 8 },
+    ],
+    terminal_narrative: [],
+    terminal_chart: [
+      { key: "ticker", label: "Ticker / symbol tag", type: "string" },
+      { key: "ohlcvTable", label: "OHLCV Chart Data", type: "ohlcv_table" },
+      { key: "xAxisLabel", label: "X-axis label", type: "string", placeholder: "e.g. TRADING DAYS" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. PRICE ($)" },
+    ],
+    terminal_dashboard: [
+      {
+        key: "metrics",
+        label: "KPI tiles",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+          { key: "suffix", label: "Change / suffix" },
+        ],
+        maxItems: 6,
+      },
+    ],
+    terminal_ticker: [
+      { key: "items", label: "Ticker rows", type: "string_array", maxItems: 10 },
+    ],
+    terminal_table: [
+      { key: "items", label: "Table rows (first row = header)", type: "pipe_table", maxItems: 12 },
+    ],
+    terminal_split: [
+      { key: "leftLabel", label: "Left label", type: "string" },
+      { key: "rightLabel", label: "Right label", type: "string" },
+      { key: "leftDescription", label: "Left description", type: "text" },
+      { key: "rightDescription", label: "Right description", type: "text" },
+    ],
+    terminal_dataviz: [
+      { key: "chartTable", label: "Chart data table", type: "chart_table" },
+      {
+        key: "chartType",
+        label: "Chart Type",
+        type: "select",
+        options: [
+          { label: "Auto-detect", value: "auto" },
+          { label: "Bar", value: "bar" },
+          { label: "Line", value: "line" },
+          { label: "Histogram", value: "histogram" },
+        ],
+      },
+      { key: "xAxisLabel", label: "X-axis label", type: "string", placeholder: "e.g. Year" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Revenue ($)" },
+    ],
+    terminal_list: [
+      { key: "items", label: "Watch list items", type: "string_array", maxItems: 8 },
+    ],
+    terminal_metric: [
+      {
+        key: "metrics",
+        label: "Metric tiles",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+          { key: "suffix", label: "Suffix", placeholder: "%" },
+        ],
+        maxItems: 6,
+      },
+    ],
+    terminal_profile: [
+      { key: "items", label: "Profile rows", type: "string_array", maxItems: 8 },
+    ],
+    terminal_options: [
+      { key: "items", label: "Options chain rows (first row = header)", type: "pipe_table", maxItems: 10 },
+    ],
+    ending_socials: [],
+  },
+  /** Chronicle — medieval tome layout content keys. ending_socials uses the dedicated CTA / socials block above. */
+  chronicle: {
+    book_open: [],
+    parchment_scroll: [
+      { key: "category", label: "Section tag", type: "string", placeholder: "e.g. Chapter I, Folio II" },
+      { key: "illuminatedLetter", label: "Drop cap letter (optional)", type: "string", placeholder: "Auto from first letter" },
+      {
+        key: "stats",
+        label: "Byline / dating (optional)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+        ],
+        maxItems: 2,
+      },
+    ],
+    chapter_plate: [
+      {
+        key: "subtitle",
+        label: "Kicker above title (optional)",
+        type: "string",
+        placeholder: "e.g. Act One, The Founding Years — leave blank to skip",
+      },
+    ],
+    illuminated_quote: [
+      { key: "quote", label: "Quote (overrides narration)", type: "text" },
+      { key: "highlightPhrase", label: "Phrase to highlight in red", type: "string" },
+      { key: "attribution", label: "Attribution", type: "string" },
+    ],
+    ledger_stats: [
+      {
+        key: "stats",
+        label: "Ledger entries (1-3)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Number" },
+          { key: "label", label: "Descriptor" },
+        ],
+        maxItems: 3,
+      },
+    ],
+    versus_folio: [
+      { key: "leftLabel", label: "Left page heading", type: "string" },
+      { key: "rightLabel", label: "Right page heading", type: "string" },
+      { key: "leftDescription", label: "Left page body", type: "text" },
+      { key: "rightDescription", label: "Right page body", type: "text" },
+    ],
+    chronicle_timeline: [
+      {
+        key: "stats",
+        label: "Waypoints (up to 4)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Year / marker" },
+          { key: "label", label: "Event" },
+        ],
+        maxItems: 4,
+      },
+    ],
+    map_reveal: [],
+    decree_seal: [
+      { key: "word", label: "The blackletter word", type: "string", placeholder: "e.g. DECREED, FINIS, HONOR" },
+      { key: "highlightWord", label: "Alt word (ignored if 'word' set)", type: "string" },
+      { key: "cta", label: "Sign-off", type: "string" },
+    ],
+  },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   /** Black Swan — layout content keys (typography still uses sliders + meta defaults). ending_socials uses the dedicated CTA / socials block above. */
   blackswan: {
     droplet_intro: [],
@@ -888,6 +1757,414 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "phrases", label: "Path steps", type: "string_array", maxItems: 8 },
     ],
   },
+<<<<<<< HEAD
+=======
+  /** Stick Man 2 (Night Edition) — layout content keys per prompt.md. ending_socials uses the dedicated CTA / socials block. */
+  stickman_2: {
+    chalk_title: [],
+    night_walk: [],
+    shooting_star: [],
+    constellation_stats: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 100, $1.2M, 98%" },
+        ],
+        minItems: 3,
+        maxItems: 6,
+      },
+      {
+        key: "signFontSize",
+        label: "Sign text size",
+        type: "number",
+        min: 10,
+        max: 80,
+        step: 1,
+      },
+    ],
+    moonphase_chart: [
+      {
+        key: "bars",
+        label: "Moon phases",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value (ignored)", placeholder: "Optional" },
+        ],
+        minItems: 3,
+        maxItems: 5,
+      },
+    ],
+    shadow_comparison: [
+      {
+        key: "leftThought",
+        label: "Left thought",
+        type: "text",
+        placeholder: "Short phrase for the left figure's thought cloud",
+      },
+      {
+        key: "rightThought",
+        label: "Right thought",
+        type: "text",
+        placeholder: "Short phrase for the right figure's thought cloud",
+      },
+    ],
+    signal_fire_scene: [],
+    neon_countdown: [
+      {
+        key: "startFrom",
+        label: "Countdown from",
+        type: "number",
+        min: 2,
+        max: 9,
+        step: 1,
+        default: 5,
+      },
+      {
+        key: "label",
+        label: "Label beneath ring",
+        type: "string",
+        placeholder: "Optional short label",
+      },
+    ],
+    lantern_dialogue: [
+      {
+        key: "leftBubble",
+        label: "Left dialogue",
+        type: "text",
+        placeholder: "Line spoken by the left figure (first half of scene)",
+      },
+      {
+        key: "rightBubble",
+        label: "Right dialogue",
+        type: "text",
+        placeholder: "Line spoken by the right figure (second half of scene)",
+      },
+      {
+        key: "speakers",
+        label: "Speaker names",
+        type: "object_array",
+        subFields: [{ key: "label", label: "Name" }],
+        maxItems: 2,
+      },
+    ],
+    ending_socials: [],
+  },
+  /** Stickman Football Match — layout content keys per meta.json. ending_socials uses the dedicated CTA / socials block. */
+  stickman_football: {
+    kickoff_title: [
+      {
+        key: "subline",
+        label: "Subline",
+        type: "string",
+        placeholder: "e.g. Match Day — Highlights",
+      },
+    ],
+    passing_play: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 62%, 14, 3" },
+        ],
+        maxItems: 4,
+      },
+    ],
+    freekick_setup: [
+      {
+        key: "shotLabel",
+        label: "Shot caption",
+        type: "string",
+        placeholder: "e.g. Top corner",
+      },
+      {
+        key: "kickerName",
+        label: "Kicker name",
+        type: "string",
+        placeholder: "e.g. Striker",
+      },
+      {
+        key: "kickerNumber",
+        label: "Kicker number",
+        type: "string",
+        placeholder: "e.g. #9",
+      },
+    ],
+    corner_kick: [
+      {
+        key: "steps",
+        label: "Steps",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label", placeholder: "e.g. Flick on" },
+          { key: "detail", label: "Detail", placeholder: "e.g. Near post" },
+        ],
+        minItems: 3,
+        maxItems: 5,
+      },
+    ],
+    goal_moment: [
+      {
+        key: "goalLabel",
+        label: "Goal stamp",
+        type: "string",
+        placeholder: "e.g. GOAL!",
+      },
+      {
+        key: "scoreline",
+        label: "Scoreline",
+        type: "string",
+        placeholder: "e.g. 2 – 1",
+      },
+      {
+        key: "kickerName",
+        label: "Kicker name",
+        type: "string",
+        placeholder: "e.g. Striker",
+      },
+      {
+        key: "kickerNumber",
+        label: "Kicker number",
+        type: "string",
+        placeholder: "e.g. #9",
+      },
+    ],
+    match_stats: [
+      {
+        key: "stats",
+        label: "Stats",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 62%, 14, 3" },
+        ],
+        maxItems: 5,
+      },
+    ],
+    injury_break: [
+      { key: "leftLabel", label: "Left label", type: "string", placeholder: "e.g. What happened" },
+      { key: "rightLabel", label: "Right label", type: "string", placeholder: "e.g. The outcome" },
+      { key: "leftDescription", label: "Left description", type: "text" },
+      { key: "rightDescription", label: "Right description", type: "text" },
+    ],
+    ball_control: [
+      {
+        key: "skillCaption",
+        label: "Skill caption",
+        type: "string",
+        placeholder: "e.g. First touch",
+      },
+      {
+        key: "stats",
+        label: "Stats (above head)",
+        type: "object_array",
+        subFields: [
+          { key: "label", label: "Label" },
+          { key: "value", label: "Value", placeholder: "e.g. 57, 1.2k" },
+        ],
+        maxItems: 3,
+      },
+    ],
+    text_narration: [
+      { key: "eyebrow", label: "Eyebrow", type: "string", placeholder: "e.g. Match Report" },
+      { key: "leftLabel", label: "Left reporter", type: "string", placeholder: "e.g. Pundit One" },
+      { key: "leftDescription", label: "Left report", type: "text", placeholder: "Verdict on the cardboard sign" },
+      { key: "rightLabel", label: "Right reporter", type: "string", placeholder: "e.g. Pundit Two" },
+      { key: "rightDescription", label: "Right report", type: "text", placeholder: "Verdict on the cardboard sign" },
+    ],
+    ending_socials: [],
+  },
+  /** LaDuc — overrides for layout IDs shared with other templates */
+  laduc: {
+    masthead: [
+      { key: "category", label: "Issue line", type: "string", placeholder: "e.g. May 2026 · Issue 12" },
+      { key: "subheading", label: "Subheading / deck", type: "string", placeholder: "e.g. Macro-to-Micro · April 2026" },
+      { key: "issueTag", label: "Issue badge (top-right)", type: "string", placeholder: "e.g. May 2026" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    thesis_statement: [
+      { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. The Thesis" },
+      { key: "quote", label: "Core thesis (displayed large)", type: "text", placeholder: "e.g. A synthetic bull rally cannot afford to stall." },
+      { key: "attribution", label: "Attribution / source", type: "string", placeholder: "e.g. LaDuc · May 2026" },
+      { key: "subheading", label: "Kicker above quote", type: "string" },
+      { key: "footerNote", label: "Footer note", type: "string" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    kinetic_quote: [
+      { key: "quote", label: "Full quote text", type: "text", placeholder: "e.g. Don't risk more than you are willing to lose." },
+      { key: "highlightWord", label: "Word to italicize", type: "string", placeholder: "e.g. willing" },
+      { key: "attribution", label: "Attribution", type: "string", placeholder: "e.g. — Samantha LaDuc" },
+      { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. Mom's Smell Test" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    ticker: [
+      { key: "tickerTitle", label: "Table title", type: "string", placeholder: "e.g. Portfolio Holdings · Q1 2026" },
+      { key: "tickerFootnote", label: "Footnote / source", type: "string", placeholder: "e.g. Source: Bloomberg" },
+      { key: "tickerTable", label: "Ticker rows", type: "ticker_table" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+    ],
+    market_annotation: [
+      { key: "category", label: "Chart label", type: "string", placeholder: "e.g. $GOLD · Price trend" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
+      {
+        key: "chartType",
+        label: "Chart type",
+        type: "select",
+        default: "auto",
+        options: [
+          { value: "auto", label: "Auto" },
+          { value: "line", label: "Line" },
+          { value: "bar", label: "Bar" },
+          { value: "histogram", label: "Histogram" },
+        ],
+      },
+      { key: "subtitle", label: "X-axis / category caption", type: "string", placeholder: "e.g. Trading date" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Index / score" },
+      { key: "chartSummary", label: "Chart summary (short read beside the graphic)", type: "string", placeholder: "Price trends higher through April..." },
+      { key: "chartTimeframeLabel", label: "Chart timeframe label (top-right)", type: "string", placeholder: "1D / 5m" },
+      { key: "footerNote", label: "Y-axis caption / footer note", type: "string", placeholder: "Source: Bloomberg" },
+      { key: "narration", label: "Thesis quote (bottom italic)", type: "string" },
+      { key: "barPrimaryColor", label: "Bar / line color 1", type: "color", placeholder: "#60939C" },
+      { key: "barSecondaryColor", label: "Bar / line color 2", type: "color", placeholder: "#CBBCA2" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
+      { key: "chartYAxisTicks", label: "Y-axis tick labels (top → bottom, 2–4 values)", type: "string_array", maxItems: 4 },
+      { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    ],
+    ending_socials: [
+      { key: "brandName", label: "Brand name", type: "string", placeholder: "e.g. LaDucTrading" },
+      { key: "ctaButtonText", label: "CTA button text", type: "string", placeholder: "e.g. Join LaDucTrading" },
+      { key: "websiteLink", label: "Website URL", type: "string", placeholder: "e.g. https://laductrading.com" },
+    ],
+  },
+  fj_research: {
+    market_annotation: [
+      { key: "category", label: "Chart label", type: "string", placeholder: "e.g. S&P 500 · Daily · May 2026" },
+      { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "FJResearch · Chart Desk" },
+      {
+        key: "chartType",
+        label: "Chart type",
+        type: "select",
+        default: "auto",
+        options: [
+          { value: "auto", label: "Auto (infer from data)" },
+          { value: "line", label: "Line" },
+          { value: "bar", label: "Bar" },
+          { value: "histogram", label: "Histogram" },
+        ],
+      },
+      { key: "subtitle", label: "X-axis / category caption", type: "string", placeholder: "e.g. Trading date" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Index level" },
+      { key: "chartSummary", label: "Chart summary (short read beside the graphic)", type: "string", placeholder: "Market context and key takeaway..." },
+      { key: "chartTimeframeLabel", label: "Chart timeframe label (top-right)", type: "string", placeholder: "1D / 5m" },
+      { key: "footerNote", label: "Y-axis caption / footer note", type: "string", placeholder: "Source: Bloomberg Terminal" },
+      { key: "narration", label: "Thesis quote (bottom italic)", type: "string" },
+      { key: "barPrimaryColor", label: "Bar / line color 1", type: "color", placeholder: "#0A0A0A" },
+      { key: "barSecondaryColor", label: "Bar / line color 2", type: "color", placeholder: "#B5B5B5" },
+      { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "fj_researchtrading.com" },
+      { key: "chartYAxisTicks", label: "Y-axis tick labels (top → bottom, 2–4 values)", type: "string_array", maxItems: 4 },
+      { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    ],
+  },
+  economist: {
+    chart_line: [
+      { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+      { key: "panelNumber", label: "Panel Number", type: "string", placeholder: "e.g. 1" },
+      { key: "highlightSeries", label: "Highlighted Series (≤4)", type: "string_array", maxItems: 4 },
+      { key: "seriesColors", label: "Series Colours", type: "string_array", maxItems: 4 },
+      {
+        key: "labelMode",
+        label: "Series Labels",
+        type: "select",
+        default: "end",
+        options: [
+          { value: "end", label: "At line end" },
+          { value: "inline", label: "Inline on chart" },
+        ],
+      },
+      {
+        key: "emphasizeZero",
+        label: "Emphasise Zero Line",
+        type: "select",
+        default: "true",
+        options: [
+          { value: "true", label: "Enabled" },
+          { value: "false", label: "Disabled" },
+        ],
+      },
+      { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
+    ],
+    chart_bar: [
+      { key: "chartTable", label: "Chart data (col 1: category labels; cols 2+: numeric series; max 20 rows)", type: "chart_table" },
+      {
+        key: "chartType",
+        label: "Orientation",
+        type: "select",
+        default: "bar",
+        options: [
+          { value: "bar", label: "Vertical bars" },
+          { value: "hbar", label: "Ranked horizontal" },
+        ],
+      },
+      { key: "unit", label: "Value Unit", type: "string", placeholder: "%" },
+      { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
+    ],
+    data_table: [
+      { key: "chartTable", label: "Table data (col 1: row labels; cols 2+: values; max 20 rows)", type: "chart_table" },
+      { key: "unit", label: "Value Unit", type: "string", placeholder: "$bn" },
+      { key: "explainer", label: "Takeaway", type: "text", placeholder: "Auto (computed from the data) — or write 1–2 sentences" },
+    ],
+  },
+  magazine: {
+    magazine_cover: [],
+    editorial_quote: [
+      { key: "attribution", label: "Attribution", type: "string", placeholder: "— Mara Voss, Editor" },
+    ],
+    by_the_numbers: [
+      { key: "sectionLabel", label: "Eyebrow text", type: "string", placeholder: "By the Numbers" },
+      { key: "displayTitle", label: "Display headline", type: "string", placeholder: "By the Numbers" },
+      { key: "stats", label: "Key figures", type: "object_array", subFields: [{ key: "value", label: "Value", placeholder: "2.4M" }, { key: "label", label: "Label", placeholder: "Monthly readers" }], maxItems: 4 },
+    ],
+    interview_qa: [
+      { key: "leftSpeaker", label: "Interviewee name", type: "string", placeholder: "Mara Voss" },
+      { key: "rightSpeaker", label: "Role / organisation", type: "string", placeholder: "Art Director, Atlas Review" },
+      { key: "exchanges", label: "Q&A exchanges", type: "object_array", subFields: [{ key: "q", label: "Question", placeholder: "Where does a redesign actually begin?" }, { key: "a", label: "Answer", placeholder: "It begins long before anything is drawn. We spend weeks reading the magazine as a reader would, noting where the eye stumbles and where it glides…" }], maxItems: 3 },
+      { key: "leftQuote", label: "Left speaker's statement (legacy)", type: "text", placeholder: "Legacy — use Q&A exchanges instead." },
+      { key: "rightQuote", label: "Right speaker's response (legacy)", type: "text", placeholder: "Legacy — use Q&A exchanges instead." },
+    ],
+    magazine_data_visualization: [
+      { key: "chartTable", label: "Chart data", type: "chart_table" },
+      { key: "chartType", label: "Chart type", type: "select", default: "auto", options: [{ value: "auto", label: "Auto" }, { value: "line", label: "Line" }, { value: "bar", label: "Bar" }, { value: "histogram", label: "Histogram" }] },
+      { key: "chartSummary", label: "Insight summary", type: "string", placeholder: "Readership climbed steadily before levelling off near the high." },
+    ],
+    timeline_journey: [
+      { key: "milestones", label: "Milestones", type: "object_array", subFields: [{ key: "date", label: "Date", placeholder: "2021" }, { key: "label", label: "Event", placeholder: "The full redesign" }, { key: "desc", label: "Detail", placeholder: "What happened, in a few words" }], maxItems: 6 },
+    ],
+    feature: [
+      { key: "heading", label: "Headline", type: "string", placeholder: "The Shape of Things to Come" },
+      { key: "sectionLabel", label: "Section label", type: "string", placeholder: "FEATURE" },
+      { key: "body", label: "Article body", type: "text", placeholder: "Original feature prose (60–110+ words) flowing across both pages; its first letter becomes the red drop cap." },
+      { key: "keyPoints", label: "Key points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Attention is the scarce resource" }], maxItems: 3 },
+    ],
+    comparison: [
+      { key: "leftHeader", label: "Left header", type: "string", placeholder: "Before" },
+      { key: "rightHeader", label: "Right header", type: "string", placeholder: "After" },
+      { key: "leftPoints", label: "Left points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Columns ran too wide to read" }], maxItems: 6 },
+      { key: "rightPoints", label: "Right points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Type is set with generous air" }], maxItems: 6 },
+      { key: "vsLabel", label: "Centre badge", type: "string", placeholder: "VS" },
+    ],
+    closing_page: [],
+    ending_socials: [],
+  },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };
 
 /** Structured content fields for AI-generated custom template scenes. */
@@ -912,6 +2189,32 @@ const CUSTOM_CONTENT_FIELDS: Record<string, FieldDef[]> = {
   timeline: [{ key: "timelineItems", label: "Timeline items", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 6 }],
   steps: [{ key: "steps", label: "Steps", type: "string_array", maxItems: 8 }],
+<<<<<<< HEAD
+=======
+};
+
+// Editable fields for the custom-template dedicated data-viz scenes (chart +
+// table). Keyed off scene.scene_type rather than template id so they work for
+// any custom_<id> template — parity with the built-in data-viz editor.
+const CUSTOM_DATAVIZ_FIELDS: Record<"chart" | "table", FieldDef[]> = {
+  chart: [
+    { key: "chartTable", label: "Chart data (col 1: X labels; cols 2–4: numeric series; max 20 rows)", type: "chart_table" },
+    {
+      key: "chartType",
+      label: "Chart Type",
+      type: "select",
+      default: "line",
+      options: [
+        { label: "Line", value: "line" },
+        { label: "Bar", value: "bar" },
+        { label: "Histogram", value: "histogram" },
+      ],
+    },
+  ],
+  table: [
+    { key: "chartTable", label: "Table data (col 1: row labels; cols 2+: values; max 20 rows)", type: "chart_table" },
+  ],
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };
 
 function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
@@ -920,6 +2223,231 @@ function getLayoutFields(template: string, layoutId: string | null): FieldDef[] 
   const normalizedTemplate = t === "newsreport" ? "newscast" : t;
   const canonicalLayoutId = normalizeLegacyNewscastLayoutId(t, layoutId);
   return LAYOUT_TEXT_FIELDS_OVERRIDE[normalizedTemplate]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
+<<<<<<< HEAD
+=======
+}
+
+/**
+ * Build default layoutProps for a layout from its FieldDef list. Universal
+ * fallback (works for every template with no per-template `sample_props`): uses
+ * each field's placeholder for text/list fields, and one starter row built from
+ * the subField placeholders for object arrays. Chart/table/color fields are
+ * intentionally skipped — those are seeded by the template-specific example-data
+ * paths in `applySelectedLayout`. Callers merge this over existing props, only
+ * filling keys that are currently empty, so real content is never clobbered.
+ */
+function buildDefaultLayoutPropsFromFields(fields: FieldDef[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const f of fields) {
+    switch (f.type) {
+      case "string":
+      case "text":
+        if (f.placeholder) out[f.key] = f.placeholder;
+        break;
+      case "string_array":
+        if (f.placeholder) out[f.key] = [f.placeholder];
+        break;
+      case "object_array": {
+        const subs = f.subFields ?? [];
+        if (subs.length) {
+          const row: Record<string, string> = {};
+          for (const sf of subs) row[sf.key] = sf.placeholder ?? "";
+          // Only seed a starter row if at least one subfield has a placeholder,
+          // so we don't insert an all-empty row that reads as noise.
+          if (subs.some((sf) => sf.placeholder)) out[f.key] = [row];
+        }
+        break;
+      }
+      case "select":
+        if (f.default != null) out[f.key] = f.default;
+        break;
+      // chart_table / ticker_table / ohlcv_table / pipe_table / color / number /
+      // range — left to the template-specific seeders / defaults.
+    }
+  }
+  return out;
+}
+
+/**
+ * Module-scoped cache of compiled crafted-template layout field defs.
+ * Keyed by `template_id`. Survives modal close/reopen within the session;
+ * cleared on full reload (matches localStorage cache TTL behavior).
+ */
+const __craftedLayoutFieldsCache = new Map<string, Record<string, FieldDef[]>>();
+
+/** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
+const HIDDEN_LAYOUT_PROP_KEYS = new Set([
+  "hideImage",
+  "assignedImage",
+  "imageUrl",
+  "imageBoxAspectRatio",
+  "ImageBoxAspectRatio",
+  "image_box_aspect_ratio",
+  "titleFontSize",
+  "descriptionFontSize",
+  // Image framing state — edited via the image adjust UI, never as a raw
+  // "extra" content input (they otherwise leak in as IMAGEFOCUSX / IMAGEFOCUSY).
+  "imageFocusX",
+  "imageFocusY",
+  "imageZoom",
+]);
+
+const HIDDEN_LAYOUT_PROP_KEYS_LOWER = new Set(
+  Array.from(HIDDEN_LAYOUT_PROP_KEYS).map((k) => k.toLowerCase()),
+);
+
+function isHiddenLayoutPropKey(key: string): boolean {
+  return HIDDEN_LAYOUT_PROP_KEYS_LOWER.has(String(key || "").toLowerCase());
+}
+
+/**
+ * Keys that were once valid for a template/layout but have been deprecated.
+ * They are silently hidden from the editor so stale scene data doesn't surface
+ * dead fields. (The value may still exist in saved `layoutProps` but the
+ * layout component no longer reads it.)
+ */
+const DEPRECATED_LAYOUT_PROP_KEYS: Record<string, Record<string, Set<string>>> = {
+  chronicle: {
+    chapter_plate: new Set(["chapterNumber"]),
+  },
+};
+
+function isDeprecatedLayoutPropKey(
+  template: string | undefined,
+  layoutId: string | null,
+  key: string,
+): boolean {
+  if (!template || !layoutId) return false;
+  const t = template.toLowerCase();
+  return DEPRECATED_LAYOUT_PROP_KEYS[t]?.[layoutId]?.has(key) ?? false;
+}
+
+function schemaLayoutPropTypeToFieldType(t: LayoutPropFieldType): FieldType | null {
+  switch (t) {
+    case "string":
+    case "text":
+    case "color":
+    case "number":
+    case "select":
+    case "string_array":
+    case "object_array":
+      return t;
+    case "chart_table":
+      return "chart_table";
+    case "ticker_table":
+      return "ticker_table";
+    default:
+      return null;
+  }
+}
+
+/** Prefer bundled layoutFields.ts; fall back to API meta.layout_prop_schema for crafted templates. */
+function layoutPropSchemaToFieldDefs(schema: LayoutPropSchema | undefined): FieldDef[] | undefined {
+  if (!schema?.fields?.length) return undefined;
+  const out: FieldDef[] = [];
+  for (const f of schema.fields) {
+    if (isHiddenLayoutPropKey(f.key)) continue;
+    const ft = schemaLayoutPropTypeToFieldType(f.type);
+    if (!ft) continue;
+    out.push({
+      key: f.key,
+      label: f.label,
+      type: ft,
+      placeholder: f.placeholder,
+      maxItems: f.maxItems,
+      minItems: f.minItems,
+      min: f.min,
+      max: f.max,
+      step: f.step,
+      options: f.options?.map((o) => ({ value: o.value, label: o.label })),
+      subFields: f.subFields,
+    });
+  }
+  return out.length ? out : undefined;
+}
+
+function pickCraftedCompiledLayoutFields(
+  byLayout: Record<string, FieldDef[]> | null | undefined,
+  layoutId: string | null,
+): FieldDef[] | undefined {
+  if (!byLayout || !layoutId) return undefined;
+  const direct = byLayout[layoutId];
+  if (Array.isArray(direct) && direct.length > 0) return direct;
+  const lower = layoutId.toLowerCase();
+  const altKey = Object.keys(byLayout).find((k) => k.toLowerCase() === lower);
+  const alt = altKey ? byLayout[altKey] : undefined;
+  if (Array.isArray(alt) && alt.length > 0) return alt;
+  return undefined;
+}
+
+function pickLayoutPropSchemaFieldDefs(
+  schemaMap: Record<string, LayoutPropSchema> | undefined,
+  layoutId: string | null,
+): FieldDef[] | undefined {
+  if (!schemaMap || !layoutId) return undefined;
+  let defs = layoutPropSchemaToFieldDefs(schemaMap[layoutId]);
+  if (defs?.length) return defs;
+  const lower = layoutId.toLowerCase();
+  const altKey = Object.keys(schemaMap).find((k) => k.toLowerCase() === lower);
+  return altKey ? layoutPropSchemaToFieldDefs(schemaMap[altKey]) : undefined;
+}
+
+function normalizeObjectArrayItems(raw: unknown): Record<string, string>[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((it) => {
+    if (it != null && typeof it === "object" && !Array.isArray(it)) {
+      const o = it as Record<string, unknown>;
+      const out: Record<string, string> = {};
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        out[k] =
+          v == null
+            ? ""
+            : typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+              ? String(v)
+              : JSON.stringify(v);
+      }
+      return out;
+    }
+    return { value: String(it ?? "") };
+  });
+}
+
+function inferObjectArraySubFields(
+  items: Record<string, string>[],
+): { key: string; label: string; placeholder?: string }[] {
+  const first = items.find((row) => row && typeof row === "object");
+  if (!first) return [];
+  return Object.keys(first).map((k) => ({
+    key: k,
+    label: k.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
+  }));
+}
+
+function formatUnknownLayoutPropValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function parseUnknownLayoutPropValue(raw: string, prevValue: unknown): unknown {
+  // For array/object props, preserve shape by accepting JSON edits.
+  if (Array.isArray(prevValue) || (prevValue != null && typeof prevValue === "object")) {
+    const trimmed = raw.trim();
+    if (!trimmed) return Array.isArray(prevValue) ? [] : {};
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return prevValue;
+    }
+  }
+  return raw;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 /** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
@@ -932,12 +2460,13 @@ const HIDDEN_LAYOUT_PROP_KEYS = new Set([
 ]);
 
 // Auto-growing textarea component
-function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
+function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2, disabled = false }: {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   className?: string;
   placeholder?: string;
   minRows?: number;
+  disabled?: boolean;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -960,6 +2489,7 @@ function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2
       placeholder={placeholder}
       className={className}
       rows={minRows}
+      disabled={disabled}
     />
   );
 }
@@ -975,10 +2505,177 @@ interface Props {
   scene: Scene;
   project: Project;
   imageItems: SceneImageItem[];
+  availableImageItems: SceneImageItem[];
   onSaved: () => void;
+  openImageAdjustOnOpen?: boolean;
+  /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
+  demoMode?: SceneEditModalDemoMode;
 }
 
 type EditMode = "manual" | "ai";
+
+/** Read-only demo mode used by help videos: skips API calls, seeds editing state, renders inline. */
+export interface SceneEditModalDemoMode {
+  editMode?: EditMode;
+  regenerateVoiceover?: boolean;
+}
+
+export function SceneEditModalDemo({
+  scene,
+  editMode = "manual",
+  regenerateVoiceover = false,
+}: {
+  scene: Scene;
+  editMode?: EditMode;
+  regenerateVoiceover?: boolean;
+}) {
+  const inputClass =
+    "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+  const textareaClass = `${inputClass} resize-none overflow-hidden`;
+
+  return (
+    <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">Edit Scene {scene.order}</h2>
+        <button className="p-1 rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="p-6 overflow-y-auto flex-1">
+        <div>
+          <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
+            Editing mode
+          </h4>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+            <button
+              type="button"
+              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                editMode === "manual"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Manual editing
+            </button>
+            <button
+              type="button"
+              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                editMode === "ai"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              AI-Assisted editing
+            </button>
+          </div>
+          {editMode === "ai" && (
+            <p className="mt-1 text-xs text-gray-600 font-medium">
+              AI-Assisted-Editing limit: Unlimited
+            </p>
+          )}
+        </div>
+
+        {editMode === "manual" ? (
+          <div className="mt-5 space-y-4">
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Title</h4>
+              <input type="text" readOnly value={scene.title} className={inputClass} />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Display text
+              </h4>
+              <textarea
+                readOnly
+                value={scene.display_text ?? scene.narration_text}
+                className={textareaClass}
+                rows={2}
+              />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Narration text (voiceover script)
+              </h4>
+              <textarea readOnly value={scene.narration_text} className={textareaClass} rows={3} />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Layout
+              </h4>
+              <select disabled value="statement" className={`${inputClass} bg-white`}>
+                <option value="statement">Statement</option>
+              </select>
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Scene image
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                <button className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                <button className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Visual description <span className="normal-case tracking-normal text-gray-300">(optional)</span>
+              </h4>
+              <textarea
+                readOnly
+                value="Make the scene more concise and emphasize the main takeaway."
+                className={textareaClass}
+                rows={2}
+              />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Narration text (voiceover script)
+              </h4>
+              <textarea readOnly value={scene.narration_text} className={textareaClass} rows={3} />
+              <p className="mt-1.5 text-xs text-gray-400">
+                This controls the spoken narration and scene timing. Display text is edited in Manual mode.
+              </p>
+            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+              <input
+                type="checkbox"
+                readOnly
+                checked={regenerateVoiceover}
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Regenerate voiceover</span>
+                <p className="text-[11px] text-gray-400 mt-0.5">Create new audio for this scene after saving.</p>
+              </div>
+            </label>
+          </div>
+        )}
+      </div>
+
+      <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-2">
+        <button className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+          Cancel
+        </button>
+        <button className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors">
+          {editMode === "manual" ? "Save changes" : "Apply AI edit"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function SceneEditModal({
   open,
@@ -986,9 +2683,13 @@ export default function SceneEditModal({
   scene,
   project,
   imageItems,
+  availableImageItems,
   onSaved,
+  openImageAdjustOnOpen = false,
+  demoMode,
 }: Props) {
-  const [editMode, setEditMode] = useState<EditMode>("manual");
+  const isDemo = !!demoMode;
+  const [editMode, setEditMode] = useState<EditMode>(demoMode?.editMode ?? "ai");
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
@@ -997,7 +2698,13 @@ export default function SceneEditModal({
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
   const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
+<<<<<<< HEAD
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
+=======
+  const [regenerateVoiceover, setRegenerateVoiceover] = useState(demoMode?.regenerateVoiceover ?? false);
+  // When true, the narration is spoken word-for-word (no AI rephrasing on regeneration).
+  const [matchNarrationExactly, setMatchNarrationExactly] = useState(true);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
   const ENDING_SOCIALS_KEYS = [
     "instagram",
@@ -1020,24 +2727,105 @@ export default function SceneEditModal({
     linkedin: { enabled: false, label: "LinkedIn" },
     tiktok: { enabled: false, label: "TikTok" },
   };
+<<<<<<< HEAD
   const [endingSocials, setEndingSocials] = useState<
     Record<typeof ENDING_SOCIALS_KEYS[number], { enabled: boolean; label: string }>
   >(ENDING_SOCIALS_DEFAULT);
   const [endingShowWebsiteButton, setEndingShowWebsiteButton] = useState(true);
   const [endingWebsiteLink, setEndingWebsiteLink] = useState("");
   const [endingCtaButtonText, setEndingCtaButtonText] = useState("");
+=======
+  type EndingSocialKey = typeof ENDING_SOCIALS_KEYS[number];
+  type CtaDraft = {
+    ctaButtonText: string;
+    websiteLink: string;
+    showWebsiteButton: boolean;
+  };
+  const MAX_CTAS = 3;
+  const makeDefaultCta = (): CtaDraft => ({
+    ctaButtonText: "",
+    websiteLink: "",
+    showWebsiteButton: true,
+  });
+  // Multi-CTA: array of 1..3 CTAs. The socials list below is global to the scene
+  // (matches the original single-CTA UX). Each CTA is just a pill + URL.
+  const [ctas, setCtas] = useState<CtaDraft[]>([makeDefaultCta()]);
+  const [endingSocials, setEndingSocials] = useState<
+    Record<EndingSocialKey, { enabled: boolean; label: string }>
+  >(ENDING_SOCIALS_DEFAULT);
+  // Derived single-CTA mirror, fed from ctas[0]. Renderers that still read the
+  // flat layoutProps fields (most crafted templates) see this; the new ctas array
+  // is also persisted so updated renderers can fan out into columns.
+  const endingShowWebsiteButton = ctas[0]?.showWebsiteButton ?? true;
+  const endingWebsiteLink = ctas[0]?.websiteLink ?? "";
+  const endingCtaButtonText = ctas[0]?.ctaButtonText ?? "";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
+  const [scrapedImagesModalOpen, setScrapedImagesModalOpen] = useState(false);
+  const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
+  const [assigningExistingImage, setAssigningExistingImage] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imageFocusX, setImageFocusX] = useState(50);
+  const [imageFocusY, setImageFocusY] = useState(50);
+  const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
+  const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
+  const [isAdjustDragging, setIsAdjustDragging] = useState(false);
+  const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
+  const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
+  const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
-  const [generatingImage, setGeneratingImage] = useState(false);
+  // AI-mode disclosure: reveal the "tell AI what to change" box on demand.
+  const [showImproveBox, setShowImproveBox] = useState(false);
+  const [showImageGenModal, setShowImageGenModal] = useState(false);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
+  const [tickerTableModalOpen, setTickerTableModalOpen] = useState(false);
+  const [tickerTableModalKey, setTickerTableModalKey] = useState<string | null>(null);
+  const [tickerTableDraft, setTickerTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [chartTableModalOpen, setChartTableModalOpen] = useState(false);
+  const [chartTableModalKey, setChartTableModalKey] = useState<string | null>(null);
+  const [chartTableDraft, setChartTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [chartTableError, setChartTableError] = useState<string | null>(null);
+  // pipe_table modal (bloomberg terminal table etc) — same UI as chartModal
+  const [pipeTableModalOpen, setPipeTableModalOpen] = useState(false);
+  const [pipeTableModalKey, setPipeTableModalKey] = useState<string | null>(null);
+  const [pipeTableModalMaxRows, setPipeTableModalMaxRows] = useState(20);
+  const [pipeTableModalMaxCols, setPipeTableModalMaxCols] = useState(10);
+  const [pipeTableDraft, setPipeTableDraft] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [tickerDropOver, setTickerDropOver] = useState(false);
+  const [chartDropOver, setChartDropOver] = useState(false);
+  // Import preview (replaces old sheet-picker + col-picker modals)
+  const [importPreview, setImportPreview] = useState<{
+    matrix: string[][];
+    sheetNames?: string[];
+    activeSheet?: string;
+    wb?: import("xlsx").WorkBook;
+    maxCols: number;
+    maxRows: number;
+    isChartTable?: boolean;
+  } | null>(null);
+  const chartTableErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chartImportCallbackRef = useRef<((t: { headers: string[]; rows: string[][] }) => void) | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
+  const localImageInputRef = useRef<HTMLInputElement>(null);
+  const chartFileInputRef = useRef<HTMLInputElement>(null);
+  const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
+  const imageAdjustPanRef = useRef<{
+    startX: number;
+    startY: number;
+    startFx: number;
+    startFy: number;
+  } | null>(null);
+  const shouldAutoOpenAdjustRef = useRef(false);
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -1058,17 +2846,55 @@ export default function SceneEditModal({
   const canUseAI = isPro || aiUsageCount < 3;
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
+<<<<<<< HEAD
+=======
+  const isCraftedTemplate = (project.template || "").startsWith("crafted_");
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const normalizedTemplateId = (project.template || "default").toLowerCase();
   const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
   const isDefaultTemplate = normalizedTemplateId === "default";
+<<<<<<< HEAD
+=======
+  const isBloombergTemplate = normalizedTemplateId === "bloomberg";
+  const isLaDucTemplate = normalizedTemplateId === "laduc";
+  const isEconomistTemplate = normalizedTemplateId === "economist";
+  // FJ Market Brief is a crafted template — project.template carries the public id.
+  const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
-  const currentLayoutId = (() => {
+  // Custom templates get 2 dedicated, editable data-viz scenes (chart + table).
+  // A content scene can also be converted to data-viz via the layout dropdown, in
+  // which case scene_type stays "content" but the descriptor carries a
+  // sceneTypeOverride of dataviz_chart/dataviz_table.
+  const sceneTypeOverride: string | null = (() => {
+    if (!isCustomTemplate || !scene.remotion_code) return null;
+    try {
+      return JSON.parse(scene.remotion_code).sceneTypeOverride ?? null;
+    } catch { return null; }
+  })();
+  const dataVizKind: "chart" | "table" | null =
+    scene.scene_type === "dataviz_chart" || sceneTypeOverride === "dataviz_chart" ? "chart"
+    : scene.scene_type === "dataviz_table" || sceneTypeOverride === "dataviz_table" ? "table"
+    : null;
+
+  // The layout persisted on the scene (parsed from remotion_code). Used where we
+  // need "the scene's real current layout" — e.g. the dropdown's "Keep current"
+  // affordances — regardless of any in-flight dropdown selection.
+  const savedLayoutId = (() => {
+    // Dedicated/converted data-viz scenes route by scene type, not descriptor layout.
+    if (dataVizKind) return dataVizKind === "chart" ? "custom_chart" : "custom_table";
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
+<<<<<<< HEAD
         // Custom templates: check for variant override first
         if (desc.sceneTypeOverride) {
+=======
+        // Only custom templates use sceneType/content variant routing.
+        // Crafted + built-in templates should map by explicit layout id.
+        if (isCustomTemplate && desc.sceneTypeOverride) {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           if (desc.sceneTypeOverride === "content" && typeof desc.contentVariantIndex === "number") {
             return `content_${desc.contentVariantIndex}`;
           }
@@ -1081,16 +2907,44 @@ export default function SceneEditModal({
     } catch { /* ignore */ }
     return null;
   })();
+  // The EFFECTIVE layout the modal renders fields for: a concrete pending
+  // dropdown selection wins over the saved layout, so switching layouts swaps the
+  // editable fields immediately (before saving). `__keep__`/`__auto__` have no
+  // concrete target, so they fall back to the saved layout.
+  const pendingLayout =
+    selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__"
+      ? selectedLayout
+      : null;
+  const currentLayoutId = pendingLayout ?? savedLayoutId;
   const currentLayoutLabel = currentLayoutId
     ? getSceneLayoutLabel(
         project.template,
         currentLayoutId,
         layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " ")
       )
+<<<<<<< HEAD
+=======
+    : "Current layout";
+  // Label for the scene's REAL current layout — used by the dropdown's "Keep
+  // current" row so it names the saved layout even while a new one is picked.
+  const savedLayoutLabel = savedLayoutId
+    ? getSceneLayoutLabel(
+        project.template,
+        savedLayoutId,
+        layouts?.layout_names[savedLayoutId] || savedLayoutId.replace(/[-_]/g, " ")
+      )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     : "Current layout";
 
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
+  // `supportsImage` follows the EFFECTIVE layout so switching into an image-less
+  // layout hides the image controls before saving.
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
+<<<<<<< HEAD
+=======
+  // Per the scene's SAVED layout — for the "Keep current" dropdown row's note.
+  const savedSupportsImage = !savedLayoutId || !layoutsWithoutImage.has(savedLayoutId);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // Custom templates: detect outro by sceneTypeOverride, ctaProps presence, or position (last scene)
   const isCustomOutro = isCustomTemplate && (() => {
     if (currentLayoutId === "outro") return true;
@@ -1106,6 +2960,7 @@ export default function SceneEditModal({
     return sorted.length > 1 && sorted[sorted.length - 1].id === scene.id;
   })();
   const isEndingScene = currentLayoutId === "ending_socials" || isCustomOutro;
+<<<<<<< HEAD
 
   const defaultFontSizes =
     getDefaultFontSizesFromSchema(
@@ -1118,11 +2973,50 @@ export default function SceneEditModal({
       currentLayoutId,
       project.aspect_ratio || "landscape"
     );
+=======
+  const [craftedFrontendFiles, setCraftedFrontendFiles] = useState<Record<string, string> | null>(null);
+  // Per-layout SceneEditModal field overrides loaded from the crafted
+  // template's bundled `frontend/layoutFields.ts`. Compiled at runtime;
+  // falls back to LAYOUT_TEXT_FIELDS / meta.json when null.
+  const [craftedLayoutFieldsByLayout, setCraftedLayoutFieldsByLayout] =
+    useState<Record<string, FieldDef[]> | null>(null);
+  /** False while `layout_fields` TS is compiling — avoids showing `[object Object]` in generic extra-key inputs. */
+  const [craftedLayoutFieldsReady, setCraftedLayoutFieldsReady] = useState(true);
+  const { craftedTemplates, ensureCraftedTemplateDetail } = useCraftedTemplates();
+
+  const defaultFontSizes = resolveDefaultFontSizesForScene({
+    template: project.template || "default",
+    layoutId: currentLayoutId,
+    aspectRatio: project.aspect_ratio || "landscape",
+    layoutPropSchema: layouts?.layout_prop_schema,
+    craftedFrontendFiles,
+  });
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const aiHasChanges =
     description.trim().length > 0 ||
     regenerateVoiceover ||
     selectedLayout !== "__keep__";
+
+  // True when the AI model actually runs a rewrite (an instruction was given, or AI
+  // is asked to re-pick the layout). Plain text edits / toggles are just a save.
+  const aiWillRewrite =
+    description.trim().length > 0 || selectedLayout === "__auto__";
+
+  // Display-only helpers for the AI panel meta row + voiceover status.
+  const aiWordCount = aiNarration.trim() ? aiNarration.trim().split(/\s+/).length : 0;
+  // Rough estimate: ~2.5 spoken words per second.
+  const aiEstimatedSeconds = Math.max(1, Math.round(aiWordCount / 2.5));
+  const voiceoverUpToDate =
+    !regenerateVoiceover &&
+    aiNarration.trim() === (scene.narration_text || "").trim();
+  const voiceLabel = (() => {
+    const accent = project.voice_accent ? project.voice_accent.trim() : "";
+    const gender = project.voice_gender ? project.voice_gender.trim() : "";
+    if (project.custom_voice_id) return "Custom voice";
+    const parts = [accent, gender].filter(Boolean);
+    return parts.length ? parts.join(" · ") : "Default";
+  })();
 
   useEffect(() => {
     if (!open) return;
@@ -1133,13 +3027,19 @@ export default function SceneEditModal({
     setDisplayText(initialDisplay);
     setAiNarration(scene.narration_text || "");
     setExtraHoldSeconds(scene.extra_hold_seconds != null ? String(scene.extra_hold_seconds) : "");
+<<<<<<< HEAD
+=======
+    setShowImproveBox(false);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
-    setGeneratingImage(false);
+    setImageFocusX(50);
+    setImageFocusY(50);
     setGeneratedImageBase64(null);
     setGeneratedPrompt(null);
     setShowAiImageUpgradeModal(false);
+    shouldAutoOpenAdjustRef.current = openImageAdjustOnOpen;
     let layoutId: string | null = null;
     let ts = "";
     let ds = "";
@@ -1163,14 +3063,29 @@ export default function SceneEditModal({
         if (!ts && typeof lp.titleFontSize === "number") ts = String(lp.titleFontSize);
         if (!ds && typeof lp.descriptionFontSize === "number") ds = String(lp.descriptionFontSize);
         lpCopy = { ...lp };
+        if (typeof lp.imageFocusX === "number") setImageFocusX(Math.max(0, Math.min(100, lp.imageFocusX)));
+        if (typeof lp.imageFocusY === "number") setImageFocusY(Math.max(0, Math.min(100, lp.imageFocusY)));
         // data_visualization charts: convert stored shapes to editable form
         if (layoutId === "data_visualization") {
           const lpAny = lp as Record<string, unknown>;
           if (isNewscastTemplate) {
             const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+<<<<<<< HEAD
             lpCopy.chartTable = chartTableHasData(directChartTable)
               ? directChartTable
               : buildChartTableFromDataVizLayoutProps(lpAny);
+=======
+            const builtTable = chartTableHasData(directChartTable)
+              ? directChartTable
+              : buildChartTableFromDataVizLayoutProps(lpAny);
+            if (chartTableHasData(builtTable)) {
+              lpCopy.chartTable = builtTable;
+            } else {
+              // No data at all — seed bar example so the chart renders immediately
+              lpCopy.chartTable = getLaDucMarketAnnotationExampleTable("bar");
+              lpCopy.chartType = "bar";
+            }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           }
           // Bar: { labels, values } -> barChartRows
           if (lpAny.barChart && typeof lpAny.barChart === "object") {
@@ -1280,6 +3195,7 @@ export default function SceneEditModal({
             delete (lpCopy as Record<string, unknown>).chartType;
           }
         }
+<<<<<<< HEAD
       } catch { /* ignore */ }
     }
     // For custom templates, CTA data lives in ctaProps, not layoutProps
@@ -1354,23 +3270,344 @@ export default function SceneEditModal({
     );
     const defaults = schemaDefaults ?? getDefaultFontSizes(
       project.template || "default",
+=======
+        // Bloomberg terminal_dataviz: normalize chartTable on modal open
+        if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          lpCopy.chartTable = chartTableHasData(directChartTable)
+            ? directChartTable
+            : { headers: ["Label", "Value"], rows: [["", ""]] };
+        }
+        // Bloomberg terminal_dataviz: pre-populate xAxisLabel/yAxisLabel from chartTable headers
+        // so the form shows the currently-displayed values even before the user has edited them.
+        if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          if (!lpAny.xAxisLabel && !lpAny.yAxisLabel) {
+            const tbl = normalizeChartTableValue(lpAny.chartTable);
+            if (tbl.headers[0]) lpCopy.xAxisLabel = tbl.headers[0];
+            if (tbl.headers[1]) lpCopy.yAxisLabel = tbl.headers[1];
+          }
+        }
+        // Bloomberg terminal_chart: populate ohlcvTable for the editor from stored data or pipe items.
+        // Only use pipe-delimited items (real OHLCV format). Never derive synthetic OHLC from
+        // arbitrary numbers — older scenes may have hallucinated text-label items that look numeric
+        // but are meaningless as OHLCV data (e.g. "PRICE: $24.85", "RSI(14): 68.2").
+        if (isBloombergTemplate && layoutId === "terminal_chart") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          if (!lpAny.xAxisLabel) lpCopy.xAxisLabel = "TRADING DAYS";
+          if (!lpAny.yAxisLabel) lpCopy.yAxisLabel = "PRICE ($)";
+          const storedOhlcv = lpAny.ohlcvTable as { headers: string[]; rows: string[][] } | undefined;
+          const storedHasRows = storedOhlcv && Array.isArray(storedOhlcv.rows) && storedOhlcv.rows.length >= 4;
+          if (!storedHasRows) {
+            const rawItems = Array.isArray(lpAny.items) ? (lpAny.items as string[]) : [];
+            // Only reconstruct from genuine pipe-delimited OHLCV items: "date|open|high|low|close|vol"
+            const pipeItems = rawItems.filter((s) => String(s).split("|").length >= 5);
+            if (pipeItems.length >= 4) {
+              lpCopy.ohlcvTable = {
+                headers: ["Date", "Open", "High", "Low", "Close", "Volume"],
+                rows: pipeItems.map((s) => {
+                  const p = s.split("|");
+                  return [p[0] ?? "", p[1] ?? "", p[2] ?? "", p[3] ?? "", p[4] ?? "", p[5] ?? ""];
+                }),
+              };
+            }
+            // If no valid OHLCV items found, leave ohlcvTable unset — editor stays empty
+            // and the chart renders procedural candles (correct behaviour for pre-OHLCV scenes)
+          }
+        }
+        // Economist chart_line / chart_bar / data_table: seed shape-appropriate
+        // example data when the stored chartTable is empty, so the editor (and
+        // preview) render immediately — matching laduc's data-layout behaviour.
+        if (isEconomistTemplate && (layoutId === "chart_line" || layoutId === "chart_bar" || layoutId === "data_table")) {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          if (!chartTableHasData(directChartTable)) {
+            const kind = layoutId === "chart_line" ? "line" : layoutId === "chart_bar" ? "bar" : "table";
+            lpCopy.chartTable = getEconomistChartExampleTable(kind);
+          }
+        }
+        // Built-in data-viz templates (matrix, stickman_football, …): seed themed
+        // example chart/ticker data when stored tables are empty.
+        if (layoutId && isBuiltinDataVizChartLayout(normalizedTemplateId, layoutId)) {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          if (!chartTableHasData(directChartTable)) {
+            const rawType = String(lpAny.chartType ?? "line").toLowerCase();
+            const kind: "line" | "bar" | "histogram" =
+              rawType === "bar" || rawType === "histogram" ? rawType : "line";
+            const example = builtinDataVizExampleTable(normalizedTemplateId, kind);
+            if (example) lpCopy.chartTable = example;
+          }
+        }
+        if (layoutId && isBuiltinTickerLayout(normalizedTemplateId, layoutId)) {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directTickerTable = normalizeChartTableValue(lpAny.tickerTable);
+          if (!chartTableHasData(directTickerTable)) {
+            const example = builtinTickerExampleTable(normalizedTemplateId);
+            if (example) lpCopy.tickerTable = example;
+          }
+        }
+        // Magazine by_the_numbers / timeline_journey: seed sample stats/milestones
+        // when the stored props are empty, so the modal shows the SAME default the
+        // renderer falls back to — on open, not only on switch. Mirrors the
+        // data-viz chartTable seeding above. Never clobbers real content.
+        if (normalizedTemplateId === "magazine") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const hasRows = (v: unknown) =>
+            Array.isArray(v) &&
+            v.some((r) => r && Object.values(r as Record<string, unknown>).some(
+              (x) => String(x ?? "").trim(),
+            ));
+          if (layoutId === "by_the_numbers" && !hasRows(lpAny.stats)) {
+            lpCopy.stats = MAGAZINE_SAMPLE_STATS;
+          }
+          if (layoutId === "timeline_journey" && !hasRows(lpAny.milestones)) {
+            lpCopy.milestones = MAGAZINE_SAMPLE_MILESTONES;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    // For custom templates, CTA data lives in ctaProps, not layoutProps
+    if (isCustomTemplate && scene.remotion_code) {
+      try {
+        const desc = JSON.parse(scene.remotion_code);
+        if (desc.ctaProps && typeof desc.ctaProps === "object") {
+          lpCopy = { ...lpCopy, ...desc.ctaProps };
+        }
+      } catch { /* ignore */ }
+    }
+    // Mirror VideoPreview + backend render: merge meta.json layout defaults
+    // under stored layoutProps (bar colors, chart table, axis captions, etc.).
+    lpCopy = mergeLayoutSchemaDefaults(
+      lpCopy,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       layoutId,
-      project.aspect_ratio || "landscape"
+      layouts?.layout_prop_schema as
+        | Record<string, { defaults?: Record<string, unknown> }>
+        | undefined,
+      project.aspect_ratio || "landscape",
+      normalizedTemplateId,
     );
+    setEditableLayoutProps(lpCopy);
+    if (isEndingScene) {
+      const projectUrl = (project.blog_url || "").trim();
+      const fallbackUrl =
+        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
+
+      const lpRecord = lpCopy as Record<string, unknown>;
+
+      // --- Socials (global to the scene, kept as in the original UX) ---
+      const lpSocials = lpRecord.socials;
+      if (lpSocials && typeof lpSocials === "object" && !Array.isArray(lpSocials)) {
+        setEndingSocials(lpSocials as Record<
+          EndingSocialKey,
+          { enabled: boolean; label: string }
+        >);
+      } else {
+        setEndingSocials(ENDING_SOCIALS_DEFAULT);
+      }
+
+      // --- CTA cards: prefer the new `ctas` array, else fall back to the flat fields ---
+      const lpCtasRaw = lpRecord.ctas;
+      const hydratedFromArray =
+        Array.isArray(lpCtasRaw) && lpCtasRaw.length > 0
+          ? lpCtasRaw
+              .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
+              .slice(0, MAX_CTAS)
+              .map((raw): CtaDraft => ({
+                ctaButtonText: typeof raw.ctaButtonText === "string" ? raw.ctaButtonText : "",
+                websiteLink: typeof raw.websiteLink === "string" ? raw.websiteLink : "",
+                showWebsiteButton: raw.showWebsiteButton !== false,
+              }))
+          : null;
+
+      if (hydratedFromArray && hydratedFromArray.length > 0) {
+        setCtas(hydratedFromArray);
+      } else {
+        // Legacy fallback: build a single CTA card from the flat fields.
+        const lpShowWebsiteButton = lpRecord.showWebsiteButton;
+        const lpWebsiteLink = lpRecord.websiteLink;
+        const lpCta = lpRecord.ctaButtonText;
+        const normalizedWebsiteLink =
+          typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
+            ? lpWebsiteLink.trim()
+            : fallbackUrl;
+        setCtas([
+          {
+            ctaButtonText: typeof lpCta === "string" ? lpCta : "",
+            websiteLink: normalizedWebsiteLink,
+            showWebsiteButton: lpShowWebsiteButton !== false,
+          },
+        ]);
+      }
+    } else {
+      setCtas([makeDefaultCta()]);
+      setEndingSocials(ENDING_SOCIALS_DEFAULT);
+    }
+    // Initialize structured content for custom templates
+    let scInit: Record<string, unknown> = {};
+    if (scene.remotion_code) {
+      try {
+        const desc = JSON.parse(scene.remotion_code);
+        if (desc.structuredContent && typeof desc.structuredContent === "object") {
+          scInit = { ...desc.structuredContent };
+          // Flatten comparison objects for dot-key editing
+          if (scInit.comparisonLeft && typeof scInit.comparisonLeft === "object") {
+            const cl = scInit.comparisonLeft as Record<string, string>;
+            scInit["comparisonLeft.label"] = cl.label || "";
+            scInit["comparisonLeft.description"] = cl.description || "";
+          }
+          if (scInit.comparisonRight && typeof scInit.comparisonRight === "object") {
+            const cr = scInit.comparisonRight as Record<string, string>;
+            scInit["comparisonRight.label"] = cr.label || "";
+            scInit["comparisonRight.description"] = cr.description || "";
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    setEditableStructuredContent(scInit);
+    const defaults = resolveDefaultFontSizesForScene({
+      template: project.template || "default",
+      layoutId,
+      aspectRatio: project.aspect_ratio || "landscape",
+      layoutPropSchema: layouts?.layout_prop_schema,
+      craftedFrontendFiles,
+    });
     if (!ts) ts = String(defaults.title);
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
+<<<<<<< HEAD
   }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema]);
+=======
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, craftedFrontendFiles, isCraftedTemplate, openImageAdjustOnOpen]);
+
+  useEffect(() => {
+    if (!open || !isCraftedTemplate || !project.template) {
+      setCraftedFrontendFiles(null);
+      return;
+    }
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    setCraftedFrontendFiles((found?.frontend_files as Record<string, string> | null) || null);
+    if (!found?.frontend_files) {
+      void ensureCraftedTemplateDetail(project.template);
+    }
+  }, [open, isCraftedTemplate, project.template, craftedTemplates, ensureCraftedTemplateDetail]);
+
+  // Compile the bundled `frontend/layoutFields.ts` into a Record<layoutId, FieldDef[]>.
+  // The source ships on the list-summary (no full-package fetch needed).
+  // Module-level cache (`__craftedLayoutFieldsCache`) survives modal close/reopen.
+  useEffect(() => {
+    if (!open || !isCraftedTemplate || !project.template) {
+      setCraftedLayoutFieldsByLayout(null);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    const templateId = project.template;
+    const found = craftedTemplates.find((ct) => ct.id === templateId);
+    const source = (found as { layout_fields?: string | null } | undefined)?.layout_fields;
+    if (!source || !String(source).trim()) {
+      setCraftedLayoutFieldsByLayout(null);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    const cached = __craftedLayoutFieldsCache.get(templateId);
+    if (cached) {
+      setCraftedLayoutFieldsByLayout(cached);
+      setCraftedLayoutFieldsReady(true);
+      return;
+    }
+    let cancelled = false;
+    setCraftedLayoutFieldsReady(false);
+    void compileDataModule(source)
+      .then((mod) => {
+        if (cancelled) return;
+        const raw = (mod?.LAYOUT_FIELDS ?? mod?.default ?? null) as
+          | Record<string, FieldDef[]>
+          | null;
+        if (!raw || typeof raw !== "object") {
+          setCraftedLayoutFieldsByLayout(null);
+          return;
+        }
+        // Defensive shape check — drop entries that aren't arrays of objects with a `key`.
+        const safe: Record<string, FieldDef[]> = {};
+        for (const [layoutId, fields] of Object.entries(raw)) {
+          if (!Array.isArray(fields)) continue;
+          const valid = fields.filter(
+            (f): f is FieldDef => !!f && typeof f === "object" && typeof (f as { key?: unknown }).key === "string",
+          );
+          if (valid.length > 0) safe[layoutId] = valid;
+        }
+        __craftedLayoutFieldsCache.set(templateId, safe);
+        setCraftedLayoutFieldsByLayout(safe);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCraftedLayoutFieldsByLayout(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCraftedLayoutFieldsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isCraftedTemplate, project.template, craftedTemplates]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
+    if (isDemo) return;
     if (open && !layouts) {
       getValidLayouts(project.id)
         .then((res) => setLayouts(res.data))
         .catch(() => showError("Failed to load layouts"));
     }
-  }, [open, project.id, layouts]);
+  }, [open, project.id, layouts, isDemo]);
+
+  useEffect(() => {
+    if (!open || !shouldAutoOpenAdjustRef.current || imageAdjustOpen) return;
+    const src = imagePreviewUrl || imageItems[0]?.url || null;
+    if (!src) return;
+    shouldAutoOpenAdjustRef.current = false;
+    openImageAdjustModal(src);
+  }, [open, imageAdjustOpen, imagePreviewUrl, imageItems]);
+
+  // Merge schema defaults for missing layout props (e.g. new props added via rebuild)
+  // useEffect(() => {
+  //   if (!open || !layouts?.layout_prop_schema) return;
+  //   let layoutId: string | null = null;
+  //   try {
+  //     if (scene.remotion_code) {
+  //       const desc = JSON.parse(scene.remotion_code);
+  //       layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? null;
+  //     }
+  //   } catch { /* ignore */ }
+  //   if (!layoutId) return;
+  //   const schema = layouts.layout_prop_schema[layoutId];
+  //   if (!schema?.defaults && !schema?.fields?.length) return;
+  //   const aspectRatio = project.aspect_ratio || "landscape";
+  //   const isPortrait = aspectRatio === "portrait";
+  //   setEditableLayoutProps((prev) => {
+  //     const next = { ...prev };
+  //     let changed = false;
+  //     const fieldKeys = new Set((schema.fields ?? []).map((f) => f.key));
+  //     const defaults = schema.defaults ?? {};
+  //     for (const key of fieldKeys) {
+  //       if (key in next) continue;
+  //       const def = defaults[key];
+  //       if (def !== undefined && def !== null) {
+  //         if (typeof def === "object" && !Array.isArray(def) && "portrait" in def && "landscape" in def) {
+  //           next[key] = isPortrait ? (def as { portrait: unknown }).portrait : (def as { landscape: unknown }).landscape;
+  //         } else {
+  //           next[key] = def;
+  //         }
+  //         changed = true;
+  //       }
+  //     }
+  //     return changed ? next : prev;
+  //   });
+  // }, [open, layouts?.layout_prop_schema, scene.remotion_code, project.aspect_ratio]);
 
   // Merge schema defaults for missing layout props (e.g. new props added via rebuild)
   // useEffect(() => {
@@ -1419,7 +3656,53 @@ export default function SceneEditModal({
     return () => document.removeEventListener("mousedown", handler);
   }, [layoutOpen]);
 
-  const handleSave = async () => {
+  // Resolve the editable FieldDefs for a layout the same way the render block
+  // does — curated override merged with any meta-schema fields it omits (e.g.
+  // magazine's issueLabel/kickerPrefix) — so seeding, the keep-set, and the save
+  // cleanup all agree on which keys a layout actually owns.
+  const resolveLayoutFieldsFor = (layoutId: string): FieldDef[] => {
+    if (isCraftedTemplate) {
+      const craftedTemplateEntry = craftedTemplates.find((ct) => ct.id === project.template);
+      return (
+        pickCraftedCompiledLayoutFields(craftedLayoutFieldsByLayout, layoutId) ??
+        pickLayoutPropSchemaFieldDefs(
+          craftedTemplateEntry?.layout_prop_schema as unknown as
+            | Record<string, LayoutPropSchema>
+            | undefined,
+          layoutId,
+        ) ??
+        getLayoutFields(project.template || "default", layoutId) ??
+        []
+      );
+    }
+    const curated = getLayoutFields(project.template || "default", layoutId) ?? [];
+    const schemaFields =
+      pickLayoutPropSchemaFieldDefs(
+        layouts?.layout_prop_schema as unknown as
+          | Record<string, LayoutPropSchema>
+          | undefined,
+        layoutId,
+      ) ?? [];
+    const seen = new Set(curated.map((f) => f.key));
+    const merged = [...curated];
+    for (const f of schemaFields) if (!seen.has(f.key)) merged.push(f);
+    return merged;
+  };
+
+  // Props the modal manages OUTSIDE of layoutFields — kept across a layout switch
+  // even though they aren't fields of the new layout.
+  const LAYOUT_CONTENT_KEEP_KEYS = new Set<string>([
+    ...HIDDEN_LAYOUT_PROP_KEYS,
+    "ctaProps",
+    "socials",
+    "ctas",
+    "showWebsiteButton",
+    "websiteLink",
+    "ctaButtonText",
+  ]);
+
+  const handleSave = async (override?: { imageFocusX?: number; imageFocusY?: number; imageZoom?: number }) => {
+    if (isDemo) return;
     if (editMode === "manual") {
       setLoading(true);
       try {
@@ -1433,7 +3716,8 @@ export default function SceneEditModal({
         const dsNum = parseNum(descriptionFontSize, 12, 80);
         const defTitle = defaultFontSizes.title;
         const defDesc = defaultFontSizes.desc;
-        if (tsNum !== null || dsNum !== null || scene.remotion_code) {
+        const layoutIsChanging = selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__";
+        if (tsNum !== null || dsNum !== null || scene.remotion_code || layoutIsChanging) {
           let desc: Record<string, unknown> = {};
           if (scene.remotion_code) {
             try {
@@ -1442,6 +3726,24 @@ export default function SceneEditModal({
           }
           // Custom templates use layoutConfig — skip layoutProps editing
           if (isCustomTemplate) {
+<<<<<<< HEAD
+=======
+            // Exception: dedicated data-viz scenes persist their edited chart data
+            // into layoutProps (the location GeneratedVideo's kit scenes read).
+            if (dataVizKind) {
+              const dvTable = normalizeChartTableValue(
+                (editableLayoutProps as Record<string, unknown>).chartTable,
+              );
+              const prevLp = (desc.layoutProps as Record<string, unknown>) || {};
+              desc.layoutProps = {
+                ...prevLp,
+                chartTable: dvTable,
+                ...(dataVizKind === "chart" && editableLayoutProps.chartType
+                  ? { chartType: editableLayoutProps.chartType }
+                  : {}),
+              };
+            }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             // Ensure layoutConfig exists for custom templates
             if (!desc.layoutConfig) desc.layoutConfig = {};
             const config = desc.layoutConfig as Record<string, unknown>;
@@ -1471,15 +3773,76 @@ export default function SceneEditModal({
             }
             if (isEndingScene) {
               desc.ctaProps = {
+<<<<<<< HEAD
                 socials: endingSocials,
                 showWebsiteButton: endingShowWebsiteButton,
                 websiteLink: (endingWebsiteLink || "").trim(),
                 ctaButtonText: (endingCtaButtonText || "").trim(),
+=======
+                // Socials are global to the scene (matches original UX).
+                socials: endingSocials,
+                // Legacy single-CTA mirror (from ctas[0]) so renderers that haven't
+                // opted in to `ctas` still work.
+                showWebsiteButton: endingShowWebsiteButton,
+                websiteLink: (endingWebsiteLink || "").trim(),
+                ctaButtonText: (endingCtaButtonText || "").trim(),
+                // New multi-CTA array (up to 3). Each CTA is just pill + URL.
+                ctas: ctas.map((c) => ({
+                  ctaButtonText: (c.ctaButtonText || "").trim(),
+                  websiteLink: (c.websiteLink || "").trim(),
+                  showWebsiteButton: c.showWebsiteButton,
+                })),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               };
             }
             remotionCode = JSON.stringify(desc);
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
+            const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(IMAGE_ADJUST_ZOOM_MIN, override.imageZoom) : undefined;
+            // Apply layout switch: update desc.layout when user picked a concrete layout
+            if (selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__") {
+              desc.layout = selectedLayout;
+              // The saved descriptor must carry ONLY the new layout's props. The
+              // merge above re-introduced the previous layout's content keys from
+              // the stale desc.layoutProps (heading/body/issueLabel/…) — drop any
+              // key that isn't a field of the new layout and isn't in the
+              // keep-set (font sizes, image, CTA/socials). Seed the new layout's
+              // still-empty fields so the on-screen preview renders populated
+              // content the user can just edit.
+              const newFields = resolveLayoutFieldsFor(selectedLayout);
+              const newFieldKeys = new Set(newFields.map((f) => f.key));
+              for (const key of Object.keys(lp)) {
+                if (!newFieldKeys.has(key) && !LAYOUT_CONTENT_KEEP_KEYS.has(key)) {
+                  delete (lp as Record<string, unknown>)[key];
+                }
+              }
+              const isEmptyVal = (v: unknown) =>
+                v == null ||
+                (typeof v === "string" && v.trim() === "") ||
+                (Array.isArray(v) && v.length === 0);
+              const seedTitle = (title || "").trim();
+              const seedBody = (aiNarration || displayText || "").trim();
+              const seedDefaults = buildDefaultLayoutPropsFromFields(newFields);
+              const lpRec = lp as Record<string, unknown>;
+              for (const f of newFields) {
+                if (!isEmptyVal(lpRec[f.key])) continue;
+                if ((f.type === "string" || f.type === "text") &&
+                    /^(heading|title|displaytitle|headline)$/i.test(f.key) && seedTitle) {
+                  lpRec[f.key] = seedTitle;
+                } else if (f.type === "text" &&
+                    /^(body|text|answer|summary|desc)$/i.test(f.key) && seedBody) {
+                  lpRec[f.key] = seedBody;
+                } else if (normalizedTemplateId === "magazine" && f.key === "stats") {
+                  // Magazine stats/milestones seed to the renderer's exact fallback
+                  // so the saved props == modal == preview (not generic placeholders).
+                  lpRec[f.key] = MAGAZINE_SAMPLE_STATS;
+                } else if (normalizedTemplateId === "magazine" && f.key === "milestones") {
+                  lpRec[f.key] = MAGAZINE_SAMPLE_MILESTONES;
+                } else if (f.key in seedDefaults) {
+                  lpRec[f.key] = seedDefaults[f.key];
+                }
+              }
+            }
             // data_visualization: convert editable chart form back to stored shapes
             const layoutId = (desc.layout as string) || "";
             if (layoutId === "data_visualization") {
@@ -1564,6 +3927,56 @@ export default function SceneEditModal({
                 delete lp.lineChart;
                 delete lp.histogram;
               }
+<<<<<<< HEAD
+=======
+            }
+            // Bloomberg terminal_dataviz: normalize chartTable on save
+            if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+              const chartTable = normalizeChartTableValue((lp as Record<string, unknown>).chartTable);
+              lp.chartTable = chartTable;
+            }
+            // Bloomberg terminal_chart: regenerate items from edited ohlcvTable so the chart stays in sync
+            if (isBloombergTemplate && layoutId === "terminal_chart") {
+              const ohlcv = (lp as Record<string, unknown>).ohlcvTable as { headers: string[]; rows: string[][] } | undefined;
+              if (ohlcv && Array.isArray(ohlcv.headers) && Array.isArray(ohlcv.rows)) {
+                const hdrs = ohlcv.headers.map((h) => String(h).toLowerCase().trim());
+                const findCol = (...kws: string[]) => {
+                  for (const kw of kws) {
+                    const i = hdrs.findIndex((h) => h.includes(kw));
+                    if (i !== -1) return i;
+                  }
+                  return -1;
+                };
+                const parseNum = (v: string) => {
+                  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+                  return Number.isFinite(n) ? n : null;
+                };
+                const dateCol = findCol("date");
+                const openCol = findCol("open");
+                const highCol = findCol("high");
+                const lowCol = findCol("low");
+                const closeCol = findCol("close");
+                const volCol = findCol("volume", "vol");
+                if (openCol !== -1 && highCol !== -1 && lowCol !== -1 && closeCol !== -1) {
+                  const newItems: string[] = [];
+                  for (const row of ohlcv.rows) {
+                    const o = parseNum(row[openCol] ?? "");
+                    const h = parseNum(row[highCol] ?? "");
+                    const l = parseNum(row[lowCol] ?? "");
+                    const c = parseNum(row[closeCol] ?? "");
+                    if (o === null || h === null || l === null || c === null) continue;
+                    let label = dateCol !== -1 ? String(row[dateCol] ?? "").split(",")[0].trim() : "";
+                    let vol = 0;
+                    if (volCol !== -1) {
+                      const rv = parseFloat(String(row[volCol] ?? "").replace(/[^0-9.\-]/g, ""));
+                      if (Number.isFinite(rv)) vol = rv > 1e9 ? rv / 1e9 : rv > 1e6 ? rv / 1e6 : rv;
+                    }
+                    newItems.push(`${label}|${o.toFixed(2)}|${h.toFixed(2)}|${l.toFixed(2)}|${c.toFixed(2)}|${vol.toFixed(2)}`);
+                  }
+                  if (newItems.length >= 4) lp.items = newItems;
+                }
+              }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             }
             // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
             const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
@@ -1588,10 +4001,31 @@ export default function SceneEditModal({
             else delete lp.descriptionFontSize;
             if (isEndingScene) {
               lp.hideImage = true;
+<<<<<<< HEAD
               lp.socials = endingSocials;
               lp.showWebsiteButton = endingShowWebsiteButton;
               lp.websiteLink = (endingWebsiteLink || "").trim();
               lp.ctaButtonText = (endingCtaButtonText || "").trim();
+=======
+              delete lp.assignedImage;
+              delete lp.imageFocusX;
+              delete lp.imageFocusY;
+              delete lp.imageZoom;
+              // Socials are global to the scene.
+              lp.socials = endingSocials;
+              // Legacy single-CTA mirror (from ctas[0]) — crafted layouts still read these flat fields.
+              lp.showWebsiteButton = endingShowWebsiteButton;
+              lp.websiteLink = (endingWebsiteLink || "").trim();
+              lp.ctaButtonText = (endingCtaButtonText || "").trim();
+              // New multi-CTA array — crafted layouts can opt-in to render this later.
+              lp.ctas = ctas.map((c) => ({
+                ctaButtonText: (c.ctaButtonText || "").trim(),
+                websiteLink: (c.websiteLink || "").trim(),
+                showWebsiteButton: c.showWebsiteButton,
+              }));
+            } else if (zoomToSave !== undefined) {
+              lp.imageZoom = zoomToSave;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             }
             desc.layoutProps = lp;
             remotionCode = JSON.stringify(desc);
@@ -1669,6 +4103,18 @@ export default function SceneEditModal({
         if (selectedImageFile) {
           await updateSceneImage(project.id, scene.id, selectedImageFile);
         }
+        const hasExistingSceneImage = imageItems.length > 0;
+        const focusXToSave = override?.imageFocusX ?? imageFocusX;
+        const focusYToSave = override?.imageFocusY ?? imageFocusY;
+        const zoomToPatch =
+          typeof override?.imageZoom === "number"
+            ? Math.max(IMAGE_ADJUST_ZOOM_MIN, override.imageZoom)
+            : typeof editableLayoutProps.imageZoom === "number"
+              ? Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(editableLayoutProps.imageZoom))
+              : undefined;
+        if (supportsImage && (selectedImageFile || hasExistingSceneImage)) {
+          await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
+        }
         onSaved();
         onClose();
       } catch (err: unknown) {
@@ -1703,7 +4149,8 @@ export default function SceneEditModal({
           "",
           regenerateVoiceover,
           keepLayout ? "__keep__" : (selectedLayout === "__auto__" ? undefined : selectedLayout || undefined),
-          selectedImageFile || undefined
+          selectedImageFile || undefined,
+          matchNarrationExactly
         );
         onSaved();
         onClose();
@@ -1717,6 +4164,200 @@ export default function SceneEditModal({
         setLoading(false);
       }
     }
+  };
+
+  /**
+   * Layout-dropdown selection wrapper. Sets `selectedLayout` and — for LaDuc
+   * market_annotation variants — seeds `editableLayoutProps.chartTable` with
+   * the canonical example data when the existing chartTable is empty. Keeps
+   * the modal's "Edit chart data" editor in sync with the renderer's fallback.
+   */
+  const applySelectedLayout = (next: string) => {
+    setSelectedLayout(next);
+    if (next === "__keep__" || next === "__auto__") return;
+
+    // Switching layout rebuilds the layout-content portion of editableLayoutProps
+    // so the modal (and the saved descriptor) carry ONLY the new layout's fields —
+    // populated — instead of a mix of the new fields plus the old scene's leftover
+    // keys. The render also hides leftovers on switch (see extraKeys'
+    // `suppressExtraKeysForLayoutSwitch`); this keeps the underlying data clean too.
+    //
+    // 1. KEEP: retain non-layout-content props the modal manages separately
+    //    (font sizes, image props via HIDDEN_LAYOUT_PROP_KEYS; CTA/socials for
+    //    ending scenes) + the new layout's own field values. Drop everything else.
+    // 2. SEED: fill the new layout's empty fields — preferring the SCENE's own
+    //    content (title → heading-ish, narration/display → body-ish) so the layout
+    //    arrives populated from what's shown in the scene, then placeholder samples
+    //    for list/stat fields.
+    // The richer template-specific seeders below (magazine sample_props,
+    // chart/ticker example data) run after under the same empty-only rule.
+    {
+      const nextFields = resolveLayoutFieldsFor(next);
+      const nextFieldKeys = new Set(nextFields.map((f) => f.key));
+
+      // Seed values for the new layout's fields, scene-content first.
+      const sceneTitle = (title || "").trim();
+      const sceneBody = (aiNarration || displayText || "").trim();
+      const isHeadingKey = (k: string) =>
+        /^(heading|title|displaytitle|headline)$/i.test(k);
+      const isBodyKey = (k: string) => /^(body|text|answer|summary|desc)$/i.test(k);
+      const placeholderDefaults = buildDefaultLayoutPropsFromFields(nextFields);
+      const sceneSeed: Record<string, unknown> = {};
+      for (const f of nextFields) {
+        if ((f.type === "string" || f.type === "text") && isHeadingKey(f.key) && sceneTitle) {
+          sceneSeed[f.key] = sceneTitle;
+        } else if (f.type === "text" && isBodyKey(f.key) && sceneBody) {
+          sceneSeed[f.key] = sceneBody;
+        }
+      }
+
+      const isEmpty = (v: unknown) =>
+        v == null ||
+        (typeof v === "string" && v.trim() === "") ||
+        (Array.isArray(v) && v.length === 0);
+
+      setEditableLayoutProps((prev) => {
+        const out: Record<string, unknown> = {};
+        // KEEP: non-content props (managed separately) + the new layout's own
+        // fields (existing values). Drop the old layout's leftover content keys.
+        for (const [k, v] of Object.entries(prev)) {
+          if (LAYOUT_CONTENT_KEEP_KEYS.has(k) || nextFieldKeys.has(k)) out[k] = v;
+        }
+        // SEED (empty-only): scene content first, then placeholder samples.
+        for (const [k, v] of Object.entries(sceneSeed)) {
+          if (isEmpty(out[k])) out[k] = v;
+        }
+        for (const [k, v] of Object.entries(placeholderDefaults)) {
+          if (isEmpty(out[k])) out[k] = v;
+        }
+        return out;
+      });
+    }
+
+    // Magazine: switching INTO a layout whose content fields (stats, milestones,
+    // exchanges, points, keyPoints, left/rightPoints, …) are empty leaves the new
+    // scene blank. Seed those fields from the target layout's meta.json `sample_props`
+    // so the layout has real default content — both in this modal's fields and,
+    // because editableLayoutProps is what gets saved, in the rendered scene. Only
+    // fills fields that are currently empty; never clobbers existing content.
+    if (normalizedTemplateId === "magazine") {
+      // interview_qa: map the scene's OWN text (title → question, narration →
+      // answer) into a single exchange so switching in shows the scene's content
+      // as a real q/a pair — not the canned sample. Runs before the generic seed
+      // below; the exchange is now non-empty, so the sample_props seed skips
+      // `exchanges` but still fills empty leftSpeaker/rightSpeaker. Never clobbers
+      // real exchanges; if the scene has no text at all, the generic seed handles it.
+      if (next === "interview_qa") {
+        setEditableLayoutProps((prev) => {
+          const existing = Array.isArray(prev.exchanges)
+            ? (prev.exchanges as Array<{ q?: string; a?: string }>)
+            : [];
+          const hasContent = existing.some(
+            (ex) => (ex?.q ?? "").trim() || (ex?.a ?? "").trim(),
+          );
+          if (hasContent) return prev;
+          const q = (title || "").trim();
+          const a = (aiNarration || displayText || "").trim();
+          if (!q && !a) return prev;
+          return { ...prev, exchanges: [{ q, a }] };
+        });
+      }
+      const schema = (layouts?.layout_prop_schema as Record<string, LayoutPropSchema> | undefined)?.[next];
+      // by_the_numbers: seed the stats grid on switch with the SAME sample the
+      // renderer falls back to (MAGAZINE_SAMPLE_STATS), so modal == preview == the
+      // props that get saved. Only when empty; never clobbers real stats.
+      if (next === "by_the_numbers") {
+        setEditableLayoutProps((prev) => {
+          const existing = Array.isArray(prev.stats)
+            ? (prev.stats as Array<{ value?: string; label?: string }>)
+            : [];
+          const hasContent = existing.some(
+            (s) => (s?.value ?? "").toString().trim() || (s?.label ?? "").toString().trim(),
+          );
+          if (hasContent) return prev;
+          return { ...prev, stats: MAGAZINE_SAMPLE_STATS };
+        });
+      }
+      // timeline_journey: same treatment for milestones — seed the renderer's
+      // exact fallback so all three surfaces match. Fixes the prior drift where
+      // milestones only got generic placeholder rows.
+      if (next === "timeline_journey") {
+        setEditableLayoutProps((prev) => {
+          const existing = Array.isArray(prev.milestones)
+            ? (prev.milestones as Array<{ date?: string; label?: string; desc?: string }>)
+            : [];
+          const hasContent = existing.some(
+            (m) =>
+              (m?.date ?? "").toString().trim() ||
+              (m?.label ?? "").toString().trim() ||
+              (m?.desc ?? "").toString().trim(),
+          );
+          if (hasContent) return prev;
+          return { ...prev, milestones: MAGAZINE_SAMPLE_MILESTONES };
+        });
+      }
+      const sampleProps = schema?.sample_props;
+      if (sampleProps && Object.keys(sampleProps).length > 0) {
+        const isEmpty = (v: unknown) =>
+          v == null ||
+          (typeof v === "string" && v.trim() === "") ||
+          (Array.isArray(v) && v.length === 0);
+        setEditableLayoutProps((prev) => {
+          const seeded: Record<string, unknown> = { ...prev };
+          for (const [key, val] of Object.entries(sampleProps)) {
+            if (isEmpty(prev[key])) seeded[key] = val;
+          }
+          return seeded;
+        });
+      }
+      return;
+    }
+    // Economist: seed shape-appropriate example data when switching into a data layout.
+    if (isEconomistTemplate && (next === "chart_line" || next === "chart_bar" || next === "data_table")) {
+      const kind = next === "chart_line" ? "line" : next === "chart_bar" ? "bar" : "table";
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.chartTable);
+        if (chartTableHasData(existing)) return prev;
+        return { ...prev, chartTable: getEconomistChartExampleTable(kind) };
+      });
+      return;
+    }
+    // Built-in data-viz templates (matrix/spotlight/chronicle): seed themed
+    // example data when switching into a chart layout with no existing data. The
+    // bar/histogram variant layouts seed their kind; the base layout seeds line.
+    if (isBuiltinDataVizChartLayout(normalizedTemplateId, next)) {
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.chartTable);
+        if (chartTableHasData(existing)) return prev;
+        const kind = builtinChartKindForLayout(normalizedTemplateId, next) ?? "line";
+        const example = builtinDataVizExampleTable(normalizedTemplateId, kind);
+        return example ? { ...prev, chartTable: example } : prev;
+      });
+      return;
+    }
+    // Built-in data-viz templates: seed themed example data when switching into
+    // the ticker / data-table layout with no existing tickerTable.
+    if (isBuiltinTickerLayout(normalizedTemplateId, next)) {
+      setEditableLayoutProps((prev) => {
+        const existing = normalizeChartTableValue(prev.tickerTable);
+        if (chartTableHasData(existing)) return prev;
+        const example = builtinTickerExampleTable(normalizedTemplateId);
+        return example ? { ...prev, tickerTable: example } : prev;
+      });
+      return;
+    }
+    // Seed example chart data when switching into a chart layout with no existing data
+    const isChartLayout =
+      ((isLaDucTemplate || isFjBriefTemplate) && getLaDucMarketAnnotationChartTypeForLayout(next) != null) ||
+      ((isNewscastTemplate) && next === "data_visualization") ||
+      (isBloombergTemplate && next === "terminal_dataviz");
+    if (!isChartLayout) return;
+    setEditableLayoutProps((prev) => {
+      const existing = normalizeChartTableValue(prev.chartTable);
+      if (chartTableHasData(existing)) return prev;
+      const exampleType = ((isLaDucTemplate || isFjBriefTemplate) ? getLaDucMarketAnnotationChartTypeForLayout(next) : null) ?? "bar";
+      return { ...prev, chartTable: getLaDucMarketAnnotationExampleTable(exampleType) };
+    });
   };
 
   const handleRemoveImage = async (assetId: number) => {
@@ -1736,6 +4377,11 @@ export default function SceneEditModal({
         hideImage: true,
       };
       delete layoutProps.assignedImage;
+<<<<<<< HEAD
+=======
+      delete layoutProps.imageFocusX;
+      delete layoutProps.imageFocusY;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       descriptor.layoutProps = layoutProps;
 
       await updateScene(project.id, scene.id, {
@@ -1755,41 +4401,50 @@ export default function SceneEditModal({
     }
   };
 
-  const hasSceneText =
-    Boolean((scene.title || "").trim()) || Boolean((scene.narration_text || "").trim());
+  const handleOpenImageSourceChooser = () => {
+    setImageSourceChooserOpen(true);
+    setSelectedExistingAssetId(null);
+  };
+
+  const handleChooseLocalUpload = () => {
+    setImageSourceChooserOpen(false);
+    localImageInputRef.current?.click();
+  };
+
+  const handleChooseScrapedImages = () => {
+    setImageSourceChooserOpen(false);
+    setSelectedExistingAssetId(null);
+    setScrapedImagesModalOpen(true);
+  };
+
+  const handleAssignExistingImage = async () => {
+    if (!selectedExistingAssetId) return;
+    setAssigningExistingImage(true);
+    try {
+      await assignExistingImageToScene(project.id, scene.id, selectedExistingAssetId);
+      setSelectedImageFile(null);
+      setImagePreviewUrl(null);
+      setScrapedImagesModalOpen(false);
+      onSaved();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : "Failed to assign image";
+      showError(String(msg));
+    } finally {
+      setAssigningExistingImage(false);
+    }
+  };
+
+  const scrapedImageItems = availableImageItems;
 
   const handleGenerateImageClick = () => {
     if (!isPro) {
       setShowAiImageUpgradeModal(true);
       return;
     }
-    handleGenerateImage();
-  };
-
-  const handleGenerateImage = async () => {
-    setGeneratingImage(true);
-    try {
-      const res = await generateSceneImage(project.id, scene.id);
-      setGeneratedImageBase64(res.data.image_base64);
-      setGeneratedPrompt(res.data.refined_prompt);
-    } catch (err: unknown) {
-      const status = err && typeof err === "object" && "response" in err
-        ? (err as { response?: { status?: number } }).response?.status
-        : 0;
-      if (status === 403) {
-        setShowAiImageUpgradeModal(true);
-      } else {
-        const msg =
-          err && typeof err === "object" && "response" in err
-            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-            : "Image generation failed";
-        showError(String(msg));
-      }
-      setGeneratedImageBase64(null);
-      setGeneratedPrompt(null);
-    } finally {
-      setGeneratingImage(false);
-    }
+    setShowImageGenModal(true);
   };
 
   const handleKeepGeneratedImage = () => {
@@ -1811,22 +4466,241 @@ export default function SceneEditModal({
     setGeneratedPrompt(null);
   };
 
+  const clampFocus = (value: number) => Math.max(0, Math.min(100, value));
+
+  useEffect(() => {
+    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
+  }, [imageAdjustFocusX, imageAdjustFocusY]);
+
+  useEffect(() => {
+    if (!isAdjustDragging || !imageAdjustOpen || !imageAdjustSrc) return;
+    const pan = imageAdjustPanRef.current;
+    if (!pan) return;
+
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = imageAdjustPreviewRef.current;
+      if (!el || !imageAdjustPanRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setImageAdjustFocusX(clamp(startFx - dxPct));
+      setImageAdjustFocusY(clamp(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [isAdjustDragging, imageAdjustOpen, imageAdjustSrc]);
+
+  useLayoutEffect(() => {
+    if (!imageAdjustOpen || !imageAdjustSrc) return;
+    const el = imageAdjustPreviewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      setImageAdjustZoom((z) => {
+        const factor = delta > 0 ? 0.97 : 1.03;
+        const next = Math.min(
+          IMAGE_ADJUST_ZOOM_MAX,
+          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor)
+        );
+        return Math.round(next * 100) / 100;
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustOpen, imageAdjustSrc]);
+
+  const openImageAdjustModal = (src: string) => {
+    setImageAdjustSrc(src);
+    setIsAdjustDragging(false);
+    const currentZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Number((editableLayoutProps.imageZoom as number) || 1));
+    setImageAdjustFocusX(imageFocusX);
+    setImageAdjustFocusY(imageFocusY);
+    setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
+
+    // Compute the preview box aspect ratio + circular flag from the image box
+    // config so the framing preview matches the layout's real image slot —
+    // mirroring the scene-details dropdown on the project view page.
+    const orientation = project.aspect_ratio === "portrait" ? "portrait" : "landscape";
+    let ar: string;
+    let circular = false;
+    if (isCustomTemplate) {
+      ar = resolveCustomImageBoxAr(scene, project);
+    } else if (isCraftedTemplate) {
+      ar =
+        _resolveCraftedImageBoxArFromFiles(craftedFrontendFiles, currentLayoutId, orientation) ||
+        (orientation === "portrait" ? "9 / 16" : "16 / 9");
+    } else {
+      const templateCfg = getTemplateConfig(project.template || "default");
+      ar = getImageBoxAspectRatio(
+        currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
+        orientation,
+        templateCfg.baseWidth,
+        templateCfg.baseHeight,
+      );
+      circular = isImageBoxCircular(currentLayoutId);
+    }
+    setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(circular);
+
+    imageAdjustPanRef.current = null;
+    setImageAdjustOpen(true);
+  };
+
+  const closeImageAdjustModal = () => {
+    setImageAdjustOpen(false);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+  };
+
+  const saveImageAdjustModal = async () => {
+    const nextFocusX = clampFocus(imageAdjustFocusX);
+    const nextFocusY = clampFocus(imageAdjustFocusY);
+    const nextZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
+    setImageFocusX(nextFocusX);
+    setImageFocusY(nextFocusY);
+    setEditableLayoutProps((prev) => ({ ...prev, imageZoom: nextZoom }));
+    closeImageAdjustModal();
+    await handleSave({ imageFocusX: nextFocusX, imageFocusY: nextFocusY, imageZoom: nextZoom });
+  };
+
+  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const openImportPreview = useCallback(
+    (
+      matrix: string[][],
+      maxCols: number,
+      maxRows: number,
+      onApply: (t: { headers: string[]; rows: string[][] }) => void,
+      sheetNames?: string[],
+      activeSheet?: string,
+      wb?: import("xlsx").WorkBook,
+      isChartTable?: boolean,
+    ) => {
+      if (matrix.length === 0) return;
+      chartImportCallbackRef.current = onApply;
+      setImportPreview({ matrix, maxCols, maxRows, sheetNames, activeSheet, wb, isChartTable });
+    },
+    [],
+  );
+
+  const matrixFromSheet = useCallback((wb: import("xlsx").WorkBook, sheetName: string): string[][] => {
+    const ws = wb.Sheets[sheetName];
+    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r: string[]) =>
+      (r as unknown[]).map(String),
+    );
+  }, []);
+
+  const handleTableFileImport = useCallback(
+    (
+      file: File,
+      maxCols: number,
+      maxRows: number,
+      onApply: (t: { headers: string[]; rows: string[][] }) => void,
+      isChartTable?: boolean,
+    ) => {
+      const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+      if (isExcel) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+          const wb = XLSX.read(data, { type: "array" });
+          const firstSheet = wb.SheetNames[0];
+          const matrix = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[firstSheet], {
+            header: 1,
+            defval: "",
+          }).map((r: string[]) => (r as unknown[]).map(String));
+          openImportPreview(
+            matrix,
+            maxCols,
+            maxRows,
+            onApply,
+            wb.SheetNames.length > 1 ? wb.SheetNames : undefined,
+            firstSheet,
+            wb.SheetNames.length > 1 ? wb : undefined,
+            isChartTable,
+          );
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        if (!text) return;
+        const lines = text.trim().split(/\r?\n/);
+        const matrix = lines.map((l) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, "")));
+        openImportPreview(matrix, maxCols, maxRows, onApply, undefined, undefined, undefined, isChartTable);
+      };
+      reader.readAsText(file);
+    },
+    [openImportPreview],
+  );
+
   if (!open) return null;
 
   const manualOnly = editMode === "manual";
 
-  return ReactDOM.createPortal(
+  const modalTree = (
     <>
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center" : "fixed inset-0 z-[100] flex items-center justify-center"}>
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+        className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[92vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
             Edit Scene {scene.order}
           </h2>
@@ -1840,20 +4714,20 @@ export default function SceneEditModal({
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1">
-          {/* Manual vs AI toggle */}
+        <div className="px-8 py-6 overflow-y-auto flex-1">
+          {/* Manual vs AI toggle (compact). AI-Assisted is the default selection. */}
           <div>
             <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
               Editing mode
             </h4>
-            <div className="flex gap-2">
+            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
               <button
                 type="button"
                 onClick={() => setEditMode("manual")}
-                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                   editMode === "manual"
-                    ? "border-purple-500 bg-purple-50 text-purple-700"
-                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 Manual editing
@@ -1861,33 +4735,33 @@ export default function SceneEditModal({
               <button
                 type="button"
                 onClick={() => setEditMode("ai")}
-                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                   editMode === "ai"
-                    ? "border-purple-500 bg-purple-50 text-purple-700"
-                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 AI-Assisted editing
               </button>
             </div>
             {editMode === "ai" && canUseAI && (
-              <p className="mt-1 text-xs text-gray-600 font-medium">
-                AI-Assisted-Editing limit: {isPro ? "Unlimited" : `${Math.max(0, 3 - aiUsageCount)} of 3 remaining this period`}
+              <p className="mt-2 text-xs text-gray-600 font-medium">
+                AI edits remaining: {isPro ? "Unlimited" : `${Math.max(0, 3 - aiUsageCount)} of 3 this period`}
               </p>
             )}
             {editMode === "ai" && !canUseAI && (
-              <p className="mt-1 text-xs font-medium text-red-600">
-                The limit for AI-Assisted Editing has been reached.
+              <p className="mt-2 text-xs font-medium text-red-600">
+                You've used all your AI edits for this period.
               </p>
             )}
           </div>
 
           {/* ── Manual mode fields ── */}
           {editMode === "manual" && (
-            <div className="mt-5 space-y-4">
+            <div className="mt-4 space-y-4">
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Title
+                  {currentLayoutId === "magazine_cover" ? "Cover Line" : "Title"}
                 </h4>
                 <input
                   type="text"
@@ -1932,12 +4806,61 @@ export default function SceneEditModal({
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               {(() => {
                 if (isEndingScene) {
+<<<<<<< HEAD
                   return (
                     <div className="space-y-3">
+=======
+                  const updateCta = (idx: number, patch: Partial<CtaDraft>) => {
+                    setCtas((prev) =>
+                      prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
+                    );
+                  };
+                  const removeCta = (idx: number) => {
+                    setCtas((prev) =>
+                      prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx),
+                    );
+                  };
+                  const addCta = () => {
+                    setCtas((prev) =>
+                      prev.length >= MAX_CTAS ? prev : [...prev, makeDefaultCta()],
+                    );
+                  };
+                  const endingHeadingFields: Array<{ key: string; label: string; placeholder: string }> = [
+                    { key: "followLabel", label: "Follow heading", placeholder: "Follow" },
+                    { key: "onlineLabel", label: "Online heading", placeholder: "Online" },
+                    { key: "issueLabel", label: "Colophon line", placeholder: "Thank you for reading" },
+                  ];
+                  return (
+                    <div className="space-y-3">
+                      {/* Editable back-cover section headings (magazine + any template
+                          whose closing layout reads these props; harmless elsewhere). */}
+                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                        Section headings
+                      </h4>
+                      <div className="space-y-3">
+                        {endingHeadingFields.map((field) => (
+                          <div key={field.key}>
+                            <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                              {field.label}
+                            </label>
+                            <input
+                              type="text"
+                              value={(editableLayoutProps[field.key] as string) ?? ""}
+                              onChange={(e) =>
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))
+                              }
+                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              placeholder={field.placeholder}
+                            />
+                          </div>
+                        ))}
+                      </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                         Social media Links
                       </h4>
                       <div className="space-y-3">
+<<<<<<< HEAD
                         <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40">
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-sm font-medium text-gray-800">
@@ -1961,14 +4884,63 @@ export default function SceneEditModal({
                             </button>
                           </div>
                           <div className="space-y-2">
+=======
+                        {ctas.map((cta, idx) => (
+                          <div
+                            key={idx}
+                            className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-medium text-gray-800">
+                                {idx === 0 ? "Call to Action Button" : `Call to Action Button ${idx + 1}`}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateCta(idx, { showWebsiteButton: !cta.showWebsiteButton })
+                                  }
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                    cta.showWebsiteButton ? "bg-purple-600" : "bg-gray-200"
+                                  }`}
+                                  role="switch"
+                                  aria-checked={cta.showWebsiteButton}
+                                  aria-label="Toggle website call to action"
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                      cta.showWebsiteButton ? "translate-x-4" : "translate-x-0"
+                                    }`}
+                                  />
+                                </button>
+                                {idx > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeCta(idx)}
+                                    className="text-gray-400 hover:text-red-500 text-base leading-none w-5 h-5 flex items-center justify-center"
+                                    aria-label={`Remove CTA ${idx + 1}`}
+                                  >
+                                    ×
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             <div>
                               <label className="block text-[11px] font-medium text-gray-500 mb-1">
                                 CTA button label
                               </label>
                               <input
                                 type="text"
+<<<<<<< HEAD
                                 value={endingCtaButtonText}
                                 onChange={(e) => setEndingCtaButtonText(e.target.value)}
+=======
+                                value={cta.ctaButtonText}
+                                onChange={(e) =>
+                                  updateCta(idx, { ctaButtonText: e.target.value })
+                                }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                 className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 placeholder="e.g. Read the full article"
                               />
@@ -1976,6 +4948,7 @@ export default function SceneEditModal({
                                 Short text on the pill above the link (matches the project font in the video).
                               </p>
                             </div>
+<<<<<<< HEAD
                           </div>
                           {endingShowWebsiteButton ? (
                             <div>
@@ -1995,12 +4968,47 @@ export default function SceneEditModal({
                             </div>
                           ) : null}
                         </div>
+=======
+                            {cta.showWebsiteButton ? (
+                              <div>
+                                <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                  Website URL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={cta.websiteLink}
+                                  onChange={(e) =>
+                                    updateCta(idx, { websiteLink: e.target.value })
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                  placeholder="https://example.com/article"
+                                />
+                                <p className="mt-1 text-[11px] text-gray-500">
+                                  Shown under the CTA pill when the toggle is on.
+                                </p>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                        {ctas.length < MAX_CTAS ? (
+                          <button
+                            type="button"
+                            onClick={addCta}
+                            className="w-full px-3 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 border border-dashed border-gray-300 hover:border-purple-400 rounded-lg bg-white/50 transition-colors"
+                          >
+                            + Add another CTA
+                          </button>
+                        ) : null}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         {ENDING_SOCIALS_KEYS.map((k) => {
                           const item = endingSocials[k];
                           const enabled = Boolean(item?.enabled ?? false);
                           const label = (item?.label ?? ENDING_SOCIALS_DEFAULT[k].label) as string;
                           const platformLabel = ENDING_SOCIALS_DEFAULT[k].label;
+<<<<<<< HEAD
                           const platformInitials = platformLabel.slice(0, 2).toUpperCase();
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                           return (
                             <div key={k} className="space-y-2">
                               <div className="flex items-center gap-3">
@@ -2055,8 +5063,60 @@ export default function SceneEditModal({
                   );
                 }
 
+<<<<<<< HEAD
                 const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
                 let layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
+=======
+                // Crafted templates: prefer fields shipped in the bundle's
+                // `frontend/layoutFields.ts`. Fall back to LAYOUT_TEXT_FIELDS
+                // (keyed by layout id) for any layout the bundle hasn't
+                // declared, so unknown crafted layouts still render *some*
+                // controls instead of being blank.
+                const craftedTemplateEntry = isCraftedTemplate
+                  ? craftedTemplates.find((ct) => ct.id === project.template)
+                  : undefined;
+                const craftedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickCraftedCompiledLayoutFields(craftedLayoutFieldsByLayout, currentLayoutId)
+                    : undefined;
+                const schemaBackedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickLayoutPropSchemaFieldDefs(craftedTemplateEntry?.layout_prop_schema, currentLayoutId)
+                    : undefined;
+                // Built-in (bundled) data-viz templates (matrix/spotlight/chronicle)
+                // source their chart/ticker editor fields from meta.json
+                // (layout_prop_schema), the same way crafted templates do — scoped
+                // to the registered chart + ticker layouts so other layouts keep
+                // using LAYOUT_TEXT_FIELDS.
+                const builtinDataVizSchemaFields =
+                  (isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
+                    isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
+                    isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId))
+                    ? pickLayoutPropSchemaFieldDefs(
+                        layouts?.layout_prop_schema as unknown as
+                          | Record<string, LayoutPropSchema>
+                          | undefined,
+                        currentLayoutId,
+                      )
+                    : undefined;
+                const bundledMetaSchemaFields =
+                  !isCraftedTemplate && currentLayoutId
+                    ? pickLayoutPropSchemaFieldDefs(
+                        layouts?.layout_prop_schema as unknown as
+                          | Record<string, LayoutPropSchema>
+                          | undefined,
+                        currentLayoutId,
+                      )
+                    : undefined;
+                const rawLayoutFields =
+                  (dataVizKind ? CUSTOM_DATAVIZ_FIELDS[dataVizKind] : undefined) ??
+                  craftedFields ??
+                  schemaBackedFields ??
+                  builtinDataVizSchemaFields ??
+                  getLayoutFields(project.template || "default", currentLayoutId) ??
+                  bundledMetaSchemaFields;
+                let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
                 if (isNewscastTemplate && currentLayoutId === "data_visualization") {
                   const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
@@ -2066,11 +5126,20 @@ export default function SceneEditModal({
                   const lineSeriesCount = mode === "line" ? Math.min(3, numericSeriesCount) : 0;
 
                   layoutFields = layoutFields.filter((field) => {
+<<<<<<< HEAD
                     if (field.key === "barPrimaryColor") return mode === "bar" && barSeriesCount >= 1;
                     if (field.key === "barSecondaryColor") return mode === "bar" && barSeriesCount >= 2;
                     if (field.key === "barTertiaryColor") return mode === "bar" && barSeriesCount >= 3;
                     if (field.key === "lineUpColor") return mode === "line" && lineSeriesCount >= 1;
                     if (field.key === "lineDownColor") return mode === "line" && lineSeriesCount >= 1;
+=======
+                    if (field.key === "barPrimaryColor") return mode === "bar";
+                    if (field.key === "barSecondaryColor") return mode === "bar";
+                    if (field.key === "barTertiaryColor") return mode === "bar";
+                    if (field.key === "lineUpColor") return mode === "line";
+                    if (field.key === "lineDownColor") return mode === "line";
+                    if (field.key === "lineThirdColor") return mode === "line";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     return true;
                   });
                 }
@@ -2079,12 +5148,61 @@ export default function SceneEditModal({
                 const suppressExtraKeysForDataViz =
                   (isNewscastTemplate || isNightfallTemplate || isDefaultTemplate) &&
                   currentLayoutId === "data_visualization";
+<<<<<<< HEAD
                 const extraKeys =
                   suppressExtraKeysForDataViz
                     ? []
                     : currentLayoutId && editableLayoutProps
                       ? Object.keys(editableLayoutProps).filter(
                           (key) => !knownKeys.has(key) && !HIDDEN_LAYOUT_PROP_KEYS.has(key)
+=======
+                const suppressExtraKeysForBloombergChart =
+                  isBloombergTemplate && currentLayoutId === "terminal_chart";
+                const suppressExtraKeysForBloombergDataViz =
+                  isBloombergTemplate && currentLayoutId === "terminal_dataviz";
+                // Built-in data-viz chart + ticker layouts (newspaper, whiteboard,
+                // gridcraft, stickman_2, blackswan, matrix, spotlight, chronicle, …)
+                // fully define their editable fields from meta.json's
+                // layout_prop_schema. Don't surface other scenes' leftover props
+                // (e.g. chartTable on a ticker scene, tickerTable/CSV/raw JSON on a
+                // chart scene) as raw "extra" fields.
+                const suppressExtraKeysForBuiltinDataViz =
+                  isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
+                  isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
+                  isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId);
+                const craftedHasLayoutFieldsSource =
+                  isCraftedTemplate &&
+                  Boolean(
+                    String(
+                      (craftedTemplateEntry as { layout_fields?: string | null } | undefined)?.layout_fields ?? "",
+                    ).trim(),
+                  );
+                const deferCraftedExtraKeys = craftedHasLayoutFieldsSource && !craftedLayoutFieldsReady;
+                // A concrete layout switch is in flight — show ONLY the new
+                // layout's declared fields, not the previous scene's leftover /
+                // orphan props (heading/body/issueLabel/… from the old layout).
+                // `extraKeys` is meant to surface stored props that lack a curated
+                // FieldDef when editing a scene in its native layout; after a
+                // deliberate switch it's just noise. Load-order independent, and
+                // catches orphan keys the FieldDef registry doesn't know about.
+                const suppressExtraKeysForLayoutSwitch =
+                  pendingLayout != null && pendingLayout !== savedLayoutId;
+                const extraKeys =
+                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz || suppressExtraKeysForBuiltinDataViz || suppressExtraKeysForLayoutSwitch)
+                    ? []
+                    : deferCraftedExtraKeys
+                      ? []
+                    : currentLayoutId && editableLayoutProps
+                      ? Object.keys(editableLayoutProps).filter(
+                          (key) =>
+                            !knownKeys.has(key) &&
+                            !isHiddenLayoutPropKey(key) &&
+                            !isDeprecatedLayoutPropKey(
+                              project.template,
+                              currentLayoutId,
+                              key,
+                            ),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         )
                       : [];
                 if (!currentLayoutId || (layoutFields.length === 0 && extraKeys.length === 0)) return null;
@@ -2102,7 +5220,21 @@ export default function SceneEditModal({
                       const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                       const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
                       if (field.type === "color") {
+<<<<<<< HEAD
                         const fallbackColor = normalizeColorValue(field.placeholder ?? "#1E5FD4", "#1E5FD4");
+=======
+                        // Unsaved swatch falls back to the field's declared `default`
+                        // first (the documented "display value when unset"), then its
+                        // placeholder, then a generic blue. Without the `default` branch
+                        // a field that defines only a default (e.g. fj_research bar
+                        // colors) would wrongly show the #1E5FD4 blue fallback.
+                        const fieldDefaultColor =
+                          typeof field.default === "string" ? field.default : undefined;
+                        const fallbackColor = normalizeColorValue(
+                          fieldDefaultColor ?? field.placeholder ?? "#1E5FD4",
+                          "#1E5FD4",
+                        );
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         const currentColor = normalizeColorValue(editableLayoutProps[field.key], fallbackColor);
                         return (
                           <div key={field.key}>
@@ -2119,6 +5251,174 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
+<<<<<<< HEAD
+=======
+                      if (field.type === "ohlcv_table") {
+                        const raw = editableLayoutProps[field.key] as { headers: string[]; rows: string[][] } | null | undefined;
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <OHLCVTableEditor
+                              value={raw}
+                              onChange={(next) =>
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next }))
+                              }
+                            />
+                          </div>
+                        );
+                      }
+                      if (field.type === "pipe_table") {
+                        const rawItems = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
+                        const ptMaxRows = field.maxItems ?? 20;
+                        const ptMaxCols = 10;
+                        // Parse to get row/col counts for the summary label
+                        const ptGrid = rawItems.map((r) => String(r).split("|").map((c) => c.trim()));
+                        const ptColCount = Math.max(0, ...ptGrid.map((r) => r.length));
+                        const ptRowCount = Math.max(0, ptGrid.length - 1); // exclude header row
+                        const ptHeaders = ptGrid[0] ?? [];
+                        const ptBodyRows = ptGrid.slice(1).length > 0 ? ptGrid.slice(1) : [Array(Math.max(ptColCount, 1)).fill("")];
+                        const fieldKey = field.key;
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2 flex-wrap">
+                              <span className="text-xs text-gray-400 flex-1 min-w-0">
+                                {ptRowCount > 0 ? `${ptRowCount} row${ptRowCount !== 1 ? "s" : ""} × ${ptColCount} col${ptColCount !== 1 ? "s" : ""}` : "No data yet"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const padded = ptGrid.map((r) => { const p = [...r]; while (p.length < ptColCount) p.push(""); return p; });
+                                  const headers = padded[0]?.length ? padded[0] : Array(Math.max(ptColCount, 2)).fill("").map((_, i) => `Col ${i+1}`);
+                                  const rows = padded.slice(1).length ? padded.slice(1) : [Array(headers.length).fill("")];
+                                  setPipeTableDraft({ headers, rows });
+                                  setPipeTableModalKey(fieldKey);
+                                  setPipeTableModalMaxRows(ptMaxRows);
+                                  setPipeTableModalMaxCols(ptMaxCols);
+                                  setPipeTableModalOpen(true);
+                                }}
+                                className="px-3 py-1 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white transition-colors"
+                              >
+                                Edit table
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (field.type === "ticker_table") {
+                        const table = normalizeChartTableValue(editableLayoutProps[field.key]);
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <div className="rounded-lg border border-gray-200 bg-gray-50/30 p-3 space-y-2">
+                              <div
+                                className={`rounded-lg border-2 border-dashed px-3 py-2 flex items-center gap-2 transition-colors ${tickerDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-white"}`}
+                                onDragOver={(e) => { e.preventDefault(); setTickerDropOver(true); }}
+                                onDragLeave={() => setTickerDropOver(false)}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  setTickerDropOver(false);
+                                  const file = e.dataTransfer.files[0];
+                                  if (!file) return;
+                                  handleTableFileImport(
+                                    file,
+                                    TICKER_TABLE_MAX_COLS,
+                                    TICKER_TABLE_MAX_ROWS,
+                                    (next) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next })),
+                                  );
+                                }}
+                              >
+                                <span className={`text-[11px] flex-1 ${tickerDropOver ? "text-purple-600" : "text-gray-400"}`}>
+                                  {tickerDropOver ? (
+                                    "Release to import"
+                                  ) : (
+                                    <>
+                                      Drop <strong className="font-medium text-gray-500">.csv</strong> or{" "}
+                                      <strong className="font-medium text-gray-500">.xlsx</strong> here
+                                    </>
+                                  )}
+                                </span>
+                                <label className="flex-shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:text-purple-600 hover:border-purple-400 cursor-pointer transition-colors">
+                                  Upload
+                                  <input
+                                    type="file"
+                                    accept=".csv,.xlsx,.xls,text/csv"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      handleTableFileImport(
+                                        file,
+                                        TICKER_TABLE_MAX_COLS,
+                                        TICKER_TABLE_MAX_ROWS,
+                                        (next) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next })),
+                                      );
+                                      e.target.value = "";
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                              <SpreadsheetTable
+                                data={table}
+                                onChange={(next) =>
+                                  setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next }))
+                                }
+                                maxRows={TICKER_TABLE_MAX_ROWS}
+                                maxCols={TICKER_TABLE_MAX_COLS}
+                              />
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditableLayoutProps((prev) => {
+                                      const current = normalizeChartTableValue(prev[field.key]);
+                                      if (current.rows.length >= TICKER_TABLE_MAX_ROWS) return prev;
+                                      return {
+                                        ...prev,
+                                        [field.key]: {
+                                          ...current,
+                                          rows: [...current.rows, Array(current.headers.length).fill("")],
+                                        },
+                                      };
+                                    })
+                                  }
+                                  disabled={table.rows.length >= TICKER_TABLE_MAX_ROWS}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  + Row
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditableLayoutProps((prev) => {
+                                      const current = normalizeChartTableValue(prev[field.key]);
+                                      if (current.headers.length >= TICKER_TABLE_MAX_COLS) return prev;
+                                      return {
+                                        ...prev,
+                                        [field.key]: {
+                                          headers: [...current.headers, `Col ${current.headers.length + 1}`],
+                                          rows: current.rows.map((r) => [...r, ""]),
+                                        },
+                                      };
+                                    })
+                                  }
+                                  disabled={table.headers.length >= TICKER_TABLE_MAX_COLS}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  + Col
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       if (field.type === "chart_table") {
                         const table = normalizeChartTableValue(editableLayoutProps[field.key]);
                         const fixedModeByFieldKey: Partial<Record<string, DataVizTableMode>> = {
@@ -2127,7 +5427,10 @@ export default function SceneEditModal({
                           pieChartTable: "pie",
                           histogramChartTable: "histogram",
                         };
+<<<<<<< HEAD
                         const mode = fixedModeByFieldKey[field.key] ?? inferDataVizTableMode(editableLayoutProps);
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         const isSeparateDataVizTableEditor =
                           (isNightfallTemplate || isDefaultTemplate) && currentLayoutId === "data_visualization";
                         const primaryChartType = String(
@@ -2164,6 +5467,7 @@ export default function SceneEditModal({
                           );
                         }
 
+<<<<<<< HEAD
                         const inferredLineSeriesCount = lineSeriesCountFromLayoutProps(editableLayoutProps);
                         const tableLineSeriesCount = countLineSeriesInChartTable(table);
                         const effectiveLineSeriesCount =
@@ -2285,22 +5589,151 @@ export default function SceneEditModal({
                                   </button>
                                 ) : null}
                               </div>
+=======
+                        const rowCount = table.rows.length;
+                        const colCount = table.headers.length;
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/30 px-3 py-2 flex-wrap">
+                              <span className="text-xs text-gray-400 flex-1 min-w-0">
+                                {rowCount > 0 ? (
+                                  `${rowCount} row${rowCount !== 1 ? "s" : ""} × ${colCount} col${colCount !== 1 ? "s" : ""}`
+                                ) : (
+                                  "No data yet"
+                                )}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setChartTableDraft({
+                                    headers: [...table.headers],
+                                    rows: table.rows.map((r) => [...r]),
+                                  });
+                                  setChartTableModalKey(field.key);
+                                  setChartTableModalOpen(true);
+                                }}
+                                className="px-3 py-1 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white transition-colors"
+                              >
+                                Edit table
+                              </button>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             </div>
                           </div>
                         );
                       }
                       if (field.type === "select") {
                         const opts = field.options ?? [];
+<<<<<<< HEAD
                         const defaultVal = opts[0]?.value ?? "";
                         const sel = String(editableLayoutProps[field.key] ?? defaultVal);
+=======
+                        const defaultVal = field.default ?? opts[0]?.value ?? "";
+                        const sel = String(editableLayoutProps[field.key] ?? defaultVal);
+                        const isLaDucChartTypeField =
+                          isLaDucTemplate &&
+                          currentLayoutId === "market_annotation" &&
+                          field.key === "chartType";
+                        const isFjBriefChartTypeField =
+                          isFjBriefTemplate &&
+                          currentLayoutId === "market_annotation" &&
+                          field.key === "chartType";
+                        const isFJResearchChartTypeField =
+                          normalizedTemplateId === "fj_research" &&
+                          currentLayoutId === "market_annotation" &&
+                          field.key === "chartType";
+                        const isBloombergChartTypeField =
+                          isBloombergTemplate &&
+                          currentLayoutId === "terminal_dataviz" &&
+                          field.key === "chartType";
+                        const isNewscastChartTypeField =
+                          isNewscastTemplate &&
+                          currentLayoutId === "data_visualization" &&
+                          field.key === "chartType";
+                        const isBuiltinChartTypeField =
+                          field.key === "chartType" &&
+                          isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId);
+                        const isCustomChartTypeField =
+                          isCustomTemplate &&
+                          currentLayoutId === "custom_chart" &&
+                          field.key === "chartType";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
                             <select
                               value={sel}
+<<<<<<< HEAD
                               onChange={(e) =>
                                 setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))
                               }
+=======
+                              onChange={(e) => {
+                                const nextChartType = e.target.value;
+                                if (isBuiltinChartTypeField) {
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    const example = builtinDataVizExampleTable(normalizedTemplateId, concrete);
+                                    if (example) {
+                                      setEditableLayoutProps((prev) => ({
+                                        ...prev,
+                                        [field.key]: nextChartType,
+                                        chartTable: example,
+                                      }));
+                                      return;
+                                    }
+                                  }
+                                }
+                                if (isLaDucChartTypeField || isFjBriefChartTypeField || isFJResearchChartTypeField || isBloombergChartTypeField || isNewscastChartTypeField) {
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    const example = (isLaDucChartTypeField || isFjBriefChartTypeField)
+                                      ? getLaDucMarketAnnotationExampleTable(concrete)
+                                      : getFJResearchMarketAnnotationExampleTable(concrete);
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [field.key]: nextChartType,
+                                      chartTable: example,
+                                    }));
+                                    return;
+                                  }
+                                }
+                                if (isCustomChartTypeField) {
+                                  const concrete =
+                                    nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
+                                      ? (nextChartType as "line" | "bar" | "histogram")
+                                      : null;
+                                  if (concrete) {
+                                    // Only swap in a shape-appropriate example when the current
+                                    // table is empty or still a known seed/example — never clobber
+                                    // real data the user typed or imported.
+                                    setEditableLayoutProps((prev) => {
+                                      const existing = normalizeChartTableValue(prev.chartTable);
+                                      const isSeed =
+                                        !chartTableHasData(existing) || isCustomDataVizExampleTable(existing);
+                                      if (!isSeed) {
+                                        return { ...prev, [field.key]: nextChartType };
+                                      }
+                                      return {
+                                        ...prev,
+                                        [field.key]: nextChartType,
+                                        chartTable: getCustomDataVizExampleTable(concrete),
+                                      };
+                                    });
+                                    return;
+                                  }
+                                }
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: nextChartType }));
+                              }}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                               className={inputClass}
                             >
                               {opts.map((o) => (
@@ -2312,6 +5745,45 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
+<<<<<<< HEAD
+=======
+                      if (field.type === "number") {
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <input
+                              type="number"
+                              value={editableLayoutProps[field.key] !== undefined ? Number(editableLayoutProps[field.key]) : (field.default ?? field.min ?? 0)}
+                              onChange={(e) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))}
+                              min={field.min}
+                              max={field.max}
+                              step={field.step ?? 1}
+                              className={inputClass}
+                            />
+                          </div>
+                        );
+                      }
+                      if (field.type === "range") {
+                        const rangeVal = editableLayoutProps[field.key] !== undefined ? Number(editableLayoutProps[field.key]) : (field.default ?? field.min ?? 0);
+                        return (
+                          <div key={field.key}>
+                            <div className="flex justify-between items-baseline mb-1">
+                              <label className="text-xs text-gray-400">{field.label}</label>
+                              <span className="text-xs font-medium text-purple-600 tabular-nums">{rangeVal}</span>
+                            </div>
+                            <input
+                              type="range"
+                              value={rangeVal}
+                              onChange={(e) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))}
+                              min={field.min}
+                              max={field.max}
+                              step={field.step ?? 1}
+                              className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
+                            />
+                          </div>
+                        );
+                      }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       if (field.type === "string") {
                         return (
                           <div key={field.key}>
@@ -2342,6 +5814,7 @@ export default function SceneEditModal({
                       }
                       if (field.type === "string_array") {
                         const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
+                        const minItems = field.minItems ?? 0;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -2359,18 +5832,20 @@ export default function SceneEditModal({
                                     }}
                                     className={`flex-1 ${inputClass}`}
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = items.filter((_, j) => j !== i);
-                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
+                                  {items.length > minItems ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  ) : null}
                                 </div>
                               ))}
                               {(!field.maxItems || items.length < field.maxItems) && (
@@ -2389,8 +5864,14 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
-                      if (field.type === "object_array" && field.subFields) {
-                        const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as Record<string, string>[];
+                      if (field.type === "object_array") {
+                        const items = normalizeObjectArrayItems(editableLayoutProps[field.key]);
+                        const subFields =
+                          field.subFields?.length
+                            ? field.subFields
+                            : inferObjectArraySubFields(items);
+                        if (!subFields.length) return null;
+                        const minItems = field.minItems ?? 0;
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -2399,7 +5880,7 @@ export default function SceneEditModal({
                                 <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                                   <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                   <div className="flex-1 space-y-2">
-                                    {field.subFields!.map((sf) => (
+                                    {subFields.map((sf) => (
                                       <div key={sf.key}>
                                         <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
                                         <input
@@ -2416,18 +5897,20 @@ export default function SceneEditModal({
                                       </div>
                                     ))}
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = items.filter((_, j) => j !== i);
-                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
+                                  {items.length > minItems ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  ) : null}
                                 </div>
                               ))}
                               {(!field.maxItems || items.length < field.maxItems) && (
@@ -2435,7 +5918,7 @@ export default function SceneEditModal({
                                   type="button"
                                   onClick={() => {
                                     const empty: Record<string, string> = {};
-                                    field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                    subFields.forEach((sf) => { empty[sf.key] = ""; });
                                     setEditableLayoutProps((prev) => ({ ...prev, [field.key]: [...items, empty] }));
                                   }}
                                   className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
@@ -2454,6 +5937,7 @@ export default function SceneEditModal({
                     })}
                     {extraKeys.length > 0 && (
                       <div className="space-y-3">
+<<<<<<< HEAD
                         {extraKeys.map((key) => (
                           <div key={key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
@@ -2472,6 +5956,94 @@ export default function SceneEditModal({
                             />
                           </div>
                         ))}
+=======
+                        {extraKeys.map((key) => {
+                          const rawValue = editableLayoutProps[key];
+                          const looksLikeObjectArray = Array.isArray(rawValue)
+                            && rawValue.every((it) => it != null && typeof it === "object" && !Array.isArray(it));
+                          if (looksLikeObjectArray) {
+                            const items = normalizeObjectArrayItems(rawValue);
+                            const subFields = inferObjectArraySubFields(items);
+                            if (!subFields.length) return null;
+                            return (
+                              <div key={key}>
+                                <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                                  {humanLabel(key)}
+                                </label>
+                                <div className="space-y-3">
+                                  {items.map((item, i) => (
+                                    <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                                      <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
+                                      <div className="flex-1 space-y-2">
+                                        {subFields.map((sf) => (
+                                          <div key={sf.key}>
+                                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
+                                            <input
+                                              type="text"
+                                              value={item[sf.key] ?? ""}
+                                              placeholder={sf.placeholder || sf.label}
+                                              onChange={(e) => {
+                                                const updated = [...items];
+                                                updated[i] = { ...updated[i], [sf.key]: e.target.value };
+                                                setEditableLayoutProps((prev) => ({ ...prev, [key]: updated }));
+                                              }}
+                                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = items.filter((_, j) => j !== i);
+                                          setEditableLayoutProps((prev) => ({ ...prev, [key]: updated }));
+                                        }}
+                                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                                {humanLabel(key)}
+                              </label>
+                              {(rawValue != null && typeof rawValue === "object") ? (
+                                <AutoGrowTextarea
+                                  value={formatUnknownLayoutPropValue(rawValue)}
+                                  onChange={(e) =>
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [key]: parseUnknownLayoutPropValue(e.target.value, prev[key]),
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden font-mono"
+                                  minRows={3}
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={formatUnknownLayoutPropValue(rawValue)}
+                                  onChange={(e) =>
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      [key]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       </div>
                     )}
                   </div>
@@ -2595,8 +6167,18 @@ export default function SceneEditModal({
                             </div>
                           );
                         }
+<<<<<<< HEAD
                         if (field.type === "object_array" && field.subFields) {
                           const items = (Array.isArray(editableStructuredContent[field.key]) ? editableStructuredContent[field.key] : []) as Record<string, string>[];
+=======
+                        if (field.type === "object_array") {
+                          const items = normalizeObjectArrayItems(editableStructuredContent[field.key]);
+                          const subFields =
+                            field.subFields?.length
+                              ? field.subFields
+                              : inferObjectArraySubFields(items);
+                          if (!subFields.length) return null;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                           return (
                             <div key={field.key}>
                               <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -2605,7 +6187,11 @@ export default function SceneEditModal({
                                   <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                                     <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                     <div className="flex-1 space-y-2">
+<<<<<<< HEAD
                                       {field.subFields!.map((sf) => (
+=======
+                                      {subFields.map((sf) => (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                         <div key={sf.key}>
                                           <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
                                           <input
@@ -2641,7 +6227,11 @@ export default function SceneEditModal({
                                     type="button"
                                     onClick={() => {
                                       const empty: Record<string, string> = {};
+<<<<<<< HEAD
                                       field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+=======
+                                      subFields.forEach((sf) => { empty[sf.key] = ""; });
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                       setEditableStructuredContent((prev) => ({ ...prev, [field.key]: [...items, empty] }));
                                     }}
                                     className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
@@ -2671,7 +6261,19 @@ export default function SceneEditModal({
                   <div>
                     <div className="flex justify-between items-baseline">
                       <label className="text-xs text-gray-400">Title font size</label>
-                      <span className="text-xs font-medium text-purple-600 tabular-nums">{titleFontSize}</span>
+                      {(() => {
+                        const parsed = parseInt(titleFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.title;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <input
                       type="range"
@@ -2686,7 +6288,19 @@ export default function SceneEditModal({
                   <div>
                     <div className="flex justify-between items-baseline ">
                       <label className="text-xs text-gray-400">Description font size</label>
-                      <span className="text-xs font-medium text-purple-600 tabular-nums">{descriptionFontSize}</span>
+                      {(() => {
+                        const parsed = parseInt(descriptionFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.desc;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <input
                       type="range"
@@ -2711,12 +6325,12 @@ export default function SceneEditModal({
                     {imageItems.map(({ url, asset }) => (
                       <div
                         key={asset.id}
-                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
+                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-20 flex-shrink-0"
                       >
                         <img
                           src={url}
                           alt=""
-                          className="h-20 w-auto object-cover"
+                          className="w-full h-full object-cover"
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = "none";
@@ -2724,9 +6338,19 @@ export default function SceneEditModal({
                         />
                         <button
                           type="button"
+                          onClick={() => openImageAdjustModal(url)}
+                          className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          title="Adjust image"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleRemoveImage(asset.id)}
                           disabled={removingAssetId === asset.id}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
+                          className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                         >
                           {removingAssetId === asset.id ? (
                             <span className="text-[10px]">…</span>
@@ -2739,19 +6363,29 @@ export default function SceneEditModal({
                       </div>
                     ))}
                     {selectedImageFile && imagePreviewUrl && (
-                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 flex-shrink-0">
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-20 flex-shrink-0">
                         <img
                           src={imagePreviewUrl}
                           alt="New image"
-                          className="h-20 w-auto object-cover"
+                          className="w-full h-full object-cover"
                         />
+                        <button
+                          type="button"
+                          onClick={() => openImageAdjustModal(imagePreviewUrl)}
+                          className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          title="Adjust image"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                          </svg>
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedImageFile(null);
                             setImagePreviewUrl(null);
                           }}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -2759,39 +6393,43 @@ export default function SceneEditModal({
                         </button>
                       </div>
                     )}
-                    <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/jpg"
-                        onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
+                    <button
+                      type="button"
+                      onClick={handleOpenImageSourceChooser}
+                      className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
+                      title="Add image"
+                    >
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                    </label>
+                    </button>
+                    <input
+                      ref={localImageInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/jpg"
+                      onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
                     <button
                       type="button"
                       onClick={handleGenerateImageClick}
-                      disabled={!hasSceneText || generatingImage}
-                      className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700"
+                      className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700"
+                      title="Generate image with AI"
                     >
-                      {generatingImage ? (
-                        <span className="text-xs">…</span>
-                      ) : (
-                        <>
-                          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                          </svg>
-                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center">
-                            {hasSceneText ? "Generate Image with AI" : "Add title or narration to generate an image"}
-                          </span>
-                        </>
-                      )}
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                      </svg>
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center">
+                        Generate image with AI
+                      </span>
                     </button>
                   </div>
-                  {!hasSceneText && (
-                    <p className="text-xs text-gray-400 mt-1.5">Add a title or narration to use AI image generation.</p>
+                  {(imageItems.length > 0 || selectedImageFile) && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500">
+                        Click the edit icon on the image thumbnail to adjust framing with a draggable crop box.
+                      </p>
+                    </div>
                   )}
                   </>
                 ) : (
@@ -2805,61 +6443,185 @@ export default function SceneEditModal({
 
           {/* ── AI-Assisted mode fields ── */}
           {editMode === "ai" && (
-            <div className={`mt-5 space-y-4 ${!canUseAI ? "pointer-events-none opacity-60" : ""}`}>
+            <div className={`mt-4 space-y-4 ${!canUseAI ? "pointer-events-none opacity-60" : ""}`}>
+              {/* STEP 1 — the narration box, clearly labeled as the thing being edited. */}
               <div>
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Visual description <span className="normal-case tracking-normal text-gray-300">(optional)</span>
-                </h4>
-                <AutoGrowTextarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe how you want the visuals to change..."
-                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
-                  minRows={2}
-                />
-              </div>
-
-              <div>
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Narration text (voiceover script)
-                </h4>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <h4 className="text-sm font-semibold text-gray-900">Scene narration</h4>
+                  <span className="text-xs text-gray-400">{aiWordCount} {aiWordCount === 1 ? "word" : "words"} · ~{aiEstimatedSeconds}s</span>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">
+                  {showImproveBox
+                    ? "AI will rewrite this for you — finish your instruction below. Close “Rewrite with AI” to edit it by hand."
+                    : "This is what's spoken in the voiceover and shown on screen. Edit it directly, or use AI below."}
+                </p>
                 <AutoGrowTextarea
                   value={aiNarration}
-                  onChange={(e) => setAiNarration(e.target.value)}
-                  placeholder="Edit the narration that will be spoken in the voiceover..."
-                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
-                  minRows={3}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setAiNarration(next);
+                    // Editing the narration implies the voiceover is now stale.
+                    if (next.trim() !== (scene.narration_text || "").trim()) {
+                      setRegenerateVoiceover(true);
+                    }
+                  }}
+                  disabled={showImproveBox}
+                  placeholder="Edit the narration that will be spoken in this scene..."
+                  className={`w-full px-4 py-3 text-[15px] leading-relaxed border rounded-xl resize-none overflow-hidden transition-colors ${
+                    showImproveBox
+                      ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                      : "border-gray-200 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  }`}
+                  minRows={4}
                 />
-                <p className="mt-1 text-xs text-gray-500">
-                  This controls the spoken narration and scene timing. Display text is edited in Manual mode.
-                </p>
+                {/* Make the auto-enabled re-record visible — no silent state change. */}
+                {!showImproveBox &&
+                  aiNarration.trim() !== (scene.narration_text || "").trim() &&
+                  regenerateVoiceover && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-600">
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9l-7.5 13A2 2 0 004.5 20h15a2 2 0 001.7-3.1l-7.5-13a2 2 0 00-3.4 0z" />
+                      </svg>
+                      You changed the narration, so the voiceover will be re-recorded on save.
+                    </p>
+                  )}
               </div>
 
-              <div className="flex items-center justify-between">
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-                  Regenerate voiceover
-                </h4>
+              {/* STEP 2 — the one AI action, plainly named. Opens an instruction box. */}
+              <div>
                 <button
                   type="button"
-                  onClick={() => setRegenerateVoiceover(!regenerateVoiceover)}
-                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                    regenerateVoiceover ? "bg-purple-600" : "bg-gray-200"
+                  onClick={() => setShowImproveBox((v) => !v)}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+                    showImproveBox || description.trim()
+                      ? "border-purple-500 bg-purple-600 text-white hover:bg-purple-700"
+                      : "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
                   }`}
-                  role="switch"
-                  aria-checked={regenerateVoiceover}
                 >
-                  <span
-                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      regenerateVoiceover ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
+                  <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M11.3 1.9a.7.7 0 011.4 0l1 3.1a3 3 0 001.9 1.9l3.1 1a.7.7 0 010 1.4l-3.1 1a3 3 0 00-1.9 1.9l-1 3.1a.7.7 0 01-1.4 0l-1-3.1a3 3 0 00-1.9-1.9l-3.1-1a.7.7 0 010-1.4l3.1-1a3 3 0 001.9-1.9l1-3.1z" />
+                  </svg>
+                  {showImproveBox ? "Tell AI what to change" : "Rewrite this with AI"}
                 </button>
+                {showImproveBox && (
+                  <div className="mt-3 rounded-xl border border-purple-200 bg-purple-50/40 p-3">
+                    <label className="block text-xs font-semibold text-purple-700 mb-1.5">
+                      What should AI change?
+                    </label>
+                    <AutoGrowTextarea
+                      value={description}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setDescription(next);
+                        // An AI instruction means the narration will change, so the
+                        // current voiceover is now stale — auto-enable re-record.
+                        if (next.trim()) {
+                          setRegenerateVoiceover(true);
+                        }
+                      }}
+                      placeholder="Describe the change in plain English. For example: “Make it shorter and punchier, lead with the café count, and keep a warm, inviting tone.”"
+                      className="w-full px-3.5 py-3 text-[15px] text-gray-800 leading-relaxed border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
+                      minRows={4}
+                    />
+                  </div>
+                )}
               </div>
 
-              <div ref={layoutRef} className="relative">
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Layout
-                </h4>
+              {/* STEP 3 — settings applied when you save. Grouped + labeled so each is clear. */}
+              <div className="rounded-xl border border-gray-100 divide-y divide-gray-100">
+                <div className="px-4 py-2.5 bg-gray-50/70 rounded-t-xl">
+                  <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">When you save</h4>
+                </div>
+
+                {/* Regenerate voiceover — a setting, with description + live status. */}
+                <div className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800">Re-record the voiceover</p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        Generate fresh audio for the new narration. Turn off to keep the current audio.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRegenerateVoiceover((v) => !v)}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                        regenerateVoiceover ? "bg-purple-600" : "bg-gray-200"
+                      }`}
+                      role="switch"
+                      aria-checked={regenerateVoiceover}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          regenerateVoiceover ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Sub-option only matters when re-recording. */}
+                  {regenerateVoiceover && (
+                    <div className="mt-3 ml-0 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-700">Speak it word-for-word</p>
+                        <p className="mt-0.5 text-[11px] text-gray-500">
+                          On: say the narration exactly. Off: let AI smooth the phrasing.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMatchNarrationExactly(!matchNarrationExactly)}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                          matchNarrationExactly ? "bg-purple-600" : "bg-gray-200"
+                        }`}
+                        role="switch"
+                        aria-checked={matchNarrationExactly}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            matchNarrationExactly ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Live status so the choice's effect is obvious. */}
+                  <div className="mt-2.5 flex items-center gap-1.5 text-xs">
+                    {voiceoverUpToDate ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="9" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.5 2.5 4.5-5" />
+                        </svg>
+                        <span className="text-green-600 font-medium">Voiceover is up to date — no new audio needed</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9l-7.5 13A2 2 0 004.5 20h15a2 2 0 001.7-3.1l-7.5-13a2 2 0 00-3.4 0z" />
+                        </svg>
+                        <span className="text-amber-600 font-medium">New voiceover will be generated on save</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Which voice — quiet info. */}
+                  <div className="mt-2 flex items-center gap-1.5 text-[11px] text-gray-400">
+                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3zM5 10v1a7 7 0 0014 0v-1M12 18v4" />
+                    </svg>
+                    <span>Voice: <span className="font-medium text-gray-500 capitalize">{voiceLabel}</span> — change in project Settings</span>
+                  </div>
+                </div>
+
+                {/* Scene layout — labeled, inline, no mystery "Advanced". */}
+                <div ref={layoutRef} className="relative px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800">Scene layout</p>
+                      <p className="mt-0.5 text-xs text-gray-500">How this scene is arranged on screen. Keep it, or let AI re-pick.</p>
+                    </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
                     {selectedLayout === "__keep__"
@@ -2891,22 +6653,26 @@ export default function SceneEditModal({
                   <div className="absolute z-10 mt-1.5 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
                     <button
                       type="button"
-                      onClick={() => { setSelectedLayout("__keep__"); setLayoutOpen(false); }}
+                      onClick={() => { applySelectedLayout("__keep__"); setLayoutOpen(false); }}
                       className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
                         selectedLayout === "__keep__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                       }`}
                     >
-                      {currentLayoutLabel}
-                      {currentLayoutId && (
-                        <span className={`ml-1 ${supportsImage ? "text-gray-500" : "text-gray-400 italic"}`}>
-                          ({supportsImage ? "Supports images" : "Does not support images"})
+                      {savedLayoutLabel}
+                      {savedLayoutId && (
+                        <span className={`ml-1 ${savedSupportsImage ? "text-gray-500" : "text-gray-400 italic"}`}>
+                          ({savedSupportsImage ? "Supports images" : "Does not support images"})
                         </span>
                       )}
                     </button>
                     {!isCustomTemplate && (
                       <button
                         type="button"
+<<<<<<< HEAD
                         onClick={() => { setSelectedLayout("__auto__"); setLayoutOpen(false); }}
+=======
+                        onClick={() => { applySelectedLayout("__auto__"); setLayoutOpen(false); }}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
                           selectedLayout === "__auto__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                         }`}
@@ -2915,14 +6681,14 @@ export default function SceneEditModal({
                       </button>
                     )}
                     {layouts?.layouts
-                      .filter((id) => id !== currentLayoutId)
+                      .filter((id) => id !== savedLayoutId)
                       .map((layoutId) => {
                         const supportsImageForLayout = !layoutsWithoutImage.has(layoutId);
                         return (
                           <button
                             key={layoutId}
                             type="button"
-                            onClick={() => { setSelectedLayout(layoutId); setLayoutOpen(false); }}
+                            onClick={() => { applySelectedLayout(layoutId); setLayoutOpen(false); }}
                             className={`w-full text-left px-3 py-2.5 text-xs hover:bg-purple-50 transition-colors ${
                               selectedLayout === layoutId ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                             }`}
@@ -2940,13 +6706,15 @@ export default function SceneEditModal({
                       })}
                   </div>
                 )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
         </div>
 
-        <div className="p-6 border-t border-gray-100 flex justify-end gap-2">
+        <div className="px-8 py-5 border-t border-gray-100 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -2956,11 +6724,19 @@ export default function SceneEditModal({
           </button>
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => {
+              void handleSave();
+            }}
             disabled={loading || (editMode === "ai" && (!aiHasChanges || !canUseAI))}
             className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Saving..." : editMode === "manual" ? "Save changes" : "Apply AI edit"}
+            {loading
+              ? "Saving..."
+              : editMode === "manual"
+                ? "Save changes"
+                : aiWillRewrite
+                  ? "Rewrite with AI"
+                  : "Save changes"}
           </button>
         </div>
       </div>
@@ -2970,6 +6746,134 @@ export default function SceneEditModal({
       open={showAiImageUpgradeModal}
       onClose={() => setShowAiImageUpgradeModal(false)}
       projectId={project?.id}
+    />
+
+    {imageSourceChooserOpen && (
+      <div className="fixed inset-0 z-[125] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={() => setImageSourceChooserOpen(false)}
+        />
+        <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-5">
+          <h3 className="text-lg font-semibold text-gray-900">Add scene image</h3>
+          <p className="text-xs text-gray-500 mt-1">Choose where to pick the image from.</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleChooseScrapedImages}
+              className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+              From existing scraped images
+            </button>
+            <button
+              type="button"
+              onClick={handleChooseLocalUpload}
+              className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" />
+              </svg>
+              File upload
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {scrapedImagesModalOpen && (
+      <div className="fixed inset-0 z-[126] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={() => !assigningExistingImage && setScrapedImagesModalOpen(false)}
+        />
+        <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Select scraped image</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Pick one image to assign to this scene.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setScrapedImagesModalOpen(false)}
+              disabled={assigningExistingImage}
+              className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors disabled:opacity-50"
+              title="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-5 bg-gray-50 max-h-[60vh] overflow-auto">
+            {scrapedImageItems.length === 0 ? (
+              <p className="text-sm text-gray-500">No images available.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {scrapedImageItems.map(({ asset, url }) => {
+                  const selected = selectedExistingAssetId === asset.id;
+                  return (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => setSelectedExistingAssetId(asset.id)}
+                      className={`relative rounded-xl overflow-hidden border-2 transition-colors ${
+                        selected ? "border-purple-500" : "border-gray-200 hover:border-purple-300"
+                      }`}
+                    >
+                      <img src={url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                      {selected && (
+                        <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="px-5 py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+            <button
+              type="button"
+              onClick={() => setScrapedImagesModalOpen(false)}
+              disabled={assigningExistingImage}
+              className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleAssignExistingImage}
+              disabled={!selectedExistingAssetId || assigningExistingImage}
+              className="px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm disabled:opacity-60"
+            >
+              {assigningExistingImage ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <GenerateSceneImageModal
+      open={showImageGenModal}
+      scene={scene}
+      project={project}
+      isPro={isPro}
+      onClose={() => setShowImageGenModal(false)}
+      onUpgrade={() => {
+        setShowImageGenModal(false);
+        setShowAiImageUpgradeModal(true);
+      }}
+      onImageReady={(imageBase64, refinedPrompt) => {
+        setGeneratedImageBase64(imageBase64);
+        setGeneratedPrompt(refinedPrompt);
+        setShowImageGenModal(false);
+      }}
     />
 
     {/* AI generated image preview popup */}
@@ -3018,7 +6922,791 @@ export default function SceneEditModal({
         </div>
       </div>
     )}
-    </>,
-    document.body
+
+    {imageAdjustOpen && imageAdjustSrc && (
+      <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 min-h-0">
+        <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={closeImageAdjustModal} />
+        <div
+          className="relative w-full max-w-3xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden min-h-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Adjust image framing</h3>
+              <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                Drag to pan when zoomed in. Use the slider or scroll wheel to zoom, then save.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeImageAdjustModal}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+              title="Close"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+            <div className="p-4 sm:p-5">
+            <div
+              ref={imageAdjustPreviewRef}
+              onMouseDown={handleAdjustMouseDown}
+              onTouchStart={handleAdjustTouchStart}
+              style={{
+                aspectRatio: imageAdjustAspectRatio,
+                maxHeight: "70vh",
+                maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
+              }}
+              className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
+              }`}
+            >
+
+              <img
+                src={imageAdjustSrc}
+                alt="Adjust preview"
+                className="absolute inset-0 w-full h-full"
+                style={{
+                  objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
+                  objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                  transform: `scale(${imageAdjustZoom})`,
+                  transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                }}
+                draggable={false}
+              />
+            </div>
+            <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
+              <label className="flex items-center gap-3 text-sm text-gray-700">
+                <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                <input
+                  type="range"
+                  min={IMAGE_ADJUST_ZOOM_MIN}
+                  max={IMAGE_ADJUST_ZOOM_MAX}
+                  step={0.05}
+                  value={imageAdjustZoom}
+                  onChange={(e) =>
+                    setImageAdjustZoom(
+                      Math.min(
+                        IMAGE_ADJUST_ZOOM_MAX,
+                        Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(e.target.value))
+                      )
+                    )
+                  }
+                  className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                />
+                <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                  {imageAdjustZoom.toFixed(2)}×
+                </span>
+              </label>
+            </div>
+            <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
+              Position: X {Math.round(imageAdjustFocusX)}% · Y {Math.round(imageAdjustFocusY)}% · Zoom{" "}
+              {imageAdjustZoom.toFixed(2)}×
+            </div>
+            </div>
+          </div>
+          <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+            <button
+              type="button"
+              onClick={closeImageAdjustModal}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveImageAdjustModal}
+              className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Save framing
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
+
+  const TICKER_MODAL_MAX_COLS = TICKER_TABLE_MAX_COLS;
+  const TICKER_MODAL_MAX_ROWS = TICKER_TABLE_MAX_ROWS;
+  const CHART_MODAL_MAX_COLS = 4;
+  const CHART_MODAL_MAX_ROWS = 50;
+  const tickerDraft = tickerTableDraft ?? { headers: ["Label", "Value"], rows: [[""]] };
+
+  const tickerModal = tickerTableModalOpen && tickerTableModalKey ? (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setTickerTableModalOpen(false)} />
+      <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl flex flex-col" style={{ maxHeight: "88vh" }}>
+
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Edit ticker table</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {TICKER_MODAL_MAX_ROWS} rows · max {TICKER_MODAL_MAX_COLS} cols · drag &amp; drop CSV/Excel to import</p>
+          </div>
+          <button type="button" onClick={() => setTickerTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Drag-and-drop import zone */}
+        <div
+          className={`mx-4 mt-3 flex-shrink-0 rounded-lg border-2 border-dashed px-4 py-3 flex items-center gap-3 transition-colors ${tickerDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-gray-50"}`}
+          onDragOver={(e) => { e.preventDefault(); setTickerDropOver(true); }}
+          onDragLeave={() => setTickerDropOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setTickerDropOver(false);
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            handleTableFileImport(file, TICKER_MODAL_MAX_COLS, TICKER_MODAL_MAX_ROWS, (t) => setTickerTableDraft(t));
+          }}
+        >
+          <svg className={`w-5 h-5 flex-shrink-0 transition-colors ${tickerDropOver ? "text-purple-400" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span className={`text-[11px] transition-colors ${tickerDropOver ? "text-purple-600" : "text-gray-400"}`}>
+            {tickerDropOver ? "Release to import" : <>Drop a <strong className="font-medium text-gray-500">.csv</strong> or <strong className="font-medium text-gray-500">.xlsx</strong> file here to import</>}
+          </span>
+        </div>
+
+        {/* Table area */}
+        <div className="overflow-auto flex-1 p-4">
+          <SpreadsheetTable
+            data={tickerDraft}
+            onChange={setTickerTableDraft}
+            maxRows={TICKER_MODAL_MAX_ROWS}
+            maxCols={TICKER_MODAL_MAX_COLS}
+          />
+        </div>
+
+        {/* Row / Col controls + footer */}
+        <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0">
+          {/* Row controls */}
+          <button
+            type="button"
+            onClick={() => setTickerTableDraft({ ...tickerDraft, rows: [...tickerDraft.rows, Array(tickerDraft.headers.length).fill("")] })}
+            disabled={tickerDraft.rows.length >= TICKER_MODAL_MAX_ROWS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Row
+          </button>
+          <button
+            type="button"
+            onClick={() => tickerDraft.rows.length > 1 && setTickerTableDraft({ ...tickerDraft, rows: tickerDraft.rows.slice(0, -1) })}
+            disabled={tickerDraft.rows.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Row
+          </button>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
+          {/* Col controls */}
+          <button
+            type="button"
+            onClick={() => setTickerTableDraft({ headers: [...tickerDraft.headers, `Col ${tickerDraft.headers.length + 1}`], rows: tickerDraft.rows.map((r) => [...r, ""]) })}
+            disabled={tickerDraft.headers.length >= TICKER_MODAL_MAX_COLS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Col
+          </button>
+          <button
+            type="button"
+            onClick={() => tickerDraft.headers.length > 1 && setTickerTableDraft({ headers: tickerDraft.headers.slice(0, -1), rows: tickerDraft.rows.map((r) => r.slice(0, -1)) })}
+            disabled={tickerDraft.headers.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Col
+          </button>
+
+          <div className="flex-1" />
+
+          <button type="button" onClick={() => setTickerTableModalOpen(false)} className="px-4 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditableLayoutProps((prev) => ({ ...prev, [tickerTableModalKey]: tickerDraft }));
+              setTickerTableModalOpen(false);
+            }}
+            className="px-4 py-1.5 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const chartDraft = chartTableDraft ?? { headers: ["Label", "Value"], rows: [["", ""]] };
+
+  /** Show a transient error inline at the top of the chart-data modal. */
+  const showChartTableError = (msg: string) => {
+    if (chartTableErrorTimeoutRef.current) clearTimeout(chartTableErrorTimeoutRef.current);
+    setChartTableError(msg);
+    chartTableErrorTimeoutRef.current = setTimeout(() => setChartTableError(null), 4000);
+  };
+
+  /** Entry point for file import. maxCols/maxRows = hard limits for destination table.
+   *  onApply = where to write the result (defaults to setChartTableDraft). */
+  const handleFileImport = (
+    file: File,
+    maxCols: number,
+    maxRows: number,
+    onApply?: (t: { headers: string[]; rows: string[][] }) => void,
+    isChartTable?: boolean,
+  ) => {
+    const cb = onApply ?? ((t: { headers: string[]; rows: string[][] }) => setChartTableDraft(t));
+    handleTableFileImport(file, maxCols, maxRows, cb, isChartTable);
+  };
+
+  // Convenience wrappers
+  const handleChartFileImport = (
+    file: File,
+    onApply?: (t: { headers: string[]; rows: string[][] }) => void,
+  ) => handleFileImport(file, CHART_MODAL_MAX_COLS, CHART_MODAL_MAX_ROWS, onApply, true);
+
+  /**
+   * Parse clipboard text into a 2-D matrix of cells.
+   * Recognizes three formats, in order:
+   *   1. Markdown / GFM pipe tables (`| col | col |` with optional `|---|---|` separator)
+   *   2. TSV (Excel / Google Sheets default copy format)
+   *   3. CSV with quoted-comma support
+   */
+  const parseClipboardTable = (text: string): string[][] => {
+    const stripped = text.replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+    if (!stripped) return [];
+    const lines = stripped.split("\n");
+
+    // ── 1) Markdown pipe table ─────────────────────────────────────────────
+    // Heuristic: at least 2 non-empty lines, each containing a `|`, and the
+    // overall block has more pipes than tabs/commas (so it's clearly piped).
+    const nonEmpty = lines.filter((l) => l.trim().length > 0);
+    const pipedLines = nonEmpty.filter((l) => l.includes("|"));
+    const pipeCount = (stripped.match(/\|/g) ?? []).length;
+    const tabCount = (stripped.match(/\t/g) ?? []).length;
+    const isMarkdownTable =
+      pipedLines.length >= 2 &&
+      pipedLines.length === nonEmpty.length &&
+      pipeCount > tabCount;
+
+    if (isMarkdownTable) {
+      const splitMdRow = (line: string): string[] => {
+        let s = line.trim();
+        // Strip leading and trailing pipes if present so we don't get empty edge cells.
+        if (s.startsWith("|")) s = s.slice(1);
+        if (s.endsWith("|")) s = s.slice(0, -1);
+        return s.split("|").map((c) => c.trim());
+      };
+      // Drop GFM alignment rows like "|---|:--:|---|".
+      const isSeparatorRow = (cells: string[]) =>
+        cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c.trim()));
+      return nonEmpty.map(splitMdRow).filter((cells) => !isSeparatorRow(cells));
+    }
+
+    // ── 2) TSV / 3) CSV ───────────────────────────────────────────────────
+    const hasTabs = stripped.includes("\t");
+    return lines.map((line) =>
+      hasTabs
+        ? line.split("\t")
+        // Minimal CSV split — handles quoted values with embedded commas.
+        : (line.match(/("([^"]|"")*"|[^,]*)(,|$)/g) ?? [])
+            .filter((_, i, a) => i < a.length - 1 || a[i] !== "")
+            .map((tok) => tok.replace(/,$/, "").trim().replace(/^"(.*)"$/, "$1").replace(/""/g, '"')),
+    );
+  };
+
+  /** Bulk-paste TSV/CSV starting at (startRow, startCol); grows headers/rows up to caps. */
+  const handleChartPaste = (startRow: number, startCol: number, pasted: string) => {
+    const matrix = parseClipboardTable(pasted);
+    if (matrix.length === 0) return;
+    // Single-cell paste with no tabs/newlines → let default input behavior handle it.
+    if (matrix.length === 1 && matrix[0].length === 1 && !pasted.includes("\t") && !pasted.includes("\n")) return;
+
+    const pastedMaxCols = Math.max(...matrix.map((r) => r.length));
+    const pastedRows = matrix.length;
+    if (startCol + pastedMaxCols > CHART_MODAL_MAX_COLS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+    } else if (startRow + pastedRows > CHART_MODAL_MAX_ROWS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+    }
+
+    const neededCols = Math.min(CHART_MODAL_MAX_COLS, startCol + pastedMaxCols);
+    const neededRows = Math.min(CHART_MODAL_MAX_ROWS, startRow + pastedRows);
+
+    const nextHeaders = [...chartDraft.headers];
+    while (nextHeaders.length < neededCols) nextHeaders.push(`Series ${nextHeaders.length}`);
+
+    const nextRows = chartDraft.rows.map((r) => {
+      const padded = [...r];
+      while (padded.length < nextHeaders.length) padded.push("");
+      return padded;
+    });
+    while (nextRows.length < neededRows) nextRows.push(Array(nextHeaders.length).fill(""));
+
+    for (let ri = 0; ri < matrix.length; ri++) {
+      const targetRow = startRow + ri;
+      if (targetRow >= CHART_MODAL_MAX_ROWS) break;
+      for (let ci = 0; ci < matrix[ri].length; ci++) {
+        const targetCol = startCol + ci;
+        if (targetCol >= CHART_MODAL_MAX_COLS) break;
+        nextRows[targetRow][targetCol] = matrix[ri][ci];
+      }
+    }
+
+    setChartTableDraft({ headers: nextHeaders, rows: nextRows });
+  };
+
+  /**
+   * Whole-table paste — replaces the entire draft (headers + rows) from a TSV/CSV
+   * clipboard payload. First parsed line becomes the headers; remaining lines
+   * become the body rows. Used by the "Paste" toolbar button so a round-trip
+   * (Copy → Paste) restores the exact same table.
+   */
+  const handleChartPasteWholeTable = (pasted: string) => {
+    const matrix = parseClipboardTable(pasted);
+    if (matrix.length === 0) return;
+
+    const pastedMaxCols = Math.max(...matrix.map((r) => r.length), 2);
+    const pastedBodyRows = Math.max(0, matrix.length - 1);
+    if (pastedMaxCols > CHART_MODAL_MAX_COLS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+    } else if (pastedBodyRows > CHART_MODAL_MAX_ROWS) {
+      showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+    }
+
+    const colCount = Math.min(CHART_MODAL_MAX_COLS, pastedMaxCols);
+    // Header line — pad/truncate to colCount.
+    const headerLine = matrix[0];
+    const nextHeaders: string[] = [];
+    for (let ci = 0; ci < colCount; ci++) {
+      const v = headerLine[ci]?.trim();
+      nextHeaders.push(v || (ci === 0 ? "Label" : `Series ${ci}`));
+    }
+
+    // Body rows — pad/truncate to colCount, cap at MAX_ROWS.
+    const bodyMatrix = matrix.slice(1);
+    const nextRows: string[][] = [];
+    for (let ri = 0; ri < bodyMatrix.length && ri < CHART_MODAL_MAX_ROWS; ri++) {
+      const row = bodyMatrix[ri];
+      const padded: string[] = [];
+      for (let ci = 0; ci < colCount; ci++) padded.push(row[ci] ?? "");
+      nextRows.push(padded);
+    }
+    // Ensure at least one body row so the table is editable.
+    if (nextRows.length === 0) nextRows.push(Array(colCount).fill(""));
+
+    setChartTableDraft({ headers: nextHeaders, rows: nextRows });
+  };
+
+  /** Serialize the current draft as TSV (Excel-friendly) and copy to clipboard. */
+  const handleChartCopyAll = async () => {
+    const lines: string[] = [];
+    lines.push(chartDraft.headers.join("\t"));
+    for (const row of chartDraft.rows) {
+      const padded = [...row];
+      while (padded.length < chartDraft.headers.length) padded.push("");
+      lines.push(padded.slice(0, chartDraft.headers.length).join("\t"));
+    }
+    const tsv = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(tsv);
+    } catch {
+      // Fallback for older browsers / insecure contexts.
+      const ta = document.createElement("textarea");
+      ta.value = tsv;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } finally { document.body.removeChild(ta); }
+    }
+  };
+
+  const chartModal = chartTableModalOpen && chartTableModalKey ? (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setChartTableModalOpen(false)} />
+      <div
+        className="relative w-full max-w-3xl rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl flex flex-col"
+        style={{ maxHeight: "92dvh" }}
+      >
+
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Edit chart data</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {CHART_MODAL_MAX_ROWS} rows · max {CHART_MODAL_MAX_COLS} cols · paste TSV/CSV into any cell to bulk-fill</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Help button */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="w-6 h-6 flex items-center justify-center rounded-full border border-purple-200 text-purple-500 bg-purple-50 hover:bg-purple-100 text-[11px] font-bold leading-none"
+                title="How to use this table"
+              >
+                ?
+              </button>
+              <div className="absolute right-0 top-8 z-50 w-72 rounded-xl border border-gray-200 bg-white shadow-xl p-4 text-[11px] text-gray-600 leading-relaxed hidden group-hover:block">
+                <p className="font-semibold text-gray-800 mb-2">How to use the chart table</p>
+                <ul className="space-y-1.5 list-none">
+                  <li><span className="font-medium text-purple-600">Upload CSV / Excel</span> — drag a file onto the drop zone or click the upload button. For Excel files with multiple sheets, you'll be asked to pick one.</li>
+                  <li><span className="font-medium text-purple-600">Column picker</span> — if your file has more than {CHART_MODAL_MAX_COLS} columns, choose which {CHART_MODAL_MAX_COLS} to keep.</li>
+                  <li><span className="font-medium text-purple-600">Max size</span> — data is clipped to {CHART_MODAL_MAX_ROWS} rows × {CHART_MODAL_MAX_COLS} columns automatically.</li>
+                  <li><span className="font-medium text-purple-600">Select cells</span> — click a cell, then Shift-click or drag to select a range.</li>
+                  <li><span className="font-medium text-purple-600">Copy / Paste</span> — Ctrl+C to copy, Ctrl+V to paste (works with Excel / Google Sheets).</li>
+                  <li><span className="font-medium text-purple-600">Delete</span> — select rows or cells, then press Delete or Backspace.</li>
+                  <li><span className="font-medium text-purple-600">Row numbers</span> — click or drag the row-number gutter to select whole rows.</li>
+                </ul>
+              </div>
+            </div>
+            <button type="button" onClick={() => setChartTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Transient paste-limit error banner */}
+        {chartTableError && (
+          <div className="mx-3 sm:mx-4 mt-2 px-3 py-2 rounded-md border border-red-200 bg-red-50 text-[11px] text-red-700 flex items-start gap-2">
+            <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <span className="flex-1">{chartTableError}</span>
+          </div>
+        )}
+
+        {/* Drag-and-drop / click-to-upload import zone */}
+        <div
+          className={`mx-3 sm:mx-4 mt-3 flex-shrink-0 rounded-lg border-2 border-dashed px-4 py-3 flex items-center gap-3 transition-colors cursor-pointer ${chartDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-gray-50 hover:border-purple-300 hover:bg-purple-50/40"}`}
+          onClick={() => chartFileInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setChartDropOver(true); }}
+          onDragLeave={() => setChartDropOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setChartDropOver(false);
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            handleChartFileImport(file);
+          }}
+        >
+          <svg className={`w-5 h-5 flex-shrink-0 transition-colors ${chartDropOver ? "text-purple-400" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span className={`text-[11px] transition-colors ${chartDropOver ? "text-purple-600" : "text-gray-400"}`}>
+            {chartDropOver ? "Release to import" : <>Drop a <strong className="font-medium text-gray-500">.csv</strong> or <strong className="font-medium text-gray-500">.xlsx</strong> file here to import, or <strong className="font-medium text-purple-500">click to browse</strong></>}
+          </span>
+          <input
+            ref={chartFileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls,text/csv"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleChartFileImport(file);
+              e.target.value = "";
+            }}
+          />
+        </div>
+
+        {/* Table area */}
+        <div className="overflow-auto flex-1 p-3 sm:p-4">
+          <SpreadsheetTable
+            data={chartDraft}
+            onChange={setChartTableDraft}
+            maxRows={CHART_MODAL_MAX_ROWS}
+            maxCols={CHART_MODAL_MAX_COLS}
+            onBulkPaste={(ri, ci, text) => handleChartPaste(ri, ci, text)}
+            onHeaderPaste={(ci, text) => {
+              const matrix = parseClipboardTable(text);
+              if (matrix.length === 0) return;
+              const headerLine = matrix[0];
+              const bodyMatrix = matrix.slice(1);
+              if (ci + headerLine.length > CHART_MODAL_MAX_COLS) showChartTableError(`Only ${CHART_MODAL_MAX_COLS} columns allowed — extra columns were ignored.`);
+              else if (bodyMatrix.length > CHART_MODAL_MAX_ROWS) showChartTableError(`Only ${CHART_MODAL_MAX_ROWS} rows allowed — extra rows were ignored.`);
+              const neededCols = Math.min(CHART_MODAL_MAX_COLS, ci + headerLine.length);
+              const nextHeaders = [...chartDraft.headers];
+              while (nextHeaders.length < neededCols) nextHeaders.push(`Series ${nextHeaders.length}`);
+              for (let i = 0; i < headerLine.length; i++) { const tc = ci + i; if (tc >= CHART_MODAL_MAX_COLS) break; nextHeaders[tc] = headerLine[i]; }
+              setChartTableDraft({ headers: nextHeaders, rows: chartDraft.rows });
+              if (bodyMatrix.length > 0) setTimeout(() => handleChartPaste(0, ci, bodyMatrix.map((r) => r.join("\t")).join("\n")), 0);
+            }}
+          />
+        </div>
+
+        {/* Toolbar — wraps on narrow viewports so all controls remain reachable */}
+        <div className="px-3 sm:px-4 py-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5 flex-shrink-0">
+          {/* Row controls */}
+          <button
+            type="button"
+            onClick={() => setChartTableDraft({ ...chartDraft, rows: [...chartDraft.rows, Array(chartDraft.headers.length).fill("")] })}
+            disabled={chartDraft.rows.length >= CHART_MODAL_MAX_ROWS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Row
+          </button>
+          <button
+            type="button"
+            onClick={() => chartDraft.rows.length > 1 && setChartTableDraft({ ...chartDraft, rows: chartDraft.rows.slice(0, -1) })}
+            disabled={chartDraft.rows.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Row
+          </button>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
+          {/* Col controls */}
+          <button
+            type="button"
+            onClick={() => setChartTableDraft({ headers: [...chartDraft.headers, `Series ${chartDraft.headers.length}`], rows: chartDraft.rows.map((r) => [...r, ""]) })}
+            disabled={chartDraft.headers.length >= CHART_MODAL_MAX_COLS}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Col
+          </button>
+          <button
+            type="button"
+            onClick={() => chartDraft.headers.length > 2 && setChartTableDraft({ headers: chartDraft.headers.slice(0, -1), rows: chartDraft.rows.map((r) => r.slice(0, -1)) })}
+            disabled={chartDraft.headers.length <= 2}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+            Col
+          </button>
+
+        </div>
+
+        {/* Numeric columns warning */}
+        {(() => {
+          // cols 2+ (index 1+) should be numeric for charts to render
+          const badCols = chartDraft.headers.slice(1).filter((_, ci) => {
+            const colIdx = ci + 1;
+            return chartDraft.rows.some((row) => {
+              const v = row[colIdx];
+              return v !== undefined && v !== "" && isNaN(Number(v));
+            });
+          });
+          if (badCols.length === 0) return null;
+          return (
+            <div className="mx-3 sm:mx-4 mb-2 px-3 py-2 rounded-md border border-amber-200 bg-amber-50 text-[11px] text-amber-800 flex items-start gap-2">
+              <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <span>
+                <span className="font-semibold">Non-numeric data in series columns: </span>
+                {badCols.map((h) => <span key={h} className="font-mono bg-amber-100 rounded px-1 mr-1">{h}</span>)}
+                — charts need numeric values in columns 2+. Column 1 is the X-axis label.
+              </span>
+            </div>
+          );
+        })()}
+
+        {/* Action row — always pinned to bottom of the modal so Cancel/Save remain reachable on every viewport */}
+        <div className="px-3 sm:px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0 bg-white rounded-b-2xl">
+          <button
+            type="button"
+            onClick={() => setChartTableModalOpen(false)}
+            className="flex-1 sm:flex-none px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const normalized = normalizeChartTableValue(chartDraft);
+              setEditableLayoutProps((prev) => ({ ...prev, [chartTableModalKey]: normalized }));
+              setChartTableModalOpen(false);
+            }}
+            className="flex-1 sm:flex-none sm:ml-auto px-4 py-2 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  // ─── Import Preview modal (replaces old sheet/col pickers) ────
+  const importPreviewModal = importPreview ? (
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setImportPreview(null)} />
+      <div className="relative w-full max-w-5xl rounded-2xl bg-white shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: "90dvh" }}>
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Preview & select data to import</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              Showing up to 100 columns × 20 rows · click headers/row numbers to select · max {importPreview.maxCols} cols × {importPreview.maxRows} rows will be imported
+            </p>
+          </div>
+          <button type="button" onClick={() => setImportPreview(null)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div className="overflow-auto flex-1 p-4">
+          <ImportPreviewSheet
+            matrix={importPreview.matrix}
+            sheetNames={importPreview.sheetNames}
+            activeSheet={importPreview.activeSheet}
+            onSheetChange={(name) => {
+              if (!importPreview.wb) return;
+              const matrix = matrixFromSheet(importPreview.wb, name);
+              setImportPreview((prev) => prev ? { ...prev, matrix, activeSheet: name } : null);
+            }}
+            maxCols={importPreview.maxCols}
+            maxRows={importPreview.maxRows}
+            isChartTable={importPreview.isChartTable}
+            onApply={(result) => {
+              chartImportCallbackRef.current?.(result);
+              setImportPreview(null);
+            }}
+            onCancel={() => setImportPreview(null)}
+          />
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  // ─── Pipe-table modal (bloomberg terminal_table etc.) ─────────
+  const pipeDraft = pipeTableDraft ?? { headers: ["Col 1", "Col 2"], rows: [["", ""]] };
+
+  const pipeModal = pipeTableModalOpen && pipeTableModalKey ? (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setPipeTableModalOpen(false)} />
+      <div className="relative w-full max-w-3xl rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl flex flex-col" style={{ maxHeight: "92dvh" }}>
+
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Edit table data</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Editable headers · max {pipeTableModalMaxRows} rows · max {pipeTableModalMaxCols} cols · paste TSV/CSV into any cell to bulk-fill</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Help button */}
+            <div className="relative group">
+              <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full border border-purple-200 text-purple-500 bg-purple-50 hover:bg-purple-100 text-[11px] font-bold leading-none" title="How to use this table">?</button>
+              <div className="absolute right-0 top-8 z-50 w-72 rounded-xl border border-gray-200 bg-white shadow-xl p-4 text-[11px] text-gray-600 leading-relaxed hidden group-hover:block">
+                <p className="font-semibold text-gray-800 mb-2">How to use the table</p>
+                <ul className="space-y-1.5 list-none">
+                  <li><span className="font-medium text-purple-600">Upload CSV / Excel</span> — drag a file onto the drop zone or click Upload. Multi-sheet Excel shows a sheet picker.</li>
+                  <li><span className="font-medium text-purple-600">Column picker</span> — if your file has more than {pipeTableModalMaxCols} columns, choose which to keep.</li>
+                  <li><span className="font-medium text-purple-600">Max size</span> — clipped to {pipeTableModalMaxRows} rows × {pipeTableModalMaxCols} cols automatically.</li>
+                  <li><span className="font-medium text-purple-600">Select cells</span> — click then Shift-click or drag.</li>
+                  <li><span className="font-medium text-purple-600">Copy / Paste</span> — Ctrl+C / Ctrl+V (Excel/Sheets compatible).</li>
+                  <li><span className="font-medium text-purple-600">Delete</span> — select rows or cells, press Delete or Backspace.</li>
+                  <li><span className="font-medium text-purple-600">Row numbers</span> — click or drag gutter to select whole rows.</li>
+                </ul>
+              </div>
+            </div>
+            <button type="button" onClick={() => setPipeTableModalOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Drag-and-drop import zone */}
+        <div
+          className={`mx-3 sm:mx-4 mt-3 flex-shrink-0 rounded-lg border-2 border-dashed px-4 py-3 flex items-center gap-3 transition-colors ${chartDropOver ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-gray-50"}`}
+          onDragOver={(e) => { e.preventDefault(); setChartDropOver(true); }}
+          onDragLeave={() => setChartDropOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setChartDropOver(false);
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            handleFileImport(file, pipeTableModalMaxCols, pipeTableModalMaxRows, (t) => setPipeTableDraft(t));
+          }}
+        >
+          <svg className={`w-5 h-5 flex-shrink-0 transition-colors ${chartDropOver ? "text-purple-400" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span className={`text-[11px] transition-colors ${chartDropOver ? "text-purple-600" : "text-gray-400"}`}>
+            {chartDropOver ? "Release to import" : <><strong className="font-medium text-gray-500">.csv</strong> or <strong className="font-medium text-gray-500">.xlsx</strong> — drop here, or use the Upload button above</>}
+          </span>
+          <label className="ml-auto flex-shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 text-gray-600 bg-white hover:text-purple-600 hover:border-purple-400 cursor-pointer transition-colors">
+            Upload
+            <input type="file" accept=".csv,.xlsx,.xls,text/csv" className="sr-only" onChange={(e) => {
+              const file = e.target.files?.[0]; if (!file) return;
+              handleFileImport(file, pipeTableModalMaxCols, pipeTableModalMaxRows, (t) => setPipeTableDraft(t));
+              e.target.value = "";
+            }} />
+          </label>
+        </div>
+
+        {/* Table area */}
+        <div className="overflow-auto flex-1 p-3 sm:p-4">
+          <SpreadsheetTable
+            data={pipeDraft}
+            onChange={setPipeTableDraft}
+            maxRows={pipeTableModalMaxRows}
+            maxCols={pipeTableModalMaxCols}
+          />
+        </div>
+
+        {/* Toolbar */}
+        <div className="px-3 sm:px-4 py-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5 flex-shrink-0">
+          <button type="button"
+            onClick={() => setPipeTableDraft({ ...pipeDraft, rows: [...pipeDraft.rows, Array(pipeDraft.headers.length).fill("")] })}
+            disabled={pipeDraft.rows.length >= pipeTableModalMaxRows}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>Row
+          </button>
+          <button type="button"
+            onClick={() => pipeDraft.rows.length > 1 && setPipeTableDraft({ ...pipeDraft, rows: pipeDraft.rows.slice(0, -1) })}
+            disabled={pipeDraft.rows.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>Row
+          </button>
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <button type="button"
+            onClick={() => setPipeTableDraft({ headers: [...pipeDraft.headers, `Col ${pipeDraft.headers.length + 1}`], rows: pipeDraft.rows.map((r) => [...r, ""]) })}
+            disabled={pipeDraft.headers.length >= pipeTableModalMaxCols}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>Col
+          </button>
+          <button type="button"
+            onClick={() => pipeDraft.headers.length > 1 && setPipeTableDraft({ headers: pipeDraft.headers.slice(0, -1), rows: pipeDraft.rows.map((r) => r.slice(0, -1)) })}
+            disabled={pipeDraft.headers.length <= 1}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>Col
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="px-3 sm:px-4 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0 bg-white rounded-b-2xl">
+          <button type="button" onClick={() => setPipeTableModalOpen(false)} className="flex-1 sm:flex-none px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!pipeTableModalKey) return;
+              const allRows = [pipeDraft.headers, ...pipeDraft.rows];
+              setEditableLayoutProps((prev) => ({ ...prev, [pipeTableModalKey]: allRows.map((r) => r.join(" | ")) }));
+              setPipeTableModalOpen(false);
+            }}
+            className="flex-1 sm:flex-none sm:ml-auto px-4 py-2 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+          >Save</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  return isDemo
+    ? <>{modalTree}{tickerModal}{chartModal}{pipeModal}{importPreviewModal}</>
+    : ReactDOM.createPortal(<>{modalTree}{tickerModal}{chartModal}{pipeModal}{importPreviewModal}</>, document.body);
 }

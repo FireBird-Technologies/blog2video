@@ -20,6 +20,10 @@ import {
   calculateMatrixMetadata,
 } from "./templates/matrix/MatrixVideo";
 import {
+  MosaicVideo,
+  calculateMosaicMetadata,
+} from "./templates/mosaic/MosaicVideo";
+import {
   WhiteboardVideo,
   calculateWhiteboardMetadata,
 } from "./templates/whiteboard/WhiteboardVideo";
@@ -36,9 +40,43 @@ import {
   calculateBlackswanMetadata,
 } from "./templates/blackswan/BlackswanVideo";
 import {
+<<<<<<< HEAD
   GeneratedVideo,
   calculateGeneratedMetadata,
 } from "./templates/generated/GeneratedVideo";
+=======
+  BloombergVideo,
+  calculateBloombergMetadata,
+} from "./templates/bloomberg/BloombergVideo";
+import {
+  ChronicleVideo,
+  calculateChronicleMetadata,
+} from "./templates/chronicle/ChronicleVideo";
+import {
+  EconomistVideo,
+  calculateEconomistMetadata,
+} from "./templates/economist/EconomistVideo";
+import {
+  GeneratedVideo,
+  calculateGeneratedMetadata,
+} from "./templates/generated/GeneratedVideo";
+import {
+  Stickman2Video,
+  calculateStickman2Metadata,
+} from "./templates/stickman_2/Stickman2Video";
+import {
+  MagazineVideo,
+  calculateMagazineMetadata,
+} from "./templates/magazine/MagazineVideo";
+import {
+  StickmanFootballVideo,
+  calculateStickmanFootballMetadata,
+} from "./templates/stickman_football/StickmanFootballVideo";
+import {
+  SakuraVideo,
+  calculateSakuraMetadata,
+} from "./templates/sakura/SakuraVideo";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -104,6 +142,18 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={calculateMatrixMetadata}
       />
       <Composition
+        id="MosaicVideo"
+        component={MosaicVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateMosaicMetadata}
+      />
+      <Composition
         id="WhiteboardVideo"
         component={WhiteboardVideo}
         durationInFrames={30 * 300}
@@ -152,6 +202,50 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={calculateBlackswanMetadata}
       />
       <Composition
+<<<<<<< HEAD
+=======
+        id="BloombergVideo"
+        component={BloombergVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateBloombergMetadata}
+      />
+      <Composition
+        id="ChronicleVideo"
+        component={ChronicleVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateChronicleMetadata}
+      />
+      <Composition
+        id="EconomistVideo"
+        component={EconomistVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          // Must be "/data.json" like every other composition: the render
+          // workspace writes the project's real scenes to public/data.json,
+          // while public/economist.json is only the bundled template sample.
+          // Pointing at the sample here made project renders output the demo
+          // video instead of the user's project.
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateEconomistMetadata}
+      />
+      <Composition
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         id="GeneratedVideo"
         component={GeneratedVideo}
         durationInFrames={30 * 300}
@@ -162,6 +256,62 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateGeneratedMetadata}
+<<<<<<< HEAD
+=======
+      />
+      <Composition
+        id="Stickman2Video"
+        component={Stickman2Video}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateStickman2Metadata}
+      />
+      <Composition
+        id="MagazineVideo"
+        component={MagazineVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          // Must be "/data.json" like every other composition: the render
+          // workspace writes the project's real scenes to public/data.json,
+          // while public/mag-allscenes.json is only the bundled template sample.
+          // Pointing at the sample here made project renders output the demo
+          // video instead of the user's project.
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateMagazineMetadata}
+      />
+      <Composition
+        id="StickmanFootballVideo"
+        component={StickmanFootballVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateStickmanFootballMetadata}
+      />
+      <Composition
+        id="SakuraVideo"
+        component={SakuraVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateSakuraMetadata}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       />
     </>
   );

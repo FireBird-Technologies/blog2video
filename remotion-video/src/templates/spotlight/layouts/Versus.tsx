@@ -1,9 +1,15 @@
+<<<<<<< HEAD
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+=======
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { BigGlyphBackdrop, DiagonalShards, FilmGrain, FlashPop, HalftoneField } from "../components/SpotlightArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * Versus — Contrast Split
@@ -17,8 +23,9 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
   leftLabel,
   rightLabel,
   leftDescription,
-  rightDescription,
-  imageUrl,
+  rightDescription,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -82,7 +89,11 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
           }}
         >
           <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: "hidden" }}>
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <ZoomCropImg
+              src={imageUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+            />
           </div>
         </div>
       )}
@@ -223,6 +234,17 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         )}
       </div>
       </div>
+
+      {/* Decorative artifacts — ghost VS, shards on both corners, flashes on the face-off. */}
+      <BigGlyphBackdrop glyph="VS" accentColor={accentColor} tint="accent" startFrame={6} />
+      <DiagonalShards accentColor={accentColor} corner="top-right" startFrame={4} />
+      <DiagonalShards accentColor={accentColor} corner="bottom-left" startFrame={8} />
+      <FlashPop count={2} every={78} seed={27} startFrame={16} />
+      {/* Halftone wedges on opposite corners read like a comic face-off poster. */}
+      <HalftoneField accentColor={accentColor} corner="top-left" />
+      <HalftoneField accentColor={accentColor} corner="bottom-right" />
+      <FilmGrain />
     </AbsoluteFill>
   );
 };
+

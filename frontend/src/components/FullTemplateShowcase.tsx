@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+<<<<<<< HEAD
 // import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 // import GridcraftPreview from "./templatePreviews/GridcraftPreview";
@@ -15,6 +16,19 @@ import NewscastPreviewPortrait from "./templatePreviews/portrait/NewscastPreview
 
 
 type TemplateId = "nightfall" | /* "gridcraft" | */ "newscast" | /* "default" | */ /* "matrix" | */ "whiteboard" /* | "newspaper" */;
+=======
+import NightfallPreview from "./templatePreviews/NightfallPreview";
+import BloombergPreview from "./templatePreviews/BloombergPreview";
+import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
+import NightfallPreviewPortrait from "./templatePreviews/portrait/NightfallPreviewPortrait";
+import BloombergPreviewPortrait from "./templatePreviews/portrait/BloombergPreviewPortrait";
+import WhiteboardPreviewPortrait from "./templatePreviews/portrait/WhiteboardPreviewPortrait";
+import NewscastPreview from "./templatePreviews/NewscastPreview";
+import NewscastPreviewPortrait from "./templatePreviews/portrait/NewscastPreviewPortrait";
+import InputShowcase from "./InputShowcase";
+
+type TemplateId = "nightfall" | "newscast" | "bloomberg" | "whiteboard";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 type Orientation = "landscape" | "portrait";
 
 interface TemplateInfo {
@@ -37,6 +51,7 @@ const TEMPLATES: TemplateInfo[] = [
     description: "A dynamic breaking-news template featuring a hero section, headline, live ticker, pull quotes, claim vs. facts panels, and a newsroom-style timeline, with optional full-bleed background images.",
     hasPortrait: true,
   },
+<<<<<<< HEAD
   // {
   //   id: "gridcraft",
   //   name: "Gridcraft",
@@ -55,33 +70,51 @@ const TEMPLATES: TemplateInfo[] = [
   //   description: "Digital rain and terminal aesthetics with green-on-black. Perfect for tech, cybersecurity, and developer content.",
   //   hasPortrait: false,
   // },
+=======
+  {
+    id: "bloomberg",
+    name: "Bloomberg",
+    description: "Terminal-style financial template with amber-on-dark panels, ticker chrome, and market-desk authority — ideal for finance, economics, and data-heavy reporting.",
+    hasPortrait: true,
+  },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   {
     id: "whiteboard",
     name: "Whiteboard",
     description: "Hand-drawn marker animations on a cream canvas. Stick figures and story-beat layouts ideal for educational content.",
     hasPortrait: true,
   },
+<<<<<<< HEAD
   // {
   //   id: "newspaper",
   //   name: "Newspaper",
   //   description: "Editorial news style with pull quotes, fact-check panels, and timelines — great for in-depth explainers and journalism.",
   //   hasPortrait: false,
   // },
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ];
 
 const LANDSCAPE_PREVIEWS: Record<TemplateId, React.ComponentType> = {
   nightfall: NightfallPreview,
+<<<<<<< HEAD
   // default: DefaultPreview,
   // gridcraft: GridcraftPreview,
   newscast: NewscastPreview,
   // matrix: MatrixPreview,
   whiteboard: WhiteboardPreview,
   // newspaper: NewsPaperPreview,
+=======
+  newscast: NewscastPreview,
+  bloomberg: BloombergPreview,
+  whiteboard: WhiteboardPreview,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };
 
 const PORTRAIT_PREVIEWS: Partial<Record<TemplateId, React.ComponentType>> = {
   nightfall: NightfallPreviewPortrait,
   newscast: NewscastPreviewPortrait,
+<<<<<<< HEAD
   whiteboard: WhiteboardPreviewPortrait,
   // gridcraft: GridcraftPreviewPortrait,
 };
@@ -245,6 +278,12 @@ function InputShowcase() {
   );
 }
 
+=======
+  bloomberg: BloombergPreviewPortrait,
+  whiteboard: WhiteboardPreviewPortrait,
+};
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export default function FullTemplateShowcase() {
   const [selectedId, setSelectedId] = useState<TemplateId>("nightfall");
   const [orientation, setOrientation] = useState<Orientation>("landscape");

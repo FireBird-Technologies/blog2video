@@ -1,5 +1,15 @@
+<<<<<<< HEAD
 import { useMemo, useState, useEffect } from "react";
 import { Player } from "@remotion/player";
+=======
+import { useMemo, useState, useEffect, useRef } from "react";
+import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "./PlayerScaledCanvas";
+
+// Fixed-pixel size the Player renders at inside PlayerScaledCanvas (16:9).
+const INTERNAL_W = 480;
+const INTERNAL_H = 270;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { getTemplateConfig } from "../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -86,21 +96,42 @@ const NEWCAST_PREVIEW_SCENES: DemoScene[] = [
 const TEMPLATE_COLORS = { accent: "#E82020", bg: "#060614", text: "#B8C8E0" } as const;
 const AUTO_SWITCH_INTERVAL = 6000; // Switch scenes every 6 seconds
 
+<<<<<<< HEAD
 export default function NewscastPreview() {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
 
   // ─── Auto Scene Switch Logic ───
   useEffect(() => {
+=======
+export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const playerRef = useRef<PlayerRef>(null);
+
+  // ─── Auto Scene Switch Logic ───
+  useEffect(() => {
+    if (thumbnailMode) return;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const timer = setInterval(() => {
       setActiveSceneIndex((prev) => (prev + 1) % NEWCAST_PREVIEW_SCENES.length);
     }, AUTO_SWITCH_INTERVAL);
 
     return () => clearInterval(timer);
+<<<<<<< HEAD
   }, []);
 
   const activeScene = NEWCAST_PREVIEW_SCENES[activeSceneIndex];
   const fps = 30;
   const durationInFrames = Math.round(activeScene.durationSeconds * fps) + 45;
+=======
+  }, [thumbnailMode]);
+
+  const activeScene = NEWCAST_PREVIEW_SCENES[activeSceneIndex];
+  const fps = 30;
+  const fullDurationInFrames = Math.round(activeScene.durationSeconds * fps) + 45;
+  const durationInFrames = fullDurationInFrames;
+  // Side cards freeze ~1 second into the animation (30 frames @ 30fps).
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), fps);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const config = getTemplateConfig("newscast");
   const Composition = config.component as React.ComponentType<any>;
 
@@ -120,23 +151,64 @@ export default function NewscastPreview() {
     [activeScene]
   );
 
+<<<<<<< HEAD
   return (
     <div className="w-full">
       <div className="relative w-full overflow-hidden shadow-2xl rounded-xl" style={{ aspectRatio: "16/9", background: TEMPLATE_COLORS.bg }}>
         <Player
+=======
+  useEffect(() => {
+    if (!thumbnailMode) return;
+    const p = playerRef.current;
+    if (!p) return;
+    p.pause();
+    p.seekTo(thumbnailFrame);
+  }, [thumbnailMode, thumbnailFrame, activeSceneIndex]);
+
+  // When the card reaches center, restart from the first scene/frame so the
+  // animation plays fresh — and stop it (the thumbnail effect above pauses it)
+  // the moment it moves away.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    setActiveSceneIndex(0);
+    const p = playerRef.current;
+    if (!p) return;
+    p.seekTo(0);
+    p.play();
+  }, [thumbnailMode]);
+
+  return (
+    <div className="relative w-full h-full overflow-hidden" style={{ background: TEMPLATE_COLORS.bg }}>
+      <PlayerScaledCanvas>
+        <Player
+          ref={playerRef}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           key={activeSceneIndex} // CRITICAL: Restarts animation on scene change
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
+<<<<<<< HEAD
+=======
+          initialFrame={thumbnailMode ? thumbnailFrame : 0}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           compositionWidth={1920}
           compositionHeight={1080}
           fps={fps}
           controls={false}
+<<<<<<< HEAD
           autoPlay
           loop
           acknowledgeRemotionLicense
           style={{ width: "100%", height: "100%", display: "block" }}
         />
+=======
+          autoPlay={!thumbnailMode}
+          loop={!thumbnailMode}
+          acknowledgeRemotionLicense
+          style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
+        />
+      </PlayerScaledCanvas>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         {/* Navigation dots — compact, no scene titles */}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 rounded-full bg-black/35 backdrop-blur-sm px-2 py-1 border border-white/10">
@@ -146,6 +218,10 @@ export default function NewscastPreview() {
               <button
                 key={scene.id}
                 onClick={() => setActiveSceneIndex(index)}
+<<<<<<< HEAD
+=======
+                disabled={thumbnailMode}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 className={`rounded-full transition-all duration-500 ${
                   isActive
                     ? "h-0.5 w-3 bg-red-500 shadow-[0_0_6px_rgba(232,32,32,0.5)]"
@@ -157,7 +233,10 @@ export default function NewscastPreview() {
             );
           })}
         </div>
+<<<<<<< HEAD
       </div>
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </div>
   );
 }

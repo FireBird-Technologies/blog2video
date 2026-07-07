@@ -7,6 +7,7 @@ import {
   Easing,
 } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { GeometricBackground } from "../components/GeometricBackground";
 
 export const Metric: React.FC<SceneLayoutProps> = ({
   title,
@@ -18,6 +19,10 @@ export const Metric: React.FC<SceneLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+<<<<<<< HEAD
+=======
+  sceneIndex,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -59,6 +64,10 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         fontFamily: fontFamily ?? "'Roboto Slab', serif",
       }}
     >
+<<<<<<< HEAD
+=======
+      <GeometricBackground accentColor={accentColor} frame={frame} sceneIndex={sceneIndex} />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       {/* BACKGROUND DECORATION */}
       <div style={{
         position: 'absolute',

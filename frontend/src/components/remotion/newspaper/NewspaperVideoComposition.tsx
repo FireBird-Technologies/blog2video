@@ -1,17 +1,28 @@
+<<<<<<< HEAD
+=======
+import { resolveFontFamily } from "../../../fonts/registry";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import "../../../fonts/newspaper-defaults";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { NEWSPAPER_LAYOUT_REGISTRY } from "./layouts";
 import type { NewspaperLayoutType, BlogLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 export interface NewspaperSceneInput {
   id: number;
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -25,8 +36,19 @@ export interface NewspaperVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
+<<<<<<< HEAD
+=======
+  playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const NewspaperVideoComposition: React.FC<
@@ -40,10 +62,24 @@ export const NewspaperVideoComposition: React.FC<
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
+<<<<<<< HEAD
 }) => {
   const FPS = 30;
+=======
+  playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+}) => {
+  const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
@@ -52,11 +88,24 @@ export const NewspaperVideoComposition: React.FC<
         // Calculate the start frame by summing durations of all previous scenes
         const startFrame = scenes
           .slice(0, index)
+<<<<<<< HEAD
           .reduce((acc, s) => acc + Math.max(1, Math.round(s.durationSeconds * FPS)), 0);
 
         const durationFrames = Math.max(
           1,
           Math.round(scene.durationSeconds * FPS)
+=======
+          .reduce(
+            (acc, s) =>
+              acc + getSceneDurationFrames(s.durationSeconds, FPS, resolvedPlaybackSpeed),
+            0,
+          );
+
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         );
 
         const LayoutComponent =
@@ -68,6 +117,8 @@ export const NewspaperVideoComposition: React.FC<
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor: accentColor || "#FFE34D",
           bgColor: bgColor || "#FAFAF8",
           textColor: textColor || "#111111",
@@ -88,7 +139,28 @@ export const NewspaperVideoComposition: React.FC<
             */}
             <AbsoluteFill>
                <LayoutComponent {...layoutProps} />
+<<<<<<< HEAD
                {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+=======
+               {scene.voiceoverUrl && (
+                 <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+               )}
+               {captionsEnabled && (scene.narrationText || scene.narration) && (
+                 <CaptionTrack
+                   text={scene.narrationText || scene.narration}
+                   position={captionPosition || "bottom_center"}
+                   aspectRatio={aspectRatio || "landscape"}
+                   fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
+                   offset={captionOffset ?? 0}
+                   speechDurationFrames={
+                     scene.speechDurationSeconds
+                       ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                       : undefined
+                   }
+                 />
+               )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </AbsoluteFill>
           </Sequence>
         );
@@ -102,6 +174,10 @@ export const NewspaperVideoComposition: React.FC<
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+    
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
       )}
     </AbsoluteFill>
   );

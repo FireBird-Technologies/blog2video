@@ -1,28 +1,70 @@
 """
 Stripe billing router: checkout sessions, customer portal, webhooks.
+<<<<<<< HEAD
 Supports both Pro subscription ($50/mo) and per-video purchase ($3).
 """
+=======
+Supports both Pro subscription ($60/mo) and per-video purchase ($3).
+"""
+import time
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import stripe
 
 from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user
-from app.models.user import User, PlanTier
+from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS
 from app.models.project import Project
 from app.models.subscription import (
     Subscription, SubscriptionStatus, SubscriptionPlan,
 )
 from app.observability.logging import get_logger
+<<<<<<< HEAD
+=======
+from app.services.email import email_service
+from app.services.per_video_pricing import (
+    per_unit_cents as per_video_unit_cents,
+    MIN_QUANTITY as PER_VIDEO_MIN_QTY,
+    MAX_QUANTITY as PER_VIDEO_MAX_QTY,
+)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 logger = get_logger(__name__)
 MAX_RETENTION_OFFER_SHOWS = 2
+<<<<<<< HEAD
+=======
+
+
+# ─── Post-checkout win-back coupon ────────────────────────
+# Abandonment is detected by Stripe's checkout.session.expired webhook (see
+# _handle_checkout_expired). Every Checkout Session is created with a bounded
+# lifetime and after_expiration.recovery enabled, so an uncompleted session
+# expires and triggers a win-back email carrying a resume-cart recovery URL.
+# The per-video upsell email is sent on actual purchase (_handle_checkout_completed).
+
+# Stripe requires Checkout Session expiry between 30 min and 24 h.
+_CHECKOUT_EXPIRES_MIN = 1800
+_CHECKOUT_EXPIRES_MAX = 86400
+
+
+def _checkout_after_expiration(*, allow_promotion_codes: bool) -> dict:
+    """after_expiration block enabling Stripe's abandoned-cart recovery URL."""
+    return {"recovery": {"enabled": True, "allow_promotion_codes": allow_promotion_codes}}
+
+
+def _checkout_expires_at() -> int:
+    """Absolute expiry timestamp for a new session, clamped to Stripe's valid range."""
+    secs = max(_CHECKOUT_EXPIRES_MIN, min(settings.STRIPE_CHECKOUT_EXPIRES_SECONDS, _CHECKOUT_EXPIRES_MAX))
+    return int(time.time()) + secs
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class CheckoutResponse(BaseModel):
@@ -31,6 +73,16 @@ class CheckoutResponse(BaseModel):
 
 class PerVideoCheckoutRequest(BaseModel):
     project_id: int | None = None  # Optional: if None, buys a video credit
+    quantity: int = 1  # Number of video credits to purchase (ignored when project_id set)
+    schedule_coupon_followup: bool = True
+
+# Bounds for one-time custom-template slot purchases.
+CUSTOM_TEMPLATE_MIN_QTY = 1
+CUSTOM_TEMPLATE_MAX_QTY = 20
+
+
+class CustomTemplateCheckoutRequest(BaseModel):
+    quantity: int = 1  # Number of custom-template slots to purchase ($5 each)
 
 
 class PortalResponse(BaseModel):
@@ -82,20 +134,37 @@ def list_plans(db: Session = Depends(get_db)):
 
 def _count_active_per_video_credits(user_id: int, db: Session) -> int:
     """
+<<<<<<< HEAD
     Count per-video Subscription records for a user that are COMPLETED and
     not yet expired (current_period_end is in the future or not set).
 
     These are the only credits that should contribute to video_limit_bonus.
     Free grants given manually (directly setting video_limit_bonus in the DB)
     are NOT represented here, so they are excluded by this count.
+=======
+    Sum per-video credits for a user from Subscription rows that are COMPLETED
+    and not yet expired (current_period_end is in the future or not set).
+
+    Sums Subscription.quantity rather than counting rows, because a single
+    slider purchase of N credits is stored as one row with quantity=N.
+
+    These are the only credits that should contribute to video_limit_bonus.
+    Free grants given manually (directly setting video_limit_bonus in the DB)
+    are NOT represented here, so they are excluded by this sum.
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     """
     now = datetime.utcnow()
     per_video_plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
     if not per_video_plan:
         return 0
 
+<<<<<<< HEAD
     return (
         db.query(Subscription)
+=======
+    total = (
+        db.query(func.coalesce(func.sum(Subscription.quantity), 0))
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         .filter(
             Subscription.user_id == user_id,
             Subscription.plan_id == per_video_plan.id,
@@ -106,14 +175,21 @@ def _count_active_per_video_credits(user_id: int, db: Session) -> int:
                 (Subscription.current_period_end > now)
             ),
         )
+<<<<<<< HEAD
         .count()
     )
+=======
+        .scalar()
+    )
+    return int(total or 0)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     """
     Called when a user subscribes to a Pro/Standard plan, or when a plan renews.
 
+<<<<<<< HEAD
     Free grants are consumed first in the usage hierarchy. When a user upgrades
     to a paid plan, free grants are stripped from video_limit_bonus, and any
     videos already used are charged against those grants first — so usage that
@@ -170,6 +246,60 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
         f"videos_used {videos_used} → {new_videos_used} "
         f"({usage_from_grants} absorbed by free grants), "
         f"new video_limit_bonus={paid_credits}"
+=======
+    Absorption order: base(2) → free_grants → referral_video_bonus → paid_credits.
+    Base and free-grant usage disappears on upgrade. Referral and paid usage carries
+    into the new period's videos_used_this_period so the user doesn't get phantom headroom.
+    referral_video_bonus persists (reduced by what was consumed) — it is NOT wiped on upgrade.
+    """
+    old_bonus      = getattr(user, "video_limit_bonus", 0) or 0
+    referral_bonus = getattr(user, "referral_video_bonus", 0) or 0
+    videos_used    = user.videos_used_this_period or 0
+    paid_credits   = _count_active_per_video_credits(user.id, db)
+
+    # Usage absorption order: base(2) → free_grants → referral → paid
+    #
+    # free_grants: portion of old video_limit_bonus that came from free promo grants
+    #   (total old_bonus minus the paid per-video credits within it)
+    # absorbed: usage explained by base + free_grants (these disappear on upgrade)
+    # remaining: usage that survived the free absorption — must come from referral or paid
+    # referral_consumed: how many of the remaining were charged against referral bonus
+    # paid_consumed: what's left, charged against paid credits (carries into new period)
+    # new_videos_used: referral_consumed + paid_consumed (base/free usage disappears)
+    #
+    # Example A — free user: base=2, referral=6, free_grants=2, paid=2, used=8
+    #   free_grants  = old_bonus(4) - paid_credits(2) = 2
+    #   absorbed     = min(8, 2+2) = 4       (2 base + 2 free grants absorbed)
+    #   remaining    = 8 - 4 = 4
+    #   ref_consumed = min(6, 4) = 4         (4 of the 6 referral videos consumed)
+    #   paid_consumed= max(0, 4-4) = 0
+    #   new_used     = 4+0 = 4,  referral_video_bonus = 6
+    #   → new limit = plan + 2 paid + 6 referral = plan+8, used=4, remaining=plan+4
+    #
+    # Example B — base=2, referral=6, free_grants=2, paid=2, used=11
+    #   absorbed=4, remaining=7, ref_consumed=min(6,7)=6, paid_consumed=1
+    #   new_used=7, referral_video_bonus=6
+    #
+    # Example C — base=2, referral=0, free_grants=2, paid=2, used=6
+    #   absorbed=4, remaining=2, ref_consumed=0, paid_consumed=2
+    #   new_used=2, referral_video_bonus=0
+    free_grants      = max(0, old_bonus - paid_credits)
+    absorbed         = min(videos_used, FREE_TIER_INCLUDED_VIDEOS + free_grants)
+    remaining        = max(0, videos_used - absorbed)
+    referral_consumed = min(referral_bonus, remaining)
+    paid_consumed    = max(0, remaining - referral_consumed)
+    new_videos_used  = referral_consumed + paid_consumed
+
+    user.video_limit_bonus       = paid_credits
+    user.referral_video_bonus    = referral_bonus
+    user.videos_used_this_period = new_videos_used
+
+    print(
+        f"[BILLING] Recalculated for user {user.id}: "
+        f"old_bonus={old_bonus} (free_grants={free_grants}, paid={paid_credits}), "
+        f"referral={referral_bonus} → consumed={referral_consumed}, "
+        f"videos_used {videos_used} → {new_videos_used}"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     )
 
 
@@ -177,7 +307,11 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
 
 class CheckoutRequest(BaseModel):
     plan: str = "pro"  # "pro" or "standard"
-    billing_cycle: str = "monthly"  # "monthly" or "annual"
+    billing_cycle: str = "monthly"  # "monthly", "annual", or "lifetime"
+    apply_third_video_offer: bool = False  # Out-of-videos offer (15% monthly / 25% annual Standard)
+    # Whether to schedule the post-checkout win-back coupon email. The frontend
+    # sets this to False to suppress repeats within the same browser/day.
+    schedule_coupon_followup: bool = True
 
 
 @router.post("/checkout", response_model=CheckoutResponse)
@@ -187,31 +321,48 @@ def create_checkout_session(
     db: Session = Depends(get_db),
 ):
     """Create a Stripe Checkout session for Pro or Standard plan."""
+    # Lifetime is a one-time payment (mode="payment"), not a recurring subscription.
+    # Allowed even for users with an active recurring subscription — we don't auto-cancel
+    # the recurring plan here.
+    is_lifetime = body.billing_cycle == "lifetime"
+
     if body.plan == "standard":
-        if user.plan in (PlanTier.STANDARD):
-            raise HTTPException(status_code=400, detail="Already on Standard plan")
-        if body.billing_cycle == "annual":
-            price_id = settings.STRIPE_STANDARD_ANNUAL_PRICE_ID
+        if is_lifetime:
+            price_id = settings.STANDARD_PLAN_LIFETIME_DEAL
             if not price_id:
-                raise HTTPException(status_code=400, detail="Standard annual plan not configured yet")
+                raise HTTPException(status_code=400, detail="Standard lifetime deal not configured yet")
+            subscription_type = "standard_lifetime"
         else:
-            price_id = settings.STRIPE_STANDARD_PRICE_ID
-            if not price_id:
-                raise HTTPException(status_code=400, detail="Standard plan not configured yet")
-        subscription_type = "standard_subscription"
+            if user.plan in (PlanTier.STANDARD):
+                raise HTTPException(status_code=400, detail="Already on Standard plan")
+            if body.billing_cycle == "annual":
+                price_id = settings.STRIPE_STANDARD_ANNUAL_PRICE_ID
+                if not price_id:
+                    raise HTTPException(status_code=400, detail="Standard annual plan not configured yet")
+            else:
+                price_id = settings.STRIPE_STANDARD_PRICE_ID
+                if not price_id:
+                    raise HTTPException(status_code=400, detail="Standard plan not configured yet")
+            subscription_type = "standard_subscription"
         billing_cycle = body.billing_cycle
     else:
-        if user.plan == PlanTier.PRO:
-            raise HTTPException(status_code=400, detail="Already on Pro plan")
-        if body.billing_cycle == "annual":
-            price_id = settings.STRIPE_PRO_ANNUAL_PRICE_ID
+        if is_lifetime:
+            price_id = settings.PRO_PLAN_LIFETIME_DEAL
             if not price_id:
-                raise HTTPException(status_code=400, detail="Annual plan not configured yet")
+                raise HTTPException(status_code=400, detail="Pro lifetime deal not configured yet")
+            subscription_type = "pro_lifetime"
         else:
-            price_id = settings.STRIPE_PRO_PRICE_ID
-            if not price_id:
-                raise HTTPException(status_code=400, detail="Monthly plan not configured yet")
-        subscription_type = "pro_subscription"
+            if user.plan == PlanTier.PRO:
+                raise HTTPException(status_code=400, detail="Already on Pro plan")
+            if body.billing_cycle == "annual":
+                price_id = settings.STRIPE_PRO_ANNUAL_PRICE_ID
+                if not price_id:
+                    raise HTTPException(status_code=400, detail="Annual plan not configured yet")
+            else:
+                price_id = settings.STRIPE_PRO_PRICE_ID
+                if not price_id:
+                    raise HTTPException(status_code=400, detail="Monthly plan not configured yet")
+            subscription_type = "pro_subscription"
         billing_cycle = body.billing_cycle
 
     # Ensure the user has a Stripe customer
@@ -224,16 +375,40 @@ def create_checkout_session(
         user.stripe_customer_id = customer.id
         db.commit()
 
-    session = stripe.checkout.Session.create(
+    # Out-of-videos limited-time offer: server-side eligibility gate, then attach coupon.
+    # Eligibility is derived from existing fields — no new DB columns. Stripe's
+    # max_redemptions_per_customer: 1 on the coupons is the real abuse barrier.
+    discounts = None
+    if body.apply_third_video_offer:
+        if is_lifetime:
+            raise HTTPException(status_code=400, detail="Offer does not apply to lifetime deals")
+        if user.plan != PlanTier.FREE:
+            raise HTTPException(status_code=409, detail="Offer only available to free-plan users")
+        if user.can_create_video:
+            raise HTTPException(status_code=409, detail="Offer only available when you have no remaining videos")
+        if body.plan != "standard":
+            raise HTTPException(status_code=400, detail="Offer only applies to Standard plan")
+        coupon_id = (
+            settings.STRIPE_STANDARD_ANNUAL_COUPON_ID if body.billing_cycle == "annual"
+            else settings.STRIPE_STANDARD_MONTHLY_COUPON_ID
+        )
+        if not coupon_id:
+            raise HTTPException(status_code=400, detail="Offer coupon is not configured")
+        discounts = [{"coupon": coupon_id}]
+
+    session_kwargs = dict(
         customer=user.stripe_customer_id,
-        mode="subscription",
+        mode="payment" if is_lifetime else "subscription",
         line_items=[
             {
                 "price": price_id,
                 "quantity": 1,
             }
         ],
+<<<<<<< HEAD
         allow_promotion_codes=True,
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         success_url=f"{settings.FRONTEND_URL}/dashboard?upgraded=true&session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
         metadata={
@@ -241,8 +416,23 @@ def create_checkout_session(
             "type": subscription_type,
             "plan": body.plan,
             "billing_cycle": billing_cycle,
+            **({"third_video_offer": "true"} if discounts else {}),
         },
     )
+    # Stripe disallows allow_promotion_codes together with discounts.
+    if discounts:
+        session_kwargs["discounts"] = discounts
+    else:
+        session_kwargs["allow_promotion_codes"] = True
+
+    # Bounded lifetime + recovery so an uncompleted session fires
+    # checkout.session.expired and yields a resume-cart recovery URL.
+    session_kwargs["expires_at"] = _checkout_expires_at()
+    session_kwargs["after_expiration"] = _checkout_after_expiration(
+        allow_promotion_codes=discounts is None
+    )
+
+    session = stripe.checkout.Session.create(**session_kwargs)
 
     return CheckoutResponse(checkout_url=session.url)
 
@@ -260,9 +450,20 @@ def create_per_video_checkout(
     If project_id is provided, unlocks that specific project.
     If project_id is omitted (e.g. from Pricing page), buys a video credit.
     """
+    # Project-specific unlock is always qty=1 by design
+    if body.project_id and body.quantity != 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Project-specific unlock only supports quantity=1",
+        )
+
+    qty = max(PER_VIDEO_MIN_QTY, min(body.quantity, PER_VIDEO_MAX_QTY))
+    unit_amount = per_video_unit_cents(qty)
+
     meta = {
         "user_id": str(user.id),
         "type": "per_video",
+        "qty": str(qty),
     }
     success_url = f"{settings.FRONTEND_URL}/dashboard?purchased=true&session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{settings.FRONTEND_URL}/pricing"
@@ -291,13 +492,23 @@ def create_per_video_checkout(
         user.stripe_customer_id = customer.id
         db.commit()
 
+    product_name = (
+        "blog2video — 1 video credit"
+        if qty == 1
+        else f"blog2video — {qty} video pack"
+    )
+
     session = stripe.checkout.Session.create(
         customer=user.stripe_customer_id,
         mode="payment",
         line_items=[
             {
-                "price": settings.STRIPE_PER_VIDEO_PRICE_ID,
-                "quantity": 1,
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": product_name},
+                    "unit_amount": unit_amount,
+                },
+                "quantity": qty,
             }
         ],
         allow_promotion_codes=True,
@@ -307,6 +518,532 @@ def create_per_video_checkout(
     )
 
     return CheckoutResponse(checkout_url=session.url)
+
+
+# ─── Bulk 500-video credit pack ($300, never expires) ─────
+
+BULK_500_CREDITS = 500
+
+@router.post("/checkout-bulk-credits", response_model=CheckoutResponse)
+def create_bulk_credits_checkout(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a Stripe Checkout session for the 500-video credit pack ($300).
+
+    One-time payment (mode="payment") using the LIFETIME_DEAL_500 price. The
+    credits never expire — they are consumed only as the user makes videos.
+    """
+    price_id = settings.LIFETIME_DEAL_500
+    if not price_id:
+        raise HTTPException(status_code=400, detail="500-video deal not configured yet")
+
+    if not user.stripe_customer_id:
+        customer = stripe.Customer.create(
+            email=user.email,
+            name=user.name,
+            metadata={"user_id": str(user.id)},
+        )
+        user.stripe_customer_id = customer.id
+        db.commit()
+
+    session = stripe.checkout.Session.create(
+        customer=user.stripe_customer_id,
+        mode="payment",
+        line_items=[{"price": price_id, "quantity": 1}],
+        allow_promotion_codes=True,
+        success_url=f"{settings.FRONTEND_URL}/dashboard?purchased=true&session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{settings.FRONTEND_URL}/pricing",
+        metadata={
+            "user_id": str(user.id),
+            "type": "bulk_500",
+            "qty": str(BULK_500_CREDITS),
+        },
+        # Bounded lifetime + recovery so an uncompleted session fires
+        # checkout.session.expired and yields a resume-cart recovery URL.
+        expires_at=_checkout_expires_at(),
+        after_expiration=_checkout_after_expiration(allow_promotion_codes=True),
+    )
+    return CheckoutResponse(checkout_url=session.url)
+
+
+@router.post("/checkout-custom-template", response_model=CheckoutResponse)
+def create_custom_template_checkout(
+    body: CustomTemplateCheckoutRequest = CustomTemplateCheckoutRequest(),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a Stripe Checkout session for extra custom-template slots ($5 each).
+
+    Grants +``qty`` to ``user.custom_template_bonus`` on payment (lifetime, no expiry).
+    """
+    qty = max(CUSTOM_TEMPLATE_MIN_QTY, min(body.quantity, CUSTOM_TEMPLATE_MAX_QTY))
+
+    # Ensure the user has a Stripe customer
+    if not user.stripe_customer_id:
+        customer = stripe.Customer.create(
+            email=user.email,
+            name=user.name,
+            metadata={"user_id": str(user.id)},
+        )
+        user.stripe_customer_id = customer.id
+        db.commit()
+
+    success_url = f"{settings.FRONTEND_URL}/custom-templates?purchased=true&session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{settings.FRONTEND_URL}/custom-templates"
+
+    product_name = (
+        "blog2video — 1 custom template slot"
+        if qty == 1
+        else f"blog2video — {qty} custom template slots"
+    )
+
+    session = stripe.checkout.Session.create(
+        customer=user.stripe_customer_id,
+        mode="payment",
+        line_items=[
+            {
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": product_name},
+                    "unit_amount": 500,
+                },
+                "quantity": qty,
+            }
+        ],
+        allow_promotion_codes=True,
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={"user_id": str(user.id), "type": "custom_template", "qty": str(qty)},
+        # Bounded lifetime + recovery so an uncompleted session fires
+        # checkout.session.expired and yields a resume-cart recovery URL.
+        expires_at=_checkout_expires_at(),
+        after_expiration=_checkout_after_expiration(allow_promotion_codes=True),
+    )
+
+    return CheckoutResponse(checkout_url=session.url)
+
+
+# ─── Change Plan (Upgrade / Downgrade for existing paid users) ────
+
+# Lexicographic rank — tier dominates cycle. Higher rank = more expensive commitment.
+_PLAN_RANK: dict[str, tuple[int, int]] = {
+    "standard_monthly": (1, 1),
+    "standard_annual":  (1, 2),
+    "pro_monthly":      (2, 1),
+    "pro_annual":       (2, 2),
+}
+
+
+def _target_slug(plan: str, billing_cycle: str) -> str:
+    return f"{plan}_{billing_cycle}"
+
+
+def _classify_direction(current_slug: str, target_slug: str) -> str:
+    """Return 'upgrade' or 'downgrade'. Raises 400 if same or unknown."""
+    if current_slug == target_slug:
+        raise HTTPException(status_code=400, detail="Already on this plan")
+    if current_slug not in _PLAN_RANK or target_slug not in _PLAN_RANK:
+        raise HTTPException(status_code=400, detail="Unsupported plan slug")
+    return "upgrade" if _PLAN_RANK[target_slug] > _PLAN_RANK[current_slug] else "downgrade"
+
+
+class ChangePlanRequest(BaseModel):
+    plan: str           # "standard" | "pro"
+    billing_cycle: str  # "monthly" | "annual"
+
+
+class ChangePlanPreviewOut(BaseModel):
+    direction: str
+    current_plan_slug: str
+    target_plan_slug: str
+    amount_due_today_cents: int          # 0 for downgrade
+    proration_credit_cents: int          # for upgrade only; 0 for downgrade
+    credit_to_balance_cents: int = 0     # surplus proration credit parked on the customer balance
+    target_plan_price_cents: int         # full price of the target plan
+    new_period_start_iso: str            # today for upgrade; current_period_end for downgrade
+    new_period_end_iso: str | None
+    effective_date_iso: str
+    currency: str = "usd"
+
+
+class ChangePlanOut(BaseModel):
+    status: str
+    direction: str
+    target_plan_slug: str
+    effective_date_iso: str
+    amount_due_today_cents: int
+
+
+def _get_active_subscription(user: User, db: Session) -> Subscription:
+    sub = (
+        db.query(Subscription)
+        .filter(
+            Subscription.user_id == user.id,
+            Subscription.status.in_([
+                SubscriptionStatus.ACTIVE,
+                SubscriptionStatus.PAST_DUE,
+                SubscriptionStatus.REQUIRES_ACTION,
+            ]),
+            Subscription.stripe_subscription_id.isnot(None),
+        )
+        .order_by(Subscription.created_at.desc())
+        .first()
+    )
+    if not sub or not user.stripe_subscription_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No active subscription — use /checkout to subscribe",
+        )
+    return sub
+
+
+def _validate_change_plan_request(body: ChangePlanRequest) -> str:
+    if body.plan not in ("standard", "pro"):
+        raise HTTPException(status_code=400, detail="plan must be 'standard' or 'pro'")
+    if body.billing_cycle not in ("monthly", "annual"):
+        raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'annual'")
+    return _target_slug(body.plan, body.billing_cycle)
+
+
+def _release_existing_schedule(sub: Subscription) -> None:
+    """Release any in-flight SubscriptionSchedule so we can either upgrade now
+    or set a fresh schedule. Silently tolerates a stale id."""
+    if not sub.stripe_schedule_id:
+        return
+    try:
+        stripe.SubscriptionSchedule.release(sub.stripe_schedule_id)
+    except stripe.error.InvalidRequestError as e:
+        logger.warning(
+            "[BILLING] Could not release schedule %s: %s",
+            sub.stripe_schedule_id, e,
+        )
+    sub.stripe_schedule_id = None
+    sub.scheduled_plan_id = None
+    sub.scheduled_change_at = None
+
+
+@router.post("/change-plan-preview", response_model=ChangePlanPreviewOut)
+def preview_change_plan(
+    body: ChangePlanRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return the dollar amount and effective date for a proposed plan switch."""
+    target_slug = _validate_change_plan_request(body)
+    sub = _get_active_subscription(user, db)
+    current_slug = sub.plan.slug if sub.plan else ""
+    direction = _classify_direction(current_slug, target_slug)
+
+    target_plan = db.query(SubscriptionPlan).filter_by(slug=target_slug).first()
+    if not target_plan or not target_plan.stripe_price_id:
+        raise HTTPException(status_code=400, detail=f"Target plan {target_slug} is not configured")
+
+    now = datetime.utcnow()
+
+    if direction == "downgrade":
+        # Scheduled at period end — no charge today.
+        effective_date = sub.current_period_end or now
+        return ChangePlanPreviewOut(
+            direction="downgrade",
+            current_plan_slug=current_slug,
+            target_plan_slug=target_slug,
+            amount_due_today_cents=0,
+            proration_credit_cents=0,
+            target_plan_price_cents=target_plan.price_cents,
+            new_period_start_iso=effective_date.isoformat(),
+            new_period_end_iso=None,
+            effective_date_iso=effective_date.isoformat(),
+        )
+
+    # Upgrade: ask Stripe to preview the invoice with proration + cycle reset.
+    try:
+        stripe_sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
+        item_id = stripe_sub["items"]["data"][0]["id"]
+
+        if hasattr(stripe.Invoice, "create_preview"):
+            upcoming = stripe.Invoice.create_preview(
+                customer=user.stripe_customer_id,
+                subscription=user.stripe_subscription_id,
+                subscription_details={
+                    "items": [{"id": item_id, "price": target_plan.stripe_price_id}],
+                    "proration_behavior": "always_invoice",
+                    "billing_cycle_anchor": "now",
+                },
+            )
+        else:
+            upcoming = stripe.Invoice.upcoming(
+                customer=user.stripe_customer_id,
+                subscription=user.stripe_subscription_id,
+                subscription_items=[{"id": item_id, "price": target_plan.stripe_price_id}],
+                subscription_proration_behavior="always_invoice",
+                subscription_billing_cycle_anchor="now",
+            )
+    except stripe.error.StripeError as e:
+        logger.exception("[BILLING] Failed to preview upgrade for user=%s", user.id)
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # `total` is the net of the invoice and can be negative when the proration
+    # credit for unused time exceeds the new plan's prorated charge. Stripe never
+    # bills a negative amount — it parks the surplus on the customer's credit
+    # balance and applies it to future invoices. We surface both numbers.
+    total_cents = int(getattr(upcoming, "total", 0) or 0)
+    amount_due = int(getattr(upcoming, "amount_due", 0) or 0)
+    if not amount_due:
+        amount_due = total_cents
+
+    # Sum negative line items to surface the credit applied for unused time.
+    credit_cents = 0
+    lines = getattr(upcoming, "lines", None)
+    line_items = getattr(lines, "data", []) if lines is not None else []
+    for line in line_items:
+        amt = getattr(line, "amount", None)
+        if isinstance(line, dict):
+            amt = line.get("amount")
+        if isinstance(amt, int) and amt < 0:
+            credit_cents += -amt
+
+    return ChangePlanPreviewOut(
+        direction="upgrade",
+        current_plan_slug=current_slug,
+        target_plan_slug=target_slug,
+        amount_due_today_cents=max(0, amount_due),
+        proration_credit_cents=credit_cents,
+        credit_to_balance_cents=max(0, -total_cents),
+        target_plan_price_cents=target_plan.price_cents,
+        new_period_start_iso=now.isoformat(),
+        new_period_end_iso=None,
+        effective_date_iso=now.isoformat(),
+    )
+
+
+@router.post("/change-plan", response_model=ChangePlanOut)
+def change_plan(
+    body: ChangePlanRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Switch an existing paid user to a different paid plan.
+
+    Upgrade  → immediate switch via Subscription.modify with proration.
+    Downgrade → scheduled at period end via SubscriptionSchedule.
+    """
+    target_slug = _validate_change_plan_request(body)
+    sub = _get_active_subscription(user, db)
+    current_slug = sub.plan.slug if sub.plan else ""
+
+    # Block plan changes when payment is in trouble — user must resolve first.
+    if sub.status in (SubscriptionStatus.PAST_DUE, SubscriptionStatus.REQUIRES_ACTION):
+        raise HTTPException(
+            status_code=409,
+            detail="Resolve your payment issue in the billing portal before changing plans",
+        )
+
+    direction = _classify_direction(current_slug, target_slug)
+
+    target_plan = db.query(SubscriptionPlan).filter_by(slug=target_slug).first()
+    if not target_plan or not target_plan.stripe_price_id:
+        raise HTTPException(status_code=400, detail=f"Target plan {target_slug} is not configured")
+
+    try:
+        stripe_sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    item_id = stripe_sub["items"]["data"][0]["id"]
+    now = datetime.utcnow()
+
+    if direction == "upgrade":
+        # Wipe any pending downgrade first — upgrading supersedes it.
+        _release_existing_schedule(sub)
+
+        try:
+            updated = stripe.Subscription.modify(
+                user.stripe_subscription_id,
+                items=[{"id": item_id, "price": target_plan.stripe_price_id}],
+                proration_behavior="always_invoice",
+                billing_cycle_anchor="now",
+                cancel_at_period_end=False,
+                payment_behavior="error_if_incomplete",
+                metadata={
+                    "plan": body.plan,
+                    "billing_cycle": body.billing_cycle,
+                    "switch_reason": "upgrade",
+                },
+            )
+        except stripe.error.CardError as e:
+            raise HTTPException(status_code=402, detail=str(e))
+        except stripe.error.StripeError as e:
+            logger.exception("[BILLING] Stripe error on upgrade for user=%s", user.id)
+            raise HTTPException(status_code=400, detail=str(e))
+
+        # The proration invoice (always_invoice) is what the user actually paid
+        # today — not the full recurring price. Read it back so amount_paid_cents
+        # reflects reality. Fall back to the plan price if the invoice is missing.
+        charged_cents = target_plan.price_cents
+        latest_invoice_id = (
+            updated.get("latest_invoice") if isinstance(updated, dict)
+            else getattr(updated, "latest_invoice", None)
+        )
+        if isinstance(latest_invoice_id, dict):
+            latest_invoice_id = latest_invoice_id.get("id")
+        elif hasattr(latest_invoice_id, "id"):
+            latest_invoice_id = latest_invoice_id.id
+        if latest_invoice_id:
+            try:
+                inv = stripe.Invoice.retrieve(latest_invoice_id)
+                charged_cents = (
+                    int(getattr(inv, "amount_paid", 0) or 0)
+                    or int(getattr(inv, "amount_due", 0) or 0)
+                )
+            except stripe.error.StripeError:
+                logger.warning(
+                    "[BILLING] Could not read proration invoice %s for user=%s; "
+                    "falling back to plan price",
+                    latest_invoice_id, user.id,
+                )
+
+        # Sync DB synchronously — webhook is a safety net.
+        sub.plan_id = target_plan.id
+        sub.status = SubscriptionStatus.ACTIVE
+        sub.amount_paid_cents = charged_cents
+        sub.canceled_at = None
+        period_start = (
+            updated.get("current_period_start") if isinstance(updated, dict)
+            else getattr(updated, "current_period_start", None)
+        )
+        period_end = (
+            updated.get("current_period_end") if isinstance(updated, dict)
+            else getattr(updated, "current_period_end", None)
+        )
+        sub.current_period_start = datetime.utcfromtimestamp(period_start) if period_start else now
+        if period_end:
+            sub.current_period_end = datetime.utcfromtimestamp(period_end)
+
+        # Update user-level state for the new cycle.
+        if target_slug.startswith("pro"):
+            user.plan = PlanTier.PRO
+        else:
+            user.plan = PlanTier.STANDARD
+        user.videos_used_this_period = 0
+        user.period_start = now
+        _recalculate_video_limit_bonus(user, db)
+
+        db.commit()
+        return ChangePlanOut(
+            status="ok",
+            direction="upgrade",
+            target_plan_slug=target_slug,
+            effective_date_iso=now.isoformat(),
+            amount_due_today_cents=charged_cents,
+        )
+
+    # ── downgrade: schedule at period end ────────────────────────────────────
+    current_price_id = sub.plan.stripe_price_id if sub.plan else None
+    if not current_price_id:
+        raise HTTPException(status_code=400, detail="Current plan has no Stripe price configured")
+
+    effective_date = sub.current_period_end
+    if not effective_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Current subscription has no period end; cannot schedule downgrade",
+        )
+
+    try:
+        # Reuse an existing schedule if Stripe already attached one; otherwise create.
+        schedule_id = (
+            stripe_sub.get("schedule") if isinstance(stripe_sub, dict)
+            else getattr(stripe_sub, "schedule", None)
+        )
+        if isinstance(schedule_id, dict):
+            schedule_id = schedule_id.get("id")
+        elif hasattr(schedule_id, "id"):
+            schedule_id = schedule_id.id
+
+        if not schedule_id:
+            schedule = stripe.SubscriptionSchedule.create(
+                from_subscription=user.stripe_subscription_id,
+            )
+            schedule_id = schedule["id"] if isinstance(schedule, dict) else schedule.id
+        else:
+            schedule = stripe.SubscriptionSchedule.retrieve(schedule_id)
+
+        phases = schedule["phases"] if isinstance(schedule, dict) else schedule.phases
+        current_phase = phases[0]
+        current_phase_start = (
+            current_phase["start_date"] if isinstance(current_phase, dict)
+            else current_phase.start_date
+        )
+        current_phase_end = (
+            current_phase["end_date"] if isinstance(current_phase, dict)
+            else current_phase.end_date
+        )
+
+        stripe.SubscriptionSchedule.update(
+            schedule_id,
+            end_behavior="release",
+            phases=[
+                {
+                    "items": [{"price": current_price_id, "quantity": 1}],
+                    "start_date": current_phase_start,
+                    "end_date": current_phase_end,
+                    "proration_behavior": "none",
+                },
+                {
+                    "items": [{"price": target_plan.stripe_price_id, "quantity": 1}],
+                    "iterations": 1,
+                    "proration_behavior": "none",
+                },
+            ],
+            metadata={
+                "plan": body.plan,
+                "billing_cycle": body.billing_cycle,
+                "switch_reason": "downgrade",
+            },
+        )
+    except stripe.error.StripeError as e:
+        logger.exception("[BILLING] Stripe error scheduling downgrade for user=%s", user.id)
+        raise HTTPException(status_code=400, detail=str(e))
+
+    sub.scheduled_plan_id = target_plan.id
+    sub.scheduled_change_at = effective_date
+    sub.stripe_schedule_id = schedule_id
+    db.commit()
+
+    return ChangePlanOut(
+        status="ok",
+        direction="downgrade",
+        target_plan_slug=target_slug,
+        effective_date_iso=effective_date.isoformat(),
+        amount_due_today_cents=0,
+    )
+
+
+@router.post("/cancel-scheduled-change")
+def cancel_scheduled_change(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Release a pending scheduled downgrade — subscription continues on current plan."""
+    sub = _get_active_subscription(user, db)
+    if not sub.scheduled_plan_id or not sub.stripe_schedule_id:
+        raise HTTPException(status_code=400, detail="No scheduled plan change to cancel")
+
+    try:
+        stripe.SubscriptionSchedule.release(sub.stripe_schedule_id)
+    except stripe.error.InvalidRequestError as e:
+        logger.warning(
+            "[BILLING] SubscriptionSchedule.release failed for schedule=%s: %s",
+            sub.stripe_schedule_id, e,
+        )
+
+    sub.scheduled_plan_id = None
+    sub.scheduled_change_at = None
+    sub.stripe_schedule_id = None
+    db.commit()
+
+    return {"status": "ok", "message": "Scheduled plan change cancelled"}
 
 
 # ─── Customer Portal ──────────────────────────────────────
@@ -331,8 +1068,13 @@ def create_portal_session(
 # ─── Billing Status ───────────────────────────────────────
 
 @router.get("/status", response_model=BillingStatusOut)
-def get_billing_status(user: User = Depends(get_current_user)):
+def get_billing_status(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Get the current user's billing/usage status."""
+    # Refresh lifetime users' monthly allotment if their window has rolled over.
+    user.roll_video_period_if_due(db)
     return BillingStatusOut(
         plan=user.plan.value,
         videos_used=user.videos_used_this_period,
@@ -357,6 +1099,12 @@ class SubscriptionDetailOut(BaseModel):
     amount_paid_cents: int
     canceled_at: str | None = None
     retention_offer_eligible: bool = False
+<<<<<<< HEAD
+=======
+    scheduled_plan_slug: str | None = None
+    scheduled_plan_name: str | None = None
+    scheduled_change_at: str | None = None
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     created_at: str
 
     class Config:
@@ -629,6 +1377,12 @@ def get_subscription_detail(
         amount_paid_cents=sub.amount_paid_cents,
         canceled_at=sub.canceled_at.isoformat() if sub.canceled_at else None,
         retention_offer_eligible=_is_retention_offer_eligible(user),
+<<<<<<< HEAD
+=======
+        scheduled_plan_slug=sub.scheduled_plan.slug if sub.scheduled_plan else None,
+        scheduled_plan_name=sub.scheduled_plan.name if sub.scheduled_plan else None,
+        scheduled_change_at=sub.scheduled_change_at.isoformat() if sub.scheduled_change_at else None,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         created_at=sub.created_at.isoformat(),
     )
 
@@ -910,6 +1664,8 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
     if event_type == "checkout.session.completed":
         _handle_checkout_completed(data, db)
+    elif event_type == "checkout.session.expired":
+        _handle_checkout_expired(data, db)
     elif event_type == "customer.subscription.updated":
         _handle_subscription_updated(data, db)
     elif event_type == "customer.subscription.deleted":
@@ -934,11 +1690,85 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
 # ─── Webhook handlers ─────────────────────────────────────
 
+def _send_winback_coupon(db: Session, user: User, *, abandoned: bool, recovery_url: str | None = None) -> str:
+    """
+    Send a post-checkout win-back coupon to `user`, applying the shared eligibility
+    + dedup rules, and stamp `last_coupon_email_at`. Returns a short outcome string.
+
+    abandoned=True  → abandoned-checkout email (session expired, nothing bought).
+    abandoned=False → per-video upsell email (bought a single video).
+    """
+    if not user or not user.email or user.email_unsubscribed:
+        return "skipped (no user / no email / unsubscribed)"
+    if user.plan in (PlanTier.PRO, PlanTier.STANDARD):
+        return f"skipped (subscribed: {user.plan.value})"
+
+    # Throttle: one user can spawn several checkout sessions (each can expire), and
+    # Stripe redelivers webhooks. Allow repeat win-backs over time, but at most one
+    # per rolling 24h so the user isn't emailed multiple times the same day.
+    last = getattr(user, "last_coupon_email_at", None)
+    if last and datetime.utcnow() - last < timedelta(hours=24):
+        return f"skipped (coupon already sent at {last})"
+
+    coupon_kwargs = dict(
+        user_email=user.email,
+        user_name=user.name or "",
+        coupon_code=settings.COUPON_FOLLOWUP_CODE,
+        discount_percent=settings.COUPON_FOLLOWUP_DISCOUNT_PERCENT,
+        valid_hours=settings.COUPON_FOLLOWUP_VALID_HOURS,
+    )
+    if abandoned:
+        email_service.send_abandoned_checkout_coupon_email(recovery_url=recovery_url, **coupon_kwargs)
+        outcome = f"sent abandoned-checkout email to {user.email}"
+    else:
+        email_service.send_per_video_upsell_coupon_email(**coupon_kwargs)
+        outcome = f"sent per-video upsell email to {user.email}"
+
+    user.last_coupon_email_at = datetime.utcnow()
+    db.commit()
+    return outcome
+
+
+def _handle_checkout_expired(session: dict, db: Session):
+    """
+    Stripe's official abandoned-checkout signal: a Checkout Session reached its
+    expires_at without completing. Email a win-back coupon carrying the Stripe
+    recovery URL (resumes the original cart), unless the user already converted,
+    unsubscribed, or was emailed within the window. The SUB25 discount applies to
+    any checkout, so every abandoned checkout type qualifies.
+    """
+    metadata = session.get("metadata", {})
+    user_id = metadata.get("user_id")
+    recovery_url = ((session.get("after_expiration") or {}).get("recovery") or {}).get("url")
+    if not user_id:
+        logger.info("[COUPON] expired session %s has no user_id metadata — skipping", session.get("id"))
+        return
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    try:
+        outcome = _send_winback_coupon(db, user, abandoned=True, recovery_url=recovery_url)
+    except Exception as exc:
+        db.rollback()
+        logger.error("[COUPON] abandoned-checkout email failed for user %s: %s", user_id, exc, exc_info=True)
+        return
+    logger.info("[COUPON] checkout.session.expired user=%s — %s", user_id, outcome)
+
+
 def _handle_checkout_completed(session: dict, db: Session):
     customer_id = session.get("customer")
     metadata = session.get("metadata", {})
     checkout_type = metadata.get("type", "pro_subscription")
     session_id = session.get("id")
+
+    # Idempotency: Stripe delivers webhooks at-least-once. If we've already created a
+    # Subscription row for this checkout session, this is a redelivery — do not re-grant.
+    if session_id:
+        already = db.query(Subscription).filter_by(
+            stripe_checkout_session_id=session_id
+        ).first()
+        if already:
+            logger.info("[BILLING] Duplicate checkout webhook for session %s — skipping", session_id)
+            return
 
     if checkout_type == "per_video":
         # One-time per-video payment
@@ -979,9 +1809,20 @@ def _handle_checkout_completed(session: dict, db: Session):
                 )
         elif user_id:
             # No project — this is a video credit purchase (from Pricing page)
+            try:
+                qty = max(1, int(metadata.get("qty", "1")))
+            except (TypeError, ValueError):
+                qty = 1
+            amount_total = session.get("amount_total")  # cents paid, incl. discounts
+            amount_paid_cents = (
+                int(amount_total)
+                if amount_total is not None
+                else (plan.price_cents * qty if plan else 0)
+            )
+
             user = db.query(User).filter(User.id == int(user_id)).first()
             if user:
-                user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + 1
+                user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + qty
 
                 if plan:
                     sub = Subscription(
@@ -989,7 +1830,8 @@ def _handle_checkout_completed(session: dict, db: Session):
                         plan_id=plan.id,
                         status=SubscriptionStatus.COMPLETED,
                         stripe_checkout_session_id=session_id,
-                        amount_paid_cents=plan.price_cents,
+                        amount_paid_cents=amount_paid_cents,
+                        quantity=qty,
                         videos_used=0,
                         current_period_start=now,
                         current_period_end=credit_expiry,
@@ -998,12 +1840,153 @@ def _handle_checkout_completed(session: dict, db: Session):
 
                 db.commit()
                 logger.info(
+<<<<<<< HEAD
                     "[BILLING] Per-video credit purchased for user %s, expires %s, new video_limit_bonus=%s",
                     user_id,
                     credit_expiry.date(),
                     user.video_limit_bonus,
                     extra={"user_id": int(user_id)},
                 )
+=======
+                    "[BILLING] Per-video credits purchased: user=%s qty=%s expires=%s new_bonus=%s",
+                    user_id,
+                    qty,
+                    credit_expiry.date(),
+                    user.video_limit_bonus,
+                    extra={"user_id": int(user_id), "qty": qty},
+                )
+
+        # Nudge single-video buyers toward a subscription. Best-effort — a failed
+        # upsell email must never fail the purchase webhook.
+        if user_id:
+            try:
+                buyer = db.query(User).filter(User.id == int(user_id)).first()
+                outcome = _send_winback_coupon(db, buyer, abandoned=False)
+                logger.info("[COUPON] per-video upsell user=%s — %s", user_id, outcome)
+            except Exception as exc:
+                db.rollback()
+                logger.error("[COUPON] per-video upsell email failed for user %s: %s", user_id, exc, exc_info=True)
+    elif checkout_type == "bulk_500":
+        # One-time $300 purchase → +500 video credits that NEVER expire.
+        # Recorded as a per_video Subscription row with current_period_end=None,
+        # so _count_active_per_video_credits keeps counting them until consumed.
+        user_id = metadata.get("user_id")
+        try:
+            qty = max(1, int(metadata.get("qty", str(BULK_500_CREDITS))))
+        except (TypeError, ValueError):
+            qty = BULK_500_CREDITS
+        plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
+        now = datetime.utcnow()
+        user = db.query(User).filter(User.id == int(user_id)).first() if user_id else None
+        if user:
+            user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + qty
+            if plan:
+                sub = Subscription(
+                    user_id=user.id,
+                    plan_id=plan.id,
+                    status=SubscriptionStatus.COMPLETED,
+                    stripe_checkout_session_id=session_id,
+                    amount_paid_cents=session.get("amount_total") or 0,
+                    quantity=qty,
+                    videos_used=0,
+                    current_period_start=now,
+                    current_period_end=None,  # never expires — consumed as videos are made
+                )
+                db.add(sub)
+            db.commit()
+            logger.info(
+                "[BILLING] Bulk 500-credit pack purchased: user=%s qty=%s new_bonus=%s",
+                user_id,
+                qty,
+                user.video_limit_bonus,
+                extra={"user_id": int(user_id), "qty": qty},
+            )
+    elif checkout_type == "custom_template":
+        # One-time $5/slot purchase → +qty lifetime custom-template slots (never expires).
+        user_id = metadata.get("user_id")
+        try:
+            qty = max(1, int(metadata.get("qty", "1")))
+        except (TypeError, ValueError):
+            qty = 1
+        plan = db.query(SubscriptionPlan).filter_by(slug="custom_template").first()
+        now = datetime.utcnow()
+        user = db.query(User).filter(User.id == int(user_id)).first() if user_id else None
+        if user:
+            user.custom_template_bonus = (user.custom_template_bonus or 0) + qty
+            if plan:
+                sub = Subscription(
+                    user_id=user.id,
+                    plan_id=plan.id,
+                    status=SubscriptionStatus.COMPLETED,
+                    stripe_checkout_session_id=session_id,
+                    amount_paid_cents=session.get("amount_total") or (plan.price_cents * qty),
+                    quantity=qty,
+                    videos_used=0,
+                    current_period_start=now,
+                    current_period_end=None,  # lifetime — slot never expires
+                )
+                db.add(sub)
+            db.commit()
+            logger.info(
+                "[BILLING] Custom-template slots purchased: user=%s qty=%s new_bonus=%s",
+                user_id,
+                qty,
+                user.custom_template_bonus,
+                extra={"user_id": int(user_id), "qty": qty},
+            )
+    elif checkout_type in ("standard_lifetime", "pro_lifetime"):
+        # One-time lifetime payment (mode="payment", no recurring subscription).
+        # Grants the tier permanently — monthly allotment refreshes via the lazy
+        # reset in User.roll_video_period_if_due (no Stripe invoice to reset it).
+        user_id = metadata.get("user_id")
+        user = db.query(User).filter(User.id == int(user_id)).first() if user_id else None
+        now = datetime.utcnow()
+        if user:
+            if checkout_type == "standard_lifetime":
+                plan_slug = "standard_lifetime"
+                user.plan = PlanTier.STANDARD
+            else:
+                plan_slug = "pro_lifetime"
+                user.plan = PlanTier.PRO
+            # Lifetime has no recurring Stripe subscription.
+            user.stripe_subscription_id = None
+            user.videos_used_this_period = 0
+            user.period_start = now
+
+            # Drop any free grants, keep paid per-video credits — same as the
+            # recurring-subscription path.
+            _recalculate_video_limit_bonus(user, db)
+
+            plan = db.query(SubscriptionPlan).filter_by(slug=plan_slug).first()
+            if plan:
+                # Supersede any existing active recurring Subscription row so the
+                # in-app "current plan" reflects lifetime. The user's recurring
+                # Stripe subscription itself is NOT auto-cancelled here.
+                db.query(Subscription).filter(
+                    Subscription.user_id == user.id,
+                    Subscription.status == SubscriptionStatus.ACTIVE,
+                ).update({"status": SubscriptionStatus.CANCELED, "canceled_at": now})
+
+                sub = Subscription(
+                    user_id=user.id,
+                    plan_id=plan.id,
+                    status=SubscriptionStatus.COMPLETED,
+                    stripe_subscription_id=None,
+                    stripe_checkout_session_id=session_id,
+                    amount_paid_cents=session.get("amount_total") or plan.price_cents,
+                    current_period_start=now,
+                    current_period_end=None,  # lifetime — never expires
+                )
+                db.add(sub)
+
+            db.commit()
+            logger.info(
+                "[BILLING] Lifetime purchase: user=%s plan=%s",
+                user_id,
+                plan_slug,
+                extra={"user_id": int(user_id)},
+            )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     else:
         # ── Pro or Standard subscription checkout ───────────────────────────
         subscription_id = session.get("subscription")
@@ -1055,10 +2038,30 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
     cancel_at_period_end = bool(subscription_data.get("cancel_at_period_end"))
     cancel_at_ts = subscription_data.get("cancel_at")  # Unix timestamp when it will cancel, if set
 
+    # Extract the price id of the current subscription item (used to detect plan switches).
+    incoming_price_id: str | None = None
+    try:
+        items = subscription_data.get("items") or {}
+        item_data = items.get("data") if isinstance(items, dict) else None
+        if item_data:
+            price_obj = item_data[0].get("price") if isinstance(item_data[0], dict) else None
+            if isinstance(price_obj, dict):
+                incoming_price_id = price_obj.get("id")
+            elif price_obj is not None:
+                incoming_price_id = getattr(price_obj, "id", None)
+    except Exception:
+        incoming_price_id = None
+
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
         if status in ("canceled", "unpaid", "past_due"):
+            was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
             user.plan = PlanTier.FREE
+            # Downgrading a paid user to FREE must not hand them fresh free quota they
+            # already consumed pre-upgrade. Cap usage at the included free count so the
+            # free tier shows 0 remaining (mirrors the delete-account flow in auth.py).
+            if was_paid and (user.videos_used_this_period or 0) < FREE_TIER_INCLUDED_VIDEOS:
+                user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
         # For active/trialing, set plan from existing Subscription record so we don't overwrite Standard with Pro
 
         # Update the Subscription record
@@ -1066,6 +2069,31 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
             stripe_subscription_id=stripe_sub_id
         ).first()
         if sub:
+            # Detect a price-id change (e.g. a scheduled downgrade firing on renewal,
+            # or a portal-initiated plan switch). Reconcile sub.plan_id from the new price.
+            if (
+                incoming_price_id
+                and sub.plan
+                and incoming_price_id != sub.plan.stripe_price_id
+            ):
+                new_plan = (
+                    db.query(SubscriptionPlan)
+                    .filter_by(stripe_price_id=incoming_price_id)
+                    .first()
+                )
+                if new_plan:
+                    was_scheduled_downgrade = (
+                        sub.scheduled_plan_id is not None
+                        and sub.scheduled_plan_id == new_plan.id
+                    )
+                    sub.plan_id = new_plan.id
+                    sub.scheduled_plan_id = None
+                    sub.scheduled_change_at = None
+                    sub.stripe_schedule_id = None
+                    if was_scheduled_downgrade:
+                        user.videos_used_this_period = 0
+                        user.period_start = datetime.utcnow()
+
             if status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("standard"):
                 user.plan = PlanTier.STANDARD
             elif status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("pro"):
@@ -1107,8 +2135,13 @@ def _handle_subscription_deleted(subscription_data: dict, db: Session):
 
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
+        was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
         user.plan = PlanTier.FREE
         user.stripe_subscription_id = None
+        # Don't let a downgraded paid user regain already-consumed free quota; cap usage
+        # at the included free count (mirrors the delete-account flow in auth.py).
+        if was_paid and (user.videos_used_this_period or 0) < FREE_TIER_INCLUDED_VIDEOS:
+            user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
 
         # Mark the Subscription record as canceled
         sub = db.query(Subscription).filter_by(
@@ -1145,6 +2178,17 @@ def _handle_invoice_paid(invoice: dict, db: Session):
             )
         user.video_limit_bonus = new_bonus
 
+<<<<<<< HEAD
+=======
+        # Referral bonus resets each billing period — users earn it once per cycle.
+        if user.referral_video_bonus:
+            print(
+                f"[BILLING] invoice.paid: referral_video_bonus reset for user {user.id}: "
+                f"{user.referral_video_bonus} → 0"
+            )
+        user.referral_video_bonus = 0
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         # Reset usage on the Subscription record too
         if stripe_sub_id:
             sub = db.query(Subscription).filter_by(
@@ -1247,13 +2291,11 @@ def _handle_dispute_created(dispute: dict, db: Session):
     if not user:
         return
 
-    # Downgrade to free plan during dispute
-    free_plan = db.query(SubscriptionPlan).filter_by(name="free").first()
-    if free_plan:
-        user.plan = "free"
-        user.video_limit = free_plan.video_limit
-        db.commit()
-        print(f"[BILLING] User {user.id} downgraded to free due to dispute")
+    # Downgrade to free plan during dispute. video_limit derives from plan via a
+    # read-only property, so we only need to set the plan tier.
+    user.plan = PlanTier.FREE
+    db.commit()
+    print(f"[BILLING] User {user.id} downgraded to free due to dispute")
 
 
 def _handle_charge_refunded(charge: dict, db: Session):

@@ -11,7 +11,13 @@ export type GridcraftLayoutType =
   | "bento_code"
   | "pull_quote"
   | "bento_steps"
+<<<<<<< HEAD
   | "ending_socials";
+=======
+  | "data_visualisation"
+  | "ending_socials"
+  | "ticker_table";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface DataPoint {
   label: string;
@@ -28,6 +34,8 @@ export interface GridcraftLayoutProps {
   subtitle?: string;
   narration: string;
   imageUrl?: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   accentColor: string;
   bgColor: string;
   textColor: string;
@@ -65,6 +73,29 @@ export interface GridcraftLayoutProps {
   // Bento Steps
   steps?: { label: string; description?: string }[];
 
+  // ── data_visualisation (chart) — shared chartTable data-viz contract ──
+  // (reuses the existing `subtitle` prop above as the X-axis / category caption)
+  /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
+  chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
+  /** "line" | "bar" | "histogram" | "auto" (infer from label shape). */
+  chartType?: "auto" | "line" | "bar" | "histogram";
+  /** Prose beside the chart; empty → auto-summary from chartTable. */
+  chartSummary?: string;
+  /** Y-axis tick label overrides (top → bottom). */
+  chartYAxisTicks?: string[];
+  /** Y-axis title; empty uses chartTable.headers[1]. */
+  yAxisLabel?: string;
+  /** Chart color overrides. */
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+  barTertiaryColor?: string;
+
+  // ── ticker_table ──────────────────────────────────────────────────────────
+  tickerTable?: { headers?: string[]; rows?: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
+
   // General
   version?: string;
 
@@ -79,4 +110,9 @@ export interface GridcraftLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+<<<<<<< HEAD
+=======
+  /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
+  ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

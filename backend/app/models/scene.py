@@ -20,6 +20,11 @@ class Scene(Base):
     duration_seconds: Mapped[float] = mapped_column(Float, default=10.0)
     # Optional extra seconds to extend scene duration (e.g. for animations to complete).
     extra_hold_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+<<<<<<< HEAD
+=======
+    # Optional per-scene background-music volume override (0.0-1.0). NULL = use project bgm_volume.
+    bgm_volume: Mapped[float | None] = mapped_column(Float, nullable=True)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Optional hint for template_scene_gen: layout ID or arrangement name suggested by script generator.
     preferred_layout: Mapped[str | None] = mapped_column(String(64), nullable=True)
     scene_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "intro"/"content"/"outro"; NULL = "content"

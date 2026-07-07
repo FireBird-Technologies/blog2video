@@ -1,16 +1,21 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import {
   GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
   GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY,
 } from "../constants";
 import { glass, COLORS } from "../utils/styles";
+<<<<<<< HEAD
+=======
+import { ZoomCropImg } from "../components/ZoomCropImg";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const Editorial: React.FC<GridcraftLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   titleFontSize,
   descriptionFontSize,
@@ -60,8 +65,12 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
       >
         {/* Image Half */}
         {hasImage && (
-            <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-                <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
+                <ZoomCropImg
+                  src={imageUrl}
+                  imageObjectPosition={imageObjectPosition}
+                  imageZoom={imageZoom}
+                />
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%)", mixBlendMode: "overlay" }} />
             </div>
         )}
@@ -106,3 +115,4 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
     </div>
   );
 };
+

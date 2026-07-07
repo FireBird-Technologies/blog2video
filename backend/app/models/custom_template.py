@@ -12,7 +12,10 @@ class CustomTemplate(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     category: Mapped[str] = mapped_column(String(255), default="blog")
+<<<<<<< HEAD
     supported_video_style: Mapped[str] = mapped_column(String(30), default="explainer")
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     theme: Mapped[str] = mapped_column(Text, nullable=False)  # JSON string of CustomTheme
     generated_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     preview_image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
@@ -25,6 +28,10 @@ class CustomTemplate(Base):
     # The codegen LLM decides how many to generate (typically 4-8). Scenes cycle through them.
     content_codes: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list of code strings
     content_archetype_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of archetype IDs matching content_codes order
+<<<<<<< HEAD
+=======
+    image_box_aspect_ratios: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: {"intro": {"landscape": "W / H", "portrait": "W / H"}, "content": [{"landscape": ..., "portrait": ...}, ...], "outro": {...}}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # Set to True when background code generation permanently fails
     generation_failed: Mapped[bool] = mapped_column(default=False)
@@ -42,3 +49,7 @@ class CustomTemplate(Base):
     user = relationship("User", back_populates="custom_templates")
     brand_kit = relationship("BrandKit", back_populates="custom_templates")
     versions = relationship("TemplateVersion", back_populates="template", cascade="all, delete-orphan", order_by="TemplateVersion.created_at.desc()")
+<<<<<<< HEAD
+=======
+    ratings = relationship("TemplateRating", back_populates="custom_template", cascade="all, delete-orphan")
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

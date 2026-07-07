@@ -17,8 +17,14 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+<<<<<<< HEAD
   stats,
   imageUrl,
+=======
+  stats,imageUrl,
+  imageObjectPosition,
+  imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -73,8 +79,10 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           width: width / 2,
           height: height,
           objectFit: "cover",
+          objectPosition: "50% 50%",
           opacity: 0.4,
           transform: `rotate(${leftShardRot}deg)`,
+          transformOrigin: "center center",
           zIndex: 1,
         }}
       />
@@ -88,8 +96,10 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           width: width / 2,
           height: height,
           objectFit: "cover",
+          objectPosition: "50% 50%",
           opacity: 0.4,
           transform: `rotate(${rightShardRot}deg)`,
+          transformOrigin: "center center",
           zIndex: 1,
         }}
       />
@@ -153,8 +163,36 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   transform: "rotate(-1deg)",
                   border: "1px solid #ddd"
                 }}>
+<<<<<<< HEAD
                   {/* Decreased height of image to prevent hiding narration text */}
                   <Img src={imageUrl} style={{ width: "100%", height: 300, objectFit: "cover", filter: "sepia(0.2) grayscale(0.3)" }} />
+=======
+                  {/* Clip box: zoom scales inside fixed frame (scale on img alone grows layout in flex) */}
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 300,
+                      overflow: "hidden",
+                      position: "relative",
+                    }}
+                  >
+                    <Img
+                      src={imageUrl}
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                        objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                        transform: `scale(${imageZoom ?? 1})`,
+                        transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                        filter: "sepia(0.2) grayscale(0.3)",
+                      }}
+                    />
+                  </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                </div>
             </div>
           )}
@@ -181,7 +219,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           {!p && imageUrl && (
             <>
               <div style={{ width: 1, background: textColor, opacity: 0.1 }} />
-              <div style={{ flex: 0.8, opacity: imageOpacity }}>
+              <div style={{ flex: 0.8, minWidth: 0, opacity: imageOpacity }}>
                 <div style={{ 
                   padding: "10px", 
                   backgroundColor: "#fff", 
@@ -189,7 +227,35 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   transform: "rotate(2deg)",
                   border: "1px solid #ddd"
                 }}>
+<<<<<<< HEAD
                   <Img src={imageUrl} style={{ width: "100%", height: "auto", display: "block", filter: "sepia(0.2) contrast(1.1)" }} />
+=======
+                  <div
+                    style={{
+                      width: "100%",
+                      aspectRatio: "3 / 4",
+                      overflow: "hidden",
+                      position: "relative",
+                    }}
+                  >
+                    <Img
+                      src={imageUrl}
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        width: "100%",
+                        height: "100%",
+                        display: "block",
+                        objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                        objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                        transform: `scale(${imageZoom ?? 1})`,
+                        transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                        filter: "sepia(0.2) contrast(1.1)",
+                      }}
+                    />
+                  </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   <div style={{ marginTop: 8, fontFamily: fontFamily ?? H_FONT, fontSize: 11, color: "#666", fontStyle: "italic", borderTop: "1px solid #eee", paddingTop: 4 }}>
                     Newspaper Archive / Photo
                   </div>
@@ -218,3 +284,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     </AbsoluteFill>
   );
 };
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

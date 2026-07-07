@@ -17,16 +17,41 @@ import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposit
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
 import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
 import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition";
+<<<<<<< HEAD
+=======
+import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
+import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition";
+import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
+import { EconomistVideoComposition } from "./economist/EconomistVideoComposition";
+import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
+import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
+import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
+import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
   RemotionMatrixVideoComposition,
+<<<<<<< HEAD
+=======
+  RemotionMosaicVideoComposition,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   RemotionNewspaperVideoComposition,
   RemotionNewscastVideoComposition,
   RemotionNightfallVideoComposition,
   RemotionSpotlightVideoComposition,
   RemotionWhiteboardVideoComposition,
   RemotionBlackswanVideoComposition,
+<<<<<<< HEAD
+=======
+  RemotionBloombergVideoComposition,
+  RemotionChronicleVideoComposition,
+  RemotionEconomistVideoComposition,
+  RemotionStickman2VideoComposition,
+  RemotionMagazineVideoComposition,
+  RemotionSakuraVideoComposition,
+  RemotionStickmanFootballVideoComposition,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -43,9 +68,11 @@ export interface TemplateConfig {
       order: number;
       title: string;
       narration: string;
+      narrationText?: string;
       layout: string;
       layoutProps: Record<string, unknown>;
       durationSeconds: number;
+      speechDurationSeconds?: number;
       imageUrl?: string;
       voiceoverUrl?: string;
     }>;
@@ -57,6 +84,12 @@ export interface TemplateConfig {
     logoOpacity?: number;
     logoSize?: number;
     aspectRatio?: string;
+    playbackSpeed?: number;
+    captionsEnabled?: boolean;
+    captionPosition?: string;
+    captionFontFamily?: string;
+    captionFontSize?: number;
+    captionOffset?: number;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     theme?: any;
   }>;
@@ -84,7 +117,12 @@ const DEFAULT_LAYOUTS = new Set([
   "quote_callout",
   "image_caption",
   "timeline",
+<<<<<<< HEAD
   "data_visualization",
+=======
+  "default_data_visualization",
+  "default_ticker",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -98,7 +136,12 @@ const NIGHTFALL_LAYOUTS = new Set([
   "split_glass",
   "chapter_break",
   "glass_image",
+<<<<<<< HEAD
   "data_visualization",
+=======
+  "nightfall_data_visualization",
+  "nightfall_ticker",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -112,6 +155,11 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "bento_code",
   "pull_quote",
   "bento_steps",
+<<<<<<< HEAD
+=======
+  "data_visualisation",
+  "ticker_table",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -124,6 +172,8 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "versus",
   "spotlight_image",
   "rapid_points",
+  "spotlight_data",
+  "spotlight_table",
   "closer",
   "ending_socials",
 ]);
@@ -138,6 +188,24 @@ const MATRIX_LAYOUTS = new Set([
   "matrix_image",
   "transmission",
   "awakening",
+<<<<<<< HEAD
+=======
+  "matrix_data",
+  "matrix_ticker",
+  "ending_socials",
+]);
+
+const MOSAIC_LAYOUTS = new Set([
+  "mosaic_title",
+  "mosaic_text",
+  "mosaic_punch",
+  "mosaic_stream",
+  "mosaic_metric",
+  "mosaic_phrases",
+  "mosaic_close",
+  "mosaic_data_visualization",
+  "mosaic_ticker",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -151,6 +219,11 @@ const WHITEBOARD_LAYOUTS = new Set([
   "countdown_timer",
   "handwritten_equation",
   "speech_bubble_dialogue",
+<<<<<<< HEAD
+=======
+  "data_visualisation",
+  "ticker_table",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -161,7 +234,147 @@ const NEWSPAPER_LAYOUTS = new Set([
   "data_snapshot",
   "fact_check",
   "news_timeline",
+<<<<<<< HEAD
   "ending_socials",
+=======
+  "data_visualisation",
+  "expert_profile",
+  "perspective_split",
+  "ticker_table",
+  "ending_socials",
+]);
+
+const NEWSCAST_LAYOUTS = new Set([
+  "opening",
+  "anchor_narrative",
+  "live_metrics_board",
+  "data_visualization",
+  "briefing_code_panel",
+  "headline_insight",
+  "story_stack",
+  "side_by_side_brief",
+  "segment_break",
+  "field_image_focus",
+  "ending_socials",
+]);
+const BLACKSWAN_LAYOUTS = new Set([
+  "droplet_intro",
+  "neon_narrative",
+  "arc_features",
+  "pulse_metric",
+  "signal_split",
+  "dive_insight",
+  "reactor_code",
+  "flight_path",
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
+]);
+
+const BLOOMBERG_LAYOUTS = new Set([
+  "terminal_boot",
+  "terminal_narrative",
+  "terminal_chart",
+  "terminal_dashboard",
+  "terminal_ticker",
+  "terminal_table",
+  "terminal_dataviz",
+  "terminal_split",
+  "terminal_list",
+  "terminal_metric",
+  "terminal_profile",
+  "terminal_options",
+  "ending_socials",
+]);
+
+const CHRONICLE_LAYOUTS = new Set([
+  "book_open",
+  "parchment_scroll",
+  "chapter_plate",
+  "illuminated_quote",
+  "ledger_stats",
+  "versus_folio",
+  "chronicle_timeline",
+  "map_reveal",
+  "decree_seal",
+  "chronicle_data",
+  "chronicle_table",
+  "ending_socials",
+]);
+
+const ECONOMIST_LAYOUTS = new Set([
+  "cover_reveal",
+  "leader_article",
+  "section_divider",
+  "chart_line",
+  "chart_bar",
+  "data_table",
+  "pros_cons",
+  "key_indicators",
+  "leader_quote",
+  "image_feature",
+  "ending_socials",
+]);
+const STICKMAN_2_LAYOUTS = new Set([
+  "chalk_title",
+  "night_walk",
+  "shooting_star",
+  "constellation_stats",
+  "moonphase_chart",
+  "shadow_comparison",
+  "signal_fire_scene",
+  "neon_countdown",
+  "lantern_dialogue",
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
+]);
+
+const MAGAZINE_LAYOUTS = new Set([
+  "magazine_cover",
+  "editorial_quote",
+  "by_the_numbers",
+  "interview_qa",
+  "magazine_data_visualization",
+  "timeline_journey",
+  "text_narration",
+  "ending_socials",
+  "magazine_ticker",
+  "colorblock",
+  "feature",
+  "comparison",
+]);
+
+const STICKMAN_FOOTBALL_LAYOUTS = new Set([
+  "kickoff_title",
+  "passing_play",
+  "freekick_setup",
+  "goal_moment",
+  "match_stats",
+  "injury_break",
+  "ball_control",
+  "text_narration",
+  "ending_socials",
+  "football_data_viz",
+  "football_ticker",
+  "corner_kick",
+]);
+
+const SAKURA_LAYOUTS = new Set([
+  "sakura_intro",
+  "sakura_section",
+  "sakura_quote",
+  "sakura_two_column_detail",
+  "sakura_stat_highlight",
+  "sakura_list_scene",
+  "sakura_text_narration",
+  "sakura_ending_socials",
+  // Canonical ending id the backend emits; aliased to sakura_ending_socials in the
+  // layout registry. Must be a valid layout so VideoPreview doesn't fall it back.
+  "ending_socials",
+  "sakura_data_visualization",
+  "sakura_ticker",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ]);
 
 const NEWSCAST_LAYOUTS = new Set([
@@ -253,6 +466,22 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     },
     baseWidth: 1920,
     baseHeight: 1080,
+<<<<<<< HEAD
+=======
+  },
+  mosaic: {
+    component: MosaicVideoComposition as React.ComponentType<any>,
+    heroLayout: "mosaic_title",
+    fallbackLayout: "mosaic_text",
+    validLayouts: MOSAIC_LAYOUTS,
+    defaultColors: {
+      accent: "#C26240",
+      bg: "#EAE4DA",
+      text: "#2A2A28",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   },
   whiteboard: {
     component: WhiteboardVideoComposition as React.ComponentType<any>,
@@ -305,6 +534,100 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     },
     baseWidth: 1920,
     baseHeight: 1080,
+<<<<<<< HEAD
+=======
+  },
+  bloomberg: {
+    component: BloombergVideoComposition as React.ComponentType<any>,
+    heroLayout: "terminal_boot",
+    fallbackLayout: "terminal_narrative",
+    validLayouts: BLOOMBERG_LAYOUTS,
+    defaultColors: {
+      accent: "#5EA2FF",
+      bg: "#000000",
+      text: "#FFB340",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  chronicle: {
+    component: ChronicleVideoComposition as React.ComponentType<any>,
+    heroLayout: "book_open",
+    fallbackLayout: "parchment_scroll",
+    validLayouts: CHRONICLE_LAYOUTS,
+    defaultColors: {
+      accent: "#B8860B",
+      bg: "#F1E4C9",
+      text: "#2A1810",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  economist: {
+    component: EconomistVideoComposition as React.ComponentType<any>,
+    heroLayout: "cover_reveal",
+    fallbackLayout: "leader_article",
+    validLayouts: ECONOMIST_LAYOUTS,
+    defaultColors: {
+      accent: "#E3120B",
+      bg: "#F6F4EE",
+      text: "#1A1A1A",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  stickman_2: {
+    component: Stickman2VideoComposition as React.ComponentType<any>,
+    heroLayout: "chalk_title",
+    fallbackLayout: "night_walk",
+    validLayouts: STICKMAN_2_LAYOUTS,
+    defaultColors: {
+      accent: "#FFFFFF",
+      bg: "#000000",
+      text: "#FFFFFF",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  magazine: {
+    component: MagazineVideoComposition as React.ComponentType<any>,
+    heroLayout: "magazine_cover",
+    fallbackLayout: "text_narration",
+    validLayouts: MAGAZINE_LAYOUTS,
+    defaultColors: {
+      accent: "#E63946",
+      bg: "#FDFCFB",
+      text: "#1A1A1A",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  stickman_football: {
+    component: StickmanFootballVideoComposition as React.ComponentType<any>,
+    heroLayout: "kickoff_title",
+    fallbackLayout: "passing_play",
+    validLayouts: STICKMAN_FOOTBALL_LAYOUTS,
+    defaultColors: {
+      accent: "#869358",
+      bg: "#FFFFFF",
+      text: "#111111",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  sakura: {
+    component: SakuraVideoComposition as React.ComponentType<any>,
+    heroLayout: "sakura_intro",
+    fallbackLayout: "sakura_section",
+    validLayouts: SAKURA_LAYOUTS,
+    defaultColors: {
+      accent: "#C0143C",
+      bg: "#FDF6F0",
+      text: "#2A0A12",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   },
 };
 
@@ -342,6 +665,11 @@ export function getTemplateConfig(
               ? RemotionSpotlightVideoComposition
               : id === "matrix"
                 ? RemotionMatrixVideoComposition
+<<<<<<< HEAD
+=======
+                : id === "mosaic"
+                  ? RemotionMosaicVideoComposition
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 : id === "whiteboard"
                   ? RemotionWhiteboardVideoComposition
                   : id === "newspaper"
@@ -350,6 +678,23 @@ export function getTemplateConfig(
                       ? RemotionNewscastVideoComposition
                       : id === "blackswan"
                         ? RemotionBlackswanVideoComposition
+<<<<<<< HEAD
+=======
+                        : id === "bloomberg"
+                          ? RemotionBloombergVideoComposition
+                          : id === "chronicle"
+                            ? RemotionChronicleVideoComposition
+                            : id === "economist"
+                              ? RemotionEconomistVideoComposition
+                              : id === "stickman_2"
+                                ? RemotionStickman2VideoComposition
+                                : id === "magazine"
+                                  ? RemotionMagazineVideoComposition
+                                : id === "sakura"
+                                  ? RemotionSakuraVideoComposition
+                                : id === "stickman_football"
+                                  ? RemotionStickmanFootballVideoComposition
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     : null;
 
     if (overrideComponent) {

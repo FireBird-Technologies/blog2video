@@ -8,9 +8,46 @@ import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 import NewscastPreview from "./templatePreviews/NewscastPreview";
 import BlackswanPreview from "./templatePreviews/BlackswanPreview";
+<<<<<<< HEAD
 
 /** Preview components keyed by built-in template id from the API. */
 export const TEMPLATE_PREVIEWS: Record<string, FC> = {
+=======
+import MosaicPreview from "./templatePreviews/MosaicPreview";
+import BloombergPreview from "./templatePreviews/BloombergPreview";
+import ChroniclePreview from "./templatePreviews/ChroniclePreview";
+import EconomistPreview from "./templatePreviews/EconomistPreview";
+
+import Stickman2Preview from "./templatePreviews/Stickman2Preview";
+import StickmanFootballPreview from "./templatePreviews/StickmanFootballPreview";
+
+import DefaultPreviewPortrait from "./templatePreviews/portrait/DefaultPreviewPortrait";
+import NightfallPreviewPortrait from "./templatePreviews/portrait/NightfallPreviewPortrait";
+import GridcraftPreviewPortrait from "./templatePreviews/portrait/GridcraftPreviewPortrait";
+import SpotlightPreviewPortrait from "./templatePreviews/portrait/SpotlightPreviewPortrait";
+import MatrixPreviewPortrait from "./templatePreviews/portrait/MatrixPreviewPortrait";
+import WhiteboardPreviewPortrait from "./templatePreviews/portrait/WhiteboardPreviewPortrait";
+import NewsPaperPreviewPortrait from "./templatePreviews/portrait/NewsPaperPreviewPortrait";
+import NewscastPreviewPortrait from "./templatePreviews/portrait/NewscastPreviewPortrait";
+import BlackswanPreviewPortrait from "./templatePreviews/portrait/BlackswanPreviewPortrait";
+import MosaicPreviewPortrait from "./templatePreviews/portrait/MosaicPreviewPortrait";
+import BloombergPreviewPortrait from "./templatePreviews/portrait/BloombergPreviewPortrait";
+import ChroniclePreviewPortrait from "./templatePreviews/portrait/ChroniclePreviewPortrait";
+import EconomistPreviewPortrait from "./templatePreviews/portrait/EconomistPreviewPortrait";
+import Stickman2PreviewPortrait from "./templatePreviews/portrait/Stickman2PreviewPortrait";
+import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/StickmanFootballPreviewPortrait";
+
+import MagazinePreview from "./templatePreviews/MagazinePreview";
+import SakuraPreview from "./templatePreviews/SakuraPreview";
+import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
+import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
+import { withPoster } from "./templatePreviews/PosterOrPlayer";
+
+// Raw preview components. Not exported directly — every built-in preview is
+// wrapped with `withPoster` below so it shows a static poster in thumbnailMode
+// (holding zero Players) and only renders the live preview when active.
+const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   default: DefaultPreview,
   nightfall: NightfallPreview,
   gridcraft: GridcraftPreview,
@@ -20,8 +57,77 @@ export const TEMPLATE_PREVIEWS: Record<string, FC> = {
   newspaper: NewsPaperPreview,
   newscast: NewscastPreview,
   blackswan: BlackswanPreview,
+<<<<<<< HEAD
 };
 
+=======
+  mosaic: MosaicPreview,
+  bloomberg: BloombergPreview,
+  chronicle: ChroniclePreview,
+  economist: EconomistPreview,
+  stickman_2: Stickman2Preview,
+  stickman_football: StickmanFootballPreview,
+ magazine: MagazinePreview,
+  sakura: SakuraPreview,
+};
+
+const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
+  default: DefaultPreviewPortrait,
+  nightfall: NightfallPreviewPortrait,
+  gridcraft: GridcraftPreviewPortrait,
+  spotlight: SpotlightPreviewPortrait,
+  matrix: MatrixPreviewPortrait,
+  whiteboard: WhiteboardPreviewPortrait,
+  newspaper: NewsPaperPreviewPortrait,
+  newscast: NewscastPreviewPortrait,
+  blackswan: BlackswanPreviewPortrait,
+  mosaic: MosaicPreviewPortrait,
+  bloomberg: BloombergPreviewPortrait,
+  chronicle: ChroniclePreviewPortrait,
+  economist: EconomistPreviewPortrait,
+  stickman_2: Stickman2PreviewPortrait,
+  stickman_football: StickmanFootballPreviewPortrait,
+   magazine: MagazinePreviewPortrait,
+  sakura: SakuraPreviewPortrait,
+};
+
+function wrapPreviews(
+  raw: Record<string, FC<{ thumbnailMode?: boolean }>>,
+  orientation: "landscape" | "portrait",
+): Record<string, FC<{ thumbnailMode?: boolean }>> {
+  return Object.fromEntries(
+    Object.entries(raw).map(([id, Comp]) => [id, withPoster(id, orientation, Comp)]),
+  );
+}
+
+/** Preview components keyed by built-in template id from the API. */
+export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> =
+  wrapPreviews(RAW_TEMPLATE_PREVIEWS, "landscape");
+
+/** Portrait (9:16) preview components, keyed by the same ids as {@link TEMPLATE_PREVIEWS}. */
+export const TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> =
+  wrapPreviews(RAW_TEMPLATE_PREVIEWS_PORTRAIT, "portrait");
+
+export type PosterOrientation = "landscape" | "portrait";
+
+/**
+ * Ids of the built-in templates (the keys of {@link TEMPLATE_PREVIEWS}). Every
+ * built-in template ships a pre-rendered static poster (landscape + portrait)
+ * shown as its thumbnail; a live preview only renders when the card is active.
+ */
+export const BUILTIN_TEMPLATE_IDS = Object.keys(TEMPLATE_PREVIEWS);
+
+/**
+ * URL of the pre-rendered poster image for a built-in template. Posters live in
+ * `public/template-posters/` and are (re)generated by `npm run posters:build`.
+ */
+export function posterUrl(id: string, orientation: PosterOrientation): string {
+  return orientation === "portrait"
+    ? `/template-posters/${id}-portrait.webp`
+    : `/template-posters/${id}.webp`;
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
   default: { title: "Geometric Explainer", subtitle: "Clean purple & white, geometric tech style" },
   nightfall: { title: "Nightfall", subtitle: "Dark cinematic glass aesthetic" },
@@ -38,6 +144,29 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
     title: "Black Swan",
     subtitle: "Neon-on-black cinematic ripples, swan energy, and data scenes",
   },
+<<<<<<< HEAD
+=======
+  mosaic: {
+    title: "Mosaic",
+    subtitle: "Tessellated tile layouts with elegant guide lines and data panels",
+  },
+  bloomberg: {
+    title: "Bloomberg",
+    subtitle: "Amber terminal-inspired finance dashboard with ticker and data views",
+  }, 
+  chronicle: {
+    title: "Chronicle",
+    subtitle: "Medieval tome — parchment pages, illuminated drop caps, and wax seals",
+  },
+  economist: {
+    title: "The Economist",
+    subtitle: "Editorial newspaper × economics — paper, red masthead, and reference-grade charts",
+  },
+  stickman_2: { title: "Stick Man 2: Night Edition", subtitle: "Glowing chalk stories under the night sky" },
+  magazine: { title: "Magazine", subtitle: "Glossy editorial storytelling" },
+  stickman_football: { title: "Stickman Football Match", subtitle: "Hand-drawn football action for match recaps & highlights" },
+  sakura: { title: "Sakura", subtitle: "Japanese-aesthetic blog-to-video theme" },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };
 
 /** Purple primary "New" chip when template meta.json has new_template: true */
@@ -51,6 +180,20 @@ export function NewTemplateBadge({ className = "" }: { className?: string }) {
   );
 }
 
+<<<<<<< HEAD
+=======
+/** Amber "Popular" chip for templates marked popular_template: true */
+export function PopularTemplateBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.45)] ring-1 ring-amber-400/70 ${className}`}
+    >
+      Popular
+    </span>
+  );
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 /** Same treatment as {@link NewTemplateBadge} — used on custom template thumbnails in pickers. */
 export function CustomTemplateBadge({ className = "" }: { className?: string }) {
   return (

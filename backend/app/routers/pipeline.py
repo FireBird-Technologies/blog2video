@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
@@ -31,12 +32,30 @@ from app.schemas.schemas import (
 )
 from app.config import settings
 from app.services.scraper import scrape_blog
+<<<<<<< HEAD
 from app.services.table_extraction import build_table_context_hint, extract_tables_from_content
+=======
+from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content, classify_chart_tables_for_template, append_tables_to_content
+from app.services.chart_planner import (
+    get_chartable_tables_from_visual_hint,
+    get_line_chartable_tables_from_visual_hint,
+    _build_chart_props_from_table,
+    is_candlestick_table,
+    is_ticker_snapshot_table,
+    is_laduc_ticker_table,
+    extract_ticker_items_from_blog,
+    sanitize_chart_descriptor,
+)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from app.services.scraper import scrape_blog, BlogScrapeFailed
 from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
+<<<<<<< HEAD
     PUBLIC_MSG_SCRAPE_FAILED,
+=======
+    format_scrape_failed_public_message,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 )
 from app.services.language_detection import get_content_language_for_project
 from app.services.voiceover import generate_all_voiceovers
@@ -66,9 +85,23 @@ from app.services.template_service import (
     validate_template_id,
     get_layout_prompt,
     get_valid_layouts,
+<<<<<<< HEAD
     is_custom_template,
     _load_custom_template_data,
 )
+=======
+    get_hero_layout,
+    get_fallback_layout,
+    get_script_style_hint,
+    is_custom_template,
+    is_crafted_template,
+    _load_custom_template_data,
+    CHART_TICKER_TEMPLATE_LAYOUTS,
+    is_builtin_chart_layout,
+    is_builtin_ticker_layout,
+)
+from app.services.crafted_template_service import validate_crafted_template_access
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -95,6 +128,239 @@ _pipelines_failed = _meter.create_counter(
     description="Number of pipelines that failed",
 )
 
+<<<<<<< HEAD
+=======
+# Wealth Your Way ending scene is fully frozen — every video closes with the
+# same title, narration, and two CTA pills (Substack + Amazon).
+# Matches both the local-template id ("wealth_your_way") and the crafted/R2
+# bundle's public_template_id ("crafted_wealth_your_way_bundle").
+WEALTH_TEMPLATE_IDS = frozenset({
+    "wealth_your_way",
+    "crafted_wealth_your_way_bundle",
+})
+WEALTH_ENDING_TITLE = "Go Deeper. Start Now."
+WEALTH_ENDING_NARRATION = (
+    "Subscribe for monthly guidance on financial independence — "
+    "or dive straight into Wealth Your Way, the book behind these insights."
+)
+WEALTH_ENDING_CTA_TEXT = "Subscribe on Substack"
+WEALTH_SUBSTACK_URL = "https://www.cosmodestefano.com"
+WEALTH_ENDING_SECONDARY_CTA_TEXT = "Buy the Book on Amazon"
+WEALTH_AMAZON_URL = "https://geni.us/wealthyourwaypb"
+
+# FJ Market Brief shares LaDuc's chart contract (market_annotation + ticker
+# layouts, chartTable/tickerTable schemas). Matches the local built-in id AND
+# the crafted/R2 bundle's public id.
+FJ_TEMPLATE_IDS = frozenset({"fj_market_brief", "crafted_fj_market_brief_bundle"})
+
+
+def _is_laduc_or_fj(template_id: str) -> bool:
+    """True for LaDuc (any id variant), FJ Market Brief, or fj_research — the
+    templates that share the market_annotation/ticker chart-binding pipeline."""
+    tid = template_id or ""
+    return ("laduc" in tid) or ("fj_research" in tid) or (tid in FJ_TEMPLATE_IDS)
+
+
+# Custom templates always get TWO dedicated, editable data-viz scenes (a chart +
+# a table), EXTRA to the content scenes — parity with the built-in templates.
+# Seed used only when the article has no chartable table, so the scenes still
+# render and are editable (mirrors the built-in editor's example tables).
+_CUSTOM_DATAVIZ_SEED: dict = {
+    "headers": ["Quarter", "Revenue", "Growth %"],
+    "rows": [
+        ["Q1", "120", "8"],
+        ["Q2", "145", "12"],
+        ["Q3", "170", "17"],
+        ["Q4", "210", "24"],
+    ],
+}
+
+
+def _chartable_props_from_blog(blog_content: str) -> list[dict]:
+    """Return deterministic chart props for every chartable blog table."""
+    try:
+        tables = extract_tables_from_content(blog_content or "")
+    except Exception as e:  # noqa: BLE001 — never break the pipeline on table parsing
+        print(f"[F7-DEBUG] [CUSTOM-DATAVIZ] table extraction failed: {e}")
+        return []
+    out: list[dict] = []
+    for t in tables:
+        props = _build_chart_props_from_table(t) or {}
+        ct = props.get("chartTable")
+        if isinstance(ct, dict) and ct.get("rows"):
+            out.append(props)
+    return out
+
+
+def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
+    """Build the 2 dedicated data-viz scene_raw dicts (chart + table) for custom
+    templates — but ONLY when the article actually has chartable tables. Returns
+    [] when there's no real data, so a video whose content doesn't warrant charts
+    never gets fabricated figures forced into it. The bound table is embedded in
+    visual_description so it round-trips into layoutProps.
+    """
+    chartable = _chartable_props_from_blog(blog_content)
+    if not chartable:
+        return []
+    chart_props = chartable[0]
+    table_props = chartable[1] if len(chartable) > 1 else chartable[0]
+
+    def _mk(stype: str, layout: str, props: dict, title: str, narration: str) -> dict:
+        table = props.get("chartTable") or {}
+        vd = append_tables_to_content(narration, [table])
+        return {
+            "title": title,
+            "narration": narration,
+            "visual_description": vd,
+            "duration_seconds": 8,
+            "preferred_layout": layout,
+            "_scene_type": stype,
+        }
+
+    chart_summary = (chart_props.get("chartSummary") or "").strip()
+    chart_narr = chart_summary or "Here's what the numbers reveal at a glance."
+    return [
+        _mk("dataviz_chart", "custom_chart", chart_props, "By the numbers", chart_narr),
+        _mk("dataviz_table", "custom_table", table_props, "The full breakdown",
+            "And here are the underlying figures in full."),
+    ]
+
+
+def _bind_dataviz_layout_props(scene, descriptor: dict) -> bool:
+    """For a dedicated data-viz scene, recover the table embedded in its
+    visual_description and write chartTable/chartType/chartSummary into the
+    descriptor's layoutProps (the editable location read by GeneratedVideo and
+    SceneEditModal). Returns True if bound."""
+    stype = getattr(scene, "scene_type", None)
+    if stype not in ("dataviz_chart", "dataviz_table"):
+        return False
+    try:
+        tables = extract_tables_from_content(getattr(scene, "visual_description", "") or "")
+    except Exception:  # noqa: BLE001
+        tables = []
+    props = _build_chart_props_from_table(tables[0]) if tables else None
+    if not props or not (props.get("chartTable") or {}).get("rows"):
+        props = {"chartTable": _CUSTOM_DATAVIZ_SEED, "chartType": "line"}
+    lp = dict(descriptor.get("layoutProps") or {})
+    lp["chartTable"] = props["chartTable"]
+    lp["chartType"] = props.get("chartType", "auto")
+    if props.get("chartSummary"):
+        lp["chartSummary"] = props["chartSummary"]
+    descriptor["layoutProps"] = lp
+    return True
+
+
+# Built-in templates that opt into the chartTable/tickerTable data-viz pipeline,
+# mapped to their (chart_layout, ticker_layout) names. Single source of truth now
+# lives in template_service (imported above) so the pipeline (table classification)
+# AND TemplateSceneGenerator (deterministic table->chart binding) stay in sync.
+# Extension point for FUTURE templates: add one line to that map AND add those two
+# layouts to its meta.json valid_layouts (plus a frontend renderer for each).
+#
+# NOTE: LaDuc / FJ are intentionally NOT here — they keep their own dedicated
+# branch (_is_laduc_or_fj) and code path above. Do not fold them into this map.
+
+
+def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
+    """Extract effective layout from descriptor payload."""
+    if is_custom_template(template_id):
+        cfg = descriptor.get("layoutConfig") if isinstance(descriptor, dict) else None
+        if isinstance(cfg, dict):
+            name = cfg.get("arrangement")
+            return name if isinstance(name, str) else None
+        return None
+    name = descriptor.get("layout") if isinstance(descriptor, dict) else None
+    return name if isinstance(name, str) else None
+
+
+def _normalize_layout_id(value: str | None) -> str:
+    return (value or "").strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _sanitize_script_layouts(
+    template_id: str,
+    scenes_raw: list[dict],
+    *,
+    include_ending_socials: bool,
+) -> list[dict]:
+    """Ensure script-stage preferred_layout is valid + diverse for template.
+
+    - Keeps only template-valid layout IDs.
+    - Forces hero layout on first scene and ending_socials only on last scene (when enabled).
+    - Replaces invalid/random picks with diverse valid alternatives.
+    """
+    if not scenes_raw:
+        return scenes_raw
+    if is_custom_template(template_id):
+        return scenes_raw
+
+    valid = {x for x in get_valid_layouts(template_id) if isinstance(x, str) and x.strip()}
+    if not valid:
+        return scenes_raw
+
+    hero_layout = _normalize_layout_id(get_hero_layout(template_id))
+    fallback_layout = _normalize_layout_id(get_fallback_layout(template_id))
+    if fallback_layout not in valid:
+        fallback_layout = next(iter(valid))
+
+    supports_ending = "ending_socials" in valid and include_ending_socials
+    last_idx = len(scenes_raw) - 1
+    usage: dict[str, int] = {}
+    prev_layout: str | None = None
+
+    def _pick_diverse(exclude: set[str] | None = None) -> str:
+        banned = set(exclude or set())
+        candidates = [l for l in valid if l not in banned]
+        if not candidates:
+            candidates = list(valid)
+        # least-used first, deterministic tie-breaker by name
+        candidates.sort(key=lambda l: (usage.get(l, 0), l))
+        return candidates[0] if candidates else fallback_layout
+
+    for i, scene in enumerate(scenes_raw):
+        desired = _normalize_layout_id(scene.get("preferred_layout"))
+        if i == 0 and hero_layout in valid:
+            desired = hero_layout
+        elif supports_ending and i == last_idx:
+            desired = "ending_socials"
+        elif desired not in valid:
+            desired = ""
+        elif desired == "ending_socials":
+            # ending_socials is reserved for final scene only.
+            desired = ""
+        elif hero_layout and desired == hero_layout:
+            # The hero/cover layout (e.g. magazine's `magazine_cover`) is the opener
+            # only — it must NEVER repeat on a later scene. Strip it here so the
+            # _pick_diverse fallback below assigns a non-hero layout instead.
+            # Mirrors template_layout_planner._enforce_hero_rule.
+            desired = ""
+
+        if not desired:
+            excludes = set()
+            if prev_layout:
+                excludes.add(prev_layout)
+            if supports_ending:
+                excludes.add("ending_socials")
+            # Hero/cover layout is scene-0-only — never let the fallback re-pick it.
+            if i != 0 and hero_layout:
+                excludes.add(hero_layout)
+            desired = _pick_diverse(excludes)
+
+        # Try to avoid consecutive duplicates even when valid was provided.
+        # Data-bound scenes (data_table_index set) must keep their assigned layout — two
+        # chartable tables legitimately produce two consecutive market_annotation scenes.
+        is_data_bound = isinstance(scene.get("data_table_index"), int)
+        if prev_layout and desired == prev_layout and i != 0 and not (supports_ending and i == last_idx) and not is_data_bound:
+            alt = _pick_diverse({prev_layout, "ending_socials"} if supports_ending else {prev_layout})
+            desired = alt or desired
+
+        scene["preferred_layout"] = desired
+        usage[desired] = usage.get(desired, 0) + 1
+        prev_layout = desired
+
+    return scenes_raw
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 # ─── Single async generate endpoint ──────────────────────────
 
@@ -243,7 +509,11 @@ async def _run_pipeline(project_id: int, user_id: int):
                             db,
                             project_id,
                             user_id,
+<<<<<<< HEAD
                             public_message=PUBLIC_MSG_SCRAPE_FAILED,
+=======
+                            public_message=format_scrape_failed_public_message(project.blog_url),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             error_code="scrape_failed",
                             exc=e,
                         )
@@ -255,12 +525,32 @@ async def _run_pipeline(project_id: int, user_id: int):
                             db,
                             project_id,
                             user_id,
+<<<<<<< HEAD
                             public_message=PUBLIC_MSG_SCRAPE_FAILED,
+=======
+                            public_message=format_scrape_failed_public_message(project.blog_url),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             error_code="scrape_failed",
                             exc=e,
                         )
                         return
 
+<<<<<<< HEAD
+=======
+            # Step 1.5: Resolve "auto" video_style now that we have scraped content.
+            # The user picked "Auto" in the form → pick concrete style based on the article.
+            if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED) \
+                    and (project.video_style or "").strip().lower() == "auto":
+                from app.dspy_modules.video_style_picker import resolve_auto_video_style
+                resolved = await resolve_auto_video_style(project.blog_content or "")
+                project.video_style = resolved
+                db.commit()
+                logger.info(
+                    "[PIPELINE] Project %s: auto video_style resolved to %s",
+                    project_id, resolved,
+                )
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             # Step 2: Generate script (async DSPy)
             if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED):
                 _pipeline_progress[project_id]["step"] = 2
@@ -481,18 +771,69 @@ def _set_error(project_id: int, project, db: Session, msg: str):
             )
 
 
-async def _generate_script(project: Project, db: Session):
-    """Async script generation using DSPy."""
+async def _generate_script(
+    project: Project,
+    db: Session,
+    user_instruction: str = "",
+    progress_callback=None,
+):
+    """Async script generation using DSPy.
+
+    ``user_instruction`` is the free-form text captured by the regeneration popup
+    (only set when this is called from the regenerate-script worker — empty for
+    the initial-pipeline path). ScriptGenerator analyzes it once and injects the
+    derived constraints into both the outline and scene-expansion stages.
+    """
     image_paths = [a.local_path for a in project.assets if a.asset_type.value == "image"]
     hero_image = image_paths[0] if image_paths else ""
 
     # Determine template and load its layout prompt (layout-only catalog).
+<<<<<<< HEAD
     template_id = validate_template_id(project.template if project.template else "default")
     try:
         layout_catalog = get_layout_prompt(template_id)
     except Exception:
         layout_catalog = ""
 
+=======
+    template_id = validate_template_id(
+        project.template if project.template else "default",
+        db=db,
+        user_id=project.user_id,
+    )
+    try:
+        layout_catalog = get_layout_prompt(template_id, db=db, user_id=project.user_id)
+    except Exception:
+        layout_catalog = ""
+
+    # For bloomberg: extract tables once upfront — reused for both constraint-building and
+    # table bindings below, avoiding a second parse of the same blog_content string.
+    _bloomberg_pre_tables: list[dict] = []
+    if template_id == "bloomberg":
+        _blog_text = getattr(project, "blog_content", None) or ""
+        _bloomberg_pre_tables = extract_tables_from_content(_blog_text) if _blog_text else []
+
+    # For bloomberg: probe scraped content and append data-availability constraints so the
+    # script generator only picks data-driven layouts when the underlying data actually exists.
+    if template_id == "bloomberg" and layout_catalog:
+        _ticker_items = extract_ticker_items_from_blog(_blog_text, max_items=2)
+        _has_ohlcv = any(is_candlestick_table(t) for t in _bloomberg_pre_tables)
+        _constraints: list[str] = []
+        if not _ticker_items:
+            _constraints.append(
+                "- `terminal_ticker` MUST NOT be used: no ticker/price data was found in the scraped content."
+            )
+        if not _has_ohlcv:
+            _constraints.append(
+                "- `terminal_chart` MUST NOT be used: no OHLCV candlestick table was found in the scraped content."
+            )
+        if _constraints:
+            layout_catalog = layout_catalog.rstrip() + (
+                "\n\nData availability constraints (STRICT — do not override):\n"
+                + "\n".join(_constraints)
+            )
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     content_language = get_content_language_for_project(project)
     requested_video_length = getattr(project, "video_length", "auto") or "auto"
     video_style = getattr(project, "video_style", "explainer") or "explainer"
@@ -502,15 +843,27 @@ async def _generate_script(project: Project, db: Session):
     ) -> str:
         """Prevent hallucination: if content is short, downshift scene count.
 
+<<<<<<< HEAD
         Only applies when user explicitly requests a longer video length.
         """
         req = (requested or "auto").strip().lower()
         if req not in {"detailed", "medium", "short", "auto"}:
+=======
+        Word thresholds per tier (content must meet minimum to justify the length):
+          short        — no minimum
+          medium       — 5 00 words  (else → short)
+          detailed     — 1 500 words  (else → medium or short)
+          more_detailed— 2 000 words  (else → detailed, medium, or short)
+        """
+        req = (requested or "auto").strip().lower()
+        if req not in {"mdetailed", "detailed", "medium", "short", "auto"}:
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             return "auto"
         if req in {"auto", "short"}:
             return req
 
         text = (blog_content or "").strip()
+<<<<<<< HEAD
         # Count words in prose-ish content; keep it simple and robust.
         words = len([w for w in re.split(r"\s+", text) if w])
 
@@ -569,14 +922,400 @@ async def _generate_script(project: Project, db: Session):
         layout_catalog=layout_catalog,
         content_language=content_language,
         include_ending_socials=include_ending_socials,
+=======
+        words = len([w for w in re.split(r"\s+", text) if w])
+
+        if req == "medium":
+            return "short" if words < 500 else "medium"
+
+        if req == "detailed":
+            if words < 500:
+                return "short"
+            if words < 1500:
+                return "medium"
+            return "detailed"
+
+        # req == "more_detailed"
+        if words < 500:
+            return "short"
+        if words < 1500:
+            return "medium"
+        if words < 2000:
+            return "detailed"
+        return "mdetailed"
+
+    effective_video_length = _effective_video_length_for_content(
+        getattr(project, "blog_content", None), requested_video_length, video_style
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     )
 
+    if effective_video_length != requested_video_length:
+        try:
+            if project.id in _pipeline_progress:
+                _pipeline_progress[project.id]["notice"] = {
+                    "code": "video_shortened",
+                    "message": "We shortened the video because the scraped/uploaded content was too short for your selected length.",
+                    "requested_video_length": requested_video_length,
+                    "effective_video_length": effective_video_length,
+                    "video_style": video_style,
+                }
+        except Exception:
+            pass
+        logger.info(
+            "[PIPELINE] Project %s: content too short for video_length=%s (style=%s). Using effective video_length=%s for script generation.",
+            project.id,
+            requested_video_length,
+            video_style,
+            effective_video_length,
+            extra={"project_id": project.id, "user_id": project.user_id},
+        )
+        
+    generator = ScriptGenerator()
+    # Only append an ending / follow-along scene when the template declares `ending_socials`
+    # in meta.json (e.g. newscast has no EndingSocials layout — forcing it would map to a fallback).
+    # For custom templates: enable CTA ending when the template has an "outro" archetype.
+    if is_custom_template(template_id):
+        include_ending_socials = True
+    else:
+        include_ending_socials = "ending_socials" in get_valid_layouts(template_id)
+
+    # Pre-compute table bindings for templates that have dedicated data/table layouts.
+    # Each template block builds `chartable_tables_json` (passed to ScriptGenerator) and
+    # `_all_extracted_tables` (used in the scene-save loop to embed single-table hints).
+    chartable_tables_json = ""
+    _all_extracted_tables: list[dict] = []
+
+    if template_id == "newscast":
+        # newscast: dedicate scenes to data_visualization for any chartable table (line/bar/histogram).
+        # Requires ≥2 chartable tables; caps at 3 scenes.
+        _all_extracted_tables = extract_tables_from_content(
+            getattr(project, "blog_content", None) or ""
+        )
+        if len(_all_extracted_tables) >= 2:
+            _tmp_hint = build_table_context_hint(_all_extracted_tables, max_tables=len(_all_extracted_tables))
+            _chartable = get_chartable_tables_from_visual_hint(_tmp_hint)
+            _capped = _chartable[: min(3, len(_chartable))]
+            if len(_capped) >= 2:
+                _chart_type_by_idx = {
+                    orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                    for orig_idx, t in _capped
+                }
+                chartable_tables_json = build_chartable_tables_payload(
+                    _capped, chart_type_by_index=_chart_type_by_idx
+                )
+
+    elif template_id == "bloomberg":
+        # bloomberg: one scene per qualifying table — layout depends on table type:
+        #   terminal_chart   → OHLCV candlestick tables only
+        #   terminal_dataviz → non-OHLCV time-series / line-chartable tables
+        #   terminal_ticker  → multi-symbol snapshot tables
+        #   terminal_table   → all remaining tables with headers + ≥1 row
+        # Reuse the tables already extracted during the constraint-check above.
+        _all_extracted_tables = _bloomberg_pre_tables
+        if _all_extracted_tables:
+            _tmp_hint = build_table_context_hint(
+                _all_extracted_tables, max_tables=len(_all_extracted_tables)
+            )
+
+            # The three classification passes are independent — run them concurrently
+            # in the thread pool so CPU-bound numeric parsing doesn't serialize.
+            _loop = asyncio.get_event_loop()
+
+            def _classify_candlestick() -> list[tuple[int, dict]]:
+                return [
+                    (idx, t) for idx, t in enumerate(_all_extracted_tables)
+                    if is_candlestick_table(t)
+                ]
+
+            def _classify_dataviz(hint: str) -> list[tuple[int, dict]]:
+                return get_line_chartable_tables_from_visual_hint(hint)
+
+            def _classify_ticker(tables: list[dict]) -> list[tuple[int, dict]]:
+                return [
+                    (idx, t) for idx, t in enumerate(tables)
+                    if is_ticker_snapshot_table(t)
+                ]
+
+            (
+                _candlestick_tables,
+                _dataviz_tables_raw,
+                _ticker_tables_all,
+            ) = await asyncio.gather(
+                _loop.run_in_executor(None, _classify_candlestick),
+                _loop.run_in_executor(None, _classify_dataviz, _tmp_hint),
+                _loop.run_in_executor(None, _classify_ticker, _all_extracted_tables),
+            )
+
+            _candlestick_indices = {idx for idx, _ in _candlestick_tables}
+
+            # terminal_dataviz: non-OHLCV tables that produce a line chart
+            _dataviz_tables: list[tuple[int, dict]] = [
+                (idx, t) for idx, t in _dataviz_tables_raw
+                if idx not in _candlestick_indices
+            ]
+            _dataviz_indices = {idx for idx, _ in _dataviz_tables}
+
+            _used_indices = _candlestick_indices | _dataviz_indices
+
+            # terminal_ticker: filter out already-claimed indices
+            _ticker_tables: list[tuple[int, dict]] = [
+                (idx, t) for idx, t in _ticker_tables_all
+                if idx not in _used_indices
+            ]
+            _ticker_indices = {idx for idx, _ in _ticker_tables}
+            _used_indices |= _ticker_indices
+
+            # terminal_table: every remaining table with headers + ≥1 row gets its own scene.
+            # Exclude tables where every row has only a single cell (e.g. HTML scraper dropped
+            # all value columns, leaving only a date/label column with no data to show).
+            def _table_has_multi_col_rows(t: dict) -> bool:
+                rows = t.get("rows") or []
+                return any(isinstance(r, list) and len(r) >= 2 for r in rows)
+
+            _table_tables: list[tuple[int, dict]] = [
+                (idx, t)
+                for idx, t in enumerate(_all_extracted_tables)
+                if idx not in _used_indices
+                and (t.get("headers") or [])
+                and len(t.get("rows") or []) >= 1
+                and _table_has_multi_col_rows(t)
+            ]
+
+            # Cap total table-bound scenes at 4 (candlestick first, then dataviz, ticker, table).
+            # Prevents token bloat and keeps scene count reasonable for table-heavy blogs.
+            _MAX_BLOOMBERG_TABLE_SCENES = 4
+            _bindings = (
+                _candlestick_tables + _dataviz_tables + _ticker_tables + _table_tables
+            )[:_MAX_BLOOMBERG_TABLE_SCENES]
+
+            if _bindings:
+                # Rebuild index sets from the capped list so layout mapping stays correct.
+                _bound_candlestick = {idx for idx, _ in _bindings if idx in _candlestick_indices}
+                _bound_dataviz = {idx for idx, _ in _bindings if idx in _dataviz_indices}
+                _bound_ticker = {idx for idx, _ in _bindings if idx in _ticker_indices}
+
+                _chart_type_by_idx = {
+                    orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                    for orig_idx, t in _bindings
+                }
+                _layout_by_idx = {
+                    orig_idx: (
+                        "terminal_chart" if orig_idx in _bound_candlestick
+                        else "terminal_dataviz" if orig_idx in _bound_dataviz
+                        else "terminal_ticker" if orig_idx in _bound_ticker
+                        else "terminal_table"
+                    )
+                    for orig_idx, _ in _bindings
+                }
+                chartable_tables_json = build_chartable_tables_payload(
+                    _bindings,
+                    chart_type_by_index=_chart_type_by_idx,
+                    preferred_layout_by_index=_layout_by_idx,
+                    max_rows=20,
+                )
+
+    elif _is_laduc_or_fj(template_id):
+        # laduc / FJ Market Brief / fj_research: classify chartable tables once upfront (bloomberg-style).
+        # Run extraction + classification in the thread pool so CPU-bound
+        # HTML parsing doesn't block the event loop.
+        _laduc_blog_text = getattr(project, "blog_content", None) or ""
+
+        def _laduc_classify_tables() -> tuple[list, str]:
+            tables = extract_tables_from_content(_laduc_blog_text)
+            if not tables:
+                return tables, ""
+            tmp_hint = build_table_context_hint(tables, max_tables=len(tables))
+            # Chartable candidates (line/bar/histogram) → market_annotation
+            chartable_all = get_chartable_tables_from_visual_hint(tmp_hint)
+            # Ticker-like tables → ticker layout (excluded from chartable set so we
+            # don't double-bind the same table to two scenes).
+            ticker_tables_all: list[tuple[int, dict]] = [
+                (idx, t) for idx, t in enumerate(tables)
+                if isinstance(t, dict) and is_laduc_ticker_table(t)
+            ]
+            ticker_indices = {idx for idx, _ in ticker_tables_all}
+            # If a table matches both, prefer ticker (user wants ticker classification strict).
+            chartable = [(idx, t) for idx, t in chartable_all if idx not in ticker_indices][:2]
+            ticker_tables = ticker_tables_all[:2]
+            if not chartable and not ticker_tables:
+                return tables, ""
+            chart_type_by_idx = {
+                orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                for orig_idx, t in chartable
+            }
+            preferred_layout_by_idx: dict[int, str] = {}
+            for orig_idx, _ in chartable:
+                preferred_layout_by_idx[orig_idx] = "market_annotation"
+            for orig_idx, _ in ticker_tables:
+                preferred_layout_by_idx[orig_idx] = "ticker"
+            bindings = chartable + ticker_tables
+            payload = build_chartable_tables_payload(
+                bindings,
+                chart_type_by_index=chart_type_by_idx,
+                preferred_layout_by_index=preferred_layout_by_idx,
+                max_rows=20,
+            )
+            return tables, payload
+
+        _laduc_loop = asyncio.get_event_loop()
+        _all_extracted_tables, chartable_tables_json = await _laduc_loop.run_in_executor(
+            None, _laduc_classify_tables
+        )
+
+    elif template_id == "economist":
+        # economist: bind scraped tables to the data layouts upfront so
+        # _merge_economist_chart_props finds a real TABLE_DATA_HINT_JSON per
+        # scene (without this, every chart scene falls back to prose).
+        #   chart_line  → time-series tables (incl. OHLCV — line-chartable)
+        #   chart_bar   → remaining categorical bar/histogram tables
+        #   data_table  → remaining ranked tables (headers + ≥3 multi-col rows)
+        _econ_blog_text = getattr(project, "blog_content", None) or ""
+
+        def _econ_classify_tables() -> tuple[list, str]:
+            tables = extract_tables_from_content(_econ_blog_text)
+            if not tables:
+                return tables, ""
+            tmp_hint = build_table_context_hint(tables, max_tables=len(tables))
+            line_tables = get_line_chartable_tables_from_visual_hint(tmp_hint)
+            line_indices = {idx for idx, _ in line_tables}
+            bar_tables = [
+                (idx, t)
+                for idx, t in get_chartable_tables_from_visual_hint(tmp_hint)
+                if idx not in line_indices
+            ]
+            bar_indices = {idx for idx, _ in bar_tables}
+            used = line_indices | bar_indices
+
+            def _multi_col(t: dict) -> bool:
+                return any(isinstance(r, list) and len(r) >= 2 for r in (t.get("rows") or []))
+
+            table_tables = [
+                (idx, t)
+                for idx, t in enumerate(tables)
+                if idx not in used
+                and (t.get("headers") or [])
+                and len(t.get("rows") or []) >= 3
+                and _multi_col(t)
+            ]
+            bindings = (line_tables + bar_tables + table_tables)[:3]
+            if not bindings:
+                return tables, ""
+            chart_type_by_idx = {
+                orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                for orig_idx, t in bindings
+            }
+            layout_by_idx = {
+                orig_idx: (
+                    "chart_line" if orig_idx in line_indices
+                    else "chart_bar" if orig_idx in bar_indices
+                    else "data_table"
+                )
+                for orig_idx, _ in bindings
+            }
+            payload = build_chartable_tables_payload(
+                bindings,
+                chart_type_by_index=chart_type_by_idx,
+                preferred_layout_by_index=layout_by_idx,
+                max_rows=20,
+            )
+            return tables, payload
+
+        _econ_loop = asyncio.get_event_loop()
+        _all_extracted_tables, chartable_tables_json = await _econ_loop.run_in_executor(
+            None, _econ_classify_tables
+        )
+
+    elif template_id in CHART_TICKER_TEMPLATE_LAYOUTS:
+        # Built-in templates that opt into the chartTable/tickerTable data-viz
+        # pipeline use the shared classifier — chartable tables bind to the
+        # template's "chart" layout, ticker-like tables to its "ticker" layout.
+        # Add a new template by registering its two layout names in
+        # CHART_TICKER_TEMPLATE_LAYOUTS — no new branch needed here. Run in the
+        # thread pool so CPU-bound HTML parsing doesn't block the event loop.
+        _chart_layout, _ticker_layout = CHART_TICKER_TEMPLATE_LAYOUTS[template_id]
+        _dv_blog_text = getattr(project, "blog_content", None) or ""
+
+        def _classify_tables() -> tuple[list, str]:
+            return classify_chart_tables_for_template(
+                _dv_blog_text,
+                chart_layout=_chart_layout,
+                ticker_layout=_ticker_layout,
+            )
+
+        _dv_loop = asyncio.get_event_loop()
+        _all_extracted_tables, chartable_tables_json = await _dv_loop.run_in_executor(
+            None, _classify_tables
+        )
+
+    # Release the DB connection during the long-running DSPy/LLM calls below.
+    # Neon (serverless PostgreSQL) closes idle connections, and pool_pre_ping
+    # only verifies liveness on checkout — a session already holding a
+    # connection through a 30-60s LLM await can't be re-pinged, so the next
+    # commit fails with "server closed the connection unexpectedly". We
+    # capture the values we'll need post-LLM, drop the connection, run both
+    # LLM calls cold, then re-attach the project to a fresh connection.
+    _project_id = project.id
+    _project_aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
+    _project_blog_content = project.blog_content
+    db.close()
+
+    _template_style_hint = get_script_style_hint(template_id) if template_id else ""
+
+    result = await generator.generate(
+        blog_content=_project_blog_content,
+        blog_images=image_paths,
+        hero_image=hero_image,
+        aspect_ratio=_project_aspect_ratio,
+        video_style=video_style,
+        video_length=effective_video_length,
+        layout_catalog=layout_catalog,
+        content_language=content_language,
+        include_ending_socials=include_ending_socials,
+        chartable_tables_json=chartable_tables_json,
+        template_id=template_id or "",
+        template_style_hint=_template_style_hint,
+        user_instruction=user_instruction or "",
+        progress_callback=progress_callback,
+    )
+
+    # Template-aware display text generation (second LLM call — still no DB held)
+    scenes_raw: list[dict] = result["scenes"]
+    scenes_raw = _sanitize_script_layouts(
+        template_id,
+        scenes_raw,
+        include_ending_socials=include_ending_socials,
+    )
+    display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
+    display_texts = await display_gen.generate_for_scenes(scenes_raw)
+
+    # Custom templates get 2 dedicated data-viz scenes (chart + table), inserted
+    # just before the outro — EXTRA to the content scenes, mirroring the built-in
+    # templates' chart/table pair. Bound to real Firecrawl tables, and ONLY when
+    # the article actually has chartable data — articles with no figures get no
+    # fabricated charts forced into them.
+    if is_custom_template(template_id):
+        _dataviz_scenes = _build_custom_dataviz_scenes(getattr(project, "blog_content", None) or "")
+        if _dataviz_scenes:
+            _insert_at = max(1, len(scenes_raw) - 1) if len(scenes_raw) > 1 else len(scenes_raw)
+            for _offset, _dv in enumerate(_dataviz_scenes):
+                scenes_raw.insert(_insert_at + _offset, _dv)
+                display_texts.insert(_insert_at + _offset, _dv["title"])
+            print(f"[F7-DEBUG] [CUSTOM-DATAVIZ] injected {len(_dataviz_scenes)} dedicated data-viz scenes at index {_insert_at}")
+        else:
+            print("[F7-DEBUG] [CUSTOM-DATAVIZ] no chartable tables in article — skipping dedicated data-viz scenes")
+
+    # Re-attach the original project instance to a fresh connection.
+    # add() on a detached-but-previously-persistent instance issues UPDATE on
+    # next flush (not INSERT), and pool_pre_ping verifies the new checkout.
+    db.add(project)
     project.name = result["title"]
 
-    # Clear existing scenes for this project
+    # Clear existing scenes for this project (moved here so it runs in the
+    # same fresh transaction as the new scene inserts).
     db.query(Scene).filter(Scene.project_id == project.id).delete()
     db.flush()
 
+<<<<<<< HEAD
     # Template-aware display text generation
     video_style = getattr(project, "video_style", None) or "explainer"
     scenes_raw: list[dict] = result["scenes"]
@@ -590,6 +1329,143 @@ async def _generate_script(project: Project, db: Session):
             cta = (scene_data.get("cta_button_text") or "").strip()
             if cta:
                 vd = prepend_b2v_cta_to_visual(cta, vd)
+=======
+    is_custom = is_custom_template(template_id)
+
+    # Economist: precompute chartable tables by type + track which indices have
+    # already been bound, so a chart_line/chart_bar/data_table scene that the LLM
+    # left WITHOUT a data_table_index still gets a real (and distinct) table —
+    # mirroring laduc's market_annotation auto-find. Without this a chart scene
+    # reaches scene-gen with no TABLE_DATA_HINT_JSON and falls back to prose.
+    _econ_chartable: list[tuple[int, str]] = []
+    _econ_used_table_indices: set[int] = set()
+    if template_id == "economist" and _all_extracted_tables:
+        for _ci, _ct in enumerate(_all_extracted_tables):
+            _cp = _build_chart_props_from_table(_ct) or {}
+            if _cp.get("chartType"):
+                _econ_chartable.append((_ci, str(_cp.get("chartType"))))
+
+    def _econ_autofind_index(layout_id: str) -> int | None:
+        """Pick the first unused chartable table whose shape matches `layout_id`."""
+        want_line = layout_id == "chart_line"
+        # First pass: prefer a type match (line→line; bar/data_table→bar/histogram).
+        for _idx, _ctype in _econ_chartable:
+            if _idx in _econ_used_table_indices:
+                continue
+            is_line = _ctype == "line"
+            if want_line == is_line:
+                return _idx
+        # Second pass: any unused chartable table.
+        for _idx, _ctype in _econ_chartable:
+            if _idx not in _econ_used_table_indices:
+                return _idx
+        return None
+
+    for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
+        vd = scene_data["visual_description"]
+        preferred = scene_data.get("preferred_layout")
+        if preferred == "ending_socials":
+            cta = (scene_data.get("cta_button_text") or "").strip()
+            if cta:
+                vd = prepend_b2v_cta_to_visual(cta, vd)
+            # Custom templates don't have an ending_socials layout — clear it so
+            # archetype matching assigns the outro slot during scene generation.
+            if is_custom:
+                preferred = None
+        elif (
+            (
+                scene_data.get("preferred_layout") in {
+                    "data_visualization", "terminal_chart", "terminal_table",
+                    "terminal_dataviz", "market_annotation", "ticker",
+                    # Economist data layouts.
+                    "chart_line", "chart_bar", "data_table",
+                }
+                # Built-in data-viz templates (matrix/spotlight/chronicle) — their
+                # *_data (+ bar/histogram variants) and *_ticker layouts also need
+                # the bound table embedded so _merge_laduc_chart_props can chart it.
+                or is_builtin_chart_layout(str(scene_data.get("preferred_layout") or ""))
+                or is_builtin_ticker_layout(str(scene_data.get("preferred_layout") or ""))
+            )
+            and _all_extracted_tables
+        ):
+            # Embed only the single bound table so scene_gen has exactly one table to use.
+            bound_idx = scene_data.get("data_table_index")
+            # For terminal_chart with no bound index, auto-find the first OHLCV table.
+            if scene_data.get("preferred_layout") == "terminal_chart" and not isinstance(bound_idx, int):
+                for _ci, _ct in enumerate(_all_extracted_tables):
+                    if is_candlestick_table(_ct):
+                        bound_idx = _ci
+                        break
+            # For laduc/FJ market_annotation with no bound index, auto-find the first chartable table.
+            if (
+                _is_laduc_or_fj(template_id)
+                and scene_data.get("preferred_layout") == "market_annotation"
+                and not isinstance(bound_idx, int)
+            ):
+                for _ci, _ct in enumerate(_all_extracted_tables):
+                    if not is_candlestick_table(_ct):
+                        bound_idx = _ci
+                        break
+            # Economist chart_line/chart_bar/data_table with no bound index:
+            # auto-find a distinct chartable table so the chart never renders empty.
+            if (
+                template_id == "economist"
+                and scene_data.get("preferred_layout") in {"chart_line", "chart_bar", "data_table"}
+                and not isinstance(bound_idx, int)
+            ):
+                _auto = _econ_autofind_index(scene_data["preferred_layout"])
+                if _auto is not None:
+                    bound_idx = _auto
+                    scene_data["data_table_index"] = _auto
+            if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
+                if template_id == "economist":
+                    _econ_used_table_indices.add(bound_idx)
+                _bound_table = _all_extracted_tables[bound_idx]
+                _mr = 60 if is_candlestick_table(_bound_table) else 20
+                hint = build_table_context_hint([_bound_table], max_tables=1, max_rows=_mr)
+                if hint:
+                    vd = (vd.rstrip() + "\n\n" + hint).strip()
+        elif (
+            # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
+            # the table binding was supposed to force a data layout.
+            # Embed the table hint so scene_gen has the data and can produce the right chart.
+            (template_id == "bloomberg" or _is_laduc_or_fj(template_id) or template_id == "economist")
+            and scene_data.get("data_table_index") is not None
+            and _all_extracted_tables
+        ):
+            _fallback_idx = scene_data.get("data_table_index")
+            if isinstance(_fallback_idx, int) and 0 <= _fallback_idx < len(_all_extracted_tables):
+                _fb_table = _all_extracted_tables[_fallback_idx]
+                _fb_hint = build_table_context_hint([_fb_table], max_tables=1, max_rows=20)
+                if _fb_hint:
+                    vd = (vd.rstrip() + "\n\n" + _fb_hint).strip()
+                # Upgrade preferred_layout so scene_gen uses the right component.
+                if template_id == "bloomberg":
+                    if not is_candlestick_table(_fb_table):
+                        scene_data["preferred_layout"] = "terminal_dataviz"
+                    else:
+                        scene_data["preferred_layout"] = "terminal_chart"
+                elif _is_laduc_or_fj(template_id):
+                    scene_data["preferred_layout"] = (
+                        "ticker" if is_laduc_ticker_table(_fb_table) else "market_annotation"
+                    )
+                elif template_id == "economist":
+                    _fb_type = (_build_chart_props_from_table(_fb_table) or {}).get("chartType", "")
+                    scene_data["preferred_layout"] = (
+                        "chart_line" if _fb_type == "line" else "chart_bar"
+                    )
+        elif scene_data.get("preferred_layout") == "terminal_ticker":
+            # Inject real scraped ticker data so scene_gen overrides LLM-hallucinated values.
+            _blog_text = getattr(project, "blog_content", None) or ""
+            _ticker_items = extract_ticker_items_from_blog(_blog_text, max_items=10)
+            if _ticker_items:
+                hint = "═══ SCRAPED_TICKER_ROWS ═══\n" + "\n".join(_ticker_items) + "\n═══ END_SCRAPED_TICKER_ROWS ═══"
+                vd = (vd.rstrip() + "\n\n" + hint).strip()
+        # Re-read preferred_layout: the recovery elif above may have upgraded it
+        # (e.g. data_impact → market_annotation). The local `preferred` captured at
+        # the top of this loop was set before that upgrade, so it would be stale.
+        preferred = scene_data.get("preferred_layout")
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -598,7 +1474,14 @@ async def _generate_script(project: Project, db: Session):
             visual_description=vd,
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
+<<<<<<< HEAD
             preferred_layout=scene_data.get("preferred_layout"),
+=======
+            preferred_layout=preferred,
+            # Dedicated data-viz scenes (custom templates) carry an explicit
+            # scene_type so GeneratedVideo routes them to the kit chart/table scenes.
+            scene_type=scene_data.get("_scene_type"),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
         db.add(scene)
 
@@ -606,25 +1489,102 @@ async def _generate_script(project: Project, db: Session):
     db.commit()
     db.refresh(project)
 
+    # Surface the analyzer's distilled summary so callers (e.g. the regenerate
+    # worker) can hand it to downstream layout planners. Empty when no user
+    # instruction was provided.
+    return (result or {}).get("_user_instruction_summary", "") or ""
 
-async def _generate_scenes(project: Project, db: Session):
+
+async def _generate_scenes(
+    project: Project,
+    db: Session,
+    skip_voiceover: bool = False,
+    preserve_image_assignments: bool = True,
+    redistribute_images: bool = False,
+    strict_voiceover: bool = False,
+):
     """Generate voiceovers and scene layout descriptors concurrently, then write Remotion data.
 
     Voiceovers and scene descriptors are independent — descriptors only need
     title/narration/visual_description which don't change during TTS generation.
     Running them concurrently via asyncio.gather cuts wall-clock time significantly.
+
+    When ``skip_voiceover`` is True the TTS / narration-expansion step is skipped entirely
+    and the existing ``voiceover_path`` / ``duration_seconds`` on each scene are preserved.
+    Used by the "regenerate script" flow, which keeps the original narration + audio and only
+    refreshes titles, on-screen text, visuals, and layouts.
     """
+    # Force a fresh DB checkout at the start of this step. Pipeline-step
+    # boundaries (script → scenes) leave a connection that may have been
+    # silently dropped by Neon during the previous LLM call. pool_pre_ping
+    # can miss SSL/Windows-10053 failures because they manifest mid-query
+    # rather than on the SELECT-1 probe. Closing here releases any stale
+    # connection back to the pool; the next query checks out a fresh one.
+    _project_id = project.id
+    try:
+        db.close()
+    except OperationalError as close_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on db.close() before scene generation; invalidating session and retrying query: %s",
+            _project_id,
+            close_err,
+        )
+        try:
+            db.invalidate()
+        except Exception:
+            pass
+
+    try:
+        project = db.query(Project).filter(Project.id == _project_id).first()
+    except OperationalError as query_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on pre-scenes reload; invalidating and retrying once: %s",
+            _project_id,
+            query_err,
+        )
+        db.invalidate()
+        project = db.query(Project).filter(Project.id == _project_id).first()
+
+    if project is None:
+        raise RuntimeError(f"Project {_project_id} disappeared before scene generation")
+
     scenes = project.scenes
     extracted_tables = extract_tables_from_content(getattr(project, "blog_content", None) or "")
     # Provide up to 3 tables so newscast can build 2-3 data visualization scenes.
     table_context_hint = build_table_context_hint(extracted_tables, max_tables=3)
 
+<<<<<<< HEAD
     # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
     scenes_data = []
     for s in scenes:
         _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
         if table_context_hint:
             vis = (vis.rstrip() + "\n\n" + table_context_hint).strip()
+=======
+    # Wealth Your Way: freeze the ending scene's narration + title BEFORE the
+    # voiceover task reads them, so TTS speaks the locked client copy. The
+    # descriptor override later in this function locks the on-screen text and
+    # CTAs separately; this just makes sure the audio matches.
+    # Skipped when skip_voiceover is set — that flow keeps the existing narration/audio
+    # and nulling voiceover_path here would leave the ending scene silent (no TTS re-run).
+    _is_wealth = project.template in WEALTH_TEMPLATE_IDS
+    if _is_wealth and scenes and not skip_voiceover:
+        for s in scenes:
+            if getattr(s, "preferred_layout", None) == "ending_socials":
+                s.title = WEALTH_ENDING_TITLE
+                s.narration_text = WEALTH_ENDING_NARRATION
+                s.voiceover_path = None
+        db.commit()
+        db.refresh(project)
+        scenes = project.scenes
+
+    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields).
+    # Each data_visualization scene already carries its single bound TABLE_DATA_HINT_JSON
+    # (embedded during _generate_script); no blanket append needed here.
+    scenes_data = []
+    for s in scenes:
+        _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         scenes_data.append(
             {
                 "title": s.title,
@@ -636,7 +1596,15 @@ async def _generate_scenes(project: Project, db: Session):
 
     # Prepare scene descriptor generator
     db.refresh(project)
+<<<<<<< HEAD
     template_id = validate_template_id(project.template if project.template else "default")
+=======
+    template_id = validate_template_id(
+        project.template if project.template else "default",
+        db=db,
+        user_id=project.user_id,
+    )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     logger.info("[PIPELINE] Project %s: template='%s', validated='%s'", project.id, project.template, template_id)
     supports_ending_socials = "ending_socials" in get_valid_layouts(template_id)
     scene_gen = TemplateSceneGenerator(template_id)
@@ -646,13 +1614,25 @@ async def _generate_scenes(project: Project, db: Session):
 
     # ── Task 1: Voiceovers ───────────────────────────────────────
     async def _voiceover_task():
+        if skip_voiceover:
+            # Regenerate-script flow: keep existing narration + audio untouched.
+            logger.info("[PIPELINE] Skipping voiceover generation for project %s (skip_voiceover)", project.id)
+            return
         if getattr(project, "voice_gender", None) == "none":
             logger.info("[PIPELINE] Skipping voiceover — no-audio mode for project %s", project.id)
+<<<<<<< HEAD
+=======
+            from app.services.voiceover import DURATION_PAD
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             for scene in scenes:
                 if scene.narration_text:
                     word_count = len(scene.narration_text.split())
                     scene.duration_seconds = round(
+<<<<<<< HEAD
                         max(settings.MIN_SCENE_DURATION_SECONDS, max(5.0, word_count / 2.5) + 1.0),
+=======
+                        max(settings.MIN_SCENE_DURATION_SECONDS, max(5.0, word_count / 2.5) + DURATION_PAD),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         1,
                     )
                 else:
@@ -661,11 +1641,38 @@ async def _generate_scenes(project: Project, db: Session):
             db.commit()
         else:
             content_lang = get_content_language_for_project(project)
+<<<<<<< HEAD
             await generate_all_voiceovers(
                 scenes, db,
                 video_style=getattr(project, "video_style", None) or "explainer",
                 content_language=content_lang,
+=======
+            # Advanced Options (paid) projects carry voice tuning in voice_emotion; those run on v3
+            # with the [excited] tag, so write the narration emotively too (emphasis / "!" / CAPS).
+            expressive = bool(getattr(project, "voice_emotion", None))
+            vo_paths = await generate_all_voiceovers(
+                scenes, db,
+                video_style=getattr(project, "video_style", None) or "explainer",
+                content_language=content_lang,
+                expressive=expressive,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             )
+            # generate_all_voiceovers swallows per-scene TTS failures (returns "" for a
+            # failed scene). In strict mode (regenerate-script, which has a restorable
+            # audio backup) treat any narrated scene that produced no audio as a hard
+            # failure so the caller can roll back to the original voiceovers instead of
+            # silently shipping missing audio.
+            if strict_voiceover:
+                failed = [
+                    scenes[i].order
+                    for i in range(len(scenes))
+                    if (scenes[i].narration_text or "").strip()
+                    and not (vo_paths[i] if i < len(vo_paths) else "")
+                ]
+                if failed:
+                    raise RuntimeError(
+                        f"Voiceover regeneration failed for {len(failed)} scene(s): {failed}"
+                    )
 
     # ── Task 2: Scene descriptors (pure LLM, no DB writes) ──────
     async def _descriptor_task():
@@ -681,6 +1688,11 @@ async def _generate_scenes(project: Project, db: Session):
 
             # Build descriptors in the format the rest of the pipeline expects
             # layoutConfig must be present so downstream checks detect custom template scenes
+<<<<<<< HEAD
+=======
+            # Note: imageBoxAspectRatio is injected per-scene later in remotion.py once
+            # the actual content variant index is known (via match_scenes_to_archetypes).
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             descriptors = []
             for sc in structured_contents:
                 descriptors.append({
@@ -688,6 +1700,12 @@ async def _generate_scenes(project: Project, db: Session):
                     "layoutConfig": {},
                 })
 
+<<<<<<< HEAD
+=======
+            # Chart data for the 2 dedicated data-viz scenes is bound separately
+            # (into layoutProps) in the descriptor-application loop below, where
+            # both the DB scene and its descriptor are in scope.
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             print(f"[F7-DEBUG] [PIPELINE] Custom template: extracted structured content for {len(descriptors)} scenes in 1 call")
             return descriptors
         else:
@@ -706,10 +1724,52 @@ async def _generate_scenes(project: Project, db: Session):
     # Run both concurrently
     _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())
 
+<<<<<<< HEAD
     # Re-load scenes to pick up voiceover changes from per-thread DB sessions
     # CRITICAL: We MUST explicitly expire the existing Scene objects in the Identity Map, 
     # otherwise SQLAlchemy will return the stale `duration_seconds` (e.g. 10.0 or 5.0) 
     # instead of the newly calculated audio lengths, overwriting them when we commit `remotion_code`.
+=======
+    # Force a fresh DB checkout. The descriptor task is a long LLM call that
+    # runs concurrently with the voiceover task — if voiceovers finish first,
+    # the main session sits idle through the rest of the descriptor await and
+    # Neon may silently drop the connection. Closing here releases any stale
+    # connection back to the pool; the next query checks out a fresh one.
+    # On Windows + SSL this close can itself raise OperationalError if the TCP
+    # socket is already severed; handle it and invalidate the session so we can
+    # continue with a fresh checkout instead of aborting the whole pipeline.
+    _pid = project.id
+    try:
+        db.close()
+    except OperationalError as close_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on db.close() after scene tasks; invalidating session and retrying query: %s",
+            _pid,
+            close_err,
+        )
+        try:
+            db.invalidate()
+        except Exception:
+            pass
+
+    try:
+        project = db.query(Project).filter(Project.id == _pid).first()
+    except OperationalError as query_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on post-close reload; invalidating and retrying once: %s",
+            _pid,
+            query_err,
+        )
+        db.invalidate()
+        project = db.query(Project).filter(Project.id == _pid).first()
+
+    if project is None:
+        raise RuntimeError(f"Project {_pid} disappeared during scene generation")
+
+    # Re-load scenes to pick up voiceover changes from per-thread DB sessions.
+    # expire_all is now redundant (db.close already cleared the identity map),
+    # but kept as a no-op safeguard in case future code re-fetches before this.
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     db.expire_all()
     scenes = project.scenes
 
@@ -732,6 +1792,7 @@ async def _generate_scenes(project: Project, db: Session):
         else ""
     )
 
+<<<<<<< HEAD
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
         # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
@@ -760,6 +1821,61 @@ async def _generate_scenes(project: Project, db: Session):
                     "ctaButtonText": cta,
                 },
             }
+=======
+    # Store descriptors as JSON in remotion_code, optionally preserving existing image assignments
+    for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
+        # Dedicated data-viz scenes: recover the bound table from the scene's
+        # visual_description into the descriptor's layoutProps (editable + read by
+        # the kit DataChartScene/DataTableScene at render time).
+        if _bind_dataviz_layout_props(scene, descriptor):
+            sc = descriptor.setdefault("structuredContent", {})
+            sc["contentType"] = "dataviz"
+
+        # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
+        # We override the descriptor here so Remotion can render the themed ending consistently.
+        if getattr(scene, "preferred_layout", None) == "ending_socials" and supports_ending_socials:
+            if template_id in WEALTH_TEMPLATE_IDS:
+                # Client-locked ending: every wealth_your_way video closes with the
+                # same headline, sub-copy, and Subscribe/Buy pills. No LLM input.
+                descriptor = {
+                    "layout": "ending_socials",
+                    "layoutProps": {
+                        "hideImage": True,
+                        "socials": ending_socials_default,
+                        "showWebsiteButton": True,
+                        "ctaButtonText": WEALTH_ENDING_CTA_TEXT,
+                        "websiteLink": WEALTH_SUBSTACK_URL,
+                        "secondaryCtaButtonText": WEALTH_ENDING_SECONDARY_CTA_TEXT,
+                        "secondaryWebsiteLink": WEALTH_AMAZON_URL,
+                    },
+                }
+                scene.title = WEALTH_ENDING_TITLE
+                scene.narration_text = WEALTH_ENDING_NARRATION
+            else:
+                cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
+                cta = (cta_from_visual or "").strip()
+                try:
+                    if scene.remotion_code:
+                        old_desc = json.loads(scene.remotion_code)
+                        old_lp = old_desc.get("layoutProps") or {}
+                        old_cta = old_lp.get("ctaButtonText")
+                        if isinstance(old_cta, str) and old_cta.strip():
+                            cta = old_cta.strip()
+                except (json.JSONDecodeError, TypeError):
+                    pass
+                if not cta:
+                    cta = "Get started"
+                descriptor = {
+                    "layout": "ending_socials",
+                    "layoutProps": {
+                        "hideImage": True,
+                        "socials": ending_socials_default,
+                        "showWebsiteButton": bool(source_link),
+                        "websiteLink": source_link,
+                        "ctaButtonText": cta,
+                    },
+                }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         # Custom templates: inject CTA props into the last (outro) scene
         if is_custom_template(template_id) and i == len(scenes) - 1 and len(scenes) > 1:
@@ -784,7 +1900,7 @@ async def _generate_scenes(project: Project, db: Session):
             }
 
         has_layout_config = "layoutConfig" in descriptor
-        if scene.remotion_code:
+        if preserve_image_assignments and scene.remotion_code:
             try:
                 old_desc = json.loads(scene.remotion_code)
                 old_lp = old_desc.get("layoutProps") or {}
@@ -799,7 +1915,10 @@ async def _generate_scenes(project: Project, db: Session):
                         descriptor["layoutProps"]["hideImage"] = True
             except (json.JSONDecodeError, TypeError):
                 pass
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(sanitize_chart_descriptor(descriptor))
+        resolved_layout = _descriptor_layout_name(template_id, descriptor)
+        if resolved_layout:
+            scene.preferred_layout = resolved_layout
         if has_layout_config:
             lc = descriptor["layoutConfig"]
             logger.info(
@@ -807,15 +1926,28 @@ async def _generate_scenes(project: Project, db: Session):
                 i, lc.get("arrangement"), len(lc.get("elements", [])), lc.get("decorations"),
             )
         else:
+<<<<<<< HEAD
             logger.info(
                 "[PIPELINE] Scene %s stored: legacy layout=%s, layoutProps keys=%s",
                 i, descriptor.get("layout"), list(descriptor.get("layoutProps", {}).keys()),
             )
+=======
+            lp_keys = list(descriptor.get("layoutProps", {}).keys())
+            logger.info(
+                "[PIPELINE] Scene %s stored: legacy layout=%s, layoutProps keys=%s",
+                i, descriptor.get("layout"), lp_keys,
+            )
+            if descriptor.get("layout") == "terminal_dataviz":
+                logger.info(
+                    "[PIPELINE] Scene %s terminal_dataviz full layoutProps=%s",
+                    i, json.dumps(descriptor.get("layoutProps", {})),
+                )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     db.commit()
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 
     # Write data.json + assets to per-project Remotion workspace
-    write_remotion_data(project, scenes, db)
+    write_remotion_data(project, scenes, db, redistribute_images=redistribute_images)
 
     project.status = ProjectStatus.GENERATED
     user = db.query(User).filter(User.id == project.user_id).first()
@@ -834,8 +1966,8 @@ async def _generate_scenes(project: Project, db: Session):
             #     project_url=project_url,
             # )
             
-            # Schedule follow-up email 23.5 hours after project creation (Resend scheduled send)
-            scheduled_at = project.created_at + timedelta(hours=23, minutes=30)
+            # Schedule follow-up email 30 min before 7-day deletion (6d 23h 30m after creation)
+            scheduled_at = project.created_at + timedelta(days=6, hours=23, minutes=30)
             # Only schedule follow-up email for unpaid users
             if user.plan == PlanTier.FREE:
                 email_service.schedule_followup_email(
@@ -870,11 +2002,25 @@ def scrape_blog_endpoint(
     except BlogScrapeFailed as e:
         logger.warning("[SCRAPE_ENDPOINT] BlogScrapeFailed project=%s: %s", project_id, e)
         _rollback_project_after_endpoint_failure(db, project_id, user.id)
+<<<<<<< HEAD
         raise HTTPException(status_code=410, detail=PUBLIC_MSG_SCRAPE_FAILED)
     except Exception as e:
         logger.exception("[SCRAPE_ENDPOINT] project=%s", project_id)
         _rollback_project_after_endpoint_failure(db, project_id, user.id)
         raise HTTPException(status_code=410, detail=PUBLIC_MSG_SCRAPE_FAILED)
+=======
+        raise HTTPException(
+            status_code=410,
+            detail=format_scrape_failed_public_message(project.blog_url),
+        )
+    except Exception as e:
+        logger.exception("[SCRAPE_ENDPOINT] project=%s", project_id)
+        _rollback_project_after_endpoint_failure(db, project_id, user.id)
+        raise HTTPException(
+            status_code=410,
+            detail=format_scrape_failed_public_message(project.blog_url),
+        )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 @router.post("/generate-script", response_model=ProjectOut)
@@ -1005,16 +2151,36 @@ async def render_video_endpoint(
             "r2_video_url": project.r2_video_url,
         }
 
+<<<<<<< HEAD
     if is_custom_template(project.template) and _load_custom_template_data(project.template, db=db) is None:
         raise HTTPException(
             status_code=409,
             detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
+=======
+    if (is_custom_template(project.template) or is_crafted_template(project.template)) and _load_custom_template_data(
+        project.template,
+        db=db,
+        user_id=project.user_id,
+    ) is None:
+        raise HTTPException(
+            status_code=409,
+            detail="This project uses a missing template. Rendering is blocked because the template is unavailable.",
+        )
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, project.user_id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This project no longer has access to its crafted template.",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
 
     # Align per-video credits with Stripe (same as project creation) before any limit check.
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
         raise HTTPException(status_code=401, detail="Not authenticated")
+<<<<<<< HEAD
+=======
+    user_row.roll_video_period_if_due(db)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     user_row.sync_video_limit_bonus(db)
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
@@ -1347,4 +2513,9 @@ def _get_project(project_id: int, user_id: int, db: Session) -> Project:
     )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, user_id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="Access to this project's crafted template has been revoked.",
+        )
     return project

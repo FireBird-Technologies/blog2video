@@ -98,6 +98,16 @@ export default function Seo({
     } else if (existingScript) {
       existingScript.remove();
     }
+<<<<<<< HEAD
+=======
+
+    // Release the title on unmount so a route without its own <Seo>
+    // (e.g. the protected app pages) never inherits a stale title such as
+    // "Page Not Found" left behind by the previously rendered route.
+    return () => {
+      document.title = siteName;
+    };
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   }, [canonicalUrl, description, fullTitle, image, noindex, schema]);
 
   return null;

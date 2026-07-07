@@ -2,34 +2,80 @@ import { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
 import {
   updateCustomTemplate,
+  submitTemplateRating,
   type CustomTemplateItem,
 } from "../api/client";
-import CustomPreview from "./templatePreviews/CustomPreview";
-import { VIDEO_STYLE_OPTIONS, type VideoStyleId } from "../constants/videoStyles";
+import CustomPreview, { buildCustomSceneLabels } from "./templatePreviews/CustomPreview";
+import TemplateStarRating from "./TemplateStarRating";
 
 interface Props {
   template: CustomTemplateItem;
   onSaved: (template: CustomTemplateItem) => void;
   onCancel: () => void;
+  /** Update the parent's template in-place (e.g. after a rating) WITHOUT closing the modal. */
+  onTemplatePatch?: (template: CustomTemplateItem) => void;
 }
 
-export default function CustomTemplateEditor({ template, onSaved, onCancel }: Props) {
+export default function CustomTemplateEditor({ template, onSaved, onCancel, onTemplatePatch }: Props) {
   const [name, setName] = useState(template.name);
+<<<<<<< HEAD
   const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(template.supported_video_style);
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [accentColor, setAccentColor] = useState(template.theme.colors.accent);
   const [useGradient, setUseGradient] = useState(template.theme.colors.bg2 != null);
   // const aiDecidedGradient = template.theme.colors.bg2 != null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+<<<<<<< HEAD
   const [styleOpen, setStyleOpen] = useState(false);
   const [gradientOpen, setGradientOpen] = useState(false);
   const styleRef = useRef<HTMLDivElement>(null);
   const gradientRef = useRef<HTMLDivElement>(null);
+=======
+  const [gradientOpen, setGradientOpen] = useState(false);
+  const [liveScene, setLiveScene] = useState(0);
+  const [myRating, setMyRating] = useState<number | null>(template.my_rating ?? null);
+  const [myRatingComment, setMyRatingComment] = useState<string | null>(
+    template.my_rating_comment ?? null
+  );
+  const [ratingSaving, setRatingSaving] = useState(false);
+  const gradientRef = useRef<HTMLDivElement>(null);
+
+  const handleRate = async (rating: 1 | 2 | 3 | 4 | 5, comment?: string) => {
+    const prevRating = myRating;
+    const prevComment = myRatingComment;
+    const nextComment = comment ?? prevComment ?? null;
+    setMyRating(rating);
+    setMyRatingComment(nextComment);
+    setRatingSaving(true);
+    try {
+      await submitTemplateRating(template.id, { rating, suggestion: comment });
+      // Reflect the new rating on the parent's card without closing the modal.
+      onTemplatePatch?.({ ...template, my_rating: rating, my_rating_comment: nextComment });
+    } catch (err) {
+      console.error("Failed to rate template:", err);
+      setMyRating(prevRating);
+      setMyRatingComment(prevComment);
+    } finally {
+      setRatingSaving(false);
+    }
+  };
+
+  // Ordered scene names for the strip shown above the template name. Highlights the
+  // scene currently on-screen in the live preview (driven by CustomPreview).
+  const sceneLabels = buildCustomSceneLabels({
+    introCode: template.intro_code || undefined,
+    outroCode: template.outro_code || undefined,
+    contentCodes: template.content_codes || undefined,
+    contentArchetypeIds: template.content_archetype_ids || undefined,
+  });
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (styleRef.current && !styleRef.current.contains(e.target as Node)) {
-        setStyleOpen(false);
+      if (gradientRef.current && !gradientRef.current.contains(e.target as Node)) {
+        setGradientOpen(false);
       }
       if (gradientRef.current && !gradientRef.current.contains(e.target as Node)) {
         setGradientOpen(false);
@@ -53,7 +99,10 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
       };
       const res = await updateCustomTemplate(template.id, {
         name: name.trim(),
+<<<<<<< HEAD
         supported_video_style: supportedVideoStyle,
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         theme: { ...template.theme, colors: updatedColors },
       });
       onSaved(res.data);
@@ -67,7 +116,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Edit Template</h2>
@@ -87,7 +136,50 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
 
           {/* Live preview */}
           <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+<<<<<<< HEAD
             <CustomPreview theme={theme} name={name || undefined} introCode={template.intro_code || undefined} outroCode={template.outro_code || undefined} contentCodes={template.content_codes || undefined} contentArchetypeIds={template.content_archetype_ids || undefined} previewImageUrl={template.preview_image_url} logoUrls={template.logo_urls} ogImage={template.og_image} />
+=======
+            <CustomPreview theme={theme} name={name || undefined} introCode={template.intro_code || undefined} outroCode={template.outro_code || undefined} contentCodes={template.content_codes || undefined} contentArchetypeIds={template.content_archetype_ids || undefined} previewImageUrl={template.preview_image_url} logoUrls={template.logo_urls} ogImage={template.og_image} onLiveSceneChange={setLiveScene} />
+          </div>
+
+          {/* Scene name — a single centered pill showing the scene currently on
+              screen in the preview; it smoothly swaps as the scene changes. */}
+          {sceneLabels.length > 1 && (() => {
+            const total = sceneLabels.length;
+            const current = Math.min(liveScene, total - 1);
+            return (
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-[11px] font-medium text-gray-400 tabular-nums">
+                  {current + 1} / {total}
+                </span>
+                <style>{`@keyframes scenePillIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}`}</style>
+                <span
+                  key={current}
+                  className="text-[11px] font-semibold rounded-full px-3 py-1 whitespace-nowrap"
+                  style={{
+                    color: "#fff",
+                    background: accentColor,
+                    animation: "scenePillIn 0.3s ease-out",
+                  }}
+                >
+                  {sceneLabels[current]}
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Rating — above the name, with optional feedback (mirrors the video review) */}
+          <div>
+            <TemplateStarRating
+              value={myRating}
+              comment={myRatingComment}
+              onRate={handleRate}
+              disabled={ratingSaving}
+              size={22}
+              showLabel
+              allowComment
+            />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
 
           {/* Name */}
@@ -197,53 +289,10 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
             </span>
           </div> */}
 
-          <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              Video Style
-            </label>
-            <p className="text-[11px] text-gray-500 mb-2">
-              This sets script and voice tone (Explainer/Promotional/Storytelling). Your template appears in its matching style tab and in Custom Templates.
-            </p>
-            <div ref={styleRef} className="relative">
-              <div className="flex items-center gap-2">
-                <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                  {VIDEO_STYLE_OPTIONS.find((s) => s.id === supportedVideoStyle)?.label ?? supportedVideoStyle}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setStyleOpen(!styleOpen)}
-                  className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                >
-                  <svg
-                    className={`w-4 h-4 transition-transform ${styleOpen ? "rotate-180" : ""}`}
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
-              {styleOpen && (
-                <div className="absolute z-10 mt-1.5 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1">
-                  {VIDEO_STYLE_OPTIONS.map((style) => (
-                    <button
-                      key={style.id}
-                      type="button"
-                      onClick={() => { setSupportedVideoStyle(style.id); setStyleOpen(false); }}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-purple-50 transition-colors ${
-                        supportedVideoStyle === style.id ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
-                      }`}
-                    >
-                      {style.label}
-                      <span className="ml-1 text-gray-400">— {style.subtitle}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Visual patterns (read-only) */}
-          {theme.patterns && (
+          {/* Visual patterns (read-only) — hidden: the corner/spacing/image/alignment
+              chips confused users without giving them anything actionable. */}
+          {/* {theme.patterns && (
             <div>
               <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
                 Visual Patterns
@@ -261,6 +310,27 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
                 <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
                   {theme.patterns.layout?.direction || "centered"}
                 </span>
+              </div>
+            </div>
+          )} */}
+
+          {/* Motion / decor / charts + scene mix (read-only craft signals) */}
+          {(theme.motion?.energy || theme.decor?.system || theme.charts?.style || (theme.sceneBias?.length ?? 0) > 0) && (
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+                Motion &amp; Scenes
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  theme.motion?.energy ? `${theme.motion.energy} motion` : null,
+                  theme.decor?.system && theme.decor.system !== "none" ? `${theme.decor.system} decor` : null,
+                  theme.charts?.style ? `${theme.charts.style} charts` : null,
+                ].filter(Boolean).map((tag) => (
+                  <span key={tag as string} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-50 text-indigo-600 capitalize">{tag}</span>
+                ))}
+                {theme.sceneBias?.map((s) => (
+                  <span key={s} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 text-emerald-700 capitalize">{s}</span>
+                ))}
               </div>
             </div>
           )}

@@ -13,7 +13,14 @@ import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import NotFoundPage from "./NotFoundPage";
 import { marketingPageSchema } from "../seo/schema";
 
+<<<<<<< HEAD
 const BlogDemoPlayer = lazy(() => import("../components/BlogDemoPlayer"));
+=======
+const BlogDemoPlayer = lazy(() => import("../help/BlogDemoPlayer"));
+const FirebirdCustomPreview = lazy(
+  () => import("../components/templatePreviews/FirebirdCustomPreview"),
+);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export default function TemplatePageView() {
   const location = useLocation();
@@ -38,14 +45,22 @@ export default function TemplatePageView() {
       {/* Template Navigation Strip */}
       <div className="border-b border-gray-100 bg-white">
         <div className="mx-auto max-w-6xl px-6">
+<<<<<<< HEAD
           <nav className="flex gap-1 overflow-x-auto py-3 scrollbar-hide" aria-label="Templates">
+=======
+          <nav className="flex flex-wrap gap-1 py-3" aria-label="Templates">
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             {templateProfiles.map((t) => {
               const isActive = slug === t.slug;
               return (
                 <Link
                   key={t.slug}
                   to={`/templates/${t.slug}`}
+<<<<<<< HEAD
                   className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+=======
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     isActive
                       ? "bg-purple-600 text-white"
                       : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
@@ -104,7 +119,11 @@ export default function TemplatePageView() {
         </section>
 
         {/* Live Preview */}
+<<<<<<< HEAD
         {templateProfile?.previewSceneKey && (
+=======
+        {templateProfile && (slug === "custom" || templateProfile.previewSceneKey) && (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <section className="border-b border-gray-100 bg-gray-50/50">
             <div className="mx-auto max-w-5xl px-6 py-16">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600 text-center">
@@ -114,10 +133,23 @@ export default function TemplatePageView() {
                 See {templateProfile.name} in action
               </h2>
               <p className="text-sm text-gray-500 text-center mb-8 max-w-xl mx-auto">
+<<<<<<< HEAD
                 This preview cycles through {templateProfile.name}'s layouts with real content to show how each scene type looks and feels.
               </p>
               <Suspense fallback={<div className="aspect-video w-full rounded-2xl bg-gray-200 animate-pulse" />}>
                 <BlogDemoPlayer sceneKey={templateProfile.previewSceneKey} />
+=======
+                {slug === "custom"
+                  ? `This is a real custom template generated from a brand's website — the same colors, fonts, and style applied to every scene.`
+                  : `This preview cycles through ${templateProfile.name}'s layouts with real content to show how each scene type looks and feels.`}
+              </p>
+              <Suspense fallback={<div className="aspect-video w-full rounded-2xl bg-gray-200 animate-pulse" />}>
+                {slug === "custom" ? (
+                  <FirebirdCustomPreview />
+                ) : (
+                  <BlogDemoPlayer sceneKey={templateProfile.previewSceneKey!} />
+                )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               </Suspense>
             </div>
           </section>

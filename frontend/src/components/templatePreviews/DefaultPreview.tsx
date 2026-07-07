@@ -19,7 +19,10 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const update = () => setScale(el.getBoundingClientRect().width / INTERNAL_W);
+    const update = () => {
+      const s = Math.max(el.offsetWidth / INTERNAL_W, el.offsetHeight / INTERNAL_H);
+      if (s > 0) setScale(s);
+    };
     update();
     const obs = new ResizeObserver(update);
     obs.observe(el);
@@ -233,11 +236,33 @@ function SlideMetric({ active }: { active: boolean }) {
   );
 }
 
+<<<<<<< HEAD
 export default function TemplatePreview() {
+=======
+export default function TemplatePreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [current, setCurrent] = useState(0);
   const [active, setActive] = useState(true);
 
+<<<<<<< HEAD
+=======
+  // Side cards play the first slide's intro once and rest on its settled state
+  // (no slide cycling). Pinning to slide 0 also means the animation restarts
+  // from the top when the card returns to center.
   useEffect(() => {
+    setCurrent(0);
+    if (thumbnailMode) {
+      setActive(true);
+      return;
+    }
+    setActive(false);
+    const t = setTimeout(() => setActive(true), 200);
+    return () => clearTimeout(t);
+  }, [thumbnailMode]);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
+  useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => {
       setActive(false);
       setTimeout(() => {
@@ -246,7 +271,7 @@ export default function TemplatePreview() {
       }, 150);
     }, 5100);
     return () => clearInterval(id);
-  }, []);
+  }, [thumbnailMode]);
 
   const SLIDES = [SlideHeroImage, SlideTextNarration, SlideMetric];
   const ActiveSlide = SLIDES[current];

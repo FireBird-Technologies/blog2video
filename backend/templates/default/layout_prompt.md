@@ -45,9 +45,21 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `timeline`  
   - **Best for**: Phases, version history, chronological steps. Vertical line with alternating items.
 
+<<<<<<< HEAD
 - `data_visualization`  
   - **Best for**: Quantitative stories: trends, distributions, comparisons across categories. Supports bar charts, line charts (series over time or categories), and histogram-style bin counts. Clean light card on the default template (no hero image).  
   - **Data**: Use `barChartRows`, `lineChartLabels` / `lineChartDatasets`, and/or `histogramRows` in layout props as appropriate.
+=======
+- `default_data_visualization`  
+  - **Best for**: Quantitative stories — trends over time, distributions, comparisons across categories. Supports line, bar, and histogram charts. Dark panel with purple/blue accent on the default template.  
+  - **Data**: Provide `chartTable` (headers + rows), `chartType` (`"line"` / `"bar"` / `"histogram"` / `"auto"`), and optionally `chartSummary`, `yAxisLabel`, `subtitle` (X-axis caption), `barPrimaryColor` (`#7C3AED`), `barSecondaryColor` (`#2563EB`).  
+  - **Rule**: Use at most **1 time per video**. Do NOT use the old `data_visualization` id.
+
+- `default_ticker`  
+  - **Best for**: Tabular data — leaderboards, comparison matrices, metric grids, release stats.  
+  - **Data**: Provide `tickerTable` (headers + rows), `tickerTitle`, `tickerHighlightCol` (0-based column index for gain/loss colouring), `tickerFootnote`.  
+  - **Rule**: Use at most **1 time per video**.
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 Global variety rules for `preferred_layout`:
 

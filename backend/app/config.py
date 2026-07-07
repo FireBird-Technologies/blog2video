@@ -6,17 +6,46 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
+    # Environment: "production" uses Claude Sonnet; anything else uses DeepSeek
+    ENVIRONMENT: str = os.environ.get("ENVIRONMENT", "local")
+
     # API Keys
     ANTHROPIC_API_KEY: str = ""
+    # Used only for Template Studio **template creation** (plan, normalize, layout
+    # TSX, prompt.md). Other features keep using ANTHROPIC_API_KEY above.
+    TEMPLATE_CREATION_ANTHROPIC_API_KEY: str = ""
+    # Custom-template AI generation (Remotion codegen + theme extraction). Falls
+    # back to ANTHROPIC_API_KEY when empty. Lets custom templates bill / rate-limit
+    # separately from the rest of the app.
+    CUSTOM_ANTHROPIC_API_KEY: str = ""
     ELEVENLABS_API_KEY: str = ""
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
+    OPEN_ROUTER_KEY: str = ""
     GEMINI_API_KEY: str = ""
+<<<<<<< HEAD
     GEMINI_CODE_MODEL: str = "gemini-2.5-flash"
     # Used automatically when an image is attached (vision-guided layout editing).
     GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-2.5-pro"
+=======
+    GEMINI_CODE_MODEL: str = "gemini-3.5-flash"
+    # Used when a reference image is attached (vision-guided layout editing / rebuild).
+    GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-3.5-flash"
+
+    # Template studio access password. Kept server-side so it doesn't leak in
+    # the JS bundle. Empty disables the gate (any password passes — useful for
+    # local dev). Set via TEMPLATE_STUDIO_PASSWORD in .env.
+    TEMPLATE_STUDIO_PASSWORD: str = ""
+
+    # Template Studio — **new template** + **new layout** (plan/normalize/layout TSX/prompt.md):
+    #  Claude via Anthropic. Requires TEMPLATE_CREATION_ANTHROPIC_API_KEY; model is
+    #  CLAUDE_CODE_MODEL. See app/services/template_studio_llm.py.
+    # Scene edit + layout rebuild use Gemini (GEMINI_API_KEY, GEMINI_CODE_MODEL,
+    # GEMINI_CODE_MODEL_WITH_IMAGE). Defaults: gemini-3.5-flash; override in .env if needed.
+    CLAUDE_CODE_MODEL: str = "claude-sonnet-4-6"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini") and DSPY_IMAGE_LM in env
     IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
@@ -30,12 +59,34 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
-    STRIPE_PRO_PRICE_ID: str = ""  # Price ID for $50/mo Pro plan
-    STRIPE_PRO_ANNUAL_PRICE_ID: str = ""  # Price ID for $480/yr Pro plan (20% off)
-    STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $25/mo Standard plan (30 videos)
-    STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $20/mo effective Standard annual
+    STRIPE_PRO_PRICE_ID: str = ""  # Price ID for $60/mo Pro plan
+    STRIPE_PRO_ANNUAL_PRICE_ID: str = ""  # Price ID for $576/yr Pro plan (20% off)
+    STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $35/mo Standard plan (30 videos)
+    STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $28/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
+<<<<<<< HEAD
     STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
+=======
+    CUSTOM_TEMPLATE_PRICE_ID: str = ""  # Price ID for $5 one-time custom-template slot
+    STANDARD_PLAN_LIFETIME_DEAL: str = ""  # Price ID for $1000 one-time Standard lifetime
+    PRO_PLAN_LIFETIME_DEAL: str = ""       # Price ID for $1600 one-time Pro lifetime
+    LIFETIME_DEAL_500: str = ""            # Price ID for $300 one-time 500-video credit pack (never expires)
+    STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
+    STRIPE_3VID_MONTHLY_COUPON_ID: str = ""  # Legacy out-of-videos monthly coupon (kept in env, no longer used)
+    STRIPE_3VID_ANNUAL_COUPON_ID: str = ""   # Legacy out-of-videos annual coupon (kept in env, no longer used)
+    STRIPE_STANDARD_MONTHLY_COUPON_ID: str = ""  # 15% off Standard monthly, once-per-customer (out-of-videos offer)
+    STRIPE_STANDARD_ANNUAL_COUPON_ID: str = ""   # 20% off Standard annual, once-per-customer (out-of-videos offer)
+    SURVEY_PROMO_CODE: str = ""  # Shared Stripe promotion code (20% off) revealed on survey completion
+
+    # Post-checkout win-back coupon (abandoned / per-video → email a discount code)
+    COUPON_FOLLOWUP_CODE: str = "SUB25"  # Promo code shown in the win-back email (must exist in Stripe)
+    COUPON_FOLLOWUP_DISCOUNT_PERCENT: int = 25  # Discount % advertised in the email copy
+    COUPON_FOLLOWUP_VALID_HOURS: int = 48  # "valid for the next N hours" messaging in the email
+    # Checkout Session lifetime. On expiry Stripe fires checkout.session.expired,
+    # which drives the abandoned-checkout win-back email. Stripe allows 1800–86400
+    # (30 min – 24 h); values outside that range are clamped before use.
+    STRIPE_CHECKOUT_EXPIRES_SECONDS: int = 86400
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"
@@ -47,6 +98,7 @@ class Settings(BaseSettings):
 
     # App
     FRONTEND_URL: str = "http://localhost:5173"
+    BACKEND_URL: str = "http://localhost:8000"
 
     # Database
     DATABASE_URL: str = "sqlite:///./blog2video.db"
@@ -73,6 +125,16 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
 
+<<<<<<< HEAD
+=======
+    # Crafted templates (separate from built-ins and user custom templates)
+    CRAFTED_TEMPLATES_ENABLED: bool = False
+    CRAFTED_TEMPLATE_R2_PREFIX: str = ""  # optional namespace, e.g. "dev" | "staging" | "prod"
+    CRAFTED_TEMPLATE_CACHE_TTL_SECONDS: int = 86400
+    CRAFTED_TEMPLATE_MAX_PACKAGE_BYTES: int = 25 * 1024 * 1024
+    CRAFTED_TEMPLATE_MAX_FILE_BYTES: int = 8 * 1024 * 1024
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Render reliability/progress controls
     RENDER_MAX_SECONDS: int = int(os.environ.get("RENDER_MAX_SECONDS", "2700"))
     RENDER_STALL_SECONDS: int = int(os.environ.get("RENDER_STALL_SECONDS", "300"))
@@ -84,12 +146,33 @@ class Settings(BaseSettings):
         os.environ.get("RENDER_PROGRESS_STALE_SECONDS", "360")
     )
 
+<<<<<<< HEAD
+=======
+    # Stall recovery: if a background job's updated_at heartbeat goes stale for
+    # longer than its threshold while still active, the status endpoint (and the
+    # boot sweep) reverts the project and refunds the credit. Script is larger
+    # because stage B regenerates all scenes in one monolithic call (no per-scene
+    # heartbeat).
+    STALL_THRESHOLD_TEMPLATE_SECONDS: int = int(
+        os.environ.get("STALL_THRESHOLD_TEMPLATE_SECONDS", "600")
+    )
+    STALL_THRESHOLD_VOICE_SECONDS: int = int(
+        os.environ.get("STALL_THRESHOLD_VOICE_SECONDS", "600")
+    )
+    STALL_THRESHOLD_SCRIPT_SECONDS: int = int(
+        os.environ.get("STALL_THRESHOLD_SCRIPT_SECONDS", "1200")
+    )
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # Email
     EMAIL_PROVIDER: str = "resend"              # currently only "resend" is supported
     RESEND_API_KEY: str = ""
+    UNOSEND_API_KEY: str = ""  # reserved — blast email uses Resend; Unosend path commented in email.py
     FROM_EMAIL: str = "sales@blog2video.app"    # contact/internal emails
     NOREPLY_EMAIL: str = "noreply@blog2video.app"  # user-facing notifications
+    # Automated update email scheduler: UTC hour (0-23) to run the daily batch
+    UPDATE_EMAIL_SEND_HOUR: int = 9
 
     class Config:
         env_file = ".env"

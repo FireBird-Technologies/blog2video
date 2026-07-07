@@ -10,6 +10,11 @@ import {
   Scene,
   StudioResponse,
   ProjectTemplateChangeJob,
+<<<<<<< HEAD
+=======
+  ProjectRegenerateScriptJob,
+  RegenerateScriptPreviewOut,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 } from "./types";
 
 // ─── Project API ──────────────────────────────────────────
@@ -95,6 +100,46 @@ export const getProjectTemplateChangeStatus = (projectId: number) =>
     `/projects/${projectId}/template-change-status`
   );
 
+<<<<<<< HEAD
+=======
+export const regenerateScript = (
+  projectId: number,
+  body?: { user_instruction?: string },
+) =>
+  api.post<ProjectRegenerateScriptJob>(
+    `/projects/${projectId}/regenerate-script`,
+    body ?? {},
+  );
+
+export const getRegenerateScriptStatus = (projectId: number) =>
+  api.get<ProjectRegenerateScriptJob | null>(
+    `/projects/${projectId}/regenerate-script-status`
+  );
+
+// Fetch the previous (pre-regeneration) scenes for the verify-step before/after comparison.
+export const getRegenerateScriptPreview = (projectId: number) =>
+  api.get<RegenerateScriptPreviewOut>(
+    `/projects/${projectId}/regenerate-script/preview`
+  );
+
+// Approve the regenerated script (paused at the verify step) and resume scene generation.
+export const verifyRegenerateScript = (projectId: number) =>
+  api.post<ProjectRegenerateScriptJob>(
+    `/projects/${projectId}/regenerate-script/verify`,
+    {},
+  );
+
+// Discard the regenerated script and re-run it, optionally with a modified instruction.
+export const rejectRegenerateScript = (
+  projectId: number,
+  body?: { user_instruction?: string },
+) =>
+  api.post<ProjectRegenerateScriptJob>(
+    `/projects/${projectId}/regenerate-script/regenerate`,
+    body ?? {},
+  );
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export const updateScene = (
   projectId: number,
   sceneId: number,

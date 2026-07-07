@@ -140,6 +140,11 @@ export const NewsHeadline: React.FC<
   stats,
   category,
   imageUrl,
+<<<<<<< HEAD
+=======
+  imageObjectPosition,
+  imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   leftThought,
   fontFamily,
 }) => {
@@ -174,9 +179,16 @@ export const NewsHeadline: React.FC<
         : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
 
   // Calculate description font size for relative scaling
+<<<<<<< HEAD
   const actualDescriptionFontSize = descriptionFontSize ?? (p ? 39 : 35);
   const categoryBaseFontSize = p ? 28 : 24; // Base for category without descriptionFontSize
   const authorBaseFontSize = p ? 20 : 16; // Base for author without descriptionFontSize
+=======
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 39 : 29);
+  const categoryBaseFontSize = p ? 28 : 24; // Base for category without descriptionFontSize
+  const authorBaseFontSize = p ? 20 : 16; // Base for author without descriptionFontSize
+  const portraitNoImage = p && !imageUrl;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT }}>
@@ -192,6 +204,7 @@ export const NewsHeadline: React.FC<
           width: "100%",
           height: "100%",
           objectFit: "cover",
+          objectPosition: "50% 50%",
           opacity: 0.12,
           filter: "grayscale(75%) contrast(1.08)",
           zIndex: 1,
@@ -232,7 +245,10 @@ export const NewsHeadline: React.FC<
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                transform: `scale(${imageZoom ?? 1})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
                 display: "block",
                 // ✅ Dissolve animation combined with newsprint filter
                 filter: `
@@ -264,15 +280,26 @@ export const NewsHeadline: React.FC<
           inset: 0,
           display: "flex",
           flexDirection: "column",
-          // Portrait stacks content at bottom, Landscape centers it
-          justifyContent: p ? "flex-end" : "center",
-          padding: p ? "0 10% 15% 10%" : "7% 10%",
+          justifyContent: portraitNoImage ? "flex-start" : p ? "flex-end" : "center",
+          padding: portraitNoImage ? "12% 10% 10% 10%" : p ? "0 10% 15% 10%" : "7% 10%",
           zIndex: 10,
           opacity: contentOpacity,
         }}
       >
         {/* CATEGORY + AUTHOR (from stats) */}
+<<<<<<< HEAD
         <div style={{ marginBottom: p ? 20 : 30, display: "flex", flexDirection: "column", gap: 6 }}>
+=======
+        <div
+          style={{
+            marginBottom: portraitNoImage ? 24 : p ? 20 : 30,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            flexShrink: 0,
+          }}
+        >
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <div
             style={{
               display: "inline-block",
@@ -319,11 +346,20 @@ export const NewsHeadline: React.FC<
           style={{
             fontFamily: fontFamily ?? H_FONT,
             // Drastically increased portrait size for mobile impact
+<<<<<<< HEAD
             fontSize: titleFontSize ?? (p ? 82 : 78),
             fontWeight: 800,
             lineHeight: 1.0,
             marginBottom: p ? 40 : 36,
             maxWidth: p ? "100%" : (imageUrl ? "50%" : "60%"),
+=======
+            fontSize: titleFontSize ?? (p ? 77 : 68),
+            fontWeight: 800,
+            lineHeight: 1.0,
+            marginBottom: portraitNoImage ? 0 : p ? 40 : 36,
+            maxWidth: p ? "100%" : (imageUrl ? "50%" : "60%"),
+            flexShrink: 0,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           }}
         >
           {words.map((word, i) => {
@@ -358,6 +394,7 @@ export const NewsHeadline: React.FC<
         {/* NARRATION */}
         {narration && (
           <div
+<<<<<<< HEAD
             style={{
               fontSize: actualDescriptionFontSize, // Use the potentially derived value
               fontWeight: 600,
@@ -366,8 +403,35 @@ export const NewsHeadline: React.FC<
               maxWidth: p ? "100%" : (imageUrl ? "50%" : "70%"),
               opacity: 0.9,
             }}
+=======
+            style={
+              portraitNoImage
+                ? {
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 0,
+                    paddingTop: 24,
+                    paddingBottom: 24,
+                  }
+                : undefined
+            }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           >
-            {narration}
+            <div
+              style={{
+                fontSize: actualDescriptionFontSize,
+                fontWeight: 600,
+                color: textColor,
+                lineHeight: 1.4,
+                maxWidth: p ? "100%" : (imageUrl ? "50%" : "70%"),
+                opacity: 0.9,
+                textAlign: portraitNoImage ? "center" : undefined,
+              }}
+            >
+              {narration}
+            </div>
           </div>
         )}
       </div>

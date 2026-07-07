@@ -5,15 +5,26 @@ import { BlackswanFlock } from "./birds";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette } from "./blackswanAccent";
+<<<<<<< HEAD
+=======
+import { ZoomCropImg } from "../components/ZoomCropImg";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 // Righteous — same family as DropletIntro
 const mono = "'Righteous', cursive";
 const display = "'Righteous', cursive";
 
 /** Image panel centered with accent border + corner glow */
+<<<<<<< HEAD
 const ImageWithAccentBorder: React.FC<{ src: string; accentColor: string; opacity?: number }> = ({ src, accentColor, opacity = 1 }) => (
   <div style={{ position: "relative", width: "100%", height: "100%", opacity }}>
     <img src={src} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+=======
+const ImageWithAccentBorder: React.FC<{ src: string; imageObjectPosition?: string;
+  imageZoom?: number; accentColor: string; opacity?: number }> = ({ src, imageObjectPosition, imageZoom, accentColor, opacity = 1 }) => (
+  <div style={{ position: "relative", width: "100%", height: "100%", opacity, overflow: "hidden" }}>
+    <ZoomCropImg src={src} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} alt="" />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     {/* Glowing border */}
     <div style={{
       position: "absolute",
@@ -55,6 +66,11 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
     fontFamily,
     aspectRatio = "landscape",
     imageUrl,
+<<<<<<< HEAD
+=======
+    imageObjectPosition,
+  imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   } = props;
 
   const frame = useCurrentFrame();
@@ -106,7 +122,11 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
             zIndex: 1,
           }}
         >
+<<<<<<< HEAD
           <ImageWithAccentBorder src={imageUrl!} accentColor={accentColor} />
+=======
+          <ImageWithAccentBorder src={imageUrl!} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={accentColor} />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
 
         {/* Quote + text — below image */}

@@ -16,25 +16,37 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
+<<<<<<< HEAD
 import BlogUrlForm from "../components/BlogUrlForm";
+=======
+import BlogUrlForm, { GENRE_CRAFTED } from "../components/BlogUrlForm";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
+import OutOfVideosOfferModal from "../components/OutOfVideosOfferModal";
+import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
 import MyVoices from "./MyVoices";
 import type { VideoStyleId } from "../constants/videoStyles";
+import { primeBlogUrlFormStep2Prefetch } from "../api/blogUrlFormStep2Prefetch";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error", "failed"]);
 
 export default function Dashboard() {
-  const { user, refreshUser } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
   const { showError } = useErrorModal();
+  const offer = useOutOfVideosOffer();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   /** Increment when opening + New so BlogUrlForm remounts and picks a new random template each time. */
   const [blogFormMountKey, setBlogFormMountKey] = useState(0);
+<<<<<<< HEAD
+=======
+  const [blogFormInitialGenre, setBlogFormInitialGenre] = useState<string | undefined>(undefined);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -47,6 +59,10 @@ export default function Dashboard() {
   >({});
   const bulkStartedRef = useRef(false);
   const bulkPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    primeBlogUrlFormStep2Prefetch();
+  }, []);
 
   // Hydrate bulk IDs from localStorage (or URL for backward compatibility)
   useEffect(() => {
@@ -174,6 +190,21 @@ export default function Dashboard() {
     else if (tab === "voices") setActiveTab("voices");
   }, [searchParams]);
 
+<<<<<<< HEAD
+=======
+  // Open BlogUrlForm modal at step 2 with Designer Templates pre-selected
+  useEffect(() => {
+    if (searchParams.get("openDesignerTemplates") !== "1") return;
+    setBlogFormInitialGenre(GENRE_CRAFTED);
+    setBlogFormMountKey((k) => k + 1);
+    setShowModal(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("openDesignerTemplates");
+    const qs = next.toString();
+    navigate(qs ? `/dashboard?${qs}` : "/dashboard", { replace: true });
+  }, [searchParams]);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // Leaving Projects (tab or URL) should close the new-project modal so returning does not reopen it.
   useEffect(() => {
     if (activeTab === "templates" || activeTab === "voices") {
@@ -181,6 +212,22 @@ export default function Dashboard() {
     }
   }, [activeTab]);
 
+<<<<<<< HEAD
+=======
+  // Proactively show the out-of-videos offer when an already-walled free user
+  // lands on the Dashboard — the "+ New" button is disabled in that state, so
+  // the user-initiated 403 path never fires. The hook's open() enforces the
+  // 5-min window internally and silently no-ops past it.
+  useEffect(() => {
+    if (loading) return; // wait until getMe() confirms fresh user data
+    if (!user) return;
+    if (offer.isOpen) return;
+    if (user.plan === "free" && user.can_create_video === false) {
+      offer.open();
+    }
+  }, [loading, user?.plan, user?.can_create_video, offer.isOpen, offer.open]);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const loadProjects = async () => {
     try {
       const res = await listProjects();
@@ -214,10 +261,22 @@ export default function Dashboard() {
       if (isBulkUpgradeRequired) {
         setShowBulkUpgradeModal(true);
       } else if (err?.response?.status === 403) {
+<<<<<<< HEAD
         showError(
           getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
           { showUpgrade: true }
         );
+=======
+        // Out-of-videos offer: walled free users get the limited-time discount
+        // modal instead of a plain error. Past the 5-min window, fall through.
+        const opened = user?.plan === "free" ? offer.open() : false;
+        if (!opened) {
+          showError(
+            getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
+            { showUpgrade: true }
+          );
+        }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       } else {
         console.error("Bulk create failed:", err);
       }
@@ -243,8 +302,16 @@ export default function Dashboard() {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
+<<<<<<< HEAD
     videoLength?: "auto" | "short" | "medium" | "detailed",
     contentLanguage?: string | null
+=======
+    videoLength?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
+    contentLanguage?: string | null,
+    voiceEmotion?: string,
+    bgmTrackId?: string | null,
+    bgmVolume?: number
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ) => {
     setCreating(true);
     try {
@@ -256,6 +323,7 @@ export default function Dashboard() {
           name,
           voice_gender: voiceGender,
           voice_accent: voiceAccent,
+          voice_emotion: voiceEmotion,
           accent_color: accentColor,
           bg_color: bgColor,
           text_color: textColor,
@@ -268,6 +336,11 @@ export default function Dashboard() {
           video_style: videoStyle,
           video_length: videoLength,
           content_language: contentLanguage,
+<<<<<<< HEAD
+=======
+          bgm_track_id: bgmTrackId,
+          bgm_volume: bgmVolume,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         });
       } else {
         // URL flow
@@ -287,7 +360,14 @@ export default function Dashboard() {
           template,
           videoStyle,
           videoLength,
+<<<<<<< HEAD
           contentLanguage
+=======
+          contentLanguage,
+          voiceEmotion,
+          bgmTrackId,
+          bgmVolume
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         );
       }
 
@@ -305,10 +385,20 @@ export default function Dashboard() {
       navigate(`/project/${res.data.id}`);
     } catch (err: any) {
       if (err?.response?.status === 403) {
+<<<<<<< HEAD
         showError(
           getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
           { showUpgrade: true }
         );
+=======
+        const opened = user?.plan === "free" ? offer.open() : false;
+        if (!opened) {
+          showError(
+            getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
+            { showUpgrade: true }
+          );
+        }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       } else {
         console.error("Failed to create project:", err);
         showError(
@@ -351,8 +441,18 @@ export default function Dashboard() {
 
   // ─── Onboarding (0 projects): show form on first load; hide when show_form=0 (e.g. logo click) ───
   // Deep-linking to My Templates / Voices (?tab=) must use the normal tabbed layout even with 0 projects.
+<<<<<<< HEAD
   const emptyOnboarding =
     loaded &&
+=======
+  // A walled free user (out of videos) must NOT be shown the create form — they can't
+  // make a project. They fall through to the normal dashboard where the "+ New" button
+  // is disabled and the out-of-videos upgrade modal opens instead.
+  const isWalled = user?.plan === "free" && user?.can_create_video === false;
+  const emptyOnboarding =
+    loaded &&
+    !isWalled &&
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     projects.length === 0 &&
     searchParams.get("show_form") !== "0" &&
     searchParams.get("tab") !== "templates" &&
@@ -411,7 +511,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Usage banner */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
           <p className="text-xs text-gray-400">
             {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 3}{" "}
@@ -425,14 +525,18 @@ export default function Dashboard() {
             onClick={handleUpgrade}
             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
           >
-            Upgrade to Pro -- $50/mo
+            Upgrade to Pro -- $59.99/mo
           </button>
         )}
       </div>
       </div>
 
       {/* Tab bar */}
+<<<<<<< HEAD
       <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+=======
+      <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         {(["projects", "templates", "voices"] as const).map((tab) => (
           <button
             key={tab}
@@ -456,9 +560,13 @@ export default function Dashboard() {
       ) : (
       <>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
         <button
+<<<<<<< HEAD
+=======
+          data-action="new-project"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           onClick={() => {
             setBlogFormMountKey((k) => k + 1);
             setShowModal(true);
@@ -478,8 +586,14 @@ export default function Dashboard() {
           onSubmitBulk={handleCreateBulk}
           loading={creating}
           asModal
+<<<<<<< HEAD
           onClose={() => setShowModal(false)}
           onDismissFlow={() => setShowModal(false)}
+=======
+          onClose={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
+          onDismissFlow={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
+          initialGenre={blogFormInitialGenre}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         />
       )}
 
@@ -489,6 +603,15 @@ export default function Dashboard() {
         onClose={() => setShowBulkUpgradeModal(false)}
         title="Upgrade to create multiple videos"
         subtitle="Bulk upload of multiple videos requires a paid plan. Choose a plan below to unlock multi-link creation."
+      />
+
+      {/* Out-of-videos limited-time discount offer */}
+      <OutOfVideosOfferModal
+        open={offer.isOpen}
+        onClose={offer.dismiss}
+        secondsRemaining={offer.secondsRemaining}
+        isWindowLive={offer.isWindowLive}
+        onExpand={offer.expand}
       />
 
       {/* Delete project confirmation */}
@@ -554,7 +677,7 @@ export default function Dashboard() {
               return (
                 <li
                   key={id}
-                  className="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 last:border-0"
+                  className="flex flex-col sm:flex-row items-center sm:justify-between text-sm py-1.5 border-b border-gray-100 last:border-0"
                 >
                   <div className="truncate flex-1 min-w-0 cursor-pointer text-gray-700 hover:text-purple-600" onClick={() => navigate(`/project/${id}`)}>
                     <span className="truncate block" title={name}>{name}</span>
@@ -564,7 +687,7 @@ export default function Dashboard() {
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-col items-end flex-shrink-0 ml-3 w-64">
+                  <div className="flex flex-col items-end flex-shrink-0 ml-3 w-full md:w-64 min-w-0">
                     <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                       <div
                         className={`h-1.5 transition-all ${
@@ -616,7 +739,7 @@ export default function Dashboard() {
               className="glass-card px-5 py-4 animate-pulse"
               aria-hidden
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="flex-1 min-w-0 space-y-3">
                   <div className="flex items-center gap-2.5">
                     <div className="h-4 bg-gray-200 rounded w-3/4 max-w-[300px]" />
@@ -645,33 +768,36 @@ export default function Dashboard() {
             </p>
           </div>
         ) : (
-          projects.map((project) => (
+          projects.map((project, idx) => (
           <div
             key={project.id}
             onClick={() => navigate(`/project/${project.id}`)}
-            className="glass-card px-5 py-4 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all cursor-pointer group"
+            className="glass-card w-full px-5 py-4 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all cursor-pointer group"
+            data-tour={idx === 0 ? "project-card-first" : undefined}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 mb-1">
-                  <h3 className="text-sm font-medium text-gray-900 truncate group-hover:text-purple-600 transition-colors">
+                  <h3 className="text-sm font-medium text-gray-900 leading-tight break-words group-hover:text-purple-600 transition-colors">
                     {project.name}
                   </h3>
                   <StatusBadge status={project.status} />
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-400">
-                  <span className="truncate max-w-[200px]">
+                <div className="flex flex-col gap-0.5 text-xs text-gray-400 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="truncate max-w-[220px]">
                     {project.blog_url?.startsWith("upload://")
                       ? "Uploaded documents"
                       : project.blog_url || "—"}
                   </span>
-                  <span>{project.scene_count} scenes</span>
-                  <span>{formatDate(project.created_at)}</span>
+                  <div className="flex items-center gap-3">
+                    <span>{project.scene_count} scenes</span>
+                    <span>{formatDate(project.created_at)}</span>
+                  </div>
                 </div>
               </div>
               <button
                 onClick={(e) => handleDeleteClick(project.id, project.name, e)}
-                className="text-gray-300 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
+                className="text-gray-300 hover:text-red-500 transition-colors p-1 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                 title="Delete"
               >
                 <svg

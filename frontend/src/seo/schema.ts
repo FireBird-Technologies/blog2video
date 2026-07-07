@@ -4,7 +4,21 @@ import {
   siteName,
   siteUrl,
 } from "../content/siteContent";
+<<<<<<< HEAD
 import type { BlogPost, FaqItem, MarketingPage } from "../content/seoTypes";
+=======
+import { pricingLabels } from "../content/substackDirectory";
+import { tools, toolsHub } from "../content/tools";
+import type {
+  BlogPost,
+  FaqItem,
+  HelpPost,
+  MarketingPage,
+  SubstackNiche,
+  SubstackPublication,
+  ToolDefinition,
+} from "../content/seoTypes";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 function breadcrumbList(items: Array<{ name: string; path: string }>) {
   return {
@@ -66,6 +80,7 @@ export function homepageSchema() {
       name: siteName,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
+<<<<<<< HEAD
       description:
         "Turn blog posts, articles, PDFs, and documents into structured narrated videos.",
       offers: {
@@ -74,12 +89,26 @@ export function homepageSchema() {
         priceCurrency: "USD",
         availability: "https://schema.org/InStock",
         url: `${siteUrl}/pricing`,
+=======
+      url: siteUrl,
+      image: defaultOgImage,
+      description:
+        "Turn blog posts, articles, PDFs, and documents into structured narrated videos.",
+      brand: {
+        "@type": "Organization",
+        name: organizationName,
+      },
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       },
     },
   ];
 }
 
 export function pricingSchema() {
+<<<<<<< HEAD
   const sharedOfferFields = {
     availability: "https://schema.org/InStock",
     url: `${siteUrl}/pricing`,
@@ -88,6 +117,20 @@ export function pricingSchema() {
   return [
     {
       "@context": "https://schema.org",
+=======
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: "Blog2Video Pricing",
+      url: `${siteUrl}/pricing`,
+      description:
+        "Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans.",
+      image: defaultOgImage,
+    },
+    {
+      "@context": "https://schema.org",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       "@type": "SoftwareApplication",
       name: "Blog2Video",
       applicationCategory: "BusinessApplication",
@@ -96,10 +139,18 @@ export function pricingSchema() {
       description:
         "Turn blog posts, articles, PDFs, and documents into narrated videos with reusable templates and AI scene editing.",
       image: defaultOgImage,
+<<<<<<< HEAD
+=======
+      brand: {
+        "@type": "Organization",
+        name: organizationName,
+      },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       publisher: {
         "@type": "Organization",
         name: organizationName,
       },
+<<<<<<< HEAD
       offers: [
         {
           "@type": "Offer",
@@ -130,6 +181,8 @@ export function pricingSchema() {
           ...sharedOfferFields,
         },
       ],
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     },
     breadcrumbList([
       { name: "Home", path: "/" },
@@ -174,6 +227,53 @@ export function blogIndexSchema() {
   ];
 }
 
+<<<<<<< HEAD
+=======
+export function helpIndexSchema() {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: `${siteName} Help / How-to`,
+      url: `${siteUrl}/help`,
+      description:
+        "Step-by-step Blog2Video help guides with embedded explainers for project creation, scene editing, voiceover, and templates.",
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Help", path: "/help" },
+    ]),
+  ];
+}
+
+export function toolsHubSchema() {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: toolsHub.title,
+      url: `${siteUrl}${toolsHub.path}`,
+      description: toolsHub.description,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: "Blog2Video tools",
+      itemListElement: tools.map((tool, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: tool.title,
+        url: `${siteUrl}${tool.path}`,
+      })),
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: toolsHub.path },
+    ]),
+  ];
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export function marketingPageSchema(page: MarketingPage) {
   const schemas: Record<string, unknown>[] = [
     {
@@ -185,6 +285,7 @@ export function marketingPageSchema(page: MarketingPage) {
       url: `${siteUrl}${page.path}`,
       image: defaultOgImage,
       description: page.description,
+<<<<<<< HEAD
       publisher: {
         "@type": "Organization",
         name: organizationName,
@@ -195,6 +296,15 @@ export function marketingPageSchema(page: MarketingPage) {
         price: "0",
         availability: "https://schema.org/InStock",
         url: `${siteUrl}/pricing`,
+=======
+      brand: {
+        "@type": "Organization",
+        name: organizationName,
+      },
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       },
     },
     breadcrumbList([
@@ -212,6 +322,124 @@ export function marketingPageSchema(page: MarketingPage) {
   return schemas;
 }
 
+<<<<<<< HEAD
+=======
+export function toolPageSchema(tool: ToolDefinition) {
+  const schemas: Record<string, unknown>[] = [
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: tool.title,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: `${siteUrl}${tool.path}`,
+      image: defaultOgImage,
+      description: tool.description,
+      brand: {
+        "@type": "Organization",
+        name: organizationName,
+      },
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
+      },
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: toolsHub.path },
+      { name: tool.title, path: tool.path },
+    ]),
+  ];
+
+  const faq = faqSchema(tool.faq, {
+    pageUrl: `${siteUrl}${tool.path}`,
+    name: `FAQ — ${tool.title}`,
+  });
+  if (faq) schemas.push(faq);
+
+  return schemas;
+}
+
+export function substackDirectoryNicheSchema(
+  niche: SubstackNiche,
+  publications: SubstackPublication[],
+  path: string,
+  faq: FaqItem[],
+  pricing?: "free" | "paid" | "freemium"
+) {
+  const name = pricing ? `${pricingLabels[pricing]} ${niche.title}` : niche.title;
+  const schemas: Record<string, unknown>[] = [
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name,
+      url: `${siteUrl}${path}`,
+      description: niche.description,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: `${name} publication list`,
+      itemListElement: publications.map((publication, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: publication.name,
+        url: `${siteUrl}/tools/substack-directory/publication/${publication.slug}`,
+      })),
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: toolsHub.path },
+      { name: "Substack Directory", path: "/tools/substack-directory" },
+      { name, path },
+    ]),
+  ];
+
+  const faqPage = faqSchema(faq, {
+    pageUrl: `${siteUrl}${path}`,
+    name: `FAQ — ${name}`,
+  });
+  if (faqPage) schemas.push(faqPage);
+
+  return schemas;
+}
+
+export function substackDirectoryPublicationSchema(
+  publication: SubstackPublication,
+  path: string,
+  faq: FaqItem[]
+) {
+  const schemas: Record<string, unknown>[] = [
+    {
+      "@context": "https://schema.org",
+      "@type": "ProfilePage",
+      name: `${publication.name} on Substack`,
+      url: `${siteUrl}${path}`,
+      description: publication.description,
+      mainEntity: {
+        "@type": "CreativeWork",
+        name: publication.name,
+        description: publication.tagline,
+      },
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: toolsHub.path },
+      { name: "Substack Directory", path: "/tools/substack-directory" },
+      { name: publication.name, path },
+    ]),
+  ];
+
+  const faqPage = faqSchema(faq, {
+    pageUrl: `${siteUrl}${path}`,
+    name: `FAQ — ${publication.name}`,
+  });
+  if (faqPage) schemas.push(faqPage);
+
+  return schemas;
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export function blogPostSchema(post: BlogPost) {
   const articleImage = post.heroImage ? `${siteUrl}${post.heroImage}` : defaultOgImage;
   const schemas: Record<string, unknown>[] = [
@@ -252,3 +480,58 @@ export function blogPostSchema(post: BlogPost) {
 
   return schemas;
 }
+<<<<<<< HEAD
+=======
+
+export function helpPostSchema(post: HelpPost) {
+  const articleImage = post.heroImage ? `${siteUrl}${post.heroImage}` : defaultOgImage;
+  const pagePath = `/help/${post.slug}`;
+  const pageUrl = `${siteUrl}${pagePath}`;
+  const schemas: Record<string, unknown>[] = [
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      name: post.title,
+      headline: post.title,
+      description: post.description,
+      datePublished: post.publishedAt,
+      dateModified: post.publishedAt,
+      mainEntityOfPage: pageUrl,
+      image: articleImage,
+      totalTime: `PT${Math.max(1, Number.parseInt(post.readTime, 10) || 5)}M`,
+      step: post.steps.map((step, index) => ({
+        "@type": "HowToStep",
+        position: index + 1,
+        name: step.title,
+        text: [...step.body, ...(step.bullets ?? [])].join(" "),
+        image: step.image ? `${siteUrl}${step.image.src}` : undefined,
+      })),
+      author: {
+        "@type": "Person",
+        name: "Arslan Shahid",
+      },
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
+        logo: {
+          "@type": "ImageObject",
+          url: `${siteUrl}/Logo-Firebird.webp`,
+        },
+      },
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Help", path: "/help" },
+      { name: post.title, path: pagePath },
+    ]),
+  ];
+
+  const faq = faqSchema(post.faq, {
+    pageUrl,
+    name: `FAQ — ${post.title}`,
+  });
+  if (faq) schemas.push(faq);
+
+  return schemas;
+}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

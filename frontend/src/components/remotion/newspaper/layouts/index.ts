@@ -4,7 +4,15 @@ import { PullQuote } from "./PullQuote";
 import { DataSnapshot } from "./DataSnapshot";
 import { FactCheck } from "./FactCheck";
 import { NewsTimeline } from "./NewsTimeline";
+<<<<<<< HEAD
 import { EndingSocials } from "./EndingSocials";
+=======
+import { NewspaperDataViz } from "./NewspaperDataViz";
+import { EndingSocials } from "./EndingSocials";
+import { ExpertProfile } from "./ExpertProfile";
+import { PerspectiveSplit } from "./PerspectiveSplit";
+import { NewspaperTickerTable } from "./NewspaperTickerTable";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import type { NewspaperLayoutType, BlogLayoutProps } from "../types";
 
 export type { NewspaperLayoutType, BlogLayoutProps };
@@ -19,5 +27,13 @@ export const NEWSPAPER_LAYOUT_REGISTRY: Record<
   data_snapshot: DataSnapshot,
   fact_check: FactCheck,
   news_timeline: NewsTimeline,
+<<<<<<< HEAD
   ending_socials: EndingSocials,
+=======
+  data_visualisation: NewspaperDataViz,
+  ending_socials: EndingSocials,
+  expert_profile: ExpertProfile,
+  perspective_split: PerspectiveSplit,
+  ticker_table: NewspaperTickerTable,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };

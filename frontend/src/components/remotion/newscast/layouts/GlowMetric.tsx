@@ -37,6 +37,11 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
   lowerThirdHeadline,
   lowerThirdSub,
   imageUrl,
+<<<<<<< HEAD
+=======
+  imageObjectPosition,
+  imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   textColor,
   titleFontSize,
@@ -87,7 +92,11 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden", opacity: contentOpacity }}>
+<<<<<<< HEAD
       <NewsCastLayoutImageBackground imageUrl={imageUrl} accentColor={RED} />
+=======
+      <NewsCastLayoutImageBackground imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={RED} />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div
         style={{
           position: "absolute",

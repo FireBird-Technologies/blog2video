@@ -1,6 +1,18 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import {
+<<<<<<< HEAD
+=======
+  AccentBars,
+  BigGlyphBackdrop,
+  FilmGrain,
+  FlashPop,
+  HalftoneField,
+  LightDust,
+  SpotlightBeam,
+} from "../components/SpotlightArtifacts";
+import {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
@@ -47,8 +59,14 @@ function resolveImpactTitleHighlightIndex(
  */
 export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   title,
+<<<<<<< HEAD
   narration,
   imageUrl,
+=======
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   highlightWord,
   accentColor,
   textColor,
@@ -97,7 +115,21 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — frame the title without crowding it. */}
+      {!hasImage && (
+        <BigGlyphBackdrop glyph="”" accentColor={accentColor} tint="accent" startFrame={2} />
+      )}
+      {/* Signature stage light sweeps in and lands on the title slam. */}
+      <SpotlightBeam mode="land" targetX={50} startFrame={0} />
+      {/* Dust catches the beam; halftone corner + grain give it a printed-poster feel. */}
+      <LightDust count={22} seed={3} />
+      <HalftoneField accentColor={accentColor} corner="bottom-left" />
+      {/* Camera flashes pop once the title has landed. */}
+      <FlashPop count={2} every={80} seed={19} startFrame={30} />
+      <FilmGrain />
+      <AccentBars accentColor={accentColor} position="bottom-left" startFrame={4} />
 
       <div
         style={{
@@ -123,7 +155,9 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
               transform: `scale(${imageScale})`,
             }}
           >
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover", objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                transform: `scale(${imageZoom ?? 1})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%") }} />
           </div>
         )}
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -179,3 +213,4 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

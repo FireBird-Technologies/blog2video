@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
+<<<<<<< HEAD
 import { getTemplates, getVoicePreviews, getMyVoices, getPrebuiltVoices, listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradePlanModal from "./UpgradePlanModal";
@@ -41,6 +43,172 @@ function videoStyleForBulkTemplateId(
       : DEFAULT_VIDEO_STYLE;
   }
   return defaultVideoStyleForTemplate(builtinTemplates.find((t) => t.id === templateId));
+=======
+import { classifyUrl, classifyUrlScrapability } from "../utils/urlScrapability";
+import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
+import {
+  primeBlogUrlFormStep2Prefetch,
+  fetchBlogUrlFormBuiltinTemplatesDeduped,
+  fetchBlogUrlFormAvailabilityDeduped,
+} from "../api/blogUrlFormStep2Prefetch";
+import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
+import UpgradePlanModal from "./UpgradePlanModal";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
+import CustomPreview from "./templatePreviews/CustomPreview";
+import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreviewSmart from "./templatePreviews/CraftedTemplatePreviewSmart";
+import CraftYourTemplateCard from "./CraftYourTemplateCard";
+import GetMoreTemplatesModal from "./GetMoreTemplatesModal";
+import DesignerTemplateRequestModal from "./DesignerTemplateRequestModal";
+import CraftYourVoiceCard from "./CraftYourVoiceCard";
+import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
+import AdvancedVoiceOptions from "./AdvancedVoiceOptions";
+import {
+  VOICE_STABILITY_DEFAULT,
+  VOICE_STABILITY_MIN,
+  VOICE_STABILITY_MAX,
+  VOICE_SPEED_DEFAULT,
+  VOICE_SPEED_MIN,
+  VOICE_SPEED_MAX,
+  VOICE_TUNING_STEP,
+  VOICE_STYLE_DEFAULT,
+  VOICE_STYLE_MIN,
+  VOICE_STYLE_MAX,
+  VOICE_EMOTIONS,
+  parseVoiceTuning,
+  serializeVoiceTuning,
+} from "./voiceTuning";
+
+export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
+
+const DEFAULT_VIDEO_STYLE: VideoStyleId = "auto";
+const CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME = 128; // ~85% of 5s * 30fps first scene
+
+/** Source-bucket sentinel values for the genre dropdown (not real template genres). */
+const GENRE_CUSTOM = "__custom__";
+export const GENRE_CRAFTED = "__crafted__";
+const GENRE_NEW = "__new__";
+const GENRE_POPULAR = "__popular__";
+
+function genreTemplateListCaption(genreFilter: string): string {
+  if (genreFilter === GENRE_CUSTOM) return "Custom templates";
+  if (genreFilter === GENRE_CRAFTED) return "Designer templates";
+  if (genreFilter === GENRE_NEW) return "New templates";
+  if (genreFilter === GENRE_POPULAR) return "Popular templates";
+  if (genreFilter) return `Templates for ${genreFilter}`;
+  return "All templates";
+}
+
+function templateBucketsForGenre(
+  genreFilter: string,
+  builtinTemplates: TemplateMeta[],
+  readyCustomTemplates: CustomTemplateItem[],
+  readyCraftedTemplates: CraftedTemplateItem[]
+): {
+  suggestedTemplates: TemplateMeta[];
+  customTemplatesForStyle: CustomTemplateItem[];
+  craftedTemplatesForStyle: CraftedTemplateItem[];
+} {
+  const sourceList = builtinTemplates;
+  if (genreFilter === GENRE_CUSTOM) {
+    return {
+      suggestedTemplates: [],
+      customTemplatesForStyle: readyCustomTemplates,
+      craftedTemplatesForStyle: [],
+    };
+  }
+  if (genreFilter === GENRE_CRAFTED) {
+    return {
+      suggestedTemplates: [],
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: readyCraftedTemplates,
+    };
+  }
+  if (genreFilter === GENRE_NEW) {
+    return {
+      suggestedTemplates: sourceList.filter((t) => t.new_template === true),
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: [],
+    };
+  }
+  if (genreFilter === GENRE_POPULAR) {
+    return {
+      suggestedTemplates: sourceList.filter((t) => t.popular_template === true),
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: [],
+    };
+  }
+  if (genreFilter) {
+    const matchesGenre = (g?: string[]): boolean => (g ?? []).includes(genreFilter);
+    return {
+      suggestedTemplates: sourceList.filter((t) => matchesGenre(t.genres)),
+      customTemplatesForStyle: [],
+      craftedTemplatesForStyle: [],
+    };
+  }
+  return {
+    suggestedTemplates: sourceList,
+    customTemplatesForStyle: readyCustomTemplates,
+    craftedTemplatesForStyle: readyCraftedTemplates,
+  };
+}
+
+/** First entry in template `genres` from meta.json; "" if missing. */
+function defaultGenreForTemplate(meta: TemplateMeta | undefined | null): string {
+  const raw = meta?.genres?.[0];
+  return typeof raw === "string" && raw.trim() !== "" ? raw : "";
+}
+
+/** Genre aligned with a bulk row template id (built-in meta or custom genres). */
+function defaultGenreForBulkTemplateId(
+  templateId: string,
+  builtinTemplates: TemplateMeta[],
+  customTemplatesList: CustomTemplateItem[]
+): string {
+  if (templateId.startsWith("custom_")) {
+    const cid = parseInt(templateId.replace("custom_", ""), 10);
+    if (Number.isNaN(cid)) return "";
+    const ct = customTemplatesList.find((t) => t.id === cid);
+    return ct?.genres?.[0] ?? "";
+  }
+  return defaultGenreForTemplate(builtinTemplates.find((t) => t.id === templateId));
+}
+
+/**
+ * After the style/genre split: video_style no longer changes per template — it's an orthogonal
+ * user choice (Auto by default). These helpers exist only as no-op shims so existing call sites
+ * keep compiling; they always return the form-wide default style.
+ */
+function defaultVideoStyleForTemplate(_meta: TemplateMeta | undefined | null): VideoStyleId {
+  return DEFAULT_VIDEO_STYLE;
+}
+
+function videoStyleForBulkTemplateId(
+  _templateId: string,
+  _builtinTemplates: TemplateMeta[],
+  _customTemplatesList: CustomTemplateItem[]
+): VideoStyleId {
+  return DEFAULT_VIDEO_STYLE;
+}
+
+/** Read-only demo mode used by help videos: forces step + seeds state without firing API calls. */
+export interface BlogUrlFormDemoMode {
+  step: 1 | 2 | 3;
+  url?: string;
+  name?: string;
+  videoLength?: "short" | "medium" | "detailed";
+  template?: string;
+  videoStyle?: VideoStyleId;
+  voiceGender?: "female" | "male" | "none";
+  voiceAccent?: string;
+  customVoiceId?: string;
+  templatesData?: TemplateMeta[];
+  customTemplatesData?: CustomTemplateItem[];
+  myVoicesData?: SavedVoiceFromAPI[];
+  voicePreviewsData?: Record<string, VoicePreview>;
+  /** Replaces every built-in template preview with a static filler (used by help videos). */
+  templatePreviewOverride?: (opts: { templateId: string; selected: boolean; thumbnail: boolean }) => ReactNode;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 interface Props {
@@ -61,8 +229,16 @@ interface Props {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
+<<<<<<< HEAD
     videoLength?: "short" | "medium" | "detailed",
     contentLanguage?: string | null
+=======
+    videoLength?: "short" | "medium" | "detailed" | "more_detailed",
+    contentLanguage?: string | null,
+    voiceEmotion?: string,
+    bgmTrackId?: string | null,
+    bgmVolume?: number
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
@@ -71,6 +247,13 @@ interface Props {
   onClose?: () => void;
   /** Invoked before navigating to My Templates to craft a template (e.g. close the new-project modal). */
   onDismissFlow?: () => void;
+<<<<<<< HEAD
+=======
+  /** When set, the form renders in read-only demo mode for help videos. */
+  demoMode?: BlogUrlFormDemoMode;
+  /** Pre-select a genre filter when step 2 opens (e.g. GENRE_CRAFTED to show Designer Templates). */
+  initialGenre?: string;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 const MAX_UPLOAD_FILES = 5;
@@ -91,6 +274,7 @@ const MAX_BULK_LINKS = (() => {
 })();
 
 /** Estimated wall-clock range per tier (UI only; backend still uses short | medium | detailed). */
+<<<<<<< HEAD
 const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", string> = {
   short: "Short  ~  30 sec – 1 min",
   medium: "Medium  ~  1 - 3 mins",
@@ -98,6 +282,26 @@ const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", stri
 };
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"];
+=======
+const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed" | "more_detailed", string> = {
+  short: "Short  ~  30 sec – 1 min",
+  medium: "Medium  ~  1 - 3 mins",
+  detailed: "Detailed  ~  3 – 8 mins",
+  more_detailed: "More Detailed  ~  8+ mins",
+};
+
+/**
+ * Minimum source-content word count each tier needs to actually reach that length.
+ * Mirrors the backend thresholds in pipeline.py (_effective_video_length_for_content):
+ * below these counts the video is automatically shortened to a smaller tier.
+ */
+const VIDEO_LENGTH_MIN_WORDS: Partial<Record<"short" | "medium" | "detailed" | "more_detailed", number>> = {
+  detailed: 1500,
+  more_detailed: 2000,
+};
+
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"];
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 const ALLOWED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -105,6 +309,10 @@ const ALLOWED_TYPES = [
   "text/plain",
   "text/markdown",
   "text/x-markdown",
+<<<<<<< HEAD
+=======
+  "text/vtt",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ];
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -216,13 +424,26 @@ interface VideoLightboxProps {
   onClose: () => void;
   onSelect: () => void;
   isSelected: boolean;
-  customTemplate?: CustomTemplateItem | null;
+  customTemplate?: CustomTemplateItem | CraftedTemplateItem | null;
 }
 function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, customTemplate }: VideoLightboxProps) {
+  const { ensureCraftedTemplateDetail } = useCraftedTemplates();
   const PreviewComp = TEMPLATE_PREVIEWS[templateId];
   const desc = TEMPLATE_DESCRIPTIONS[templateId];
   const title = customTemplate ? customTemplate.name : (desc?.title ?? templateId);
-  const subtitle = customTemplate ? "Custom template" : desc?.subtitle;
+  const subtitle = customTemplate
+    ? (templateId.startsWith("crafted_") ? "Designer template" : "Custom template")
+    : desc?.subtitle;
+
+  // Crafted templates ship summary-only by default; the full layout package
+  // (frontend_files, frontend_entry_rel, public_asset_urls) is fetched here
+  // on demand so the lightbox can render the real composition. The context
+  // dedupes concurrent calls and caches the result.
+  useEffect(() => {
+    if (templateId.startsWith("crafted_")) {
+      void ensureCraftedTemplateDetail(templateId);
+    }
+  }, [templateId, ensureCraftedTemplateDetail]);
 
   // Close on Escape
   useEffect(() => {
@@ -259,9 +480,15 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
           </div>
 
           {/* Video content */}
+<<<<<<< HEAD
           <div className="bg-black">
             {customTemplate ? (
               <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} logoUrls={customTemplate.logo_urls} ogImage={customTemplate.og_image} />
+=======
+          <div className="relative aspect-video overflow-hidden bg-black">
+            {customTemplate && customTemplate.theme ? (
+              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url ?? undefined} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} validLayouts={(customTemplate as any).valid_layouts || undefined} frontendFiles={(customTemplate as any).frontend_files || undefined} frontendEntryRel={(customTemplate as any).frontend_entry_rel || undefined} publicAssetUrls={templateId.startsWith("crafted_") ? ((customTemplate as CraftedTemplateItem).public_asset_urls ?? undefined) : undefined} logoUrls={customTemplate.logo_urls ?? undefined} ogImage={customTemplate.og_image ?? undefined} showLoaderOnEmptyOrError={templateId.startsWith("crafted_")} />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             ) : PreviewComp ? (
               <PreviewComp />
             ) : (
@@ -291,6 +518,291 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
       </div>
     </div>,
     document.body
+  );
+}
+
+type BlogUrlFormDemoStep = 1 | 2 | 3;
+
+/**
+ * @deprecated Use `<BlogUrlForm demoMode={...} />` directly. Kept temporarily for backwards compatibility.
+ */
+export function BlogUrlFormDemoModal({
+  step,
+  focus = "source",
+}: {
+  step: BlogUrlFormDemoStep;
+  focus?: "new" | "source" | "template" | "voice" | "generate";
+}) {
+  const selectedTemplateId = "spotlight";
+  const SelectedPreview = TEMPLATE_PREVIEWS[selectedTemplateId];
+  const selectedDesc = TEMPLATE_DESCRIPTIONS[selectedTemplateId];
+  const demoTemplates = ["spotlight", "nightfall", "gridcraft", "default"];
+
+  const inputClass =
+    "w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all";
+
+  const step1 = (
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 flex flex-col space-y-5 min-h-0">
+        <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+          {(["url", "upload", "bulk"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                mode === "url" ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {mode === "url" ? "Link" : mode === "upload" ? "Upload" : "Multi Link"}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Blog / Article URL
+          </label>
+          <input
+            type="url"
+            readOnly
+            value="https://yourblog.com/how-ai-search-works"
+            className={`${inputClass} ${focus === "source" ? "ring-2 ring-purple-500/40 border-transparent" : ""}`}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Project name <span className="normal-case text-gray-300">(optional)</span>
+          </label>
+          <input type="text" readOnly value="AI Search Explainer" className={inputClass} />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Estimated duration
+          </label>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-xl border border-gray-200/60 bg-white/80 px-4 py-2.5 text-left text-sm text-gray-700"
+          >
+            <span>Medium  ~  1 - 3 mins</span>
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 flex gap-2 pt-1">
+        <button
+          type="button"
+          className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+        >
+          Go to step 2
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+
+  const step2 = (
+    <div className="space-y-5">
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          Selected Template
+        </label>
+        <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
+          <div className="relative aspect-video overflow-hidden">{SelectedPreview ? <SelectedPreview /> : null}</div>
+          <div className="px-4 py-2.5 bg-purple-50/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-800">{selectedDesc?.title ?? "Spotlight"}</span>
+              </div>
+              <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc?.subtitle}</div>
+            </div>
+            <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Video Style
+          </label>
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
+            {VIDEO_STYLES.map((style) => (
+              <button
+                key={style.id}
+                type="button"
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  style.id === "promotional" ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {style.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
+          Suggested templates for the selected video style
+        </p>
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <CraftYourTemplateCard
+              variant="default"
+              isPro
+              onClick={() => undefined}
+              onKeyDown={() => undefined}
+            />
+            {demoTemplates.map((templateId) => {
+              const Preview = TEMPLATE_PREVIEWS[templateId];
+              const desc = TEMPLATE_DESCRIPTIONS[templateId];
+              const selected = templateId === selectedTemplateId;
+              return (
+                <div
+                  key={templateId}
+                  className={`relative rounded-lg overflow-hidden cursor-pointer transition-all group ${
+                    selected
+                      ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                      : "border-2 border-gray-200/60 hover:border-purple-300/60"
+                  }`}
+                >
+                  <div className="relative h-[70px] overflow-hidden">
+                    {Preview ? <Preview thumbnailMode /> : null}
+                    {selected && (
+                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className={`px-2 py-1 transition-colors ${selected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                    <div className="text-[10px] font-semibold text-gray-800 truncate">{desc?.title ?? templateId}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <button type="button" className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60">
+          Back
+        </button>
+        <button type="button" className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+          Go to step 3
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+
+  const voiceRows = [
+    { name: "Rachel", subtitle: "Female - American - clear product narration", selected: true },
+    { name: "Alice", subtitle: "Female - British - soft and polished", selected: false },
+    { name: "Bill", subtitle: "Male - American - friendly and articulate", selected: false },
+  ];
+
+  const step3 = (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-purple-50/60 border border-purple-200/50">
+        <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+        </svg>
+        <p className="text-[11px] text-purple-600 leading-relaxed">
+          Choose narration language. Keep <span className="font-semibold">Auto</span> to detect from content.
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+          Language
+        </label>
+        <button type="button" className="flex w-full items-center justify-between rounded-xl border border-gray-200/60 bg-white/80 px-4 py-2.5 text-left text-sm text-gray-700">
+          <span>Auto</span>
+          <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <p className="text-[11px] text-gray-500">Language of the video content</p>
+      </div>
+      <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+        <input type="checkbox" readOnly checked={false} className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600" />
+        <div>
+          <span className="text-sm font-medium text-gray-700">No voiceover</span>
+          <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
+        </div>
+      </label>
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
+          Voice - Select and Play to Preview
+        </label>
+        <div className="space-y-2 max-h-[320px] overflow-y-auto">
+          {voiceRows.map((voice) => (
+            <VoiceItem
+              key={voice.name}
+              name={voice.name}
+              subtitle={voice.subtitle}
+              hasPreview
+              isPlaying={focus === "voice" && voice.selected}
+              onPlay={() => undefined}
+              isSelected={voice.selected}
+              actions={
+                voice.selected ? (
+                  <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                ) : null
+              }
+            />
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="button" className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60">
+          Back
+        </button>
+        <button
+          type="button"
+          className={`flex-1 py-3 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 ${
+            focus === "generate" ? "bg-purple-700 ring-4 ring-purple-500/20" : "bg-purple-600 hover:bg-purple-700"
+          }`}
+        >
+          Generate Video
+        </button>
+      </div>
+    </div>
+  );
+
+  const content = step === 1 ? step1 : step === 2 ? step2 : step3;
+
+  return (
+    <div className="relative w-full max-w-xl bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 max-h-[85vh] overflow-y-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-base font-semibold text-gray-900">New Project</h2>
+        <button className="text-gray-300 hover:text-gray-500 transition-colors">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <StepIndicator current={step} total={3} />
+      <div className="relative min-h-[420px] flex flex-col">
+        <div className="min-h-[420px] flex flex-col">{content}</div>
+      </div>
+    </div>
   );
 }
 
@@ -334,14 +846,26 @@ function getFileExtension(s: string): string | null {
   }
 }
 
+<<<<<<< HEAD
 export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
   const isPro = user?.plan === "pro" || user?.plan === "standard";
+=======
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
+  const { user } = useAuth();
+  const { showError } = useErrorModal();
+  const navigate = useNavigate();
+  const isPro = demoMode ? true : user?.plan === "pro" || user?.plan === "standard";
+  const isDemo = !!demoMode;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Wizard step
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(demoMode?.step ?? 1);
+  useEffect(() => {
+    if (demoMode?.step) setStep(demoMode.step);
+  }, [demoMode?.step]);
 
   // Step 1 — input
   const [mode, setMode] = useState<"url" | "upload" | "bulk">("url");
@@ -360,11 +884,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   bulkTemplatesRef.current = bulkTemplates;
   const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
+<<<<<<< HEAD
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
   const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
   const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed")[]>(["short"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
+=======
+  const [bulkVoiceStability, setBulkVoiceStability] = useState<number[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[0]]);
+  const [bulkVoiceSpeed, setBulkVoiceSpeed] = useState<number[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[1]]);
+  const [bulkVoiceEmotion, setBulkVoiceEmotion] = useState<string[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[2]]);
+  const [bulkVoiceStyle, setBulkVoiceStyle] = useState<number[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[3]]);
+  const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
+  const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
+  const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed" | "more_detailed")[]>(["short"]);
+  const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
+  const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
+  const bulkStyleManuallySet = useRef<boolean[]>([false]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // Empty string = "not yet set from template"; we derive from template.preview_colors on step 2.
   const [bulkAccentColors, setBulkAccentColors] = useState<string[]>([""]);
   const [bulkBgColors, setBulkBgColors] = useState<string[]>([""]);
@@ -385,8 +922,79 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
   const [voiceAccent, setVoiceAccent] = useState<string>("american");
+<<<<<<< HEAD
   const [contentLanguage, setContentLanguage] = useState<string>("auto");
   const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed">("short");
+=======
+  // Voice tuning sliders (paid). Initialized from the remembered per-user preference so a returning
+  // user sees their last settings pre-selected.
+  const [voiceStability, setVoiceStability] = useState<number>(() => parseVoiceTuning(user?.preferred_voice_emotion)[0]);
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(() => parseVoiceTuning(user?.preferred_voice_emotion)[1]);
+  const [voiceEmotion, setVoiceEmotion] = useState<string>(() => parseVoiceTuning(user?.preferred_voice_emotion)[2]);
+  const [voiceStyle, setVoiceStyle] = useState<number>(() => parseVoiceTuning(user?.preferred_voice_emotion)[3]);
+  // Live voice-preview playback state (Advanced Options "Listen").
+  const [previewState, setPreviewState] = useState<"idle" | "loading" | "playing">("idle");
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+
+  const stopVoicePreview = useCallback(() => {
+    previewAudioRef.current?.pause();
+    previewAudioRef.current = null;
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPreviewState("idle");
+  }, []);
+
+  // Synthesize + play a short sample with the given voice + tuning. Toggling while playing stops it.
+  const handleVoicePreview = useCallback(
+    async (args: { gender: string; accent: string; customVoiceId: string; stability: number; speed: number; emotion: string; style: number }) => {
+      if (previewState === "playing") {
+        stopVoicePreview();
+        return;
+      }
+      if (previewState === "loading") return;
+      setPreviewState("loading");
+      try {
+        const url = await previewVoice({
+          voice_gender: args.gender,
+          voice_accent: args.accent,
+          custom_voice_id: args.customVoiceId || undefined,
+          voice_emotion: serializeVoiceTuning(args.stability, args.speed, args.emotion, args.style, true),
+        });
+        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = url;
+        const audio = new Audio(url);
+        audio.addEventListener("ended", stopVoicePreview);
+        previewAudioRef.current = audio;
+        await audio.play();
+        setPreviewState("playing");
+      } catch (err: any) {
+        setPreviewState("idle");
+        const status = err?.response?.status;
+        if (status === 429) showError("Please wait a moment before previewing again.");
+        else if (status === 403) showError("Voice preview requires a Pro or Standard plan.");
+        else showError("Couldn't generate a voice preview. Please try again.");
+      }
+    },
+    [previewState, stopVoicePreview, showError]
+  );
+
+  // Stop any preview playback when the component unmounts.
+  useEffect(() => () => stopVoicePreview(), [stopVoicePreview]);
+  // Whether the "Advanced Options" tab (voice tuning sliders) is expanded. Paid-only.
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState<boolean>(false);
+  // Active tab in the Step 3 voice/music panel: voice | bgm | advanced (paid).
+  const [voicePanelTab, setVoicePanelTab] = useState<"voice" | "bgm" | "advanced">("voice");
+  // Master switch for the expressive v3 path. Off → standard v2 voice. Only when ON is the voice
+  // tuning sent (which is what routes the project through eleven_v3 + [excited] + emotive narration).
+  // Defaults ON for users who previously enabled it (a saved preference exists) — it stays enabled
+  // across sessions until they explicitly turn it off on a voiced video.
+  const [expressiveEnabled, setExpressiveEnabled] = useState<boolean>(() => parseVoiceTuning(user?.preferred_voice_emotion)[4]);
+  const [contentLanguage, setContentLanguage] = useState<string>("auto");
+  const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed" | "more_detailed">("short");
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
   const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
@@ -399,12 +1007,41 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const customVoiceIdRef = useRef(customVoiceId);
   voiceGenderRef.current = voiceGender;
   customVoiceIdRef.current = customVoiceId;
+<<<<<<< HEAD
 
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   /** Built-in template list fetch (getTemplates) — drives step 2 loading overlay. */
+=======
+
+  // Background music
+  const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
+  const [selectedBgmTrackId, setSelectedBgmTrackId] = useState<string | null>(null);
+  const [selectedBgmVolume, setSelectedBgmVolume] = useState<number>(0.10);
+  const [bgmPlayingId, setBgmPlayingId] = useState<string | null>(null);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Step 2 — video style & template
+  const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
+  const styleManuallySet = useRef(false);
+  /** Genre dropdown filter — populated dynamically from all templates' meta.genres. "" = show all. */
+  const [genre, setGenre] = useState<string>(initialGenre ?? "");
+  const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
+  const [template, setTemplate] = useState("default");
+  const [templates, setTemplates] = useState<TemplateMeta[]>([]);
+  const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized, ensureCraftedTemplateDetail } = useCraftedTemplates();
+  // When a crafted template is selected, fetch its full bundle (frontend_files,
+  // entry, public assets) on demand so its picker card can render the REAL
+  // composition via the module graph (falls back to the marquee until ready).
+  useEffect(() => {
+    if (template.startsWith("crafted_")) {
+      void ensureCraftedTemplateDetail(template);
+    }
+  }, [template, ensureCraftedTemplateDetail]);
+  /** Built-in template list fetch — drives step 2 loading overlay (often warmed by Dashboard prefetch). */
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [builtinTemplatesLoading, setBuiltinTemplatesLoading] = useState(true);
   /** After built-ins load: session random pick (or skip) has finished — step 2 can interact. */
   const [sessionBuiltinInitDone, setSessionBuiltinInitDone] = useState(false);
@@ -436,8 +1073,32 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   pickerDefaultTemplateIdRef.current = pickerDefaultTemplateId;
   // Only show templates that have finished generating (intro_code exists)
   const readyCustomTemplates = customTemplates.filter((ct) => !!ct.intro_code);
+<<<<<<< HEAD
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
   const [customTemplatesLoading, setCustomTemplatesLoading] = useState(true);
+=======
+  const readyCraftedTemplates = craftedTemplates.filter((ct) => !!ct.theme);
+  const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
+  const [showGetMoreTemplates, setShowGetMoreTemplates] = useState(false);
+  const [showDesignerRequest, setShowDesignerRequest] = useState(false);
+  const [customTemplatesLoading, setCustomTemplatesLoading] = useState(false);
+  const [hasCraftedTemplatesEligible, setHasCraftedTemplatesEligible] = useState(false);
+  // Show the crafted-template loader until the first R2 roundtrip resolves
+  // (not just during the non-silent fetch window), so eligible users never
+  // see the "no templates" state flash while we silently revalidate the
+  // localStorage cache against R2.
+  const craftedTemplatesLoading =
+    hasCraftedTemplatesEligible && (craftedTemplatesCacheLoading || !craftedTemplatesInitialized);
+  const [templateAvailabilityLoading, setTemplateAvailabilityLoading] = useState(true);
+  const allTemplates = useMemo<TemplateMeta[]>(() => {
+    const byId = new Map<string, TemplateMeta>();
+    for (const t of templates) byId.set(t.id, t);
+    for (const ct of craftedTemplates) {
+      if (!byId.has(ct.id)) byId.set(ct.id, ct as unknown as TemplateMeta);
+    }
+    return Array.from(byId.values());
+  }, [templates, craftedTemplates]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const renderLanguageDropdown = (
     value: string,
@@ -493,9 +1154,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   );
 
   const renderVideoLengthDropdown = (
+<<<<<<< HEAD
     value: "short" | "medium" | "detailed",
     onSelect: (next: "short" | "medium" | "detailed") => void
   ) => (
+=======
+    value: "short" | "medium" | "detailed" | "more_detailed",
+    onSelect: (next: "short" | "medium" | "detailed" | "more_detailed") => void
+  ) => {
+    const minWords = VIDEO_LENGTH_MIN_WORDS[value];
+    return (
+    <>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     <details className="relative group">
       <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
         <span>{VIDEO_LENGTH_DURATION_LABELS[value]}</span>
@@ -510,7 +1180,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       </summary>
       <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
         <div className="max-h-[18.5rem] overflow-y-auto py-1">
+<<<<<<< HEAD
           {(["short", "medium", "detailed"] as const).map((opt) => (
+=======
+          {(["short", "medium", "detailed", "more_detailed"] as const).map((opt) => (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             <button
               key={opt}
               type="button"
@@ -529,21 +1203,77 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </div>
     </details>
+<<<<<<< HEAD
   );
+=======
+    {minWords && (
+      <p className="mt-1.5 flex items-start gap-1 text-[11px] text-red-600 leading-relaxed">
+        <svg className="w-3.5 h-3.5 flex-shrink-0 mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <span>
+          Make sure your content is at least ~{minWords.toLocaleString()} words for this length,
+          otherwise the video will be automatically shortened.
+        </span>
+      </p>
+    )}
+    </>
+    );
+  };
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Load templates, voice previews, and user's saved voices once
   useEffect(() => {
     let mounted = true;
+<<<<<<< HEAD
     getTemplates()
       .then((r) => {
         if (mounted) {
           setTemplates(r.data);
+=======
+    if (isDemo) {
+      if (demoMode?.templatesData) setTemplates(demoMode.templatesData);
+      if (demoMode?.customTemplatesData) setCustomTemplates(demoMode.customTemplatesData);
+      if (demoMode?.myVoicesData) setMyVoicesList(demoMode.myVoicesData);
+      if (demoMode?.voicePreviewsData) setVoicePreviews(demoMode.voicePreviewsData);
+      if (demoMode?.url) setUrls([demoMode.url]);
+      if (demoMode?.name) setName(demoMode.name);
+      if (demoMode?.videoLength) setVideoLength(demoMode.videoLength);
+      if (demoMode?.template) {
+        setTemplate(demoMode.template);
+        templateManuallySelectedRef.current = true;
+      }
+      if (demoMode?.videoStyle) {
+        setVideoStyle(demoMode.videoStyle);
+        styleManuallySet.current = true;
+      }
+      if (demoMode?.voiceGender) setVoiceGender(demoMode.voiceGender);
+      if (demoMode?.voiceAccent) setVoiceAccent(demoMode.voiceAccent);
+      if (demoMode?.customVoiceId) setCustomVoiceId(demoMode.customVoiceId);
+      setBuiltinTemplatesLoading(false);
+      setSessionBuiltinInitDone(true);
+      setMyVoicesLoading(false);
+      setCustomTemplatesLoading(false);
+      setHasCraftedTemplatesEligible(false);
+      setTemplateAvailabilityLoading(false);
+      sessionRandomAppliedRef.current = true;
+      return () => {
+        mounted = false;
+      };
+    }
+    primeBlogUrlFormStep2Prefetch();
+    fetchBlogUrlFormBuiltinTemplatesDeduped()
+      .then((data) => {
+        if (mounted) {
+          setTemplates(data);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           setBuiltinTemplatesLoading(false);
         }
       })
       .catch(() => {
         if (mounted) setBuiltinTemplatesLoading(false);
       });
+<<<<<<< HEAD
     listCustomTemplates()
       .then((r) => {
         if (mounted) setCustomTemplates(r.data);
@@ -551,11 +1281,35 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       .catch(() => {})
       .finally(() => {
         if (mounted) setCustomTemplatesLoading(false);
+=======
+    fetchBlogUrlFormAvailabilityDeduped()
+      .then(({ hasCraftedTemplatesEligible: eligible, customTemplates }) => {
+        if (!mounted) return;
+        setHasCraftedTemplatesEligible(eligible);
+        setCustomTemplates(customTemplates);
+        setCustomTemplatesLoading(false);
+        setTemplateAvailabilityLoading(false);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setHasCraftedTemplatesEligible(true);
+        setCustomTemplates([]);
+        setCustomTemplatesLoading(false);
+        setTemplateAvailabilityLoading(false);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       });
     getVoicePreviews()
       .then((r) => {
         if (mounted) setVoicePreviews(r.data);
       })
+<<<<<<< HEAD
+=======
+      .catch(() => {});
+    getBgmTracks()
+      .then((r) => {
+        if (mounted) setBgmTracks(r.data);
+      })
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       .catch(() => {});
     setMyVoicesLoading(true);
     getMyVoices()
@@ -597,6 +1351,27 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Keep bulk rows in sync: whenever we have saved voices and bulk URLs,
   // ensure each populated row gets a default custom voice if it doesn't have one.
+<<<<<<< HEAD
+  useEffect(() => {
+    if (!myVoicesList.length) return;
+    const firstId = myVoicesList[0].voice_id;
+    setBulkCustomVoiceId((prev) => {
+      const next = [...prev];
+      let changed = false;
+      bulkRows.forEach((row, idx) => {
+        if (row.url.trim() && !next[idx]) {
+          next[idx] = firstId;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [myVoicesList, bulkRows]);
+
+  // Sync colors to the selected template when templates load or selection changes.
+  // Runs before session random pick on the same commit so random pick can override starter "default" colors.
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   useEffect(() => {
     if (!myVoicesList.length) return;
     const firstId = myVoicesList[0].voice_id;
@@ -616,7 +1391,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Sync colors to the selected template when templates load or selection changes.
   // Runs before session random pick on the same commit so random pick can override starter "default" colors.
   useEffect(() => {
-    if (templates.length === 0) return;
+    if (allTemplates.length === 0) return;
     // Check custom templates first
     if (template.startsWith("custom_")) {
       const customId = parseInt(template.replace("custom_", ""));
@@ -628,13 +1403,58 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       }
       return;
     }
-    const meta = templates.find((t) => t.id === template);
+    const meta = allTemplates.find((t) => t.id === template);
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
       setBgColor(meta.preview_colors.bg);
       setTextColor(meta.preview_colors.text);
     }
-  }, [templates, customTemplates, template]);
+  }, [allTemplates, customTemplates, template]);
+
+  // Built-ins loaded but empty (error / no data): unblock step 2 without random pick.
+  useEffect(() => {
+    if (builtinTemplatesLoading) return;
+    if (templates.length === 0) {
+      setSessionBuiltinInitDone(true);
+    }
+  }, [builtinTemplatesLoading, templates.length]);
+
+  // Once per form mount: pick a random built-in template for this session (single + all bulk rows).
+  const sessionRandomAppliedRef = useRef(false);
+  useEffect(() => {
+    if (templates.length === 0) return;
+    if (sessionRandomAppliedRef.current) {
+      setSessionBuiltinInitDone(true);
+      return;
+    }
+    const idx = Math.floor(Math.random() * templates.length);
+    const picked = templates[idx];
+    if (!picked?.id) {
+      setSessionBuiltinInitDone(true);
+      return;
+    }
+    sessionRandomAppliedRef.current = true;
+    setPickerDefaultTemplateId(picked.id);
+    if (templateManuallySelectedRef.current) {
+      setSessionBuiltinInitDone(true);
+      return;
+    }
+    // Genre filter stays at "All genres" by default; users narrow the list explicitly.
+    if (picked.preview_colors) {
+      setAccentColor(picked.preview_colors.accent);
+      setBgColor(picked.preview_colors.bg);
+      setTextColor(picked.preview_colors.text);
+    }
+    setTemplate((prev) =>
+      prev === "default" ? picked.id : prev
+    );
+    setBulkTemplates((prev) =>
+      prev.length > 0
+        ? prev.map((tpl) => (tpl === "default" ? picked.id : tpl))
+        : [picked.id]
+    );
+    setSessionBuiltinInitDone(true);
+  }, [templates]);
 
   // Built-ins loaded but empty (error / no data): unblock step 2 without random pick.
   useEffect(() => {
@@ -696,6 +1516,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Preload voice preview audio on mount so it's ready by step 3
   useEffect(() => {
+    if (isDemo) return;
     const base = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
     for (const key of VOICE_PREVIEW_KEYS) {
       if (preloadedAudioRef.current[key]) continue;
@@ -705,7 +1526,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       a.src = url;
       preloadedAudioRef.current[key] = a;
     }
-  }, []);
+  }, [isDemo]);
 
   // Cleanup audio only on unmount; do not clear preloadedAudioRef so step 3 can use it
   useEffect(() => {
@@ -763,6 +1584,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     audio.play().catch(() => setPlayingKey(null));
     audioRef.current = audio;
     setPlayingKey(key);
+<<<<<<< HEAD
   };
 
   const playPremiumTeaser = (voice: ElevenLabsVoice) => {
@@ -787,15 +1609,52 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (ALLOWED_TYPES.includes(file.type)) return true;
     const ext = file.name.toLowerCase().split(".").pop();
     return ext ? ALLOWED_EXTENSIONS.includes(`.${ext}`) : false;
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   };
 
-  const addDocFiles = (newFiles: FileList | null) => {
-    if (!newFiles) return;
+  const playPremiumTeaser = (voice: ElevenLabsVoice) => {
+    const key = `premium_${voice.voice_id}`;
+    if (playingKey === key) {
+      audioRef.current?.pause();
+      setPlayingKey(null);
+      return;
+    }
+    if (!voice.preview_url) return;
+    audioRef.current?.pause();
+    const audio = new Audio(voice.preview_url);
+    audio.onended = () => setPlayingKey(null);
+    audio.onerror = () => setPlayingKey(null);
+    audio.play().catch(() => setPlayingKey(null));
+    audioRef.current = audio;
+    setPlayingKey(key);
+  };
+
+  // ─── File helpers ────────────────────────────────────────────
+  const isAllowedFile = (file: File) => {
+    // 1) Extension check first — file.type can be empty / unreliable for .vtt
+    //    on many browsers (Chrome reports "" or "application/octet-stream").
+    const lowerName = (file.name || "").toLowerCase();
+    const dotIdx = lowerName.lastIndexOf(".");
+    if (dotIdx !== -1) {
+      const ext = lowerName.slice(dotIdx); // includes the leading "."
+      if (ALLOWED_EXTENSIONS.includes(ext)) return true;
+    }
+    // 2) Fallback to MIME type.
+    return ALLOWED_TYPES.includes(file.type);
+  };
+
+  /** Add one or more files using functional state so paste / drop handlers never see stale `docFiles`. */
+  const addDocFileArray = useCallback((incoming: File[]) => {
+    if (incoming.length === 0) return;
     setDocError(null);
-    const incoming = Array.from(newFiles);
     for (const f of incoming) {
       if (!isAllowedFile(f)) {
+<<<<<<< HEAD
         setDocError(`"${f.name}" is not supported. Use PDF, DOCX, PPTX, Markdown, or TXT.`);
+=======
+        setDocError(`"${f.name}" is not supported. Use PDF, DOCX, PPTX, Markdown, TXT, or VTT.`);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         return;
       }
       if (f.size > MAX_UPLOAD_SIZE) {
@@ -803,13 +1662,56 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         return;
       }
     }
-    const combined = [...docFiles, ...incoming];
-    if (combined.length > MAX_UPLOAD_FILES) {
-      setDocError(`Maximum ${MAX_UPLOAD_FILES} files allowed.`);
-      return;
-    }
-    setDocFiles(combined);
-  };
+    setDocFiles((prev) => {
+      if (prev.length + incoming.length > MAX_UPLOAD_FILES) {
+        setTimeout(() => setDocError(`Maximum ${MAX_UPLOAD_FILES} files allowed.`), 0);
+        return prev;
+      }
+      return [...prev, ...incoming];
+    });
+  }, []);
+
+  const addDocFiles = useCallback((newFiles: FileList | null) => {
+    if (!newFiles || newFiles.length === 0) return;
+    addDocFileArray(Array.from(newFiles));
+  }, [addDocFileArray]);
+
+  /** Plain text from clipboard → single .txt document (same limits as uploads). */
+  const addPastedTextAsTxtFile = useCallback((text: string) => {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const file = new File([blob], "pasted-content.txt", { type: "text/plain" });
+    addDocFileArray([file]);
+  }, [addDocFileArray]);
+
+  // Step 1 + Upload: Ctrl+V pastes plain text as a .txt doc, or pasted files as uploads.
+  // Skips when focus is in an input/textarea so project name & other fields work normally.
+  useEffect(() => {
+    if (step !== 1 || mode !== "upload") return;
+
+    const onPaste = (e: ClipboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+
+      const cd = e.clipboardData;
+      if (!cd) return;
+
+      if (cd.files && cd.files.length > 0) {
+        e.preventDefault();
+        addDocFiles(cd.files);
+        return;
+      }
+
+      const text = cd.getData("text/plain");
+      const trimmed = text?.trim() ?? "";
+      if (!trimmed) return;
+
+      e.preventDefault();
+      addPastedTextAsTxtFile(trimmed);
+    };
+
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [step, mode, addDocFiles, addPastedTextAsTxtFile]);
 
   const removeDocFile = (index: number) => {
     setDocFiles((prev) => prev.filter((_, i) => i !== index));
@@ -829,18 +1731,37 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     : [];
   const hasBulkFileExt = bulkFileExtRows.some(Boolean);
 
+<<<<<<< HEAD
+=======
+  // ─── Non-scrapable link detection ────────────────────────────
+  const urlClassification = mode === "url" ? classifyUrl(urls[0] ?? "") : { kind: "ok" as const };
+  const urlScrape = urlClassification.kind;
+  const bulkScrapeRows = mode === "bulk"
+    ? bulkRows.map((r) => classifyUrlScrapability(r.url))
+    : [];
+  const hasBulkBlocked = bulkScrapeRows.some((s) => s === "blocked");
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // ─── Navigation ──────────────────────────────────────────────
   // Step order: 1 = Project (URL/Upload/Bulk), 2 = Template, 3 = Voice
   const canGoNext1 =
     mode === "url"
+<<<<<<< HEAD
       ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0]) && !urlFileExt
+=======
+      ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0]) && !urlFileExt && urlScrape !== "blocked"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       : mode === "upload"
         ? docFiles.length > 0
         : bulkRows.some((r) => r.url.trim()) &&
           bulkRows.every(
             (r) =>
               !r.url.trim() || (!hasSpacesInMiddle(r.url) && containsDot(r.url))
+<<<<<<< HEAD
           ) && !hasBulkFileExt;
+=======
+          ) && !hasBulkFileExt && !hasBulkBlocked;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const goNext = () => {
     if (step === 1 && canGoNext1) {
@@ -911,10 +1832,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkLogoFile((prev) => [...prev, null]);
     setBulkLogoPosition((prev) => [...prev, "bottom_right"]);
     setBulkLogoOpacity((prev) => [...prev, 0.9]);
+    bulkStyleManuallySet.current = [...bulkStyleManuallySet.current, false];
   };
 
   const removeBulkRow = (index: number) => {
     if (bulkRows.length <= 1) return;
+    bulkStyleManuallySet.current = bulkStyleManuallySet.current.filter((_, i) => i !== index);
     setBulkRows((prev) => prev.filter((_, i) => i !== index));
     setBulkNames((prev) => prev.filter((_, i) => i !== index));
     setBulkTemplates((prev) => prev.filter((_, i) => i !== index));
@@ -951,21 +1874,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // ─── Submit ──────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDemo) return;
     if (step !== 3) return;
     const enteredAt = step3EnteredAtRef.current;
     if (enteredAt != null && Date.now() - enteredAt < 400) return;
     step3EnteredAtRef.current = null;
     audioRef.current?.pause();
+    bgmAudioRef.current?.pause();
 
     if (mode === "bulk" && onSubmitBulk) {
       const valid = bulkRows
         .map((r, i) => ({ url: r.url, name: bulkNames[i] ?? "", i }))
         .filter((r) => r.url.trim());
       if (valid.length === 0) return;
-      if (!isPro && valid.some((v) => (bulkTemplates[v.i] ?? "").startsWith("custom_"))) {
-        setShowCustomTemplateUpgrade(true);
-        return;
-      }
       // Detect duplicate URLs and auto-suffix names
       const urlCounts: Record<string, number> = {};
       const urlSeenSoFar: Record<string, number> = {};
@@ -1011,6 +1932,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         video_length: bulkVideoLength[i] ?? "short",
         voice_gender: inferredGender,
         voice_accent: inferredAccent,
+<<<<<<< HEAD
+=======
+        voice_emotion: (() => {
+          const s = bulkVoiceStability[i] ?? VOICE_STABILITY_DEFAULT;
+          const sp = bulkVoiceSpeed[i] ?? VOICE_SPEED_DEFAULT;
+          const em = bulkVoiceEmotion[i] ?? "";
+          const sty = bulkVoiceStyle[i] ?? VOICE_STYLE_DEFAULT;
+          // Always send for Pro+voiced so the enabled/disabled flag + last values are remembered;
+          // the backend only applies tuning to the project when the flag is on.
+          return isPro && inferredGender !== "none" ? serializeVoiceTuning(s, sp, em, sty, expressiveEnabled) : undefined;
+        })(),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         accent_color:
           bulkAccentColors[i] && bulkAccentColors[i].trim()
             ? bulkAccentColors[i]
@@ -1051,6 +1984,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkTemplates([pickerDefaultTemplateId]);
       setBulkVoiceGender(["female"]);
       setBulkVoiceAccent(["american"]);
+      setBulkVoiceStability([VOICE_STABILITY_DEFAULT]);
+      setBulkVoiceSpeed([VOICE_SPEED_DEFAULT]);
+      setBulkVoiceEmotion([""]);
+      setBulkVoiceStyle([VOICE_STYLE_DEFAULT]);
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
       setBulkVideoLength(["short"]);
@@ -1076,10 +2013,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     if (mode === "upload") {
       if (docFiles.length === 0) return;
+<<<<<<< HEAD
       if (template.startsWith("custom_") && !isPro) {
         setShowCustomTemplateUpgrade(true);
         return;
       }
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
       const inferredGender =
         voiceGender === "none"
@@ -1105,17 +2045,29 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         template !== "default" ? template : undefined,
         videoStyle,
         videoLength,
+<<<<<<< HEAD
         contentLanguage === "auto" ? null : contentLanguage
+=======
+        contentLanguage === "auto" ? null : contentLanguage,
+        isPro && inferredGender !== "none"
+          ? serializeVoiceTuning(voiceStability, voiceSpeed, voiceEmotion, voiceStyle, expressiveEnabled)
+          : undefined,
+        selectedBgmTrackId,
+        selectedBgmVolume
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       );
       setDocFiles([]);
       setName("");
     } else {
       const validUrls = urls.filter((u) => u.trim());
       if (validUrls.length === 0) return;
+<<<<<<< HEAD
       if (template.startsWith("custom_") && !isPro) {
         setShowCustomTemplateUpgrade(true);
         return;
       }
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
       const inferredGender =
         voiceGender === "none"
@@ -1142,7 +2094,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           template !== "default" ? template : undefined,
           videoStyle,
           videoLength,
+<<<<<<< HEAD
           contentLanguage === "auto" ? null : contentLanguage
+=======
+          contentLanguage === "auto" ? null : contentLanguage,
+          isPro && inferredGender !== "none"
+          ? serializeVoiceTuning(voiceStability, voiceSpeed, voiceEmotion, voiceStyle, expressiveEnabled)
+          : undefined,
+          selectedBgmTrackId,
+          selectedBgmVolume
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         );
       }
       setUrls([""]);
@@ -1153,27 +2114,33 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // ─── Template apply colors ───────────────────────────────────
   const applyTemplate = (id: string) => {
     templateManuallySelectedRef.current = true;
+<<<<<<< HEAD
     if (id.startsWith("custom_") && !isPro) {
       setShowCustomTemplateUpgrade(true);
       return;
     }
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     setTemplate(id);
     // Custom template
     if (id.startsWith("custom_")) {
       const customId = parseInt(id.replace("custom_", ""));
       const ct = customTemplates.find((t) => t.id === customId);
       if (ct) {
-        setVideoStyle(normalizeVideoStyle(ct.supported_video_style));
         setAccentColor(ct.preview_colors.accent);
         setBgColor(ct.preview_colors.bg);
         setTextColor(ct.preview_colors.text);
       }
       return;
     }
+<<<<<<< HEAD
     const meta = templates.find((t) => t.id === id);
     if (meta) {
       setVideoStyle(defaultVideoStyleForTemplate(meta));
     }
+=======
+    const meta = allTemplates.find((t) => t.id === id);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
       setBgColor(meta.preview_colors.bg);
@@ -1182,10 +2149,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   };
 
   const openStep2CustomTemplateCreator = (style: VideoStyleId, _bulkRow: number | null) => {
+<<<<<<< HEAD
     if (!isPro) {
       setShowCustomTemplateUpgrade(true);
       return;
     }
+=======
+    // Creation is open to all plans; the dashboard creator enforces the per-plan
+    // template-creation cap (1 free + purchased slots) via can_create_custom_template.
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     onDismissFlow?.();
     const params = new URLSearchParams();
     params.set("tab", "templates");
@@ -1194,6 +2166,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     navigate(`/dashboard?${params.toString()}`);
   };
 
+<<<<<<< HEAD
+=======
+  const openStep3CustomVoiceCreator = () => {
+    if (!isPro) {
+      setShowCustomTemplateUpgrade(true);
+      return;
+    }
+    onDismissFlow?.();
+    const params = new URLSearchParams();
+    params.set("tab", "voices");
+    params.set("openCustomVoiceCreator", "1");
+    navigate(`/dashboard?${params.toString()}`);
+  };
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // ─── Step 1: Project (URL or Upload) ─────────────────────────
   const bulkStep1ActiveIndex = Math.min(bulkActiveIndex, Math.max(0, bulkRows.length - 1));
   const bulkStep1MasterIndex = Math.min(bulkLengthMasterIndex, Math.max(0, bulkRows.length - 1));
@@ -1384,7 +2371,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   : `URL ${i + 1} (optional)`
               }
               className={`w-full px-4 py-2.5 bg-white/80 border rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all mb-2 ${
-                i === 0 && urlError && urls[0]?.trim()
+                i === 0 && urls[0]?.trim() && (urlError || urlScrape === "blocked")
                   ? "border-red-400"
                   : "border-gray-200/60"
               }`}
@@ -1407,8 +2394,36 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               </p>
             </div>
           )}
+<<<<<<< HEAD
+=======
+          {urlScrape === "blocked" && urls[0]?.trim() && (
+            <p className="text-xs text-red-500 mt-1">
+              This site can't be scraped, please use a different link.
+            </p>
+          )}
+          {urlScrape === "warn" && urls[0]?.trim() && (
+            <p className="text-[11px] text-amber-600 leading-relaxed mt-1">
+              {urlClassification.message}
+            </p>
+          )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
-            Use a paywall-free link for best results.
+            Use a paywall-free link for best results.{" "}
+            <button
+              type="button"
+              onClick={() => {
+                const demoUrls = [
+                  "https://blog2video.app/"
+                  
+                ];
+                const picked = demoUrls[Math.floor(Math.random() * demoUrls.length)];
+                setUrls((prev) => prev.map((u, idx) => (idx === 0 ? picked : u)));
+                setUrlError(null);
+              }}
+              className="text-purple-500 hover:text-purple-700 underline underline-offset-2 transition-colors"
+            >
+              Try a demo link
+            </button>
           </p>
         </div>
       )}
@@ -1421,8 +2436,32 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <span className="text-gray-300 font-normal">(max 5 files, 5 MB each)</span>
           </label>
           <div
-            className="relative border-2 border-dashed border-gray-200/80 rounded-xl p-6 text-center hover:border-purple-400/60 transition-colors cursor-pointer"
+            role="button"
+            tabIndex={0}
+            aria-label="Upload documents or paste text"
+            className="relative border-2 border-dashed border-gray-200/80 rounded-xl p-6 text-center hover:border-purple-400/60 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/40"
             onClick={() => docInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                docInputRef.current?.click();
+              }
+            }}
+            onPaste={(e) => {
+              e.stopPropagation();
+              const cd = e.clipboardData;
+              if (cd.files && cd.files.length > 0) {
+                e.preventDefault();
+                addDocFiles(cd.files);
+                return;
+              }
+              const text = cd.getData("text/plain");
+              const trimmed = text?.trim() ?? "";
+              if (trimmed) {
+                e.preventDefault();
+                addPastedTextAsTxtFile(trimmed);
+              }
+            }}
             onDragOver={(e) => {
               e.preventDefault();
               e.currentTarget.classList.add("border-purple-400/60", "bg-purple-50/30");
@@ -1441,13 +2480,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <p className="text-sm text-gray-500">
-              Drop files here or <span className="text-purple-600 font-medium">browse</span>
+              Drop files here or <span className="text-purple-600 font-medium">paste text (Ctrl+V)</span>
             </p>
+<<<<<<< HEAD
             <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint, Markdown, Text</p>
             <input
               ref={docInputRef}
               type="file"
               accept=".pdf,.docx,.pptx,.md,.markdown,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/x-markdown"
+=======
+            <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint, Markdown, Text, VTT — or paste plain text as a .txt file</p>
+            <input
+              ref={docInputRef}
+              type="file"
+              accept=".pdf,.docx,.pptx,.md,.markdown,.txt,.vtt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/x-markdown,text/vtt"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               multiple
               className="hidden"
               onChange={(e) => { addDocFiles(e.target.files); e.target.value = ""; }}
@@ -1588,7 +2635,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             {logoFile && (
               <div className="mt-2">
                 <label className="block text-[10px] text-gray-400 mb-1">Position</label>
-                <div className="flex gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {([
                     { value: "top_left", label: "Top Left" },
                     { value: "top_right", label: "Top Right" },
@@ -1649,6 +2696,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     </div>
   );
 
+<<<<<<< HEAD
   // ─── Step 2: Video style + Template ──────────────────────────
   const styleLower = normalizeVideoStyle(videoStyle);
   const sourceList = templates;
@@ -1658,13 +2706,37 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const customTemplatesForStyle = readyCustomTemplates.filter(
     (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
   );
+=======
+  // ─── Step 2: Genre/source filter + Template list ──────────────────────────
+  // Genre dropdown has two source-bucket options at the top — "Custom Templates"
+  // and "Designer Templates" — encoded with sentinel values. Below them are
+  // the actual genres, compiled from built-in templates' meta.json.
+  const allGenres = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of templates) (t.genres ?? []).forEach((g) => g && set.add(g));
+    return Array.from(set).sort();
+  }, [templates]);
+
+  const {
+    suggestedTemplates,
+    customTemplatesForStyle,
+    craftedTemplatesForStyle,
+  } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
+
+  const sortedSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
+    const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+    return rank(a) - rank(b);
+  });
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const styleTemplateItems: Array<
     | { type: "builtin"; id: string; data: TemplateMeta }
     | { type: "custom"; id: string; data: CustomTemplateItem }
+    | { type: "crafted"; id: string; data: CraftedTemplateItem }
   > = [
-    ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+    ...sortedSuggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
     ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
+    ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
   ];
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
@@ -1672,8 +2744,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const selectedCustom = template.startsWith("custom_")
     ? customTemplates.find((ct) => ct.id === parseInt(template.replace("custom_", "")))
     : null;
+<<<<<<< HEAD
   const selectedBuiltinNew =
     !template.startsWith("custom_") && templates.some((t) => t.id === template && t.new_template === true);
+=======
+  const selectedCrafted = template.startsWith("crafted_")
+    ? craftedTemplates.find((ct) => ct.id === template)
+    : null;
+  const selectedBuiltinNew =
+    !template.startsWith("custom_") && allTemplates.some((t) => t.id === template && t.new_template === true);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const step2Template = (
     <div className="space-y-5">
@@ -1683,9 +2763,28 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           Selected Template
         </label>
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
+<<<<<<< HEAD
           <div className="relative">
             {selectedCustom ? (
               <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
+=======
+          <div className="relative aspect-video overflow-hidden">
+            {demoMode?.templatePreviewOverride && !selectedCustom && !selectedCrafted ? (
+              demoMode.templatePreviewOverride({ templateId: template, selected: true, thumbnail: false })
+            ) : selectedCustom ? (
+              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
+            ) : selectedCrafted && ((selectedCrafted as any).frontend_files || selectedCrafted.preview_file || selectedCrafted.preview_image_url || selectedCrafted.theme) ? (
+              <CraftedTemplatePreviewSmart
+                item={selectedCrafted}
+                compileCacheScope={user?.id != null ? String(user.id) : undefined}
+                showLoaderOnEmptyOrError
+                key={`selected-crafted-${selectedCrafted.id}-${step}`}
+              />
+            ) : template.startsWith("crafted_") && craftedTemplatesLoading ? (
+              <div className="w-full aspect-video bg-[#1a1a2e] flex items-center justify-center">
+                <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
+              </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             ) : SelectedPreviewComp ? (
               <SelectedPreviewComp key={`selected-${template}-${step}`} />
             ) : (
@@ -1694,11 +2793,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               </div>
             )}
           </div>
-          <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
+          <div className="px-4 py-2.5 bg-purple-50/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-800">
-                  {selectedCustom ? selectedCustom.name : (selectedDesc?.title ?? template)}
+                  {selectedCustom ? selectedCustom.name : selectedCrafted ? selectedCrafted.name : (selectedDesc?.title ?? template)}
                 </span>
                 {selectedBuiltinNew && <NewTemplateBadge className="shrink-0" />}
                 {selectedCustom && (
@@ -1706,9 +2805,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     Custom
                   </span>
                 )}
+                {selectedCrafted && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-amber-500">
+                    Designer
+                  </span>
+                )}
               </div>
               {selectedCustom ? (
                 <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
+              ) : selectedCrafted ? (
+                <div className="text-[11px] text-gray-400 mt-0.5">Designer template</div>
               ) : selectedDesc?.subtitle ? (
                 <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
               ) : null}
@@ -1722,12 +2828,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </div>
 
-      {/* Video Style tabs + Templates list (filtered by style) */}
+      {/* Genre dropdown + Templates list (filtered by genre) */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Video Style
+            Genre
           </label>
+<<<<<<< HEAD
           <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
             {VIDEO_STYLES.map((s) => {
               const isSelected = videoStyle === s.id;
@@ -1762,11 +2869,142 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     openStep2CustomTemplateCreator(videoStyle, null);
+=======
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setGenreDropdownOpen((v) => !v)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-100/60 hover:bg-gray-200/70 text-[11px] font-medium text-gray-700 transition-all min-w-[140px] justify-between"
+            >
+              <span>
+                {genre === GENRE_CUSTOM
+                  ? "Custom Templates"
+                  : genre === GENRE_CRAFTED
+                  ? "Designer"
+                  : genre === GENRE_NEW
+                  ? "New"
+                  : genre === GENRE_POPULAR
+                  ? "Popular"
+                  : genre || "All genres"}
+              </span>
+              <svg
+                className={`w-3 h-3 text-gray-500 transition-transform ${genreDropdownOpen ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {genreDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setGenreDropdownOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-gray-200 py-1 min-w-[200px] max-h-[300px] overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre("");
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === "" ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    All genres
+                  </button>
+                  {/* Source filters — independent of genre */}
+                  <div className="my-1 border-t border-gray-100" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_NEW);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_NEW ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    ✦ New
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_POPULAR);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_POPULAR ? "bg-amber-50 text-amber-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Popular
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_CUSTOM);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_CUSTOM ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Custom Templates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre(GENRE_CRAFTED);
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      genre === GENRE_CRAFTED ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Designer Templates
+                  </button>
+                  {allGenres.length > 0 && <div className="my-1 border-t border-gray-100" />}
+                  {allGenres.map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => {
+                        setGenre(g);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === g ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
+          {genreTemplateListCaption(genre)}
+        </p>
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[260px] sm:max-h-[220px] overflow-y-auto bg-gray-50/40">
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <CraftYourTemplateCard
+                variant="default"
+                isPro={isPro}
+                onClick={() => {
+                  setShowGetMoreTemplates(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setShowGetMoreTemplates(true);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   }
                 }}
               />
               {styleTemplateItems.map((item) => {
-                if (item.type === "custom") {
+                if (item.type === "custom" || item.type === "crafted") {
                   const ct = item.data;
                   const customId = item.id;
                   const isSelected = template === customId;
@@ -1780,6 +3018,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           : "border-gray-200/60 hover:border-purple-300/60"
                       }`}
                     >
+<<<<<<< HEAD
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
                           <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-${step}`} />
@@ -1792,6 +3031,29 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                             Pro
                           </div>
                         )}
+=======
+                      <div className="relative isolate h-[70px] overflow-hidden">
+                        <div className="relative z-0 h-full">
+                          {item.type === "crafted" ? (
+                            <CraftedTemplatePreviewSmart
+                              item={ct as any}
+                              compileCacheScope={user?.id != null ? String(user.id) : undefined}
+                              thumbnailMode
+                              showLoaderOnEmptyOrError
+                              key={`${customId}-${step}`}
+                            />
+                          ) : (
+                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true } as any)} key={`${customId}-${step}`} />
+                          )}
+                        </div>
+                        <div className="absolute top-0 left-0.5 z-[5]">
+                          {item.type === "custom" ? <CustomTemplateBadge /> : (
+                            <span className="pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-amber-500 ring-1 ring-amber-300">
+                              Designer
+                            </span>
+                          )}
+                        </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 z-20 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-md ring-2 ring-white">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1814,6 +3076,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = template === t.id;
                 const isNewTemplate = t.new_template === true;
+<<<<<<< HEAD
+=======
+                const isPopularTemplate = t.popular_template === true;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 return (
                   <div
                     key={t.id}
@@ -1823,15 +3089,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+<<<<<<< HEAD
+=======
+                        : isPopularTemplate
+                        ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
-                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                      {PreviewComp ? (
-                        <PreviewComp key={`${t.id}-${step}`} />
+                    <div className="relative h-[70px] overflow-hidden">
+                      {demoMode?.templatePreviewOverride ? (
+                        demoMode.templatePreviewOverride({ templateId: t.id, selected: isSelected, thumbnail: true })
+                      ) : PreviewComp ? (
+                        <PreviewComp key={`${t.id}-${step}`} thumbnailMode />
                       ) : (
                         <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                          {t.name}
+                          {desc?.title ?? t.name}
                         </div>
                       )}
                       {isSelected && (
@@ -1841,11 +3114,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           </svg>
                         </div>
                       )}
+<<<<<<< HEAD
                       {t.new_template === true && (
+=======
+                      {isNewTemplate && (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <NewTemplateBadge />
                         </div>
                       )}
+<<<<<<< HEAD
+=======
+                      {!isNewTemplate && isPopularTemplate && (
+                        <div className="absolute top-0.5 left-0.5 z-[1]">
+                          <PopularTemplateBadge />
+                        </div>
+                      )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     </div>
                     <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
                       <div className="text-[10px] font-semibold text-gray-800 truncate">
@@ -1867,6 +3152,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   </p>
                 </div>
               )}
+<<<<<<< HEAD
             </div>
             {styleTemplateItems.length === 0 && (
               <p className="text-xs text-gray-500 py-3 text-center">
@@ -1874,6 +3160,56 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               </p>
             )}
           </>
+=======
+              {craftedTemplatesLoading && (
+                <div
+                  className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin shrink-0" aria-hidden />
+                  <p className="text-[10px] text-gray-500 leading-snug">
+                    Loading designer templates, please wait.
+                  </p>
+                </div>
+              )}
+            </div>
+            {styleTemplateItems.length === 0 && (
+              <p className="text-xs text-gray-500 py-3 text-center">
+                No templates for this genre. Pick another genre above or add a custom template.
+              </p>
+            )}
+          </>
+        </div>
+
+        {/* Video Style picker — orthogonal to genre. "Auto" lets the AI choose after scraping. */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              Video Style
+            </label>
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
+              {VIDEO_STYLES.map((s) => {
+                const isSelected = videoStyle === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      styleManuallySet.current = true;
+                      setVideoStyle(s.id);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                      isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
       </div>
 
@@ -1882,13 +3218,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
           Video Colors
         </label>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3 sm:gap-5">
           {[
             { label: "Accent", value: accentColor, setter: setAccentColor },
             { label: "Background", value: bgColor, setter: setBgColor },
             { label: "Text", value: textColor, setter: setTextColor },
           ].map(({ label, value, setter }) => (
-            <label key={label} className="flex flex-col items-center gap-1.5 cursor-pointer group">
+            <label key={label} className="flex items-center gap-2 cursor-pointer group">
               <span
                 className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
                 style={{ backgroundColor: value }}
@@ -1957,10 +3293,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       indexed.find(({ i }) => i === bulkTemplateMasterIndex)?.i ?? indexed[0].i;
 
     const tpl = bulkTemplates[activeIndex] ?? "default";
-    const templateMeta = templates.find((t) => t.id === tpl);
+    const templateMeta = allTemplates.find((t) => t.id === tpl);
     const selectedCustomBulk = tpl.startsWith("custom_")
       ? customTemplates.find((ct) => ct.id === parseInt(tpl.replace("custom_", "")))
       : null;
+<<<<<<< HEAD
     const selectedBuiltinNewBulk = !tpl.startsWith("custom_") && templateMeta?.new_template === true;
     const defaultAccent = selectedCustomBulk
       ? selectedCustomBulk.preview_colors.accent
@@ -1971,6 +3308,27 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const defaultText = selectedCustomBulk
       ? selectedCustomBulk.preview_colors.text
       : templateMeta?.preview_colors?.text ?? textColor;
+=======
+    const selectedCraftedBulk = tpl.startsWith("crafted_")
+      ? craftedTemplates.find((ct) => ct.id === tpl)
+      : null;
+    const selectedBuiltinNewBulk = !tpl.startsWith("custom_") && templateMeta?.new_template === true;
+    const defaultAccent =
+      selectedCustomBulk?.preview_colors?.accent
+      ?? selectedCraftedBulk?.preview_colors?.accent
+      ?? templateMeta?.preview_colors?.accent
+      ?? accentColor;
+    const defaultBg =
+      selectedCustomBulk?.preview_colors?.bg
+      ?? selectedCraftedBulk?.preview_colors?.bg
+      ?? templateMeta?.preview_colors?.bg
+      ?? bgColor;
+    const defaultText =
+      selectedCustomBulk?.preview_colors?.text
+      ?? selectedCraftedBulk?.preview_colors?.text
+      ?? templateMeta?.preview_colors?.text
+      ?? textColor;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     const accent =
       bulkAccentColors[activeIndex] && bulkAccentColors[activeIndex].trim()
@@ -2058,6 +3416,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     const applyBulkTemplate = (id: string) => {
       templateManuallySelectedRef.current = true;
+<<<<<<< HEAD
       if (id.startsWith("custom_") && !isPro) {
         setShowCustomTemplateUpgrade(true);
         return;
@@ -2070,9 +3429,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           ? normalizeVideoStyle(matchedCustom.supported_video_style)
           : null
         : defaultVideoStyleForTemplate(templates.find((t) => t.id === id));
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const colors = id.startsWith("custom_")
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
-        : templates.find((t) => t.id === id)?.preview_colors;
+        : id.startsWith("crafted_")
+        ? craftedTemplates.find((t) => t.id === id)?.preview_colors
+        : allTemplates.find((t) => t.id === id)?.preview_colors;
       const targetIndices = indexed.map(({ i }) => i);
 
       if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
@@ -2082,6 +3445,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           next[activeIndex] = id;
           return next;
         });
+<<<<<<< HEAD
         if (styleUpdate !== null) {
           setBulkVideoStyles((prev) => {
             const next = [...prev];
@@ -2089,6 +3453,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             return next;
           });
         }
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if (colors) {
           setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
           setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
@@ -2103,6 +3469,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           targetIndices.forEach((idx) => { next[idx] = id; });
           return next;
         });
+<<<<<<< HEAD
         if (styleUpdate !== null) {
           setBulkVideoStyles((prev) => {
             const next = [...prev];
@@ -2110,6 +3477,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             return next;
           });
         }
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if (colors) {
           setBulkAccentColors((prev) => {
             const next = [...prev];
@@ -2135,6 +3504,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         next[activeIndex] = id;
         return next;
       });
+<<<<<<< HEAD
       if (styleUpdate !== null) {
         setBulkVideoStyles((prev) => {
           const next = [...prev];
@@ -2142,6 +3512,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           return next;
         });
       }
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       if (colors) {
         setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
         setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
@@ -2172,6 +3544,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const SelectedPreviewComp = TEMPLATE_PREVIEWS[tpl];
     const selectedDesc = TEMPLATE_DESCRIPTIONS[tpl];
 
+<<<<<<< HEAD
     const styleLower = normalizeVideoStyle(activeVideoStyle);
     const sourceList = templates;
     const suggestedTemplates = sourceList.filter(
@@ -2180,12 +3553,25 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const customTemplatesForStyle = readyCustomTemplates.filter(
       (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
     );
+=======
+    const {
+      suggestedTemplates,
+      customTemplatesForStyle,
+      craftedTemplatesForStyle,
+    } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
+    const sortedBulkSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
+      const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+      return rank(a) - rank(b);
+    });
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const styleTemplateItems: Array<
       | { type: "builtin"; id: string; data: TemplateMeta }
       | { type: "custom"; id: string; data: CustomTemplateItem }
+      | { type: "crafted"; id: string; data: CraftedTemplateItem }
     > = [
-      ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+      ...sortedBulkSuggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
       ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
+      ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
     ];
 
     return (
@@ -2280,9 +3666,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             Selected Template
           </label>
           <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
-            <div className="relative">
+            <div className="relative aspect-video overflow-hidden">
               {selectedCustomBulk ? (
                 <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
+<<<<<<< HEAD
+=======
+              ) : selectedCraftedBulk && ((selectedCraftedBulk as any).frontend_files || selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
+                <CraftedTemplatePreviewSmart
+                  item={selectedCraftedBulk}
+                  compileCacheScope={user?.id != null ? String(user.id) : undefined}
+                  showLoaderOnEmptyOrError
+                  key={`selected-bulk-crafted-${tpl}-${activeIndex}-${step}`}
+                />
+              ) : tpl.startsWith("crafted_") && craftedTemplatesLoading ? (
+                <div className="w-full aspect-video bg-[#1a1a2e] flex items-center justify-center">
+                  <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
+                </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               ) : SelectedPreviewComp ? (
                 <SelectedPreviewComp key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
               ) : (
@@ -2294,16 +3694,27 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
+<<<<<<< HEAD
                   <div className="text-sm font-semibold text-gray-800">{selectedCustomBulk ? selectedCustomBulk.name : (selectedDesc?.title ?? tpl)}</div>
+=======
+                  <div className="text-sm font-semibold text-gray-800">{selectedCustomBulk ? selectedCustomBulk.name : selectedCraftedBulk ? selectedCraftedBulk.name : (selectedDesc?.title ?? tpl)}</div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   {selectedBuiltinNewBulk && <NewTemplateBadge className="shrink-0" />}
                   {selectedCustomBulk && (
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: selectedCustomBulk.preview_colors.accent }}>
                       Custom
                     </span>
                   )}
+                  {selectedCraftedBulk && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-amber-500">
+                      Designer
+                    </span>
+                  )}
                 </div>
                 {selectedCustomBulk ? (
                   <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
+                ) : selectedCraftedBulk ? (
+                  <div className="text-[11px] text-gray-400 mt-0.5">Designer template</div>
                 ) : selectedDesc?.subtitle ? (
                   <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
                 ) : null}
@@ -2317,6 +3728,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
         </div>
 
+<<<<<<< HEAD
         {/* Video Style tabs */}
         <div className="flex items-center justify-between mb-2">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
@@ -2368,12 +3780,138 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           Suggested templates for the selected video style
         </p>
         {/* Templates list filtered by style */}
+=======
+        {/* Genre filter — same `genre` state as single-link step 2 */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              Genre
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setGenreDropdownOpen((v) => !v)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-100/60 hover:bg-gray-200/70 text-[11px] font-medium text-gray-700 transition-all min-w-[140px] justify-between"
+              >
+                <span>
+                  {genre === GENRE_CUSTOM
+                    ? "Custom Templates"
+                    : genre === GENRE_CRAFTED
+                    ? "Designer"
+                    : genre === GENRE_NEW
+                    ? "New"
+                    : genre === GENRE_POPULAR
+                    ? "Popular"
+                    : genre || "All genres"}
+                </span>
+                <svg
+                  className={`w-3 h-3 text-gray-500 transition-transform ${genreDropdownOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {genreDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setGenreDropdownOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-gray-200 py-1 min-w-[200px] max-h-[300px] overflow-y-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre("");
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === "" ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      All genres
+                    </button>
+                    <div className="my-1 border-t border-gray-100" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_NEW);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_NEW ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      ✦ New
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_POPULAR);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_POPULAR ? "bg-amber-50 text-amber-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Popular
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_CUSTOM);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_CUSTOM ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Custom Templates
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre(GENRE_CRAFTED);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                        genre === GENRE_CRAFTED ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Designer Templates
+                    </button>
+                    {allGenres.length > 0 && <div className="my-1 border-t border-gray-100" />}
+                    {allGenres.map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => {
+                          setGenre(g);
+                          setGenreDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                          genre === g ? "bg-purple-50 text-purple-600" : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
+          {genreTemplateListCaption(genre)}
+        </p>
+        {/* Template thumbnails — filtered by genre; video style below is orthogonal */}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           <>
             <div className="grid grid-cols-3 gap-2">
               <CraftYourTemplateCard
                 variant="compact"
                 isPro={isPro}
+<<<<<<< HEAD
                 onClick={() => openStep2CustomTemplateCreator(activeVideoStyle, activeIndex)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -2381,9 +3919,20 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     openStep2CustomTemplateCreator(activeVideoStyle, activeIndex);
                   }
                 }}
+=======
+                onClick={() => {
+                  setShowGetMoreTemplates(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setShowGetMoreTemplates(true);
+                  }
+                }}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               />
               {styleTemplateItems.map((item) => {
-                if (item.type === "custom") {
+                if (item.type === "custom" || item.type === "crafted") {
                   const ct = item.data;
                   const customId = item.id;
                   const isSelected = tpl === customId;
@@ -2397,6 +3946,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           : "border-gray-200/60 hover:border-purple-300/60"
                       }`}
                     >
+<<<<<<< HEAD
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
                           <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-bulk-${activeIndex}`} />
@@ -2409,6 +3959,29 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                             Pro
                           </div>
                         )}
+=======
+                      <div className="relative isolate h-[70px] overflow-hidden">
+                        <div className="relative z-0 h-full">
+                          {item.type === "crafted" ? (
+                            <CraftedTemplatePreviewSmart
+                              item={ct as any}
+                              compileCacheScope={user?.id != null ? String(user.id) : undefined}
+                              thumbnailMode
+                              showLoaderOnEmptyOrError
+                              key={`${customId}-bulk-${activeIndex}`}
+                            />
+                          ) : (
+                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true } as any)} key={`${customId}-bulk-${activeIndex}`} />
+                          )}
+                        </div>
+                        <div className="absolute top-0.5 left-0.5 z-[5]">
+                          {item.type === "custom" ? <CustomTemplateBadge /> : (
+                            <span className="pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-amber-500 ring-1 ring-amber-300">
+                              Designer
+                            </span>
+                          )}
+                        </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 z-20 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-md ring-2 ring-white">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2431,6 +4004,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = tpl === t.id;
                 const isNewTemplate = t.new_template === true;
+<<<<<<< HEAD
+=======
+                const isPopularTemplate = t.popular_template === true;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 return (
                   <div
                     key={t.id}
@@ -2440,15 +4017,20 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+<<<<<<< HEAD
+=======
+                        : isPopularTemplate
+                        ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
-                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                    <div className="relative h-[70px] overflow-hidden">
                       {PreviewComp ? (
-                        <PreviewComp key={`${t.id}-bulk-${activeIndex}`} />
+                        <PreviewComp key={`${t.id}-bulk-${activeIndex}`} thumbnailMode />
                       ) : (
                         <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                          {t.name}
+                          {desc?.title ?? t.name}
                         </div>
                       )}
                       {isSelected && (
@@ -2458,11 +4040,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           </svg>
                         </div>
                       )}
+<<<<<<< HEAD
                       {t.new_template === true && (
+=======
+                      {isNewTemplate && (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <NewTemplateBadge />
                         </div>
                       )}
+<<<<<<< HEAD
+=======
+                      {!isNewTemplate && isPopularTemplate && (
+                        <div className="absolute top-0.5 left-0.5 z-[1]">
+                          <PopularTemplateBadge />
+                        </div>
+                      )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     </div>
                     <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
                       <div className="text-[10px] font-semibold text-gray-800 truncate">
@@ -2484,6 +4078,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   </p>
                 </div>
               )}
+<<<<<<< HEAD
             </div>
             {styleTemplateItems.length === 0 && (
               <p className="text-xs text-gray-500 py-3 text-center">
@@ -2491,21 +4086,95 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               </p>
             )}
           </>
+=======
+              {craftedTemplatesLoading && (
+                <div
+                  className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin shrink-0" aria-hidden />
+                  <p className="text-[10px] text-gray-500 leading-snug">
+                    Loading designer templates, please wait.
+                  </p>
+                </div>
+              )}
+            </div>
+            {styleTemplateItems.length === 0 && (
+              <p className="text-xs text-gray-500 py-3 text-center">
+                No templates for this genre. Pick another genre above or add a custom template.
+              </p>
+            )}
+          </>
+        </div>
+
+        {/* Video Style — orthogonal to genre (same behavior as single-link step 2) */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              Video Style
+            </label>
+            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+              {VIDEO_STYLES.map((s) => {
+                const isSelected = activeVideoStyle === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      const targetIndices = indexed.map(({ i }) => i);
+                      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                        setBulkApplyTemplateAll(false);
+                        bulkStyleManuallySet.current[activeIndex] = true;
+                        setBulkVideoStyles((prev) => {
+                          const next = [...prev];
+                          next[activeIndex] = s.id;
+                          return next;
+                        });
+                        return;
+                      }
+                      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                        targetIndices.forEach((idx) => { bulkStyleManuallySet.current[idx] = true; });
+                        setBulkVideoStyles((prev) => {
+                          const next = [...prev];
+                          targetIndices.forEach((idx) => { next[idx] = s.id; });
+                          return next;
+                        });
+                        return;
+                      }
+                      bulkStyleManuallySet.current[activeIndex] = true;
+                      setBulkVideoStyles((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = s.id;
+                        return next;
+                      });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                      isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
 
         {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
-        <div className="flex items-start justify-between gap-6">
-          <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+        <div className="flex flex-col gap-5">
+          <div className="min-w-0">
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider text-center sm:text-left">
               Video Colors
             </label>
-            <div className="flex items-center gap-5">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-5 gap-y-3">
               {[
                 { label: "Accent", value: accent, setter: (v: string) => setBulkColor("accent", v) },
                 { label: "Background", value: bg, setter: (v: string) => setBulkColor("bg", v) },
                 { label: "Text", value: text, setter: (v: string) => setBulkColor("text", v) },
               ].map(({ label, value, setter }) => (
-                <label key={label} className="flex flex-col items-center gap-1.5 cursor-pointer group">
+                <label key={label} className="flex items-center gap-2 cursor-pointer group">
                   <span
                     className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
                     style={{ backgroundColor: value }}
@@ -2523,7 +4192,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </div>
           </div>
 
-          <div className="min-w-[240px]">
+          <div className="w-full">
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
               Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
             </label>
@@ -2570,7 +4239,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             {bulkLogoFile[activeIndex] && (
               <div className="mt-2">
                 <label className="block text-[10px] text-gray-400 mb-1">Position</label>
-                <div className="flex gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {([
                     { value: "top_left", label: "Top Left" },
                     { value: "top_right", label: "Top Right" },
@@ -2643,18 +4312,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
         </div>
 
-        <div className="flex gap-2 pt-1">
+        <div className="flex flex-col sm:flex-row gap-2 pt-1">
           <button
             type="button"
             onClick={goBack}
-            className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+            className="w-full sm:w-auto px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
           >
             Back
           </button>
           <button
             type="button"
             onClick={goNext}
-            className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+            className="w-full sm:flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             Go to step 3
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2735,11 +4404,89 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       </label>
 
       {/* Voices from user's saved list + premium teasers for free users */}
+<<<<<<< HEAD
       <div className={voiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
         <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
           Voice — Select and Play to Preview
         </label>
         <div className="space-y-2 max-h-[320px] overflow-y-auto">
+=======
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            {voicePanelTab === "advanced" && isPro
+              ? "Advanced Options"
+              : voicePanelTab === "bgm"
+                ? "Music — Play to preview"
+                : "Voice — Play to preview"}
+          </label>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl shrink-0">
+            <button
+              type="button"
+              onClick={() => setVoicePanelTab("voice")}
+              className={`whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                voicePanelTab === "voice"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Voice
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isPro) {
+                  setShowUpgrade(true);
+                  return;
+                }
+                setVoicePanelTab("bgm");
+              }}
+              className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                voicePanelTab === "bgm" && isPro
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Music
+              <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
+                Premium
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isPro) {
+                  setShowUpgrade(true);
+                  return;
+                }
+                setVoicePanelTab("advanced");
+              }}
+              className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                voicePanelTab === "advanced" && isPro
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Advanced Options
+              <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
+                Premium
+              </span>
+            </button>
+          </div>
+        </div>
+        {voicePanelTab === "voice" && (
+        <div className={`space-y-2 max-h-[320px] overflow-y-auto ${voiceGender === "none" ? "opacity-60 pointer-events-none" : ""}`}>
+          <CraftYourVoiceCard
+            isPro={isPro}
+            onClick={openStep3CustomVoiceCreator}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openStep3CustomVoiceCreator();
+              }
+            }}
+          />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           {myVoicesLoading ? (
             <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
               <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
@@ -2823,7 +4570,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </>
           )}
         </div>
+<<<<<<< HEAD
         {!myVoicesLoading && myVoicesList.length === 0 && (
+=======
+        )}
+        {voicePanelTab === "voice" && !myVoicesLoading && myVoicesList.length === 0 && (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <p className="text-[11px] text-gray-500 mt-2">
             No voices saved. Add voices in the Voices tab to use them here.{" "}
             {!isPro && (
@@ -2833,8 +4585,155 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             )}
           </p>
         )}
+<<<<<<< HEAD
       </div>
 
+=======
+        {/* Advanced Options tab content — voice tuning sliders (paid) */}
+        {voicePanelTab === "advanced" && isPro && voiceGender !== "none" && (
+          <AdvancedVoiceOptions
+            value={{ enabled: expressiveEnabled, stability: voiceStability, speed: voiceSpeed, emotion: voiceEmotion, style: voiceStyle }}
+            onChange={(t) => { setExpressiveEnabled(t.enabled); setVoiceStability(t.stability); setVoiceSpeed(t.speed); setVoiceEmotion(t.emotion); setVoiceStyle(t.style); }}
+            voiceGender={voiceGender}
+            voiceAccent={voiceAccent}
+            customVoiceId={customVoiceId}
+          />
+        )}
+      </div>
+
+      {/* ─── Music tab content (Premium; optional) ─────── */}
+      {voicePanelTab === "bgm" && isPro && bgmTracks.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[11px] text-gray-400 mb-1">Ambient music behind your narration — optional.</p>
+
+          {/* Volume — shown once a track is picked; applies to the whole project */}
+          {selectedBgmTrackId && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-medium text-gray-600">Music volume</span>
+                <span className="text-[11px] text-gray-400 tabular-nums">{Math.round(selectedBgmVolume * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={Math.round(selectedBgmVolume * 100)}
+                onChange={(e) => {
+                  const v = Number(e.target.value) / 100;
+                  setSelectedBgmVolume(v);
+                  if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
+                }}
+                className="w-full accent-purple-600 cursor-pointer"
+              />
+              <p className="text-[10px] text-gray-400 mt-0.5">Sets the volume for the whole video. After it's generated, you can fine-tune the music volume per scene in the <span className="font-medium text-gray-500">Audio</span> tab.</p>
+            </div>
+          )}
+
+          <div className="space-y-1.5 max-h-[320px] overflow-y-auto">
+            {/* None option */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedBgmTrackId(null);
+                bgmAudioRef.current?.pause();
+                setBgmPlayingId(null);
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                !selectedBgmTrackId
+                  ? "border-purple-400 bg-purple-50/60"
+                  : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-sm font-medium text-gray-700">None</span>
+                <p className="text-[11px] text-gray-400">No background music</p>
+              </div>
+              {!selectedBgmTrackId && (
+                <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+            </button>
+
+            {bgmTracks.map((track) => {
+              const isSelected = selectedBgmTrackId === track.track_id;
+              const isPlaying = bgmPlayingId === track.track_id;
+              return (
+                <div
+                  key={track.track_id}
+                  onClick={() => setSelectedBgmTrackId(isSelected ? null : track.track_id)}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-purple-400 bg-purple-50/60"
+                      : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
+                  }`}
+                >
+                  {/* Play/pause button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isPlaying) {
+                        bgmAudioRef.current?.pause();
+                        setBgmPlayingId(null);
+                      } else {
+                        if (bgmAudioRef.current) {
+                          bgmAudioRef.current.pause();
+                        }
+                        const audio = new Audio(track.r2_url);
+                        audio.volume = Math.max(0, Math.min(1, selectedBgmVolume));
+                        audio.onended = () => setBgmPlayingId(null);
+                        audio.play().catch(() => {});
+                        bgmAudioRef.current = audio;
+                        setBgmPlayingId(track.track_id);
+                      }
+                    }}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                      isPlaying
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-200 text-gray-500 hover:bg-gray-300"
+                    }`}
+                  >
+                    {isPlaying ? (
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <rect x="6" y="4" width="4" height="16" rx="1" />
+                        <rect x="14" y="4" width="4" height="16" rx="1" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium text-gray-700">{track.display_name}</span>
+                    <p className="text-[11px] text-gray-400">{track.mood}</p>
+                  </div>
+
+                  {isSelected && (
+                    <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div className="flex gap-2 pt-1">
         <button
           type="button"
@@ -2846,6 +4745,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <button
           ref={submitButtonRef}
           type="submit"
+          data-action="new-project"
           disabled={loading}
           className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:text-white text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
         >
@@ -2892,6 +4792,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       indexed[0].i;
     const rowVoiceGender = bulkVoiceGender[activeIndex] ?? "female";
     const rowVoiceAccent = bulkVoiceAccent[activeIndex] ?? "american";
+    const rowVoiceStability = bulkVoiceStability[activeIndex] ?? VOICE_STABILITY_DEFAULT;
+    const rowVoiceSpeed = bulkVoiceSpeed[activeIndex] ?? VOICE_SPEED_DEFAULT;
+    const rowVoiceEmotion = bulkVoiceEmotion[activeIndex] ?? "";
+    const rowVoiceStyle = bulkVoiceStyle[activeIndex] ?? VOICE_STYLE_DEFAULT;
     const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
     const rowContentLanguage = bulkContentLanguage[activeIndex] ?? "auto";
     const rowVideoLength = bulkVideoLength[activeIndex] ?? "short";
@@ -2909,6 +4813,34 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         const next = [...prev];
         targetIndices.forEach((idx) => {
           next[idx] = rowVoiceAccent;
+        });
+        return next;
+      });
+      setBulkVoiceStability((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceStability;
+        });
+        return next;
+      });
+      setBulkVoiceSpeed((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceSpeed;
+        });
+        return next;
+      });
+      setBulkVoiceEmotion((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceEmotion;
+        });
+        return next;
+      });
+      setBulkVoiceStyle((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceStyle;
         });
         return next;
       });
@@ -3070,6 +5002,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </label>
 
         <div className={rowVoiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
+<<<<<<< HEAD
           <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
             Voice — select and play to preview
           </label>
@@ -3196,6 +5129,171 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             )}
           </div>
           {!myVoicesLoading && myVoicesList.length === 0 && (
+=======
+          <div className="flex items-center justify-between mb-3">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              {showAdvancedOptions && isPro ? "Advanced Options" : "Voice — select and play to preview"}
+            </label>
+            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedOptions(false)}
+                className={`whitespace-nowrap px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                  !(showAdvancedOptions && isPro)
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Voice
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isPro) {
+                    setShowUpgrade(true);
+                    return;
+                  }
+                  setShowAdvancedOptions(true);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                  showAdvancedOptions && isPro
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Advanced Options
+                <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
+                  Premium
+                </span>
+              </button>
+            </div>
+          </div>
+          {!(showAdvancedOptions && isPro) && (
+          <div className="space-y-2 max-h-[320px] overflow-y-auto">
+            {myVoicesLoading ? (
+              <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
+                <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
+                <p className="text-[11px] text-gray-500">Loading your voices…</p>
+              </div>
+            ) : (
+              <>
+                {myVoicesList.map((saved) => {
+                  const isSelectedBulk = rowCustomVoiceId === saved.voice_id;
+                  const canSelectBulk = isPro || (saved.plan !== "paid" && !saved.custom_voice_id);
+                  const hasPreview = !!saved.preview_url;
+                  const myKey = `my_${saved.voice_id}`;
+                  const isPlaying = playingKey === myKey;
+                  const { displayName } = getMyVoiceDisplayName(saved.name);
+                  const isCustom = !!saved.custom_voice_id;
+                  return (
+                    <VoiceItem
+                      key={`saved_${saved.id}`}
+                      name={displayName}
+                      subtitle={subtitleForSavedVoice(saved)}
+                      hasPreview={hasPreview}
+                      isPlaying={isPlaying}
+                      onPlay={() => playMyVoice(saved)}
+                      disabled={false}
+                      isSelected={isSelectedBulk}
+                      onClick={() => {
+                        if (!canSelectBulk) {
+                          setShowUpgrade(true);
+                          return;
+                        }
+                        const value = isSelectedBulk ? "" : saved.voice_id;
+                        const g = normalizeVoiceGender(saved.gender);
+                        const a = normalizeVoiceAccent(saved.accent);
+                        const targetIndices = indexed.map(({ i }) => i);
+                        if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                          if (g) {
+                            setBulkVoiceGender((prev) => {
+                              const next = [...prev];
+                              targetIndices.forEach((idx) => { next[idx] = g; });
+                              return next;
+                            });
+                          }
+                          if (a) {
+                            setBulkVoiceAccent((prev) => {
+                              const next = [...prev];
+                              targetIndices.forEach((idx) => { next[idx] = a; });
+                              return next;
+                            });
+                          }
+                          setBulkCustomVoiceId((prev) => {
+                            const next = [...prev];
+                            targetIndices.forEach((idx) => { next[idx] = value; });
+                            return next;
+                          });
+                        } else {
+                          setBulkApplyVoiceAll(false);
+                          if (g) {
+                            setBulkVoiceGender((prev) => {
+                              const next = [...prev];
+                              next[activeIndex] = g;
+                              return next;
+                            });
+                          }
+                          if (a) {
+                            setBulkVoiceAccent((prev) => {
+                              const next = [...prev];
+                              next[activeIndex] = a;
+                              return next;
+                            });
+                          }
+                          setBulkCustomVoiceId((prev) => {
+                            const next = [...prev];
+                            next[activeIndex] = value;
+                            return next;
+                          });
+                        }
+                      }}
+                      badge={
+                        isCustom ? (
+                          <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Custom</span>
+                        ) : saved.plan === "paid" ? (
+                          <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
+                        ) : null
+                      }
+                      actions={
+                        isSelectedBulk ? (
+                          <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        ) : null
+                      }
+                    />
+                  );
+                })}
+                {!isPro && premiumTeaserVoices.map((voice) => {
+                  const key = `premium_${voice.voice_id}`;
+                  const isPlaying = playingKey === key;
+                  const labels = voice.labels ?? {};
+                  const subtitle = formatVoiceSubtitle(labels.gender, labels.accent, voice.description ?? "Premium voice");
+                  return (
+                    <VoiceItem
+                      key={key}
+                      name={voice.name}
+                      subtitle={subtitle}
+                      hasPreview={!!voice.preview_url}
+                      isPlaying={isPlaying}
+                      onPlay={() => playPremiumTeaser(voice)}
+                      disabled={false}
+                      isSelected={false}
+                      onClick={() => setShowUpgrade(true)}
+                      badge={
+                        <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
+                      }
+                    />
+                  );
+                })}
+              </>
+            )}
+          </div>
+          )}
+          {!(showAdvancedOptions && isPro) && !myVoicesLoading && myVoicesList.length === 0 && (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             <p className="text-[11px] text-gray-500 mt-2">
               No voices saved. Add voices in the Voices tab to use them here.{" "}
               {!isPro && (
@@ -3207,6 +5305,176 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           )}
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* Voice tuning — Stability + Speed sliders (paid); apply-to-all sync mirrors other voice controls */}
+        {(() => {
+          const applyBulkTuning = <T,>(
+            setter: React.Dispatch<React.SetStateAction<T[]>>,
+            value: T,
+          ) => {
+            const targetIndices = indexed.map(({ i }) => i);
+            if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+              setter((prev) => {
+                const next = [...prev];
+                targetIndices.forEach((idx) => { next[idx] = value; });
+                return next;
+              });
+            } else {
+              setBulkApplyVoiceAll(false);
+              setter((prev) => {
+                const next = [...prev];
+                next[activeIndex] = value;
+                return next;
+              });
+            }
+          };
+          return (
+            <div className={rowVoiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
+              {showAdvancedOptions && isPro && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Enable</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={expressiveEnabled}
+                      onClick={() => setExpressiveEnabled((v) => !v)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${expressiveEnabled ? "bg-purple-600" : "bg-gray-300"}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${expressiveEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                  <div
+                    className={`space-y-4 transition-opacity ${expressiveEnabled ? "" : "opacity-50 pointer-events-none select-none"}`}
+                    aria-disabled={!expressiveEnabled}
+                  >
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] font-medium text-gray-600">
+                            Emotion <span className="font-normal text-gray-400">(optional)</span>
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {VOICE_EMOTIONS.map((em) => {
+                            const selected = rowVoiceEmotion === em.value;
+                            return (
+                              <button
+                                key={em.value}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => applyBulkTuning(setBulkVoiceEmotion, selected ? "" : em.value)}
+                                className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                                  selected
+                                    ? "bg-purple-600 border-purple-600 text-white"
+                                    : "bg-white border-gray-200 text-gray-600 hover:border-purple-300"
+                                }`}
+                              >
+                                {em.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-medium text-gray-600">Expressiveness</span>
+                          <span className="text-[11px] text-gray-400 tabular-nums">{rowVoiceStability.toFixed(2)}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={VOICE_STABILITY_MIN}
+                          max={VOICE_STABILITY_MAX}
+                          step={VOICE_TUNING_STEP}
+                          value={rowVoiceStability}
+                          onChange={(e) => applyBulkTuning(setBulkVoiceStability, parseFloat(e.target.value))}
+                          className="w-full accent-purple-600 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                          <span>Steady</span>
+                          <span>Expressive</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-medium text-gray-600">Character</span>
+                          <span className="text-[11px] text-gray-400 tabular-nums">{rowVoiceStyle.toFixed(2)}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={VOICE_STYLE_MIN}
+                          max={VOICE_STYLE_MAX}
+                          step={VOICE_TUNING_STEP}
+                          value={rowVoiceStyle}
+                          onChange={(e) => applyBulkTuning(setBulkVoiceStyle, parseFloat(e.target.value))}
+                          className="w-full accent-purple-600 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                          <span>Natural</span>
+                          <span>Dramatic</span>
+                        </div>
+                        {rowVoiceStyle >= 0.4 && rowVoiceStability >= 0.7 && (
+                          <p className="text-[10px] text-amber-600 mt-0.5">High Character + high Expressiveness can sound distorted.</p>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-medium text-gray-600">Speed</span>
+                          <span className="text-[11px] text-gray-400 tabular-nums">{rowVoiceSpeed.toFixed(2)}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={VOICE_SPEED_MIN}
+                          max={VOICE_SPEED_MAX}
+                          step={VOICE_TUNING_STEP}
+                          value={rowVoiceSpeed}
+                          onChange={(e) => applyBulkTuning(setBulkVoiceSpeed, parseFloat(e.target.value))}
+                          className="w-full accent-purple-600 cursor-pointer"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleVoicePreview({
+                            gender: rowVoiceGender,
+                            accent: rowVoiceAccent,
+                            customVoiceId: rowCustomVoiceId,
+                            stability: rowVoiceStability,
+                            speed: rowVoiceSpeed,
+                            emotion: rowVoiceEmotion,
+                            style: rowVoiceStyle,
+                          })
+                        }
+                        disabled={previewState === "loading"}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:border-purple-300 hover:text-purple-700 transition-colors disabled:opacity-50"
+                      >
+                        {previewState === "loading" ? (
+                          <>
+                            <span className="w-3.5 h-3.5 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin" />
+                            Generating…
+                          </>
+                        ) : previewState === "playing" ? (
+                          <>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                            Stop
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+                            Listen to a sample
+                          </>
+                        )}
+                      </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <div className="flex gap-2 pt-1">
           <button
             type="button"
@@ -3251,7 +5519,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const modalWidth = "max-w-xl";
 
   const isStep2TemplatesPending =
+<<<<<<< HEAD
     step === 2 && (builtinTemplatesLoading || !sessionBuiltinInitDone);
+=======
+    step === 2 && (builtinTemplatesLoading || templateAvailabilityLoading || !sessionBuiltinInitDone);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Constant form size: min-height so layout doesn’t jump between steps
   const stepContentWrapper = (
@@ -3295,8 +5567,30 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <UpgradePlanModal
           open={showCustomTemplateUpgrade}
           onClose={() => setShowCustomTemplateUpgrade(false)}
+<<<<<<< HEAD
           title="Upgrade to use custom template"
           subtitle="Your custom template is ready. Upgrade to Pro to use it when creating new videos."
+=======
+          subscriptionsOnly
+          title="Upgrade to use custom template"
+          subtitle="Custom templates are a Standard & Pro feature. Upgrade your plan to use this template in your videos."
+        />
+        <GetMoreTemplatesModal
+          open={showGetMoreTemplates}
+          onClose={() => setShowGetMoreTemplates(false)}
+          onChooseLink={() => {
+            setShowGetMoreTemplates(false);
+            openStep2CustomTemplateCreator(videoStyle, null);
+          }}
+          onChooseDesigner={() => {
+            setShowGetMoreTemplates(false);
+            setShowDesignerRequest(true);
+          }}
+        />
+        <DesignerTemplateRequestModal
+          open={showDesignerRequest}
+          onClose={() => setShowDesignerRequest(false)}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         />
       </form>
     </>
@@ -3325,8 +5619,25 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <UpgradePlanModal
           open={showCustomTemplateUpgrade}
           onClose={() => setShowCustomTemplateUpgrade(false)}
+          subscriptionsOnly
           title="Upgrade to use custom template"
-          subtitle="Your custom template is ready. Upgrade to Pro to use it when creating new videos."
+          subtitle="Custom templates are a Standard & Pro feature. Upgrade your plan to use this template in your videos."
+        />
+        <GetMoreTemplatesModal
+          open={showGetMoreTemplates}
+          onClose={() => setShowGetMoreTemplates(false)}
+          onChooseLink={() => {
+            setShowGetMoreTemplates(false);
+            openStep2CustomTemplateCreator(videoStyle, null);
+          }}
+          onChooseDesigner={() => {
+            setShowGetMoreTemplates(false);
+            setShowDesignerRequest(true);
+          }}
+        />
+        <DesignerTemplateRequestModal
+          open={showDesignerRequest}
+          onClose={() => setShowDesignerRequest(false)}
         />
         {videoPreviewId && (
           <TemplateVideoLightbox
@@ -3334,7 +5645,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             onClose={() => setVideoPreviewId(null)}
             onSelect={() => applyTemplate(videoPreviewId)}
             isSelected={template === videoPreviewId}
-            customTemplate={videoPreviewId.startsWith("custom_") ? customTemplates.find((ct) => ct.id === parseInt(videoPreviewId.replace("custom_", ""))) : null}
+            customTemplate={
+              videoPreviewId.startsWith("custom_")
+                ? customTemplates.find((ct) => ct.id === parseInt(videoPreviewId.replace("custom_", "")))
+                : videoPreviewId.startsWith("crafted_")
+                ? craftedTemplates.find((ct) => ct.id === videoPreviewId)
+                : null
+            }
           />
         )}
       </div>

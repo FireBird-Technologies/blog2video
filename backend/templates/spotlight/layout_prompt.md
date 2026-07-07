@@ -29,6 +29,17 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `rapid_points`  
   - **Best for**: Fast-cut lists of short phrases.
 
+<<<<<<< HEAD
+=======
+- `spotlight_data`  
+  - **Best for**: A real chart (line / bar / histogram) rendered from a data table in the article.  
+  - **Rule**: Use ONLY when a scene is bound to a chartable table (the pipeline sets `preferred_layout='spotlight_data'` and a `data_table_index`). Line = trend over time; bar = comparison between named categories; histogram = distribution over numeric bins/ranges. Never invent figures — values come from the bound table.
+
+- `spotlight_table`  
+  - **Best for**: A market-snapshot / comparison data table (name · price · % change, or any multi-column tabular readout).  
+  - **Rule**: Use ONLY when a scene is bound to a ticker-like table (`preferred_layout='spotlight_table'` with a `data_table_index`). Rendered as a high-contrast glass-panel table with +/- color coding.
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 - `closer`  
   - **Best for**: Final closing line or CTA.
 
@@ -37,4 +48,8 @@ Variety rules:
 - Scene 0 → `impact_title`.  
 - Use `word_punch` sparingly (max 1 scene).  
 - Mix `statement`, `cascade_list`, `stat_stage`, `versus`, `rapid_points`, and `closer` so the video doesn’t feel like the same layout repeating.
+<<<<<<< HEAD
+=======
+- `spotlight_data` and `spotlight_table` are reserved for scenes the pipeline binds to a real table — do not assign them to scenes without a `data_table_index`.
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 

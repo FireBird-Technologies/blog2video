@@ -1,5 +1,9 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+<<<<<<< HEAD
+=======
+import { PulseRing, BigGlyphBackdrop, FilmGrain, HalftoneField, KineticTicker, StarburstBadge } from "../components/SpotlightArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -16,8 +20,9 @@ import type { SpotlightLayoutProps } from "../types";
 export const StatStage: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
-  metrics,
-  imageUrl,
+  metrics,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -70,7 +75,29 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — ghost glyph + faint pulse behind the giant stat. */}
+      {!hasImage && (
+        <>
+          <PulseRing accentColor={accentColor} />
+          <BigGlyphBackdrop glyph="#" accentColor={accentColor} tint="accent" startFrame={2} />
+          <HalftoneField accentColor={accentColor} corner="top-left" />
+        </>
+      )}
+      <FilmGrain />
+      {/* Spinning starburst seal stamps the stat moment + marquee energy below. */}
+      <StarburstBadge accentColor={accentColor} corner={p ? "top-right" : "bottom-right"} size={p ? 140 : 168} startFrame={26} />
+      {/* Marquee echoes the actual stat being staged. */}
+      <KineticTicker
+        accentColor={accentColor}
+        edge="bottom"
+        label={(primary
+          ? `${primary.value}${primary.suffix || ""} ${primary.label || ""}`.trim()
+          : title || "BIG NUMBER"
+        ).slice(0, 48)}
+        speed={0.9}
+      />
 
       <div
         style={{
@@ -101,7 +128,10 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                transform: `scale(${imageZoom ?? 1})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
               }}
             />
           </div>
@@ -175,3 +205,4 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

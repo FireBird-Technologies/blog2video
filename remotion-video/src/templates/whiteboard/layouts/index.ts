@@ -7,7 +7,13 @@ import { ComparisonThoughts } from "./ComparisonThoughts";
 import { CountdownTimer } from "./countdowntimer";
 import { HandwrittenEquation } from "./handwrittenequation";
 import { SpeechBubbleDialogue } from "./speechbubbledialogue";
+<<<<<<< HEAD
 import { EndingSocials } from "./EndingSocials";
+=======
+import { WhiteboardDataViz } from "./WhiteboardDataViz";
+import { EndingSocials } from "./EndingSocials";
+import { WhiteboardTickerTable } from "./WhiteboardTickerTable";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import type { WhiteboardLayoutType, WhiteboardLayoutProps } from "../types";
 
 export type { WhiteboardLayoutType, WhiteboardLayoutProps };
@@ -25,5 +31,11 @@ export const WHITEBOARD_LAYOUT_REGISTRY: Record<
   countdown_timer: CountdownTimer,
   handwritten_equation: HandwrittenEquation,
   speech_bubble_dialogue: SpeechBubbleDialogue,
+<<<<<<< HEAD
   ending_socials: EndingSocials,
+=======
+  data_visualisation: WhiteboardDataViz,
+  ending_socials: EndingSocials,
+  ticker_table: WhiteboardTickerTable,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };

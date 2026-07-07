@@ -1,7 +1,12 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+<<<<<<< HEAD
+=======
+import { buildHudStatus, GlitchSlice, RainBurst, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 const GLITCH_CHARS = "アイウエオカキクケコ0123456789!@#$%^&*<>{}[]";
 
@@ -18,8 +23,9 @@ function seededRandom(seed: number): number {
  */
 export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   aspectRatio,
@@ -79,6 +85,15 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.25} fontFamily={resolvedFontFamily} />
+<<<<<<< HEAD
+=======
+
+      {/* Decorative artifacts — rain surge, HUD chrome, CRT texture, rare glitch ticks. */}
+      <RainBurst accentColor={accent} centerX={50} widthPct={80} startFrame={0} seed={5} />
+      <TerminalHUD accentColor={accent} statusText={buildHudStatus("DECODING", title)} startFrame={6} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.8} />
+      <GlitchSlice accentColor={accent} every={76} seed={51} />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       <div
         style={{
@@ -112,9 +127,10 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
               transformOrigin: 'center center', // Ensures rotation and scaling are from the center
             }}
           >
-            <Img
+            <ZoomCropImg
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
             />
           </div>
         )}
@@ -197,3 +213,4 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

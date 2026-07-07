@@ -4,12 +4,23 @@ import {
   blogPosts,
   defaultOgImage,
   getBlogPost,
+<<<<<<< HEAD
   getMarketingPage,
   getPublicPaths,
+=======
+  getHelpPost,
+  getMarketingPage,
+  getPublicPaths,
+  helpPosts,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   marketingPages,
   siteName,
   siteUrl,
 } from "../src/content/siteContent";
+<<<<<<< HEAD
+=======
+import type { BlogPost, HelpPost, MarketingPage } from "../src/content/seoTypes";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   normalizeSchemaForJsonLd,
   SEO_JSON_LD_SCRIPT_ID,
@@ -20,6 +31,11 @@ import {
   blogPostSchema,
   contactSchema,
   homepageSchema,
+<<<<<<< HEAD
+=======
+  helpIndexSchema,
+  helpPostSchema,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   marketingPageSchema,
   pricingSchema,
 } from "../src/seo/schema";
@@ -44,6 +60,103 @@ function escapeHtml(value: string) {
     .replaceAll('"', "&quot;");
 }
 
+<<<<<<< HEAD
+=======
+function renderBlogPostHtml(post: BlogPost): string {
+  const heroImg = post.heroImage
+    ? `<img src="${post.heroImage}" alt="${escapeHtml(post.heroImageAlt ?? "")}" />`
+    : "";
+  const sectionsHtml = post.sections
+    .map((s) => {
+      const paras = s.paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+      const bullets = s.bullets?.length
+        ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+        : "";
+      return `<section><h2>${escapeHtml(s.heading)}</h2>${paras}${bullets}</section>`;
+    })
+    .join("");
+  const faqHtml = post.faq.length
+    ? `<section><h2>Frequently Asked Questions</h2>${post.faq
+        .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
+        .join("")}</section>`
+    : "";
+  return `<main><article>${heroImg}<p>${escapeHtml(post.heroEyebrow)}</p><h1>${escapeHtml(post.heroTitle)}</h1><p>${escapeHtml(post.heroDescription)}</p><time datetime="${post.publishedAt}">${post.publishedAt}</time>${sectionsHtml}${faqHtml}</article></main>`;
+}
+
+function renderBlogIndexHtml(posts: BlogPost[]): string {
+  const sorted = [...posts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  const postsHtml = sorted
+    .map(
+      (post) =>
+        `<article><a href="/blogs/${post.slug}"><h2>${escapeHtml(post.title)}</h2></a><p>${escapeHtml(post.description)}</p><time datetime="${post.publishedAt}">${post.publishedAt}</time></article>`
+    )
+    .join("");
+  return `<main><h1>Blog</h1>${postsHtml}</main>`;
+}
+
+function renderHelpPostHtml(post: HelpPost): string {
+  const stepsHtml = post.steps
+    .map((s) => {
+      const body = s.body.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+      const bullets = s.bullets?.length
+        ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+        : "";
+      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}</section>`;
+    })
+    .join("");
+  const faqHtml = post.faq.length
+    ? `<section><h2>Frequently Asked Questions</h2>${post.faq
+        .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
+        .join("")}</section>`
+    : "";
+  return `<main><article><h1>${escapeHtml(post.heroTitle)}</h1><p>${escapeHtml(post.heroDescription)}</p>${stepsHtml}${faqHtml}</article></main>`;
+}
+
+function renderHelpIndexHtml(posts: HelpPost[]): string {
+  const postsHtml = posts
+    .map(
+      (post) =>
+        `<article><a href="/help/${post.slug}"><h2>${escapeHtml(post.title)}</h2></a><p>${escapeHtml(post.description)}</p></article>`
+    )
+    .join("");
+  return `<main><h1>Help</h1>${postsHtml}</main>`;
+}
+
+function renderMarketingPageHtml(page: MarketingPage): string {
+  const sectionsHtml = page.sections
+    .map((s) => {
+      const body = s.body.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+      const bullets = s.bullets?.length
+        ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+        : "";
+      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}</section>`;
+    })
+    .join("");
+  const faqHtml = page.faq.length
+    ? `<section><h2>Frequently Asked Questions</h2>${page.faq
+        .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
+        .join("")}</section>`
+    : "";
+  return `<main><h1>${escapeHtml(page.heroTitle)}</h1><p>${escapeHtml(page.heroDescription)}</p>${sectionsHtml}${faqHtml}</main>`;
+}
+
+function getAppHtml(routePath: string): string {
+  if (routePath === "/blogs") return renderBlogIndexHtml(blogPosts);
+  if (routePath.startsWith("/blogs/")) {
+    const post = getBlogPost(routePath.replace("/blogs/", ""));
+    if (post) return renderBlogPostHtml(post);
+  }
+  if (routePath === "/help") return renderHelpIndexHtml(helpPosts);
+  if (routePath.startsWith("/help/")) {
+    const post = getHelpPost(routePath.replace("/help/", ""));
+    if (post) return renderHelpPostHtml(post);
+  }
+  const page = getMarketingPage(routePath);
+  if (page) return renderMarketingPageHtml(page);
+  return "";
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function getSeoPayload(routePath: string): SeoPayload {
   if (routePath === "/") {
     return {
@@ -85,6 +198,19 @@ function getSeoPayload(routePath: string): SeoPayload {
     };
   }
 
+<<<<<<< HEAD
+=======
+  if (routePath === "/help") {
+    return {
+      title: "Help / How-to",
+      description:
+        "Step-by-step Blog2Video help guides with embedded explainers for creating projects, editing scenes, changing voiceover, and working with templates.",
+      path: routePath,
+      schema: helpIndexSchema(),
+    };
+  }
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   if (routePath === "/404") {
     return {
       title: "Page Not Found",
@@ -107,6 +233,22 @@ function getSeoPayload(routePath: string): SeoPayload {
     }
   }
 
+<<<<<<< HEAD
+=======
+  if (routePath.startsWith("/help/")) {
+    const post = getHelpPost(routePath.replace("/help/", ""));
+    if (post) {
+      return {
+        title: post.title,
+        description: post.description,
+        path: routePath,
+        image: post.heroImage ? `${siteUrl}${post.heroImage}` : undefined,
+        schema: helpPostSchema(post),
+      };
+    }
+  }
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const page = getMarketingPage(routePath);
   if (page) {
     return {
@@ -158,12 +300,17 @@ ${
 }
 
 function renderUrl(url: string) {
+<<<<<<< HEAD
   // Head-only prerender to avoid importing runtime UI modules that pull CSS/fontsource
   // during Node execution (tsx can't evaluate CSS imports in this script context).
   const appHtml = "";
 
   const head = buildHeadTags(url);
 
+=======
+  const appHtml = getAppHtml(url);
+  const head = buildHeadTags(url);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return { appHtml, head };
 }
 
@@ -225,6 +372,7 @@ async function buildPrerenderedPages() {
     await ensureDirFor(filePath);
     await writeFile(filePath, injectRenderedMarkup(template, appHtml, head), "utf8");
   }
+<<<<<<< HEAD
 
   const notFound = renderUrl("/404");
   await writeFile(
@@ -232,6 +380,8 @@ async function buildPrerenderedPages() {
     injectRenderedMarkup(template, notFound.appHtml, notFound.head),
     "utf8"
   );
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 async function buildSeoFiles() {
@@ -280,6 +430,14 @@ Sitemap: ${siteUrl}/sitemap-index.xml
         category: post.category,
         primaryKeyword: post.primaryKeyword,
       })),
+<<<<<<< HEAD
+=======
+      helpPosts: helpPosts.map((post) => ({
+        path: `/help/${post.slug}`,
+        category: post.category,
+        primaryKeyword: post.primaryKeyword,
+      })),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     },
     null,
     2

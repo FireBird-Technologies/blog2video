@@ -21,8 +21,14 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
     { value: "Jan 19", label: "Senate reaches bipartisan deal on 45-day extension" },
     { value: "Jan 31", label: "Midnight deadline missed — partial shutdown begins" },
     { value: "Feb 3", label: "Emergency session called to negotiate reopening" },
+<<<<<<< HEAD
   ],
   imageUrl,
+=======
+  ],imageUrl,
+  imageObjectPosition,
+  imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -78,8 +84,10 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
             width: "100%",
             height: "100%",
             objectFit: "cover",
+            objectPosition: "50% 50%",
             opacity: 0.4,
             transform: `scale(${bgZoom})`,
+            transformOrigin: "center center",
             filter: "grayscale(100%) sepia(20%)",
             zIndex: 1,
           }}
@@ -146,7 +154,18 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                 }}
               >
                 <div style={{ width: "100%", height: "100%", overflow: "hidden", border: "1px solid #ddd" }}>
-                  <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", filter: "contrast(1.1) grayscale(30%) sepia(15%)" }} />
+                  <Img
+                    src={imageUrl}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                      objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                      transform: `scale(${imageZoom ?? 1})`,
+                      transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                      filter: "contrast(1.1) grayscale(30%) sepia(15%)",
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -228,3 +247,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
     </AbsoluteFill>
   );
 };
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

@@ -15,12 +15,39 @@ dist/
 
 # Media files
 backend/media/
+backend/tmp/
 
 # Remotion output
 remotion-video/out/
 # remotion-video/public/data.json is tracked for default preview
 remotion-video/src/components/generated/
+# Local crafted bundles (generated for R2 upload only)
+crafted-templates/
 
+# Font binaries — large files, never commit
+remotion-video/public/templates
+frontend/public/templates
+
+# LaDuc template folders (generated/local only)
+frontend/src/components/remotion/laduc/
+backend/templates/laduc/
+remotion-video/src/components/laduc/
+remotion-video/src/templates/laduc/
+
+frontend/src/components/remotion/fj_research/
+backend/templates/fj_research/
+remotion-video/src/components/fj_research/
+remotion-video/src/templates/fj_research/
+
+frontend/src/components/remotion/fj_market_brief/
+backend/templates/fj_market_brief/
+remotion-video/src/components/fj_market_brief/
+remotion-video/src/templates/fj_market_brief/
+
+frontend/src/components/remotion/wealth_your_way/
+backend/templates/wealth_your_way/
+remotion-video/src/components/wealth_your_way/
+remotion-video/src/templates/wealth_your_way/
 # Build cache
 *.tsbuildinfo
 
@@ -35,9 +62,18 @@ remotion-video/src/components/generated/
 CLAUDE.md
 .claude/
 
+<<<<<<< HEAD
+=======
+# Support bot generated artifacts (rebuilt in CI)
+backend/app/support/code_map.json
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 # OS
 .DS_Store
 Thumbs.db
 backend/.env
 frontend/.env
 
+
+# Test virtualenv (Tier A QA suite)
+backend/.venv-test/

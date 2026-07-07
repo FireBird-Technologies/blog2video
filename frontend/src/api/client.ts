@@ -53,6 +53,37 @@ api.interceptors.response.use(
   }
 );
 
+/** Public JSON client — no auth interceptor so 401 from gates (e.g. template studio) does not log the user out. */
+const publicApi = axios.create({
+  baseURL: `${BACKEND_URL}/api`,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export interface TemplateStudioAuthStatusResponse {
+  gated: boolean;
+}
+
+export interface TemplateStudioAuthVerifyResponse {
+  ok: boolean;
+  gated: boolean;
+}
+
+export async function getTemplateStudioAuthStatus(): Promise<TemplateStudioAuthStatusResponse> {
+  const res = await publicApi.get<TemplateStudioAuthStatusResponse>("/template-studio/auth/status");
+  return res.data;
+}
+
+export async function verifyTemplateStudioPassword(
+  password: string
+): Promise<TemplateStudioAuthVerifyResponse> {
+  const res = await publicApi.post<TemplateStudioAuthVerifyResponse>("/template-studio/auth/verify", {
+    password,
+  });
+  return res.data;
+}
+
 // ─── Types ────────────────────────────────────────────────
 
 export interface UserInfo {
@@ -64,6 +95,11 @@ export interface UserInfo {
   videos_used_this_period: number;
   video_limit: number;
   can_create_video: boolean;
+  custom_templates_created: number;
+  custom_template_limit: number;
+  can_create_custom_template: boolean;
+  preferred_voice_emotion: string | null;
+  survey_submitted: boolean;
 }
 
 export interface AuthResponse {
@@ -84,6 +120,13 @@ export interface Scene {
   voiceover_path: string | null;
   duration_seconds: number;
   extra_hold_seconds?: number | null;
+<<<<<<< HEAD
+=======
+  bgm_volume?: number | null;
+  preferred_layout?: string | null;
+  /** "intro"|"content"|"outro"|"dataviz_chart"|"dataviz_table" (custom templates). */
+  scene_type?: string | null;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   created_at: string;
 }
 
@@ -124,11 +167,32 @@ export interface Project {
   logo_opacity: number;
   logo_size: number;
   custom_voice_id: string | null;
+  voice_emotion: string | null;
   aspect_ratio: string;
   video_style?: VideoStyleId;
+<<<<<<< HEAD
   video_length?: "auto" | "short" | "medium" | "detailed";
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
+=======
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
+  playback_speed?: number;
+  bgm_track_id?: string | null;
+  bgm_volume?: number;
+  bgm_track_url?: string | null;
+  captions_enabled?: boolean;
+  caption_position?: "bottom_center" | "top_center";
+  caption_font_family?: string;
+  caption_font_size?: string | number;
+  caption_offset?: number;
+  ai_assisted_editing_count?: number;
+  custom_theme?: CustomTemplateTheme | null;
+  custom_image_box_aspect_ratios?: {
+    intro?: string | { landscape?: string; portrait?: string };
+    content?: (string | { landscape?: string; portrait?: string })[];
+    outro?: string | { landscape?: string; portrait?: string };
+  } | null;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   custom_template_missing?: boolean;
   brand_logo_url?: string | null;
   review_state?: ReviewState | null;
@@ -136,6 +200,16 @@ export interface Project {
   updated_at: string;
   scenes: Scene[];
   assets: Asset[];
+}
+
+export interface EmbedProjectResponse extends Project {
+  crafted_template?: CraftedTemplateDetail | null;
+  custom_template_code?: {
+    intro_code: string | null;
+    outro_code: string | null;
+    content_codes: string[] | null;
+  } | null;
+  layout_prop_schema?: Record<string, LayoutPropSchemaEntry> | null;
 }
 
 export interface ProjectListItem {
@@ -219,6 +293,12 @@ export interface SubscriptionDetail {
   amount_paid_cents: number;
   canceled_at: string | null;
   retention_offer_eligible: boolean;
+<<<<<<< HEAD
+=======
+  scheduled_plan_slug: string | null;
+  scheduled_plan_name: string | null;
+  scheduled_change_at: string | null;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   created_at: string;
 }
 
@@ -266,12 +346,45 @@ export interface PlanInfo {
 export interface PublicConfig {
   google_client_id: string;
   stripe_publishable_key: string;
+  survey_promo_code: string;
 }
 
 // ─── Auth API ─────────────────────────────────────────────
 
+<<<<<<< HEAD
 export const googleLogin = (credential: string, reactivate = false) =>
   api.post<AuthResponse>("/auth/google", { credential }, { params: { reactivate } });
+=======
+export const googleLogin = (credential: string, reactivate = false, refCode?: string | null) => {
+  const params: Record<string, unknown> = { reactivate };
+  if (refCode) params.ref_code = refCode;
+  return api.post<AuthResponse>("/auth/google", { credential }, { params });
+};
+
+// Share B2V (referral/invite) disabled
+// export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
+// export const sendAffiliateInvites = (emails: string[]) =>
+//   api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
+//
+// export interface AffiliateStats {
+//   link: string;
+//   signups_count: number;
+//   bonus_earned: number;
+//   max_signups: number;
+//   bonus_per_signup: number;
+// }
+
+export interface SurveyPayload {
+  rating?: string;
+  use_case?: string;
+  target_audience?: string;
+  desired_feature?: string;
+  heard_from?: string;
+}
+
+export const submitSurvey = (payload: SurveyPayload) =>
+  api.post<{ submitted: boolean; promo_code: string | null }>("/affiliate/survey", payload);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const getMe = () => api.get<UserInfo>("/auth/me");
 
@@ -286,9 +399,36 @@ export const getPublicConfig = () =>
 
 export type CheckoutPlan = "pro" | "standard";
 
+// Post-checkout win-back coupon gate. We want at most one follow-up scheduled
+// per browser per day, BUT only count checkouts that actually succeed — a failed
+// / unauthorized attempt must not "burn" the day. So we *read* the flag to decide
+// whether to ask the backend to schedule, and only *write* it after a 2xx.
+const COUPON_FOLLOWUP_KEY = "b2v_coupon_followup_date";
+
+function couponFollowupAllowedToday(): boolean {
+  try {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    return localStorage.getItem(COUPON_FOLLOWUP_KEY) !== today;
+  } catch {
+    return true; // storage blocked → fall back to scheduling
+  }
+}
+
+function markCouponFollowupScheduled(): void {
+  try {
+    localStorage.setItem(COUPON_FOLLOWUP_KEY, new Date().toISOString().slice(0, 10));
+  } catch {
+    /* storage blocked → nothing to record */
+  }
+}
+
 export const createCheckoutSession = (
   options:
-    | { plan?: CheckoutPlan; billing_cycle?: "monthly" | "annual" }
+    | {
+        plan?: CheckoutPlan;
+        billing_cycle?: "monthly" | "annual" | "lifetime";
+        apply_third_video_offer?: boolean;
+      }
     | "monthly"
     | "annual"
     = "monthly"
@@ -297,16 +437,52 @@ export const createCheckoutSession = (
     typeof options === "string" ? "pro" : (options?.plan ?? "pro");
   const billing_cycle =
     typeof options === "string" ? options : (options?.billing_cycle ?? "monthly");
-  return api.post<{ checkout_url: string }>("/billing/checkout", {
-    plan,
-    billing_cycle,
-  });
+  const apply_third_video_offer =
+    typeof options === "string" ? false : (options?.apply_third_video_offer ?? false);
+  const schedule_coupon_followup = couponFollowupAllowedToday();
+  return api
+    .post<{ checkout_url: string }>("/billing/checkout", {
+      plan,
+      billing_cycle,
+      apply_third_video_offer,
+      schedule_coupon_followup,
+    })
+    .then((res) => {
+      if (schedule_coupon_followup) markCouponFollowupScheduled();
+      return res;
+    });
 };
 
-export const createPerVideoCheckout = (projectId?: number) =>
-  api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
-    project_id: projectId ?? null,
+export const createPerVideoCheckout = (
+  options?: number | { projectId?: number; quantity?: number }
+) => {
+  const projectId =
+    typeof options === "number" ? options : options?.projectId;
+  const quantity =
+    typeof options === "object" && options?.quantity ? options.quantity : 1;
+  const schedule_coupon_followup = couponFollowupAllowedToday();
+  return api
+    .post<{ checkout_url: string }>("/billing/checkout-per-video", {
+      project_id: projectId ?? null,
+      quantity,
+      schedule_coupon_followup,
+    })
+    .then((res) => {
+      if (schedule_coupon_followup) markCouponFollowupScheduled();
+      return res;
+    });
+};
+
+
+export const createCustomTemplateCheckout = (quantity: number = 1) =>
+  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {
+    quantity,
   });
+
+
+/** One-time $300 purchase of 500 never-expiring video credits. */
+export const createBulkCreditsCheckout = () =>
+  api.post<{ checkout_url: string }>("/billing/checkout-bulk-credits", {});
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");
@@ -351,12 +527,23 @@ export interface TemplateMeta {
   description: string;
   /** When true, show a highlighted "New" tag on the template picker (step 2). */
   new_template?: boolean;
+<<<<<<< HEAD
   styles?: string[];  // video styles this template supports: explainer, promotional, storytelling
+=======
+  /** When true, show an amber "Popular" tag on the template picker. */
+  popular_template?: boolean;
+  styles?: string[];  // DEPRECATED — was video_style filter; now replaced by `genres`. Kept for back-compat readers.
+  genres?: string[];  // topical categorization, e.g. ["Finance", "Politics"] — drives the genre dropdown filter
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   preview_colors?: { accent: string; bg: string; text: string };
   composition_id?: string;
   hero_layout?: string;
   fallback_layout?: string;
   valid_layouts?: string[];
+<<<<<<< HEAD
+=======
+  studio_only_layouts?: string[];
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   layouts_without_image?: string[];
   layout_prop_schema?: Record<string, LayoutPropSchema>;
 }
@@ -368,7 +555,13 @@ export type LayoutPropFieldType =
   | "color"
   | "select"
   | "string_array"
+<<<<<<< HEAD
   | "object_array";
+=======
+  | "object_array"
+  | "chart_table"
+  | "ticker_table";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface LayoutPropSubField {
   key: string;
@@ -386,6 +579,10 @@ export interface LayoutPropField {
   max?: number;
   step?: number;
   maxItems?: number;
+<<<<<<< HEAD
+=======
+  minItems?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   options?: Array<{ label: string; value: string }>;
   subFields?: LayoutPropSubField[];
 }
@@ -400,6 +597,12 @@ export interface LayoutPropSchema {
   label?: string;
   description?: string;
   defaults?: Record<string, unknown>;
+<<<<<<< HEAD
+=======
+  /** Studio-preview-only prop samples — merged over defaults in Template Studio,
+      NEVER merged into real renders (remotion.py reads only `defaults`). */
+  sample_props?: Record<string, unknown>;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scene_defaults?: LayoutSceneDefaults;
   fields: LayoutPropField[];
 }
@@ -407,6 +610,87 @@ export interface LayoutPropSchema {
 export const getTemplates = (style?: string) =>
   api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
 
+<<<<<<< HEAD
+=======
+export interface TemplateAvailabilitySignal {
+  has_custom_templates: boolean;
+  has_crafted_templates: boolean;
+}
+
+export const getTemplateAvailabilitySignal = () =>
+  api.get<TemplateAvailabilitySignal>("/projects/template-availability");
+
+export interface CraftedTemplateSummary {
+  id: string;
+  name: string;
+  description?: string;
+  styles?: string[];
+  genres?: string[];
+  preview_colors?: { accent: string; bg: string; text: string };
+  composition_id?: string;
+  hero_layout?: string;
+  fallback_layout?: string;
+  valid_layouts?: string[];
+  layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchema>;
+  theme?: CustomTemplateTheme;
+  preview_image_url?: string | null;
+  /** Source code for the marquee preview component (optional, compiled at runtime). */
+  preview_file?: string | null;
+  /** Bundle-relative path to the marquee preview source. */
+  preview_file_rel?: string | null;
+  /** Source for SceneEditModal field defs per layout (TS/JSON, compiled at runtime). */
+  layout_fields?: string | null;
+  /** Bundle-relative path to the layout_fields source. */
+  layout_fields_rel?: string | null;
+  logo_urls?: string[] | null;
+  og_image?: string | null;
+  template_type?: "crafted";
+  crafted?: boolean;
+}
+
+export interface CraftedTemplateItem extends CraftedTemplateSummary {
+  intro_code?: string | null;
+  outro_code?: string | null;
+  content_codes?: string[] | null;
+  content_archetype_ids?: (string | { id: string; best_for?: string[] })[] | null;
+  frontend_files?: Record<string, string> | null;
+  frontend_entry_rel?: string | null;
+  frontend_layout_index_rel?: string | null;
+  frontend_mount_id?: string | null;
+  /** R2/CDN URLs keyed like Remotion staticFile("fonts/foo.woff2") → full URL */
+  public_asset_urls?: Record<string, string> | null;
+}
+
+export interface CraftedTemplateDetail extends CraftedTemplateItem {}
+
+export interface CraftedTemplateFetchOptions {
+  /**
+   * When true, ask the backend to bypass its in-process cache and re-read
+   * `summary.json` (or the full bundle) directly from R2. Used on hard
+   * refresh so a fresh upload to R2 is visible without a server restart.
+   */
+  forceFresh?: boolean;
+}
+
+function craftedRequestConfig(opts?: CraftedTemplateFetchOptions) {
+  if (!opts?.forceFresh) return undefined;
+  return { headers: { "Cache-Control": "no-cache" } } as const;
+}
+
+export const listCraftedTemplates = (opts?: CraftedTemplateFetchOptions) =>
+  api.get<CraftedTemplateSummary[]>("/crafted-templates", craftedRequestConfig(opts));
+
+export const getCraftedTemplateDetail = (
+  templateId: string,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateDetail>(
+    `/crafted-templates/${encodeURIComponent(templateId)}`,
+    craftedRequestConfig(opts),
+  );
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export interface AspectValue {
   portrait: number;
   landscape: number;
@@ -629,6 +913,93 @@ export const createTemplateLayoutFile = (payload: {
   });
 };
 
+<<<<<<< HEAD
+=======
+// The structured plan extracted from a (normalized) design doc. Passed
+// opaquely from POST /template/plan back into POST /template/create.
+export type TemplatePlan = Record<string, unknown>;
+
+export interface TemplateVerification {
+  ok: boolean;
+  checked: string[];
+  repaired: string[];
+  stubbed: string[];
+  errors: Record<string, string[]>;
+}
+
+// Phase 1: normalize the design doc + extract the plan (fast, no codegen).
+export interface PlanTemplateRequest {
+  template_id: string;
+  design_doc: string;
+  overwrite?: boolean;
+}
+
+export interface PlanTemplateResponse {
+  ok: boolean;
+  template_id: string;
+  name: string;
+  normalized_doc: string;
+  plan: TemplatePlan;
+  layout_ids: string[];
+  hero_layout: string;
+  fallback_layout: string;
+  warnings: string[];
+}
+
+export const planTemplateFromDoc = (payload: PlanTemplateRequest) =>
+  api.post<PlanTemplateResponse>("/template-studio/template/plan", payload, {
+    timeout: 600000, // 10 min — two sequential Claude calls (normalize + extract) on a large doc
+  });
+
+// Phase 2: build the template. Supply `plan` (from planTemplateFromDoc) so
+// what the user previewed is exactly what gets built; `design_doc` alone is
+// the legacy path.
+export interface CreateTemplateRequest {
+  template_id: string;
+  design_doc?: string;
+  normalized_doc?: string;
+  plan?: TemplatePlan;
+  /** With plan: subset of layout ids to generate (Studio verify step). */
+  keep_layout_ids?: string[];
+  overwrite?: boolean;
+}
+
+export interface CreateTemplateResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  name: string;
+  layout_ids: string[];
+  hero_layout: string;
+  fallback_layout: string;
+  created_files: string[];
+  normalized_doc?: string;
+  verification?: TemplateVerification;
+  warnings: string[];
+  note?: string;
+}
+
+export const createTemplateFromDoc = (payload: CreateTemplateRequest) =>
+  api.post<CreateTemplateResponse>("/template-studio/template/create", payload, {
+    timeout: 900000, // 15 min — sequential codegen + full-template typechecks
+  });
+
+export interface ExtractDesignDocResponse {
+  ok: boolean;
+  filename: string;
+  text: string;
+}
+
+export const extractDesignDocFile = (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<ExtractDesignDocResponse>("/template-studio/template/extract-doc", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 120000,
+  });
+};
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export const renderTemplateLayout = (payload: {
   template_id: string;
   layout_id: string;
@@ -636,6 +1007,19 @@ export const renderTemplateLayout = (payload: {
   duration_seconds?: number;
   layout_props?: Record<string, unknown>;
   resolution?: "1080p" | "720p";
+<<<<<<< HEAD
+=======
+  scenes?: Array<{
+    id?: number;
+    order?: number;
+    title?: string;
+    narration?: string;
+    layout?: string;
+    layoutProps?: Record<string, unknown>;
+    durationSeconds?: number;
+    imageUrl?: string;
+  }>;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) =>
   api.post<Blob>("/template-studio/render-layout", payload, {
     responseType: "blob",
@@ -653,6 +1037,15 @@ export interface VoicePreview {
 export const getVoicePreviews = () =>
   api.get<Record<string, VoicePreview>>("/voices/previews");
 
+export interface BgmTrack {
+  track_id: string;
+  display_name: string;
+  mood: string;
+  r2_url: string;
+}
+
+export const getBgmTracks = () => api.get<BgmTrack[]>("/background-music/tracks");
+
 export const createProject = (
   blog_url: string,
   name?: string,
@@ -668,8 +1061,18 @@ export const createProject = (
   aspect_ratio?: string,
   template?: string,
   video_style?: VideoStyleId,
+<<<<<<< HEAD
   video_length?: "auto" | "short" | "medium" | "detailed",
   content_language?: string | null
+=======
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
+  content_language?: string | null,
+  voice_emotion?: string,
+  bgm_track_id?: string | null,
+  bgm_volume?: number,
+  captions_enabled?: boolean,
+  caption_position?: "bottom_center" | "top_center"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -688,6 +1091,14 @@ export const createProject = (
     video_style,
     video_length,
     content_language,
+<<<<<<< HEAD
+=======
+    voice_emotion,
+    bgm_track_id,
+    bgm_volume,
+    captions_enabled,
+    caption_position,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -696,9 +1107,14 @@ export interface BulkProjectItem {
   name?: string;
   template?: string;
   video_style?: VideoStyleId;
+<<<<<<< HEAD
   video_length?: "auto" | "short" | "medium" | "detailed";
+=======
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   voice_gender?: string;
   voice_accent?: string;
+  voice_emotion?: string;
   accent_color?: string;
   bg_color?: string;
   text_color?: string;
@@ -708,6 +1124,11 @@ export interface BulkProjectItem {
   custom_voice_id?: string;
   aspect_ratio?: string;
   content_language?: string | null;
+<<<<<<< HEAD
+=======
+  captions_enabled?: boolean;
+  caption_position?: "bottom_center" | "top_center";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export interface BulkCreateResponse {
@@ -741,6 +1162,7 @@ export const createProjectFromDocs = (
     name?: string;
     voice_gender?: string;
     voice_accent?: string;
+    voice_emotion?: string;
     accent_color?: string;
     bg_color?: string;
     text_color?: string;
@@ -751,8 +1173,15 @@ export const createProjectFromDocs = (
     aspect_ratio?: string;
     template?: string;
     video_style?: VideoStyleId;
+<<<<<<< HEAD
     video_length?: "auto" | "short" | "medium" | "detailed";
     content_language?: string | null;
+=======
+    video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
+    content_language?: string | null;
+    bgm_track_id?: string | null;
+    bgm_volume?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   } = {}
 ) => {
   const formData = new FormData();
@@ -760,6 +1189,7 @@ export const createProjectFromDocs = (
   if (config.name) formData.append("name", config.name);
   if (config.voice_gender) formData.append("voice_gender", config.voice_gender);
   if (config.voice_accent) formData.append("voice_accent", config.voice_accent);
+  if (config.voice_emotion) formData.append("voice_emotion", config.voice_emotion);
   if (config.accent_color) formData.append("accent_color", config.accent_color);
   if (config.bg_color) formData.append("bg_color", config.bg_color);
   if (config.text_color) formData.append("text_color", config.text_color);
@@ -778,6 +1208,13 @@ export const createProjectFromDocs = (
   if (config.video_length !== undefined && config.video_length !== null) {
     formData.append("video_length", config.video_length);
   }
+<<<<<<< HEAD
+=======
+  if (config.bgm_track_id) formData.append("bgm_track_id", config.bgm_track_id);
+  if (config.bgm_volume !== undefined && config.bgm_volume !== null) {
+    formData.append("bgm_volume", String(config.bgm_volume));
+  }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -888,8 +1325,81 @@ export const updateProject = (
     text_color?: string;
     font_family?: string | null;
     aspect_ratio?: string;
+<<<<<<< HEAD
+=======
+    playback_speed?: number;
+    bgm_track_id?: string | null;
+    bgm_volume?: number;
+    captions_enabled?: boolean;
+    caption_position?: "bottom_center" | "top_center";
+    caption_font_family?: string;
+    caption_font_size?: number;
+    caption_offset?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
+
+export interface VoiceChangeStartResponse {
+  started: boolean;
+  total: number;
+}
+
+export interface VoiceChangeStatus {
+  active: boolean;
+  done: boolean;
+  error: string | null;
+  total: number;
+  completed: number;
+  progress: number;
+  status: string;
+  r2_video_url: string | null;
+  /** Which operation is running: "voice_change" (add/change) or "delete". */
+  kind?: string;
+}
+
+/**
+ * Change the project voice and regenerate every scene's voiceover (verbatim, in
+ * the new voice). Counts as a new video (deducts one credit). Regeneration runs
+ * in the background — poll getVoiceChangeStatus for scene-by-scene progress.
+ */
+export const changeProjectVoice = (
+  projectId: number,
+  data: {
+    voice_gender?: string;
+    voice_accent?: string;
+    custom_voice_id?: string;
+    voice_emotion?: string;
+  }
+) => api.post<VoiceChangeStartResponse>(`/projects/${projectId}/change-voice`, data);
+
+export const getVoiceChangeStatus = (projectId: number) =>
+  api.get<VoiceChangeStatus>(`/projects/${projectId}/voice-change-status`);
+
+/**
+ * Remove the project's voiceover and make the video mute. Does NOT deduct a video
+ * credit. Runs in the background as a job — poll getVoiceChangeStatus for progress
+ * (it reports kind="delete"). The existing render is kept; re-rendering to apply the
+ * mute is a normal (paid) re-render.
+ */
+export const deleteProjectVoiceover = (projectId: number) =>
+  api.post<VoiceChangeStartResponse>(`/projects/${projectId}/delete-voiceover`);
+
+/**
+ * Synthesize a short on-demand voice preview with the given voice + tuning (Advanced Options).
+ * Returns an object URL for playback — the caller must revoke it. Paid + rate-limited server-side.
+ */
+export const previewVoice = async (params: {
+  voice_gender?: string | null;
+  voice_accent?: string | null;
+  custom_voice_id?: string | null;
+  voice_emotion?: string | null;
+  video_style?: string | null;
+}): Promise<string> => {
+  const res = await api.post("/voice/preview", params, { responseType: "blob" });
+  const blob = res.data as Blob;
+  if (!blob || blob.size === 0) throw new Error("Empty audio");
+  return window.URL.createObjectURL(blob);
+};
 
 export const updateScene = (
   projectId: number,
@@ -912,6 +1422,63 @@ export const updateSceneImage = (
   );
 };
 
+export const updateSceneImageFocus = (
+  projectId: number,
+  sceneId: number,
+  imageFocusX: number,
+  imageFocusY: number,
+  imageZoom?: number
+) =>
+  api.patch<Scene>(`/projects/${projectId}/scenes/${sceneId}/image-focus`, {
+    image_focus_x: imageFocusX,
+    image_focus_y: imageFocusY,
+    ...(imageZoom !== undefined ? { image_zoom: imageZoom } : {}),
+  });
+
+export const moveSceneImage = (
+  projectId: number,
+  fromSceneId: number,
+  toSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/move`, {
+    from_scene_id: fromSceneId,
+    to_scene_id: toSceneId,
+  });
+
+export const swapSceneImages = (
+  projectId: number,
+  firstSceneId: number,
+  secondSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/swap`, {
+    first_scene_id: firstSceneId,
+    second_scene_id: secondSceneId,
+  });
+
+export const duplicateSceneImage = (
+  projectId: number,
+  sourceSceneId: number,
+  targetSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/duplicate`, {
+    source_scene_id: sourceSceneId,
+    target_scene_id: targetSceneId,
+  });
+
+export const assignExistingImageToScene = (
+  projectId: number,
+  sceneId: number,
+  assetId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/assign-existing`, {
+    scene_id: sceneId,
+    asset_id: assetId,
+  });
+
+export interface GenerateSceneImageRequest {
+  image_description: string;
+}
+
 export interface GenerateSceneImageResponse {
   image_base64: string;
   refined_prompt: string;
@@ -919,10 +1486,12 @@ export interface GenerateSceneImageResponse {
 
 export const generateSceneImage = (
   projectId: number,
-  sceneId: number
+  sceneId: number,
+  body: GenerateSceneImageRequest
 ) =>
   api.post<GenerateSceneImageResponse>(
-    `/projects/${projectId}/scenes/${sceneId}/generate-image`
+    `/projects/${projectId}/scenes/${sceneId}/generate-image`,
+    body
   );
 
 export interface LayoutPropSchemaEntry {
@@ -962,7 +1531,8 @@ export const regenerateScene = (
   narrationText: string,
   regenerateVoiceover: boolean,
   layout?: string,
-  imageFile?: File
+  imageFile?: File,
+  voiceoverVerbatim: boolean = true
 ) => {
   const formData = new FormData();
   // Only append description if it has a value
@@ -971,6 +1541,7 @@ export const regenerateScene = (
   }
   formData.append("narration_text", narrationText);
   formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
+  formData.append("voiceover_verbatim", voiceoverVerbatim ? "true" : "false");
   if (layout) formData.append("layout", layout);
   if (imageFile) formData.append("image", imageFile);
   
@@ -1074,6 +1645,24 @@ export const getChatHistory = (id: number) =>
 
 // ─── Custom Templates API (Pro only) ─────────────────────
 
+/** Scene-exit transition styles (must match GeneratedTransition registry). */
+export type TransitionStyle =
+  | "fade"
+  | "accent_wash"
+  | "rule_sweep"
+  | "ink_wash"
+  | "whip_blur"
+  | "push_slide"
+  | "cover_wipe"
+  | "page_flip"
+  | "clock_sweep"
+  // richer custom presentations (palette-driven; ported from economist/chronicle)
+  | "parallax_push"
+  | "whip_pan"
+  | "accent_bar"
+  | "page_fold"
+  | "ink_bleed";
+
 export interface CustomTemplateTheme {
   colors: { accent: string; bg: string; text: string; surface: string; muted: string; bg2?: string };
   fonts: { heading: string; body: string; mono: string };
@@ -1087,6 +1676,31 @@ export interface CustomTemplateTheme {
     images: { treatment: string; overlay: string; captionStyle: string };
     layout: { direction: string; decorativeElements: string[] };
   };
+  /** Motion personality — drives kit animation timing + scene-exit transitions. */
+  motion?: {
+    energy?: "calm" | "smooth" | "energetic";
+    easing?: string;
+    transitionFamily?: TransitionStyle[];
+  };
+  /** Data-viz styling cues for the craft kit's CustomChart. */
+  charts?: {
+    style?: "clean" | "precise" | "editorial";
+    gridStyle?: "dashed" | "horizontal" | "none";
+    palette?: string[];
+  };
+  /** Background decoration system for the kit's <Decor>. */
+  decor?: {
+    system?: "none" | "dots" | "grid" | "orbs" | "starfield" | "rules" | "vignette";
+    intensity?: number;
+  };
+  /** Preferred content archetypes for this brand (scene-type variety hint). */
+  sceneBias?: string[];
+  /**
+   * The user's raw prompt / uploaded-doc text (prompt & doc creation paths only).
+   * Round-trips extract → create → DB so scene generation can honor explicit
+   * scene requests ("add a testimonial scene"). Absent for URL-scraped themes.
+   */
+  brief?: string;
 }
 
 export interface CustomTemplateItem {
@@ -1094,7 +1708,7 @@ export interface CustomTemplateItem {
   name: string;
   source_url: string | null;
   category: string;
-  supported_video_style: VideoStyleId;
+  genres?: string[];
   theme: CustomTemplateTheme;
   preview_colors: { accent: string; bg: string; text: string };
   component_code: string | null;
@@ -1107,10 +1721,28 @@ export interface CustomTemplateItem {
   logo_urls?: string[];
   og_image?: string;
   generation_failed: boolean;
+<<<<<<< HEAD
+=======
+  my_rating?: number | null;
+  my_rating_comment?: string | null;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   created_at: string;
   updated_at: string;
 }
 
+<<<<<<< HEAD
+=======
+export interface TemplateRating {
+  id: number;
+  user_id: number;
+  custom_template_id: number;
+  rating: number;
+  suggestion: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export interface TemplateVersionItem {
   id: number;
   label: string;
@@ -1142,7 +1774,10 @@ export const createCustomTemplate = (data: {
   name: string;
   source_url?: string;
   theme: CustomTemplateTheme;
+<<<<<<< HEAD
   supported_video_style?: VideoStyleId;
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   logo_urls?: string[];
   og_image?: string;
   screenshot_url?: string;
@@ -1151,7 +1786,7 @@ export const createCustomTemplate = (data: {
 
 export const updateCustomTemplate = (
   id: number,
-  data: { name?: string; theme?: CustomTemplateTheme; supported_video_style?: VideoStyleId }
+  data: { name?: string; theme?: CustomTemplateTheme }
 ) => api.put<CustomTemplateItem>(`/custom-templates/${id}`, data);
 
 export const deleteCustomTemplate = (id: number, force = false) =>
@@ -1160,6 +1795,23 @@ export const deleteCustomTemplate = (id: number, force = false) =>
 export const extractTheme = (url: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
 
+<<<<<<< HEAD
+=======
+export const extractThemeFromPrompt = (prompt: string, name?: string) =>
+  api.post<ExtractThemeResponse>("/custom-templates/extract-theme-from-prompt", { prompt, name });
+
+export const extractThemeFromDoc = (file: File, name?: string) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (name) formData.append("name", name);
+  return api.post<ExtractThemeResponse>(
+    "/custom-templates/extract-theme-from-doc",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export const generateTemplateCode = (templateId: number) =>
   api.post<{ detail: string; template_id: number }>(`/custom-templates/${templateId}/generate-code`);
 
@@ -1203,6 +1855,14 @@ export const rollbackTemplateVersion = (templateId: number, versionId: number) =
     `/custom-templates/${templateId}/versions/${versionId}/rollback`
   );
 
+<<<<<<< HEAD
+=======
+export const submitTemplateRating = (
+  templateId: number,
+  data: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }
+) => api.post<TemplateRating>(`/custom-templates/${templateId}/rating`, data);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 // ─── ElevenLabs voices (default / available) ─────────────────
 
 export interface ElevenLabsVoice {
@@ -1330,4 +1990,12 @@ export const createCustomVoiceClone = (formData: FormData) =>
 export const deleteSavedVoice = (id: number) =>
   api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
 
+<<<<<<< HEAD
+=======
+// ─── Embed API ────────────────────────────────────────────
+
+export const generateEmbedToken = (projectId: number) =>
+  api.post<{ embed_token: string; preview_url: string }>(`/embed/token/${projectId}`);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export default api;

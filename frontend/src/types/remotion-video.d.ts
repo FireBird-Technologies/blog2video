@@ -26,6 +26,49 @@ declare module "@remotion-video/templates/matrix/layouts" {
   export type MatrixLayoutProps = Record<string, any>;
 }
 
+<<<<<<< HEAD
+=======
+declare module "@remotion-video/templates/spotlight/transitions" {
+  import type { TransitionPresentation, TransitionTiming } from "@remotion/transitions";
+  export interface SpotlightTransitionChoice {
+    presentation: TransitionPresentation<Record<string, unknown>>;
+    timing: TransitionTiming;
+    frames: number;
+  }
+  export function pickSpotlightTransition(
+    fromIdx: number,
+    fromLayout: string,
+    toLayout: string,
+    w?: number,
+    h?: number,
+  ): SpotlightTransitionChoice;
+  export const SPOTLIGHT_TRANSITION_POOL_SIZE: number;
+}
+
+declare module "@remotion-video/templates/matrix/transitions" {
+  import type { TransitionPresentation, TransitionTiming } from "@remotion/transitions";
+  export interface MatrixTransitionChoice {
+    presentation: TransitionPresentation<Record<string, unknown>>;
+    timing: TransitionTiming;
+    frames: number;
+  }
+  export function pickMatrixTransition(
+    fromIdx: number,
+    fromLayout?: string,
+    toLayout?: string,
+    w?: number,
+    h?: number,
+  ): MatrixTransitionChoice;
+  export const MATRIX_TRANSITION_POOL_SIZE: number;
+}
+
+declare module "@remotion-video/templates/mosaic/layouts" {
+  export const MOSAIC_LAYOUT_REGISTRY: Record<string, any>;
+  export type MosaicLayoutType = string;
+  export type MosaicLayoutProps = Record<string, any>;
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 declare module "@remotion-video/templates/whiteboard/layouts" {
   export const WHITEBOARD_LAYOUT_REGISTRY: Record<string, any>;
   export type WhiteboardLayoutType = string;
@@ -49,3 +92,17 @@ declare module "@remotion-video/templates/blackswan/layouts" {
   export type BlackswanLayoutType = string;
   export type BlackswanLayoutProps = Record<string, any>;
 }
+<<<<<<< HEAD
+=======
+
+declare module "@remotion-video/templates/chronicle/layouts" {
+  export const CHRONICLE_LAYOUT_REGISTRY: Record<string, any>;
+  export type ChronicleLayoutType = string;
+  export type ChronicleLayoutProps = Record<string, any>;
+}
+
+declare module "@remotion-video/templates/chronicle/components/ChronicleChrome" {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export const ChronicleChrome: React.FC<any>;
+}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

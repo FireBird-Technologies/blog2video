@@ -1,4 +1,5 @@
 import json
+import re
 import dspy
 from collections import Counter
 
@@ -6,6 +7,20 @@ from app.dspy_modules import ensure_dspy_configured
 from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
     generate_chart_props_from_table_hints,
+<<<<<<< HEAD
+=======
+    reconcile_chart_units,
+    generate_terminal_chart_candlestick_items,
+    generate_terminal_table_items,
+    generate_terminal_ticker_items,
+    is_candlestick_table,
+    has_candlestick_table_in_visual_hint,
+    assign_chart_axis_captions,
+    sanitize_chart_table_layout_props,
+    _extract_tables_from_visual_hint,
+    _score_table_for_scene,
+    is_laduc_ticker_table,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 )
 from app.services.template_service import (
     get_prompt,
@@ -13,6 +28,8 @@ from app.services.template_service import (
     get_valid_layouts,
     get_hero_layout,
     get_fallback_layout,
+    is_builtin_chart_layout,
+    is_builtin_ticker_layout,
 )
 from app.observability.logging import get_logger
 
@@ -75,6 +92,17 @@ class BuiltInTemplateSceneToDescriptor(dspy.Signature):
     - For charts: extract ALL data points mentioned (categories, values, time points)
     - If a prop is optional and not in narration, omit it (don't guess)
     - Use EXACT prop key names from the layout catalog (e.g., "barChartRows" not "bar_chart", "metrics" not "metric")
+<<<<<<< HEAD
+=======
+
+    ═══ CHART DATA INTEGRITY — BLOOMBERG TERMINAL/DATAVIZ LAYOUTS ═══
+    - NEVER invent, fabricate, or guess year/date labels for chart data points.
+    - Chart data MUST come from the scraped table embedded in visual_description (the
+      ═══ TABLE_DATA_HINT_JSON ═══ block). Do NOT synthesize chart data from prose claims.
+    - Use ONLY the exact labels present in the embedded table headers/rows.
+    - If no time labels exist in the source table, use the row index (1, 2, 3...) or omit labels entirely.
+    - The chartTable prop is always overridden deterministically from the raw table data — do not set it yourself.
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     ═══ OUTPUT FORMAT ═══
     - layout: exact layout ID from catalog (lowercase, underscores)
@@ -169,6 +197,43 @@ class BuiltInRegenerateSceneToDescriptor(dspy.Signature):
     )
     layout_props_json: str = dspy.OutputField(
         desc='Valid JSON object with layout-specific props. Exact prop keys from catalog. {} when none. Do NOT wrap in markdown code blocks.'
+    )
+
+
+# ─── LaDuc chart caption: prose beside `market_annotation` charts ──────────────
+
+
+class LaDucChartSummary(dspy.Signature):
+    """
+    Write a 2–3 sentence analytical caption for a chart, grounded strictly in the bound table.
+
+    Rules:
+    - Use ONLY values that appear verbatim in chart_table_json.rows. Never invent figures.
+    - Name at least two specific entities (row labels) and cite at least two numeric values.
+    - Be analytical: identify the leader, the gap between top and bottom, a notable outlier or
+      concentration, and if the data allows, a directional trend or ratio.
+    - Do NOT restate the title or narration. Complement them — add a different angle.
+    - Plain English. No finance jargon unless the narration uses it.
+    - Wrap key emphasis phrases (a standout figure, a striking ratio, the dominant entity) in
+      __double underscores__ — e.g. __ICBC at $7.3T__. Use 1–3 emphasis spans per output.
+      Do NOT wrap entire sentences, only the 2–5 word key fact within a sentence.
+    - Target ~45–60 words total across the 2–3 sentences.
+    """
+
+    chart_table_json: str = dspy.InputField(
+        desc='JSON: {"headers": [...], "rows": [[...], ...]}. The exact table being charted on screen.'
+    )
+    chart_type: str = dspy.InputField(desc="bar | line | histogram")
+    scene_title: str = dspy.InputField(desc="The scene's title — for tonal continuity only.")
+    narration: str = dspy.InputField(desc="The scene's voiceover — the caption must complement, not repeat it.")
+
+    summary: str = dspy.OutputField(
+        desc=(
+            "2–3 sentence analytical caption rendered beside the chart. "
+            "Cites at least two row labels and two numeric values from chart_table_json.rows. "
+            "Key emphasis phrases (standout figures, dominant entities, striking ratios) are wrapped "
+            "in __double underscores__ — e.g. '__ICBC at $7.3T__'. 1–3 emphasis spans total."
+        )
     )
 
 
@@ -325,6 +390,20 @@ class ArrangementVarietyTracker:
         return recent_count >= threshold
 
 
+_SCRAPED_TICKER_RE = re.compile(
+    r"═══ SCRAPED_TICKER_ROWS ═══\n(.*?)\n═══ END_SCRAPED_TICKER_ROWS ═══",
+    re.DOTALL,
+)
+
+
+def _extract_scraped_ticker_rows(visual_description: str) -> list[str]:
+    """Parse the ticker rows block injected by the pipeline into visual_description."""
+    m = _SCRAPED_TICKER_RE.search(visual_description)
+    if not m:
+        return []
+    return [line for line in m.group(1).splitlines() if line.strip()]
+
+
 class TemplateSceneGenerator:
     """Generates scene layout configs with focus on variety and accurate content extraction."""
 
@@ -364,19 +443,23 @@ class TemplateSceneGenerator:
             self._fallback_layout = get_fallback_layout(template_id)
 
         if self._is_custom:
-            self._descriptor = dspy.ChainOfThought(TemplateSceneToDescriptor)
+            self._descriptor = dspy.Predict(TemplateSceneToDescriptor)
             self.descriptor = dspy.asyncify(self._descriptor)
-            self._regenerate_descriptor = dspy.ChainOfThought(RegenerateSceneToDescriptor)
+            self._regenerate_descriptor = dspy.Predict(RegenerateSceneToDescriptor)
             self.regenerate_descriptor = dspy.asyncify(self._regenerate_descriptor)
             self.builtin_descriptor = None
             self.builtin_regenerate_descriptor = None
         else:
-            self._builtin_descriptor = dspy.ChainOfThought(BuiltInTemplateSceneToDescriptor)
+            self._builtin_descriptor = dspy.Predict(BuiltInTemplateSceneToDescriptor)
             self.builtin_descriptor = dspy.asyncify(self._builtin_descriptor)
-            self._builtin_regenerate_descriptor = dspy.ChainOfThought(BuiltInRegenerateSceneToDescriptor)
+            self._builtin_regenerate_descriptor = dspy.Predict(BuiltInRegenerateSceneToDescriptor)
             self.builtin_regenerate_descriptor = dspy.asyncify(self._builtin_regenerate_descriptor)
             self._descriptor = self.descriptor = None
             self._regenerate_descriptor = self.regenerate_descriptor = None
+
+        # LaDuc chart caption predictor — used by _merge_laduc_chart_props to fill chartSummary.
+        self._chart_summary = dspy.Predict(LaDucChartSummary)
+        self.chart_summary = dspy.asyncify(self._chart_summary)
 
         if self._is_custom:
             self.variety_tracker = ArrangementVarietyTracker(
@@ -421,6 +504,7 @@ class TemplateSceneGenerator:
         scene_index: int | None = None,
     ) -> dict:
         if layout != "data_visualization":
+<<<<<<< HEAD
             return props
 
         out = dict(props or {})
@@ -526,24 +610,869 @@ class TemplateSceneGenerator:
         layout_meta = (self._meta or {}).get("layouts", {}).get(layout, {})
         prop_schema = layout_meta.get("props", {})
         if not prop_schema:
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             return props
+
+        out = dict(props or {})
+
+        # Enforce chartTable-only data payloads for data_visualization even if
+        # planner cannot derive table props for this scene.
+        for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
+            out.pop(key, None)
+
+        preferred_table_index = None
+        if isinstance(scene_index, int):
+            preferred_table_index = self._newscast_data_viz_table_by_scene.get(scene_index)
+
+        planned = generate_chart_props_from_table_hints(
+            visual_description=visual_description,
+            scene_title=scene_title,
+            narration=narration,
+            preferred_table_index=preferred_table_index,
+        )
+        if not planned:
+            return out
+
+        chart_keys = {
+            "chartType",
+            "chartTable",
+            "subtitle",
+            "yAxisLabel",
+            "marketSymbol",
+            "marketValue",
+            "marketDelta",
+            "marketPercent",
+            "marketTrend",
+        }
+
+        # Planner output is deterministic from extracted table hints, while model
+        # output may include noisy numeric hallucinations from mixed text cells.
+        # Prefer planner chart payload when available.
+        for k, v in planned.items():
+            if k in chart_keys:
+                if k == "chartType" and out.get("chartType"):
+                    continue
+                if k in ("subtitle", "yAxisLabel") and str(out.get(k) or "").strip():
+                    continue
+                out[k] = v
+
+        return assign_chart_axis_captions(out)
+
+    async def _merge_laduc_chart_props(
+        self,
+        layout: str,
+        props: dict,
+        visual_description: str,
+        scene_title: str,
+        narration: str,
+        scene_index: int | None = None,
+    ) -> dict:
+        """Inject real scraped chartTable into market_annotation props.
+
+        Mirrors _merge_chart_planner_props for newscast's data_visualization.
+        Uses the pre-bound table index from _newscast_data_viz_table_by_scene
+        (populated upfront from data_table_index set by ScriptGenerator) so the
+        correct table is always selected without re-scoring all tables per call.
+        """
+        # Matrix / Spotlight / Chronicle share LaDuc's chart/ticker contract via
+        # their *_data / *_table (ticker) layouts. The registered chart/ticker ids
+        # come from CHART_TICKER_TEMPLATE_LAYOUTS (single source); chart matching is
+        # by prefix (mirrors LaDuc's market_annotation* handling). One *_data layout
+        # per template covers line/bar/histogram via chartType.
+        is_chart_layout = (
+            layout.startswith("market_annotation")
+            or is_builtin_chart_layout(layout)
+        )
+        is_ticker_layout = (
+            layout == "ticker"
+            or is_builtin_ticker_layout(layout)
+        )
+        if not (is_chart_layout or is_ticker_layout):
+            return props
+        out = dict(props or {})
+        preferred_table_index = (
+            self._newscast_data_viz_table_by_scene.get(scene_index)
+            if isinstance(scene_index, int)
+            else None
+        )
+
+        # Ticker layout: bypass chart planner entirely — write raw { headers, rows }
+        # directly to tickerTable. _build_chart_props_from_table fails on ticker-style
+        # tables that have empty "" separator columns (e.g. Name|""|Price|""|%).
+        if is_ticker_layout:
+            tables = _extract_tables_from_visual_hint(visual_description)
+            if not tables:
+                return out
+            best: dict | None = None
+            if preferred_table_index is not None and 0 <= preferred_table_index < len(tables):
+                best = tables[preferred_table_index]
+            else:
+                # Prefer tables that look like a market snapshot (Name/Price/% cols)
+                ticker_candidates = [t for t in tables if isinstance(t, dict) and is_laduc_ticker_table(t)]
+                if ticker_candidates:
+                    best = ticker_candidates[0]
+                else:
+                    scene_text = f"{scene_title}\n{narration}".strip()
+                    scored = [(t, _score_table_for_scene(t, scene_text)) for t in tables if isinstance(t, dict)]
+                    best = max(scored, key=lambda x: x[1], default=(None, None))[0]
+            if best:
+                out["tickerTable"] = {"headers": best.get("headers", []), "rows": best.get("rows", [])}
+            return out
+
+        planned = generate_chart_props_from_table_hints(
+            visual_description=visual_description,
+            scene_title=scene_title,
+            narration=narration,
+            preferred_table_index=preferred_table_index,
+        )
+        if not planned:
+            if is_chart_layout and isinstance(out.get("chartTable"), dict):
+                return sanitize_chart_table_layout_props(out)
+            return out
+        # market_annotation: always override chartTable with real scraped data
+        # — never keep LLM's fabricated rows. Keep AI's chartType only if it's
+        # a valid explicit choice (not empty/auto).
+        if "chartTable" in planned and planned["chartTable"].get("rows"):
+            out["chartTable"] = planned["chartTable"]
+        if "chartType" in planned:
+            ai_chart_type = out.get("chartType", "")
+            if not ai_chart_type or ai_chart_type == "auto":
+                out["chartType"] = planned["chartType"]
+        for caption_key in ("subtitle", "yAxisLabel"):
+            if caption_key in planned and not str(out.get(caption_key) or "").strip():
+                out[caption_key] = planned[caption_key]
+        out = sanitize_chart_table_layout_props(assign_chart_axis_captions(out))
+
+        # Populate chartSummary with an LLM-written analytical caption when the
+        # scene has real bound chart data and nobody (manual edit / upstream
+        # generator) has already set one. A failure here is non-fatal — the
+        # frontend renderer falls back to buildAutoChartSummary.
+        if not out.get("chartSummary"):
+            chart_tbl = out.get("chartTable")
+            if isinstance(chart_tbl, dict) and (chart_tbl.get("rows") or []):
+                try:
+                    summary_res = await self.chart_summary(
+                        chart_table_json=json.dumps(chart_tbl, ensure_ascii=False),
+                        chart_type=str(out.get("chartType") or "bar"),
+                        scene_title=scene_title,
+                        narration=narration,
+                    )
+                    summary_text = (getattr(summary_res, "summary", "") or "").strip()
+                    if summary_text:
+                        out["chartSummary"] = summary_text
+                except Exception:
+                    logger.warning(
+                        "[SCENE_GEN] LaDucChartSummary failed for scene_index=%s; "
+                        "falling back to frontend auto-summary",
+                        scene_index,
+                    )
+        return out
+
+    def _merge_bloomberg_table_props(
+        self,
+        layout: str,
+        props: dict,
+        visual_description: str,
+    ) -> dict:
+        """Generate deterministic items[] props for bloomberg table layouts.
+
+        - terminal_chart: extract time-series values → "{label}: {value}" items
+        - terminal_table: format table rows as pipe-delimited items strings
+        - terminal_dataviz: extract chartTable + chartType from non-candlestick tables
+        Only runs for bloomberg; returns props unchanged for all other layouts.
+        """
+        if layout not in {"terminal_chart", "terminal_table", "terminal_dataviz", "terminal_ticker"}:
+            return props
+
+        # terminal_ticker: override LLM items with real data (prose-scraped first, table fallback second)
+        if layout == "terminal_ticker":
+            out = dict(props or {})
+            ticker_rows = _extract_scraped_ticker_rows(visual_description)
+            if not ticker_rows:
+                # Fallback: derive ticker items from TABLE_DATA_HINT_JSON if present
+                tables = [t for t in _extract_tables_from_visual_hint(visual_description) if isinstance(t, dict)]
+                for t in tables:
+                    items = generate_terminal_ticker_items(t, max_items=10)
+                    if items:
+                        ticker_rows = items
+                        break
+            out["items"] = ticker_rows
+            return out
+
+        tables = [t for t in _extract_tables_from_visual_hint(visual_description) if isinstance(t, dict)]
+        if not tables:
+            # No scraped table data available — bloomberg data layouts must NEVER fabricate data
+            # from prose. Mark as invalid so the caller's guard falls back to a non-data layout.
+            if layout in {"terminal_chart", "terminal_dataviz", "terminal_table"}:
+                return {**(props or {}), "_invalid_layout": True}
+            return props
+
+        out = dict(props or {})
+
+        if layout == "terminal_chart":
+            # Search all tables for one with OHLCV columns, not just tables[0]
+            candlestick_table = next((t for t in tables if is_candlestick_table(t)), None)
+            if candlestick_table is None:
+                # No OHLCV data — but there may be a non-candlestick line-chartable table.
+                # Route to terminal_dataviz (line chart) instead of making up fake OHLCV values.
+                non_cs = next((t for t in tables if not is_candlestick_table(t)), None)
+                if non_cs:
+                    out["_reroute_to_dataviz"] = True
+                    out["_dataviz_table"] = non_cs
+                else:
+                    out["_invalid_layout"] = True
+                return out
+            items = generate_terminal_chart_candlestick_items(candlestick_table, max_items=60)
+            if items:
+                out["items"] = items
+            # Also store the raw table so the component + modal can use/edit it directly
+            out["ohlcvTable"] = {
+                "headers": candlestick_table.get("headers", []),
+                "rows": candlestick_table.get("rows", []),
+            }
+            # Derive ticker tag from table source or first non-date/numeric header token
+            if not out.get("ticker"):
+                source = str(candlestick_table.get("source") or "").strip()
+                headers = [str(h) for h in candlestick_table.get("headers", []) if h]
+                # Prefer source (e.g. "AAPL price data" → "AAPL"), then first header that looks like a symbol
+                symbol = ""
+                if source:
+                    first_token = source.split()[0].upper().rstrip(".,;:")
+                    if 1 <= len(first_token) <= 8 and first_token.isalpha():
+                        symbol = first_token
+                if not symbol and headers:
+                    for h in headers:
+                        tok = h.strip().upper().rstrip(".,;:")
+                        if 1 <= len(tok) <= 8 and tok.isalpha() and tok not in {"DATE", "TIME", "OPEN", "HIGH", "LOW", "CLOSE", "VOL", "VOLUME", "ADJ"}:
+                            symbol = tok
+                            break
+                if symbol:
+                    out["ticker"] = symbol
+        elif layout == "terminal_table":
+            # If the embedded table is actually a time-series / line-chartable dataset,
+            # reroute to terminal_dataviz instead of wasting it as a static table.
+            _line_props = generate_chart_props_from_table_hints(
+                visual_description=visual_description,
+                scene_title="",
+                narration="",
+            )
+            if _line_props.get("chartType") == "line":
+                non_cs = next((t for t in tables if not is_candlestick_table(t)), None)
+                if non_cs:
+                    out["_reroute_to_dataviz"] = True
+                    out["_dataviz_table"] = non_cs
+                    return out
+            items = generate_terminal_table_items(tables[0], max_items=12)
+            if items:
+                out["items"] = items
+        else:  # terminal_dataviz
+            # Use generate_chart_props_from_table_hints to get chartTable + chartType
+            # from non-candlestick tables (candlestick ones belong to terminal_chart)
+            planned = generate_chart_props_from_table_hints(
+                visual_description=visual_description,
+                scene_title="",
+                narration="",
+            )
+            if planned and planned.get("chartTable"):
+                out["chartTable"] = planned["chartTable"]
+                if not out.get("chartType") and planned.get("chartType"):
+                    out["chartType"] = planned["chartType"]
+            elif tables:
+                # Fallback: build chartTable directly from first non-candlestick table
+                non_cs = next((t for t in tables if not is_candlestick_table(t)), None)
+                if non_cs:
+                    out["chartTable"] = {
+                        "headers": non_cs.get("headers", []),
+                        "rows": non_cs.get("rows", []),
+                    }
+
+        return out
+
+    # Economist data layouts and the chart shape each one expects.
+    _ECONOMIST_DATA_LAYOUTS = {"chart_line", "chart_bar", "data_table"}
+
+    def _economist_prose_fallback_props(self, narration: str) -> dict:
+        """Props for a data layout that degrades to the prose fallback.
+
+        When a chart/table/KPI scene has no real scraped data we reroute it to
+        the template's prose fallback (``leader_article``). Run the leader_article
+        backfill so the rerouted scene gets a standfirst + key points distilled
+        from the narration instead of rendering as empty paper.
+        """
+        if self._fallback_layout == "leader_article":
+            return self._economist_backfill_leader_article({}, narration)
+        return {}
+
+    @staticmethod
+    def _economist_current_dateline() -> str:
+        """Today's date as an Economist-style weekly issue range, uppercase.
+
+        e.g. on 2026-06-09 → "JUNE 7TH–13TH 2026" (the Sun–Sat week). Computed at
+        generation time so the deterministic render shows a real, current date.
+        """
+        from datetime import date, timedelta
+
+        def _ord(n: int) -> str:
+            if 10 <= n % 100 <= 20:
+                suf = "TH"
+            else:
+                suf = {1: "ST", 2: "ND", 3: "RD"}.get(n % 10, "TH")
+            return f"{n}{suf}"
+
+        today = date.today()
+        # Week runs Sunday→Saturday (Economist cover convention).
+        start = today - timedelta(days=(today.weekday() + 1) % 7)
+        end = start + timedelta(days=6)
+        if start.month == end.month:
+            return f"{start.strftime('%B').upper()} {_ord(start.day)}–{_ord(end.day)} {end.year}"
+        return (
+            f"{start.strftime('%B').upper()} {_ord(start.day)} – "
+            f"{end.strftime('%B').upper()} {_ord(end.day)} {end.year}"
+        )
+
+    @staticmethod
+    def _economist_backfill_leader_article(props: dict, narration: str) -> dict:
+        """Ensure a leader_article never renders as near-empty paper.
+
+        The on-screen ``body`` paragraph is the main copy and is independent of
+        the short spoken ``narration``. The prompt asks the model to emit
+        ``body``, a ``standfirst`` deck and 2–3 ``keyPoints``, but a thin source
+        (or a terse model) can still omit them. Backfill ONLY what is missing,
+        distilled from the richest copy available (the body, else the narration)
+        — we never fabricate figures or claims, honouring the template's
+        data-grounding rule. If there is nothing to draw from we leave the field
+        unset rather than invent one.
+        """
+        import re
+
+        out = dict(props or {})
+
+        # Drop the byline entirely. The prompt/meta example ("By our finance
+        # correspondent") was being copied verbatim onto every article, stamping
+        # a fabricated, topic-mismatched correspondent (e.g. a finance byline on a
+        # fiction-craft piece). We never invent authorship, so no byline renders.
+        out.pop("byline", None)
+
+        # The on-screen body is the main copy; fall back to the narration when
+        # the model omitted it (e.g. a data scene rerouted to this prose
+        # fallback) so the page still fills rather than rendering empty.
+        body_text = str(out.get("body") or "").strip()
+        if not body_text:
+            body_text = (narration or "").strip()
+            if body_text:
+                out["body"] = body_text
+
+        # Derive the deck + points from the richest copy we have (the body).
+        source = body_text or (narration or "").strip()
+        if not source:
+            return out
+
+        # Sentence split (keep it simple/deterministic — no NLP dependency).
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", source) if s.strip()]
+
+        # Standfirst: the first sentence, trimmed to ≤16 words, if absent.
+        if not str(out.get("standfirst") or "").strip() and sentences:
+            words = sentences[0].split()
+            deck = " ".join(words[:16]).rstrip(",;:")
+            if len(words) > 16:
+                deck = deck.rstrip(".") + "…"
+            out["standfirst"] = deck
+
+        # keyPoints: distil up to 3 short points from later sentences if absent.
+        existing = out.get("keyPoints")
+        has_points = isinstance(existing, list) and any(
+            str(p or "").strip() for p in existing
+        )
+        if not has_points and len(sentences) >= 2:
+            points: list[str] = []
+            # Prefer sentences after the first (which became the deck), falling
+            # back to clauses of the body if the article is a single long line.
+            pool = sentences[1:] if len(sentences) > 1 else sentences
+            for s in pool:
+                w = s.split()
+                if not w:
+                    continue
+                pt = " ".join(w[:8]).rstrip(".,;:")
+                if pt and pt.lower() not in {p.lower() for p in points}:
+                    points.append(pt)
+                if len(points) >= 3:
+                    break
+            if len(points) >= 2:
+                out["keyPoints"] = points
+        return out
+
+    def _backfill_magazine_text_narration(self, layout: str, props: dict, narration: str) -> dict:
+        """Guarantee a magazine ``text_narration`` scene has a real ``points`` list.
+
+        The layout renders one red bullet per ``points`` entry. When the model
+        omits ``points`` (or packs the whole list into a single ``•``-joined
+        string), backfill a proper array so the page never collapses into one
+        giant bullet. We only re-shape copy the model already produced — split on
+        bullet glyphs first, then on sentence boundaries; we never fabricate
+        notes. If there is nothing to draw from, leave ``points`` unset and let
+        the component fall back to the narration.
+        """
+        if self.template_id != "magazine" or layout != "text_narration":
+            return props
+
+        import re
+
+        out = dict(props or {})
+
+        existing = out.get("points")
+        has_points = isinstance(existing, list) and any(
+            (p.get("value") if isinstance(p, dict) else p) and str(
+                p.get("value") if isinstance(p, dict) else p
+            ).strip()
+            for p in existing
+        )
+        if has_points:
+            return out
+
+        # Draw from the richest prose available: an accidental single-entry
+        # points string, a stray body, else the narration.
+        source = ""
+        if isinstance(existing, list) and existing:
+            first = existing[0]
+            source = str((first.get("value") if isinstance(first, dict) else first) or "")
+        source = source.strip() or str(out.get("body") or "").strip() or (narration or "").strip()
+        if not source:
+            return out
+
+        # Split on bullet glyphs first (•, -, –, —, *, ·), then fall back to
+        # sentence boundaries so a plain paragraph still yields several notes.
+        parts = [s.strip(" \t•*·-–—") for s in re.split(r"\s*[•·]\s*|\s+[-–—*]\s+", source)]
+        parts = [s for s in parts if s]
+        if len(parts) < 2:
+            parts = [s.strip() for s in re.split(r"(?<=[.!?])\s+", source) if s.strip()]
+
+        notes = [p for p in parts if p][:6]
+        if len(notes) >= 2:
+            out["points"] = [{"value": n} for n in notes]
+        return out
+
+    def _guard_magazine_by_the_numbers(self, layout: str, props: dict, narration: str):
+        """Keep magazine ``by_the_numbers`` honest — it must NEVER invent figures.
+
+        The layout renders one oversized figure per ``stats`` entry, and figures
+        must be real numbers drawn from the source. When the model picks this
+        layout for a beat that has no numeric data (e.g. a visual description),
+        it leaves ``stats`` empty or fills it with words — which previously
+        rendered as fabricated placeholder figures. Drop any entry whose ``value``
+        carries no digit, and if fewer than two real numeric stats remain, reroute
+        to the template's prose fallback (``text_narration``) with empty props so
+        ``_backfill_magazine_text_narration`` can repopulate it from the narration.
+        Mirrors the economist ``key_indicators`` prose fallback above.
+        """
+        if self.template_id != "magazine" or layout != "by_the_numbers":
+            return layout, props
+
+        raw = (props or {}).get("stats")
+        clean = [
+            s for s in raw
+            if isinstance(s, dict)
+            and str(s.get("value", "")).strip()
+            and re.search(r"\d", str(s.get("value", "")))
+        ] if isinstance(raw, list) else []
+
+        if len(clean) < 2:
+            logger.info(
+                "[SCENE_GEN] magazine by_the_numbers has <2 real numeric stats, falling back to '%s' (never fabricating figures)",
+                self._fallback_layout,
+            )
+            return self._fallback_layout, {}
+
+        return layout, {**(props or {}), "stats": clean}
+
+    def _merge_economist_chart_props(
+        self,
+        layout: str,
+        props: dict,
+        visual_description: str,
+        scene_title: str,
+        narration: str,
+        scene_index: int | None = None,
+    ) -> tuple[str, dict]:
+        """Force the Economist chart/table layouts onto real scraped table data.
+
+        The Economist data layouts (`chart_line`, `chart_bar`, `data_table`) all
+        consume the same `chartTable={headers, rows}` contract. Like newscast's
+        `data_visualization` and bloomberg's `terminal_*`, the table payload is
+        bound DETERMINISTICALLY from the scraped tables here — never from the
+        LLM's transcription, which can round or hallucinate figures.
+
+        Returns the (possibly rerouted) layout and the merged props. When the
+        scene was assigned a data layout but no real table is available, it falls
+        back to the template's prose fallback rather than inventing numbers.
+        """
+        if self.template_id != "economist":
+            return layout, props
+
+        # Dateline: stamp the real current date (the LLM otherwise emits a stale
+        # sample range like "MAY 23RD–29TH 2026"). The render is deterministic, so
+        # the date must be fixed here at generation time, not via new Date() in the
+        # component. Covers the layouts that show a dateline.
+        if layout in ("cover_reveal", "section_divider"):
+            out = dict(props or {})
+            out["dateline"] = self._economist_current_dateline()
+            props = out
+
+        # leader_article: guarantee a standfirst deck + key points so a thin beat
+        # never renders as empty paper. Backfills only what the LLM omitted,
+        # distilled from the narration (no fabricated figures).
+        if layout == "leader_article":
+            return layout, self._economist_backfill_leader_article(props, narration)
+
+        # key_indicators with no real figures (all placeholders stripped by
+        # _strip_example_stats) would render an empty KPI grid — fall back to prose.
+        if layout == "key_indicators":
+            indicators = (props or {}).get("indicators")
+            if not (isinstance(indicators, list) and len(indicators) > 0):
+                logger.info(
+                    "[SCENE_GEN] Scene %s: economist key_indicators has no real indicators, falling back to '%s'",
+                    scene_index,
+                    self._fallback_layout,
+                )
+                return self._fallback_layout, self._economist_prose_fallback_props(narration)
+            return layout, props
+
+        if layout not in self._ECONOMIST_DATA_LAYOUTS:
+            return layout, props
+
+        out = dict(props or {})
+
+        # The takeaway panel clamps to two lines — keep the LLM's explainer short.
+        _explainer = out.get("explainer")
+        if isinstance(_explainer, str) and len(_explainer) > 220:
+            out["explainer"] = _explainer[:217].rstrip() + "…"
+        preferred_table_index = None
+        if isinstance(scene_index, int):
+            preferred_table_index = self._newscast_data_viz_table_by_scene.get(scene_index)
+
+        planned = generate_chart_props_from_table_hints(
+            visual_description=visual_description,
+            scene_title=scene_title,
+            narration=narration,
+            preferred_table_index=preferred_table_index,
+        )
+
+        planned_table = planned.get("chartTable") if isinstance(planned, dict) else None
+        if not (isinstance(planned_table, dict) and (planned_table.get("rows") or [])):
+            # No real scraped table is bound to this scene. Data-grounding is
+            # inviolable, so a chart only ever renders from a scraped table
+            # (which always arrives here via `planned`). We deliberately do NOT
+            # trust an LLM-emitted `chartTable` in `out`, nor seed meta.json
+            # sample data — both produced bar/line charts full of fabricated
+            # figures on sources that had no tabular data at all. Fall back to
+            # prose rather than inventing numbers.
+            logger.info(
+                "[SCENE_GEN] Scene %s: economist '%s' has no real scraped table, falling back to '%s' (never fabricating chart data)",
+                scene_index,
+                layout,
+                self._fallback_layout,
+            )
+            return self._fallback_layout, self._economist_prose_fallback_props(narration)
+
+        # Bind the chosen data deterministically.
+        out["chartTable"] = planned_table
+        out = assign_chart_axis_captions(out)
+
+        # Reroute the layout to match the data's natural shape: a time-like series
+        # belongs on chart_line; a categorical ranking on chart_bar / data_table.
+        planned_type = str(planned.get("chartType") or "").strip().lower()
+        if planned_type == "line" and layout != "chart_line":
+            layout = "chart_line"
+        elif planned_type in {"bar", "histogram"} and layout == "chart_line":
+            # The LLM wanted a line but the data is categorical — use a bar.
+            layout = "chart_bar"
+
+        # chart_bar carries an explicit chartType (vertical "bar" vs ranked "hbar");
+        # prefer vertical bars: coerce AI-emitted "hbar" back to vertical, default empties.
+        if layout == "chart_bar":
+            if str(out.get("chartType") or "").strip().lower() == "hbar":
+                out["chartType"] = "bar"
+            elif not out.get("chartType"):
+                out["chartType"] = "bar"
+
+        # Reconcile the display unit and dimensions with the real data. The LLM's
+        # `unit` is otherwise trusted verbatim and can be a hallucination (e.g.
+        # "AM" inferred from a "10:00 A.M." headline on a column of dollar values),
+        # and a stray percentage row can land inside a currency chart. Only bar
+        # charts drop conflicting rows — dropping an interior point from a line
+        # chart would distort the trend.
+        reconciled = reconcile_chart_units(
+            out["chartTable"],
+            declared_unit=str(out.get("unit") or ""),
+            drop_conflicts=(layout == "chart_bar"),
+        )
+        out["chartTable"] = reconciled["chartTable"]
+        if reconciled["unit"]:
+            out["unit"] = reconciled["unit"]
+        if reconciled["dropped"]:
+            logger.info(
+                "[SCENE_GEN] Scene %s: economist '%s' dropped %d off-dimension chart row(s): %s",
+                scene_index,
+                layout,
+                len(reconciled["dropped"]),
+                reconciled["dropped"],
+            )
+
+        return layout, out
+
+    def _plan_newscast_data_visualization_targets(self, scenes_data: list[dict]) -> None:
+        self._newscast_forced_data_viz_scenes = set()
+        self._newscast_data_viz_table_by_scene = {}
+        if self.template_id != "newscast" or not scenes_data:
+            return
+
+        # If the script generator already bound data_visualization scenes upstream (the preferred
+        # path), trust those bindings and skip the post-hoc positional override entirely.
+        upstream_bound = any(
+            str(s.get("preferred_layout") or "").strip().lower() == "data_visualization"
+            for s in scenes_data
+        )
+        if upstream_bound:
+            return
+
+        first_visual = str((scenes_data[0] or {}).get("visual_description") or "")
+
+        # Fix 1: only count tables that actually produce chart props.
+        chartable_tables = get_chartable_tables_from_visual_hint(first_visual)
+        if len(chartable_tables) < 2:
+            return
+
+        target_count = min(3, len(chartable_tables))
+
+        eligible: list[int] = []
+        total = len(scenes_data)
+        for i, scene in enumerate(scenes_data):
+            if i == 0:
+                continue
+            preferred = str(scene.get("preferred_layout") or "").strip().lower()
+            if preferred == "ending_socials":
+                continue
+            if total <= 4 and i == total - 1:
+                continue
+            # Fix 3: skip scenes whose visual description already signals a
+            # specific non-data layout (e.g. "story stack list …").
+            vis = str(scene.get("visual_description") or "")
+            if _visual_hints_at_layout(vis):
+                continue
+            eligible.append(i)
+
+        if not eligible:
+            return
+
+        # Spread targets across the timeline (middle-to-late content scenes).
+        chosen: list[int] = []
+        for slot in range(target_count):
+            pos = round((slot + 1) * (len(eligible) + 1) / (target_count + 1)) - 1
+            pos = max(0, min(len(eligible) - 1, pos))
+            candidate = eligible[pos]
+            if candidate not in chosen:
+                chosen.append(candidate)
+
+        for idx in eligible:
+            if len(chosen) >= target_count:
+                break
+            if idx not in chosen:
+                chosen.append(idx)
+
+        chosen = sorted(chosen)[:target_count]
+        for n, scene_idx in enumerate(chosen):
+            self._newscast_forced_data_viz_scenes.add(scene_idx)
+            orig_idx = chartable_tables[n % len(chartable_tables)][0]
+            self._newscast_data_viz_table_by_scene[scene_idx] = orig_idx
+            scenes_data[scene_idx]["preferred_layout"] = "data_visualization"
+
+    def _plan_bloomberg_dataviz_targets(self, scenes_data: list[dict]) -> None:
+        """Mirror of _plan_newscast_data_visualization_targets for bloomberg.
+
+        If the LLM already chose terminal_dataviz for any scene, trust it and exit.
+        Otherwise, find non-candlestick chartable tables and proactively assign
+        terminal_dataviz to eligible mid-video scenes (up to 2).
+        """
+        if self.template_id != "bloomberg" or not scenes_data:
+            return
+
+        upstream_bound = any(
+            str(s.get("preferred_layout") or "").strip().lower() == "terminal_dataviz"
+            for s in scenes_data
+        )
+        if upstream_bound:
+            return
+
+        first_visual = str((scenes_data[0] or {}).get("visual_description") or "")
+        all_tables = [t for t in _extract_tables_from_visual_hint(first_visual) if isinstance(t, dict)]
+        non_cs_tables = [t for t in all_tables if not is_candlestick_table(t)]
+        if not non_cs_tables:
+            return
+
+        target_count = min(2, len(non_cs_tables))
+
+        eligible: list[int] = []
+        total = len(scenes_data)
+        for i, scene in enumerate(scenes_data):
+            if i == 0:
+                continue
+            preferred = str(scene.get("preferred_layout") or "").strip().lower()
+            if preferred in {"ending_socials", "terminal_boot", "terminal_chart"}:
+                continue
+            if total <= 4 and i == total - 1:
+                continue
+            eligible.append(i)
+
+        if not eligible:
+            return
+
+        chosen: list[int] = []
+        for slot in range(target_count):
+            pos = round((slot + 1) * (len(eligible) + 1) / (target_count + 1)) - 1
+            pos = max(0, min(len(eligible) - 1, pos))
+            candidate = eligible[pos]
+            if candidate not in chosen:
+                chosen.append(candidate)
+
+        chosen = sorted(chosen)[:target_count]
+        for scene_idx in chosen:
+            scenes_data[scene_idx]["preferred_layout"] = "terminal_dataviz"
+
+    def _validate_props(self, layout: str, props: dict) -> dict:
+        """Validate props against layout schema in meta. If no schema, pass through.
+
+        Also BACKFILLS missing TEXT props the layout defines (in meta `fields`)
+        from the layout's `defaults`, so every scene carries a complete set of
+        caption/label props and none render empty/undefined. Deliberately NOT
+        backfilled: responsive typography sliders (titleFontSize /
+        descriptionFontSize, handled elsewhere) and DATA-BEARING fields
+        (object_array / string_array such as stats, socials, handles, ctas) —
+        those must stay grounded in the source, never filled with example data.
+        """
+        layout_meta = (self._meta or {}).get("layout_prop_schema", {}).get(layout, {})
+        fields = layout_meta.get("fields", [])
+        if not fields:
+            return props
+        # Build a quick type-lookup from the fields list
+        field_types = {f["key"]: f.get("type", "string") for f in fields if isinstance(f, dict) and "key" in f}
+        # Backfill missing scalar text props only (string / text / select / number);
+        # skip responsive sliders and array/collection fields to avoid inventing data.
+        _BACKFILL_TYPES = {"string", "text", "select", "number"}
+        defaults = layout_meta.get("defaults", {}) or {}
+        props = dict(props or {})
+        for f in fields:
+            if not isinstance(f, dict) or "key" not in f:
+                continue
+            key = f["key"]
+            if f.get("responsive"):
+                continue  # font-size sliders are handled elsewhere
+            if f.get("type", "string") not in _BACKFILL_TYPES:
+                continue  # don't fabricate stats / socials / handles / ctas
+            if key in props and props[key] not in (None, ""):
+                continue  # model already provided it
+            if key in defaults and defaults[key] not in (None, ""):
+                props[key] = defaults[key]
         validated = {}
         for key, value in props.items():
-            if key not in prop_schema:
+            if key not in field_types:
+                # Pass through unknown keys (color, imageUrl, etc. not in fields)
+                validated[key] = value
                 continue
-            schema = prop_schema[key]
-            expected_type = schema.get("type", "string")
-            if expected_type == "string" and isinstance(value, str):
+            expected_type = field_types[key]
+            if expected_type in ("string", "text") and isinstance(value, str):
                 validated[key] = value
             elif expected_type == "number" and isinstance(value, (int, float)):
                 validated[key] = value
             elif expected_type == "boolean" and isinstance(value, bool):
                 validated[key] = value
-            elif expected_type == "array" and isinstance(value, list):
+            elif expected_type in ("array", "string_array") and isinstance(value, list):
                 validated[key] = value
             elif expected_type == "object" and isinstance(value, dict):
                 validated[key] = value
+            elif expected_type == "object_array" and isinstance(value, list):
+                validated[key] = value
+            else:
+                # Type mismatch — pass through anyway rather than silently drop
+                validated[key] = value
         return validated
+
+    # Values that indicate the LLM copied example data instead of extracting from the article.
+    _LADUC_EXAMPLE_STAT_VALUES = frozenset({
+        "$251b", "$112b", "$48b", "$36b",
+        "total flows", "401(k) flows", "vol-control", "cta trend",
+        "401(k) inflows running 12th strongest month on record",
+        "vol-control funds near full re-allocation after april reset",
+        "cta trend signal still long — reversal requires -3.2% weekly close",
+        "flows", "positioning", "cta",
+    })
+
+    # Economist key_indicators sample labels (from templates/economist/meta.json).
+    # When a generated scene carries these, the LLM kept the placeholders instead
+    # of extracting real figures from the source.
+    _ECONOMIST_KPI_EXAMPLE_LABELS = frozenset({
+        "core inflation", "unemployment", "budget deficit", "gdp growth",
+    })
+
+    # Economist masthead sample wordmarks. "The Brief" is the meta.json sample
+    # value and "The Economist" is the style homage the prompt forbids. When the
+    # LLM emits either it is echoing the example rather than a brand the user
+    # chose — drop it so the masthead flag hides (per prompt.md) instead of
+    # printing a fabricated publication name on the cover + ending_socials.
+    _ECONOMIST_SAMPLE_WORDMARKS = frozenset({
+        "the brief", "the economist",
+    })
+
+    def _strip_example_stats(self, layout: str, props: dict) -> dict:
+        """Remove stats that are clearly copied from prompt examples rather than from the article."""
+        if (
+            self.template_id == "economist"
+            and isinstance(props.get("wordmark"), str)
+            and props["wordmark"].strip().lower() in self._ECONOMIST_SAMPLE_WORDMARKS
+        ):
+            logger.info(
+                "[SCENE_GEN] Stripped placeholder economist wordmark %r on '%s'",
+                props.get("wordmark"),
+                layout,
+            )
+            props = {k: v for k, v in props.items() if k != "wordmark"}
+        if layout == "key_indicators" and self.template_id == "economist":
+            indicators = props.get("indicators")
+            if isinstance(indicators, list) and indicators:
+                clean = [
+                    it for it in indicators
+                    if isinstance(it, dict)
+                    and str(it.get("label", "")).strip().lower() not in self._ECONOMIST_KPI_EXAMPLE_LABELS
+                ]
+                if len(clean) != len(indicators):
+                    logger.info(
+                        "[SCENE_GEN] Stripped %d placeholder economist indicators",
+                        len(indicators) - len(clean),
+                    )
+                if not clean:
+                    out = dict(props)
+                    out.pop("indicators", None)
+                    return out
+                return {**props, "indicators": clean}
+            return props
+        if layout not in ("data_impact", "deep_dive"):
+            return props
+        stats = props.get("stats")
+        if not isinstance(stats, list) or not stats:
+            return props
+        clean = [
+            s for s in stats
+            if isinstance(s, dict)
+            and str(s.get("value", "")).strip().lower() not in self._LADUC_EXAMPLE_STAT_VALUES
+            and str(s.get("label", "")).strip().lower() not in self._LADUC_EXAMPLE_STAT_VALUES
+            and str(s.get("value", "")).strip() not in ("[HERO NUMBER FROM ARTICLE]", "[SUPPORTING NUMBER]", "")
+        ]
+        if len(clean) != len(stats):
+            logger.info("[SCENE_GEN] Stripped %d example stats from %s layoutProps", len(stats) - len(clean), layout)
+        if not clean:
+            out = dict(props)
+            del out["stats"]
+            return out
+        return {**props, "stats": clean}
 
     def _parse_config_json(self, config_str: str) -> dict:
         try:
@@ -940,10 +1869,60 @@ class TemplateSceneGenerator:
                 self._valid_arrangements, self._hero_arrangement,
             )
 
+<<<<<<< HEAD
         # Built-in newscast only: when multiple tables are present in hints, force
         # 2-3 scenes toward data_visualization and rotate table sources.
         if not self._is_custom:
             self._plan_newscast_data_visualization_targets(scenes_data)
+=======
+        # Built-in templates: run template-specific table targeting as a fallback.
+        # For newscast this may force data_visualization scenes; for bloomberg the
+        # upstream binding (pipeline._generate_script) is preferred — these methods
+        # guard against the LLM ignoring chartable_tables_json entirely.
+        if not self._is_custom:
+            self._plan_newscast_data_visualization_targets(scenes_data)
+            self._plan_bloomberg_dataviz_targets(scenes_data)
+
+        # Laduc / FJ Market Brief / fj_research: populate
+        # _newscast_data_viz_table_by_scene from data_table_index set by
+        # ScriptGenerator (via chartable_tables_json upfront binding). This lets
+        # _merge_laduc_chart_props use the correct pre-bound table index instead of
+        # re-scoring all tables on every market_annotation scene call.
+        if (
+            "laduc" in self.template_id
+            or "fj_research" in self.template_id
+            or self.template_id in {"fj_market_brief", "crafted_fj_market_brief_bundle"}
+            or self.template_id in ("matrix", "spotlight", "chronicle")
+        ):
+            for i, scene in enumerate(scenes_data):
+                pl = str(scene.get("preferred_layout") or "").strip().lower()
+                if (
+                    (
+                        pl.startswith("market_annotation")
+                        or pl == "ticker"
+                        or pl in (
+                            "matrix_data", "matrix_ticker",
+                            "spotlight_data", "spotlight_table",
+                            "chronicle_data", "chronicle_table",
+                        )
+                    )
+                    and isinstance(scene.get("data_table_index"), int)
+                ):
+                    self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
+
+        # Economist: same deterministic pre-binding as laduc. Populate
+        # _newscast_data_viz_table_by_scene from the data_table_index set upstream
+        # by ScriptGenerator (via chartable_tables_json) so _merge_economist_chart_props
+        # selects the exact pre-bound table per scene instead of re-scoring tables.
+        if self.template_id == "economist":
+            for i, scene in enumerate(scenes_data):
+                pl = str(scene.get("preferred_layout") or "").strip().lower()
+                if (
+                    pl in {"chart_line", "chart_bar", "data_table"}
+                    and isinstance(scene.get("data_table_index"), int)
+                ):
+                    self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         results: list[dict] = [{}] * total
 
@@ -1034,6 +2013,9 @@ class TemplateSceneGenerator:
                 )
 
                 layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
+                # Enforce script-stage layout plan when provided and valid.
+                if normalized_preferred:
+                    layout = normalized_preferred
                 if layout not in self._valid_layouts:
                     if normalized_preferred:
                         layout = normalized_preferred
@@ -1048,6 +2030,10 @@ class TemplateSceneGenerator:
 
                 props = self._parse_props_json(result.layout_props_json)
                 validated_props = self._validate_props(layout, props)
+<<<<<<< HEAD
+=======
+                validated_props = self._strip_example_stats(layout, validated_props)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 validated_props = self._merge_chart_planner_props(
                     layout=layout,
                     props=validated_props,
@@ -1056,6 +2042,73 @@ class TemplateSceneGenerator:
                     narration=narration,
                     scene_index=scene_index,
                 )
+<<<<<<< HEAD
+=======
+                validated_props = self._merge_bloomberg_table_props(
+                    layout=layout,
+                    props=validated_props,
+                    visual_description=visual_description,
+                )
+                validated_props = await self._merge_laduc_chart_props(
+                    layout=layout,
+                    props=validated_props,
+                    visual_description=visual_description,
+                    scene_title=scene_title,
+                    narration=narration,
+                    scene_index=scene_index,
+                )
+                layout, validated_props = self._merge_economist_chart_props(
+                    layout=layout,
+                    props=validated_props,
+                    visual_description=visual_description,
+                    scene_title=scene_title,
+                    narration=narration,
+                    scene_index=scene_index,
+                )
+                layout, validated_props = self._guard_magazine_by_the_numbers(
+                    layout=layout, props=validated_props, narration=narration
+                )
+                validated_props = self._backfill_magazine_text_narration(
+                    layout=layout, props=validated_props, narration=narration
+                )
+
+                # Guard: reroute to terminal_dataviz when the table is line-chartable
+                # (set by terminal_chart with no OHLCV, or terminal_table with time-series data).
+                if validated_props.pop("_reroute_to_dataviz", False):
+                    non_cs = validated_props.pop("_dataviz_table", None)
+                    if "terminal_dataviz" in self._valid_layouts and non_cs:
+                        prev_layout = layout
+                        layout = "terminal_dataviz"
+                        validated_props = {
+                            "chartTable": {
+                                "headers": non_cs.get("headers", []),
+                                "rows": non_cs.get("rows", []),
+                            },
+                            "chartType": "line",
+                        }
+                        logger.info(
+                            "[SCENE_GEN] Scene %s: '%s' rerouted to terminal_dataviz (line chart)",
+                            scene_index,
+                            prev_layout,
+                        )
+                    else:
+                        layout = self._fallback_layout
+                        validated_props = {}
+                        logger.info(
+                            "[SCENE_GEN] Scene %s: reroute to terminal_dataviz failed (no valid_layouts match), falling back to '%s'",
+                            scene_index,
+                            layout,
+                        )
+                elif validated_props.pop("_invalid_layout", False):
+                    # No table data at all — fall back to generic layout
+                    layout = self._fallback_layout
+                    validated_props = {}
+                    logger.info(
+                        "[SCENE_GEN] Scene %s: terminal_chart rejected (no data), falling back to '%s'",
+                        scene_index,
+                        layout,
+                    )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
                 chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
                 chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None
@@ -1082,6 +2135,45 @@ class TemplateSceneGenerator:
                         scene_index,
                         layout,
                     )
+<<<<<<< HEAD
+=======
+
+                # terminal_dataviz guard: if we ended up here with no chartTable,
+                # fall back to the template fallback to avoid rendering an empty chart.
+                if layout == "terminal_dataviz" and not has_chart_table:
+                    layout = self._fallback_layout
+                    validated_props = {}
+                    logger.info(
+                        "[SCENE_GEN] Scene %s: terminal_dataviz had no chartTable, falling back to '%s'",
+                        scene_index,
+                        layout,
+                    )
+
+                # market_annotation / matrix_data guard: AI picked a chart layout but no
+                # real table data was extractable — fall back rather than render an empty
+                # chart area. (Ticker layouts render a graceful "no data" message instead.)
+                if layout in (
+                    "market_annotation",
+                    "matrix_data",
+                    "spotlight_data",
+                    "chronicle_data",
+                    "data_visualisation",
+                ) and not has_chart_table:
+                    chart_layout = layout
+                    llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
+                    layout = (
+                        llm_layout
+                        if llm_layout in self._valid_layouts and llm_layout != chart_layout
+                        else self._fallback_layout
+                    )
+                    validated_props = {}
+                    logger.info(
+                        "[SCENE_GEN] Scene %s: %s had no chart data, falling back to '%s'",
+                        scene_index,
+                        chart_layout,
+                        layout,
+                    )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
                 self.variety_tracker.record(layout)
                 return {"layout": layout, "layoutProps": validated_props}
@@ -1132,6 +2224,10 @@ class TemplateSceneGenerator:
 
         props = self._parse_props_json(result.layout_props_json)
         validated_props = self._validate_props(layout, props)
+<<<<<<< HEAD
+=======
+        validated_props = self._strip_example_stats(layout, validated_props)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         validated_props = self._merge_chart_planner_props(
             layout=layout,
             props=validated_props,
@@ -1140,6 +2236,58 @@ class TemplateSceneGenerator:
             narration=narration,
             scene_index=scene_index,
         )
+<<<<<<< HEAD
+=======
+        validated_props = self._merge_bloomberg_table_props(
+            layout=layout,
+            props=validated_props,
+            visual_description=visual_description,
+        )
+        layout, validated_props = self._merge_economist_chart_props(
+            layout=layout,
+            props=validated_props,
+            visual_description=visual_description,
+            scene_title=scene_title,
+            narration=narration,
+            scene_index=scene_index,
+        )
+        layout, validated_props = self._guard_magazine_by_the_numbers(
+            layout=layout, props=validated_props, narration=narration
+        )
+        validated_props = self._backfill_magazine_text_narration(
+            layout=layout, props=validated_props, narration=narration
+        )
+
+        # Guard: reroute to terminal_dataviz when the table is line-chartable.
+        if validated_props.pop("_reroute_to_dataviz", False):
+            non_cs = validated_props.pop("_dataviz_table", None)
+            if "terminal_dataviz" in self._valid_layouts and non_cs:
+                layout = "terminal_dataviz"
+                validated_props = {
+                    "chartTable": {
+                        "headers": non_cs.get("headers", []),
+                        "rows": non_cs.get("rows", []),
+                    },
+                    "chartType": "line",
+                }
+                logger.info(
+                    "[SCENE_GEN] Regenerate: terminal_chart has no OHLCV, rerouted to terminal_dataviz (line chart)",
+                )
+            else:
+                layout = normalized or self._fallback_layout
+                validated_props = {}
+                logger.info(
+                    "[SCENE_GEN] Regenerate: terminal_chart rejected (no OHLCV, no dataviz), falling back to '%s'",
+                    layout,
+                )
+        elif validated_props.pop("_invalid_layout", False):
+            layout = normalized or self._fallback_layout
+            validated_props = {}
+            logger.info(
+                "[SCENE_GEN] Regenerate: terminal_chart rejected (no data), falling back to '%s'",
+                layout,
+            )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
         chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None
@@ -1161,4 +2309,17 @@ class TemplateSceneGenerator:
                 layout,
             )
 
+<<<<<<< HEAD
+=======
+        # terminal_dataviz guard: same as above for bloomberg.
+        if layout == "terminal_dataviz" and not has_chart_table:
+            layout = self._fallback_layout
+            validated_props = {}
+            logger.info(
+                "[SCENE_GEN] Regenerate scene %s: terminal_dataviz had no chartTable, falling back to '%s'",
+                scene_index,
+                layout,
+            )
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         return {"layout": layout, "layoutProps": validated_props}

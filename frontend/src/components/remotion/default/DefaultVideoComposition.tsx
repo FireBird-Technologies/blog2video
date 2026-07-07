@@ -1,3 +1,4 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import {
   LAYOUT_REGISTRY,
@@ -5,6 +6,10 @@ import {
   SceneLayoutProps,
 } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+
 
 function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
   const out = { ...lp };
@@ -48,9 +53,13 @@ export interface DefaultSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: LayoutType;
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -64,8 +73,19 @@ export interface DefaultVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
+<<<<<<< HEAD
+=======
+  playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = ({
@@ -77,18 +97,38 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
+<<<<<<< HEAD
+=======
+  playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
   let currentFrame = 0;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily }}>
+<<<<<<< HEAD
       {scenes.map((scene) => {
         const durationFrames = Math.max(
           1,
           Math.round((Number(scene.durationSeconds) || 5) * FPS)
+=======
+      {scenes.map((scene, sceneIndex) => {
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
@@ -96,21 +136,37 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
         const LayoutComponent =
           LAYOUT_REGISTRY[scene.layout] || LAYOUT_REGISTRY.text_narration;
 
+<<<<<<< HEAD
         const rawLayoutProps =
           scene.layout === "data_visualization"
             ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
             : scene.layoutProps;
+=======
+        const rawLayoutProps = scene.layoutProps;
+
+        const lp = scene.layoutProps as Record<string, unknown>;
+        const imageFocusX = Number(lp?.imageFocusX ?? 50);
+        const imageFocusY = Number(lp?.imageFocusY ?? 50);
+        const imageObjectPosition = `${Math.max(0, Math.min(100, imageFocusX))}% ${Math.max(0, Math.min(100, imageFocusY))}%`;
+        const imageZoom = Math.max(0.1, Number(lp?.imageZoom ?? 1));
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         const layoutProps: SceneLayoutProps = {
           ...(rawLayoutProps as Record<string, unknown>),
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
+          imageObjectPosition,
+          imageZoom,
           accentColor,
           bgColor,
           textColor,
           aspectRatio,
           fontFamily,
+<<<<<<< HEAD
+=======
+          sceneIndex,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         };
 
         return (
@@ -121,7 +177,24 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
             name={scene.title}
           >
             <LayoutComponent {...layoutProps} />
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.voiceoverUrl && (
+              <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            )}
+            {captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         );
       })}
@@ -135,6 +208,10 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+    
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
       )}
     </AbsoluteFill>
   );

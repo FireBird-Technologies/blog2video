@@ -474,7 +474,11 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
   );
   const s2LineColor =
     chartInputs.lineSeries.length >= 3
+<<<<<<< HEAD
       ? COLORS.blue
+=======
+      ? normalizeOptionalHex(props.lineThirdColor, COLORS.blue)
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       : getSeriesTrendColor(chartInputs.lineSeries[2]?.values, lineUpColor, lineDownColor, lineFlatColor);
   const barSeriesColors = [
     normalizeOptionalHex(props.barPrimaryColor, DEFAULT_BAR_SERIES_COLORS[0]),
@@ -703,7 +707,16 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden" }}>
+<<<<<<< HEAD
       <NewsCastLayoutImageBackground imageUrl={props.imageUrl} accentColor={red} />
+=======
+      <NewsCastLayoutImageBackground
+        imageUrl={props.imageUrl}
+        imageObjectPosition={props.imageObjectPosition}
+        imageZoom={props.imageZoom}
+        accentColor={red}
+      />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div
         style={{
           position: "absolute",

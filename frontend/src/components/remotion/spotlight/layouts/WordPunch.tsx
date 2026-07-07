@@ -1,5 +1,9 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+<<<<<<< HEAD
+=======
+import { StreakField, BigGlyphBackdrop, FilmGrain, FlashPop, HalftoneField, TitleEcho } from "../components/SpotlightArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
@@ -14,6 +18,8 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
   word,
   title,
   imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   aspectRatio,
@@ -51,7 +57,21 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — outline echo chases the slam + streak energy. */}
+      {!hasImage && (
+        <BigGlyphBackdrop glyph="!" accentColor={accentColor} tint="accent" startFrame={2} />
+      )}
+      {!hasImage && (
+        <TitleEcho text={displayWord} accentColor={accentColor} startFrame={3} />
+      )}
+      <StreakField accentColor={accentColor} count={12} seed={11} startFrame={3} />
+      {/* Poster halftone corner + grain. */}
+      <HalftoneField accentColor={accentColor} corner="top-right" />
+      {/* Flashes fire as the word slams home. */}
+      <FlashPop count={2} every={70} seed={23} startFrame={10} />
+      <FilmGrain />
 
       <div
         style={{
@@ -103,7 +123,13 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
           >
             <Img
               src={imageUrl!}
+<<<<<<< HEAD
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
+=======
+              style={{ width: "100%", height: "100%", objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover", objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                transform: `scale(${imageZoom ?? 1})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%") }}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             />
           </div>
         )}

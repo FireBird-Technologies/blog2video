@@ -6,8 +6,16 @@ import { blogPosts } from "../content/siteContent";
 import { blogIndexSchema } from "../seo/schema";
 
 export default function Blog() {
+<<<<<<< HEAD
   const featuredPost = blogPosts[0];
   const latestPosts = blogPosts.slice(1);
+=======
+  const sortedPosts = [...blogPosts].sort(
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
+  const featuredPost = sortedPosts[0];
+  const latestPosts = sortedPosts.slice(1);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const featuredImage = featuredPost.heroImage || "/og-image-v2.png";
   const featuredAlt = featuredPost.heroImageAlt || featuredPost.title;
 

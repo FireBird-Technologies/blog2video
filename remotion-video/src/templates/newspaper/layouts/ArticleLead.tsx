@@ -15,8 +15,14 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+<<<<<<< HEAD
   stats,
   imageUrl,
+=======
+  stats,imageUrl,
+  imageObjectPosition,
+  imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -166,7 +172,10 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                 style={{
                   width: "100%",
                   height: "100%",
-                  objectFit: "cover",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
                   filter: "grayscale(0.7) contrast(1.1)",
                 }}
               />
@@ -406,3 +415,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     </AbsoluteFill>
   );
 };
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

@@ -4,7 +4,11 @@ import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
 import Seo from "../components/seo/Seo";
 
+<<<<<<< HEAD
 const BlogDemoPlayer = lazy(() => import("../components/BlogDemoPlayer"));
+=======
+const BlogDemoPlayer = lazy(() => import("../help/BlogDemoPlayer"));
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   blogPosts,
   getBlogPost,
@@ -47,6 +51,22 @@ export default function BlogPostPage() {
                 loading="eager"
               />
             </div>
+<<<<<<< HEAD
+=======
+            {post.slug === "whats-new-in-blog2video-six-features" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/i6Mo4gMDxBQ"
+                  title="What's New in Blog2Video — six features"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             {post.slug === "blog-to-video-before-after" && (
               <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
                 <iframe
@@ -88,6 +108,22 @@ export default function BlogPostPage() {
                 />
               </div>
             )}
+<<<<<<< HEAD
+=======
+            {post.slug === "why-finance-newsletters-are-switching-to-blog2video" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/eZyIAAilKVk"
+                  title="Why Finance Newsletters Are Switching to Blog2Video"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             {post.slug === "blog2video-vs-veed" && (
               <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
                 <iframe
@@ -114,6 +150,35 @@ export default function BlogPostPage() {
                 />
               </div>
             )}
+<<<<<<< HEAD
+=======
+            {post.slug === "blog2video-vs-seedance" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/cufz2ZyWnAc"
+                  title="Blog2Video vs Seedance"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+            {post.slug === "blog2video-ultimate-competitor-comparison-2026" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/FhSFv6aTnzw"
+                  title="Blog2Video vs Every Competitor: The Ultimate Comparison Guide (2026)"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
               {post.heroEyebrow}
             </p>

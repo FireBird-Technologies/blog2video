@@ -1,0 +1,128 @@
+{
+  "projectName": "Spotlight Sample",
+  "accentColor": "#EF4444",
+  "bgColor": "#000000",
+  "textColor": "#FFFFFF",
+  "scenes": [
+    {
+      "id": 1, "order": 1,
+      "title": "10 Things You Didn't Know About AI",
+      "narration": "Ten facts that will change how you think about artificial intelligence.",
+      "layout": "impact_title",
+      "layoutProps": {},
+      "durationSeconds": 4,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2, "order": 2,
+      "title": "AI is Everywhere",
+      "narration": "You interact with AI dozens of times every single day without realising it.",
+      "layout": "statement",
+      "layoutProps": {
+        "highlightWord": "Everywhere"
+      },
+      "durationSeconds": 4,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3, "order": 3,
+      "title": "FAST",
+      "narration": "Speed is the defining feature of modern AI systems.",
+      "layout": "word_punch",
+      "layoutProps": {},
+      "durationSeconds": 3,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4, "order": 4,
+      "title": "Why It Matters",
+      "narration": "Three reasons AI will reshape every industry in the next five years.",
+      "layout": "cascade_list",
+      "layoutProps": {
+        "items": [
+          "Automation of repetitive cognitive work",
+          "Real-time personalisation at scale",
+          "Cost of intelligence approaching zero"
+        ]
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5, "order": 5,
+      "title": "The Scale",
+      "narration": "One trillion parameters. That is the size of the largest models today.",
+      "layout": "stat_stage",
+      "layoutProps": {
+        "stat": "1T",
+        "label": "Parameters in frontier models"
+      },
+      "durationSeconds": 4,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 6, "order": 6,
+      "title": "AI vs Human",
+      "narration": "On specific benchmarks AI now outperforms the average human across dozens of domains.",
+      "layout": "versus",
+      "layoutProps": {
+        "leftLabel": "Human",
+        "rightLabel": "AI",
+        "leftStat": "Avg",
+        "rightStat": "98th %ile"
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 7, "order": 7,
+      "title": "Quick Takes",
+      "narration": "Five hard truths about AI adoption that nobody talks about.",
+      "layout": "rapid_points",
+      "layoutProps": {
+        "points": [
+          "Most AI projects fail at deployment",
+          "Data quality beats model size",
+          "Prompting is an engineering skill",
+          "Latency kills user experience",
+          "Evals are the new unit tests"
+        ]
+      },
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 8, "order": 8,
+      "title": "Start Now",
+      "narration": "The best time to build with AI was two years ago. The second best time is today.",
+      "layout": "closer",
+      "layoutProps": {
+        "cta": "Start building today"
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 9, "order": 9,
+      "title": "Follow for More",
+      "narration": "Subscribe for weekly deep dives on AI, startups, and the future of work.",
+      "layout": "ending_socials",
+      "layoutProps": {
+        "socials": { "twitter": "@blog2video", "youtube": "Blog2Video" },
+        "websiteLink": "blog2video.com",
+        "ctaButtonText": "Subscribe"
+      },
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

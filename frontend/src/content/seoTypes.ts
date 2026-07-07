@@ -7,6 +7,17 @@ export type PageCategory =
   | "resource"
   | "alternative";
 
+<<<<<<< HEAD
+=======
+export type ToolCategory =
+  | "calculator"
+  | "formatter"
+  | "directory"
+  | "analyzer"
+  | "generator"
+  | "download";
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export interface FaqItem {
   question: string;
   answer: string;
@@ -46,6 +57,10 @@ export interface MarketingPage {
   faq: FaqItem[];
   relatedPaths: string[];
   cta: PageCta;
+<<<<<<< HEAD
+=======
+  demoWidget?: boolean;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export interface TemplateProfile {
@@ -72,7 +87,11 @@ export interface BlogSection {
 }
 
 export interface DistributionAsset {
+<<<<<<< HEAD
   channel: "site" | "substack" | "medium" | "video";
+=======
+  channel: "site" | "substack" | "medium" | "video" | "twitter";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   title: string;
   angle: string;
 }
@@ -96,3 +115,84 @@ export interface BlogPost {
   faq: FaqItem[];
   distributionPlan: DistributionAsset[];
 }
+<<<<<<< HEAD
+=======
+
+export interface HelpMedia {
+  src: string;
+  alt: string;
+}
+
+export interface HelpStep {
+  title: string;
+  body: string[];
+  bullets?: string[];
+  image?: HelpMedia;
+  videoKey?: string;
+}
+
+export interface HelpPost {
+  slug: string;
+  title: string;
+  description: string;
+  category: string;
+  heroImage?: string;
+  heroImageAlt?: string;
+  publishedAt: string;
+  readTime: string;
+  heroEyebrow: string;
+  heroTitle: string;
+  heroDescription: string;
+  primaryKeyword: string;
+  keywordVariant: string;
+  relatedPaths: string[];
+  steps: HelpStep[];
+  faq: FaqItem[];
+}
+
+export interface ToolDefinition {
+  slug: string;
+  path: string;
+  title: string;
+  description: string;
+  eyebrow: string;
+  heroTitle: string;
+  heroDescription: string;
+  category: ToolCategory;
+  icon: string;
+  primaryKeyword: string;
+  keywordVariant: string;
+  badges: string[];
+  proofPoints: string[];
+  sections: ContentSection[];
+  faq: FaqItem[];
+  relatedPaths: string[];
+}
+
+export type DirectoryPricingModel = "free" | "paid" | "freemium";
+
+export interface SubstackPublication {
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  audience: string;
+  pricingModel: DirectoryPricingModel;
+  cadence: string;
+  tone: string;
+  bestFor: string[];
+  topics: string[];
+  differentiator: string;
+}
+
+export interface SubstackNiche {
+  slug: string;
+  name: string;
+  title: string;
+  description: string;
+  audience: string;
+  angle: string;
+  publicationSlugs: string[];
+  relatedNicheSlugs: string[];
+}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

@@ -11,12 +11,19 @@ export type MatrixLayoutType =
   | "matrix_image"
   | "transmission"
   | "awakening"
+<<<<<<< HEAD
+=======
+  | "matrix_data"
+  | "matrix_ticker"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   | "ending_socials";
 
 export interface MatrixLayoutProps {
   title: string;
   narration: string;
   imageUrl?: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   accentColor: string;
   bgColor: string;
   textColor: string;
@@ -44,9 +51,41 @@ export interface MatrixLayoutProps {
   titleFontSize?: number;
   descriptionFontSize?: number;
 
+<<<<<<< HEAD
+=======
+  // ── matrix_data (chart) — uses the shared chartTable data-viz contract ──
+  /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
+  chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
+  /** "line" | "bar" | "histogram" | "auto" (infer from label shape). */
+  chartType?: "auto" | "line" | "bar" | "histogram";
+  /** Prose beside the chart; empty → auto-summary from chartTable. */
+  chartSummary?: string;
+  /** Y-axis tick label overrides (top → bottom). */
+  chartYAxisTicks?: string[];
+  /** X-axis / category caption; empty uses chartTable.headers[0]. */
+  subtitle?: string;
+  /** Y-axis title; empty uses chartTable.headers[1]. */
+  yAxisLabel?: string;
+  /** Chart color overrides. */
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+
+  // ── matrix_ticker (data table) — uses the shared tickerTable contract ──
+  tickerTable?: { headers: string[]; rows: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  /** 0-based column index to color-code +/- (e.g. % change). -1 disables. */
+  tickerHighlightCol?: number;
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // ending_socials
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+<<<<<<< HEAD
+=======
+  /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
+  ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

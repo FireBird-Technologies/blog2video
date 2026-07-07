@@ -1,9 +1,17 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+<<<<<<< HEAD
 import type { SpotlightLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
+=======
+import { FlashPop, StarburstBadge, StreakField } from "../components/SpotlightArtifacts";
+import type { SpotlightLayoutProps } from "../types";
+import { SocialIcons } from "../../SocialIcons";
+import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
+import { resolveCtas } from "../../shared/resolveCtas";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   title,
@@ -12,6 +20,10 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
+<<<<<<< HEAD
+=======
+  ctas,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   bgColor,
   textColor,
@@ -24,11 +36,23 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const p = aspectRatio === "portrait";
 
   const subtext = (narration ?? "").trim();
+<<<<<<< HEAD
   const resolvedWebsiteLink = (websiteLink ?? "").trim();
   const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   const bodyFont = fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
 
+=======
+  const bodyFont = fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
+
+  // CTA cards (1-3). Only render cards with toggle on + a link.
+  const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
+    (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+  const hasAnyCard = cards.length > 0;
+  const cardCount = Math.min(Math.max(cards.length, 1), 3);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const resolvedTitleSize = titleFontSize ?? (p ? 74 : 64);
   const resolvedCtaSize = resolvedTitleSize + 30;
 
@@ -65,11 +89,19 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const separatorAnim = getPopUpStyles(currentDelay);
   currentDelay += itemSpacing;
 
+<<<<<<< HEAD
   let ctaTextAnim;
   let ctaLinkAnim;
   if (showWebsiteCta) {
     ctaTextAnim = getPopUpStyles(currentDelay);
     currentDelay += itemSpacing; 
+=======
+  let ctaTextAnim: ReturnType<typeof getPopUpStyles> | undefined;
+  let ctaLinkAnim: ReturnType<typeof getPopUpStyles> | undefined;
+  if (hasAnyCard) {
+    ctaTextAnim = getPopUpStyles(currentDelay);
+    currentDelay += itemSpacing;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ctaLinkAnim = getPopUpStyles(currentDelay);
     currentDelay += itemSpacing;
   }
@@ -84,7 +116,16 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
+<<<<<<< HEAD
       <SpotlightBackground bgColor={bgColor} />
+=======
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — streaks + flashes + a spinning seal for the send-off. */}
+      <StreakField accentColor={accentColor} count={8} seed={29} startFrame={6} />
+      <FlashPop count={2} every={84} seed={17} startFrame={24} />
+      <StarburstBadge accentColor={accentColor} corner="top-right" size={p ? 132 : 156} startFrame={18} />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       {/* 1. TOP GROUP: Moved further down from the top edge */}
       <div style={{
@@ -120,14 +161,20 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
         }} />
       </div>
 
+<<<<<<< HEAD
       {/* 2. CENTER GROUP */}
       {showWebsiteCta && (
+=======
+      {/* 2. CENTER GROUP — 1/2/3 CTA columns */}
+      {hasAnyCard && (
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <div style={{
           position: "absolute",
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
           display: "flex",
+<<<<<<< HEAD
           flexDirection: "column",
           alignItems: "center",
           width: "100%",
@@ -162,6 +209,59 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
           }}>
             {resolvedWebsiteLink}
           </div>
+=======
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          alignItems: "flex-start",
+          gap: p ? 18 : 32,
+          width: "92%",
+          zIndex: 2,
+        }}>
+          {cards.map((card, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                flex: cardCount === 1 ? "0 1 auto" : "1 1 0",
+                minWidth: 220,
+                maxWidth: cardCount === 1 ? "100%" : cardCount === 2 ? "46%" : "32%",
+              }}
+            >
+              <div style={{
+                color: accentColor || "#7C3AED",
+                fontSize: cardCount === 1 ? resolvedCtaSize : Math.max(36, resolvedCtaSize - 28),
+                fontWeight: 900,
+                lineHeight: 1,
+                fontFamily: bodyFont,
+                textAlign: "center",
+                textTransform: "uppercase",
+                marginInline: 15,
+                ...ctaTextAnim,
+              }}>
+                {card.ctaButtonText.trim() || "Get started"}
+              </div>
+              <div style={{
+                marginTop: 10,
+                padding: "10px 20px",
+                marginInline: 15,
+                fontSize: cardCount === 1 ? (p ? 28 : 26) : (p ? 22 : 20),
+                fontWeight: 600,
+                color: textColor || "#FFFFFF",
+                fontFamily: bodyFont,
+                textAlign: "center",
+                maxWidth: "100%",
+                whiteSpace: "normal",
+                overflowWrap: "break-word",
+                ...ctaLinkAnim,
+              }}>
+                {card.websiteLink}
+              </div>
+            </div>
+          ))}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
       )}
 

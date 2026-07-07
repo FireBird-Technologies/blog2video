@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+<<<<<<< HEAD
+=======
+import { useSearchParams, useNavigate } from "react-router-dom";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import ReactDOM from "react-dom";
 import {
   getPrebuiltVoices,
@@ -80,10 +84,29 @@ function isCustomSavedVoice(s: SavedVoiceFromAPI): boolean {
   return s.source === "custom" || !!s.custom_voice_id;
 }
 
+<<<<<<< HEAD
 export default function MyVoices() {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const isPro = user?.plan === "pro" || user?.plan === "standard";
+=======
+/** Read-only demo mode used by help videos: skips API calls, seeds state, renders modal inline. */
+export interface MyVoicesDemoMode {
+  showCreateModal?: boolean;
+  createMode?: "form" | "prompt" | "clone";
+  myVoicesData?: SavedVoiceFromAPI[];
+  customVoicesData?: CustomVoiceFromAPI[];
+  prebuiltVoicesData?: ElevenLabsVoice[];
+}
+
+export default function MyVoices({ demoMode }: { demoMode?: MyVoicesDemoMode } = {}) {
+  const { user } = useAuth();
+  const { showError } = useErrorModal();
+  const isDemo = !!demoMode;
+  const isPro = isDemo ? true : user?.plan === "pro" || user?.plan === "standard";
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -148,10 +171,27 @@ export default function MyVoices() {
   const [addingCustomVoiceId, setAddingCustomVoiceId] = useState<number | null>(null);
 
   useEffect(() => {
+<<<<<<< HEAD
     loadVoices();
   }, []);
 
   useEffect(() => {
+=======
+    if (isDemo) {
+      setVoices(demoMode?.prebuiltVoicesData ?? []);
+      setLoaded(true);
+      return;
+    }
+    loadVoices();
+  }, [isDemo]);
+
+  useEffect(() => {
+    if (isDemo) {
+      setMyVoices(demoMode?.myVoicesData ?? []);
+      setMyVoicesLoaded(true);
+      return;
+    }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const load = async () => {
       setMyVoicesLoaded(false);
       try {
@@ -164,9 +204,20 @@ export default function MyVoices() {
       }
     };
     load();
+<<<<<<< HEAD
   }, []);
 
   useEffect(() => {
+=======
+  }, [isDemo]);
+
+  useEffect(() => {
+    if (isDemo) {
+      setCustomVoicesList(demoMode?.customVoicesData ?? []);
+      setCustomVoicesListLoaded(true);
+      return;
+    }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const load = async () => {
       setCustomVoicesListLoaded(false);
       try {
@@ -179,7 +230,29 @@ export default function MyVoices() {
       }
     };
     load();
+<<<<<<< HEAD
   }, []);
+=======
+  }, [isDemo]);
+
+  useEffect(() => {
+    if (!isDemo) return;
+    if (demoMode?.showCreateModal) setShowDesignModal(true);
+    if (demoMode?.createMode) setCreateVoiceMode(demoMode.createMode);
+  }, [isDemo, demoMode?.showCreateModal, demoMode?.createMode]);
+
+  // BlogUrlForm Step 3 navigates with ?tab=voices&openCustomVoiceCreator=1
+  useEffect(() => {
+    if (isDemo) return;
+    if (searchParams.get("openCustomVoiceCreator") !== "1") return;
+    setCreateVoiceMode("form");
+    setShowDesignModal(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("openCustomVoiceCreator");
+    const qs = next.toString();
+    navigate(qs ? `/dashboard?${qs}` : "/dashboard", { replace: true });
+  }, [isDemo, searchParams, navigate]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   useEffect(() => {
     if (prebuiltTab === "Custom voice") {
@@ -691,11 +764,19 @@ export default function MyVoices() {
       )}
 
       <div>
+<<<<<<< HEAD
         <div className="flex items-center justify-between mb-2">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
             {prebuiltTab === "Custom voice" ? "Custom voice" : "Prebuilt voices"}
           </label>
           <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+=======
+          <div className="flex items-center justify-between mb-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            {prebuiltTab === "Custom voice" ? "Custom voice" : "Prebuilt voices"}
+          </label>
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl">
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             {VOICE_SECTION_TABS.map((tab) => (
               <button
                 key={tab}
@@ -955,9 +1036,15 @@ export default function MyVoices() {
         subtitle="Create and use custom voices in your videos. Upgrade to Pro or Standard to unlock."
       />
 
+<<<<<<< HEAD
       {showDesignModal &&
         ReactDOM.createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
+=======
+      {showDesignModal && (() => {
+        const modal = (
+          <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center p-8" : "fixed inset-0 z-50 flex items-center justify-center p-8"}>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDesignModal(false)} />
             <div className="relative w-full max-w-xl bg-white border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 mt-5 max-h-[85vh] overflow-y-auto transition-all duration-300">
               <div className="flex items-center justify-between mb-6">
@@ -1543,9 +1630,16 @@ export default function MyVoices() {
 
               </div>
             </div>
+<<<<<<< HEAD
           </div>,
           document.body
         )}
+=======
+          </div>
+        );
+        return isDemo ? modal : ReactDOM.createPortal(modal, document.body);
+      })()}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </div>
   );
 }

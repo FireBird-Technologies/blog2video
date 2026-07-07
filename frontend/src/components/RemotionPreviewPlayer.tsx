@@ -41,6 +41,10 @@ class PlayerErrorBoundary extends React.Component<
 interface Props {
   componentCode?: string;
   compiledComponent?: React.FC<SceneProps>;
+<<<<<<< HEAD
+=======
+  compiledComposition?: React.ComponentType<any>;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   theme: CustomTemplateTheme;
   width?: number;
   height?: number;
@@ -49,9 +53,25 @@ interface Props {
   loop?: boolean;
   /** Override/extend the sample props passed to the compiled component */
   sampleProps?: Partial<SceneProps>;
+<<<<<<< HEAD
   onError?: (error: string) => void;
   onRetry?: () => void;
   onEnded?: () => void;
+=======
+  compositionProps?: Record<string, unknown>;
+  compositionWidth?: number;
+  compositionHeight?: number;
+  fps?: number;
+  durationInFrames?: number;
+  onError?: (error: string) => void;
+  onRetry?: () => void;
+  onEnded?: () => void;
+  /** Continuous-composition mode: report the player's current frame so the parent
+   *  can highlight which scene is on-screen (the Edit-Template scene strip). */
+  onFrameUpdate?: (frame: number) => void;
+  thumbnailMode?: boolean;
+  thumbnailFrame?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 const FPS = 30;
@@ -59,15 +79,33 @@ const FPS = 30;
 export default function RemotionPreviewPlayer({
   componentCode,
   compiledComponent,
+<<<<<<< HEAD
+=======
+  compiledComposition,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   theme,
   width,
   height,
   durationSeconds = 5,
   loop = true,
   sampleProps,
+<<<<<<< HEAD
   onError,
   onRetry,
   onEnded,
+=======
+  compositionProps,
+  compositionWidth = 1920,
+  compositionHeight = 1080,
+  fps = FPS,
+  durationInFrames,
+  onError,
+  onRetry,
+  onEnded,
+  onFrameUpdate,
+  thumbnailMode = false,
+  thumbnailFrame = 100,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }: Props) {
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
   const [isCompiling, setIsCompiling] = useState(true);
@@ -75,12 +113,50 @@ export default function RemotionPreviewPlayer({
 
   // Listen for 'ended' event via Remotion's ref-based emitter
   useEffect(() => {
+<<<<<<< HEAD
+=======
+    if (thumbnailMode) return;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const player = playerRef.current;
     if (!player || !onEnded) return;
     const handler = () => onEnded();
     player.addEventListener("ended", handler);
     return () => player.removeEventListener("ended", handler);
+<<<<<<< HEAD
   }, [onEnded, compileResult]);
+=======
+  }, [onEnded, compileResult, thumbnailMode]);
+
+  // Report current frame to the parent (continuous-composition scene strip).
+  useEffect(() => {
+    if (thumbnailMode || !onFrameUpdate) return;
+    const player = playerRef.current;
+    if (!player) return;
+    const onFrame = () => onFrameUpdate(player.getCurrentFrame());
+    player.addEventListener("frameupdate", onFrame);
+    return () => player.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, onFrameUpdate, compileResult, compiledComposition]);
+
+  // In thumbnail mode, play briefly then freeze at a deterministic frame.
+  useEffect(() => {
+    if (!thumbnailMode) return;
+    const player = playerRef.current;
+    if (!player) return;
+    let settled = false;
+    const stopAt = Math.max(0, thumbnailFrame);
+    const onFrame = () => {
+      if (settled) return;
+      const current = player.getCurrentFrame();
+      if (current >= stopAt) {
+        settled = true;
+        player.pause();
+        player.seekTo(stopAt);
+      }
+    };
+    player.addEventListener("frameupdate", onFrame);
+    return () => player.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, thumbnailFrame, compileResult]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const brandColors = useMemo(
     () => ({
@@ -123,6 +199,14 @@ export default function RemotionPreviewPlayer({
   }, [componentCode, onError]);
 
   useEffect(() => {
+<<<<<<< HEAD
+=======
+    if (compiledComposition) {
+      setCompileResult(null);
+      setIsCompiling(false);
+      return;
+    }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if (compiledComponent) {
       console.log("[F7-DEBUG] RemotionPreviewPlayer: using pre-compiled component");
       setCompileResult({ success: true, component: compiledComponent });
@@ -130,7 +214,11 @@ export default function RemotionPreviewPlayer({
       return;
     }
     compile();
+<<<<<<< HEAD
   }, [compiledComponent, compile]);
+=======
+  }, [compiledComponent, compiledComposition, compile]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Build sample props for preview — only pass basics, no random contentType overrides.
   // The generated scene code has its own layout baked in; injecting random content types
@@ -146,7 +234,11 @@ export default function RemotionPreviewPlayer({
     };
   }, [sampleProps]);
 
+<<<<<<< HEAD
   if (isCompiling) {
+=======
+  if (!compiledComposition && isCompiling) {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     return (
       <div
         style={{
@@ -166,7 +258,11 @@ export default function RemotionPreviewPlayer({
     );
   }
 
+<<<<<<< HEAD
   if (!compileResult || !compileResult.success) {
+=======
+  if (!compiledComposition && (!compileResult || !compileResult.success)) {
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     return (
       <div
         style={{
@@ -220,29 +316,59 @@ export default function RemotionPreviewPlayer({
     );
   }
 
+<<<<<<< HEAD
   const CompiledComponent = compileResult.component;
 
   // Wrapper composition for the Player
   const Composition: React.FC = () => (
     <CompiledComponent {...resolvedProps} brandColors={brandColors} />
   );
+=======
+  const CompiledComponent = compileResult?.success ? compileResult.component : null;
+
+  // Wrapper composition for the Player
+  const Composition: React.FC = () => {
+    if (compiledComposition) {
+      const C = compiledComposition;
+      return <C {...(compositionProps || {})} />;
+    }
+    if (!CompiledComponent) return null;
+    return <CompiledComponent {...resolvedProps} brandColors={brandColors} />;
+  };
+
+  const playerDurationInFrames =
+    durationInFrames ?? Math.max(fps, Math.round(durationSeconds * fps));
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   return (
     <PlayerErrorBoundary onRetry={onRetry} width={width}>
       <Player
         ref={playerRef}
         component={Composition}
+<<<<<<< HEAD
         compositionWidth={1920}
         compositionHeight={1080}
         durationInFrames={Math.max(FPS, Math.round(durationSeconds * FPS))}
         fps={FPS}
+=======
+        compositionWidth={compositionWidth}
+        compositionHeight={compositionHeight}
+        durationInFrames={playerDurationInFrames}
+        fps={fps}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         style={{
           width: width || "100%",
           borderRadius: 8,
           overflow: "hidden",
         }}
+<<<<<<< HEAD
         autoPlay
         loop={loop}
+=======
+        initialFrame={0}
+        autoPlay
+        loop={thumbnailMode ? false : loop}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         controls={false}
       />
     </PlayerErrorBoundary>

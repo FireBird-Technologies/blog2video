@@ -10,6 +10,7 @@ export type NightfallLayoutType =
   | "split_glass"
   | "chapter_break"
   | "glass_image"
+<<<<<<< HEAD
   | "data_visualization"
   | "ending_socials";
 
@@ -34,11 +35,18 @@ export interface PieChartData {
   values: number[];
   colors?: string[];
 }
+=======
+  | "nightfall_data_visualization"
+  | "nightfall_ticker"
+  | "ending_socials";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface NightfallLayoutProps {
   title: string;
   narration: string;
   imageUrl?: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   accentColor: string;
   bgColor: string;
   textColor: string;
@@ -56,10 +64,19 @@ export interface NightfallLayoutProps {
   rightDescription?: string;
   chapterNumber?: number;
   subtitle?: string;
-  // data visualization charts
-  barChart?: BarChartData;
-  lineChart?: LineChartData;
-  pieChart?: PieChartData;
+  // nightfall_data_visualization
+  chartTable?: { headers: string[]; rows: string[][] };
+  chartType?: string;
+  chartSummary?: string;
+  yAxisLabel?: string;
+  chartYAxisTicks?: string[];
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+  // nightfall_ticker
+  tickerTable?: { headers: string[]; rows: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
@@ -67,4 +84,9 @@ export interface NightfallLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+<<<<<<< HEAD
+=======
+  /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
+  ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

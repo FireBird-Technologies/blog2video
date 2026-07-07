@@ -114,6 +114,11 @@ def render_template_thumbnail(template_id: int, user_id: int) -> str | None:
             shell=(os.name == "nt"),
             capture_output=True,
             text=True,
+<<<<<<< HEAD
+=======
+            encoding="utf-8",
+            errors="replace",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             timeout=120,
         )
 

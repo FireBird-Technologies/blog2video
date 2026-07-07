@@ -1,4 +1,18 @@
+<<<<<<< HEAD
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+=======
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
+} from "react";
+import ReactDOM from "react-dom";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { Player } from "@remotion/player";
 import {
   applyTemplateAiPreview,
@@ -17,6 +31,7 @@ import {
   rebuildTemplateLayout,
   rebuildTemplateLayoutFile,
   createTemplateLayout,
+<<<<<<< HEAD
   createTemplateLayoutFile,
   renderTemplateLayout,
   type PropDef,
@@ -26,6 +41,36 @@ import { getTemplateConfig } from "../components/remotion/templateConfig";
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
 
 type AspectRatio = "landscape" | "portrait";
+=======
+  createTemplateFromDoc,
+  planTemplateFromDoc,
+  extractDesignDocFile,
+  renderTemplateLayout,
+  type PropDef,
+  type TemplatePlan,
+  SUPPORTED_PROP_TYPES,
+} from "../api/client";
+import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../components/remotion/playbackSpeed";
+import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
+import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layouts";
+import type { MagazineLayoutType } from "../components/remotion/magazine/types";
+import { planMagazineBoundaries, resolveMagazineLayout } from "../components/remotion/magazine/MagazineVideoComposition";
+import { computeSakuraVideoTotalFrames } from "../components/remotion/sakura/SakuraVideoComposition";
+
+const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
+const MAGAZINE_EXTRA_HOLD = 42;
+import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
+
+const IMAGE_ADJUST_ZOOM_MIN = 0.1;
+const IMAGE_ADJUST_ZOOM_MAX = 8;
+
+type AspectRatio = "landscape" | "portrait";
+
+function clampFocusPct(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 type ResponsiveValue = { portrait: number; landscape: number };
 
 function isResponsiveValue(value: unknown): value is ResponsiveValue {
@@ -42,6 +87,22 @@ function humanize(value: string): string {
   return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+<<<<<<< HEAD
+=======
+function planLayoutRowsForReview(
+  plan: TemplatePlan,
+  layoutOrder: string[],
+): { id: string; label: string }[] {
+  const raw = plan && typeof plan === "object" && Array.isArray((plan as { layouts?: unknown }).layouts)
+    ? (plan as { layouts: { id?: string; label?: string }[] }).layouts
+    : [];
+  const labelById = new Map(
+    raw.filter((l) => l && typeof l.id === "string").map((l) => [l.id as string, String(l.label || l.id)]),
+  );
+  return layoutOrder.map((id) => ({ id, label: labelById.get(id) ?? id }));
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 const TYPOGRAPHY_FIELDS: LayoutPropField[] = [
   { key: "titleFontSize", label: "Title Font Size", type: "number", responsive: true, min: 20, max: 180, step: 1 },
   { key: "descriptionFontSize", label: "Description Font Size", type: "number", responsive: true, min: 12, max: 100, step: 1 },
@@ -66,6 +127,37 @@ const NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: Re
   data_visualization: { titleFontSize: { portrait: 46, landscape: 34 }, descriptionFontSize: { portrait: 30, landscape: 25 } },
 };
 
+<<<<<<< HEAD
+=======
+const ECONOMIST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue }> = {
+  cover_reveal: { titleFontSize: { portrait: 104, landscape: 132 }, descriptionFontSize: { portrait: 30, landscape: 26 } },
+  leader_article: { titleFontSize: { portrait: 68, landscape: 82 }, descriptionFontSize: { portrait: 32, landscape: 30 } },
+  section_divider: { titleFontSize: { portrait: 120, landscape: 156 }, descriptionFontSize: { portrait: 28, landscape: 26 } },
+  chart_line: { titleFontSize: { portrait: 46, landscape: 50 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  chart_bar: { titleFontSize: { portrait: 46, landscape: 50 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  data_table: { titleFontSize: { portrait: 48, landscape: 52 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  pros_cons: { titleFontSize: { portrait: 56, landscape: 62 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  key_indicators: { titleFontSize: { portrait: 52, landscape: 56 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  leader_quote: { titleFontSize: { portrait: 56, landscape: 72 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  image_feature: { titleFontSize: { portrait: 64, landscape: 80 }, descriptionFontSize: { portrait: 24, landscape: 22 } },
+  ending_socials: { titleFontSize: { portrait: 56, landscape: 60 }, descriptionFontSize: { portrait: 26, landscape: 24 } },
+};
+
+// Per-layout title/body sizes mirrored from SceneEditModal's LAYOUT_FONT_DEFAULTS.magazine
+// so the Template Studio Typography section matches the scene editor and the rendered MP4.
+const MAGAZINE_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue }> = {
+  magazine_cover: { titleFontSize: { portrait: 68, landscape: 88 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
+  editorial_quote: { titleFontSize: { portrait: 56, landscape: 72 }, descriptionFontSize: { portrait: 18, landscape: 24 } },
+  by_the_numbers: { titleFontSize: { portrait: 56, landscape: 72 }, descriptionFontSize: { portrait: 20, landscape: 26 } },
+  interview_qa: { titleFontSize: { portrait: 40, landscape: 52 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
+  magazine_data_visualization: { titleFontSize: { portrait: 56, landscape: 52 }, descriptionFontSize: { portrait: 28, landscape: 26 } },
+  timeline_journey: { titleFontSize: { portrait: 40, landscape: 52 }, descriptionFontSize: { portrait: 16, landscape: 20 } },
+  text_narration: { titleFontSize: { portrait: 100, landscape: 72 }, descriptionFontSize: { portrait: 40, landscape: 30 } },
+  ending_socials: { titleFontSize: { portrait: 88, landscape: 72 }, descriptionFontSize: { portrait: 35, landscape: 27 } },
+  magazine_ticker: { titleFontSize: { portrait: 52, landscape: 42 }, descriptionFontSize: { portrait: 28, landscape: 22 } },
+};
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function withTypographyControls(
   schema: LayoutPropSchema,
   options?: { defaultTypography?: { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue } },
@@ -100,6 +192,7 @@ function getSchema(
 ): LayoutPropSchema | undefined {
   if (!template || !layoutId) return undefined;
   const explicit = template.layout_prop_schema?.[layoutId];
+<<<<<<< HEAD
   const newscastTypographyDefaults =
     normalizeTemplateId(template.id) === "newscast" && layoutId
       ? NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT[layoutId]
@@ -107,6 +200,23 @@ function getSchema(
   if (explicit) {
     return normalizeTemplateId(template.id) === "newscast"
       ? withTypographyControls(explicit, { defaultTypography: newscastTypographyDefaults })
+=======
+  const tid = normalizeTemplateId(template.id);
+  const perLayoutTypography =
+    tid === "newscast"
+      ? NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
+      : tid === "economist"
+        ? ECONOMIST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
+        : tid === "magazine"
+          ? MAGAZINE_TYPOGRAPHY_DEFAULTS_BY_LAYOUT
+          : null;
+  const applyTypography = perLayoutTypography !== null;
+  const layoutTypographyDefaults =
+    perLayoutTypography && layoutId ? perLayoutTypography[layoutId] : undefined;
+  if (explicit) {
+    return applyTypography
+      ? withTypographyControls(explicit, { defaultTypography: layoutTypographyDefaults })
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       : explicit;
   }
 
@@ -115,11 +225,65 @@ function getSchema(
     defaults: TYPOGRAPHY_DEFAULTS,
     fields: TYPOGRAPHY_FIELDS,
   };
+<<<<<<< HEAD
   return normalizeTemplateId(template.id) === "newscast"
     ? withTypographyControls(fallbackSchema, { defaultTypography: newscastTypographyDefaults })
     : fallbackSchema;
 }
 
+=======
+  return applyTypography
+    ? withTypographyControls(fallbackSchema, { defaultTypography: layoutTypographyDefaults })
+    : fallbackSchema;
+}
+
+function layoutSupportsImageForTemplate(template: TemplateMeta | null, layoutId: string): boolean {
+  if (!template || !layoutId) return false;
+  const noImage = template.layouts_without_image ?? [];
+  return !noImage.includes(layoutId);
+}
+
+/** Per-layout defaults for preview (used when sequencing all layouts; not the editable single-layout overrides). */
+function buildResolvedLayoutPropsForPreview(
+  template: TemplateMeta | null,
+  layoutId: string,
+  isPortrait: boolean,
+  imageUrlTrimmed: string,
+  fetchedImageUrl: string,
+  imageFetching: boolean,
+  imageFocusX: number,
+  imageFocusY: number,
+  imageZoom: number,
+): Record<string, unknown> {
+  const schema = getSchema(template, layoutId);
+  if (!schema) return {};
+  // Layer the layout's own dummy `sample_props` over `defaults` so the
+  // "play all layouts" sequence shows each layout's preset content (exchanges,
+  // stats, milestones, …), mirroring the single-scene effect. sample_props is
+  // Studio-preview-only and never reaches real renders.
+  const next: Record<string, unknown> = { ...(schema.defaults ?? {}), ...(schema.sample_props ?? {}) };
+  schema.fields.forEach((field) => {
+    if (field.type === "number" && field.responsive) {
+      const raw = next[field.key];
+      if (isResponsiveValue(raw)) next[field.key] = isPortrait ? raw.portrait : raw.landscape;
+    }
+  });
+  const supportsImage = layoutSupportsImageForTemplate(template, layoutId);
+  const effectiveUrl =
+    supportsImage && imageUrlTrimmed && fetchedImageUrl && !imageFetching ? fetchedImageUrl : undefined;
+  if (effectiveUrl) {
+    next.imageFocusX = Math.max(0, Math.min(100, imageFocusX));
+    next.imageFocusY = Math.max(0, Math.min(100, imageFocusY));
+    next.imageZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageZoom));
+  } else {
+    delete next.imageFocusX;
+    delete next.imageFocusY;
+    delete next.imageZoom;
+  }
+  return next;
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 // ─── Design tokens ────────────────────────────────────────────────────────────
 // Font stack pulled from the attached layout component (Geist/system ui-sans-serif)
 const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", "Geist", ui-sans-serif, system-ui, sans-serif`;
@@ -185,6 +349,7 @@ const IconChevronDown = ({ open }: { open: boolean }) => (
     <path d="M19 9l-7 7-7-7" />
   </svg>
 );
+<<<<<<< HEAD
 const IconChevronCollapse = ({ open }: { open: boolean }) => (
   <svg
     width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -194,6 +359,8 @@ const IconChevronCollapse = ({ open }: { open: boolean }) => (
     <path d="M6 9l6 6 6-6" />
   </svg>
 );
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 // ─── Base input style ─────────────────────────────────────────────────────────
 const inputBase: React.CSSProperties = {
@@ -347,6 +514,7 @@ function StudioDropdown({
   );
 }
 
+<<<<<<< HEAD
 // ─── Collapsible accordion ────────────────────────────────────────────────────
 function Collapsible({ label, defaultOpen = false, children }: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -371,6 +539,8 @@ function Collapsible({ label, defaultOpen = false, children }: { label: string; 
   );
 }
 
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 // ─── Image attach row (for AI layout editing) ──────────────────────────────────
 function ImageAttachRow({
   image,
@@ -496,6 +666,11 @@ function SceneSettingsModal({
   imageUrl, setImageUrl, fetchedImageUrl, imageFetching, imageError,
   accentColor, setAccentColor, bgColor, setBgColor, textColor, setTextColor,
   durationSeconds, setDurationSeconds,
+<<<<<<< HEAD
+=======
+  layoutSupportsImage,
+  onOpenImageAdjust,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }: {
   open: boolean; onClose: () => void;
   title: string; setTitle: (v: string) => void;
@@ -506,10 +681,25 @@ function SceneSettingsModal({
   bgColor: string; setBgColor: (v: string) => void;
   textColor: string; setTextColor: (v: string) => void;
   durationSeconds: number; setDurationSeconds: (v: number) => void;
+<<<<<<< HEAD
+=======
+  layoutSupportsImage: boolean;
+  onOpenImageAdjust?: () => void;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) {
   if (!open) return null;
 
   const sliderPct = Math.round(((durationSeconds - 2) / 10) * 100);
+<<<<<<< HEAD
+=======
+  const canOpenFramingEditor =
+    Boolean(onOpenImageAdjust) &&
+    layoutSupportsImage &&
+    imageUrl.trim() &&
+    Boolean(fetchedImageUrl) &&
+    !imageFetching &&
+    !imageError;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   return (
     <div
@@ -590,6 +780,34 @@ function SceneSettingsModal({
                 )}
               </div>
             )}
+<<<<<<< HEAD
+=======
+            {canOpenFramingEditor && (
+              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                <p style={{ fontSize: "11px", color: T.textMuted, margin: 0, lineHeight: 1.45, fontFamily: FONT }}>
+                  Pan and zoom match the project scene editor. Preview uses a 16:9 frame; values apply to the final render.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onOpenImageAdjust?.()}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    border: `1px solid ${T.accentMid}`,
+                    background: T.accentLight,
+                    color: T.accentDark,
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: FONT,
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  Adjust framing…
+                </button>
+              </div>
+            )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
 
           {/* Colors */}
@@ -648,6 +866,119 @@ function SceneSettingsModal({
   );
 }
 
+<<<<<<< HEAD
+=======
+// ─── Layout Props Modal ───────────────────────────────────────────────────────
+function LayoutPropsModal({
+  open,
+  onClose,
+  schema,
+  regularFields,
+  layoutLabel,
+  layoutProps,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  schema?: LayoutPropSchema;
+  regularFields: LayoutPropSchema["fields"];
+  layoutLabel: string;
+  layoutProps: Record<string, unknown>;
+  onSave: (next: Record<string, unknown>) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, unknown>>(layoutProps);
+
+  useEffect(() => {
+    if (open) setDraft({ ...layoutProps });
+  }, [open, layoutProps]);
+
+  if (!open) return null;
+
+  const hasFields = Boolean(schema && (regularFields.length > 0 || (schema.fields?.length ?? 0) > 0));
+
+  const handleSave = () => {
+    onSave(draft);
+    onClose();
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(17,24,39,0.4)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        backdropFilter: "blur(3px)",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "520px", maxHeight: "88vh",
+          background: T.bg, borderRadius: "16px",
+          border: `1px solid ${T.border}`,
+          boxShadow: "0 24px 64px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08)",
+          display: "flex", flexDirection: "column", overflow: "hidden",
+          fontFamily: FONT,
+        }}
+      >
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "16px 20px", borderBottom: `1px solid ${T.border}`, flexShrink: 0,
+        }}>
+          <div>
+            <h2 style={{ fontSize: "14px", fontWeight: 600, color: T.text, margin: 0, fontFamily: FONT }}>Layout properties</h2>
+            <p style={{ fontSize: "11px", color: T.textMuted, margin: "2px 0 0", fontFamily: FONT }}>
+              {layoutLabel || "Current layout"} — edit props, then save to update the preview
+            </p>
+          </div>
+          <button type="button" onClick={onClose} style={{
+            padding: "6px", borderRadius: "8px",
+            border: `1px solid ${T.border}`, background: T.surfaceAlt,
+            color: T.textSub, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.15s",
+          }}>
+            <IconX />
+          </button>
+        </div>
+
+        <div style={{ overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
+          {hasFields ? (
+            regularFields.length > 0 ? (
+              <ManifestPropEditor
+                schema={{ ...schema!, fields: regularFields }}
+                value={draft}
+                onChange={setDraft}
+              />
+            ) : (
+              <ManifestPropEditor schema={schema!} value={draft} onChange={setDraft} />
+            )
+          ) : (
+            <p style={{ margin: 0, fontSize: "12px", color: T.textMuted, fontFamily: FONT, lineHeight: 1.5 }}>
+              No editable layout props for this scene.
+            </p>
+          )}
+        </div>
+
+        <div style={{
+          padding: "14px 20px", borderTop: `1px solid ${T.border}`, flexShrink: 0,
+          display: "flex", justifyContent: "flex-end", gap: "8px",
+        }}>
+          <button type="button" onClick={onClose} className="btn-ghost">
+            Cancel
+          </button>
+          <button type="button" onClick={handleSave} className="btn-primary" disabled={!hasFields}>
+            <IconSave />
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function PropDefRow({
   prop,
   onChange,
@@ -831,6 +1162,12 @@ export default function TemplateStudio() {
   const [aspectRatio, setAspectRatio]         = useState<AspectRatio>("landscape");
   const [durationSeconds, setDurationSeconds] = useState<number>(5);
   const [imageUrl, setImageUrl]               = useState<string>("");
+<<<<<<< HEAD
+=======
+  const [imageFocusX, setImageFocusX]         = useState<number>(50);
+  const [imageFocusY, setImageFocusY]         = useState<number>(50);
+  const [imageZoom, setImageZoom]             = useState<number>(1);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [accentColor, setAccentColor]         = useState<string>("#9333ea");
   const [bgColor, setBgColor]                 = useState<string>("#ffffff");
   const [textColor, setTextColor]             = useState<string>("#111827");
@@ -841,6 +1178,27 @@ export default function TemplateStudio() {
   const [imageFetching, setImageFetching]     = useState(false);
   const [imageError, setImageError]           = useState<string>("");
   const [sceneModalOpen, setSceneModalOpen]   = useState(false);
+<<<<<<< HEAD
+=======
+  const [propsModalOpen, setPropsModalOpen]   = useState(false);
+
+  const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
+  const [imageAdjustSrc, setImageAdjustSrc]   = useState<string | null>(null);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
+  const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
+  const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
+  const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  const [isAdjustDragging, setIsAdjustDragging] = useState(false);
+  const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
+  const imageAdjustPanRef = useRef<{
+    startX: number;
+    startY: number;
+    startFx: number;
+    startFy: number;
+  } | null>(null);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [aiInstruction, setAiInstruction]     = useState("");
   const [aiLayoutImage, setAiLayoutImage]     = useState<File | null>(null);
   const [aiLoading, setAiLoading]             = useState(false);
@@ -856,6 +1214,10 @@ export default function TemplateStudio() {
   const [viewSource, setViewSource] = useState<"frontend" | "remotion">("frontend");
   const [layoutRendering, setLayoutRendering] = useState(false);
   const [layoutRenderError, setLayoutRenderError] = useState<string>("");
+<<<<<<< HEAD
+=======
+  const [playAllLayouts, setPlayAllLayouts] = useState(false);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // ── Rebuild mode state ──────────────────────────────────────────────────────
   const [aiMode, setAiMode]             = useState<"code-only" | "rebuild">("code-only");
@@ -865,16 +1227,67 @@ export default function TemplateStudio() {
   const [rebuildStatus, setRebuildStatus]   = useState("");
 
   // ── New layout tab state ────────────────────────────────────────────────────
+<<<<<<< HEAD
   const [rightTab, setRightTab]           = useState<"edit" | "new-layout">("edit");
   const [newLayoutId, setNewLayoutId]     = useState("");
   const [newBaseLayoutId, setNewBaseLayoutId] = useState("");
   const [newLayoutDesc, setNewLayoutDesc] = useState("");
   const [newLayoutImage, setNewLayoutImage] = useState<File | null>(null);
+=======
+  const [rightTab, setRightTab]           = useState<"edit" | "new-layout" | "new-template">("edit");
+  const [newLayoutId, setNewLayoutId]     = useState("");
+  const [newBaseLayoutId, setNewBaseLayoutId] = useState("");
+  const [newLayoutDesc, setNewLayoutDesc] = useState("");
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [newLayoutProps, setNewLayoutProps] = useState<PropDef[]>([]);
   const [newLayoutLoading, setNewLayoutLoading] = useState(false);
   const [newLayoutError, setNewLayoutError]     = useState("");
   const [newLayoutStatus, setNewLayoutStatus]   = useState("");
 
+<<<<<<< HEAD
+=======
+  // ── New template (from design doc) tab state ────────────────────────────────
+  const [newTemplateId, setNewTemplateId]       = useState("");
+  const [newTemplateDoc, setNewTemplateDoc]     = useState("");
+  const [newTemplateDocFileName, setNewTemplateDocFileName] = useState("");
+  const [newTemplateError, setNewTemplateError]   = useState("");
+  const [newTemplateStatus, setNewTemplateStatus] = useState("");
+  const [newTemplateBusy, setNewTemplateBusy]     = useState<null | "analyze" | "create">(null);
+  /** After POST /template/plan — user verifies layout list before POST /template/create. */
+  const [newTemplateReview, setNewTemplateReview] = useState<{
+    templateId: string;
+    normalizedDoc: string;
+    plan: TemplatePlan;
+    layoutOrder: string[];
+  } | null>(null);
+  const [newTemplateKeepLayoutIds, setNewTemplateKeepLayoutIds] = useState<string[]>([]);
+  const newTemplateDocFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [newTemplateDocExtracting, setNewTemplateDocExtracting] = useState(false);
+
+  const handleNewTemplateDocFileSelect = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setNewTemplateError("Design doc file is too large (max 10 MB).");
+      return;
+    }
+    try {
+      setNewTemplateDocExtracting(true);
+      setNewTemplateError("");
+      const result = await extractDesignDocFile(file);
+      setNewTemplateDoc(result.data.text);
+      setNewTemplateDocFileName(file.name);
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : "Failed to extract text from the file.";
+      setNewTemplateError(String(msg || "Failed to extract text from the file."));
+    } finally {
+      setNewTemplateDocExtracting(false);
+    }
+  };
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -928,11 +1341,26 @@ export default function TemplateStudio() {
   useEffect(() => {
     if (!schema) return;
     const defaults = (schema.defaults ?? {}) as Record<string, unknown>;
+<<<<<<< HEAD
     setLayoutProps(defaults);
+=======
+    // sample_props are Studio-only stress-test values (e.g. a long explainer);
+    // the render path ignores them, so they can never leak into real videos.
+    setLayoutProps({ ...defaults, ...(schema.sample_props ?? {}) });
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const sd = schema.scene_defaults ?? {};
     if (sd.title)                   setTitle(sd.title);
     if (sd.narration !== undefined) setNarration(sd.narration);
     if (sd.durationSeconds)         setDurationSeconds(sd.durationSeconds);
+<<<<<<< HEAD
+=======
+    const iz = defaults.imageZoom;
+    if (typeof iz === "number" && !Number.isNaN(iz)) {
+      setImageZoom(Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, iz)));
+    } else {
+      setImageZoom(1);
+    }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   }, [schema]);
 
   const config = useMemo(
@@ -947,6 +1375,23 @@ export default function TemplateStudio() {
     return !noImage.includes(selectedLayout);
   }, [selectedTemplate, selectedLayout]);
 
+<<<<<<< HEAD
+=======
+  const layouts = useMemo(() => {
+    const raw =
+      selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
+    const list = [...new Set((Array.isArray(raw) ? raw : []).filter(Boolean))];
+    if (normalizeTemplateId(selectedTemplateId) === "bloomberg") {
+      return list.filter((id) => BLOOMBERG_LAYOUT_IDS.has(id));
+    }
+    return list;
+  }, [selectedTemplate, selectedTemplateId]);
+
+  useEffect(() => {
+    if (layouts.length <= 1 && playAllLayouts) setPlayAllLayouts(false);
+  }, [layouts.length, playAllLayouts]);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   useEffect(() => {
     const url = imageUrl.trim();
     if (!url) { setFetchedImageUrl(""); setImageError(""); return; }
@@ -968,6 +1413,138 @@ export default function TemplateStudio() {
     return () => { cancelled = true; };
   }, [imageUrl]);
 
+<<<<<<< HEAD
+=======
+  const openTemplateImageAdjust = () => {
+    if (!fetchedImageUrl || imageFetching) return;
+    const templateCfg = getTemplateConfig(selectedTemplateId || "default");
+    const ar = getImageBoxAspectRatio(
+      selectedLayout ? normalizeLayoutId(selectedLayout) : null,
+      aspectRatio,
+      templateCfg.baseWidth,
+      templateCfg.baseHeight,
+    );
+    setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(isImageBoxCircular(selectedLayout));
+    setImageAdjustFocusX(imageFocusX);
+    setImageAdjustFocusY(imageFocusY);
+    setImageAdjustZoom(
+      Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, imageZoom)),
+    );
+    setImageAdjustSrc(fetchedImageUrl);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+    setImageAdjustOpen(true);
+  };
+
+  const closeTemplateImageAdjust = () => {
+    setImageAdjustOpen(false);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+  };
+
+  const saveTemplateImageAdjust = () => {
+    setImageFocusX(clampFocusPct(imageAdjustFocusX));
+    setImageFocusY(clampFocusPct(imageAdjustFocusY));
+    setImageZoom(
+      Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom)),
+    );
+    closeTemplateImageAdjust();
+  };
+
+  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  useEffect(() => {
+    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
+  }, [imageAdjustFocusX, imageAdjustFocusY]);
+
+  useEffect(() => {
+    if (!isAdjustDragging || !imageAdjustOpen || !imageAdjustSrc) return;
+    const pan = imageAdjustPanRef.current;
+    if (!pan) return;
+
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = imageAdjustPreviewRef.current;
+      if (!el || !imageAdjustPanRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setImageAdjustFocusX(clamp(startFx - dxPct));
+      setImageAdjustFocusY(clamp(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [isAdjustDragging, imageAdjustOpen, imageAdjustSrc]);
+
+  useLayoutEffect(() => {
+    if (!imageAdjustOpen || !imageAdjustSrc) return;
+    const el = imageAdjustPreviewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      setImageAdjustZoom((z) => {
+        const factor = delta > 0 ? 0.97 : 1.03;
+        const next = Math.min(
+          IMAGE_ADJUST_ZOOM_MAX,
+          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor),
+        );
+        return Math.round(next * 100) / 100;
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustOpen, imageAdjustSrc]);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const resolvedLayoutProps = useMemo(() => {
     if (!schema) return layoutProps;
     const next: Record<string, unknown> = { ...layoutProps };
@@ -977,12 +1554,27 @@ export default function TemplateStudio() {
         if (isResponsiveValue(raw)) next[field.key] = isPortrait ? raw.portrait : raw.landscape;
       }
     });
+<<<<<<< HEAD
     return next;
   }, [schema, layoutProps, isPortrait]);
+=======
+    if (layoutSupportsImage && imageUrl.trim()) {
+      next.imageFocusX = Math.max(0, Math.min(100, imageFocusX));
+      next.imageFocusY = Math.max(0, Math.min(100, imageFocusY));
+      next.imageZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageZoom));
+    } else {
+      delete next.imageFocusX;
+      delete next.imageFocusY;
+      delete next.imageZoom;
+    }
+    return next;
+  }, [schema, layoutProps, isPortrait, layoutSupportsImage, imageUrl, imageFocusX, imageFocusY, imageZoom]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const inputProps = useMemo(() => {
     const effectiveImageUrl =
       layoutSupportsImage && fetchedImageUrl && !imageFetching ? fetchedImageUrl : undefined;
+<<<<<<< HEAD
     return {
       scenes: [{
         id: 1,
@@ -995,6 +1587,73 @@ export default function TemplateStudio() {
         imageUrl: effectiveImageUrl,
         voiceoverUrl: undefined,
       }],
+=======
+
+    const multiSceneList =
+      selectedTemplate && layouts.length > 1 && playAllLayouts
+      ? layouts.map((layoutId, index) => {
+        const trimmed = imageUrl.trim();
+        // Each scene shows its own layout's dummy content from meta.json
+        // (scene_defaults), not the editor's single shared title/narration.
+        // Fall back to the editor values for layouts without scene_defaults.
+        const sd = getSchema(selectedTemplate, layoutId)?.scene_defaults ?? {};
+        const lp = buildResolvedLayoutPropsForPreview(
+          selectedTemplate,
+          layoutId,
+          isPortrait,
+          trimmed,
+          fetchedImageUrl,
+          imageFetching,
+          imageFocusX,
+          imageFocusY,
+          imageZoom,
+        );
+        const sceneImageUrl =
+          layoutSupportsImageForTemplate(selectedTemplate, layoutId) &&
+          fetchedImageUrl &&
+          !imageFetching &&
+          trimmed
+            ? fetchedImageUrl
+            : undefined;
+        return {
+          id: index + 1,
+          order: index + 1,
+          title: sd.title ?? title,
+          narration: sd.narration ?? narration,
+          layout: layoutId,
+          layoutProps: lp,
+          durationSeconds: sd.durationSeconds ?? durationSeconds,
+          imageUrl: sceneImageUrl,
+          voiceoverUrl: undefined,
+        };
+      })
+        : null;
+
+    const sequentialBloombergStudio =
+      Boolean(
+        selectedTemplate &&
+          layouts.length > 1 &&
+          playAllLayouts &&
+          selectedTemplateId === "bloomberg",
+      );
+
+    return {
+      scenes: multiSceneList
+        ? multiSceneList
+        : [
+            {
+              id: 1,
+              order: 1,
+              title,
+              narration,
+              layout: selectedLayout || config.heroLayout,
+              layoutProps: resolvedLayoutProps,
+              durationSeconds,
+              imageUrl: effectiveImageUrl,
+              voiceoverUrl: undefined,
+            },
+          ],
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       accentColor,
       bgColor,
       textColor,
@@ -1003,6 +1662,10 @@ export default function TemplateStudio() {
       logoOpacity: 0.9,
       logoSize: 100,
       aspectRatio,
+<<<<<<< HEAD
+=======
+      ...(sequentialBloombergStudio ? { interSceneHalfFrames: 0 } : {}),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     };
   }, [
     title,
@@ -1018,9 +1681,23 @@ export default function TemplateStudio() {
     bgColor,
     textColor,
     aspectRatio,
+<<<<<<< HEAD
   ]);
 
   const layouts          = selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
+=======
+    selectedTemplate,
+    layouts,
+    playAllLayouts,
+    selectedTemplateId,
+    isPortrait,
+    imageUrl,
+    imageFocusX,
+    imageFocusY,
+    imageZoom,
+  ]);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [studioResolution, setStudioResolution] = useState<"1080p" | "720p">(
     () => (selectedTemplateId === "whiteboard" || selectedTemplateId === "newscast" ||selectedTemplateId === "newspaper" ? "720p" : "1080p"),
   );
@@ -1038,10 +1715,79 @@ export default function TemplateStudio() {
   const baseHeight = studioResolution === "720p" ? 720 : 1080;
   const canvasW          = isPortrait ? baseHeight : baseWidth;
   const canvasH          = isPortrait ? baseWidth : baseHeight;
+<<<<<<< HEAD
   const durationInFrames = Math.max(30, Math.round(durationSeconds * 30));
 
   const responsiveFields = schema?.fields.filter((f) => f.responsive) ?? [];
   const regularFields    = schema?.fields.filter((f) => !f.responsive) ?? [];
+=======
+  const sceneDurationFrames = Math.max(30, Math.round(durationSeconds * 30));
+  const sequentialPreview =
+    Boolean(selectedTemplate && layouts.length > 1 && playAllLayouts);
+  /** Match each template composition’s total frame count so the Player doesn’t clip or show a brown tail. */
+  const durationInFrames = useMemo(() => {
+    if (!sequentialPreview) return sceneDurationFrames;
+    const fps = 30;
+    const speed = getPlaybackSpeed(undefined);
+    const n = layouts.length;
+    if (n <= 1) return sceneDurationFrames;
+    if (selectedTemplateId === "bloomberg") {
+      const per =
+        viewSource === "remotion"
+          ? Math.max(1, Math.round(durationSeconds * fps))
+          : getSceneDurationFrames(durationSeconds, fps, speed);
+      return n * per;
+    }
+    if (selectedTemplateId === "magazine") {
+      // Black-bridged TransitionSeries: each boundary ADDS a black bridge and removes
+      // the transition overlaps, so the total is NOT just n×per. Use the SAME planner
+      // the composition uses so the Player's declared duration matches the composition
+      // exactly (otherwise the Player clips/races the scenes).
+      const per = Math.max(1, Math.round(durationSeconds * fps));
+      const layoutKeys = layouts.map(resolveMagazineLayout);
+      const { totalFrames } = planMagazineBoundaries(
+        layoutKeys,
+        layoutKeys.map(() => per),
+        accentColor,
+      );
+      return Math.max(totalFrames, fps * 2);
+    }
+    if (selectedTemplateId === "sakura") {
+      // Sakura is a TransitionSeries whose neighbouring scenes OVERLAP by the transition
+      // length, so its real length is the raw sum MINUS the overlaps. Use the SAME
+      // calculator the composition uses, otherwise the Player's declared duration is
+      // longer than the content and the scenes race by / a tail is clipped.
+      const per = getSceneDurationFrames(durationSeconds, fps, speed);
+      const sakuraScenes = layouts.map((layout, i) => ({
+        id: i,
+        order: i,
+        title: "",
+        narration: "",
+        layout,
+        layoutProps: {},
+        durationSeconds: per / fps,
+      }));
+      return Math.max(computeSakuraVideoTotalFrames(sakuraScenes), fps * 2);
+    }
+    return n * getSceneDurationFrames(durationSeconds, fps, speed);
+  }, [
+    sequentialPreview,
+    sceneDurationFrames,
+    durationSeconds,
+    layouts,
+    layouts.length,
+    selectedTemplateId,
+    viewSource,
+    isPortrait,
+    accentColor,
+  ]);
+
+  const responsiveFields = schema?.fields.filter((f) => f.responsive) ?? [];
+  const regularFields    = schema?.fields.filter((f) => !f.responsive) ?? [];
+  const hasEditableProps = Boolean(schema && (regularFields.length > 0 || responsiveFields.length === 0));
+  const currentLayoutLabel =
+    selectedTemplate?.layout_prop_schema?.[selectedLayout]?.label || humanize(selectedLayout);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Dropdown option arrays
   const templateOptions = templates.map((tpl) => ({
@@ -1226,6 +1972,7 @@ export default function TemplateStudio() {
     }
     try {
       setNewLayoutLoading(true); setNewLayoutError(""); setNewLayoutStatus("");
+<<<<<<< HEAD
       const result = newLayoutImage
         ? await createTemplateLayoutFile({
             template_id: selectedTemplateId,
@@ -1242,6 +1989,15 @@ export default function TemplateStudio() {
             layout_description: newLayoutDesc.trim(),
             props: newLayoutProps,
           });
+=======
+      const result = await createTemplateLayout({
+        template_id: selectedTemplateId,
+        base_layout_id: newBaseLayoutId,
+        new_layout_id: newLayoutId.trim(),
+        layout_description: newLayoutDesc.trim(),
+        props: newLayoutProps,
+      });
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const data = result.data;
       setAiPreviewSessionId(data.session_id);
       setAiPreviewVersions(data.versions ?? ["v1"]);
@@ -1252,7 +2008,11 @@ export default function TemplateStudio() {
       setTemplates(refreshed.data);
       setSelectedLayout(data.new_layout_id);
       setRightTab("edit");
+<<<<<<< HEAD
       setNewLayoutId(""); setNewLayoutDesc(""); setNewLayoutImage(null); setNewLayoutProps([]);
+=======
+      setNewLayoutId(""); setNewLayoutDesc(""); setNewLayoutProps([]);
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -1261,11 +2021,144 @@ export default function TemplateStudio() {
     } finally { setNewLayoutLoading(false); }
   };
 
+<<<<<<< HEAD
+=======
+  // ── New template (from design doc): analyze plan → verify layouts → create ─
+  const resetNewTemplateReview = () => {
+    setNewTemplateReview(null);
+    setNewTemplateKeepLayoutIds([]);
+  };
+
+  const toggleNewTemplateLayoutKeep = (layoutId: string) => {
+    if (!newTemplateReview) return;
+    const { layoutOrder } = newTemplateReview;
+    setNewTemplateKeepLayoutIds((prev) => {
+      if (prev.includes(layoutId)) {
+        return prev.filter((x) => x !== layoutId);
+      }
+      const nextSet = new Set([...prev, layoutId]);
+      return layoutOrder.filter((x) => nextSet.has(x));
+    });
+  };
+
+  const handleAnalyzeTemplateDoc = async () => {
+    const id = newTemplateId.trim().toLowerCase();
+    if (!id || !/^[a-z][a-z0-9_]*$/.test(id)) {
+      setNewTemplateError("Template id must be snake_case starting with a letter.");
+      return;
+    }
+    if (newTemplateDoc.trim().length < 50) {
+      setNewTemplateError("Design doc is too short. Describe the visual style and layouts.");
+      return;
+    }
+    try {
+      setNewTemplateBusy("analyze");
+      setNewTemplateError("");
+      resetNewTemplateReview();
+      setNewTemplateStatus(`Analyzing the design doc for '${id}'…`);
+      const planRes = await planTemplateFromDoc({
+        template_id: id,
+        design_doc: newTemplateDoc.trim(),
+      });
+      const planData = planRes.data;
+      const order = planData.layout_ids.slice();
+      setNewTemplateReview({
+        templateId: id,
+        normalizedDoc: planData.normalized_doc,
+        plan: planData.plan,
+        layoutOrder: order,
+      });
+      setNewTemplateKeepLayoutIds(order.slice());
+      const warn = planData.warnings?.length ? ` Warnings: ${planData.warnings.join("; ")}` : "";
+      setNewTemplateStatus(
+        `Plan ready — ${order.length} layout(s). Uncheck any you do not want, then create.${warn}`,
+      );
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; code?: string };
+      const msg =
+        e?.response?.data?.detail ||
+        (e?.code === "ECONNABORTED"
+          ? "Plan timed out — the design doc may be long. It can take several minutes; retry, or shorten the doc."
+          : "Plan failed.");
+      setNewTemplateError(String(msg));
+      setNewTemplateStatus("");
+    } finally {
+      setNewTemplateBusy(null);
+    }
+  };
+
+  const handleCreateVerifiedTemplate = async () => {
+    if (!newTemplateReview) return;
+    if (newTemplateKeepLayoutIds.length < 2) {
+      setNewTemplateError("Keep at least two layouts (minimum for a template).");
+      return;
+    }
+    const { templateId, normalizedDoc, plan } = newTemplateReview;
+    try {
+      setNewTemplateBusy("create");
+      setNewTemplateError("");
+      setNewTemplateStatus(
+        `Generating ${newTemplateKeepLayoutIds.length} verified layout(s) for '${templateId}' — this may take several minutes…`,
+      );
+      const result = await createTemplateFromDoc({
+        template_id: templateId,
+        normalized_doc: normalizedDoc,
+        plan,
+        keep_layout_ids: newTemplateKeepLayoutIds,
+      });
+      const data = result.data;
+      const v = data.verification;
+      const verifyLine = v
+        ? ` Verification: ${v.ok ? "passed" : "issues found"}` +
+          (v.repaired.length ? `, repaired ${v.repaired.join(", ")}` : "") +
+          (v.stubbed.length ? `, stubbed ${v.stubbed.join(", ")}` : "") +
+          "."
+        : "";
+      const summary =
+        `Created '${data.template_id}' (${data.layout_ids.length} layouts).` +
+        verifyLine +
+        (data.warnings && data.warnings.length > 0
+          ? ` Warnings: ${data.warnings.join("; ")}`
+          : " No warnings.");
+      setNewTemplateStatus(summary);
+      const refreshed = await getTemplates();
+      setTemplates(refreshed.data);
+      setSelectedTemplateId(data.template_id);
+      setSelectedLayout(data.hero_layout);
+      setRightTab("edit");
+      resetNewTemplateReview();
+      setNewTemplateId("");
+      setNewTemplateDoc("");
+      setNewTemplateDocFileName("");
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : "Template creation failed.";
+      setNewTemplateError(String(msg || "Template creation failed."));
+      setNewTemplateStatus("");
+    } finally {
+      setNewTemplateBusy(null);
+    }
+  };
+
+  const newTemplateReviewRows = useMemo(() => {
+    if (!newTemplateReview) return [];
+    return planLayoutRowsForReview(newTemplateReview.plan, newTemplateReview.layoutOrder);
+  }, [newTemplateReview]);
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const handleRenderSingleLayout = async () => {
     if (!selectedTemplateId || !selectedLayout) return;
     try {
       setLayoutRendering(true);
       setLayoutRenderError("");
+<<<<<<< HEAD
+=======
+      // When "All Scenes" is active, render every layout back-to-back by passing
+      // the same per-layout scene array the preview Player uses. Otherwise render
+      // just the selected layout as a single scene.
+      const renderAllScenes = sequentialPreview && inputProps.scenes.length > 1;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const res = await renderTemplateLayout({
         template_id: selectedTemplateId,
         layout_id: selectedLayout,
@@ -1273,12 +2166,35 @@ export default function TemplateStudio() {
         duration_seconds: durationSeconds,
         layout_props: resolvedLayoutProps,
         resolution: studioResolution,
+<<<<<<< HEAD
+=======
+        ...(renderAllScenes
+          ? {
+              scenes: inputProps.scenes.map((s) => ({
+                id: s.id,
+                order: s.order,
+                title: s.title,
+                narration: s.narration,
+                layout: s.layout,
+                layoutProps: s.layoutProps,
+                durationSeconds: s.durationSeconds,
+                imageUrl: s.imageUrl,
+              })),
+            }
+          : {}),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       });
       const blob = res.data as unknown as Blob;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
+<<<<<<< HEAD
       a.download = `${selectedTemplateId}_${selectedLayout}.mp4`;
+=======
+      a.download = renderAllScenes
+        ? `${selectedTemplateId}_all-scenes.mp4`
+        : `${selectedTemplateId}_${selectedLayout}.mp4`;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1410,6 +2326,7 @@ export default function TemplateStudio() {
         .btn-ghost:hover:not(:disabled) { border-color: ${T.accent}; color: ${T.accent}; background: ${T.accentLight}; }
         .btn-ghost:disabled { opacity: 0.55; cursor: not-allowed; }
 
+<<<<<<< HEAD
         /* Edit button — matches attached scene edit button style exactly */
         .btn-edit {
           display: inline-flex; align-items: center; gap: 6px;
@@ -1417,6 +2334,15 @@ export default function TemplateStudio() {
           background: transparent; color: ${T.textMuted};
           border: none; border-radius: 8px;
           font-size: 12px; font-weight: 500; font-family: ${FONT};
+=======
+        /* Edit button — compact for preview chrome (single row with toggles) */
+        .btn-edit {
+          display: inline-flex; align-items: center; gap: 4px;
+          padding: 4px 6px;
+          background: transparent; color: ${T.textMuted};
+          border: none; border-radius: 7px;
+          font-size: 10px; font-weight: 500; font-family: ${FONT};
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           cursor: pointer; transition: color 0.13s, background 0.13s;
           flex-shrink: 0;
         }
@@ -1657,6 +2583,7 @@ export default function TemplateStudio() {
                   </div>
                 )}
 
+<<<<<<< HEAD
                 {/* Props — closed by default */}
                 {(regularFields.length > 0 || (responsiveFields.length === 0 && schema)) && (
                   <div className="left-section">
@@ -1674,6 +2601,8 @@ export default function TemplateStudio() {
                     </Collapsible>
                   </div>
                 )}
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               </aside>
 
               {/* ══ CENTER: Preview ══ */}
@@ -1686,6 +2615,7 @@ export default function TemplateStudio() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
+<<<<<<< HEAD
                         padding: "9px 14px",
                         borderBottom: `1px solid ${T.border}`,
                         background: T.surfaceAlt,
@@ -1693,6 +2623,26 @@ export default function TemplateStudio() {
                     >
                       {/* Left: traffic dots + Edit + Toggle */}
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+=======
+                        gap: "8px",
+                        flexWrap: "nowrap",
+                        padding: "6px 10px",
+                        borderBottom: `1px solid ${T.border}`,
+                        background: T.surfaceAlt,
+                        minWidth: 0,
+                      }}
+                    >
+                      {/* Left: traffic dots + Edit + Toggle */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          minWidth: 0,
+                          flex: "1 1 auto",
+                        }}
+                      >
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         <div style={{ display: "flex", gap: "5px" }}>
                           {["#ff5f56", "#ffbd2e", "#27c93f"].map((c, i) => (
                             <div
@@ -1732,8 +2682,13 @@ export default function TemplateStudio() {
                         >
                           {(
                             [
+<<<<<<< HEAD
                               { id: "frontend", label: "Frontend file" },
                               { id: "remotion", label: "Remotion build" },
+=======
+                              { id: "frontend", label: "Frontend", full: "Frontend file" },
+                              { id: "remotion", label: "Remotion", full: "Remotion build" },
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             ] as const
                           ).map((opt) => {
                             const active = viewSource === opt.id;
@@ -1741,6 +2696,10 @@ export default function TemplateStudio() {
                               <button
                                 key={opt.id}
                                 type="button"
+<<<<<<< HEAD
+=======
+                                title={opt.full}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                 onClick={() =>
                                   setViewSource(
                                     opt.id === "frontend" ? "frontend" : "remotion",
@@ -1748,15 +2707,25 @@ export default function TemplateStudio() {
                                 }
                                 style={{
                                   border: "none",
+<<<<<<< HEAD
                                   borderRadius: "9px",
                                   padding: "4px 8px",
                                   fontSize: "10px",
+=======
+                                  borderRadius: "7px",
+                                  padding: "3px 6px",
+                                  fontSize: "9px",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                   fontWeight: active ? 600 : 500,
                                   fontFamily: FONT,
                                   cursor: "pointer",
                                   background: active ? T.accent : "transparent",
                                   color: active ? "#ffffff" : T.textSub,
                                   transition: "background 0.15s, color 0.15s",
+<<<<<<< HEAD
+=======
+                                  whiteSpace: "nowrap",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                 }}
                               >
                                 {opt.label}
@@ -1764,6 +2733,71 @@ export default function TemplateStudio() {
                             );
                           })}
                         </div>
+<<<<<<< HEAD
+=======
+
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "2px",
+                            borderRadius: "10px",
+                            background: T.surfaceAlt,
+                            border: `1px solid ${T.border}`,
+                            gap: "2px",
+                          }}
+                          title={
+                            layouts.length <= 1
+                              ? "This template only has one layout"
+                              : "Preview every layout back-to-back in the player"
+                          }
+                        >
+                          <button
+                            type="button"
+                            disabled={layouts.length <= 1}
+                            title="One layout — preview only the selected layout"
+                            onClick={() => layouts.length > 1 && setPlayAllLayouts(false)}
+                            style={{
+                              border: "none",
+                              borderRadius: "7px",
+                              padding: "3px 6px",
+                              fontSize: "9px",
+                              fontWeight: !playAllLayouts ? 600 : 500,
+                              fontFamily: FONT,
+                              cursor: layouts.length <= 1 ? "not-allowed" : "pointer",
+                              opacity: layouts.length <= 1 ? 0.45 : 1,
+                              background: !playAllLayouts ? T.accent : "transparent",
+                              color: !playAllLayouts ? "#ffffff" : T.textSub,
+                              transition: "background 0.15s, color 0.15s",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Single Scene
+                          </button>
+                          <button
+                            type="button"
+                            disabled={layouts.length <= 1}
+                            title="All layouts — play every layout in order"
+                            onClick={() => layouts.length > 1 && setPlayAllLayouts(true)}
+                            style={{
+                              border: "none",
+                              borderRadius: "7px",
+                              padding: "3px 6px",
+                              fontSize: "9px",
+                              fontWeight: playAllLayouts ? 600 : 500,
+                              fontFamily: FONT,
+                              cursor: layouts.length <= 1 ? "not-allowed" : "pointer",
+                              opacity: layouts.length <= 1 ? 0.45 : 1,
+                              background: playAllLayouts ? T.accent : "transparent",
+                              color: playAllLayouts ? "#ffffff" : T.textSub,
+                              transition: "background 0.15s, color 0.15s",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            All Scenes
+                          </button>
+                        </div>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       </div>
 
                       {/* Center: resolution + canvas pill (styled like toggle) */}
@@ -1771,10 +2805,18 @@ export default function TemplateStudio() {
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
+<<<<<<< HEAD
                           padding: "2px 8px 2px 4px",
                           borderRadius: "10px",
                           background: T.surfaceAlt,
                           gap: "6px",
+=======
+                          padding: "2px 4px 2px 2px",
+                          borderRadius: "10px",
+                          background: T.surfaceAlt,
+                          gap: "4px",
+                          flexShrink: 0,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         }}
                       >
                         <div
@@ -1797,9 +2839,15 @@ export default function TemplateStudio() {
                                 onClick={() => setStudioResolution(res)}
                                 style={{
                                   border: "none",
+<<<<<<< HEAD
                                   borderRadius: "9px",
                                   padding: "4px 8px",
                                   fontSize: "10px",
+=======
+                                  borderRadius: "7px",
+                                  padding: "3px 6px",
+                                  fontSize: "9px",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                   fontWeight: active ? 600 : 500,
                                   fontFamily: FONT,
                                   cursor: "pointer",
@@ -1816,18 +2864,30 @@ export default function TemplateStudio() {
                         </div>
                         <span
                           style={{
+<<<<<<< HEAD
                             fontSize: "10px",
+=======
+                            fontSize: "9px",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             color: T.textMuted,
                             fontFamily: FONT,
                             whiteSpace: "nowrap",
                           }}
                         >
+<<<<<<< HEAD
                           {canvasW} × {canvasH} · {durationInFrames}f · 30fps
+=======
+                          {canvasW}×{canvasH} {durationInFrames}f 30fps
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         </span>
                       </div>
 
                       {/* Right: Rendering badge */}
+<<<<<<< HEAD
                       <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+=======
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         <div
                           style={{
                             width: "5px",
@@ -1838,11 +2898,20 @@ export default function TemplateStudio() {
                         />
                         <span
                           style={{
+<<<<<<< HEAD
                             fontSize: "10px",
                             color: T.green,
                             fontWeight: 700,
                             letterSpacing: "0.08em",
                             fontFamily: FONT,
+=======
+                            fontSize: "8px",
+                            color: T.green,
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            fontFamily: FONT,
+                            whiteSpace: "nowrap",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                           }}
                         >
                           RENDERING
@@ -1864,6 +2933,14 @@ export default function TemplateStudio() {
                       boxShadow: `0 0 0 1px ${T.border}, 0 4px 16px rgba(147,51,234,0.07), 0 16px 48px rgba(0,0,0,0.08)`,
                     }}>
                       <Player
+<<<<<<< HEAD
+=======
+                        key={
+                          sequentialPreview
+                            ? `seq-${selectedTemplateId}-${layouts.join("|")}-${durationSeconds}`
+                            : `one-${selectedTemplateId}-${selectedLayout}-${durationSeconds}-${viewSource}`
+                        }
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         component={Composition}
                         inputProps={inputProps}
                         durationInFrames={durationInFrames}
@@ -1877,6 +2954,7 @@ export default function TemplateStudio() {
                   </div>
                 </div>
 
+<<<<<<< HEAD
                 {/* Stats bar */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", alignItems: "stretch" }}>
                   {[
@@ -1890,6 +2968,60 @@ export default function TemplateStudio() {
                       <div style={{ fontSize: "12px", color: T.accent, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: FONT }}>{value}</div>
                     </div>
                   ))}
+=======
+                {/* Layout props — single-line bar */}
+                <div
+                  className="glass-card"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr auto",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "10px 14px",
+                    minHeight: "44px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: T.text,
+                      fontFamily: FONT,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Layout props
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: T.textMuted,
+                      fontFamily: FONT,
+                      textAlign: "center",
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {hasEditableProps
+                      ? "Open the props list to change them"
+                      : "No props for this layout"}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={!hasEditableProps}
+                    onClick={() => setPropsModalOpen(true)}
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                      width: "auto",
+                      minWidth: 0,
+                    }}
+                  >
+                    View props
+                  </button>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 </div>
               </section>
 
@@ -1898,23 +3030,45 @@ export default function TemplateStudio() {
 
                 {/* Tab bar */}
                 <div style={{
+<<<<<<< HEAD
                   display: "flex", borderBottom: `1px solid ${T.border}`,
                   background: T.surfaceAlt, borderRadius: "12px 12px 0 0", flexShrink: 0,
                 }}>
                   {(["edit", "new-layout"] as const).map((tab) => {
                     const label = tab === "edit" ? "Edit" : "New Layout";
+=======
+                  display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+                  borderBottom: `1px solid ${T.border}`,
+                  background: T.surfaceAlt, borderRadius: "12px 12px 0 0", flexShrink: 0,
+                }}>
+                  {(["edit", "new-layout", "new-template"] as const).map((tab) => {
+                    const label = tab === "edit"
+                      ? "Edit"
+                      : tab === "new-layout"
+                        ? "New Layout"
+                        : "New Template";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     const isActive = rightTab === tab;
                     return (
                       <button
                         key={tab} type="button"
                         onClick={() => setRightTab(tab)}
                         style={{
+<<<<<<< HEAD
                           flex: 1, padding: "10px 8px", border: "none",
+=======
+                          padding: "10px 8px", border: "none",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                           borderBottom: isActive ? `2px solid ${T.accent}` : "2px solid transparent",
                           background: "transparent",
                           fontSize: "11px", fontWeight: isActive ? 700 : 500, fontFamily: FONT,
                           color: isActive ? T.accent : T.textSub,
                           cursor: "pointer", transition: "all 0.13s",
+<<<<<<< HEAD
+=======
+                          whiteSpace: "nowrap",
+                          textAlign: "center",
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         }}
                       >
                         {label}
@@ -2148,12 +3302,15 @@ export default function TemplateStudio() {
                     />
                   </div>
 
+<<<<<<< HEAD
                   <ImageAttachRow
                     image={newLayoutImage}
                     onImageChange={setNewLayoutImage}
                     label="Reference image (optional)"
                   />
 
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   <div>
                     <FieldLabel>Props</FieldLabel>
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
@@ -2199,6 +3356,191 @@ export default function TemplateStudio() {
                 </div>
                 )}
 
+<<<<<<< HEAD
+=======
+                {/* ── Tab: New Template (from design doc) ── */}
+                {rightTab === "new-template" && (
+                <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
+
+                  <div>
+                    <FieldLabel>Template ID (snake_case)</FieldLabel>
+                    <input
+                      className="studio-input"
+                      placeholder="e.g. neon_grid"
+                      value={newTemplateId}
+                      onChange={(e) => setNewTemplateId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))}
+                      style={{ ...inputBase, background: T.surfaceAlt }}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <FieldLabel>Design doc</FieldLabel>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {newTemplateDocFileName && (
+                          <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: FONT }}>
+                            {newTemplateDocFileName}
+                          </span>
+                        )}
+                        <input
+                          ref={newTemplateDocFileInputRef}
+                          type="file"
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            void handleNewTemplateDocFileSelect(e.target.files?.[0] ?? undefined);
+                            if (e.target) e.target.value = "";
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={newTemplateDocExtracting}
+                          onClick={() => newTemplateDocFileInputRef.current?.click()}
+                          style={{
+                            padding: "4px 8px", border: `1px solid ${T.border}`, borderRadius: 6,
+                            background: T.surfaceAlt, color: T.textSub,
+                            fontSize: "10px", fontFamily: FONT,
+                            cursor: newTemplateDocExtracting ? "wait" : "pointer",
+                            opacity: newTemplateDocExtracting ? 0.6 : 1,
+                          }}
+                        >
+                          {newTemplateDocExtracting ? "Extracting…" : "Upload file"}
+                        </button>
+                      </div>
+                    </div>
+                    <textarea
+                      className="studio-input"
+                      placeholder={`Describe the template.`}
+                      value={newTemplateDoc}
+                      onChange={(e) => { setNewTemplateDoc(e.target.value); if (newTemplateDocFileName) setNewTemplateDocFileName(""); }}
+                      rows={16}
+                      style={{ ...inputBase, resize: "vertical" as const, lineHeight: "1.55", background: T.surfaceAlt, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "11px" }}
+                    />
+                    <p style={{ margin: "6px 0 0", fontSize: "10px", color: T.textMuted, fontFamily: FONT, lineHeight: "1.5" }}>
+                      Paste your design doc or upload a file — PDF, DOCX, PPTX, MD, TXT, HTML, JSON, etc. Step 1 analyzes the doc and proposes layouts. Step 2: uncheck any layout you do not want (hero/fallback are reassigned automatically if needed), then create only the verified list.
+                    </p>
+                    {newTemplateReview && newTemplateReviewRows.length > 0 && (
+                      <div style={{
+                        marginTop: 10,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        border: `1px solid ${T.border}`,
+                        background: T.bg,
+                        maxHeight: 220,
+                        overflowY: "auto",
+                      }}>
+                        <div style={{ fontSize: "11px", fontWeight: 600, fontFamily: FONT, marginBottom: 8, color: T.text }}>
+                          Layouts to create ({newTemplateKeepLayoutIds.length} of {newTemplateReviewRows.length})
+                        </div>
+                        <p style={{ fontSize: "10px", color: T.textMuted, fontFamily: FONT, marginBottom: 8, lineHeight: 1.5 }}>
+                          Planned hero: <code style={{ fontSize: 10 }}>{String((newTemplateReview.plan as { hero_layout?: string }).hero_layout ?? "")}</code>
+                          {" · "}fallback: <code style={{ fontSize: 10 }}>{String((newTemplateReview.plan as { fallback_layout?: string }).fallback_layout ?? "")}</code>
+                          {" — if you remove either, the server picks replacements."}
+                        </p>
+                        {newTemplateReviewRows.map((row) => (
+                          <label
+                            key={row.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 8,
+                              padding: "6px 0",
+                              borderTop: `1px solid ${T.border}`,
+                              cursor: newTemplateBusy ? "default" : "pointer",
+                              fontSize: "11px",
+                              fontFamily: FONT,
+                              color: T.text,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={newTemplateKeepLayoutIds.includes(row.id)}
+                              disabled={Boolean(newTemplateBusy)}
+                              onChange={() => toggleNewTemplateLayoutKeep(row.id)}
+                              style={{ marginTop: 2 }}
+                            />
+                            <span>
+                              <strong>{row.id}</strong>
+                              {row.label !== row.id && (
+                                <span style={{ color: T.textMuted }}> — {row.label}</span>
+                              )}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={
+                      Boolean(newTemplateBusy) ||
+                      !newTemplateId.trim() ||
+                      newTemplateDoc.trim().length < 50 ||
+                      Boolean(newTemplateReview)
+                    }
+                    onClick={handleAnalyzeTemplateDoc}
+                  >
+                    <IconWand />
+                    {newTemplateBusy === "analyze" ? "Analyzing…" : "Analyze design doc"}
+                  </button>
+
+                  {newTemplateReview && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={
+                          Boolean(newTemplateBusy) ||
+                          newTemplateKeepLayoutIds.length < 2
+                        }
+                        onClick={handleCreateVerifiedTemplate}
+                      >
+                        <IconWand />
+                        {newTemplateBusy === "create"
+                          ? "Creating…"
+                          : `Create verified layouts (${newTemplateKeepLayoutIds.length})`}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        disabled={Boolean(newTemplateBusy)}
+                        onClick={() => {
+                          resetNewTemplateReview();
+                          setNewTemplateStatus("");
+                          setNewTemplateError("");
+                        }}
+                      >
+                        Cancel review
+                      </button>
+                    </>
+                  )}
+
+                  {newTemplateStatus && (
+                    <div style={{
+                      padding: "8px 10px", borderRadius: "6px",
+                      background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                      fontSize: "11px", fontFamily: FONT, color: T.textSub,
+                      whiteSpace: "pre-wrap" as const,
+                    }}>
+                      {newTemplateStatus}
+                    </div>
+                  )}
+
+                  {newTemplateError && (
+                    <div style={{
+                      padding: "8px 10px", borderRadius: "6px",
+                      background: "#fee2e2", border: "1px solid #fecaca",
+                      fontSize: "11px", fontFamily: FONT, color: "#dc2626",
+                    }}>
+                      {newTemplateError}
+                    </div>
+                  )}
+
+                </div>
+                )}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               </aside>
             </div>
           )}
@@ -2219,7 +3561,133 @@ export default function TemplateStudio() {
         bgColor={bgColor} setBgColor={setBgColor}
         textColor={textColor} setTextColor={setTextColor}
         durationSeconds={durationSeconds} setDurationSeconds={setDurationSeconds}
+<<<<<<< HEAD
       />
+=======
+        layoutSupportsImage={layoutSupportsImage}
+        onOpenImageAdjust={openTemplateImageAdjust}
+      />
+
+      <LayoutPropsModal
+        open={propsModalOpen}
+        onClose={() => setPropsModalOpen(false)}
+        schema={schema}
+        regularFields={regularFields}
+        layoutLabel={currentLayoutLabel}
+        layoutProps={layoutProps}
+        onSave={setLayoutProps}
+      />
+
+      {imageAdjustOpen && imageAdjustSrc &&
+        ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[1100] flex items-center justify-center p-2 sm:p-4 min-h-0">
+            <div
+              className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+              onClick={closeTemplateImageAdjust}
+              aria-hidden
+            />
+            <div
+              className="relative w-full max-w-3xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden min-h-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Adjust image framing</h3>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                    Drag to pan when zoomed in. Use the slider or scroll wheel to zoom, then save.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeTemplateImageAdjust}
+                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                  title="Close"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+                <div className="p-4 sm:p-5">
+                  <div
+                    ref={imageAdjustPreviewRef}
+                    onMouseDown={handleAdjustMouseDown}
+                    onTouchStart={handleAdjustTouchStart}
+                    style={{
+                      aspectRatio: imageAdjustAspectRatio,
+                      maxHeight: "70vh",
+                      maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                      ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
+                    }}
+                    className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                      isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
+                    }`}
+                  >
+                    <img
+                      src={imageAdjustSrc}
+                      alt="Adjust preview"
+                      className="absolute inset-0 w-full h-full"
+                      style={{
+                        objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
+                        objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                        transform: `scale(${imageAdjustZoom})`,
+                        transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                      }}
+                      draggable={false}
+                    />
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
+                    <label className="flex items-center gap-3 text-sm text-gray-700">
+                      <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                      <input
+                        type="range"
+                        min={IMAGE_ADJUST_ZOOM_MIN}
+                        max={IMAGE_ADJUST_ZOOM_MAX}
+                        step={0.05}
+                        value={imageAdjustZoom}
+                        onChange={(e) =>
+                          setImageAdjustZoom(
+                            Math.min(
+                              IMAGE_ADJUST_ZOOM_MAX,
+                              Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(e.target.value)),
+                            ),
+                          )
+                        }
+                        className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                      />
+                      <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                        {imageAdjustZoom.toFixed(2)}×
+                      </span>
+                    </label>
+                  </div>
+                  <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
+                    Position: X {Math.round(imageAdjustFocusX)}% · Y {Math.round(imageAdjustFocusY)}% · Zoom{" "}
+                    {imageAdjustZoom.toFixed(2)}×
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+                <button
+                  type="button"
+                  onClick={closeTemplateImageAdjust}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveTemplateImageAdjust}
+                  className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Save framing
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </>
   );
 }

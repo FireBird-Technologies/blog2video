@@ -1,5 +1,9 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+<<<<<<< HEAD
+=======
+import { AccentBars, SpotlightBeam, StreakField } from "../components/SpotlightArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
@@ -12,8 +16,9 @@ import type { SpotlightLayoutProps } from "../types";
  */
 export const Statement: React.FC<SpotlightLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   highlightWord,
   accentColor,
   bgColor,
@@ -51,7 +56,12 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — drifting stage light + streak energy. */}
+      <SpotlightBeam mode="drift" targetX={p ? 50 : 62} intensity={0.8} />
+      <StreakField accentColor={accentColor} count={9} seed={25} startFrame={6} />
+      {!imageUrl && <AccentBars accentColor={accentColor} position="top-left" count={2} startFrame={6} />}
 
       <div
         style={{
@@ -82,7 +92,10 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                transform: `scale(${imageZoom ?? 1})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
               }}
             />
           </div>
@@ -141,3 +154,4 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

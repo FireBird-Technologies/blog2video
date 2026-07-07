@@ -460,6 +460,27 @@ export const NewsCastBackground: React.FC<{
     );
   }
 
+<<<<<<< HEAD
+=======
+  // Minimal globe-related defaults to satisfy TypeScript until real globe logic is restored.
+  const globeLeft = "50%";
+  const globeTop = "50%";
+  const globeTranslateX = 0;
+  const globeTranslateY = 0;
+  const globeSizePx = 240;
+  const canUseGlobe = false;
+  const Globe: React.ComponentType<any> = () => null;
+  const globeRef = React.createRef<any>();
+  const globeImageUrl = "";
+  const bumpImageUrl = "";
+  const isHero = false;
+  const heroPhongMaterial: any = undefined;
+  const onGlobeReady = () => {};
+  const rotYNorm = 0;
+  const SVG_LAND_BIAS_DEG = 0;
+  const rotX = 0;
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return (
     <AbsoluteFill style={{ backgroundColor: solidBackground ? DEFAULT_BG : "transparent", overflow: "hidden" }}>
       {/* Starfield + fine grid */}
@@ -489,6 +510,11 @@ export const NewsCastBackground: React.FC<{
           zIndex: 1,
         }}
       />
+<<<<<<< HEAD
+=======
+
+      {/* globe watermark removed */}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </AbsoluteFill>
   );
 };

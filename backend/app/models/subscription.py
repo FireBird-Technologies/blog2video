@@ -61,9 +61,12 @@ class SubscriptionPlan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
+    # Relationships (plan_id only — scheduled_plan_id is a separate FK path)
     subscriptions: Mapped[list["Subscription"]] = relationship(
-        "Subscription", back_populates="plan", cascade="all, delete-orphan"
+        "Subscription",
+        back_populates="plan",
+        foreign_keys="Subscription.plan_id",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
@@ -111,16 +114,34 @@ class Subscription(Base):
     # Usage tracking (for recurring plans with video limits)
     videos_used: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Number of credits in this purchase. 1 for recurring plans and legacy
+    # per-video buys; N for per-video packs bought via the slider.
+    quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
     # Payment
     amount_paid_cents: Mapped[int] = mapped_column(Integer, default=0)
 
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Pending plan change scheduled at period end (downgrade flow).
+    # Set when user initiates downgrade; cleared on schedule fire or cancel.
+    scheduled_plan_id: Mapped[int | None] = mapped_column(
+        ForeignKey("subscription_plans.id"), nullable=True
+    )
+    scheduled_change_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    stripe_schedule_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="subscriptions")
-    plan: Mapped["SubscriptionPlan"] = relationship("SubscriptionPlan", back_populates="subscriptions")
+    plan: Mapped["SubscriptionPlan"] = relationship(
+        "SubscriptionPlan", back_populates="subscriptions", foreign_keys=[plan_id]
+    )
+    scheduled_plan: Mapped["SubscriptionPlan | None"] = relationship(
+        "SubscriptionPlan", foreign_keys=[scheduled_plan_id]
+    )
 
     def __repr__(self) -> str:
         return f"<Subscription #{self.id} user={self.user_id} plan={self.plan_id} status={self.status.value}>"
@@ -132,10 +153,17 @@ SEED_PLANS = [
     {
         "slug": "free",
         "name": "Free",
+<<<<<<< HEAD
         "description": "3 videos free — no credit card needed",
         "price_cents": 0,
         "billing_interval": BillingInterval.ONE_TIME,
         "video_limit": 3,
+=======
+        "description": "2 videos free — no credit card needed",
+        "price_cents": 0,
+        "billing_interval": BillingInterval.ONE_TIME,
+        "video_limit": 2,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         "includes_studio": False,
         "includes_chat_editor": False,
         "includes_priority_support": False,
@@ -156,10 +184,23 @@ SEED_PLANS = [
         "sort_order": 1,
     },
     {
+        "slug": "custom_template",
+        "name": "Custom Template Slot",
+        "description": "One extra custom-template slot — one-time $5",
+        "price_cents": 500,
+        "billing_interval": BillingInterval.ONE_TIME,
+        "video_limit": 0,
+        "includes_studio": False,
+        "includes_chat_editor": False,
+        "includes_priority_support": False,
+        "stripe_price_id": None,  # Set from CUSTOM_TEMPLATE_PRICE_ID
+        "sort_order": 6,
+    },
+    {
         "slug": "standard_monthly",
         "name": "Standard Monthly",
         "description": "30 videos/month with all features",
-        "price_cents": 2500,
+        "price_cents": 3500,
         "billing_interval": BillingInterval.MONTHLY,
         "video_limit": 30,
         "includes_studio": True,
@@ -172,7 +213,7 @@ SEED_PLANS = [
         "slug": "standard_annual",
         "name": "Standard Annual",
         "description": "30 videos/month — save 20% with annual billing",
-        "price_cents": 2000,  # $20/mo effective
+        "price_cents": 2800,  # $28/mo effective ($336/yr)
         "billing_interval": BillingInterval.ANNUAL,
         "video_limit": 30,
         "includes_studio": True,
@@ -185,7 +226,7 @@ SEED_PLANS = [
         "slug": "pro_monthly",
         "name": "Pro Monthly",
         "description": "100 videos/month with all features",
-        "price_cents": 5000,
+        "price_cents": 6000,
         "billing_interval": BillingInterval.MONTHLY,
         "video_limit": 100,
         "includes_studio": True,
@@ -198,7 +239,7 @@ SEED_PLANS = [
         "slug": "pro_annual",
         "name": "Pro Annual",
         "description": "100 videos/month — save 20% with annual billing",
-        "price_cents": 4000,  # $40/mo effective
+        "price_cents": 4800,  # $48/mo effective ($576/yr)
         "billing_interval": BillingInterval.ANNUAL,
         "video_limit": 100,
         "includes_studio": True,
@@ -206,6 +247,32 @@ SEED_PLANS = [
         "includes_priority_support": True,
         "stripe_price_id": None,  # Set from STRIPE_PRO_ANNUAL_PRICE_ID if added
         "sort_order": 5,
+    },
+    {
+        "slug": "standard_lifetime",
+        "name": "Standard Lifetime",
+        "description": "30 videos/month, forever — one-time $1000",
+        "price_cents": 100000,  # $1000 one-time
+        "billing_interval": BillingInterval.ONE_TIME,
+        "video_limit": 30,
+        "includes_studio": True,
+        "includes_chat_editor": True,
+        "includes_priority_support": True,
+        "stripe_price_id": None,  # Set from STANDARD_PLAN_LIFETIME_DEAL
+        "sort_order": 7,
+    },
+    {
+        "slug": "pro_lifetime",
+        "name": "Pro Lifetime",
+        "description": "100 videos/month, forever — one-time $1600",
+        "price_cents": 160000,  # $1600 one-time
+        "billing_interval": BillingInterval.ONE_TIME,
+        "video_limit": 100,
+        "includes_studio": True,
+        "includes_chat_editor": True,
+        "includes_priority_support": True,
+        "stripe_price_id": None,  # Set from PRO_PLAN_LIFETIME_DEAL
+        "sort_order": 8,
     },
 ]
 
@@ -229,10 +296,13 @@ def seed_plans(db_session) -> None:
     # Map config price IDs to plan slugs (only use real Stripe IDs)
     _stripe_ids = {
         "per_video": settings.STRIPE_PER_VIDEO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PER_VIDEO_PRICE_ID) else None,
+        "custom_template": settings.CUSTOM_TEMPLATE_PRICE_ID if _is_real_stripe_id(getattr(settings, "CUSTOM_TEMPLATE_PRICE_ID", "")) else None,
         "standard_monthly": settings.STRIPE_STANDARD_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_STANDARD_PRICE_ID", "")) else None,
         "standard_annual": settings.STRIPE_STANDARD_ANNUAL_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_STANDARD_ANNUAL_PRICE_ID", "")) else None,
         "pro_monthly": settings.STRIPE_PRO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PRO_PRICE_ID) else None,
         "pro_annual": settings.STRIPE_PRO_ANNUAL_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_PRO_ANNUAL_PRICE_ID", "")) else None,
+        "standard_lifetime": settings.STANDARD_PLAN_LIFETIME_DEAL if _is_real_stripe_id(getattr(settings, "STANDARD_PLAN_LIFETIME_DEAL", "")) else None,
+        "pro_lifetime": settings.PRO_PLAN_LIFETIME_DEAL if _is_real_stripe_id(getattr(settings, "PRO_PLAN_LIFETIME_DEAL", "")) else None,
     }
 
     for seed in SEED_PLANS:

@@ -1,0 +1,218 @@
+import React from "react";
+import { interpolate } from "remotion";
+import { SceneLayoutProps } from "../types";
+import {
+  MagazinePage,
+  MAG_TEXTURES,
+  Kicker,
+  Rule,
+  KineticWords,
+  WrittenText,
+  MAG_DISPLAY,
+  MAG_SERIF,
+  MAG_SANS,
+  resolveMagColors,
+  isPortrait,
+  useMagFrame,
+  hexToRgba,
+} from "../magazineStyle";
+
+// Normalise a points prop (object_array of { value } or string[]) to a clean
+// string list. When absent, fall back to splitting the legacy narration prose
+// into sentence bullets so older saved scenes still render as separate notes.
+// Strip any leading bullet glyph the source text may carry (●, •, ▪, ‣, ◦, *,
+// -, –, —) so we never paint a bullet inside the note — the ledger draws its
+// own editorial marker.
+const stripBullet = (s: string): string =>
+  s.replace(/^[\s]*[•·●▪‣◦*\-–—]+[\s]+/, "").trim();
+
+const toPoints = (raw: unknown, fallbackText: string): string[] => {
+  const pts = (Array.isArray(raw) ? raw : [])
+    .map((x) => (typeof x === "string" ? x : (x as { value?: string })?.value ?? ""))
+    .map((s) => stripBullet(s))
+    .filter(Boolean);
+  if (pts.length) return pts;
+  return (fallbackText || "")
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => stripBullet(s))
+    .filter(Boolean);
+};
+
+/**
+ * Text narration — a single-page "FIELD NOTES" index. Instead of a two-leaf
+ * opening spread, this is ONE sheet: a department masthead, then the narration
+ * broken into BULLETED notes laid out as a two-column ledger, with a footer mast.
+ * Reads like flipping to a magazine's Departments / Field Notes page rather than
+ * a chapter opener.
+ *
+ * All text is narration-driven: the notes are sentences split from the narration,
+ * and the title / section / folio come from the existing scene props.
+ */
+export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
+  const { title, narration, titleFontSize, descriptionFontSize } = props;
+  const sectionLabel = (props.sectionLabel as string) ?? "Field Notes";
+  const p = isPortrait(props.aspectRatio);
+  const colors = resolveMagColors(props);
+  const { text, accent } = colors;
+
+  const frame = useMagFrame();
+  const rev = (start: number, len = 12) =>
+    interpolate(frame, [start, start + len], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+
+  // Field-notes ledger, capped so the page stays calm. Prefer the structured
+  // `points` array (each item is one bullet); fall back to sentence-splitting
+  // the narration for legacy scenes that only carry prose.
+  // Portrait is one tall column, so fewer/shorter notes fit before the fixed-
+  // height content area clips — cap tighter there so the last note never gets
+  // cut off at the bottom. The optional photo sits as a full-bleed background
+  // (not a plate), so it never steals height from the ledger.
+  const maxN = p ? 4 : 6;
+  const entries = toPoints(props.points, narration ?? "").slice(0, maxN);
+
+  const titlePx = titleFontSize ?? (p ? 100 : 100);
+  // Portrait is one tall single column, so the notes can carry a larger body size
+  // and still fit (the ledger caps at maxN notes and centres in the remaining height).
+  const entryPx = descriptionFontSize ?? (p ? 72 : 43);
+  const bulletPx = p ? 28 : 17;
+
+  const kickerO = rev(2);
+  const ruleP = rev(12);
+  const footerO = rev(18 + entries.length * 5 + 4);
+
+  const footerLabel = (props.issueLabel as string) ?? sectionLabel;
+
+  return (
+    <MagazinePage
+      lightChrome
+      colors={colors}
+      section={sectionLabel}
+      issue={props.issueLabel ?? sectionLabel}
+      page={props.pageNumber}
+      aspectRatio={props.aspectRatio}
+      fontFamily={props.fontFamily}
+      cameraMove={props.cameraMove}
+      singlePage
+      printTextureSrc={MAG_TEXTURES.blur}
+      printTextureZoom={1.6}
+      backgroundImageSrc={props.imageUrl}
+      backgroundImageObjectPosition={props.imageObjectPosition}
+      backgroundImageZoom={props.imageZoom}
+      backgroundImageOpacity={0.22}
+    >
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
+        {/* Department masthead */}
+        <Kicker color={accent} style={{ opacity: kickerO, marginBottom: 14 }}>
+          {sectionLabel}
+        </Kicker>
+        <h1
+          style={{
+            fontFamily: MAG_DISPLAY,
+            fontWeight: 800,
+            fontSize: titlePx,
+            lineHeight: 1.12,
+            letterSpacing: "-0.02em",
+            color: text,
+            margin: 0,
+            // Keep the heading on the left leaf so it never crosses the center
+            // hinge crease of the spread background (landscape only; portrait
+            // has no fold). Cap short of the 50% fold and force long words to
+            // wrap/break so a wide word can never spill over the hinge — the
+            // heading always stays wholly on the left page.
+            maxWidth: p ? "100%" : "44%",
+            overflowWrap: "break-word",
+            wordBreak: "break-word",
+            hyphens: "auto",
+          }}
+        >
+          <KineticWords text={title ?? ""} start={6} stagger={3} dur={16} />
+        </h1>
+        <Rule color={accent} progress={ruleP} thickness={3} width="100%" style={{ marginTop: 10 }} />
+
+        {/* Numbered notes ledger — two columns (landscape) / one (portrait). The
+            optional photo renders as a full-bleed page background (see
+            backgroundImageSrc on MagazinePage above), so the ledger keeps its
+            full height regardless of whether a photo is present. */}
+        <div
+          style={{
+            flex: 1,
+            marginTop: p ? 24 : 34,
+            display: "grid",
+            gridTemplateColumns: p ? "1fr" : "1fr 1fr",
+            columnGap: 56,
+            rowGap: p ? 20 : 36,
+            alignContent: "center",
+            minHeight: 0,
+            overflow: "hidden",
+          }}
+        >
+          {entries.map((note, i) => {
+            const o = rev(18 + i * 5);
+            return (
+              <div key={i}>
+                <div style={{ width: 30, height: 2, background: accent, marginBottom: 10, opacity: o, transformOrigin: "left center" }} />
+                <div style={{ display: "flex", alignItems: "baseline", gap: p ? 16 : 10 }}>
+                  <span
+                    aria-hidden
+                    style={{
+                      fontSize: bulletPx,
+                      lineHeight: 1,
+                      color: accent,
+                      opacity: o,
+                      flexShrink: 0,
+                      // square editorial bullet, optically aligned to the serif baseline
+                      transform: `translateY(${Math.round(bulletPx * -0.18)}px)`,
+                    }}
+                  >
+                    ▪
+                  </span>
+                  <p
+                    style={{
+                      fontFamily: MAG_SERIF,
+                      fontSize: entryPx,
+                      lineHeight: 1.5,
+                      color: text,
+                      opacity: 0.92,
+                      margin: 0,
+                      flex: 1,
+                    }}
+                  >
+                    <WrittenText text={note} start={20 + i * 5} />
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer mast */}
+        <div style={{ opacity: footerO, marginTop: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span
+              style={{
+                fontFamily: MAG_SANS,
+                fontWeight: 600,
+                fontSize: p ? 16 : 11,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: hexToRgba(text, 0.55),
+              }}
+            >
+              {footerLabel}
+            </span>
+            <span
+              style={{
+                fontFamily: MAG_SANS,
+                fontWeight: 600,
+                fontSize: p ? 16 : 11,
+                letterSpacing: "0.1em",
+                color: hexToRgba(text, 0.55),
+              }}
+            >
+              {props.pageNumber ?? "01"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </MagazinePage>
+  );
+};

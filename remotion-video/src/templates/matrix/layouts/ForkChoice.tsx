@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+=======
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { CodeFragments, DecodeSweep, GlitchSlice, ScanlinesOverlay } from "../components/MatrixArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * ForkChoice — Red Pill / Blue Pill Split
@@ -15,8 +21,9 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
   leftLabel,
   rightLabel,
   leftDescription,
-  rightDescription,
-  imageUrl,
+  rightDescription,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -93,9 +100,14 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
               border: `1px solid ${accent}33`,
             }}
           >
-            <Img
+            <ZoomCropImg
               src={imageUrl}
+<<<<<<< HEAD
               style={{ width: "100%", height: "100%", objectFit: "cover" }} // Image fills 100% of its container
+=======
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             />
           </div>
         </div>
@@ -240,6 +252,13 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
           )}
         </div>
       </div>
+
+      {/* Decorative artifacts — decode pass, glitch ticks, readouts, CRT texture over the split. */}
+      <DecodeSweep accentColor={accent} startFrame={8} seed={31} />
+      <GlitchSlice accentColor={accent} every={70} seed={33} />
+      <CodeFragments accentColor={accent} count={7} seed={61} startFrame={12} />
+      <ScanlinesOverlay accentColor={accent} intensity={0.7} />
     </AbsoluteFill>
   );
 };
+

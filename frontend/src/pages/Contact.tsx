@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { sendEnterpriseContact } from "../api/client";
@@ -5,50 +6,19 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { ChatBubbleLeftIcon } from "@heroicons/react/24/solid";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
+=======
+import { useState } from "react";
+import { ChatBubbleLeftIcon } from "@heroicons/react/24/solid";
+import PublicHeader from "../components/public/PublicHeader";
+import PublicFooter from "../components/public/PublicFooter";
+import ContactModal from "../components/ContactModal";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import Seo from "../components/seo/Seo";
 import { contactSchema } from "../seo/schema";
 
 
 export default function Contact() {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
-  const [contactDetails, setContactDetails] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
-  const { showError } = useErrorModal();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setSuccess(null);
-    try {
-      await sendEnterpriseContact({ name, company, contact_details: contactDetails, message });
-      setSuccess("Thank you for the feedback, we'll get back soon.");
-      setName("");
-      setCompany("");
-      setContactDetails("");
-      setMessage("");
-    } catch (err: any) {
-      console.error("Enterprise contact failed", err);
-      showError(
-        getErrorMessage(err, "Something went wrong. Please try again or email us directly.")
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // After a successful send, briefly show success state then close the modal
-  useEffect(() => {
-    if (!success) return;
-    const timer = setTimeout(() => {
-      setOpen(false);
-      setSuccess(null);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [success]);
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -124,34 +94,9 @@ export default function Contact() {
 
       </div>
 
-      {/* Enterprise contact modal */}
-      {open && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Enterprise contact
-              </h2>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
+      <ContactModal open={open} onClose={() => setOpen(false)} />
 
+<<<<<<< HEAD
             {success ? (
               <div className="py-6 text-center space-y-3">
                 <div className="w-10 h-10 mx-auto rounded-full bg-green-50 flex items-center justify-center">
@@ -261,6 +206,8 @@ export default function Contact() {
         document.body
       )}
 
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <PublicFooter />
     </div>
   );

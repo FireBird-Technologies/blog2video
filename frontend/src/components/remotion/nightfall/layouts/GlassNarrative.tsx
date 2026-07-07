@@ -19,8 +19,9 @@ import type { NightfallLayoutProps } from "../types";
 
 export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -214,7 +215,10 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                   style={{
                     width: "100%",
                     height: "100%",
-                    objectFit: "cover",
+                    objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                transform: `scale(${imageZoom ?? 1})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
                     borderRadius: 12,
                     border: `1px solid ${accentColor}30`,
                   }}
@@ -356,3 +360,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

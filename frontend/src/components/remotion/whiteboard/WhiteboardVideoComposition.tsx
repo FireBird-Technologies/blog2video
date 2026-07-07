@@ -1,16 +1,24 @@
+import { resolveFontFamily } from "../../../fonts/registry";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { WHITEBOARD_LAYOUT_REGISTRY } from "./layouts";
 import type { WhiteboardLayoutType, WhiteboardLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 export interface WhiteboardSceneInput {
   id: number;
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: WhiteboardLayoutType;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -24,8 +32,19 @@ export interface WhiteboardVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
+<<<<<<< HEAD
+=======
+  playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const WhiteboardVideoComposition: React.FC<
@@ -39,16 +58,32 @@ export const WhiteboardVideoComposition: React.FC<
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
+<<<<<<< HEAD
+=======
+  playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
   let currentFrame = 0;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#F7F3E8", fontFamily }}>
       {scenes.map((scene) => {
-        const durationFrames = Math.max(1, Math.round(scene.durationSeconds * FPS));
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -61,6 +96,8 @@ export const WhiteboardVideoComposition: React.FC<
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor: accentColor || "#1F2937",
           bgColor: bgColor || "#F7F3E8",
           textColor: textColor || "#111827",
@@ -76,7 +113,24 @@ export const WhiteboardVideoComposition: React.FC<
             name={scene.title}
           >
             <LayoutComponent {...layoutProps} />
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.voiceoverUrl && (
+              <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            )}
+            {captionsEnabled && (scene.narrationText || scene.narration) && (
+              <CaptionTrack
+                text={scene.narrationText || scene.narration}
+                position={captionPosition || "bottom_center"}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : (fontFamily || undefined)}
+                fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
+                speechDurationFrames={
+                  scene.speechDurationSeconds
+                    ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                    : undefined
+                }
+              />
+            )}
           </Sequence>
         );
       })}
@@ -90,6 +144,11 @@ export const WhiteboardVideoComposition: React.FC<
           aspectRatio={aspectRatio || "landscape"}
         />
       )}
+    
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
+      )}
     </AbsoluteFill>
   );
 };
+

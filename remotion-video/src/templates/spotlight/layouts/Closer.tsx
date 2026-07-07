@@ -1,7 +1,12 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+<<<<<<< HEAD
+=======
+import { AccentBars, FilmGrain, LightDust, PulseRing, SpotlightBeam } from "../components/SpotlightArtifacts";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * Closer — Final Takeaway
@@ -13,8 +18,9 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
   highlightPhrase,
-  cta,
-  imageUrl,
+  cta,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -115,7 +121,14 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
+
+      {/* Decorative artifacts — converging stage lights, a soft pulse + dust in the beam. */}
+      <SpotlightBeam mode="converge" startFrame={2} intensity={0.85} />
+      <PulseRing accentColor={accentColor} periodFrames={100} />
+      <LightDust count={20} seed={9} />
+      <FilmGrain />
+      {!hasImage && <AccentBars accentColor={accentColor} position="bottom-left" count={2} startFrame={8} />}
 
       <div
         style={{
@@ -142,7 +155,11 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
               transform: `scale(${imageScale})`,
             }}
           >
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <ZoomCropImg
+              src={imageUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+            />
           </div>
         )}
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -182,3 +199,4 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

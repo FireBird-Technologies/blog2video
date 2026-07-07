@@ -18,8 +18,14 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
     timelineItems = [],
     aspectRatio,
     titleFontSize,
+<<<<<<< HEAD
     descriptionFontSize,
     imageUrl,
+=======
+    descriptionFontSize,imageUrl,
+  imageObjectPosition,
+  imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     fontFamily,
   } = props;
 
@@ -92,9 +98,17 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
               style={{
                 width: "100%",
                 height: "100%",
+<<<<<<< HEAD
                 objectFit: "cover",
                 display: "block", // BUG FIX: Removes baseline whitespace
                 transform: `scale(${interpolate(entranceSpring, [0, 1], [1.1, 1])})`,
+=======
+                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                display: "block", // BUG FIX: Removes baseline whitespace
+                transform: `scale(${(imageZoom ?? 1) * interpolate(entranceSpring, [0, 1], [1.1, 1])})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               }}
             />
             {/* Gradient Overlay */}

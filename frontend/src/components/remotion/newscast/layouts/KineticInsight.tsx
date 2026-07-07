@@ -58,8 +58,14 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
   tickerItems,
   lowerThirdTag,
   lowerThirdHeadline,
+<<<<<<< HEAD
   lowerThirdSub,
   imageUrl,
+=======
+  lowerThirdSub,imageUrl,
+  imageObjectPosition,
+  imageZoom,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   textColor,
   titleFontSize,
@@ -119,7 +125,11 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden", opacity: sceneOpacity }}>
+<<<<<<< HEAD
       <NewsCastLayoutImageBackground imageUrl={imageUrl} accentColor={RED} />
+=======
+      <NewsCastLayoutImageBackground imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={RED} />
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div
         aria-hidden
         style={{
@@ -292,3 +302,7 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
   );
 };
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

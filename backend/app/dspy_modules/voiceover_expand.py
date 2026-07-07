@@ -32,6 +32,33 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     ═══ STYLE-SPECIFIC RULES (CRITICAL — STRICTLY follow video_style) ═══
     - Treat video_style as a HARD CONSTRAINT.
     - Do NOT mix tones across styles.
+<<<<<<< HEAD
+
+    EXPLAINER (DOCUMENTARY MODE):
+    - Voice must sound like a polished documentary narrator: factual, composed, insightful.
+    - Use clear transitions and context-setting phrasing.
+    - Avoid classroom/lecture commands and avoid ad-like hype.
+
+    PROMOTIONAL:
+    - Voice must sound like a persuasive advertisement/promo.
+    - Keep a benefit-first, action-oriented cadence.
+    - Use confident, high-conviction phrasing with momentum.
+
+    STORYTELLING:
+    - Voice must sound like a human storyteller narrating events in sequence.
+    - Keep continuity and progression cues naturally (then, next, after that, finally).
+    - Maintain emotional flow without becoming promotional or instructional.
+
+    GENERAL STYLE GUARDRAILS:
+    - Natural spoken tone for the selected style.
+    - Clean phrasing.
+    - No elaboration beyond what fits the style.
+
+    ═══ LANGUAGE RULE (CRITICAL) ═══
+    - content_language is the language of the source content. Output expanded_voiceover EXCLUSIVELY in that language.
+    - Do NOT translate to English if the source is in another language.
+=======
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     EXPLAINER (DOCUMENTARY MODE):
     - Voice must sound like a polished documentary narrator: factual, composed, insightful.
@@ -57,6 +84,19 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     - content_language is the language of the source content. Output expanded_voiceover EXCLUSIVELY in that language.
     - Do NOT translate to English if the source is in another language.
 
+    ═══ PRONOUNCIATION RULE (CRITICAL) ═══
+    - If an abbreviation is popularly pronounced as a word (e.g. SaaS → "sass", NASA → "nasa", NVIDIA → "en-vidia"), write it phonetically so TTS reads it as a word, not letter-by-letter.
+    - Decimal numbers must be written with "point" between the parts. For example, 3.5 → "three point five", 9.875 → "nine point eight seven five".
+
+    ═══ EMOTIONAL DELIVERY (ONLY when expressive is true) ═══
+    - Write the line to convey energy and excitement, like an enthusiastic narrator.
+    - Add light emphasis words where natural (really, so, absolutely, truly).
+    - End emphatic sentences with an exclamation mark ("!").
+    - Do NOT use capitalization for emphasis. Never write a whole word in all-capitals — the v3
+      model reads an all-caps word letter-by-letter like an acronym (F-O-R-E-V-E-R). Use normal
+      capitalization; let the emphasis words and "!" carry the energy.
+    - Do NOT add new facts and stay within the length rules — emphasis only changes delivery, not content.
+    - When expressive is false, keep the current neutral phrasing (no added "!").
     Output ONLY the final narration text.
     No labels. No quotes. No commentary.
     """
@@ -68,6 +108,12 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     )
     content_language: str = dspy.InputField(
         desc="Language of the source content (e.g. 'English', 'Spanish'). Output expanded_voiceover in this language."
+<<<<<<< HEAD
+=======
+    )
+    expressive: bool = dspy.InputField(
+        desc="When true, write the narration with emotional energy (emphasis words + exclamation marks; no capitalization for emphasis). When false, keep neutral phrasing."
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     )
 
     expanded_voiceover: str = dspy.OutputField(
@@ -94,19 +140,35 @@ async def expand_narration_to_voiceover(
     scene_title: str = "",
     video_style: str = "explainer",
     content_language: str = "English",
+<<<<<<< HEAD
+=======
+    expressive: bool = False,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ) -> str:
     """
     Slightly expand a short display text into a natural voiceover narration.
     video_style (explainer | promotional | storytelling) shapes the tone.
     content_language (e.g. 'English', 'Spanish') ensures output is in the source language.
+<<<<<<< HEAD
     Returns the expanded text, or the original text if expansion fails.
+=======
+    expressive=True writes the line with emotional energy (emphasis words, "!", CAPS) — used by
+    the paid Advanced/v3 path. Returns the expanded text, or the original text if expansion fails.
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     """
     if not (display_text and display_text.strip()):
         return ""
 
+<<<<<<< HEAD
     # If display text is already long, skip expansion.
     word_count = len(display_text.split())
     if word_count > 50:
+=======
+    # If display text is already long, skip expansion — but in expressive mode always run so the
+    # emotional rewrite (emphasis / "!" / CAPS) is applied regardless of length.
+    word_count = len(display_text.split())
+    if word_count > 50 and not expressive:
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         return " ".join(display_text.strip().split())
 
     predictor_async = _get_predictor()
@@ -119,6 +181,10 @@ async def expand_narration_to_voiceover(
             display_text=display_text.strip(),
             video_style=style,
             content_language=lang,
+<<<<<<< HEAD
+=======
+            expressive=expressive,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
         out = (result.expanded_voiceover or "").strip()
         if out:

@@ -1,11 +1,20 @@
 {
   "id": "newscast",
   "name": "Newscast",
+<<<<<<< HEAD
   "new_template": true,
   "description": "Breaking-news themed template with a featured breaking hero, headline lead, live ticker, editorial pull quotes, claim vs facts panels, and a newsroom-style timeline. Every scene layout supports an optional full-bleed background image via layoutProps.imageUrl (editorial plate behind NEWSCAST chrome).",
   "styles": [
     "storytelling",
     "explainer"
+=======
+  "new_template": false,
+  "popular_template": true,
+  "description": "Breaking-news themed template with a featured breaking hero, headline lead, live ticker, editorial pull quotes, claim vs facts panels, and a newsroom-style timeline. Every scene layout supports an optional full-bleed background image via layoutProps.imageUrl (editorial plate behind NEWSCAST chrome).",
+  "genres": [
+    "Politics",
+    "Business"
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "preview_colors": {
     "accent": "#E82020",

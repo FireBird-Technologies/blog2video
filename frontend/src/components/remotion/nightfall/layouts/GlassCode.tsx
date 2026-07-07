@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+import React from "react";
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
@@ -31,7 +35,11 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
   } = props ?? {};
 
   const frame = useCurrentFrame();
+<<<<<<< HEAD
   const { height: compHeight } = useVideoConfig();
+=======
+  const { height: compHeight, width: compWidth } = useVideoConfig();
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const fps = 30;
   const p = aspectRatio === "portrait";
 
@@ -218,10 +226,63 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
     return tokens;
   };
 
+  // Deterministic sparkle positions in real px coordinates
+  const sparkles = p ? Array.from({ length: 38 }, (_, i) => {
+    const s1 = ((i * 127 + 31) % 97) / 97;
+    const s2 = ((i * 53  + 17) % 89) / 89;
+    const s3 = ((i * 79  + 43) % 73) / 73;
+    const s4 = ((i * 41  + 61) % 67) / 67;
+    return {
+      x: s1 * compWidth,
+      y: s2 * compHeight,
+      size: 3 + s3 * 9,          // arm length of the sparkle cross
+      twinkleOffset: i * 11,
+      isPlus: s4 > 0.5,           // mix of × and + orientations
+    };
+  }) : [];
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground bgColor={bgColor} />
+<<<<<<< HEAD
       
+=======
+
+      {/* Sparkle decoration — portrait only */}
+      {p && (
+        <svg
+          width={compWidth}
+          height={compHeight}
+          viewBox={`0 0 ${compWidth} ${compHeight}`}
+          style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}
+        >
+          {sparkles.map((s, i) => {
+            const brightness = 0.3 + 0.65 * Math.abs(Math.sin((frame + s.twinkleOffset) * 0.05));
+            const rot = s.isPlus ? 0 : 45;
+            const hs = s.size;       // half arm length
+            const dot = s.size * 0.18; // tiny center dot radius
+            // 4-point sparkle: two crossing lines + tiny dot
+            return (
+              <g
+                key={i}
+                transform={`translate(${s.x}, ${s.y}) rotate(${rot})`}
+                opacity={brightness}
+              >
+                {/* Long arms */}
+                <line x1={0} y1={-hs}     x2={0} y2={hs}     stroke={safeAccentColor} strokeWidth={1.1} strokeLinecap="round" />
+                <line x1={-hs} y1={0}     x2={hs} y2={0}     stroke={safeAccentColor} strokeWidth={1.1} strokeLinecap="round" />
+                {/* Short diagonal arms (half length, finer) */}
+                <line x1={-hs*0.55} y1={-hs*0.55} x2={hs*0.55} y2={hs*0.55} stroke={safeAccentColor} strokeWidth={0.6} strokeLinecap="round" />
+                <line x1={hs*0.55}  y1={-hs*0.55} x2={-hs*0.55} y2={hs*0.55} stroke={safeAccentColor} strokeWidth={0.6} strokeLinecap="round" />
+                {/* Center dot */}
+                <circle cx={0} cy={0} r={dot} fill="white" fillOpacity={0.9} />
+              </g>
+            );
+          })}
+        </svg>
+      )}
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div
         style={{
           position: "absolute",
@@ -230,7 +291,8 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: p ? 40 : 100,
+          padding: p ? 24 : 100,
+          zIndex: 1,
         }}
       >
         <div
@@ -238,10 +300,18 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
             ...glassCardStyle(safeAccentColor, 0.12),
             display: "flex",
             flexDirection: "column",
+<<<<<<< HEAD
             width: p ? "98%" : "95%",
             maxWidth: 1200,
             height: p ? "200vh" : "auto",
             minHeight: p ? 240 : 500,
+=======
+            width: p ? "92%" : "95%",
+            maxWidth: 1200,
+            height: "auto",
+            maxHeight: p ? "88%" : undefined,
+            minHeight: p ? 320 : 500,
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             overflow: "hidden",
             opacity: cardOpacity,
             transform: `translateY(${(1 - cardY) * 40}px)`,

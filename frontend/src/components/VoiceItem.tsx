@@ -131,7 +131,11 @@ export default function VoiceItem({
       )}
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-gray-800 truncate">{name}</div>
+<<<<<<< HEAD
         <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">{subtitle}</p>
+=======
+        <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed truncate" title={subtitle}>{subtitle}</p>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       </div>
       {badge}
       {actions}

@@ -19,8 +19,9 @@ import type { NightfallLayoutProps } from "../types";
 
 export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -214,7 +215,10 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                   style={{
                     width: "100%",
                     height: "100%",
-                    objectFit: "cover",
+                    objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                transform: `scale(${imageZoom ?? 1})`,
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
                     borderRadius: 12,
                     border: `1px solid ${accentColor}30`,
                   }}
@@ -284,6 +288,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                         }}
                       >
                         {firstLetter && (
+<<<<<<< HEAD
                           <span style={{
                             float: "left",
                             fontSize: p ? 120 : 140,
@@ -296,6 +301,24 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                             textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
                             filter: `drop-shadow(0 0 8px ${accentColor}40)`,
                           }}>{firstLetter}</span>
+=======
+                          <span
+                            style={{
+                              float: "left",
+                              fontSize: p ? 120 : 140,
+                              lineHeight: 0.85,
+                              fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
+                              color: accentColor,
+                              fontWeight: 700,
+                              marginRight: 12,
+                              marginTop: p ? 4 : 8,
+                              textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
+                              filter: `drop-shadow(0 0 8px ${accentColor}40)`,
+                            }}
+                          >
+                            {firstLetter}
+                          </span>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         )}
                         {rest}
                       </p>
@@ -352,3 +375,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

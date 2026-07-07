@@ -12,8 +12,14 @@ Notifications:
   - send_free_tier_video_limit_announcement() → campaign: free plan included-video limit raised
 """
 
+<<<<<<< HEAD
+=======
+import hashlib
+import hmac
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import html
 import logging
+import re
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Optional
@@ -42,6 +48,30 @@ def _resend_response_id(result) -> Optional[str]:
     return str(rid) if rid is not None else None
 
 
+<<<<<<< HEAD
+=======
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+
+# Appended only to the copy of a contact/request email sent back to the
+# requester — never to the internal team copy.
+_CONFIRMATION_NOTE = (
+    "Please check your spam folder in case you don't hear back within "
+    "1–2 business days, or contact arslan@firebird-technologies.com"
+)
+
+# CC'd on every requester confirmation email for internal visibility.
+_CONFIRMATION_CC = ["arslan@firebird-technologies.com"]
+
+
+def _extract_email(text: Optional[str]) -> Optional[str]:
+    """Return the first email-looking address in `text`, or None if there is none."""
+    if not text:
+        return None
+    match = _EMAIL_RE.search(text)
+    return match.group(0) if match else None
+
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 # ─── Provider abstraction ──────────────────────────────────────
 
 
@@ -57,6 +87,7 @@ class BaseEmailProvider(ABC):
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
+        cc: Optional[list[str]] = None,
     ) -> None:
         """
         Send a transactional email (immediately or at a scheduled time).
@@ -68,6 +99,7 @@ class BaseEmailProvider(ABC):
             text_content: Plain-text body (optional if html_content is set).
             from_email:   Override the default sender address.
             scheduled_at: If set, schedule send at this time (UTC); provider must support it.
+            cc:           Optional list of addresses to copy on the email.
 
         Raises:
             EmailServiceError: If the send fails for any reason.
@@ -91,6 +123,7 @@ class ResendEmailProvider(BaseEmailProvider):
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
+        cc: Optional[list[str]] = None,
     ) -> None:
         if not self.api_key:
             raise EmailServiceError("Cannot send email: RESEND_API_KEY is not configured")
@@ -106,6 +139,11 @@ class ResendEmailProvider(BaseEmailProvider):
             "to": [to],
             "subject": subject,
         }
+<<<<<<< HEAD
+=======
+        if cc:
+            params["cc"] = cc
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if html_content:
             params["html"] = html_content
         if text_content:
@@ -162,7 +200,9 @@ class EmailService:
     # ── Shared HTML builder ───────────────────────────────────
 
     @staticmethod
-    def _build_html(headline: str, body_paragraph: str, cta_label: str, cta_url: str) -> str:
+    def _build_html(headline: str, body_paragraph: str, cta_label: str, cta_url: str, unsubscribe_url: str = "", center: bool = False) -> str:
+        body_align = "center" if center else "left"
+        cta_align = "center" if center else "left"
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -185,12 +225,18 @@ class EmailService:
           </tr>
           <tr>
             <td style="padding:40px 40px 32px;">
-              <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;">{headline}</p>
-              <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.65;">{body_paragraph}</p>
-              <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+              <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;text-align:{body_align};">{headline}</p>
+              <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.65;text-align:{body_align};">{body_paragraph}</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
                 <tr>
-                  <td style="background:#9333EA;border-radius:6px;">
-                    <a href="{cta_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">{cta_label}</a>
+                  <td align="{cta_align}">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="background:#9333EA;border-radius:6px;">
+                          <a href="{cta_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">{cta_label}</a>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -201,6 +247,10 @@ class EmailService:
               <p style="margin:0;font-size:12px;color:#9ca3af;">
                 You received this because you have an account at Blog2Video.<br/>
                 &copy; 2026 Blog2Video &middot; All rights reserved.
+<<<<<<< HEAD
+=======
+                {f'<br/><a href="{unsubscribe_url}" style="color:#9ca3af;">Unsubscribe</a>' if unsubscribe_url else ""}
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               </p>
             </td>
           </tr>
@@ -210,6 +260,77 @@ class EmailService:
   </table>
 </body>
 </html>"""
+
+    # ── Requester confirmation ────────────────────────────────
+
+    @staticmethod
+    def _build_confirmation_html(first_name: str) -> str:
+        """
+        Build the HTML body of the confirmation sent back to the requester.
+        A short acknowledgement plus the spam-folder note in italics (with the
+        contact email bolded). It does not echo the submitted request.
+        """
+        note_html = html.escape(_CONFIRMATION_NOTE, quote=False)
+        note_email = _extract_email(_CONFIRMATION_NOTE)
+        if note_email:
+            esc_email = html.escape(note_email, quote=False)
+            note_html = note_html.replace(esc_email, f"<strong>{esc_email}</strong>")
+        return f"""<!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8" /></head>
+        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f4f5;padding:40px 0;margin:0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="center">
+                <table width="560" cellpadding="0" cellspacing="0"
+                      style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+                  <tr>
+                    <td style="background:#9333EA;padding:24px 40px;">
+                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:32px 40px;">
+                      <p style="margin:0 0 12px;font-size:18px;font-weight:600;color:#111827;">Thanks {html.escape(first_name, quote=False)}, we&apos;ve received your request</p>
+                      <p style="margin:0 0 20px;font-size:15px;color:#4b5563;line-height:1.65;">Our team will review it and get back to you soon.</p>
+                      <p style="margin:0;font-size:14px;color:#4b5563;line-height:1.6;font-style:italic;">{note_html}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>"""
+
+    def _send_request_confirmation(self, to: str, first_name: str) -> None:
+        """
+        Send the requester a short confirmation that their submission was received.
+
+        Best-effort: this runs after the internal team email has already been
+        sent, so any failure here is logged and swallowed — it must never turn
+        a successful submission into an error for the user.
+        """
+        subject = "We've received your request — Blog2Video"
+        text = (
+            f"Hi {first_name},\n\n"
+            f"We've received your request and our team will review it and get "
+            f"back to you soon.\n\n"
+            f"{_CONFIRMATION_NOTE}\n\n"
+            f"— The Blog2Video Team\n"
+        )
+        html_body = self._build_confirmation_html(first_name=first_name)
+        try:
+            self.provider.send_email(
+                to=to,
+                subject=subject,
+                html_content=html_body,
+                text_content=text,
+                from_email="sales@blog2video.app",
+                cc=_CONFIRMATION_CC,
+            )
+        except Exception as exc:
+            logger.warning(f"[EMAIL] Failed to send request confirmation to {to}: {exc}")
 
     # ── Notification methods ──────────────────────────────────
 
@@ -284,6 +405,129 @@ class EmailService:
         )
 
 
+<<<<<<< HEAD
+=======
+    def _send_coupon_email(
+        self,
+        *,
+        user_email: str,
+        subject: str,
+        intro_text: str,
+        coupon_code: str,
+        valid_hours: int,
+        recovery_url: Optional[str] = None,
+    ) -> None:
+        """
+        Shared sender for the two win-back coupon emails (abandoned / per-video).
+        Plain, left-aligned email — no card, coloured header, code chip or bold
+        styling — just a clickable CTA link and an Unsubscribe link.
+
+        If `recovery_url` is given (Stripe abandoned-cart recovery link), the CTA
+        resumes the original checkout; otherwise it falls back to the pricing page.
+        """
+        pricing_url = f"{getattr(settings, 'FRONTEND_URL', 'https://blog2video.app').rstrip('/')}/pricing"
+        cta_url = recovery_url or pricing_url
+        cta_label = "Complete your checkout" if recovery_url else "Choose a plan"
+        # Promo codes are case-insensitive in Stripe; show them upper-cased so the
+        # code reads clearly in the email regardless of how it's configured.
+        coupon_code = coupon_code.upper()
+        unsubscribe_url = self._make_unsubscribe_url(user_email)
+        text = (
+            f"{intro_text}\n\n"
+            f"Apply this code at checkout (enter it in ALL CAPITAL LETTERS):\n\n"
+            f"    {coupon_code}\n\n"
+            f"Hurry — this code is only valid for the next {valid_hours} hours.\n\n"
+            f"{cta_label}: {cta_url}\n\n"
+            f"— The Blog2Video Team\n\n"
+            f"---\n"
+            f"To unsubscribe from these emails, visit: {unsubscribe_url}\n"
+        )
+        blocks = intro_text.split("\n\n") + [
+            "Apply this code at checkout (enter it in ALL CAPITAL LETTERS):",
+            coupon_code,
+            f"Hurry — this code is only valid for the next {valid_hours} hours.",
+            f'<a href="{cta_url}" style="color:#9333EA;">{cta_label}</a>',
+            "— The Blog2Video Team",
+        ]
+        body_html = "".join(
+            f'<p style="margin:0 0 14px;">{block}</p>' for block in blocks
+        )
+        html = (
+            '<!DOCTYPE html><html><head><meta charset="UTF-8" />'
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>'
+            '<body style="margin:0;padding:24px;background:#ffffff;text-align:left;'
+            "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;"
+            'font-size:15px;line-height:1.6;color:#111827;">'
+            f"{body_html}"
+            f'<p style="margin:24px 0 0;font-size:12px;color:#9ca3af;">'
+            f'<a href="{unsubscribe_url}" style="color:#9ca3af;">Unsubscribe</a></p>'
+            "</body></html>"
+        )
+        self.provider.send_email(
+            to=user_email, subject=subject, html_content=html, text_content=text,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+    def send_abandoned_checkout_coupon_email(
+        self,
+        user_email: str,
+        user_name: str,
+        coupon_code: str = "",
+        discount_percent: int = 25,
+        valid_hours: int = 48,
+        recovery_url: Optional[str] = None,
+    ) -> None:
+        """
+        Win-back email for a user who reached checkout but bought nothing.
+        Triggered by Stripe's checkout.session.expired webhook; `recovery_url` is
+        the Stripe abandoned-cart recovery link that resumes the original checkout.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        self._send_coupon_email(
+            user_email=user_email,
+            subject=f"Still thinking it over? Here's {discount_percent}% off",
+            intro_text=(
+                f"Hi {first_name},\n\n"
+                f"You were one step away from checking out on Blog2Video. To help "
+                f"you finish up, here's {discount_percent}% off — just pick up right "
+                f"where you left off."
+            ),
+            coupon_code=coupon_code,
+            valid_hours=valid_hours,
+            recovery_url=recovery_url,
+        )
+
+    def send_per_video_upsell_coupon_email(
+        self,
+        user_email: str,
+        user_name: str,
+        coupon_code: str = "",
+        discount_percent: int = 25,
+        valid_hours: int = 48,
+    ) -> None:
+        """
+        Win-back email for a user who bought a single video. Nudges them toward a
+        subscription with a limited-time discount. Sent on a completed per-video
+        purchase (checkout.session.completed).
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        self._send_coupon_email(
+            user_email=user_email,
+            subject=f"Thanks for your video — here's {discount_percent}% off a plan",
+            intro_text=(
+                f"Hi {first_name},\n\n"
+                f"We hope you love the video you just made. If you're planning to make "
+                f"more, a subscription unlocks extra features like custom video templates "
+                f"and premium voiceover with voice cloning — and works out far cheaper "
+                f"than buying one video at a time. As a thank-you, here's "
+                f"{discount_percent}% off any plan."
+            ),
+            coupon_code=coupon_code,
+            valid_hours=valid_hours,
+        )
+
+
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     def schedule_followup_email(
         self,
@@ -332,15 +576,24 @@ class EmailService:
         company: str,
         contact_details: str,
         message: str,
+        is_designer_request: bool = False,
         to: str = "arslan@firebird-technologies.com",
     ) -> None:
         """
         Forward an enterprise contact form submission to the internal team.
         Triggered by POST /api/contact/enterprise.
+
+        When ``is_designer_request`` is set (the logged-out "Your Own Brand"
+        CTA on the landing page), the email is styled as a Designer Template
+        request rather than a generic enterprise contact.
         """
-        subject = f"[Enterprise] Contact from {name} ({company})"
+        kind_label = "Designer Template Request" if is_designer_request else "Enterprise Contact"
+        if is_designer_request:
+            subject = f"[Designer Template Request] from {name} ({company})"
+        else:
+            subject = f"[Enterprise] Contact from {name} ({company})"
         text = (
-            f"New enterprise contact request:\n\n"
+            f"New {kind_label.lower()}:\n\n"
             f"Name: {name}\n"
             f"Company: {company}\n"
             f"Contact details: {contact_details}\n\n"
@@ -357,7 +610,11 @@ class EmailService:
                       style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
                   <tr>
                     <td style="background:#9333EA;padding:24px 40px;">
+<<<<<<< HEAD
                       <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Enterprise Contact</span>
+=======
+                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — {kind_label}</span>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     </td>
                   </tr>
                   <tr>
@@ -367,7 +624,11 @@ class EmailService:
                         <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Company</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{company}</td></tr>
                         <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Contact</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{contact_details}</td></tr>
                       </table>
+<<<<<<< HEAD
                       <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Message</p>
+=======
+                      <p style="margin:24px 0 8px;font-weight:600;color:#374151;">{"Theme / Description" if is_designer_request else "Message"}</p>
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{message}</p>
                     </td>
                   </tr>
@@ -378,6 +639,305 @@ class EmailService:
         </body>
         </html>"""
         self.provider.send_email(to=to, subject=subject, html_content=html, text_content=text)
+<<<<<<< HEAD
+=======
+
+        # Send the requester a confirmation with the spam-folder note, if they gave an email.
+        sender_email = _extract_email(contact_details)
+        if sender_email:
+            self._send_request_confirmation(
+                to=sender_email,
+                first_name=name.split()[0] if name.strip() else "there",
+            )
+
+
+
+    def send_custom_template_request_email(
+        self,
+        user_name: str,
+        user_email: str,
+        user_plan: str,
+        description: str,
+        alternate_contact: str | None = None,
+        company_information: str | None = None,
+        to: str = "arslan@firebird-technologies.com",
+    ) -> None:
+        """
+        Forward a custom template request from a logged-in user to the internal team.
+        Triggered by POST /api/contact/custom-template-request.
+        """
+        subject = f"[Custom Template Request] from {user_name}"
+        alt_line = f"Alternate contact: {alternate_contact}" if alternate_contact else "Alternate contact: —"
+        company_line = (
+            f"Company information:\n{company_information}\n"
+            if company_information
+            else "Company information: —"
+        )
+        text = (
+            f"New custom template request:\n\n"
+            f"Name: {user_name}\n"
+            f"Account email: {user_email}\n"
+            f"Plan: {user_plan}\n"
+            f"{alt_line}\n"
+            f"{company_line}\n"
+            f"Description:\n{description}\n"
+        )
+        alt_cell = f"<td style='color:#111827;border-bottom:1px solid #f3f4f6;'>{alternate_contact}</td>" if alternate_contact else "<td style='color:#9ca3af;border-bottom:1px solid #f3f4f6;'>—</td>"
+        company_safe = html.escape(company_information, quote=False) if company_information else ""
+        company_block = (
+            f'<p style="margin:16px 0 8px;font-weight:600;color:#374151;">Company information</p>'
+            f'<p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{company_safe}</p>'
+            if company_information
+            else ""
+        )
+        html_body = f"""<!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8" /></head>
+        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f4f5;padding:40px 0;margin:0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="center">
+                <table width="560" cellpadding="0" cellspacing="0"
+                      style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+                  <tr>
+                    <td style="background:#9333EA;padding:24px 40px;">
+                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Custom Template Request</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:32px 40px;">
+                      <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;">
+                        <tr><td style="font-weight:600;color:#374151;width:160px;border-bottom:1px solid #f3f4f6;">Name</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_name}</td></tr>
+                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Account email</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_email}</td></tr>
+                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Plan</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_plan}</td></tr>
+                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Alternate contact</td>{alt_cell}</tr>
+                      </table>
+                      {company_block}
+                      <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Theme / Description</p>
+                      <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{description}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>"""
+        self.provider.send_email(to=to, subject=subject, html_content=html_body, text_content=text, from_email="sales@blog2video.app")
+
+        # Send the requester a confirmation with the spam-folder note (account email always present).
+        self._send_request_confirmation(
+            to=user_email,
+            first_name=user_name.split()[0] if user_name.strip() else "there",
+        )
+
+
+
+    @staticmethod
+    def _blast_paragraph_inner(text: str) -> str:
+        """Escape HTML and turn each newline into <br /> so single line breaks render in email clients."""
+        lines = text.split("\n")
+        return "<br />\n".join(html.escape(line) for line in lines)
+
+    @staticmethod
+    def _build_blast_html(subject: str, body_text: str, unsubscribe_url: str = "") -> str:
+        # Split on blank lines → separate <p> blocks; single newlines inside a block → <br />
+        paragraphs = "".join(
+            f'<p style="margin:0 0 16px;font-size:15px;color:#4b5563;line-height:1.65;">'
+            f"{EmailService._blast_paragraph_inner(p.strip())}</p>"
+            for p in body_text.split("\n\n") if p.strip()
+        )
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{html.escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#9333EA;padding:32px 40px;text-align:center;">
+              <span style="font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
+                Blog<span style="color:#c4b5fd;">2</span>Video
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              {paragraphs}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                You received this because you have an account at Blog2Video.<br/>
+                &copy; 2026 Blog2Video &middot; All rights reserved.
+              </p>
+              {f'<p style="margin:8px 0 0;font-size:12px;"><a href="{unsubscribe_url}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a></p>' if unsubscribe_url else ""}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    def send_referral_invite_email(self, to_email: str, referrer_name: str, referral_link: str) -> None:
+        from app.models.referral import REFERRAL_BONUS_VIDEOS
+        from app.models.user import FREE_TIER_INCLUDED_VIDEOS
+
+        first_name = (referrer_name or "").split()[0] if referrer_name else "A friend"
+        bonus = REFERRAL_BONUS_VIDEOS
+        total = FREE_TIER_INCLUDED_VIDEOS + REFERRAL_BONUS_VIDEOS
+        subject = f"{first_name} invited you to Blog2Video — get {bonus} free extra videos"
+
+        text_content = (
+            f"{first_name} invited you to Blog2Video!\n\n"
+            f"Blog2Video is an AI tool that turns blog posts into polished videos in minutes.\n\n"
+            f"Sign up through their invite link and get {bonus} bonus videos on top of your free plan "
+            f"({total} total, no credit card required).\n\n"
+            f"Get started: {referral_link}\n\n"
+            f"Team Blog2Video\n"
+        )
+        html_content = (
+            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
+            f"{html.escape(first_name)} invited you to Blog2Video!\n\n"
+            f"Blog2Video is an AI tool that turns blog posts into polished videos in minutes.\n\n"
+            f"Sign up through their invite link and get {bonus} bonus videos on top of your free plan "
+            f"({total} total, no credit card required).\n\n"
+            f"Get started: {referral_link}\n\n"
+            f"Team Blog2Video"
+            f"</pre>"
+        )
+        self.provider.send_email(
+            to=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+    def send_blast_email(self, user_email: str, user_name: str, subject: str, body: str) -> None:
+        first_name = (user_name or "").split()[0] if user_name else "there"
+        unsubscribe_url = self._make_unsubscribe_url(user_email)
+
+        text_content = (
+            f"Hi {first_name},\n\n"
+            f"{body}\n\n"
+            f"---\n"
+            f"To unsubscribe from these emails, visit: {unsubscribe_url}\n"
+        )
+
+        html_content = (
+            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
+            f"Hi {html.escape(first_name)},\n\n"
+            f"{html.escape(body)}"
+            f"</pre>"
+            f"<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0;'/>"
+            f"<p style='font-size:12px;color:#9ca3af;margin:0 0 6px;'>"
+            f"Visit us at <a href='https://blog2video.app' style='color:#9ca3af;text-decoration:underline;text-decoration-color:#9ca3af;'>blog2video.app</a>"
+            f"</p>"
+            f"<p style='font-size:12px;color:#9ca3af;margin:0;'>"
+            f"To unsubscribe from these emails, "
+            f"<a href='{unsubscribe_url}' style='color:#9ca3af;text-decoration:underline;text-decoration-color:#9ca3af;'>click here</a>."
+            f"</p>"
+        )
+
+        self.provider.send_email(
+            to=user_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email="Arslan Shahid <arslan@blog2video.app>",
+        )
+
+        # Unosend (blast only — transactional mail uses Resend via self.provider):
+        # from unosend import Unosend
+        # client = Unosend(api_key=getattr(settings, "UNOSEND_API_KEY", ""))
+        # response = client.emails.send(
+        #     from_address="Arslan Shahid <arslan@blog2video.app>",
+        #     to=user_email,
+        #     subject=subject,
+        #     html=html_content,
+        #     text=text_content,
+        # )
+        # if response.error:
+        #     raise EmailServiceError(f"Unosend error sending to {user_email}: {response.error.message}")
+
+    def _make_unsubscribe_url(self, email: str) -> str:
+        token = hmac.new(
+            settings.JWT_SECRET.encode(),
+            email.strip().lower().encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        api_base = getattr(settings, "BACKEND_URL", "http://localhost:8000").rstrip("/")
+        import urllib.parse
+        return f"{api_base}/unsubscribe?email={urllib.parse.quote(email.strip().lower())}&token={token}"
+
+
+    def send_weekly_updates(
+        self,
+        user_email: str,
+        user_name: str,
+        dashboard_url: Optional[str] = None,
+    ) -> None:
+        """Product update email: plain text body with unsubscribe link in footer."""
+        base = "https://blog2video.app"
+        cta_url = dashboard_url or base
+        display = (user_name or "").strip() or "there"
+        subject = "WE JUST SHIPPED 🚀🚀🚀"
+        unsubscribe_url = self._make_unsubscribe_url(user_email)
+
+        text = (
+            f"Hi {display},\n\n"
+            "We've been busy shipping improvements to Blog2Video. Here's what's new:\n\n"
+            "• Two new templates: Mosaic & Black Swan — add more visual variety to your videos.\n"
+            "• Adjustable playback speed — fine-tune pacing during preview and render.\n"
+            "• Smarter voiceovers — numbers, dates, and stats now sound natural every time.\n"
+            "• Expert-crafted templates — professionally designed, ready to use out of the box.\n"
+            "• Enhanced data visualization in Newscaster — richer charts for stats and trends.\n\n"
+            f"Log in to try the new features: {cta_url}\n\n"
+            "We'd love to hear what you think.\n\n"
+            "Team Blog2Video\n\n"
+            "---\n"
+            f"To unsubscribe from these emails, click here: {unsubscribe_url}\n"
+        )
+
+        # Minimal HTML — plain text visually, clickable unsubscribe link in footer
+        html_body = (
+            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
+            f"Hi {html.escape(display)},\n\n"
+            "We've been busy shipping improvements to Blog2Video. Here's what's new:\n\n"
+            "• Two new templates: Mosaic &amp; Black Swan — add more visual variety to your videos.\n"
+            "• Adjustable playback speed — fine-tune pacing during preview and render.\n"
+            "• Smarter voiceovers — numbers, dates, and stats now sound natural every time.\n"
+            "• Expert-crafted templates — professionally designed, ready to use out of the box.\n"
+            "• Enhanced data visualization in Newscaster — richer charts for stats and trends.\n\n"
+            f"Log in to try the new features: {cta_url}\n\n"
+            "We'd love to hear what you think.\n\n"
+            "Arslan"
+            f"</pre>"
+            f"<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0;'/>"
+            f"<p style='font-size:12px;color:#9ca3af;margin:0;'>"
+            f"To unsubscribe from these emails, "
+            f"<a href='{unsubscribe_url}' style='color:#9ca3af;'>Unsubscribe</a>."
+            f"</p>"
+        )
+
+        self.provider.send_email(
+            to=user_email,
+            subject=subject,
+            html_content=html_body,
+            text_content=text,
+            from_email="Arslan Shahid <arslan@blog2video.app>",
+        )
+>>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     def send_free_tier_video_limit_announcement(
         self,
