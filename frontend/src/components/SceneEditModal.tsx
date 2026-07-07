@@ -24,7 +24,9 @@ import GenerateSceneImageModal from "./GenerateSceneImageModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
 import { compileDataModule } from "../utils/compileComponent";
-import { normalizeLayoutId } from "./remotion/imageBoxConfig";
+import { normalizeLayoutId, getImageBoxAspectRatio, isImageBoxCircular } from "./remotion/imageBoxConfig";
+import { getTemplateConfig } from "./remotion/templateConfig";
+import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
@@ -2703,6 +2705,8 @@ export default function SceneEditModal({
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
@@ -4287,6 +4291,32 @@ export default function SceneEditModal({
     setImageAdjustFocusX(imageFocusX);
     setImageAdjustFocusY(imageFocusY);
     setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
+
+    // Compute the preview box aspect ratio + circular flag from the image box
+    // config so the framing preview matches the layout's real image slot —
+    // mirroring the scene-details dropdown on the project view page.
+    const orientation = project.aspect_ratio === "portrait" ? "portrait" : "landscape";
+    let ar: string;
+    let circular = false;
+    if (isCustomTemplate) {
+      ar = resolveCustomImageBoxAr(scene, project);
+    } else if (isCraftedTemplate) {
+      ar =
+        _resolveCraftedImageBoxArFromFiles(craftedFrontendFiles, currentLayoutId, orientation) ||
+        (orientation === "portrait" ? "9 / 16" : "16 / 9");
+    } else {
+      const templateCfg = getTemplateConfig(project.template || "default");
+      ar = getImageBoxAspectRatio(
+        currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
+        orientation,
+        templateCfg.baseWidth,
+        templateCfg.baseHeight,
+      );
+      circular = isImageBoxCircular(currentLayoutId);
+    }
+    setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(circular);
+
     imageAdjustPanRef.current = null;
     setImageAdjustOpen(true);
   };
@@ -6403,11 +6433,12 @@ export default function SceneEditModal({
               onMouseDown={handleAdjustMouseDown}
               onTouchStart={handleAdjustTouchStart}
               style={{
-                height: "min(70vh, 26rem)",
+                aspectRatio: imageAdjustAspectRatio,
                 maxHeight: "70vh",
-                maxWidth: "min(100%, 42rem)",
+                maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
               }}
-              className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+              className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
                 isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
               }`}
             >
