@@ -84,6 +84,7 @@ export function TemplateAssignPreview({
           previewImageUrl={ct.preview_image_url}
           logoUrls={ct.logo_urls}
           ogImage={ct.og_image}
+          thumbnailMode
         />
       );
     }
@@ -103,7 +104,7 @@ export function TemplateAssignPreview({
       );
       if (variant === "thumb") {
         return (
-          <div className="relative w-full overflow-hidden max-h-[80px] min-h-[64px] bg-gray-50">
+          <div className="relative h-20 w-full overflow-hidden bg-gray-50">
             {fallback}
           </div>
         );
@@ -125,8 +126,8 @@ export function TemplateAssignPreview({
   if (Comp) {
     if (variant === "thumb") {
       return (
-        <div className="relative w-full overflow-hidden max-h-[80px] min-h-[64px] bg-gray-50">
-          <Comp key={templateId} />
+        <div className="relative h-20 w-full overflow-hidden bg-gray-50">
+          <Comp key={templateId} thumbnailMode />
         </div>
       );
     }

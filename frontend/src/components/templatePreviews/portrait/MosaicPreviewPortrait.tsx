@@ -1,40 +1,13 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "../PlayerScaledCanvas";
 import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// ─── Portrait canvas wrapper (9:16). Fixed-pixel internal size + a CSS scale on
-// THIS element keeps Remotion's <Player> (which measures its own container via
-// useElementSize) stable under the carousel's ancestor scale()/rotateY() — a
-// plain width/height:100% Player re-measures against the transformed box and
-// flickers / collapses. (Same pattern as Blackswan/Newscast portraits.)
 const INTERNAL_W = 270;
 const INTERNAL_H = 480;
-
-function ScaledCanvas({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.5);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => {
-      const s = el.offsetWidth / INTERNAL_W;
-      if (s > 0) setScale(s);
-    };
-    update();
-    const obs = new ResizeObserver(update);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return (
-    <div ref={ref} style={{ width: "100%", aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, overflow: "hidden", position: "relative" }}>
-      <div style={{ width: INTERNAL_W, height: INTERNAL_H, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute" }}>
-        {children}
-      </div>
-    </div>
-  );
-}
+const FPS = 30;
 
 interface DemoScene {
   id: number;
@@ -84,7 +57,6 @@ const MOSAIC_PREVIEW_SCENES: DemoScene[] = [
   },
 ];
 
-const FPS = 30;
 // Per-scene frame budget the preview composition uses (duration + padding).
 function sceneFrames(s: DemoScene): number {
   return Math.round(s.durationSeconds * FPS) + 45;
@@ -159,8 +131,8 @@ export default function MosaicPreviewPortrait({ thumbnailMode = false }: { thumb
   }, [thumbnailMode, sceneOffsets]);
 
   return (
-    <ScaledCanvas>
-      <div style={{ width: "100%", height: "100%", position: "relative", background: bgColor }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: bgColor }}>
+      <PlayerScaledCanvas internalWidth={INTERNAL_W} internalHeight={INTERNAL_H}>
         <Player
           ref={playerRef}
           component={Composition}
@@ -176,6 +148,7 @@ export default function MosaicPreviewPortrait({ thumbnailMode = false }: { thumb
           acknowledgeRemotionLicense
           style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
         />
+      </PlayerScaledCanvas>
 
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
           {MOSAIC_PREVIEW_SCENES.map((scene, index) => {
@@ -194,7 +167,6 @@ export default function MosaicPreviewPortrait({ thumbnailMode = false }: { thumb
             );
           })}
         </div>
-      </div>
-    </ScaledCanvas>
+    </div>
   );
 }

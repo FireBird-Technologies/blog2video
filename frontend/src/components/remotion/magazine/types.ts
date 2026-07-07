@@ -105,6 +105,12 @@ export interface SceneLayoutProps {
   subtitle?: string;
   issueLabel?: string;
   sectionLabel?: string;
+  // interview_qa — small-caps eyebrow prefix before the speaker names ("In Conversation")
+  conversationLabel?: string;
+  // by_the_numbers — word before the section label in the top eyebrow ("Data · …")
+  kickerPrefix?: string;
+  // by_the_numbers — big uppercase display headline, independent of the eyebrow (sectionLabel)
+  displayTitle?: string;
   // Folio page number injected by the composition (1-based scene order, zero-padded)
   pageNumber?: string;
   // True only for the first scene — plays the one-time establishing fly-in.
@@ -124,6 +130,8 @@ export interface SceneLayoutProps {
   exitAnim?: SceneExitVariant;
   // Publication/brand wordmark for the cover masthead (from project name)
   brandName?: string;
+  // magazine_cover — editable byline shown bottom-left ("By …"). Blank hides the line.
+  byline?: string;
   attribution?: string;
   caption?: string;
   stats?: Array<{ label?: string; value?: string }>;
@@ -137,6 +145,9 @@ export interface SceneLayoutProps {
   panelHeading?: string;
   panelSubline?: string;
   panelTag?: string;
+  // feature — the on-screen headline (last word renders italic). Editable per
+  // scene; falls back to `title` for legacy scenes without the dedicated field.
+  heading?: string;
   // feature — original feature-article prose (distilled from the source script by
   // the generation pipeline); falls back to narration. The first letter renders as
   // the red drop cap. keyPoints are 2–4 short takeaways shown along the bottom.

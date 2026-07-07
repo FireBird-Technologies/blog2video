@@ -90,7 +90,7 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
   );
 
   return (
-    <MagazinePage lightChrome colors={colors} section={(props.sectionLabel as string)?.trim() || "Comparison"} issue={props.issueLabel ?? "Analysis"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} cameraMove={props.cameraMove} printTextureSrc={MAG_TEXTURES.comparison} printTextureOpacity={0.3}>
+    <MagazinePage lightChrome colors={colors} section={(props.sectionLabel as string)?.trim() || "Comparison"} issue={props.issueLabel ?? "Analysis"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} cameraMove={props.cameraMove} hidePrintTexture={p} printTextureSrc={p ? MAG_TEXTURES.comparisonPortrait : MAG_TEXTURES.comparison} printTextureOpacity={0.3}>
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         {title && (
           <h1

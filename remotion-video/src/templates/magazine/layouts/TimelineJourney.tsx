@@ -13,10 +13,71 @@ import {
   isPortrait,
   useMagFrame,
   hexToRgba,
+  FitBlock,
+  type MagColors,
 } from "../magazineStyle";
 
 const clampO = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
 const easeOut = { ...clampO, easing: Easing.out(Easing.cubic) };
+
+/**
+ * One milestone's text stack (year → label → detail). The year stays at its base
+ * size; the label + detail are auto-shrunk together (via FitBlock) so the whole
+ * block fits `maxHeight` — long copy is displayed in full at a smaller size
+ * instead of being clamped to two lines with an ellipsis. Shared by the portrait
+ * (vertical) and landscape (zig-zag) timelines.
+ */
+const MilestoneText: React.FC<{
+  date: string;
+  label: string;
+  desc: string;
+  yearPx: number;
+  labelPx: number;
+  descPx: number;
+  labelMarginTop: number;
+  descMarginTop: number;
+  descLineHeight: number;
+  maxHeight: number;
+  colors: MagColors;
+  yearNoWrap?: boolean;
+  centered?: boolean;
+  labelMaxWidth?: string;
+  descMaxWidth?: string;
+  style?: React.CSSProperties;
+}> = ({
+  date, label, desc, yearPx, labelPx, descPx,
+  labelMarginTop, descMarginTop, descLineHeight, maxHeight, colors,
+  yearNoWrap, centered, labelMaxWidth, descMaxWidth, style,
+}) => {
+  const { text, accent } = colors;
+  const labelRef = React.useRef<HTMLDivElement>(null);
+  const descRef = React.useRef<HTMLDivElement>(null);
+  const centerMargin = centered ? "auto" : undefined;
+  return (
+    <FitBlock
+      maxHeight={maxHeight}
+      minScale={0.55}
+      deps={[label, desc, labelPx, descPx, maxHeight, yearPx]}
+      targets={[
+        { ref: labelRef, basePx: labelPx },
+        { ref: descRef, basePx: descPx },
+      ]}
+      style={style}
+    >
+      <div style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: yearPx, lineHeight: 1, color: accent, letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums", ...(yearNoWrap ? { whiteSpace: "nowrap" } : null) }}>
+        {date}
+      </div>
+      <div ref={labelRef} style={{ fontFamily: MAG_SERIF, fontWeight: 600, fontSize: labelPx, lineHeight: 1.3, color: text, marginTop: labelMarginTop, ...(centerMargin ? { marginLeft: centerMargin, marginRight: centerMargin } : null), ...(labelMaxWidth ? { maxWidth: labelMaxWidth } : null) }}>
+        {label}
+      </div>
+      {desc && (
+        <div ref={descRef} style={{ fontFamily: MAG_SERIF, fontSize: descPx, lineHeight: descLineHeight, color: hexToRgba(text, 0.7), marginTop: descMarginTop, ...(centerMargin ? { marginLeft: centerMargin, marginRight: centerMargin } : null), ...(descMaxWidth ? { maxWidth: descMaxWidth } : null) }}>
+          {desc}
+        </div>
+      )}
+    </FitBlock>
+  );
+};
 
 /**
  * Timeline journey — a horizontal "zig-zag" chronology printed across the spread.
@@ -36,6 +97,15 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
   const colors = resolveMagColors(props);
   const { bg, text, accent } = colors;
   const frame = useMagFrame();
+
+  // Measured pixel height of the timeline band — used to bound each milestone's
+  // year/label/detail stack so long copy shrinks to fit its slot (via FitBlock)
+  // instead of being clamped with an ellipsis.
+  const bandRef = React.useRef<HTMLDivElement>(null);
+  const [bandH, setBandH] = React.useState(0);
+  React.useLayoutEffect(() => {
+    if (bandRef.current) setBandH(bandRef.current.clientHeight);
+  });
 
   const raw = (props.milestones as any[]) ?? [];
   const milestones: { date: string; label: string; desc: string }[] = (raw.length > 0
@@ -107,6 +177,10 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
   const labelPx = p ? 28 : 32;
   const descPx = p ? 21 : 23;
   const stemLen = p ? 56 : 90; // baseline → year/label block
+  // Landscape: a milestone block sits above or below the baseline, offset by the
+  // stem; its usable height is from that offset to the band's top/bottom edge,
+  // less a margin. Bounds FitBlock so long copy shrinks instead of clamping.
+  const hSlotH = Math.max(90, bandH / 2 - (stemLen + 16) - 10);
   const slotW = Math.min(p ? 27 : 22, 94 / Math.max(n, 2)); // milestone column width, % of band
   // inset the band so the first/last milestones never run off the page edge
   const edge = slotW / 2 + 2; // % inset on each side
@@ -129,6 +203,11 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
     const yearPxV = descriptionFontSize ?? 70;
     const labelPxV = 31;
     const descPxV = 23;
+    // Available height for one milestone's stack: the gap between adjacent dots
+    // over the band, less a small breathing margin so blocks never touch. Blocks
+    // are vertically centred on their dot, so each owns ~one inter-row gap.
+    const rowGapH = n > 1 ? (bandH * (reach / 100)) / (n - 1) : bandH * (reach / 100);
+    const vSlotH = Math.max(90, rowGapH - 18);
     return (
       <MagazinePage
         lightChrome
@@ -140,8 +219,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
         fontFamily={fontFamily}
         establishingShot={props.establishingShot}
         cameraMove={props.cameraMove ?? "book_open"}
-        printTextureSrc={MAG_TEXTURES.timelineWireframe}
-        printTextureOpacity={0.32}
+        hidePrintTexture
         backgroundImageSrc={props.imageUrl}
         backgroundImageObjectPosition={props.imageObjectPosition}
         backgroundImageZoom={props.imageZoom}
@@ -161,7 +239,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
           <Rule color={accent} progress={headO} thickness={3} width={120} style={{ marginTop: 18 }} />
 
           {/* The vertical timeline band — a rail down the left with stacked milestones. */}
-          <div style={{ flex: 1, position: "relative", marginTop: 30 }}>
+          <div ref={bandRef} style={{ flex: 1, position: "relative", marginTop: 30 }}>
             {/* faint full rail between the first and last dot */}
             <div style={{ position: "absolute", left: railX, top: `${top0}%`, height: `${reach}%`, width: 2, transform: "translateX(-50%)", background: hexToRgba(text, 0.1) }} />
             {/* accent rail that draws top→bottom to each dot in turn */}
@@ -218,32 +296,21 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
                       }}
                     />
                   </div>
-                  {/* year over label over detail */}
-                  <div style={{ flex: 1, minWidth: 0, opacity: o, transform: `translateX(${xx.toFixed(1)}px)` }}>
-                    <div style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: yearPxV, lineHeight: 1, color: accent, letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums" }}>
-                      {mi.date}
-                    </div>
-                    <div style={{ fontFamily: MAG_SERIF, fontWeight: 600, fontSize: labelPxV, lineHeight: 1.3, color: text, marginTop: 8 }}>
-                      {mi.label}
-                    </div>
-                    {mi.desc && (
-                      <div
-                        style={{
-                          fontFamily: MAG_SERIF,
-                          fontSize: descPxV,
-                          lineHeight: 1.4,
-                          color: hexToRgba(text, 0.7),
-                          marginTop: 6,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {mi.desc}
-                      </div>
-                    )}
-                  </div>
+                  {/* year over label over detail — shrinks to fit its slot */}
+                  <MilestoneText
+                    date={mi.date}
+                    label={mi.label}
+                    desc={mi.desc}
+                    yearPx={yearPxV}
+                    labelPx={labelPxV}
+                    descPx={descPxV}
+                    labelMarginTop={8}
+                    descMarginTop={6}
+                    descLineHeight={1.4}
+                    maxHeight={vSlotH}
+                    colors={colors}
+                    style={{ flex: 1, minWidth: 0, opacity: o, transform: `translateX(${xx.toFixed(1)}px)` }}
+                  />
                 </div>
               );
             })}
@@ -264,8 +331,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={fontFamily}
       establishingShot={props.establishingShot}
       cameraMove={props.cameraMove ?? "book_open"}
-      printTextureSrc={MAG_TEXTURES.timelineWireframe}
-      printTextureOpacity={0.32}
+      hidePrintTexture
       backgroundImageSrc={props.imageUrl}
       backgroundImageObjectPosition={props.imageObjectPosition}
       backgroundImageZoom={props.imageZoom}
@@ -284,7 +350,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
         </h1>
 
         {/* The timeline band — a horizontal baseline with milestones above/below. */}
-        <div style={{ flex: 1, position: "relative", marginTop: p ? 26 : 34 }}>
+        <div ref={bandRef} style={{ flex: 1, position: "relative", marginTop: p ? 26 : 34 }}>
           {/* faint full-width rail */}
           <div style={{ position: "absolute", left: `${edge}%`, right: `${edge}%`, top: "50%", height: 2, transform: "translateY(-50%)", background: hexToRgba(text, 0.1) }} />
           {/* accent baseline that draws left→right to each dot in turn */}
@@ -344,8 +410,25 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
                     transform: `translate(-50%, -50%) scale(${dotScale.toFixed(3)})`,
                   }}
                 />
-                {/* year over label, centred on the dot, above or below the line */}
-                <div
+                {/* year over label, centred on the dot, above or below the line —
+                    shrinks to fit the half-band above/below so long copy shows in
+                    full instead of being clamped. */}
+                <MilestoneText
+                  date={mi.date}
+                  label={mi.label}
+                  desc={mi.desc}
+                  yearPx={yearPx}
+                  labelPx={labelPx}
+                  descPx={descPx}
+                  labelMarginTop={9}
+                  descMarginTop={6}
+                  descLineHeight={1.35}
+                  yearNoWrap
+                  centered
+                  labelMaxWidth="94%"
+                  descMaxWidth="96%"
+                  maxHeight={hSlotH}
+                  colors={colors}
                   style={{
                     position: "absolute",
                     left: "50%",
@@ -355,32 +438,7 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
                     transform: `translateX(-50%) translateY(${yy.toFixed(1)}px)`,
                     ...(above ? { bottom: `calc(50% + ${stemLen + 16}px)` } : { top: `calc(50% + ${stemLen + 16}px)` }),
                   }}
-                >
-                  <div style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: yearPx, lineHeight: 1, color: accent, letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                    {mi.date}
-                  </div>
-                  <div style={{ fontFamily: MAG_SERIF, fontWeight: 600, fontSize: labelPx, lineHeight: 1.3, color: text, margin: "9px auto 0", maxWidth: "94%" }}>
-                    {mi.label}
-                  </div>
-                  {mi.desc && (
-                    <div
-                      style={{
-                        fontFamily: MAG_SERIF,
-                        fontSize: descPx,
-                        lineHeight: 1.35,
-                        color: hexToRgba(text, 0.7),
-                        margin: "6px auto 0",
-                        maxWidth: "96%",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {mi.desc}
-                    </div>
-                  )}
-                </div>
+                />
               </div>
             );
           })}

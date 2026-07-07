@@ -42,15 +42,27 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
   const sectionLabel = (props.sectionLabel as string)?.trim() || "By the Numbers";
+  const kickerPrefix = (props.kickerPrefix as string)?.trim() || "Data";
+  // Big uppercase display headline. Independent of the eyebrow (sectionLabel);
+  // falls back to sectionLabel so older scenes without displayTitle are unchanged.
+  const displayTitle = (props.displayTitle as string)?.trim() || sectionLabel;
 
-  // Render ONLY real numeric figures — never invent stats. Drop entries with an
-  // empty value or a value that carries no digit (a stray word is not a figure).
-  // The backend guard (_guard_magazine_by_the_numbers) reroutes a scene with <2
-  // real numeric stats away from this layout, so in practice we always get ≥2.
+  // Drop entries with an empty value or a value that carries no digit (a stray word
+  // is not a figure). When that leaves us with nothing to show — e.g. a scene freshly
+  // switched INTO this layout with no stats yet — fall back to default sample figures
+  // so the page is never blank, mirroring TimelineJourney's default-milestones fallback.
   const raw: Array<{ value: string; label: string }> = (props.stats as any) ?? [];
-  const stats = raw
+  const cleaned = raw
     .filter((s) => s && String(s.value ?? "").trim() && /\d/.test(String(s.value)))
     .slice(0, 4);
+  const stats = cleaned.length > 0
+    ? cleaned
+    : [
+        { value: "2.4M", label: "Monthly readers" },
+        { value: "98%", label: "Renewal rate" },
+        { value: "150+", label: "Countries" },
+        { value: "47", label: "Issues in print" },
+      ];
   const n = stats.length;
 
   // Optional subject-tied heading + standfirst above the figures. The generation
@@ -96,14 +108,14 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
   const columnGap = !p && n % 2 === 0 ? 72 : 0;
 
   return (
-    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove} printTextureSrc={MAG_TEXTURES.byTheNumbers} printTextureOpacity={0.5}>
+    <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove} hidePrintTexture>
       <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
         {/* Section header — a bold, unmistakable masthead so the scene reads as
             "By the Numbers" at a glance: a small red eyebrow, an oversized display
             title, and a heavy full-width rule that draws in beneath it. */}
         <div style={{ opacity: titleO }}>
-          <Kicker color={accent} size={p ? 15 : 17} style={{ marginBottom: 10 }}>
-            {`Data · ${sectionLabel}`}
+          <Kicker color={accent} size={p ? 20 : 17} style={{ marginBottom: 10 }}>
+            {`${kickerPrefix} · ${sectionLabel}`}
           </Kicker>
           <div
             style={{
@@ -116,7 +128,7 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
               textTransform: "uppercase",
             }}
           >
-            {sectionLabel}
+            {displayTitle}
           </div>
         </div>
 

@@ -419,7 +419,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
           </div>
 
           {/* Video content */}
-          <div className="bg-black">
+          <div className="relative aspect-video overflow-hidden bg-black">
             {customTemplate && customTemplate.theme ? (
               <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url ?? undefined} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} validLayouts={(customTemplate as any).valid_layouts || undefined} frontendFiles={(customTemplate as any).frontend_files || undefined} frontendEntryRel={(customTemplate as any).frontend_entry_rel || undefined} publicAssetUrls={templateId.startsWith("crafted_") ? ((customTemplate as CraftedTemplateItem).public_asset_urls ?? undefined) : undefined} logoUrls={customTemplate.logo_urls ?? undefined} ogImage={customTemplate.og_image ?? undefined} showLoaderOnEmptyOrError={templateId.startsWith("crafted_")} />
             ) : PreviewComp ? (
@@ -547,7 +547,7 @@ export function BlogUrlFormDemoModal({
           Selected Template
         </label>
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
-          <div className="relative">{SelectedPreview ? <SelectedPreview /> : null}</div>
+          <div className="relative aspect-video overflow-hidden">{SelectedPreview ? <SelectedPreview /> : null}</div>
           <div className="px-4 py-2.5 bg-purple-50/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -607,7 +607,7 @@ export function BlogUrlFormDemoModal({
                       : "border-2 border-gray-200/60 hover:border-purple-300/60"
                   }`}
                 >
-                  <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                  <div className="relative h-[70px] overflow-hidden">
                     {Preview ? <Preview thumbnailMode /> : null}
                     {selected && (
                       <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
@@ -2429,7 +2429,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           Selected Template
         </label>
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
-          <div className="relative">
+          <div className="relative aspect-video overflow-hidden">
             {demoMode?.templatePreviewOverride && !selectedCustom && !selectedCrafted ? (
               demoMode.templatePreviewOverride({ templateId: template, selected: true, thumbnail: false })
             ) : selectedCustom ? (
@@ -2641,8 +2641,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           : "border-gray-200/60 hover:border-purple-300/60"
                       }`}
                     >
-                      <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
-                        <div className="relative z-0 min-h-[56px]">
+                      <div className="relative isolate h-[70px] overflow-hidden">
+                        <div className="relative z-0 h-full">
                           {item.type === "crafted" ? (
                             <CraftedTemplatePreviewSmart
                               item={ct as any}
@@ -2699,7 +2699,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
-                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                    <div className="relative h-[70px] overflow-hidden">
                       {demoMode?.templatePreviewOverride ? (
                         demoMode.templatePreviewOverride({ templateId: t.id, selected: isSelected, thumbnail: true })
                       ) : PreviewComp ? (
@@ -3182,7 +3182,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             Selected Template
           </label>
           <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
-            <div className="relative">
+            <div className="relative aspect-video overflow-hidden">
               {selectedCustomBulk ? (
                 <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
               ) : selectedCraftedBulk && ((selectedCraftedBulk as any).frontend_files || selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
@@ -3391,8 +3391,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           : "border-gray-200/60 hover:border-purple-300/60"
                       }`}
                     >
-                      <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
-                        <div className="relative z-0 min-h-[56px]">
+                      <div className="relative isolate h-[70px] overflow-hidden">
+                        <div className="relative z-0 h-full">
                           {item.type === "crafted" ? (
                             <CraftedTemplatePreviewSmart
                               item={ct as any}
@@ -3449,7 +3449,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
-                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                    <div className="relative h-[70px] overflow-hidden">
                       {PreviewComp ? (
                         <PreviewComp key={`${t.id}-bulk-${activeIndex}`} thumbnailMode />
                       ) : (

@@ -8,7 +8,6 @@ import {
   Rule,
   KineticWords,
   WrittenText,
-  MagSwoosh,
   MAG_DISPLAY,
   MAG_SERIF,
   MAG_SANS,
@@ -73,7 +72,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
   const titlePx = titleFontSize ?? (p ? 100 : 100);
   // Portrait is one tall single column, so the notes can carry a larger body size
   // and still fit (the ledger caps at maxN notes and centres in the remaining height).
-  const entryPx = descriptionFontSize ?? (p ? 54 : 43);
+  const entryPx = descriptionFontSize ?? (p ? 72 : 43);
   const bulletPx = p ? 28 : 17;
 
   const kickerO = rev(2);
@@ -213,15 +212,6 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
             </span>
           </div>
         </div>
-
-        {/* Editorial ink swoosh — a curved black sweep, thick on the left and
-            tapering to a fine tail on the right. Pinned to the very bottom edge
-            of the page, flush left→right, beneath everything else. */}
-        <MagSwoosh
-          color={text}
-          progress={footerO}
-          style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%" }}
-        />
       </div>
     </MagazinePage>
   );

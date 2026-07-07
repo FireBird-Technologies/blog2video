@@ -53,7 +53,8 @@ export const InterviewQa: React.FC<SceneLayoutProps> = (props) => {
   // Pad to two slots so both pages always render
   while (blocks.length < 2) blocks.push({ q: "", a: "" });
 
-  const label = ["In Conversation", speaker, org].filter(Boolean).join(" · ");
+  const conversationLabel = (props.conversationLabel as string)?.trim() || "In Conversation";
+  const label = [conversationLabel, speaker, org].filter(Boolean).join(" · ");
 
   const frame = useMagFrame();
   const labelO = useReveal(2, 12);
@@ -170,8 +171,7 @@ export const InterviewQa: React.FC<SceneLayoutProps> = (props) => {
       fontFamily={props.fontFamily}
       cameraMove={props.cameraMove}
       lightChrome
-      printTextureSrc={MAG_TEXTURES.qaWash}
-      printTextureOpacity={1}
+      {...(p ? { printTextureSrc: MAG_TEXTURES.qaWashPortrait, printTextureOpacity: 0.7 } : { printTextureSrc: MAG_TEXTURES.spread, printTextureOpacity: 0.38 })}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <Kicker color={accent} style={{ opacity: labelO, marginBottom: p ? 28 : 34, flexShrink: 0 }}>
