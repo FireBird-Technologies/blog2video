@@ -36,8 +36,9 @@ FREE_BASE = 2
 
 
 def upgrade() -> None:
-    # Postgres stores the SQLAlchemy Enum member NAME ('FREE'); SQLite (dev) stores
-    # the lowercase string ('free'). Match both so the fix is dialect-agnostic.
+    # Postgres stores the SQLAlchemy Enum member NAME ('FREE'); a bare 'free' literal
+    # is rejected as an invalid enum value. SQLite (dev) stores the lowercase string.
+    # Cast plan to text and lowercase it so a single 'free' comparison works on both.
     #
     # Only touch users with NO subscriptions row — i.e. those who never bought a
     # per-video credit or held any plan. Users with any subscriptions entry are
@@ -46,7 +47,7 @@ def upgrade() -> None:
         f"""
         UPDATE users
         SET videos_used_this_period = {FREE_BASE}
-        WHERE plan IN ('FREE', 'free')
+        WHERE LOWER(CAST(plan AS VARCHAR)) = 'free'
           AND videos_used_this_period > {FREE_BASE}
           AND NOT EXISTS (
               SELECT 1 FROM subscriptions s WHERE s.user_id = users.id
