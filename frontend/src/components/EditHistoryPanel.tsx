@@ -67,12 +67,16 @@ function ValueDelta({ change }: { change: LeafChange }) {
 function FieldChangeRow({
   change,
   canAct,
+  revertable,
   busy,
   onRevert,
 }: {
   change: FieldChange;
   /** Whether the current user may revert/redo this field (owner or its author). */
   canAct: boolean;
+  /** Whether this field is revertable at all. False for legacy/bulk rows (no field
+   *  diff to revert) — the control is hidden entirely, not shown as "latest". */
+  revertable: boolean;
   /** This field's revert/redo is in flight. */
   busy: boolean;
   onRevert: (rowId: number) => void;
@@ -88,7 +92,7 @@ function FieldChangeRow({
           <ValueDelta key={i} change={lf} />
         ))}
       </div>
-      {canAct && change.id != null && (
+      {canAct && revertable && change.id != null && (
         <div className="mt-1 pl-1">
           {change.stale ? (
             <span className="inline-flex items-center gap-1.5 flex-wrap">
@@ -159,8 +163,8 @@ export default function EditHistoryPanel({
   currentUserId,
   onReverted,
 }: Props) {
-  // Default to the first scene; "Global edits" sits above it in the selector.
-  const [tab, setTab] = useState<Tab>("scene");
+  // Default to "Global edits" (project-wide); individual scenes sit below it in the selector.
+  const [tab, setTab] = useState<Tab>("project");
   const [sceneIndex, setSceneIndex] = useState(0);
   const [projectEdits, setProjectEdits] = useState<ChangeSet[]>([]);
   const [sceneEdits, setSceneEdits] = useState<ChangeSet[]>([]);
@@ -175,13 +179,13 @@ export default function EditHistoryPanel({
   const activeScene = scenes[safeIndex];
   const activeSceneId = activeScene?.id;
 
-  // Reset to the first scene each time the panel is opened.
+  // Reset to Global edits each time the panel is opened; scene selection starts at the first.
   useEffect(() => {
     if (open) {
-      setTab(scenes.length ? "scene" : "project");
+      setTab("project");
       setSceneIndex(0);
     }
-  }, [open, scenes.length]);
+  }, [open]);
 
   // Selector value: "global" for project-wide edits, otherwise the scene index.
   const selectorValue = tab === "project" ? "global" : String(safeIndex);
@@ -319,6 +323,7 @@ export default function EditHistoryPanel({
                             key={c.id ?? j}
                             change={c}
                             canAct={canAct}
+                            revertable={cs.revertable}
                             busy={c.id != null && reverting.has(c.id)}
                             onRevert={(rowId) => handleRevertFields([rowId])}
                           />
@@ -348,7 +353,7 @@ export default function EditHistoryPanel({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
       <div
-        className="relative bg-white w-full max-w-2xl max-h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        className="relative bg-white w-full max-w-2xl min-h-[70vh] max-h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Activity"
@@ -363,7 +368,7 @@ export default function EditHistoryPanel({
         {/* Selector: "Global Edits" first, then each scene */}
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/70">
           <p className="text-xs text-gray-500 mb-2">
-            Choose whether to view project-wide edits or a specific scene’s history.
+            Showing project-wide edits. Tip: open the dropdown to browse the edit history of any individual scene too.
           </p>
           <div className="relative" ref={selectRef}>
             <button
@@ -387,7 +392,7 @@ export default function EditHistoryPanel({
               <div
                 role="listbox"
                 aria-label="Select what to view"
-                className="absolute left-0 right-0 top-full mt-1 z-10 bg-white border border-gray-200 rounded-xl shadow-lg p-1.5 max-h-60 overflow-y-auto"
+                className="absolute left-0 right-0 top-full mt-1 z-10 bg-white border border-gray-200 rounded-xl shadow-lg p-1.5 max-h-80 overflow-y-auto"
               >
                 <button
                   type="button"

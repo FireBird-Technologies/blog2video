@@ -59,12 +59,18 @@ class ConnectionManager:
     def bind_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
 
-    def broadcast_from_sync(self, project_id: int, message: dict) -> None:
+    def broadcast_from_sync(
+        self, project_id: int, message: dict, *, exclude_user_id: Optional[int] = None
+    ) -> None:
         """Schedule a broadcast from a sync (threadpool) context, best-effort.
 
         Called by REST edit endpoints so a normal save propagates live to everyone
         in the room. No-op if no socket has ever connected (no loop bound) or the
         room is empty — those clients get the change on their next fetch anyway.
+
+        ``exclude_user_id`` skips every socket belonging to that user — used to avoid
+        echoing a project reload back to the collaborator who triggered the job (they
+        already reload / see the result locally).
         """
         loop = self._loop
         room = self._rooms.get(project_id)
@@ -75,7 +81,9 @@ class ConnectionManager:
             )
             return
         try:
-            asyncio.run_coroutine_threadsafe(self.broadcast(project_id, message), loop)
+            asyncio.run_coroutine_threadsafe(
+                self.broadcast(project_id, message, exclude_user_id=exclude_user_id), loop
+            )
             logger.info(
                 "[COLLAB_WS] broadcast_from_sync project=%s scope=%s field=%s room_size=%d",
                 project_id, message.get("scope"), message.get("field"), len(room),
@@ -97,10 +105,19 @@ class ConnectionManager:
             seen[c.user_id] = {"user_id": c.user_id, "name": c.name, "picture": c.picture}
         return list(seen.values())
 
-    async def broadcast(self, project_id: int, message: dict, *, exclude: Optional[_Conn] = None) -> None:
+    async def broadcast(
+        self,
+        project_id: int,
+        message: dict,
+        *,
+        exclude: Optional[_Conn] = None,
+        exclude_user_id: Optional[int] = None,
+    ) -> None:
         payload = json.dumps(message, default=str)
         for c in list(self._rooms.get(project_id, set())):
             if c is exclude:
+                continue
+            if exclude_user_id is not None and c.user_id == exclude_user_id:
                 continue
             try:
                 if c.ws.application_state == WebSocketState.CONNECTED:
@@ -178,14 +195,19 @@ def broadcast_scene_edit(
     })
 
 
-def broadcast_project_reload(project_id: int) -> None:
+def broadcast_project_reload(project_id: int, *, exclude_user_id: Optional[int] = None) -> None:
     """Tell live collaborators to refetch the whole project.
 
-    Used after bulk jobs (template change, script/voice regen) that rewrite many
-    fields + scene descriptors at once — too much to sync field-by-field, so the
+    Used after bulk jobs (template change, script/voice regen, render) that rewrite
+    many fields + scene descriptors at once — too much to sync field-by-field, so the
     client reloads authoritative state.
+
+    Pass ``exclude_user_id`` with the acting user so the reload is NOT echoed back to
+    the collaborator who started the job — only the other collaborators reload.
     """
-    collab_manager.broadcast_from_sync(project_id, {"type": "project_reloaded"})
+    collab_manager.broadcast_from_sync(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=exclude_user_id
+    )
 
 
 def _authenticate(token: Optional[str], db) -> Optional[User]:

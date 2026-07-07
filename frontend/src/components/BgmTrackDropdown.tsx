@@ -8,6 +8,7 @@ type BgmTrackDropdownProps = {
   onChange: (trackId: string | null) => void;
   className?: string;
   triggerSize?: "sm" | "md";
+  disabled?: boolean;
 };
 
 const MENU_MAX_HEIGHT = 240;
@@ -19,6 +20,7 @@ export function BgmTrackDropdown({
   onChange,
   className = "",
   triggerSize = "sm",
+  disabled = false,
 }: BgmTrackDropdownProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -91,11 +93,12 @@ export function BgmTrackDropdown({
       <button
         ref={triggerRef}
         type="button"
+        disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         aria-label="Background music track"
         aria-expanded={open}
         aria-haspopup="listbox"
-        className={`w-full px-3 py-2 ${triggerText} border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between gap-2 min-w-0`}
+        className={`w-full px-3 py-2 ${triggerText} border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between gap-2 min-w-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200`}
       >
         <span className="truncate text-left">{label}</span>
         <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1927,6 +1927,13 @@ async def render_video_endpoint(
     """
     project = _get_project(project_id, user.id, db)
 
+    # Only one long-running job per project across all types: reject a render if a
+    # template change / script regen / voice change is in progress (another user may
+    # have started one). include_render=False so an active render is handled below by
+    # this endpoint's own re-render / already-rendering logic instead.
+    from app.routers.projects import _assert_no_active_job
+    _assert_no_active_job(project_id, db, include_render=False)
+
     # Render at 720p for whiteboard (stickman) and newspaper templates
     resolution = "720p" if project.template in ("whiteboard", "newspaper","newscast") else "1080p"
 
@@ -2008,7 +2015,26 @@ async def render_video_endpoint(
     # while workspace prep is still running.
     project.status = ProjectStatus.RENDERING
     db.commit()
+
+    # Seed a fresh progress record (progress=0, new run id) FIRST. This overwrites any
+    # stale dict left by a previous completed render (progress=100/done=true).
     render_run_id = seed_render_progress(project_id, user.id, phase_message="Preparing workspace...")
+
+    # Only now tell live collaborators a render started, so when they reload and poll
+    # /render-status they read the freshly-seeded 0% progress — not the previous run's
+    # stale 100%/done snapshot. Broadcast after the seed to close that race. This
+    # handler runs on the event loop, so await the broadcast directly. Exclude the
+    # acting user — they already entered the rendering view locally.
+    try:
+        from app.routers.collab_ws import collab_manager
+        await collab_manager.broadcast(
+            project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+        )
+    except Exception as broadcast_err:
+        logger.warning(
+            "[RENDER] Failed to broadcast render-start reload for project %s: %s",
+            project_id, broadcast_err,
+        )
 
     # Rebuild workspace in thread pool so the event loop is not blocked (file I/O, copy, etc.).
     loop = asyncio.get_event_loop()

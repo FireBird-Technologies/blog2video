@@ -171,6 +171,9 @@ class ProjectRegenerateScriptJobOut(BaseModel):
     id: int
     project_id: int
     user_id: int
+    # The collaborator who initiated this regen. Only they may approve/regenerate the
+    # review; the frontend compares it to the current user to gate those controls.
+    initiated_by_user_id: Optional[int] = None
     status: str
     current_step: str = "analyzing_instruction"
     total_scenes: int

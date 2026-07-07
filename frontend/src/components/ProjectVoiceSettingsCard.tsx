@@ -46,6 +46,8 @@ interface Props {
    * page-level progress modal can take over (it survives tab switches/refresh).
    */
   onOperationStarted: (op: { kind: "voice_change" | "delete"; total: number }) => void;
+  /** Disable the voice add/change/delete triggers (e.g. another job is running). */
+  disabled?: boolean;
 }
 
 interface VoiceDisplay {
@@ -77,6 +79,7 @@ export default function ProjectVoiceSettingsCard({
   onError,
   onUpgrade,
   onOperationStarted,
+  disabled = false,
 }: Props) {
   const [savedVoices, setSavedVoices] = useState<SavedVoiceFromAPI[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(true);
@@ -327,7 +330,7 @@ export default function ProjectVoiceSettingsCard({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                disabled={deleting}
+                disabled={deleting || disabled}
                 className="px-4 py-2.5 text-xs font-semibold rounded-xl transition-colors text-red-600 bg-red-50 hover:bg-red-100 border border-red-200/60 disabled:opacity-50 flex items-center gap-2"
               >
                 {deleting ? (
@@ -343,7 +346,7 @@ export default function ProjectVoiceSettingsCard({
             <button
               type="button"
               onClick={openModal}
-              disabled={deleting}
+              disabled={deleting || disabled}
               className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50"
             >
               {hasVoiceover ? "Change voice" : "Add voiceover"}

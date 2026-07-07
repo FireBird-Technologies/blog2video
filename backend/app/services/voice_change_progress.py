@@ -12,12 +12,17 @@ _lock = threading.Lock()
 _progress: dict[int, dict] = {}
 
 
-def start(project_id: int, total: int, kind: str = "voice_change") -> None:
+def start(project_id: int, total: int, kind: str = "voice_change", user_id: int | None = None) -> None:
     """Seed a fresh progress record before regeneration begins.
 
     ``kind`` distinguishes the operation ("voice_change" for add/change voice,
     "delete" for removing the voiceover) so a client resuming after a refresh can
     re-open the correct modal.
+
+    ``user_id`` is the collaborator who triggered the op. It is recorded so the
+    completion reload broadcast can EXCLUDE them — their own client already handles
+    completion locally (the progress modal soft-reloads), and forcing a hard reload
+    on the actor races their auth re-check and can spuriously log them out.
     """
     with _lock:
         _progress[project_id] = {
@@ -26,6 +31,7 @@ def start(project_id: int, total: int, kind: str = "voice_change") -> None:
             "done": False,
             "error": None,
             "kind": kind,
+            "user_id": user_id,
         }
 
 

@@ -2543,6 +2543,20 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
             db.commit()
             logger.info("[REMOTION] Video uploaded to R2 and project %s marked DONE", project_id)
 
+            # Tell live collaborators the render finished so their client reloads and
+            # picks up the new video URL / DONE status. Best-effort, in-process only.
+            # Exclude the user who triggered the render (recorded in the progress
+            # payload): their own client already polls /render-status to DONE.
+            try:
+                from app.routers.collab_ws import broadcast_project_reload
+                triggered_by = get_render_progress(project_id).get("_user_id")
+                broadcast_project_reload(project_id, exclude_user_id=triggered_by)
+            except Exception as broadcast_err:
+                logger.warning(
+                    "[REMOTION] Failed to broadcast render-complete reload for project %s: %s",
+                    project_id, broadcast_err,
+                )
+
             # Send download-ready email notification to the user
             try:
                 if user:

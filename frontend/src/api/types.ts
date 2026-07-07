@@ -119,6 +119,8 @@ export interface ProjectRegenerateScriptJob {
   id: number;
   project_id: number;
   user_id: number;
+  /** The collaborator who initiated this regen — only they may approve/regenerate the review. */
+  initiated_by_user_id?: number | null;
   status: "queued" | "running" | "awaiting_review" | "completed" | "failed";
   current_step?: "analyzing_instruction" | "generating_script" | "verify" | "generating_scenes";
   total_scenes: number;

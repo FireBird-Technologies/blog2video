@@ -710,6 +710,10 @@ export default function ProjectView() {
   // any stale "awaiting_review" reads while this is set — otherwise the UI bounces back to
   // the verify step. Reset whenever a fresh stage-A run starts (initiate / regenerate).
   const regenerateScriptProceededRef = useRef(false);
+  // Guards the one-time preview load while parked on "awaiting_review" so the poll can
+  // keep running (to catch the transition out of review, e.g. when another collaborator
+  // approves) without re-fetching the before/after preview every tick.
+  const regenerateScriptPreviewLoadedRef = useRef(false);
   const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
   useEffect(() => {
@@ -796,6 +800,8 @@ export default function ProjectView() {
   const [voiceOpKickstart, setVoiceOpKickstart] = useState<
     { kind: "voice_change" | "delete"; total: number } | null
   >(null);
+  // True while a voiceover add/change/delete op is running (reported by VoiceOperationModal).
+  const [voiceOpRunning, setVoiceOpRunning] = useState(false);
 
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
@@ -1359,6 +1365,13 @@ export default function ProjectView() {
     loadProject();
   }, [loadProject]);
 
+  // A bulk job finished elsewhere (render complete, template change, script/voice
+  // regen, voiceover add/delete). These rewrite too much state to reconcile
+  // field-by-field, so force a full page reload to pick up authoritative state.
+  const handleCollabRemoteReload = useCallback(() => {
+    window.location.reload();
+  }, []);
+
   // Per-scene comment counts (badge on the Comment button). Only fetched for shared
   // projects, where the comment affordance is shown.
   const loadCommentCounts = useCallback(async () => {
@@ -1511,13 +1524,19 @@ export default function ProjectView() {
         }
         setRegenerateScriptJob(job);
         if (job.status === "awaiting_review") {
-          // Paused for verification — stop polling, load the new scenes, and fetch the previous
-          // scenes so the verify popup can show the before/after comparison.
-          stopRegenerateScriptPolling();
-          await loadProject();
-          setRegenerateScriptJob(job);
-          loadRegenerateScriptPreview();
+          // Paused for verification — show the new scenes and the before/after preview.
+          // Keep polling (don't stop): the reviewer might be another collaborator, so
+          // this client must track the transition out of review (approve/regenerate)
+          // rather than waiting only on a broadcast reload. Load the project + preview
+          // once (guarded) so we don't refetch every tick.
+          if (!regenerateScriptPreviewLoadedRef.current) {
+            regenerateScriptPreviewLoadedRef.current = true;
+            await loadProject();
+            setRegenerateScriptJob(job);
+            loadRegenerateScriptPreview();
+          }
         } else if (job.status === "completed") {
+          regenerateScriptPreviewLoadedRef.current = false;
           regenerateScriptProceededRef.current = false;
           setRegenScriptPreviousScenes(null);
           stopRegenerateScriptPolling();
@@ -1528,6 +1547,7 @@ export default function ProjectView() {
           await loadProject();
           setRegenerateScriptJob(null);
         } else if (job.status === "failed") {
+          regenerateScriptPreviewLoadedRef.current = false;
           regenerateScriptProceededRef.current = false;
           setRegenScriptPreviousScenes(null);
           stopRegenerateScriptPolling();
@@ -1592,11 +1612,17 @@ export default function ProjectView() {
         const res = await getRegenerateScriptStatus(projectId);
         if (!res.data) return;
         setRegenerateScriptJob(res.data);
-        if (res.data.status === "queued" || res.data.status === "running") {
+        if (
+          res.data.status === "queued" ||
+          res.data.status === "running" ||
+          res.data.status === "awaiting_review"
+        ) {
+          // Poll in all three active states. For "awaiting_review" this is what lets a
+          // COLLABORATOR viewing the review step track the transition out of review when
+          // the actor (or another collaborator) approves/regenerates — otherwise they'd
+          // sit on the review popup forever (they don't drive it). The poll loads the
+          // before/after preview once (guarded) and keeps running until the status flips.
           startRegenerateScriptPolling();
-        } else if (res.data.status === "awaiting_review") {
-          // Resume the verify popup on reload / navigating back into the project.
-          loadRegenerateScriptPreview();
         }
       } catch {
         // ignore
@@ -1870,6 +1896,16 @@ export default function ProjectView() {
       setRendered(true);
       setRendering(false);
       onRenderStarted?.();
+      return;
+    }
+
+    // Only one job per project at a time: don't start a new render while a template
+    // change / script regen / voice op is running (the server would 409 anyway). A
+    // re-render while already rendering is handled by the resume path above.
+    if (anyJobRunning && !(forceReRender && project?.status === "rendering")) {
+      onRenderStarted?.();
+      setRendering(false);
+      showError("A job is already running for this project. Please wait for it to finish.");
       return;
     }
 
@@ -2474,6 +2510,7 @@ export default function ProjectView() {
     try {
       const res = await regenerateScript(project.id, { user_instruction: instruction });
       regenerateScriptProceededRef.current = false; // fresh run — the verify pause is expected
+      regenerateScriptPreviewLoadedRef.current = false; // reload the preview when the new review is reached
       setRegenerateScriptJob(res.data);
       startRegenerateScriptPolling();
     } catch (err) {
@@ -2514,6 +2551,7 @@ export default function ProjectView() {
     try {
       const res = await rejectRegenerateScript(project.id, { user_instruction: instruction });
       regenerateScriptProceededRef.current = false; // re-run reaches the verify pause again
+      regenerateScriptPreviewLoadedRef.current = false; // reload the preview when the new review is reached
       setRegenerateScriptJob(res.data);
       startRegenerateScriptPolling();
     } catch (err) {
@@ -3092,6 +3130,22 @@ export default function ProjectView() {
     regenerateScriptJob?.status === "awaiting_review" ||
     project.status === "script_regenerating";
   const statusForBadge = templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
+
+  // Only the collaborator who initiated the regen may approve/regenerate the review.
+  // Legacy jobs have no initiator recorded — allow any editor so they aren't stuck.
+  const isRegenScriptReviewer =
+    regenerateScriptJob?.initiated_by_user_id == null ||
+    regenerateScriptJob.initiated_by_user_id === user?.id;
+
+  // Only one long-running job per project at a time (matches the backend's cross-type
+  // 409 guard). While any job is running, every other job trigger is disabled so a
+  // collaborator can't start a second one that the server would just reject.
+  const anyJobRunning =
+    templateRelayoutRunning ||
+    regenerateScriptRunning ||
+    voiceOpRunning ||
+    rendering ||
+    project.status === "rendering";
   const renderGenerationLoader = (mode: "pipeline" | "template-relayout" | "regenerate-script" = "pipeline") => {
     const relayoutProgressRaw =
       templateRelayoutJob && templateRelayoutJob.total_scenes > 0
@@ -3461,7 +3515,7 @@ export default function ProjectView() {
             isOwner={project.user_id === user?.id}
             onRemoteEdit={handleRemoteCollabEdit}
             onRemoteComment={loadCommentCounts}
-            onRemoteReload={handleCollabDraftResolved}
+            onRemoteReload={handleCollabRemoteReload}
             onRemoteRevoked={(message) =>
               showNotice(
                 message || "Oops, your access has been revoked, you cannot access the project.",
@@ -3670,7 +3724,7 @@ export default function ProjectView() {
                       }
                       setShowReRenderWarning(true);
                     }}
-                    disabled={rendering || missingCustomTemplate}
+                    disabled={anyJobRunning || missingCustomTemplate}
                     className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3828,6 +3882,7 @@ export default function ProjectView() {
           setVoiceOpKickstart(null);
           showError(msg);
         }}
+        onRunningChange={setVoiceOpRunning}
         kickstart={voiceOpKickstart}
       />
 
@@ -4283,7 +4338,7 @@ export default function ProjectView() {
       {/* Verify-step "Regenerate": re-run the script (optionally with an edited instruction),
           pre-filled with the instruction the paused job used. */}
       <RegenerateScriptModal
-        open={showRegenerateScriptRetry}
+        open={showRegenerateScriptRetry && isRegenScriptReviewer}
         projectName={project?.name}
         initialInstruction={regenerateScriptJob?.user_instruction ?? ""}
         confirmLabel="Regenerate"
@@ -4304,6 +4359,7 @@ export default function ProjectView() {
         newScenes={project?.scenes ?? []}
         previousScenes={regenScriptPreviousScenes}
         verifying={regenerateScriptVerifying}
+        canReview={isRegenScriptReviewer}
         onProceed={handleVerifyRegenerateScript}
         onRegenerate={() => setShowRegenerateScriptRetry(true)}
       />
@@ -4629,7 +4685,7 @@ export default function ProjectView() {
                 </button>
                 <button
                   type="button"
-                  disabled={templateChangeDraft === assignedTemplateId || templateRelayoutRunning}
+                  disabled={templateChangeDraft === assignedTemplateId || anyJobRunning}
                   onClick={() => {
                     if (templateChangeDraft === assignedTemplateId) return;
                     setTemplateRelayoutPendingId(templateChangeDraft);
@@ -4811,7 +4867,7 @@ export default function ProjectView() {
                 type="button"
                 data-action="render-button"
                 data-action-download="download-video"
-                disabled={downloading || sceneExporting}
+                disabled={downloading || sceneExporting || (!rendered && anyJobRunning)}
                 onClick={() => {
                   setShowSlidesExportMenu(false);
                   if (!rendered) {
@@ -5123,7 +5179,7 @@ export default function ProjectView() {
             }}
             onRegenerateScript={() => setShowRegenerateScriptConfirm(true)}
             isRegenerating={regenerateScriptRunning}
-            disabled={!["generated", "done"].includes(project.status)}
+            disabled={anyJobRunning || !["generated", "done"].includes(project.status)}
             onEditScene={(scene) => setSceneEditModal(scene)}
           />
         )}
@@ -6022,7 +6078,7 @@ export default function ProjectView() {
             projectName={project?.name}
             templateMetas={templateMetas}
             previewCompileScope={user?.id != null ? String(user.id) : undefined}
-            disabled={submittingTemplateRelayout || templateRelayoutRunning || missingCustomTemplate}
+            disabled={submittingTemplateRelayout || anyJobRunning || missingCustomTemplate}
             onChangeTemplate={() => {
               setTemplateChangeDraft(assignedTemplateId);
               setTemplateChangePickerTab(
@@ -6050,6 +6106,7 @@ export default function ProjectView() {
                 onError={(msg) => showError(msg)}
                 onUpgrade={() => setShowUpgrade(true)}
                 onOperationStarted={(op) => setVoiceOpKickstart(op)}
+                disabled={anyJobRunning}
               />
 
               {/* 3. Playback Speed */}
@@ -6098,7 +6155,7 @@ export default function ProjectView() {
                   <div className="flex justify-end mt-auto">
                     <button
                       type="button"
-                      disabled={savingPlaybackSpeed}
+                      disabled={savingPlaybackSpeed || anyJobRunning}
                       onClick={async () => {
                         setSavingPlaybackSpeed(true);
                         try {
@@ -6239,7 +6296,7 @@ export default function ProjectView() {
                     ) : <div />}
                     <button
                       type="button"
-                      disabled={savingCaptions || !hasVoiceover}
+                      disabled={savingCaptions || !hasVoiceover || anyJobRunning}
                       onClick={async () => {
                         setSavingCaptions(true);
                         try {
@@ -6328,7 +6385,7 @@ export default function ProjectView() {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    disabled={savingColors}
+                    disabled={savingColors || anyJobRunning}
                     onClick={async () => {
                       setSavingColors(true);
                       try {
@@ -6438,7 +6495,7 @@ export default function ProjectView() {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    disabled={savingFontFamily}
+                    disabled={savingFontFamily || anyJobRunning}
                     onClick={async () => {
                       setSavingFontFamily(true);
                       try {
@@ -6506,7 +6563,7 @@ export default function ProjectView() {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  disabled={savingGlobalTypography}
+                  disabled={savingGlobalTypography || anyJobRunning}
                   onClick={async () => {
                     setSavingGlobalTypography(true);
                     try {
@@ -6755,6 +6812,7 @@ export default function ProjectView() {
                           value={bgmTrackDraft}
                           onChange={setBgmTrackDraft}
                           triggerSize="md"
+                          disabled={anyJobRunning}
                         />
                       </div>
                       {bgmTrackDraft && (
@@ -6797,13 +6855,14 @@ export default function ProjectView() {
                             </button>
                             <button
                               type="button"
+                              disabled={anyJobRunning}
                               onClick={() => {
                                 const v = bgmVolumeDraft === 0 ? (lastNonZeroProjectBgm || 0.10) : 0;
                                 if (bgmVolumeDraft > 0) setLastNonZeroProjectBgm(bgmVolumeDraft);
                                 setBgmVolumeDraft(v);
                                 if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
                               }}
-                              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors ${bgmVolumeDraft === 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${bgmVolumeDraft === 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
                               title={bgmVolumeDraft === 0 ? "Unmute music for all scenes" : "Mute music for all scenes"}
                             >
                               {bgmVolumeDraft === 0 ? (
@@ -6818,20 +6877,21 @@ export default function ProjectView() {
                               min={0}
                               max={100}
                               step={1}
+                              disabled={anyJobRunning}
                               value={Math.round(bgmVolumeDraft * 100)}
                               onChange={(e) => {
                                 const v = Number(e.target.value) / 100;
                                 setBgmVolumeDraft(v);
                                 if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
                               }}
-                              className="flex-1 accent-purple-600 cursor-pointer"
+                              className="flex-1 accent-purple-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                           </div>
                         </div>
                       )}
                       <button
                         type="button"
-                        disabled={savingBgm}
+                        disabled={savingBgm || anyJobRunning}
                         onClick={async () => {
                           setSavingBgm(true);
                           try {

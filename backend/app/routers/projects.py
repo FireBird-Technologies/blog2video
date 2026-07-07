@@ -771,7 +771,10 @@ def _run_project_template_change_job(job_id: int) -> None:
         if not finalized.rowcount:
             logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s already reaped; skipping completion", job_id)
         else:
-            # Done — collaborators reload to see the finished template + layouts.
+            # Done — everyone in the room reloads to see the finished template + layouts.
+            # We can't exclude the actor here (the job stores the payer/owner, not the
+            # collaborator who triggered it), and the actor's own client is polling the
+            # job to completion anyway, so a redundant reload is harmless.
             from app.routers.collab_ws import broadcast_project_reload
             broadcast_project_reload(project.id)
     except Exception as e:
@@ -959,6 +962,9 @@ async def change_project_template_regenerate_layouts(
     db: Session = Depends(get_db),
 ):
     project = _get_user_project(project_id, user.id, db)
+    # Only one long-running job per project across all types (another user may have
+    # started a template change, script/voice regen, or render).
+    _assert_no_active_job(project.id, db)
     # Owner pays: on a shared project the video-credit quota is charged to the
     # OWNER, not the acting collaborator (a FREE collaborator regenerating a PRO
     # owner's video consumes the owner's allotment).
@@ -1026,8 +1032,13 @@ async def change_project_template_regenerate_layouts(
 
     # Tell live collaborators to refetch so they see the "generating" state as the
     # template regeneration begins (it rewrites colors + every scene's layout).
-    from app.routers.collab_ws import broadcast_project_reload
-    broadcast_project_reload(project.id)
+    # Exclude the acting user — they already transitioned locally. This endpoint is
+    # async (runs on the event loop), so await the broadcast directly rather than via
+    # the sync helper (run_coroutine_threadsafe is for calls from OTHER threads).
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project.id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
 
     # Match pipeline behavior: run in asyncio-managed executor.
     loop = asyncio.get_event_loop()
@@ -1382,6 +1393,72 @@ def _seconds_since(dt: datetime | None) -> float:
     if dt is None:
         return float("inf")
     return (datetime.utcnow() - dt).total_seconds()
+
+
+def _assert_no_active_job(project_id: int, db: Session, *, include_render: bool = True) -> None:
+    """Enforce one long-running job per project across ALL job types.
+
+    Only one of {template change, script regeneration, voice change / voiceover
+    delete, render} may run for a project at a time. If any is currently active
+    (and not stalled past its threshold), reject the new request with 409 so a
+    second collaborator's concurrent start is refused rather than clobbering the
+    first. Stale/orphaned jobs (no heartbeat past the stall threshold) are treated
+    as inactive — the boot/stall reapers clean those up.
+
+    ``include_render=False`` skips the render-in-progress check — used by the render
+    endpoint itself, which owns its own re-render/already-rendering handling and must
+    not be blocked by its own RENDERING status.
+    """
+    # Template change
+    tpl = (
+        db.query(ProjectTemplateChangeJob)
+        .filter(
+            ProjectTemplateChangeJob.project_id == project_id,
+            ProjectTemplateChangeJob.status.in_(_ACTIVE_TEMPLATE_CHANGE_STATUSES),
+        )
+        .order_by(ProjectTemplateChangeJob.id.desc())
+        .first()
+    )
+    if tpl and _seconds_since(tpl.updated_at) < settings.STALL_THRESHOLD_TEMPLATE_SECONDS:
+        raise HTTPException(status_code=409, detail="A job is already running for this project.")
+
+    # Script regeneration (includes the awaiting_review pause — still an open job)
+    script = (
+        db.query(ProjectRegenerateScriptJob)
+        .filter(
+            ProjectRegenerateScriptJob.project_id == project_id,
+            ProjectRegenerateScriptJob.status.in_(_ACTIVE_REGENERATE_SCRIPT_STATUSES),
+        )
+        .order_by(ProjectRegenerateScriptJob.id.desc())
+        .first()
+    )
+    if script:
+        # awaiting_review has no worker heartbeat, so it never "stalls" — always block.
+        if script.status == "awaiting_review" or _seconds_since(script.updated_at) < settings.STALL_THRESHOLD_SCRIPT_SECONDS:
+            raise HTTPException(status_code=409, detail="A job is already running for this project.")
+
+    # Voice change / voiceover delete (shared ProjectVoiceChangeJob table + in-memory bar)
+    voice = (
+        db.query(ProjectVoiceChangeJob)
+        .filter(
+            ProjectVoiceChangeJob.project_id == project_id,
+            ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES),
+        )
+        .order_by(ProjectVoiceChangeJob.id.desc())
+        .first()
+    )
+    if voice and _seconds_since(voice.updated_at) < settings.STALL_THRESHOLD_VOICE_SECONDS:
+        raise HTTPException(status_code=409, detail="A job is already running for this project.")
+    from app.services import voice_change_progress
+    vprog = voice_change_progress.get(project_id)
+    if vprog and not vprog.get("done", True):
+        raise HTTPException(status_code=409, detail="A job is already running for this project.")
+
+    # Render
+    if include_render:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if project is not None and project.status == ProjectStatus.RENDERING and not project.r2_video_url:
+            raise HTTPException(status_code=409, detail="A job is already running for this project.")
 
 
 def _refund_video_credit(db: Session, user_id: int) -> None:
@@ -2230,7 +2307,10 @@ def _run_regenerate_script_stage_b(job_id: int) -> None:
         if not finalized.rowcount:
             logger.warning("[REGENERATE_SCRIPT_JOB] stage B job=%s already reaped; skipping completion", job_id)
         else:
-            # Done — collaborators reload to see the regenerated script + audio.
+            # Done — everyone in the room reloads to see the regenerated script + audio.
+            # We can't exclude the actor (the job stores the payer/owner, not the
+            # collaborator who triggered it), and the actor is polling to completion
+            # anyway, so a redundant reload is harmless.
             from app.routers.collab_ws import broadcast_project_reload
             broadcast_project_reload(project.id)
 
@@ -2306,6 +2386,10 @@ async def regenerate_script(
 
     project = _get_user_project(project_id, user.id, db)
 
+    # Only one long-running job per project across all types (another user may have
+    # started a template change, voice regen, or render).
+    _assert_no_active_job(project.id, db)
+
     active_job = (
         db.query(ProjectRegenerateScriptJob)
         .filter(
@@ -2364,6 +2448,8 @@ async def regenerate_script(
         project_id=project.id,
         # Payer = project owner. Charge and refund both key off this.
         user_id=payer.id,
+        # The collaborator who initiated the regen — only they may approve/regenerate.
+        initiated_by_user_id=user.id,
         status="queued",
         current_step="analyzing_instruction",
         total_scenes=0,
@@ -2387,8 +2473,12 @@ async def regenerate_script(
     db.refresh(job)
 
     # Tell live collaborators to refetch so they see the script regeneration start.
-    from app.routers.collab_ws import broadcast_project_reload
-    broadcast_project_reload(project.id)
+    # Exclude the acting user — they already transitioned locally. Async endpoint →
+    # await the broadcast directly (see change_project_template_regenerate_layouts).
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project.id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
 
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
@@ -2420,7 +2510,11 @@ def get_regenerate_script_status(
 
 
 def _get_awaiting_review_job(project_id: int, user_id: int, db: Session) -> ProjectRegenerateScriptJob:
-    """Fetch the latest regenerate-script job for the project, asserting it is paused for review."""
+    """Fetch the latest regenerate-script job for the project, asserting it is paused for review.
+
+    Only the collaborator who INITIATED the regeneration may approve/regenerate it, so
+    other collaborators viewing the review can't act on someone else's pending script.
+    """
     _ = _get_user_project(project_id, user_id, db)
     job = (
         db.query(ProjectRegenerateScriptJob)
@@ -2432,6 +2526,13 @@ def _get_awaiting_review_job(project_id: int, user_id: int, db: Session) -> Proj
         raise HTTPException(
             status_code=409,
             detail="No script regeneration is awaiting review for this project.",
+        )
+    # Enforce actor-only review. Legacy jobs (created before this column existed) have
+    # a null initiator — fall back to allowing any editor so they aren't permanently stuck.
+    if job.initiated_by_user_id is not None and job.initiated_by_user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the collaborator who started this script regeneration can review it.",
         )
     return job
 
@@ -2489,8 +2590,12 @@ async def verify_regenerate_script(
     db.refresh(job)
 
     # Tell live collaborators to refetch as scene/voiceover generation begins.
-    from app.routers.collab_ws import broadcast_project_reload
-    broadcast_project_reload(project_id)
+    # Exclude the acting user — they already transitioned locally. Async endpoint →
+    # await the broadcast directly.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
 
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _run_regenerate_script_stage_b, job.id)
@@ -2538,8 +2643,12 @@ async def reject_regenerate_script(
     db.refresh(job)
 
     if project:
-        from app.routers.collab_ws import broadcast_project_reload
-        broadcast_project_reload(project.id)
+        # Exclude the acting user — they already transitioned locally. Async endpoint →
+        # await the broadcast directly.
+        from app.routers.collab_ws import collab_manager
+        await collab_manager.broadcast(
+            project.id, {"type": "project_reloaded"}, exclude_user_id=user.id
+        )
 
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
@@ -4817,10 +4926,17 @@ async def _run_voice_change(project_id: int, job_id: int) -> None:
         db.commit()
         if finalized.rowcount:
             _cleanup_audio_backup(project_id, job_id)
+            # Read the acting user BEFORE finish() so we can exclude them from the reload
+            # (their progress modal already soft-reloads on completion; a hard reload
+            # races their auth re-check and can spuriously log them out).
+            actor_id = (voice_change_progress.get(project_id) or {}).get("user_id")
             voice_change_progress.finish(project_id)
-            # Done — collaborators reload to see the regenerated audio.
-            from app.routers.collab_ws import broadcast_project_reload
-            broadcast_project_reload(project_id)
+            # Other collaborators reload to see the regenerated audio. Async background
+            # task (runs on the loop) → await the broadcast directly.
+            from app.routers.collab_ws import collab_manager
+            await collab_manager.broadcast(
+                project_id, {"type": "project_reloaded"}, exclude_user_id=actor_id
+            )
         else:
             logger.warning("[VOICE-CHANGE] job=%s already reaped; skipping completion", job_id)
             voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
@@ -4884,6 +5000,10 @@ async def change_project_voice(
     from app.services import voice_change_progress
 
     project = _get_user_project(project_id, user.id, db)
+
+    # Only one long-running job per project across all types (another user may have
+    # started a template change, script regen, or render).
+    _assert_no_active_job(project_id, db)
 
     # Don't start a second regeneration while one is already running. Check the DB job
     # (survives worker restarts) as well as the in-memory bar.
@@ -4981,11 +5101,16 @@ async def change_project_voice(
     db.refresh(job)
 
     # Tell live collaborators to refetch so they see the voice regeneration start.
-    from app.routers.collab_ws import broadcast_project_reload
-    broadcast_project_reload(project_id)
+    # Exclude the acting user — they already transitioned locally. Async endpoint →
+    # await the broadcast directly.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
 
-    # Seed progress and kick off regeneration in the background.
-    voice_change_progress.start(project_id, len(scenes))
+    # Seed progress and kick off regeneration in the background. Record the acting
+    # user so the completion reload can exclude them (their modal handles completion).
+    voice_change_progress.start(project_id, len(scenes), user_id=user.id)
     background_tasks.add_task(_run_voice_change, project_id, job.id)
 
     return {"started": True, "total": len(scenes)}
@@ -5203,10 +5328,17 @@ async def _run_delete_voiceover(project_id: int, job_id: int) -> None:
         db.commit()
         if finalized.rowcount:
             _cleanup_audio_backup(project_id, backup_id)
+            # Read the acting user BEFORE finish() so we can exclude them from the reload
+            # (their progress modal already soft-reloads; a hard reload races their auth
+            # re-check and can spuriously log them out).
+            actor_id = (voice_change_progress.get(project_id) or {}).get("user_id")
             voice_change_progress.finish(project_id)
-            # Done — collaborators reload to see the voiceover removed.
-            from app.routers.collab_ws import broadcast_project_reload
-            broadcast_project_reload(project_id)
+            # Other collaborators reload to see the voiceover removed. Async background
+            # task (runs on the loop) → await the broadcast directly.
+            from app.routers.collab_ws import collab_manager
+            await collab_manager.broadcast(
+                project_id, {"type": "project_reloaded"}, exclude_user_id=actor_id
+            )
         else:
             logger.warning("[DELETE-VOICEOVER] job=%s already reaped; skipping completion", job_id)
             voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
@@ -5260,6 +5392,10 @@ async def delete_project_voiceover(
     # Already muted — nothing to do.
     if getattr(project, "voice_gender", None) == "none":
         return {"started": False, "total": 0}
+
+    # Only one long-running job per project across all types (another user may have
+    # started a template change, script/voice regen, or render).
+    _assert_no_active_job(project_id, db)
 
     # Don't strip audio while a voice change or another delete is running.
     active_job = (
@@ -5336,10 +5472,15 @@ async def delete_project_voiceover(
     db.refresh(job)
 
     # Tell live collaborators to refetch so they see the voiceover removal start.
-    from app.routers.collab_ws import broadcast_project_reload
-    broadcast_project_reload(project_id)
+    # Exclude the acting user — they already transitioned locally. Async endpoint →
+    # await the broadcast directly.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
 
-    voice_change_progress.start(project_id, len(scenes), kind="delete")
+    # Record the acting user so the completion reload can exclude them.
+    voice_change_progress.start(project_id, len(scenes), kind="delete", user_id=user.id)
     background_tasks.add_task(_run_delete_voiceover, project_id, job.id)
     return {"started": True, "total": len(scenes)}
 
