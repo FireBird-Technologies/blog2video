@@ -1724,6 +1724,9 @@ def _handle_checkout_completed(session: dict, db: Session):
             user = db.query(User).filter(User.id == int(user_id)).first()
             if user:
                 user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + qty
+                # Guarantee the purchased credits are net-positive headroom even if
+                # prior usage was at/over the (possibly lowered) limit.
+                user.ensure_purchased_credit_usable(qty)
 
                 if plan:
                     sub = Subscription(
@@ -1773,6 +1776,9 @@ def _handle_checkout_completed(session: dict, db: Session):
         user = db.query(User).filter(User.id == int(user_id)).first() if user_id else None
         if user:
             user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + qty
+            # Guarantee the purchased credits are net-positive headroom even if
+            # prior usage was at/over the (possibly lowered) limit.
+            user.ensure_purchased_credit_usable(qty)
             if plan:
                 sub = Subscription(
                     user_id=user.id,
