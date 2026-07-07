@@ -33,7 +33,9 @@ import Stickman2PreviewPortrait from "./templatePreviews/portrait/Stickman2Previ
 import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/StickmanFootballPreviewPortrait";
 
 import MagazinePreview from "./templatePreviews/MagazinePreview";
+import SakuraPreview from "./templatePreviews/SakuraPreview";
 import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
+import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
 import { withPoster } from "./templatePreviews/PosterOrPlayer";
 
 // Raw preview components. Not exported directly — every built-in preview is
@@ -56,6 +58,7 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   stickman_2: Stickman2Preview,
   stickman_football: StickmanFootballPreview,
  magazine: MagazinePreview,
+  sakura: SakuraPreview,
 };
 
 const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
@@ -75,6 +78,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
   stickman_2: Stickman2PreviewPortrait,
   stickman_football: StickmanFootballPreviewPortrait,
    magazine: MagazinePreviewPortrait,
+  sakura: SakuraPreviewPortrait,
 };
 
 function wrapPreviews(
@@ -148,6 +152,7 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   stickman_2: { title: "Stick Man 2: Night Edition", subtitle: "Glowing chalk stories under the night sky" },
   magazine: { title: "Magazine", subtitle: "Glossy editorial storytelling" },
   stickman_football: { title: "Stickman Football Match", subtitle: "Hand-drawn football action for match recaps & highlights" },
+  sakura: { title: "Sakura", subtitle: "Japanese-aesthetic blog-to-video theme" },
 };
 
 /** Purple primary "New" chip when template meta.json has new_template: true */

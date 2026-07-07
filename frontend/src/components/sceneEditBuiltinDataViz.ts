@@ -159,6 +159,43 @@ const mosaicExample = (kind: ChartKind): ChartTable => {
   };
 };
 
+const sakuraExample = (kind: ChartKind): ChartTable => {
+  if (kind === "bar") {
+    return {
+      headers: ["Grove", "Blossoms", "Buds"],
+      rows: [
+        ["Ueno", "324", "72"],
+        ["Yoshino", "308", "55"],
+        ["Hirosaki", "315", "61"],
+        ["Kyoto", "298", "68"],
+        ["Nara", "318", "59"],
+      ],
+    };
+  }
+  if (kind === "histogram") {
+    return {
+      headers: ["Bloom span (days)", "Trees"],
+      rows: [
+        ["0 - 3", "2"],
+        ["3 - 6", "6"],
+        ["6 - 9", "9"],
+        ["9 - 12", "5"],
+        ["12+", "2"],
+      ],
+    };
+  }
+  return {
+    headers: ["Week", "Blossoms", "Buds"],
+    rows: [
+      ["W1", "298", "72"],
+      ["W2", "308", "68"],
+      ["W3", "315", "61"],
+      ["W4", "324", "55"],
+      ["W5", "318", "59"],
+    ],
+  };
+};
+
 const chronicleExample = (kind: ChartKind): ChartTable => {
   if (kind === "bar") {
     return {
@@ -442,6 +479,16 @@ const TICKER_EXAMPLE_BY_TEMPLATE: Record<string, () => ChartTable> = {
   }),
   gridcraft: sharedTickerExample,
   stickman_2: sharedTickerExample,
+  sakura: () => ({
+    headers: ["Name", "Shares", "Price", "Cost", "Value", "% Chg"],
+    rows: [
+      ["Bloom A", "25", "$20", "$500", "$600", "+20%"],
+      ["Bloom B", "20", "$30", "$600", "$500", "-16.7%"],
+      ["Bloom C", "30", "$90", "$2,700", "$3,000", "+11.1%"],
+      ["Bloom D", "50", "$100", "$5,000", "$10,000", "+100%"],
+      ["Bloom E", "100", "$20", "$2,000", "$1,000", "-50%"],
+    ],
+  }),
   magazine: () => ({
     headers: ["Name", "Shares", "Price", "Cost", "Value", "% Chg"],
     rows: [
@@ -488,6 +535,12 @@ const BUILTIN_DATAVIZ: Record<string, BuiltinDataVizConfig> = {
     tickerLayoutId: "mosaic_ticker",
     layoutKind: layoutKindFromSuffix,
     exampleTable: mosaicExample,
+  },
+  sakura: {
+    chartLayoutIds: ["sakura_data_visualization"],
+    tickerLayoutId: "sakura_ticker",
+    layoutKind: layoutKindFromSuffix,
+    exampleTable: sakuraExample,
   },
   magazine: {
     chartLayoutIds: ["magazine_data_visualization"],
