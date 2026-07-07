@@ -37,6 +37,10 @@ import {
  */
 export const Feature: React.FC<SceneLayoutProps> = (props) => {
   const { title, narration, titleFontSize, descriptionFontSize } = props;
+  // The on-screen headline is driven by the editable `heading` prop (the field the
+  // generation pipeline fills — see prompt.md); falls back to `title` for legacy
+  // scenes that predate the dedicated field.
+  const heading = ((props.heading as string)?.trim() || title || "").trim();
   const sectionLabel = (props.sectionLabel as string) ?? "Feature";
   const keyPoints = (Array.isArray(props.keyPoints) ? props.keyPoints : [])
     .map((k) => (typeof k === "string" ? k : (k as { value?: string })?.value ?? ""))
@@ -124,7 +128,7 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
         margin: 0,
       }}
     >
-      <KineticWords text={title ?? ""} start={6} stagger={3} dur={16} italicizeLast focus />
+      <KineticWords text={heading} start={6} stagger={3} dur={16} italicizeLast focus />
     </h1>
   );
 

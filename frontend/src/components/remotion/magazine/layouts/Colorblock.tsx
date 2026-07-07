@@ -1,9 +1,9 @@
 import React from "react";
-import { Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   MagazinePage,
   Kicker,
+  OptionalImg,
   Rule,
   QuoteGlyph,
   KineticWords,
@@ -55,8 +55,10 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
 
   const g = gutterPx(props.aspectRatio);
   const quotePx = titleFontSize ?? (p ? 52 : 62);
-  const sublinePx = descriptionFontSize ?? (p ? 24 : 22);
-  const headingPx = p ? 40 : 46;
+  const sublinePx = descriptionFontSize ?? (p ? 40 : 30);
+  const headingPx = p ? 68 : 58;
+  const kickerPx = p ? 32 : 24;
+  const tagPx = p ? 21 : 17;
   const pad = p ? "34px 32px" : "52px 50px";
 
   return (
@@ -77,7 +79,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
         {/* LEFT BLOCK — solid ink panel with the pull-quote */}
         <div
           style={{
-            flex: 1,
+            flex: p ? 0.7 : 1,
             minWidth: 0,
             background: text,
             display: "flex",
@@ -111,7 +113,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
             stack stays legible. The image honours the scene focus point + zoom. */}
         <div
           style={{
-            flex: 1,
+            flex: p ? 1.3 : 1,
             minWidth: 0,
             position: "relative",
             overflow: "hidden",
@@ -122,8 +124,9 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
         >
           {imageUrl && (
             <>
-              <Img
+              <OptionalImg
                 src={imageUrl}
+                onError={() => {}}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -162,7 +165,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
               padding: pad,
             }}
           >
-            <Kicker color={bg} style={{ opacity: kickerO, marginBottom: 16 }}>
+            <Kicker color={bg} size={kickerPx} style={{ opacity: kickerO, marginBottom: 16 }}>
               {label}
             </Kicker>
             <Rule color={bg} progress={ruleP} thickness={2} width={48} style={{ marginBottom: 22 }} />
@@ -208,7 +211,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
                   color: accent,
                   fontFamily: MAG_SANS,
                   fontWeight: 700,
-                  fontSize: 13,
+                  fontSize: tagPx,
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
                   padding: "6px 14px",

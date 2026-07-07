@@ -141,8 +141,7 @@ export default function ChroniclePreview({
   }, [thumbnailMode]);
 
   return (
-    <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: bgColor }}>
         <PlayerScaledCanvas>
           <Player
             ref={playerRef}
@@ -157,7 +156,7 @@ export default function ChroniclePreview({
             autoPlay={!thumbnailMode}
             loop={!thumbnailMode}
             acknowledgeRemotionLicense
-            style={{ width: "100%", height: "100%", display: "block" }}
+            style={{ width: 480, height: 270, display: "block" }}
           />
         </PlayerScaledCanvas>
 
@@ -178,7 +177,6 @@ export default function ChroniclePreview({
             );
           })}
         </div>
-      </div>
     </div>
   );
 }

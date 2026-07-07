@@ -24,7 +24,9 @@ import GenerateSceneImageModal from "./GenerateSceneImageModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
 import { compileDataModule } from "../utils/compileComponent";
-import { normalizeLayoutId } from "./remotion/imageBoxConfig";
+import { normalizeLayoutId, getImageBoxAspectRatio, isImageBoxCircular } from "./remotion/imageBoxConfig";
+import { getTemplateConfig } from "./remotion/templateConfig";
+import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
@@ -299,13 +301,13 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     mosaic_close: { title: [104, 72], desc: [52, 34] },
   },
   magazine: {
-    magazine_cover: { title: [68, 88] },
+    magazine_cover: { title: [92, 62], desc: [16, 19] },
     editorial_quote: { title: [56, 72], desc: [18, 24] },
     by_the_numbers: { title: [56, 72], desc: [20, 26] },
     interview_qa: { title: [40, 52], desc: [16, 20] },
     magazine_data_visualization: { title: [56, 52], desc: [28, 26] },
     timeline_journey: { title: [40, 52], desc: [16, 20] },
-    text_narration: { title: [100, 72], desc: [40, 30] },
+    text_narration: { title: [100, 72], desc: [72, 30] },
     ending_socials: { title: [88, 72], desc: [35, 27] },
     magazine_ticker: { title: [52, 42], desc: [28, 22] },
     comparison: { title: [92, 93], desc: [52, 30] },
@@ -692,6 +694,29 @@ function getLaDucMarketAnnotationChartTypeForLayout(
       return undefined;
   }
 }
+
+/**
+ * Magazine default sample content — the SAME rows the layout renderers fall back
+ * to when their props are empty. Keeping the modal's seed identical to the
+ * renderer fallback is what makes the modal, the stored props, and the on-screen
+ * preview show the same default data (parity with the data_visualization flow).
+ *
+ * Values must stay byte-identical with:
+ *   - remotion/magazine/layouts/ByTheNumbers.tsx (stats fallback)
+ *   - remotion/magazine/layouts/TimelineJourney.tsx (milestones fallback)
+ */
+const MAGAZINE_SAMPLE_STATS: Array<{ value: string; label: string }> = [
+  { value: "2.4M", label: "Monthly readers" },
+  { value: "98%", label: "Renewal rate" },
+  { value: "150+", label: "Countries" },
+  { value: "47", label: "Issues in print" },
+];
+const MAGAZINE_SAMPLE_MILESTONES: Array<{ date: string; label: string; desc: string }> = [
+  { date: "2019", label: "Company founded", desc: "Two founders, one rented desk, a first prototype." },
+  { date: "2021", label: "Series A funding", desc: "Backed to grow the team and ship faster." },
+  { date: "2023", label: "One million users", desc: "Word of mouth carried it across new markets." },
+  { date: "2025", label: "Global expansion", desc: "Offices on three continents and counting." },
+];
 
 /**
  * LaDuc `market_annotation` example datasets per chart type — mirrors the
@@ -2063,6 +2088,8 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "attribution", label: "Attribution", type: "string", placeholder: "— Mara Voss, Editor" },
     ],
     by_the_numbers: [
+      { key: "sectionLabel", label: "Eyebrow text", type: "string", placeholder: "By the Numbers" },
+      { key: "displayTitle", label: "Display headline", type: "string", placeholder: "By the Numbers" },
       { key: "stats", label: "Key figures", type: "object_array", subFields: [{ key: "value", label: "Value", placeholder: "2.4M" }, { key: "label", label: "Label", placeholder: "Monthly readers" }], maxItems: 4 },
     ],
     interview_qa: [
@@ -2079,6 +2106,12 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     timeline_journey: [
       { key: "milestones", label: "Milestones", type: "object_array", subFields: [{ key: "date", label: "Date", placeholder: "2021" }, { key: "label", label: "Event", placeholder: "The full redesign" }, { key: "desc", label: "Detail", placeholder: "What happened, in a few words" }], maxItems: 6 },
+    ],
+    feature: [
+      { key: "heading", label: "Headline", type: "string", placeholder: "The Shape of Things to Come" },
+      { key: "sectionLabel", label: "Section label", type: "string", placeholder: "FEATURE" },
+      { key: "body", label: "Article body", type: "text", placeholder: "Original feature prose (60–110+ words) flowing across both pages; its first letter becomes the red drop cap." },
+      { key: "keyPoints", label: "Key points", type: "object_array", subFields: [{ key: "value", label: "Point", placeholder: "Attention is the scarce resource" }], maxItems: 3 },
     ],
     comparison: [
       { key: "leftHeader", label: "Left header", type: "string", placeholder: "Before" },
@@ -2148,6 +2181,47 @@ function getLayoutFields(template: string, layoutId: string | null): FieldDef[] 
 }
 
 /**
+ * Build default layoutProps for a layout from its FieldDef list. Universal
+ * fallback (works for every template with no per-template `sample_props`): uses
+ * each field's placeholder for text/list fields, and one starter row built from
+ * the subField placeholders for object arrays. Chart/table/color fields are
+ * intentionally skipped — those are seeded by the template-specific example-data
+ * paths in `applySelectedLayout`. Callers merge this over existing props, only
+ * filling keys that are currently empty, so real content is never clobbered.
+ */
+function buildDefaultLayoutPropsFromFields(fields: FieldDef[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const f of fields) {
+    switch (f.type) {
+      case "string":
+      case "text":
+        if (f.placeholder) out[f.key] = f.placeholder;
+        break;
+      case "string_array":
+        if (f.placeholder) out[f.key] = [f.placeholder];
+        break;
+      case "object_array": {
+        const subs = f.subFields ?? [];
+        if (subs.length) {
+          const row: Record<string, string> = {};
+          for (const sf of subs) row[sf.key] = sf.placeholder ?? "";
+          // Only seed a starter row if at least one subfield has a placeholder,
+          // so we don't insert an all-empty row that reads as noise.
+          if (subs.some((sf) => sf.placeholder)) out[f.key] = [row];
+        }
+        break;
+      }
+      case "select":
+        if (f.default != null) out[f.key] = f.default;
+        break;
+      // chart_table / ticker_table / ohlcv_table / pipe_table / color / number /
+      // range — left to the template-specific seeders / defaults.
+    }
+  }
+  return out;
+}
+
+/**
  * Module-scoped cache of compiled crafted-template layout field defs.
  * Keyed by `template_id`. Survives modal close/reopen within the session;
  * cleared on full reload (matches localStorage cache TTL behavior).
@@ -2164,6 +2238,11 @@ const HIDDEN_LAYOUT_PROP_KEYS = new Set([
   "image_box_aspect_ratio",
   "titleFontSize",
   "descriptionFontSize",
+  // Image framing state — edited via the image adjust UI, never as a raw
+  // "extra" content input (they otherwise leak in as IMAGEFOCUSX / IMAGEFOCUSY).
+  "imageFocusX",
+  "imageFocusY",
+  "imageZoom",
 ]);
 
 const HIDDEN_LAYOUT_PROP_KEYS_LOWER = new Set(
@@ -2626,6 +2705,8 @@ export default function SceneEditModal({
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
@@ -2721,7 +2802,10 @@ export default function SceneEditModal({
     : scene.scene_type === "dataviz_table" || sceneTypeOverride === "dataviz_table" ? "table"
     : null;
 
-  const currentLayoutId = (() => {
+  // The layout persisted on the scene (parsed from remotion_code). Used where we
+  // need "the scene's real current layout" — e.g. the dropdown's "Keep current"
+  // affordances — regardless of any in-flight dropdown selection.
+  const savedLayoutId = (() => {
     // Dedicated/converted data-viz scenes route by scene type, not descriptor layout.
     if (dataVizKind) return dataVizKind === "chart" ? "custom_chart" : "custom_table";
     try {
@@ -2742,6 +2826,15 @@ export default function SceneEditModal({
     } catch { /* ignore */ }
     return null;
   })();
+  // The EFFECTIVE layout the modal renders fields for: a concrete pending
+  // dropdown selection wins over the saved layout, so switching layouts swaps the
+  // editable fields immediately (before saving). `__keep__`/`__auto__` have no
+  // concrete target, so they fall back to the saved layout.
+  const pendingLayout =
+    selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__"
+      ? selectedLayout
+      : null;
+  const currentLayoutId = pendingLayout ?? savedLayoutId;
   const currentLayoutLabel = currentLayoutId
     ? getSceneLayoutLabel(
         project.template,
@@ -2749,9 +2842,22 @@ export default function SceneEditModal({
         layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " ")
       )
     : "Current layout";
+  // Label for the scene's REAL current layout — used by the dropdown's "Keep
+  // current" row so it names the saved layout even while a new one is picked.
+  const savedLayoutLabel = savedLayoutId
+    ? getSceneLayoutLabel(
+        project.template,
+        savedLayoutId,
+        layouts?.layout_names[savedLayoutId] || savedLayoutId.replace(/[-_]/g, " ")
+      )
+    : "Current layout";
 
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
+  // `supportsImage` follows the EFFECTIVE layout so switching into an image-less
+  // layout hides the image controls before saving.
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
+  // Per the scene's SAVED layout — for the "Keep current" dropdown row's note.
+  const savedSupportsImage = !savedLayoutId || !layoutsWithoutImage.has(savedLayoutId);
   // Custom templates: detect outro by sceneTypeOverride, ctaProps presence, or position (last scene)
   const isCustomOutro = isCustomTemplate && (() => {
     if (currentLayoutId === "outro") return true;
@@ -3055,6 +3161,24 @@ export default function SceneEditModal({
             if (example) lpCopy.tickerTable = example;
           }
         }
+        // Magazine by_the_numbers / timeline_journey: seed sample stats/milestones
+        // when the stored props are empty, so the modal shows the SAME default the
+        // renderer falls back to — on open, not only on switch. Mirrors the
+        // data-viz chartTable seeding above. Never clobbers real content.
+        if (normalizedTemplateId === "magazine") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const hasRows = (v: unknown) =>
+            Array.isArray(v) &&
+            v.some((r) => r && Object.values(r as Record<string, unknown>).some(
+              (x) => String(x ?? "").trim(),
+            ));
+          if (layoutId === "by_the_numbers" && !hasRows(lpAny.stats)) {
+            lpCopy.stats = MAGAZINE_SAMPLE_STATS;
+          }
+          if (layoutId === "timeline_journey" && !hasRows(lpAny.milestones)) {
+            lpCopy.milestones = MAGAZINE_SAMPLE_MILESTONES;
+          }
+        }
       } catch { /* ignore */ }
     }
     // For custom templates, CTA data lives in ctaProps, not layoutProps
@@ -3304,6 +3428,51 @@ export default function SceneEditModal({
     return () => document.removeEventListener("mousedown", handler);
   }, [layoutOpen]);
 
+  // Resolve the editable FieldDefs for a layout the same way the render block
+  // does — curated override merged with any meta-schema fields it omits (e.g.
+  // magazine's issueLabel/kickerPrefix) — so seeding, the keep-set, and the save
+  // cleanup all agree on which keys a layout actually owns.
+  const resolveLayoutFieldsFor = (layoutId: string): FieldDef[] => {
+    if (isCraftedTemplate) {
+      const craftedTemplateEntry = craftedTemplates.find((ct) => ct.id === project.template);
+      return (
+        pickCraftedCompiledLayoutFields(craftedLayoutFieldsByLayout, layoutId) ??
+        pickLayoutPropSchemaFieldDefs(
+          craftedTemplateEntry?.layout_prop_schema as unknown as
+            | Record<string, LayoutPropSchema>
+            | undefined,
+          layoutId,
+        ) ??
+        getLayoutFields(project.template || "default", layoutId) ??
+        []
+      );
+    }
+    const curated = getLayoutFields(project.template || "default", layoutId) ?? [];
+    const schemaFields =
+      pickLayoutPropSchemaFieldDefs(
+        layouts?.layout_prop_schema as unknown as
+          | Record<string, LayoutPropSchema>
+          | undefined,
+        layoutId,
+      ) ?? [];
+    const seen = new Set(curated.map((f) => f.key));
+    const merged = [...curated];
+    for (const f of schemaFields) if (!seen.has(f.key)) merged.push(f);
+    return merged;
+  };
+
+  // Props the modal manages OUTSIDE of layoutFields — kept across a layout switch
+  // even though they aren't fields of the new layout.
+  const LAYOUT_CONTENT_KEEP_KEYS = new Set<string>([
+    ...HIDDEN_LAYOUT_PROP_KEYS,
+    "ctaProps",
+    "socials",
+    "ctas",
+    "showWebsiteButton",
+    "websiteLink",
+    "ctaButtonText",
+  ]);
+
   const handleSave = async (override?: { imageFocusX?: number; imageFocusY?: number; imageZoom?: number }) => {
     if (isDemo) return;
     if (editMode === "manual") {
@@ -3395,6 +3564,46 @@ export default function SceneEditModal({
             // Apply layout switch: update desc.layout when user picked a concrete layout
             if (selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__") {
               desc.layout = selectedLayout;
+              // The saved descriptor must carry ONLY the new layout's props. The
+              // merge above re-introduced the previous layout's content keys from
+              // the stale desc.layoutProps (heading/body/issueLabel/…) — drop any
+              // key that isn't a field of the new layout and isn't in the
+              // keep-set (font sizes, image, CTA/socials). Seed the new layout's
+              // still-empty fields so the on-screen preview renders populated
+              // content the user can just edit.
+              const newFields = resolveLayoutFieldsFor(selectedLayout);
+              const newFieldKeys = new Set(newFields.map((f) => f.key));
+              for (const key of Object.keys(lp)) {
+                if (!newFieldKeys.has(key) && !LAYOUT_CONTENT_KEEP_KEYS.has(key)) {
+                  delete (lp as Record<string, unknown>)[key];
+                }
+              }
+              const isEmptyVal = (v: unknown) =>
+                v == null ||
+                (typeof v === "string" && v.trim() === "") ||
+                (Array.isArray(v) && v.length === 0);
+              const seedTitle = (title || "").trim();
+              const seedBody = (aiNarration || displayText || "").trim();
+              const seedDefaults = buildDefaultLayoutPropsFromFields(newFields);
+              const lpRec = lp as Record<string, unknown>;
+              for (const f of newFields) {
+                if (!isEmptyVal(lpRec[f.key])) continue;
+                if ((f.type === "string" || f.type === "text") &&
+                    /^(heading|title|displaytitle|headline)$/i.test(f.key) && seedTitle) {
+                  lpRec[f.key] = seedTitle;
+                } else if (f.type === "text" &&
+                    /^(body|text|answer|summary|desc)$/i.test(f.key) && seedBody) {
+                  lpRec[f.key] = seedBody;
+                } else if (normalizedTemplateId === "magazine" && f.key === "stats") {
+                  // Magazine stats/milestones seed to the renderer's exact fallback
+                  // so the saved props == modal == preview (not generic placeholders).
+                  lpRec[f.key] = MAGAZINE_SAMPLE_STATS;
+                } else if (normalizedTemplateId === "magazine" && f.key === "milestones") {
+                  lpRec[f.key] = MAGAZINE_SAMPLE_MILESTONES;
+                } else if (f.key in seedDefaults) {
+                  lpRec[f.key] = seedDefaults[f.key];
+                }
+              }
             }
             // data_visualization: convert editable chart form back to stored shapes
             const layoutId = (desc.layout as string) || "";
@@ -3718,6 +3927,143 @@ export default function SceneEditModal({
   const applySelectedLayout = (next: string) => {
     setSelectedLayout(next);
     if (next === "__keep__" || next === "__auto__") return;
+
+    // Switching layout rebuilds the layout-content portion of editableLayoutProps
+    // so the modal (and the saved descriptor) carry ONLY the new layout's fields —
+    // populated — instead of a mix of the new fields plus the old scene's leftover
+    // keys. The render also hides leftovers on switch (see extraKeys'
+    // `suppressExtraKeysForLayoutSwitch`); this keeps the underlying data clean too.
+    //
+    // 1. KEEP: retain non-layout-content props the modal manages separately
+    //    (font sizes, image props via HIDDEN_LAYOUT_PROP_KEYS; CTA/socials for
+    //    ending scenes) + the new layout's own field values. Drop everything else.
+    // 2. SEED: fill the new layout's empty fields — preferring the SCENE's own
+    //    content (title → heading-ish, narration/display → body-ish) so the layout
+    //    arrives populated from what's shown in the scene, then placeholder samples
+    //    for list/stat fields.
+    // The richer template-specific seeders below (magazine sample_props,
+    // chart/ticker example data) run after under the same empty-only rule.
+    {
+      const nextFields = resolveLayoutFieldsFor(next);
+      const nextFieldKeys = new Set(nextFields.map((f) => f.key));
+
+      // Seed values for the new layout's fields, scene-content first.
+      const sceneTitle = (title || "").trim();
+      const sceneBody = (aiNarration || displayText || "").trim();
+      const isHeadingKey = (k: string) =>
+        /^(heading|title|displaytitle|headline)$/i.test(k);
+      const isBodyKey = (k: string) => /^(body|text|answer|summary|desc)$/i.test(k);
+      const placeholderDefaults = buildDefaultLayoutPropsFromFields(nextFields);
+      const sceneSeed: Record<string, unknown> = {};
+      for (const f of nextFields) {
+        if ((f.type === "string" || f.type === "text") && isHeadingKey(f.key) && sceneTitle) {
+          sceneSeed[f.key] = sceneTitle;
+        } else if (f.type === "text" && isBodyKey(f.key) && sceneBody) {
+          sceneSeed[f.key] = sceneBody;
+        }
+      }
+
+      const isEmpty = (v: unknown) =>
+        v == null ||
+        (typeof v === "string" && v.trim() === "") ||
+        (Array.isArray(v) && v.length === 0);
+
+      setEditableLayoutProps((prev) => {
+        const out: Record<string, unknown> = {};
+        // KEEP: non-content props (managed separately) + the new layout's own
+        // fields (existing values). Drop the old layout's leftover content keys.
+        for (const [k, v] of Object.entries(prev)) {
+          if (LAYOUT_CONTENT_KEEP_KEYS.has(k) || nextFieldKeys.has(k)) out[k] = v;
+        }
+        // SEED (empty-only): scene content first, then placeholder samples.
+        for (const [k, v] of Object.entries(sceneSeed)) {
+          if (isEmpty(out[k])) out[k] = v;
+        }
+        for (const [k, v] of Object.entries(placeholderDefaults)) {
+          if (isEmpty(out[k])) out[k] = v;
+        }
+        return out;
+      });
+    }
+
+    // Magazine: switching INTO a layout whose content fields (stats, milestones,
+    // exchanges, points, keyPoints, left/rightPoints, …) are empty leaves the new
+    // scene blank. Seed those fields from the target layout's meta.json `sample_props`
+    // so the layout has real default content — both in this modal's fields and,
+    // because editableLayoutProps is what gets saved, in the rendered scene. Only
+    // fills fields that are currently empty; never clobbers existing content.
+    if (normalizedTemplateId === "magazine") {
+      // interview_qa: map the scene's OWN text (title → question, narration →
+      // answer) into a single exchange so switching in shows the scene's content
+      // as a real q/a pair — not the canned sample. Runs before the generic seed
+      // below; the exchange is now non-empty, so the sample_props seed skips
+      // `exchanges` but still fills empty leftSpeaker/rightSpeaker. Never clobbers
+      // real exchanges; if the scene has no text at all, the generic seed handles it.
+      if (next === "interview_qa") {
+        setEditableLayoutProps((prev) => {
+          const existing = Array.isArray(prev.exchanges)
+            ? (prev.exchanges as Array<{ q?: string; a?: string }>)
+            : [];
+          const hasContent = existing.some(
+            (ex) => (ex?.q ?? "").trim() || (ex?.a ?? "").trim(),
+          );
+          if (hasContent) return prev;
+          const q = (title || "").trim();
+          const a = (aiNarration || displayText || "").trim();
+          if (!q && !a) return prev;
+          return { ...prev, exchanges: [{ q, a }] };
+        });
+      }
+      const schema = (layouts?.layout_prop_schema as Record<string, LayoutPropSchema> | undefined)?.[next];
+      // by_the_numbers: seed the stats grid on switch with the SAME sample the
+      // renderer falls back to (MAGAZINE_SAMPLE_STATS), so modal == preview == the
+      // props that get saved. Only when empty; never clobbers real stats.
+      if (next === "by_the_numbers") {
+        setEditableLayoutProps((prev) => {
+          const existing = Array.isArray(prev.stats)
+            ? (prev.stats as Array<{ value?: string; label?: string }>)
+            : [];
+          const hasContent = existing.some(
+            (s) => (s?.value ?? "").toString().trim() || (s?.label ?? "").toString().trim(),
+          );
+          if (hasContent) return prev;
+          return { ...prev, stats: MAGAZINE_SAMPLE_STATS };
+        });
+      }
+      // timeline_journey: same treatment for milestones — seed the renderer's
+      // exact fallback so all three surfaces match. Fixes the prior drift where
+      // milestones only got generic placeholder rows.
+      if (next === "timeline_journey") {
+        setEditableLayoutProps((prev) => {
+          const existing = Array.isArray(prev.milestones)
+            ? (prev.milestones as Array<{ date?: string; label?: string; desc?: string }>)
+            : [];
+          const hasContent = existing.some(
+            (m) =>
+              (m?.date ?? "").toString().trim() ||
+              (m?.label ?? "").toString().trim() ||
+              (m?.desc ?? "").toString().trim(),
+          );
+          if (hasContent) return prev;
+          return { ...prev, milestones: MAGAZINE_SAMPLE_MILESTONES };
+        });
+      }
+      const sampleProps = schema?.sample_props;
+      if (sampleProps && Object.keys(sampleProps).length > 0) {
+        const isEmpty = (v: unknown) =>
+          v == null ||
+          (typeof v === "string" && v.trim() === "") ||
+          (Array.isArray(v) && v.length === 0);
+        setEditableLayoutProps((prev) => {
+          const seeded: Record<string, unknown> = { ...prev };
+          for (const [key, val] of Object.entries(sampleProps)) {
+            if (isEmpty(prev[key])) seeded[key] = val;
+          }
+          return seeded;
+        });
+      }
+      return;
+    }
     // Economist: seed shape-appropriate example data when switching into a data layout.
     if (isEconomistTemplate && (next === "chart_line" || next === "chart_bar" || next === "data_table")) {
       const kind = next === "chart_line" ? "line" : next === "chart_bar" ? "bar" : "table";
@@ -3945,6 +4291,32 @@ export default function SceneEditModal({
     setImageAdjustFocusX(imageFocusX);
     setImageAdjustFocusY(imageFocusY);
     setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
+
+    // Compute the preview box aspect ratio + circular flag from the image box
+    // config so the framing preview matches the layout's real image slot —
+    // mirroring the scene-details dropdown on the project view page.
+    const orientation = project.aspect_ratio === "portrait" ? "portrait" : "landscape";
+    let ar: string;
+    let circular = false;
+    if (isCustomTemplate) {
+      ar = resolveCustomImageBoxAr(scene, project);
+    } else if (isCraftedTemplate) {
+      ar =
+        _resolveCraftedImageBoxArFromFiles(craftedFrontendFiles, currentLayoutId, orientation) ||
+        (orientation === "portrait" ? "9 / 16" : "16 / 9");
+    } else {
+      const templateCfg = getTemplateConfig(project.template || "default");
+      ar = getImageBoxAspectRatio(
+        currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
+        orientation,
+        templateCfg.baseWidth,
+        templateCfg.baseHeight,
+      );
+      circular = isImageBoxCircular(currentLayoutId);
+    }
+    setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(circular);
+
     imageAdjustPanRef.current = null;
     setImageAdjustOpen(true);
   };
@@ -4138,7 +4510,7 @@ export default function SceneEditModal({
             <div className="mt-4 space-y-4">
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Title
+                  {currentLayoutId === "magazine_cover" ? "Cover Line" : "Title"}
                 </h4>
                 <input
                   type="text"
@@ -4472,8 +4844,17 @@ export default function SceneEditModal({
                     ).trim(),
                   );
                 const deferCraftedExtraKeys = craftedHasLayoutFieldsSource && !craftedLayoutFieldsReady;
+                // A concrete layout switch is in flight — show ONLY the new
+                // layout's declared fields, not the previous scene's leftover /
+                // orphan props (heading/body/issueLabel/… from the old layout).
+                // `extraKeys` is meant to surface stored props that lack a curated
+                // FieldDef when editing a scene in its native layout; after a
+                // deliberate switch it's just noise. Load-order independent, and
+                // catches orphan keys the FieldDef registry doesn't know about.
+                const suppressExtraKeysForLayoutSwitch =
+                  pendingLayout != null && pendingLayout !== savedLayoutId;
                 const extraKeys =
-                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz || suppressExtraKeysForBuiltinDataViz)
+                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz || suppressExtraKeysForBuiltinDataViz || suppressExtraKeysForLayoutSwitch)
                     ? []
                     : deferCraftedExtraKeys
                       ? []
@@ -5759,10 +6140,10 @@ export default function SceneEditModal({
                         selectedLayout === "__keep__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                       }`}
                     >
-                      {currentLayoutLabel}
-                      {currentLayoutId && (
-                        <span className={`ml-1 ${supportsImage ? "text-gray-500" : "text-gray-400 italic"}`}>
-                          ({supportsImage ? "Supports images" : "Does not support images"})
+                      {savedLayoutLabel}
+                      {savedLayoutId && (
+                        <span className={`ml-1 ${savedSupportsImage ? "text-gray-500" : "text-gray-400 italic"}`}>
+                          ({savedSupportsImage ? "Supports images" : "Does not support images"})
                         </span>
                       )}
                     </button>
@@ -5778,7 +6159,7 @@ export default function SceneEditModal({
                       </button>
                     )}
                     {layouts?.layouts
-                      .filter((id) => id !== currentLayoutId)
+                      .filter((id) => id !== savedLayoutId)
                       .map((layoutId) => {
                         const supportsImageForLayout = !layoutsWithoutImage.has(layoutId);
                         return (
@@ -6052,11 +6433,12 @@ export default function SceneEditModal({
               onMouseDown={handleAdjustMouseDown}
               onTouchStart={handleAdjustTouchStart}
               style={{
-                height: "min(70vh, 26rem)",
+                aspectRatio: imageAdjustAspectRatio,
                 maxHeight: "70vh",
-                maxWidth: "min(100%, 42rem)",
+                maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
               }}
-              className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+              className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
                 isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
               }`}
             >

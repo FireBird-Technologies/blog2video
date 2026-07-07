@@ -1,10 +1,10 @@
 import React from "react";
-import { AbsoluteFill, Img, interpolate, staticFile } from "remotion";
+import { AbsoluteFill, interpolate, staticFile } from "remotion";
 import type {
   TransitionPresentation,
   TransitionPresentationComponentProps,
 } from "@remotion/transitions";
-import { QuoteGlyph, useMagDims } from "../magazineStyle";
+import { OptionalImg, QuoteGlyph, useMagDims } from "../magazineStyle";
 
 // easeInOutQuint — much slower/smoother at both ends than cubic.
 // Starts barely moving, accelerates through the middle, glides to a stop.
@@ -133,8 +133,8 @@ const GlossyPageFlipComponent: React.FC<
               background: "linear-gradient(to left, #FDFDFD 0%, #F1F1EF 55%, #E4E3E0 100%)",
               border: "1px solid rgba(0,0,0,0.14)",
             }}>
-              <Img
-                src={staticFile("magazine-collage.avif")}
+              <OptionalImg
+                src={staticFile("magazine-collage.png")}
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.12, filter: "grayscale(0.7) brightness(1.06)" }}
               />
               <AbsoluteFill style={{
@@ -242,8 +242,8 @@ const DramaticPageFlipComponent: React.FC<
           background: "linear-gradient(to left, #FDFDFD 0%, #F2F2F0 40%, #E8E7E4 80%, #DDDBD8 100%)",
           overflow: "hidden",
         }}>
-          <Img
-            src={staticFile("magazine-collage.avif")}
+          <OptionalImg
+            src={staticFile("magazine-collage.png")}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.22, filter: "grayscale(0.6) brightness(1.05)" }}
           />
           <AbsoluteFill style={{
@@ -376,8 +376,8 @@ const DoublePageTurnComponent: React.FC<
               backfaceVisibility: "hidden",
               overflow: "hidden",
             }}>
-              <Img
-                src={staticFile("magazine-collage.avif")}
+              <OptionalImg
+                src={staticFile("magazine-collage.png")}
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.20, filter: "grayscale(0.5)", pointerEvents: "none" }}
               />
               <div style={{
@@ -403,8 +403,8 @@ const DoublePageTurnComponent: React.FC<
               backfaceVisibility: "hidden",
               overflow: "hidden",
             }}>
-              <Img
-                src={staticFile("magazine-collage.avif")}
+              <OptionalImg
+                src={staticFile("magazine-collage.png")}
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.25, filter: "grayscale(0.4)", pointerEvents: "none" }}
               />
               <div style={{
@@ -528,8 +528,8 @@ const StackDropComponent: React.FC<
               {isTop ? (
                 <AbsoluteFill>{children}</AbsoluteFill>
               ) : (
-                <Img
-                  src={staticFile("magazine-collage.avif")}
+                <OptionalImg
+                  src={staticFile("magazine-collage.png")}
                   style={{
                     position: "absolute",
                     inset: 0,
@@ -725,8 +725,8 @@ const StackSlideComponent: React.FC<
           borderBottom: "1px solid rgba(0,0,0,0.04)",
           overflow: "hidden",
         }}>
-          <Img
-            src={staticFile("magazine-collage.avif")}
+          <OptionalImg
+            src={staticFile("magazine-collage.png")}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.15 + i * 0.05, filter: "grayscale(0.5)", pointerEvents: "none" }}
           />
         </div>
@@ -950,8 +950,8 @@ const PageFoldOverComponent: React.FC<
           overflow: "hidden",
           boxShadow: `0 18px ${shadowBlur}px rgba(0,0,0,${shadowAlpha})`,
         }}>
-          <Img
-            src={staticFile("magazine-collage.avif")}
+          <OptionalImg
+            src={staticFile("magazine-collage.png")}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.20, filter: "grayscale(0.6) brightness(1.05)" }}
           />
           {/* Prominent hinge crease on the back */}

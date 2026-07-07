@@ -15,7 +15,7 @@
 
 - action_id: project.render
   label: "Render and download the final video"
-  page_pattern: "/projects/:id"
+  page_pattern: "/project/:id"
   steps:
     - selector: '[data-action="render-button"]'
       tooltip: "Click the Download button — if your video isn't rendered yet it will render first, otherwise choose MP4 to download."
@@ -23,7 +23,7 @@
 
 - action_id: project.download
   label: "Download the rendered video"
-  page_pattern: "/projects/:id"
+  page_pattern: "/project/:id"
   steps:
     - selector: '[data-action="render-button"]'
       tooltip: "Click Download here, then choose MP4 to download your video."
@@ -31,7 +31,7 @@
 
 - action_id: project.edit_scenes
   label: "Edit the scenes of your video"
-  page_pattern: "/projects/:id"
+  page_pattern: "/project/:id"
   steps:
     - selector: '[data-tour="scenes-tab"]'
       tooltip: "Open the Scenes tab to edit individual scenes."
@@ -42,7 +42,7 @@
 
 - action_id: project.change_font
   label: "Change the font for all scenes"
-  page_pattern: "/projects/:id"
+  page_pattern: "/project/:id"
   steps:
     - selector: '[data-tour="settings-tab"]'
       tooltip: "Open the Settings tab."
@@ -53,7 +53,7 @@
 
 - action_id: project.choose_template
   label: "Choose a video template"
-  page_pattern: "/projects/:id"
+  page_pattern: "/project/:id"
   steps:
     - selector: '[data-tour="settings-tab"]'
       tooltip: "Open the Settings tab."
@@ -64,7 +64,7 @@
 
 - action_id: project.upload_logo
   label: "Upload your brand logo"
-  page_pattern: "/projects/:id"
+  page_pattern: "/project/:id"
   steps:
     - selector: '[data-tour="settings-tab"]'
       tooltip: "Open the Settings tab."
@@ -73,9 +73,25 @@
       tooltip: "Upload a logo to brand your video."
       placement: right
 
+- action_id: project.captions
+  label: "Turn on captions / subtitles"
+  page_pattern: "/project/:id"
+  steps:
+    - selector: '[data-tour="captions"]'
+      tooltip: "Click the CC button to enable captions, then adjust their font, size, and timing."
+      placement: top
+
+- action_id: project.playback_speed
+  label: "Change the playback speed"
+  page_pattern: "/project/:id"
+  steps:
+    - selector: '[data-tour="playback-speed"]'
+      tooltip: "Click here to speed up or slow down your video — pick a preset or drag the slider for a custom speed."
+      placement: top
+
 - action_id: project.set_aspect_ratio
   label: "Change the aspect ratio"
-  page_pattern: "/projects/:id"
+  page_pattern: "/project/:id"
   steps:
     - selector: '[data-action="aspect-ratio"]'
       tooltip: "Switch between landscape and portrait format."

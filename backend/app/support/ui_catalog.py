@@ -88,6 +88,12 @@ def page_matches(pattern: str, page_path: Optional[str]) -> bool:
         return False
     if pattern == "*":
         return True
-    # Convert patterns like "/projects/:id" → regex "/projects/[^/]+"
-    regex = "^" + re.sub(r":\w+", r"[^/]+", pattern.rstrip("/")) + "/?$"
+    # Convert patterns like "/project/:id" → regex "/project/[^/]+".
+    # Tolerate the singular/plural "/project" vs "/projects" variance so a route
+    # rename can't silently break every project-page action (the frontend already
+    # matches both via "/projects?/").
+    body = re.sub(r":\w+", r"[^/]+", pattern.rstrip("/"))
+    body = re.sub(r"^/projects\b", "/projects?", body)
+    body = re.sub(r"^/project\b", "/projects?", body)
+    regex = "^" + body + "/?$"
     return re.match(regex, page_path.rstrip("/")) is not None

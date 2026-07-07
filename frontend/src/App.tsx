@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
@@ -40,6 +40,10 @@ import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MCPConnector from "./pages/MCPConnector";
 import { trackPageView } from "./gtag";
+
+// Hidden poster-capture route (used by scripts/capture-posters.ts). Lazy so it
+// stays out of the main bundle.
+const CapturePage = lazy(() => import("./pages/CapturePage"));
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -82,6 +86,15 @@ function AppRoutes() {
       {user && <Navbar />}
 
       <Routes>
+        {/* Hidden: poster capture (scripts/capture-posters.ts) */}
+        <Route
+          path="/_capture"
+          element={
+            <Suspense fallback={null}>
+              <CapturePage />
+            </Suspense>
+          }
+        />
         {/* Public */}
         <Route
           path="/"
