@@ -30,6 +30,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    fontFamily,
   } = props;
 
   const p = aspectRatio === "portrait";
@@ -207,7 +208,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
         {romanTitle ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: romanPx,
               color: SAKURA.gold,
               letterSpacing: "0.75em",
