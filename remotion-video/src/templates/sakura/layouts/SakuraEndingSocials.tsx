@@ -13,6 +13,7 @@ import {
   CornerBlossoms,
   SoftPetal,
   hexToRgba,
+  readableTextColor,
 } from "../sakuraStyle";
 
 export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
@@ -21,6 +22,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
     narration,
     accentColor,
     bgColor,
+    textColor,
     aspectRatio,
     sceneDurationInFrames,
     titleFontSize,
@@ -33,6 +35,12 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
   const frame = useSakuraFrame();
   const { fps, width, height } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 150;
+
+  // Dark backdrop: accent drives the frame/blossom marks; text drives the brand +
+  // copy, but a near-black text color would vanish on dark, so readableTextColor
+  // falls back to light washi. Matches the other dark Sakura scenes.
+  const crimson = accentColor || SAKURA.crimson;
+  const ink = readableTextColor(textColor, "dark");
 
   const brandName = (props as any).brandName ?? title ?? "";
   const tagline = (props as any).tagline ?? narration ?? "";
@@ -203,7 +211,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
             fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
             fontWeight: 700,
             fontSize: titlePx,
-            color: SAKURA.washi,
+            color: ink,
             letterSpacing: "0.08em",
             lineHeight: 1.15,
             opacity: brandOpacity,
@@ -261,7 +269,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
               position: "relative",
               width: boxW,
               height: boxH,
-              border: `1.8px solid ${SAKURA.blush}`,
+              border: `1.8px solid ${crimson}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -289,14 +297,14 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
                   transform: `scale(${cornerPetalScale(i)})`,
                 }}
               >
-                <SoftPetal cx={11} cy={11} r={9} rotation={c.rot} color={SAKURA.crimson} centerColor={SAKURA.gold} />
+                <SoftPetal cx={11} cy={11} r={9} rotation={c.rot} color={crimson} centerColor={SAKURA.gold} />
               </svg>
             ))}
             <div
               style={{
                 fontFamily: SAKURA_BODY_FONT,
                 fontSize: p ? 24 : 20,
-                color: SAKURA.washi,
+                color: ink,
                 letterSpacing: "0.5em",
                 textTransform: "uppercase",
                 textIndent: "0.5em",
@@ -336,8 +344,8 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
             <SocialIcons
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               socials={socials as any}
-              accentColor={accentColor || SAKURA.crimson}
-              textColor={SAKURA.washi}
+              accentColor={crimson}
+              textColor={ink}
               maxPerRow={p ? 3 : 5}
               fontFamily={fontFamily ?? SAKURA_BODY_FONT}
               aspectRatio={aspectRatio}
@@ -359,7 +367,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
                 style={{
                   fontFamily: SAKURA_BODY_FONT,
                   fontSize: p ? 20 : 16,
-                  color: hexToRgba(SAKURA.washi, 0.5),
+                  color: hexToRgba(ink, 0.5),
                   letterSpacing: "0.2em",
                 }}
               >

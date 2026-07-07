@@ -30,6 +30,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    fontFamily,
   } = props;
 
   const p = aspectRatio === "portrait";
@@ -187,7 +188,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         <div style={{ marginBottom: 30 }}>
           <SumiBrushText
             text={quote}
-            fontFamily={SAKURA_DISPLAY_FONT}
+            fontFamily={fontFamily ?? SAKURA_DISPLAY_FONT}
             fontSize={quotePx}
             fontWeight={700}
             color={ink}
