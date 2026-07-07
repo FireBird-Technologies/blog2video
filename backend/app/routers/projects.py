@@ -4,12 +4,6 @@ import logging
 import os
 import shutil
 import time
-<<<<<<< HEAD
-from datetime import datetime
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
-from sqlalchemy import func, inspect, text
-=======
 import requests
 from datetime import datetime
 from typing import Optional
@@ -17,7 +11,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, text, update
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -28,8 +21,6 @@ from app.models.project import Project, ProjectStatus
 from app.models.review import Review
 from app.models.scene import Scene
 from app.models.project_template_change_job import ProjectTemplateChangeJob
-<<<<<<< HEAD
-=======
 from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
 from app.models.project_voice_change_job import ProjectVoiceChangeJob
 from app.services import stall_recovery
@@ -37,40 +28,29 @@ from app.services.stall_recovery import STALL_RETRY_MESSAGE
 from app.models.crafted_template import CraftedTemplate
 from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
 from app.models.custom_template import CustomTemplate
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
     SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest,
     SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
-<<<<<<< HEAD
-    ProjectTemplateChangeJobOut,
-=======
     ProjectTemplateChangeJobOut, ProjectVoiceChange,
     ProjectRegenerateScriptJobOut,
     RegenerateScriptPreviewOut, RegenerateScriptPreviewScene,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 )
 from app.services import r2_storage
 from app.services.remotion import (
     safe_remove_workspace,
     get_workspace_dir,
     cancel_running_render,
-<<<<<<< HEAD
-=======
     render_still,
     write_remotion_data,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 )
 from app.services.doc_extractor import extract_from_documents
 from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
 )
-<<<<<<< HEAD
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
-=======
 from app.services.template_service import (
     validate_template_id,
     get_preview_colors,
@@ -84,7 +64,6 @@ from app.services.template_service import (
 )
 from app.services.crafted_template_service import validate_crafted_template_access
 from app.services.crafted_template_service import is_crafted_templates_enabled
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 from app.services.language_detection import normalize_preferred_language_code
 from app.services.social_content_signals import detect_social_platforms_in_text
@@ -95,15 +74,6 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 logger = get_logger(__name__)
 
 
-<<<<<<< HEAD
-def _inject_custom_theme(project: Project, db: Session | None = None) -> Project:
-    """Attach custom_theme to a project so ProjectOut serialization includes it."""
-    if is_custom_template(project.template):
-        data = _load_custom_template_data(project.template, db=db)
-        project.custom_theme = data["theme"] if data else None
-        project.custom_template_missing = data is None
-        # Expose BrandKit logo URL so the frontend preview can show it
-=======
 import threading as _threading
 
 # URL → (expires_at_epoch, is_reachable). Avoids HEAD-ing the same brand-logo
@@ -166,26 +136,15 @@ def _inject_custom_theme(project: Project, db: Session | None = None) -> Project
         # Skip entries that don't actually resolve — a scraped /favicon.ico
         # fallback often 404s on SPAs, and serving a broken URL to the
         # frontend just renders a broken-image icon in the preview.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         brand_logo_url = None
         if data:
             bk = data.get("brand_kit")
             if bk:
-<<<<<<< HEAD
-                logos = bk.get("logos") or []
-                if logos:
-                    first = logos[0]
-                    brand_logo_url = first.get("url", "") if isinstance(first, dict) else first
-        project.brand_logo_url = brand_logo_url or None
-    else:
-        project.custom_theme = None
-=======
                 brand_logo_url = _pick_reachable_brand_logo_url(bk.get("logos") or [])
         project.brand_logo_url = brand_logo_url or None
     else:
         project.custom_theme = None
         project.custom_image_box_aspect_ratios = None
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         project.custom_template_missing = False
         project.brand_logo_url = None
     return project
@@ -246,33 +205,6 @@ _ALLOWED_MIME_TYPES = {
     "text/plain",  # .txt
     "text/markdown",  # .md
     "text/x-markdown",  # .md
-<<<<<<< HEAD
-}
-_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"}
-_VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
-_VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
-_ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
-
-
-def _sanitize_data_viz_layout_props(layout: str | None, layout_props: dict | None) -> dict:
-    props = dict(layout_props or {})
-    if (layout or "").strip().lower().replace("-", "_") != "data_visualization":
-        return props
-    for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
-        props.pop(key, None)
-    return props
-
-
-def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
-    out = dict(descriptor or {})
-    layout = out.get("layout")
-    layout_props = out.get("layoutProps") if isinstance(out.get("layoutProps"), dict) else {}
-    out["layoutProps"] = _sanitize_data_viz_layout_props(
-        layout=str(layout) if layout is not None else "",
-        layout_props=layout_props,
-    )
-    return out
-=======
     "text/vtt",  # .vtt (WebVTT captions/transcripts)
 }
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"}
@@ -330,7 +262,6 @@ def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
     from app.services.chart_planner import sanitize_chart_descriptor
 
     return sanitize_chart_descriptor(descriptor)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _normalize_video_style(video_style: str | None) -> str:
@@ -355,12 +286,6 @@ def _normalize_video_length(video_length: str | None) -> str:
     raw = (video_length or "").strip().lower()
     if not raw:
         return "auto"
-<<<<<<< HEAD
-    if raw not in _VALID_VIDEO_LENGTHS:
-        raise HTTPException(
-            status_code=422,
-            detail="video_length must be one of: auto, short, medium, detailed",
-=======
     # Frontend label uses "more_detailed"; DB/domain uses compact "mdetailed"
     # (projects.video_length was introduced as VARCHAR(10)).
     aliases = {
@@ -373,13 +298,10 @@ def _normalize_video_length(video_length: str | None) -> str:
         raise HTTPException(
             status_code=422,
             detail="video_length must be one of: auto, short, medium, detailed, more detailed",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
     return raw
 
 
-<<<<<<< HEAD
-=======
 def _normalize_playback_speed(playback_speed: float | None) -> float:
     if playback_speed is None:
         return 1.0
@@ -392,7 +314,6 @@ def _normalize_playback_speed(playback_speed: float | None) -> float:
     return value
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
     """Normalize accent values to fit projects.voice_accent (VARCHAR(10))."""
     raw = (voice_accent or "").strip().lower()
@@ -416,8 +337,6 @@ def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
     return normalized[:10]
 
 
-<<<<<<< HEAD
-=======
 def _resolve_voice_tuning(voice_emotion: str | None, user: User) -> tuple[str | None, str | None]:
     """Validate + gate user voice tuning, sent as a JSON string array
     ["<stability>","<speed>","<emotion>","<style>","<enabled>"] in the voice_emotion field.
@@ -485,7 +404,6 @@ def _crafted_template_pk(template_id: str, db: Session) -> int | None:
     return int(row[0]) if row else None
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _extract_scene_layout_from_descriptor(scene: Scene, template_id: str) -> str | None:
     if not scene.remotion_code:
         return None
@@ -507,8 +425,6 @@ def _extract_layout_from_descriptor_obj(descriptor: object, template_id: str) ->
     return layout if isinstance(layout, str) else None
 
 
-<<<<<<< HEAD
-=======
 def _clamp_image_focus(value: object | None) -> float:
     try:
         num = float(value)
@@ -553,7 +469,6 @@ def _clear_image_assignment(lp: dict) -> None:
     lp.pop("imageZoom", None)
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
     social_flags = detect_social_platforms_in_text(getattr(project, "blog_content", None) or "")
     socials = {
@@ -598,10 +513,7 @@ def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
 def _run_project_template_change_job(job_id: int) -> None:
     from app.dspy_modules.template_layout_planner import TemplateLayoutPlanner
     from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
-<<<<<<< HEAD
-=======
     from app.routers.pipeline import _normalize_layout_id, _sanitize_script_layouts
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     from app.services.remotion import rebuild_workspace
 
     db = SessionLocal()
@@ -623,9 +535,6 @@ def _run_project_template_change_job(job_id: int) -> None:
         scenes = db.query(Scene).filter(Scene.project_id == project.id).order_by(Scene.order).all()
         job.total_scenes = len(scenes)
         job.processed_scenes = 0
-<<<<<<< HEAD
-        db.commit()
-=======
         # Snapshot the pre-relayout state so a reaped/failed run can be fully reverted.
         # Captured before the loop mutates scenes and before project.template flips below.
         job.scene_snapshot = json.dumps({
@@ -641,14 +550,10 @@ def _run_project_template_change_job(job_id: int) -> None:
         })
         db.commit()
         cancel_event = stall_recovery.arm("template", job.id)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         target_template = job.target_template
         layout_planner = TemplateLayoutPlanner(target_template)
         template_gen = TemplateSceneGenerator(target_template)
-<<<<<<< HEAD
-        supports_ending_socials = "ending_socials" in get_valid_layouts(target_template)
-=======
         target_valid_layouts = get_valid_layouts(target_template)
         supports_ending_socials = "ending_socials" in target_valid_layouts
         # Pre-compute the normalized hero layout for the new template so the
@@ -657,7 +562,6 @@ def _run_project_template_change_job(job_id: int) -> None:
         target_hero_layout = (get_hero_layout(target_template) or "").strip().lower()
         if target_hero_layout and target_hero_layout not in target_valid_layouts:
             target_hero_layout = ""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         scenes_data = [
             {
                 "title": s.title,
@@ -673,8 +577,6 @@ def _run_project_template_change_job(job_id: int) -> None:
                 content_language=project.content_language or "English",
             )
         )
-<<<<<<< HEAD
-=======
         # Mirror the script-stage policy exactly: this is the same sanitizer used
         # by the normal generation pipeline. It pins scene 0 to hero_layout,
         # pins the last scene to ending_socials (when supported), replaces
@@ -700,7 +602,6 @@ def _run_project_template_change_job(job_id: int) -> None:
             (entry.get("preferred_layout") or "") if isinstance(entry, dict) else ""
             for entry in sanitized_pairs
         ]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         if is_custom_template(target_template):
             # Keep custom-template regeneration consistent with normal generation:
@@ -739,28 +640,15 @@ def _run_project_template_change_job(job_id: int) -> None:
                         "layoutConfig": {},
                     }
                 )
-<<<<<<< HEAD
-=======
                 if cancel_event.is_set():
                     logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s superseded by reaper; aborting", job_id)
                     return
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 job.processed_scenes = idx + 1
                 db.commit()
         else:
             last_scene_idx = len(scenes) - 1
             for idx, scene in enumerate(scenes):
-<<<<<<< HEAD
-                preferred_layout = (
-                    preferred_layouts[idx].strip()
-                    if idx < len(preferred_layouts) and isinstance(preferred_layouts[idx], str)
-                    else ""
-                )
-                if supports_ending_socials and idx == last_scene_idx:
-                    preferred_layout = "ending_socials"
-=======
                 preferred_layout = preferred_layouts[idx] if idx < len(preferred_layouts) else ""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 # Use fresh template logic with content preserved, and let the new template
                 # enforce the planned preferred layouts (same 2-step flow as normal generation).
                 new_descriptor = asyncio.run(
@@ -777,36 +665,21 @@ def _run_project_template_change_job(job_id: int) -> None:
 
                 # Match normal generation behavior for CTA ending scenes:
                 # ensure ending_socials gets complete layoutProps payload.
-<<<<<<< HEAD
-                if supports_ending_socials and idx == last_scene_idx:
-=======
                 if (
                     supports_ending_socials
                     and idx == last_scene_idx
                     and preferred_layout == "ending_socials"
                 ):
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     new_descriptor = {
                         "layout": "ending_socials",
                         "layoutProps": _build_ending_socials_props(project, scene),
                     }
 
                 new_descriptor = _sanitize_descriptor_for_data_viz(new_descriptor)
-<<<<<<< HEAD
-                scene.remotion_code = json.dumps(new_descriptor)
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 descriptor_layout = _extract_layout_from_descriptor_obj(
                     descriptor=new_descriptor,
                     template_id=target_template,
                 )
-<<<<<<< HEAD
-                scene.preferred_layout = descriptor_layout or (preferred_layout or None)
-                job.processed_scenes = idx + 1
-                db.commit()
-
-        project.template = target_template
-=======
                 normalized_descriptor_layout = _normalize_layout_id(descriptor_layout or "")
                 # Post-descriptor validity guard: if the generator drifted to a
                 # layout that isn't part of the target template, snap back to
@@ -854,7 +727,6 @@ def _run_project_template_change_job(job_id: int) -> None:
 
         project.template = target_template
         project.crafted_template_id = _crafted_template_pk(target_template, db)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         template_colors = get_preview_colors(target_template) or {}
         if isinstance(template_colors, dict):
             project.accent_color = template_colors.get("accent") or project.accent_color
@@ -868,14 +740,6 @@ def _run_project_template_change_job(job_id: int) -> None:
         # Rebuild workspace with updated descriptors.
         rebuild_workspace(project, scenes, db)
 
-<<<<<<< HEAD
-        job.status = "completed"
-        job.completed_at = datetime.utcnow()
-        db.commit()
-    except Exception as e:
-        logger.exception("[PROJECT_TEMPLATE_CHANGE] job=%s failed: %s", job_id, e)
-        job = db.query(ProjectTemplateChangeJob).filter(ProjectTemplateChangeJob.id == job_id).first()
-=======
         # Only finalize if a reaper hasn't already claimed (failed) this job.
         finalized = db.execute(
             update(ProjectTemplateChangeJob)
@@ -892,17 +756,13 @@ def _run_project_template_change_job(job_id: int) -> None:
             ProjectTemplateChangeJob.id == job_id,
             ProjectTemplateChangeJob.status.in_(_JOB_ACTIVE_STATUSES),
         ).first()
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if job:
             job.status = "failed"
             job.error_message = str(e)
             job.completed_at = datetime.utcnow()
             db.commit()
     finally:
-<<<<<<< HEAD
-=======
         stall_recovery.clear("template", job_id)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         db.close()
 
 
@@ -913,10 +773,7 @@ def create_project(
     db: Session = Depends(get_db),
 ):
     """Create a new project from a blog URL. Counts against video limit."""
-<<<<<<< HEAD
-=======
     user.roll_video_period_if_due(db)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
@@ -949,10 +806,7 @@ def create_project(
         crafted_template_id=crafted_pk,
         voice_gender=data.voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
-<<<<<<< HEAD
-=======
         voice_emotion=voice_tuning,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -964,9 +818,6 @@ def create_project(
         aspect_ratio=data.aspect_ratio or "landscape",
         video_style=normalized_video_style,
         video_length=_normalize_video_length(getattr(data, "video_length", None)),
-<<<<<<< HEAD
-        content_language=normalize_preferred_language_code(data.content_language),
-=======
         playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
         content_language=normalize_preferred_language_code(data.content_language),
         bgm_track_id=getattr(data, "bgm_track_id", None) or None,
@@ -976,7 +827,6 @@ def create_project(
         caption_font_family=getattr(data, "caption_font_family", None) or "inter",
         caption_font_size=getattr(data, "caption_font_size", None) or "36",
         caption_offset=int(getattr(data, "caption_offset", 0) or 0),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -1010,21 +860,12 @@ def update_project(
     for field, value in raw_data.items():
         if field not in fields_set:
             continue
-<<<<<<< HEAD
-        if field == "font_family":
-=======
         if field in ("font_family", "bgm_track_id"):
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             update_data[field] = value  # allow nulling or changing
         elif field == "content_language":
             update_data[field] = normalize_preferred_language_code(value) if value is not None else None
         elif field == "video_length":
             update_data[field] = _normalize_video_length(value)
-<<<<<<< HEAD
-        else:
-            if value is not None:
-                update_data[field] = value
-=======
         elif field == "playback_speed":
             update_data[field] = _normalize_playback_speed(value)
         else:
@@ -1044,7 +885,6 @@ def update_project(
                 status_code=400,
                 detail="Captions require a voiceover. Add a voice to this video first.",
             )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     for field, value in update_data.items():
         old_value = getattr(project, field)
@@ -1063,91 +903,6 @@ def update_project(
     db.commit()
     db.refresh(project)
     return _prepare_project_response(project, user, db)
-<<<<<<< HEAD
-
-
-@router.post(
-    "/{project_id}/change-template-regenerate-layouts",
-    response_model=ProjectTemplateChangeJobOut,
-)
-async def change_project_template_regenerate_layouts(
-    project_id: int,
-    body: ProjectTemplateChangeRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    project = _get_user_project(project_id, user.id, db)
-    user.sync_video_limit_bonus(db)
-    if not user.can_create_video:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Video limit reached ({user.video_limit}). Upgrade to continue regenerating videos.",
-        )
-    target_template = validate_template_id(body.template)
-    if target_template == project.template:
-        raise HTTPException(status_code=400, detail="Project is already using this template.")
-    if is_custom_template(target_template) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        raise HTTPException(
-            status_code=403,
-            detail="Custom templates require a Pro or Standard subscription.",
-        )
-
-    active_job = (
-        db.query(ProjectTemplateChangeJob)
-        .filter(
-            ProjectTemplateChangeJob.project_id == project.id,
-            ProjectTemplateChangeJob.status.in_(_ACTIVE_TEMPLATE_CHANGE_STATUSES),
-        )
-        .order_by(ProjectTemplateChangeJob.id.desc())
-        .first()
-    )
-    if active_job:
-        raise HTTPException(
-            status_code=409,
-            detail="A template-change regeneration job is already running for this project.",
-        )
-
-    total_scenes = db.query(Scene).filter(Scene.project_id == project.id).count()
-    job = ProjectTemplateChangeJob(
-        project_id=project.id,
-        user_id=user.id,
-        target_template=target_template,
-        status="queued",
-        total_scenes=total_scenes,
-        processed_scenes=0,
-    )
-    db.add(job)
-    user.videos_used_this_period += 1
-    # Surface "generating" state during relayout via existing status pipeline.
-    project.status = ProjectStatus.GENERATING
-    db.commit()
-    db.refresh(job)
-
-    # Match pipeline behavior: run in asyncio-managed executor.
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _run_project_template_change_job, job.id)
-    return job
-
-
-@router.get(
-    "/{project_id}/template-change-status",
-    response_model=ProjectTemplateChangeJobOut | None,
-)
-def get_project_template_change_status(
-    project_id: int,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    _ = _get_user_project(project_id, user.id, db)
-    job = (
-        db.query(ProjectTemplateChangeJob)
-        .filter(ProjectTemplateChangeJob.project_id == project_id)
-        .order_by(ProjectTemplateChangeJob.id.desc())
-        .first()
-    )
-    return job
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 @router.post(
@@ -2830,10 +2585,7 @@ def create_projects_bulk(
             crafted_template_id=_crafted_template_pk(template_id, db),
             voice_gender=data.voice_gender or "female",
             voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
-<<<<<<< HEAD
-=======
             voice_emotion=voice_tuning,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
             bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
             text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -2845,9 +2597,6 @@ def create_projects_bulk(
             aspect_ratio=data.aspect_ratio or "landscape",
             video_style=normalized_video_style,
             video_length=_normalize_video_length(getattr(data, "video_length", None)),
-<<<<<<< HEAD
-            content_language=normalize_preferred_language_code(data.content_language),
-=======
             playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
             content_language=normalize_preferred_language_code(data.content_language),
             bgm_track_id=getattr(data, "bgm_track_id", None) or None,
@@ -2857,7 +2606,6 @@ def create_projects_bulk(
             caption_font_family=getattr(data, "caption_font_family", None) or "inter",
             caption_font_size=getattr(data, "caption_font_size", None) or "36",
             caption_offset=int(getattr(data, "caption_offset", 0) or 0),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             status=ProjectStatus.CREATED,
         )
         db.add(project)
@@ -2906,19 +2654,13 @@ def create_project_from_upload(
     video_style: Optional[str] = Form("explainer"),
     video_length: Optional[str] = Form("auto"),
     content_language: Optional[str] = Form(None),
-<<<<<<< HEAD
-=======
     bgm_track_id: Optional[str] = Form(None),
     bgm_volume: Optional[float] = Form(0.10),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Create a new project from uploaded documents (PDF, DOCX, PPTX, MD, TXT). Counts against video limit."""
-<<<<<<< HEAD
-=======
     user.roll_video_period_if_due(db)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
@@ -2937,11 +2679,7 @@ def create_project_from_upload(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-<<<<<<< HEAD
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
-=======
                 detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT, VTT.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             )
         # Check file size (read content to measure, then reset)
         content = f.file.read()
@@ -2964,10 +2702,7 @@ def create_project_from_upload(
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(video_style)
-<<<<<<< HEAD
-=======
     resolved_voice_tuning, resolved_voice_tuning_pref = _resolve_voice_tuning(voice_emotion, user)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     logger.info(
         "[PROJECTS] Creating project from upload: template='%s', validated='%s'",
         template,
@@ -2982,10 +2717,7 @@ def create_project_from_upload(
         crafted_template_id=_crafted_template_pk(template_id, db),
         voice_gender=voice_gender or "female",
         voice_accent=_normalize_voice_accent_for_db(voice_accent),
-<<<<<<< HEAD
-=======
         voice_emotion=resolved_voice_tuning,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         accent_color=accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=text_color or (colors.get("text") if colors else None) or "#000000",
@@ -2996,14 +2728,10 @@ def create_project_from_upload(
         aspect_ratio=aspect_ratio or "landscape",
         video_style=normalized_video_style,
         video_length=_normalize_video_length(video_length),
-<<<<<<< HEAD
-        content_language=normalize_preferred_language_code(content_language),
-=======
         playback_speed=_normalize_playback_speed(None),
         content_language=normalize_preferred_language_code(content_language),
         bgm_track_id=bgm_track_id or None,
         bgm_volume=bgm_volume if bgm_volume is not None else 0.10,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -3079,11 +2807,7 @@ def upload_documents_to_project(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-<<<<<<< HEAD
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
-=======
                 detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT, VTT.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             )
         content = f.file.read()
         if len(content) > _MAX_FILE_SIZE:
@@ -3198,8 +2922,6 @@ def get_project(
     return _prepare_project_response(project, user, db)
 
 
-<<<<<<< HEAD
-=======
 @router.get("/{project_id}/render-still")
 def render_project_still(
     project_id: int,
@@ -3226,7 +2948,6 @@ def render_project_still(
     )
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 @router.post("/{project_id}/review", response_model=ReviewSubmitResponse)
 def submit_project_review(
     project_id: int,
@@ -3282,11 +3003,7 @@ def delete_project(
             extra={"project_id": project.id, "user_id": user.id},
         )
 
-<<<<<<< HEAD
-    # Delete R2 files
-=======
     # Delete all project files from R2 (images/audio/video/logo)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if r2_storage.is_r2_configured():
         try:
             r2_storage.delete_project_files(project.user_id, project.id)
@@ -3400,10 +3117,6 @@ def delete_asset(
                     layout_props["hideImage"] = True
                     desc["layoutProps"] = layout_props
                     scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(desc))
-<<<<<<< HEAD
-                    scenes_updated = True
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             except (json.JSONDecodeError, TypeError):
                 continue
 
@@ -3460,10 +3173,7 @@ MANUAL_TRACKED_FIELDS = {
     "remotion_code",
     "narration_text",
     "extra_hold_seconds",
-<<<<<<< HEAD
-=======
     "bgm_volume",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 
@@ -3880,17 +3590,10 @@ async def update_scene_image(
         except (json.JSONDecodeError, TypeError):
             descriptor = {}
 
-<<<<<<< HEAD
-    if "layoutProps" not in descriptor:
-        descriptor["layoutProps"] = {}
-    descriptor["layoutProps"]["assignedImage"] = image_filename
-    descriptor["layoutProps"].pop("hideImage", None)
-=======
     layout_props = _ensure_layout_props_dict(descriptor)
     layout_props["assignedImage"] = image_filename
     layout_props.pop("hideImage", None)
     _apply_default_focus(layout_props)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
     # Keep project.status and r2_video_* as-is: the exported MP4 stays available until the user
@@ -4383,23 +4086,15 @@ async def regenerate_scene(
     has_description = bool(description and description.strip())
     needs_layout_regen = not keep_layout or has_description
 
-<<<<<<< HEAD
-    # Detect variant switch for custom templates (intro/content_N/outro)
-=======
     # Detect variant switch for custom templates (intro/content_N/outro/data-viz)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Pure variant switches skip the AI call entirely — instant layout change.
     is_variant_switch = False
     if is_custom_template(project.template) and normalized_layout:
         import re as _re
-<<<<<<< HEAD
-        if normalized_layout in ("intro", "outro") or _re.match(r"content_\d+$", normalized_layout):
-=======
         if (
             normalized_layout in ("intro", "outro", "custom_chart", "custom_table")
             or _re.match(r"content_\d+$", normalized_layout)
         ):
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             is_variant_switch = True
 
     if is_variant_switch and not has_description:
@@ -4411,8 +4106,6 @@ async def regenerate_scene(
         elif normalized_layout == "outro":
             descriptor["sceneTypeOverride"] = "outro"
             descriptor.pop("contentVariantIndex", None)
-<<<<<<< HEAD
-=======
         elif normalized_layout in ("custom_chart", "custom_table"):
             # Convert the scene into a dedicated data-viz scene. The renderer routes
             # by sceneType (see GeneratedVideo.getSceneComponent), so the override
@@ -4436,7 +4129,6 @@ async def regenerate_scene(
                 if normalized_layout == "custom_chart":
                     lp.setdefault("chartType", "line")
                 descriptor["layoutProps"] = lp
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         else:
             # content_N → extract N
             variant_idx = int(normalized_layout.split("_")[1])
@@ -4453,13 +4145,6 @@ async def regenerate_scene(
             field_name="remotion_code",
             old_value=old_remotion_code,
             new_value=scene.remotion_code,
-<<<<<<< HEAD
-            is_ai_assisted=False,
-            user_instruction=f"Variant switch to {normalized_layout}",
-        )
-        db.commit()
-        print(f"[REGENERATE] Variant switch → {normalized_layout} (no AI call)")
-=======
             is_ai_assisted=True,
             user_instruction=f"Variant switch to {normalized_layout}",
         )
@@ -4468,7 +4153,6 @@ async def regenerate_scene(
             project.ai_assisted_editing_count += 1
         db.commit()
         print(f"[REGENERATE] Variant switch → {normalized_layout} (counts as AI edit)")
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         # Rebuild workspace and return
         scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
@@ -4476,8 +4160,6 @@ async def regenerate_scene(
         db.refresh(scene)
         return scene
 
-<<<<<<< HEAD
-=======
     # Pure layout switch for built-in templates: no description → skip AI, just swap layout
     is_builtin_layout_switch = (
         not is_custom_template(project.template)
@@ -4535,7 +4217,6 @@ async def regenerate_scene(
         db.refresh(scene)
         return scene
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Regenerate visual_description only if description is provided
     if has_description:
         from app.dspy_modules.visual_description import regenerate_visual_description
@@ -4746,15 +4427,6 @@ async def regenerate_scene(
     # not the shorter display_text.
     narration_source = (scene.narration_text or "").strip()
     if should_regenerate_voiceover and narration_source:
-<<<<<<< HEAD
-        from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
-        from app.services.language_detection import get_content_language_for_project
-        video_style = getattr(project, "video_style", None) or "explainer"
-        content_language = get_content_language_for_project(project)
-        expanded_voiceover = await expand_narration_to_voiceover(
-            narration_source, scene.title, video_style=video_style, content_language=content_language
-        )
-=======
         if verbatim:
             # scene.narration_text already holds the user's edited script.
             generate_voiceover(scene, db)
@@ -4768,7 +4440,6 @@ async def regenerate_scene(
                 content_language=content_language,
                 expressive=bool(getattr(project, "voice_emotion", None)),
             )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
             # Persist the AI-expanded text so the narration shown in the scene
             # always matches the spoken voiceover (do not revert to the original).

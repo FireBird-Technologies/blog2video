@@ -20,16 +20,6 @@ from app.services.remotion import cancel_running_render, get_workspace_dir, safe
 logger = get_logger(__name__)
 
 # User-facing copy (also returned from /status after rollback).
-<<<<<<< HEAD
-PUBLIC_MSG_SCRAPE_FAILED = (
-    "This site does not allow scraping, or we could not read its content. "
-    "Sorry for the inconvenience—please try another link."
-)
-
-PUBLIC_MSG_PIPELINE_FAILED = (
-    "An unexpected error occurred in the generation pipeline. "
-    "We're sorry for the inconvenience—please try again or contact support for help."
-=======
 
 
 def format_scrape_failed_public_message(blog_url: str | None) -> str:
@@ -55,7 +45,6 @@ def format_scrape_failed_public_message(blog_url: str | None) -> str:
 PUBLIC_MSG_PIPELINE_FAILED = (
     "An unexpected error occurred while generating your video. "
     "We apologise for the inconvenience. No video count has been deducted. Please try again or contact support for help."
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 )
 
 
@@ -66,13 +55,8 @@ def remove_failed_generation_project(
     decrement_user_video_quota: bool = True,
 ) -> None:
     """
-<<<<<<< HEAD
-    Delete project row (ORM cascades scenes/assets/etc.), remove local + R2 files,
-    and optionally decrement the user's per-period video counter (reverses create-time increment).
-=======
     Soft-delete project and remove rendered video artifacts only, then optionally
     decrement the user's per-period video counter (reverses create-time increment).
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     """
     pid = project.id
     uid = project.user_id
@@ -87,21 +71,12 @@ def remove_failed_generation_project(
             extra={"project_id": pid, "user_id": uid},
         )
 
-<<<<<<< HEAD
-    if r2_storage.is_r2_configured():
-        try:
-            r2_storage.delete_project_files(uid, pid)
-        except Exception as e:
-            logger.warning(
-                "[PROJECT_CLEANUP] R2 cleanup failed for project %s: %s",
-=======
     if r2_storage.is_r2_configured() and project.r2_video_key:
         try:
             r2_storage.delete_object(project.r2_video_key)
         except Exception as e:
             logger.warning(
                 "[PROJECT_CLEANUP] R2 video cleanup failed for project %s: %s",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 pid,
                 e,
                 extra={"project_id": pid, "user_id": uid},
@@ -121,27 +96,17 @@ def remove_failed_generation_project(
     if os.path.isdir(project_media):
         shutil.rmtree(project_media, ignore_errors=True)
 
-<<<<<<< HEAD
-    db.query(ProjectTemplateChangeJob).filter(ProjectTemplateChangeJob.project_id == pid).delete(
-        synchronize_session=False
-    )
-=======
     db.query(ProjectTemplateChangeJob).filter(
         ProjectTemplateChangeJob.project_id == pid
     ).delete(synchronize_session=False)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     db.query(Subscription).filter(Subscription.project_id == pid).update(
         {Subscription.project_id: None},
         synchronize_session=False,
     )
 
-<<<<<<< HEAD
-    db.delete(project)
-=======
     project.is_active = False
     project.r2_video_key = None
     project.r2_video_url = None
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # Atomic decrement so concurrent pipeline failures (e.g. bulk URLs) each refund
     # one credit. Read-modify-write on User in separate sessions loses updates.

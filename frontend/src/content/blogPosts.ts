@@ -17,135 +17,6 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
-<<<<<<< HEAD
-=======
-    slug: "biggest-update-magazine-captions-custom-templates",
-    title: "Our Biggest Update Yet: The Magazine Template, Automatic Captions, and a Custom Template Generator",
-    description:
-      "A new Magazine template puts you on the cover of TIME, automatic captions now run on every video, and a Custom Template Generator lets you build your own look — plus upgrades across every existing template.",
-    category: "Product updates",
-    heroImage: "/blog/blog-cover-biggest-update-magazine-captions-custom-templates.png",
-    heroImageAlt:
-      "Blog2Video's biggest update: a TIME-style Magazine cover template, automatic captions, and a custom template generator.",
-    publishedAt: "2026-07-03",
-    readTime: "4 min read",
-    heroEyebrow: "Product updates",
-    heroTitle: "We're shipping our biggest update yet.",
-    heroDescription:
-      "A new Magazine template puts you on the cover of TIME. Automatic captions now run on every video. A Custom Template Generator lets you build your own look. Plus upgrades across every existing template.",
-    primaryKeyword: "blog2video magazine template",
-    keywordVariant: "automatic video captions",
-    relatedPaths: [
-      "/templates/magazine",
-      "/custom-branded-video-templates",
-      "/blog-to-video",
-      "/blogs/whats-new-in-blog2video-six-features",
-    ],
-    sections: [
-      {
-        heading: "A new Magazine template puts you on the cover of TIME",
-        paragraphs: [
-          "This is the one people have been asking for.",
-          "The Magazine template turns your content into a glossy editorial cover story — starting with your subject on the cover of a TIME-style magazine, masthead and cover lines included. From there it unfolds as a designed print spread: feature layouts, editorial pull quotes, interview Q&As, by-the-numbers panels, and data charts.",
-          "It's built for the content that deserves prestige treatment — founder profiles, customer spotlights, milestone announcements, and personal-brand pieces. Instead of a slideshow, you get something that looks like a real editorial team art-directed it.",
-        ],
-        ctaPath: "/templates/magazine",
-        ctaLabel: "See the Magazine template",
-      },
-      {
-        heading: "Automatic captions now run on every video",
-        paragraphs: [
-          "Most video gets watched on mute. Now every video you generate comes with captions automatically — no extra step, no separate tool, no manual timing.",
-          "Captions are burned in and synced to the narration, so your content stays readable in the feed whether the sound is on or off. It's on by default across every template.",
-        ],
-      },
-      {
-        heading: "A Custom Template Generator lets you build your own look",
-        paragraphs: [
-          "Our templates cover a lot of ground, but sometimes you want something that's unmistakably yours.",
-          "The Custom Template Generator lets you build your own look. Point it at your brand — your colors, your fonts, your style — and it generates a bespoke template that applies that identity to every scene, so your videos look like your design team made them instead of a generic theme.",
-        ],
-        ctaPath: "/custom-branded-video-templates",
-        ctaLabel: "Build a custom template",
-      },
-      {
-        heading: "Plus upgrades across every existing template",
-        paragraphs: [
-          "We didn't just add new things — we went back through every existing template and made it better. Cleaner layouts, smoother motion, sharper typography, and better handling of images and data across the board.",
-          "If you have a template you already love, it just got an upgrade too.",
-        ],
-      },
-      {
-        heading: "Not a subscription person? Lifetime access, for a limited time",
-        paragraphs: [
-          "We know subscriptions aren't for everyone. For a limited time, a handful of users can grab lifetime access instead — pay once, keep it.",
-          "It's a small batch and it won't last, so if the pay-once model is more your speed, this is the window.",
-        ],
-        ctaPath: "/pricing",
-        ctaLabel: "See lifetime access",
-      },
-      {
-        heading: "Try it",
-        paragraphs: [
-          "Turn any idea into a share-ready video in minutes. Everything above is live now at blog2video.app.",
-          "Made with love by Firebird Technologies.",
-        ],
-        ctaPath: "/blog-to-video",
-        ctaLabel: "Try Blog2Video",
-      },
-    ],
-    faq: [
-      {
-        question: "What is the new Magazine template?",
-        answer:
-          "Magazine is a glossy editorial template that turns your content into a cover story — it puts your subject on the cover of a TIME-style magazine, then unfolds the rest as a designed print spread with feature layouts, pull quotes, interview Q&As, and by-the-numbers panels.",
-      },
-      {
-        question: "Do I have to turn captions on?",
-        answer:
-          "No. Automatic captions now run on every video by default, synced to the narration and burned in, so your content stays readable whether viewers watch with the sound on or off.",
-      },
-      {
-        question: "What does the Custom Template Generator do?",
-        answer:
-          "It lets you build your own look. Give it your brand — colors, fonts, and style — and it generates a bespoke template that applies that identity to every scene, so your videos match your brand instead of using a generic theme.",
-      },
-      {
-        question: "What changed in the existing templates?",
-        answer:
-          "Every existing template received upgrades — cleaner layouts, smoother motion, sharper typography, and better handling of images and data — so templates you already use look better too.",
-      },
-      {
-        question: "How does lifetime access work?",
-        answer:
-          "For a limited time, a small batch of users can buy lifetime access instead of a subscription — a one-time purchase. It's limited availability, so it's offered while the batch lasts.",
-      },
-    ],
-    distributionPlan: [
-      {
-        channel: "site",
-        title: "Our Biggest Update Yet: Magazine Template, Automatic Captions, and Custom Templates",
-        angle:
-          "Announce the Magazine cover-story template, automatic captions on every video, the Custom Template Generator, template-wide upgrades, and limited lifetime access in one product-update article.",
-      },
-      {
-        channel: "video",
-        title: "Put Yourself on the Cover: The New Magazine Template in 60 Seconds",
-        angle: "Show a video made with the Magazine template as a cover story, then cut to captions and the custom generator.",
-      },
-      {
-        channel: "substack",
-        title: "What we shipped: cover-story videos, captions everywhere, and bring-your-own-brand templates",
-        angle: "Written-first creators get concrete shipping notes tied to prestige packaging and accessibility.",
-      },
-      {
-        channel: "twitter",
-        title: "Biggest update yet: Magazine template + automatic captions + custom templates",
-        angle: "Thread the four headline features with a lifetime-access mention as the closer.",
-      },
-    ],
-  },
-  {
     slug: "new-template-finance-publication",
     title: "70% of Our Users Are Finance Publishers. Here's the Template We Built for Them.",
     description:
@@ -1430,7 +1301,6 @@ export const blogPosts: BlogPost[] = [
     ],
   },
   {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     slug: "blog2video-vs-heygen",
     title: "Blog2Video vs HeyGen: Which One Is Better for Turning Blog Posts Into Videos?",
     description:
@@ -2912,8 +2782,6 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-<<<<<<< HEAD
-=======
         heading: "Control over script, music, and emotional tone",
         paragraphs: [
           "NotebookLM gives you almost no control over its output. You cannot edit the script it narrates, choose music, or adjust how the AI hosts sound — you get one fixed conversational style and that is the only option.",
@@ -2935,7 +2803,6 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         heading: "One flow for every post: three steps, every time",
         paragraphs: [
           "NotebookLM requires you to upload documents, set up a notebook, wait for processing, and then interact with the interface to get what you need. It is a research session, not a production pipeline.",
@@ -2962,8 +2829,6 @@ export const blogPosts: BlogPost[] = [
           "One person can cover the video layer across an entire editorial calendar",
         ],
       },
-<<<<<<< HEAD
-=======
       {
         heading: "Where NotebookLM still wins",
         paragraphs: [
@@ -2977,7 +2842,6 @@ export const blogPosts: BlogPost[] = [
           "Free, with native Google Drive/Workspace integration",
         ],
       },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     faq: [
       {
@@ -3005,8 +2869,6 @@ export const blogPosts: BlogPost[] = [
         answer:
           "Yes. The three-step flow is fast enough that occasional publishers can add video to every post without it becoming a project. You do not need to commit to a high publishing cadence to get value from it.",
       },
-<<<<<<< HEAD
-=======
       {
         question: "Can I control the script, music, and emotional tone of the narration?",
         answer:
@@ -3022,7 +2884,6 @@ export const blogPosts: BlogPost[] = [
         answer:
           "Yes, for a different job. NotebookLM is better when you need to research across many sources with cited Q&A, generate mind maps for studying, or work for free natively inside Google Drive. Blog2Video is better when the goal is a finished, branded, publishable video.",
       },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     distributionPlan: [
       {
@@ -3049,11 +2910,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "blog-to-video-before-after",
-<<<<<<< HEAD
-    title: "Blog to Video: Before vs After",
-=======
     title: "Blog to Video: Before vs After (Manual vs AI Workflow)",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     description:
       "See exactly what changes when you stop manually turning blog posts into videos and use Blog2Video instead. 45 minutes down to 3.",
     category: "Workflow",
@@ -3065,13 +2922,8 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "What it actually looks like to turn a blog into a video in 3 minutes",
     heroDescription:
       "The manual workflow — read, script, record, edit — takes 45 minutes every time. Blog2Video replaces that with three steps: paste a URL, pick a template and voice, hit generate.",
-<<<<<<< HEAD
-    primaryKeyword: "blog to video",
-    keywordVariant: "turn blog post into video",
-=======
     primaryKeyword: "manual blog to video workflow",
     keywordVariant: "blog to video time comparison",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     relatedPaths: [
       "/how-to-turn-a-blog-post-into-a-video",
       "/blog-to-video",
@@ -3252,10 +3104,6 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/blog-to-video",
         ctaLabel: "Try the blog to video converter free",
       },
-<<<<<<< HEAD
-    ],
-    faq: faq("blog post to video", "repurposing one article into multiple formats"),
-=======
       {
         heading: "The manual approach, if you're not ready for a tool",
         paragraphs: [
@@ -3286,7 +3134,6 @@ export const blogPosts: BlogPost[] = [
           "No, and it shouldn't. Video needs tighter pacing than text — open with the core point, compress transitional copy, and let each section resolve one idea. The goal is to preserve the argument and examples, not narrate the post word for word.",
       },
     ],
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     distributionPlan: [
       { channel: "site", title: "Canonical workflow article", angle: "Own the search intent on the site first." },
       { channel: "substack", title: "Behind-the-scenes creator note", angle: "Explain why the article made a strong video candidate." },
@@ -4821,8 +4668,6 @@ export const blogPosts: BlogPost[] = [
     ],
   },
   {
-<<<<<<< HEAD
-=======
     slug: "how-to-convert-pdf-to-video",
     title: "How To Convert a PDF Into a Video",
     description:
@@ -4920,7 +4765,6 @@ export const blogPosts: BlogPost[] = [
     ],
   },
   {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     slug: "how-to-turn-a-powerpoint-into-a-video",
     title: "How To Turn a PowerPoint Into a Video",
     description:
@@ -5331,11 +5175,7 @@ export const blogPosts: BlogPost[] = [
           "Lumen5 ($19/mo) — The original blog-to-video platform. Paste a URL and it generates a storyboard with stock footage, text overlays, and music. Strong brand kit support and a large stock library (500M+ assets on higher tiers). Limitation: rigid templates, no AI avatars, and the free tier is watermarked at 720p with a 5-video cap.",
           "Pictory ($25/mo) — Converts blog posts, scripts, and URLs into video with auto-captioning and auto-summarization. Also supports text-based editing of existing videos. Limitation: minute-based pricing is confusing, AI voice minutes are capped separately, and output relies heavily on stock footage.",
           "InVideo AI ($25/mo) — Prompt-first AI video generator that can also import blog content. Generates full videos with script, footage, voiceover, and music from a text description. Limitation: not optimized specifically for blog-to-video — it is a general AI video tool, so article structure is often lost in translation.",
-<<<<<<< HEAD
-          "Fliki ($28/mo) — Specializes in text-to-video with an emphasis on voice. Offers 2,000+ AI voices in 80+ languages and converts blogs, PPTs, and tweets into video. Limitation: visuals are mostly stock-based and the output can feel template-driven despite the voice quality.",
-=======
           "Fliki ($27.99/mo) — Specializes in text-to-video with an emphasis on voice. Offers 2,000+ AI voices in 80+ languages and converts blogs, PPTs, and tweets into video. Limitation: visuals are mostly stock-based and the output can feel template-driven despite the voice quality.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           "Synthesia ($29/mo) — AI avatar platform that converts text and URLs into videos featuring realistic AI presenters. Strong in corporate training and localization with 230+ avatars and 140+ languages. Limitation: expensive per-minute model, avatar-heavy approach does not suit all blog content, and creative control over visual styles is limited.",
           "VideoGen ($12/mo) — Fast, affordable text-to-video generator that claims under-30-second generation. Blog URL import, auto-subtitles, and AI b-roll matching. Limitation: simpler feature set than heavyweight competitors, smaller stock library on lower tiers, and no free permanent tier.",
           "Revid.ai ($39/mo) — AI video platform with 100+ tools focused on short-form viral content for TikTok, Reels, and Shorts. Includes a blog-to-video converter and uses Google Veo3 and OpenAI Sora 2 models. Limitation: expensive entry point, credit-based system, and the platform is optimized for viral hooks rather than long-form educational content.",
@@ -5416,11 +5256,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "What is the best free blog-to-video tool?",
         answer:
-<<<<<<< HEAD
-          "Blog2Video offers three free videos with no watermark. Lumen5 has a free tier limited to 5 videos at 720p with a watermark. Fliki offers 5 free minutes per month. Most other tools either have no free tier or restrict free usage to trials. For technical content, Blog2Video's free tier provides the highest-fidelity output.",
-=======
           "Blog2Video offers two free videos with no watermark. Lumen5 has a free tier limited to 5 videos at 720p with a watermark. Fliki offers 5 free minutes per month. Most other tools either have no free tier or restrict free usage to trials. For technical content, Blog2Video's free tier provides the highest-fidelity output.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       },
       {
         question: "Can Blog2Video handle code blocks and diagrams?",
@@ -5457,11 +5293,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Google surfaces video results in 26% of searches. Pages with video are 53x more likely to hit page 1. Here's how SEO agencies can add video to every client post without extra production overhead.",
     category: "SEO Strategy",
-<<<<<<< HEAD
-    heroImage: "/blog/blog-cover-blog-to-video.png",
-=======
     heroImage: "/blog/blog-cover-video-seo-ranking-traffic-blog2video.png",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A blog post ranking on Google with a video result appearing alongside it, driving additional traffic.",
     publishedAt: "2026-03-26",
     readTime: "5 min read",
@@ -5602,11 +5434,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets brands save fully custom video templates with their own colors, fonts, logos, and layout preferences. Every video you generate after setup carries your brand identity automatically — no manual styling on each project.",
     category: "Feature",
-<<<<<<< HEAD
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
-=======
     heroImage: "/blog/blog-cover-custom-templates-for-brands.png",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A brand kit with custom colors, fonts, and logo applied to a video template inside Blog2Video.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -5727,11 +5555,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video's new Newscast template brings broadcast news aesthetics to your content. Deep navy, crimson accents, ticker bars, lower thirds, and glass-panel anchor layouts — built for briefings, roundups, and editorial updates that should feel authoritative.",
     category: "Feature",
-<<<<<<< HEAD
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
-=======
     heroImage: "/blog/blog-cover-new-template-newscast.png",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A Blog2Video Newscast template scene showing a deep navy background, crimson accent, ticker bar, and anchor-style lower third.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -5858,11 +5682,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now appends a branded call-to-action scene to the end of every generated video automatically. No manual scene editing required — your CTA, link, and branding are there from the first generation.",
     category: "Feature",
-<<<<<<< HEAD
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
-=======
     heroImage: "/blog/blog-cover-automatic-call-to-action-end-of-video.png",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A Blog2Video generated video ending with a branded call-to-action scene showing a website link and subscribe prompt.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
@@ -5976,11 +5796,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets users set their target video duration before generating. Whether you need a 60-second short, a 3-minute explainer, or a 10-minute deep dive, the platform adapts scene count and pacing to hit your target length.",
     category: "Feature",
-<<<<<<< HEAD
-    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
-=======
     heroImage: "/blog/blog-cover-video-duration-control.png",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     heroImageAlt: "A video duration slider in Blog2Video set to 3 minutes, with a generated video timeline showing scene count adjusted to match.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
@@ -6087,8 +5903,6 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
-<<<<<<< HEAD
-=======
   {
     slug: "how-devrel-teams-can-turn-docs-into-videos",
     title: "How DevRel Teams Can Turn Docs Into Videos Without Rebuilding Everything",
@@ -9352,5 +9166,4 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ];

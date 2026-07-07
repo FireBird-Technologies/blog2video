@@ -1,12 +1,3 @@
-<<<<<<< HEAD
-export type {
-  NewscastChartRow,
-  NewscastChartTableInput,
-  NewscastChartType,
-  NewscastLayoutProps,
-  NewscastLayoutType,
-} from "../types";
-=======
 import type { BlogLayoutProps } from "../../newspaper/types";
 
 export type NewscastChartType = "auto" | "line" | "bar" | "histogram";
@@ -110,5 +101,4 @@ export type NewscastLayoutType =
   | "segment_break"
   | "field_image_focus"
   | "ending_socials";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 

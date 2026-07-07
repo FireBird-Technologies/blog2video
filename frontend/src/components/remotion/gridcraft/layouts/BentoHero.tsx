@@ -6,10 +6,7 @@ import {
   GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY,
 } from "../constants";
 import { glass, COLORS } from "../utils/styles";
-<<<<<<< HEAD
-=======
 import { ZoomCropImg } from "../components/ZoomCropImg";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 // Custom SVG Component for the Gridcraft Icon
 const GridcraftSVG = ({ color, size = 80 }: { color: string; size?: number }) => (

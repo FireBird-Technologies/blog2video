@@ -8,15 +8,6 @@ import uuid
 from pathlib import Path
 from threading import Lock
 
-<<<<<<< HEAD
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
-
-from app.auth import get_current_user
-from app.config import settings
-from app.models.user import User
-=======
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -29,13 +20,10 @@ from app.database import get_db
 from app.models.user import User
 from app.services.template_studio_codegen import coerce_prop_default
 from app.services.template_studio_llm import template_studio_chat
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 router = APIRouter(prefix="/api/template-studio", tags=["template-studio"])
 
 
-<<<<<<< HEAD
-=======
 # ─── Studio access password (server-side, rate-limited) ─────────────────────
 
 _STUDIO_PW_MAX_ATTEMPTS = 5
@@ -114,7 +102,6 @@ def verify_studio_password(payload: StudioPasswordRequest, request: Request):
     )
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 class AspectValue(BaseModel):
     # Template metadata currently allows values as low as 10 and as high as 320.
     # Keep save-source validation aligned so valid editor values don't get rejected.
@@ -171,14 +158,11 @@ class PropDef(BaseModel):
     description: str = Field(default="", max_length=400)
     default: str | None = None
 
-<<<<<<< HEAD
-=======
     @field_validator("default", mode="before")
     @classmethod
     def _normalize_default(cls, v: object) -> str | None:
         return coerce_prop_default(v)
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 class AiLayoutRebuildRequest(BaseModel):
     template_id: str
@@ -206,8 +190,6 @@ class RenderLayoutRequest(BaseModel):
     duration_seconds: float | None = None
     layout_props: dict | None = None
     resolution: str | None = None
-<<<<<<< HEAD
-=======
     # When provided (Template Studio "All Scenes"), render every scene
     # back-to-back instead of the single ``layout_id`` scene.
     scenes: list[dict] | None = None
@@ -249,7 +231,6 @@ class CreateTemplateRequest(BaseModel):
         if self.keep_layout_ids is not None and self.plan is None:
             raise ValueError("keep_layout_ids may only be sent together with plan.")
         return self
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -513,8 +494,6 @@ def _extract_code_from_model_output(text: str) -> str:
     return content
 
 
-<<<<<<< HEAD
-=======
 _CODE_EDIT_SYSTEM_PROMPT = (
     "You are editing a React TSX component file used in a video template system.\n"
     "Return ONLY the full updated file contents for this single component.\n"
@@ -578,7 +557,6 @@ def _call_anthropic_code_edit(
     return code
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _call_gemini_code_edit(
     instruction: str,
     current_code: str,
@@ -588,11 +566,8 @@ def _call_gemini_code_edit(
     image_base64: str | None = None,
     image_mime_type: str | None = None,
 ) -> str:
-<<<<<<< HEAD
-=======
     """Generate / edit a layout TSX via Gemini (vision-capable). Used by the
     image-driven scene edit / layout rebuild / layout create flows."""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     api_key = (settings.GEMINI_API_KEY or "").strip()
     if not api_key:
         raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured.")
@@ -605,11 +580,7 @@ def _call_gemini_code_edit(
             detail=f"Gemini code edit requires google-genai package: {e}",
         )
 
-<<<<<<< HEAD
-    default_model = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-2.5-flash").strip()
-=======
     default_model = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-3.5-flash").strip()
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     image_model = (getattr(settings, "GEMINI_CODE_MODEL_WITH_IMAGE", "") or "").strip()
     model_name = image_model if (image_base64 and image_mime_type and image_model) else default_model
     client = genai.Client(api_key=api_key)
@@ -662,8 +633,6 @@ def _call_gemini_code_edit(
     return code
 
 
-<<<<<<< HEAD
-=======
 def _call_code_edit(
     instruction: str,
     current_code: str,
@@ -694,7 +663,6 @@ def _call_code_edit(
     )
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
     """
     Run a lightweight TypeScript/TSX syntax check on generated code.
@@ -715,11 +683,6 @@ def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
         except Exception:
             return
 
-<<<<<<< HEAD
-        # Use --noResolve so we only validate syntax/TSX shape and local types,
-        # and do not fail just because imports can't be resolved from this temp path.
-        cmd = ["npx", "tsc", "--noEmit", "--jsx", "react-jsx", "--noResolve", str(tmp_path)]
-=======
         # Resolve a REAL tsc binary. `npx tsc` from a directory without a local
         # TypeScript install resolves to npx's placeholder package — it prints
         # "This is not the tsc command you are looking for" and exits 1, which
@@ -757,7 +720,6 @@ def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
             "ES2020,DOM,DOM.Iterable",
             str(tmp_path),
         ]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         try:
             result = subprocess.run(
                 cmd,
@@ -771,10 +733,6 @@ def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
             return
 
         if result.returncode != 0:
-<<<<<<< HEAD
-            # Don't persist or activate this version if TypeScript reports errors.
-            msg = (result.stderr or result.stdout or "").strip()
-=======
             out = f"{result.stderr or ''}\n{result.stdout or ''}"
             # npx placeholder / no real compiler present — treat as unavailable.
             if "This is not the tsc command" in out or "npm install typescript" in out:
@@ -793,17 +751,12 @@ def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
                 return
             # Don't persist or activate this version if TypeScript reports errors.
             msg = "\n".join(real_errors).strip()
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             # Truncate very long outputs.
             if len(msg) > 4000:
                 msg = msg[:4000] + "\n... (truncated)"
             raise HTTPException(
                 status_code=502,
-<<<<<<< HEAD
-                detail=f"Gemini produced invalid TSX code; TypeScript reported errors:\n{msg}",
-=======
                 detail=f"Generated TSX failed type-checking; TypeScript reported errors:\n{msg}",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             )
     finally:
         # Best-effort cleanup of the temporary validation file and directory.
@@ -1106,11 +1059,7 @@ def propose_ai_edit(payload: AiEditProposeRequest, _: User = Depends(get_current
         raise HTTPException(status_code=404, detail=f"Layout source file not found: {', '.join(missing_rel)}")
 
     original_code = frontend_target.read_text(encoding="utf-8")
-<<<<<<< HEAD
-    proposed_code = _call_gemini_code_edit(
-=======
     proposed_code = _call_code_edit(
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         instruction=payload.instruction.strip(),
         current_code=original_code,
         template_id=template_id,
@@ -1179,11 +1128,7 @@ def preview_ai_edit(payload: AiEditProposeRequest, user: User = Depends(get_curr
     # Reuse an existing session for this user+template+layout, if one exists.
     session: dict | None = _get_user_layout_session(user, template_id, layout_id)
 
-<<<<<<< HEAD
-    proposed_code = _call_gemini_code_edit(
-=======
     proposed_code = _call_code_edit(
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         instruction=payload.instruction.strip(),
         current_code=current_code,
         template_id=template_id,
@@ -1626,10 +1571,6 @@ def _props_to_defaults(props: list[PropDef]) -> dict:
         elif p.type == "boolean":
             defaults[p.name] = str(raw).lower() in {"true", "1", "yes"}
         elif p.type == "string_array":
-<<<<<<< HEAD
-            # Comma-separated -> list of strings
-            parts = [s.strip() for s in str(raw).split(",") if s.strip()]
-=======
             s = str(raw).strip()
             if s.startswith("["):
                 try:
@@ -1640,7 +1581,6 @@ def _props_to_defaults(props: list[PropDef]) -> dict:
                 except _json.JSONDecodeError:
                     pass
             parts = [x.strip() for x in s.split(",") if x.strip()]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             defaults[p.name] = parts
         elif p.type == "object_array":
             # JSON array, or "label: value" pairs, or comma-separated values (label = "Label N", value = item)
@@ -1720,45 +1660,14 @@ def _extract_visual_from_prompt_section(section_md: str) -> str:
     return ""
 
 
-<<<<<<< HEAD
-def _call_gemini_layout_doc_section(
-=======
 def _build_doc_section_prompts(
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     *,
     template_id: str,
     layout_id: str,
     instruction: str,
     tsx: str,
     props: list[PropDef],
-<<<<<<< HEAD
-    image_base64: str | None = None,
-    image_mime_type: str | None = None,
-) -> str:
-    """
-    Generate a high-quality prompt.md section for a layout from the final TSX + schema props.
-    Returns markdown starting with '## {layout_id}'.
-    """
-    api_key = (settings.GEMINI_API_KEY or "").strip()
-    if not api_key:
-        raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured.")
-    try:
-        from google import genai
-        from google.genai import types
-    except Exception as e:  # pragma: no cover
-        raise HTTPException(
-            status_code=500,
-            detail=f"Gemini requires google-genai package: {e}",
-        )
-
-    default_model = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-2.5-flash").strip()
-    image_model = (getattr(settings, "GEMINI_CODE_MODEL_WITH_IMAGE", "") or "").strip()
-    model_name = image_model if (image_base64 and image_mime_type and image_model) else default_model
-    client = genai.Client(api_key=api_key)
-
-=======
 ) -> tuple[str, str]:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     content_props = [p for p in props if p.name not in _PROMPT_EXCLUDE_PROPS]
     props_desc = "\n".join(
         f"- `{p.name}` ({p.type}){(' — ' + p.description.strip()) if p.description else ''}"
@@ -1795,8 +1704,6 @@ def _build_doc_section_prompts(
         "Final TSX implementation (source of truth for visuals/behavior):\n"
         f"{tsx.strip()[:12000]}"
     )
-<<<<<<< HEAD
-=======
     return system_prompt, user_prompt
 
 
@@ -1867,7 +1774,6 @@ def _call_gemini_layout_doc_section(
         tsx=tsx,
         props=props,
     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     prompt_part = types.Part.from_text(text=system_prompt + "\n\n" + user_prompt)
     parts: list = []
@@ -1889,17 +1795,11 @@ def _call_gemini_layout_doc_section(
     text = (getattr(response, "text", "") or "").strip()
     if not text:
         raise HTTPException(status_code=502, detail="Gemini returned empty prompt.md section.")
-<<<<<<< HEAD
-    # Normalize: ensure it starts with the correct header.
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if not text.lstrip().startswith(f"## {layout_id}"):
         text = f"## {layout_id}\n" + text.lstrip().lstrip("#").lstrip()
     return text.rstrip()
 
 
-<<<<<<< HEAD
-=======
 def _call_layout_doc_section(
     *,
     template_id: str,
@@ -1936,7 +1836,6 @@ def _call_layout_doc_section(
     )
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _build_rebuild_gemini_prompt(
     template_id: str,
     layout_id: str,
@@ -2001,8 +1900,6 @@ def _build_create_gemini_prompt(
         "titleFontSize, descriptionFontSize, stats, imageUrl, ...extra }}: LayoutProps) => {{\n"
         "  // access custom props via extra.propName\n}}\n\n"
         "For object_array props (items with label and value): render BOTH — show item.label as caption and item.value as main text.\n\n"
-<<<<<<< HEAD
-=======
         "Typography — REQUIRED (Template Studio edits title/body sizes via meta + Save-to-source; match patterns used in templates like newspaper):\n"
         '  - Immediately inside the component: const p = aspectRatio === "portrait";\n'
         "  - Main headline (`title` string): fontSize MUST include the verbatim pattern "
@@ -2010,7 +1907,6 @@ def _build_create_gemini_prompt(
         "  - Primary body (`narration` string): fontSize MUST include "
         "descriptionFontSize ?? (p ? <int> : <int>) similarly.\n"
         "  - Do not rely on hard-coded px for those two roles without wiring these props.\n\n"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         f"Base your visual style on this existing layout ({base_layout_id}) — "
         "keep the same color palette, font choices, and animation approach.\n"
         "Use the current file content provided below as the style reference.\n"
@@ -2163,11 +2059,7 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
     gemini_prompt = _build_rebuild_gemini_prompt(
         template_id, layout_id, payload.instruction, current_tsx, all_fields
     )
-<<<<<<< HEAD
-    new_tsx = _call_gemini_code_edit(
-=======
     new_tsx = _call_code_edit(
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         instruction=gemini_prompt,
         current_code=current_tsx,
         template_id=template_id,
@@ -2186,17 +2078,10 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
         PropDef(name=f["key"], type=f.get("type", "string"), description=f.get("description", f.get("label", "")))
         for f in all_fields
     ]
-<<<<<<< HEAD
-    # Build a richer prompt.md section using Gemini, based on the final TSX + props.
-    # Fallback to simple section generation if Gemini fails for any reason.
-    try:
-        new_section = _call_gemini_layout_doc_section(
-=======
     # Build a richer prompt.md section using AI, based on the final TSX + props.
     # Fallback to simple section generation if the model call fails for any reason.
     try:
         new_section = _call_layout_doc_section(
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             template_id=template_id,
             layout_id=layout_id,
             instruction=payload.instruction,
@@ -2360,21 +2245,14 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
         template_id, new_layout_id, payload.layout_description,
         payload.props, base_tsx, base_layout_id, reference_tsvs,
     )
-<<<<<<< HEAD
-    new_tsx = _call_gemini_code_edit(
-=======
     new_tsx = _call_code_edit(
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         instruction=gemini_prompt,
         current_code=base_tsx,
         template_id=template_id,
         layout_id=new_layout_id,
         image_base64=payload.image_base64,
         image_mime_type=payload.image_mime_type,
-<<<<<<< HEAD
-=======
         backend="anthropic",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     )
 
     pascal_name = _snake_to_pascal(new_layout_id)
@@ -2411,19 +2289,12 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
 
     _register_layout_in_template_config(new_layout_id, template_id)
 
-<<<<<<< HEAD
-    new_schema = _build_prop_schema_entry(
-        _snake_to_pascal(new_layout_id).replace("_", " "),
-        [],
-        {},
-=======
     from app.services import template_studio_codegen as codegen
 
     new_schema = _build_prop_schema_entry(
         _snake_to_pascal(new_layout_id).replace("_", " "),
         [dict(f) for f in codegen.STANDARD_LAYOUT_TYPOGRAPHY_FIELDS],
         dict(codegen.STANDARD_LAYOUT_TYPOGRAPHY_DEFAULTS),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         payload.props,
     )
     meta.setdefault("layout_prop_schema", {})[new_layout_id] = new_schema
@@ -2433,13 +2304,6 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
         meta["valid_layouts"] = valid_layouts
     _write_meta_json(meta, meta_path)
 
-<<<<<<< HEAD
-    new_section = _build_prompt_section(new_layout_id, payload.layout_description, payload.props)
-    # Generate a richer prompt.md section using Gemini based on the final TSX + props.
-    # Fallback to the simple section if Gemini fails.
-    try:
-        new_section = _call_gemini_layout_doc_section(
-=======
     doc_prop_defs = [
         PropDef(name="titleFontSize", type="number", description="Title font size (portrait/landscape)"),
         PropDef(name="descriptionFontSize", type="number", description="Body font size (portrait/landscape)"),
@@ -2451,19 +2315,10 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
     # Fallback to the simple section if the model call fails.
     try:
         new_section = _call_layout_doc_section(
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             template_id=template_id,
             layout_id=new_layout_id,
             instruction=payload.layout_description,
             tsx=content,
-<<<<<<< HEAD
-            props=payload.props,
-            image_base64=payload.image_base64,
-            image_mime_type=payload.image_mime_type,
-        )
-    except HTTPException:
-        new_section = _build_prompt_section(new_layout_id, payload.layout_description, payload.props)
-=======
             props=doc_prop_defs,
             image_base64=payload.image_base64,
             image_mime_type=payload.image_mime_type,
@@ -2471,7 +2326,6 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
         )
     except HTTPException:
         new_section = _build_prompt_section(new_layout_id, payload.layout_description, doc_prop_defs)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     prompt_path.write_text(prompt_text.rstrip() + f"\n\n---\n\n{new_section.rstrip()}\n", encoding="utf-8")
 
     # Update layout_prompt.md if it exists (pipeline uses it for layout catalog)
@@ -2612,18 +2466,11 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     """
     from app.services.template_service import (
         validate_template_id,
-<<<<<<< HEAD
-        get_valid_layouts,
-        get_preview_colors,
-        get_composition_id,
-        is_custom_template,
-=======
         get_meta,
         get_preview_colors,
         get_composition_id,
         is_custom_template,
         is_crafted_template,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     )
     from app.services.remotion import provision_workspace, get_workspace_dir, _build_render_cmd, safe_remove_workspace
     import os
@@ -2633,21 +2480,13 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     import subprocess as _subprocess
 
     template_id = validate_template_id((payload.template_id or "").strip())
-<<<<<<< HEAD
-    if is_custom_template(template_id):
-        raise HTTPException(status_code=400, detail="Single-layout render is not yet supported for custom templates.")
-=======
     if is_custom_template(template_id) or is_crafted_template(template_id):
         raise HTTPException(status_code=400, detail="Single-layout render is not supported for custom/crafted templates.")
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     layout_id = (payload.layout_id or "").strip().lower()
     if not layout_id:
         raise HTTPException(status_code=400, detail="layout_id is required.")
 
-<<<<<<< HEAD
-    valid_layouts = get_valid_layouts(template_id)
-=======
     # Template Studio renders studio-only layouts (e.g. fj_research chart variants
     # market_annotation_bar / market_annotation_histogram) directly, so validate
     # against the FULL declared layout set. get_valid_layouts() strips
@@ -2659,7 +2498,6 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     valid_layouts = {
         str(v).strip().lower() for v in (_declared if isinstance(_declared, list) else [])
     }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if layout_id not in valid_layouts:
         raise HTTPException(
             status_code=400,
@@ -2710,20 +2548,6 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
         # Layout props passed from Template Studio; fallback to empty dict.
         layout_props = payload.layout_props or {}
 
-<<<<<<< HEAD
-        data = {
-            "projectName": f"TemplateStudio {template_id}/{layout_id}",
-            "accentColor": accent,
-            "bgColor": bg,
-            "textColor": text,
-            "heroImage": None,
-            "logo": None,
-            "logoPosition": "bottom_right",
-            "logoOpacity": 0.9,
-            "logoSize": 100.0,
-            "aspectRatio": aspect_ratio,
-            "scenes": [
-=======
         # When the caller passes a multi-scene list (Template Studio "All Scenes"),
         # render every scene back-to-back. Otherwise fall back to the single
         # ``layout_id`` scene built from ``layout_props``.
@@ -2757,7 +2581,6 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
                 )
         else:
             scenes = [
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 {
                     "id": 1,
                     "order": 1,
@@ -2769,9 +2592,6 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
                     "voiceoverFile": None,
                     "images": [],
                 }
-<<<<<<< HEAD
-            ],
-=======
             ]
 
         data = {
@@ -2786,7 +2606,6 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
             "logoSize": 100.0,
             "aspectRatio": aspect_ratio,
             "scenes": scenes,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         }
 
         data_path = os.path.join(public_dir, "data.json")
@@ -2850,8 +2669,6 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
         except Exception:
             # Best effort cleanup; ignore failures.
             pass
-<<<<<<< HEAD
-=======
 
 
 # ─── Create a brand-new built-in template from a design doc ──────────────────
@@ -3423,4 +3240,3 @@ def _build_stub_layout_tsx(pascal_name: str) -> str:
         "  );\n"
         "};\n"
     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

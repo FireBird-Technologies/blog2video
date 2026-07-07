@@ -15,10 +15,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
-<<<<<<< HEAD
-=======
   sceneIndex,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;

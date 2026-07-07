@@ -25,11 +25,6 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPEN_ROUTER_KEY: str = ""
     GEMINI_API_KEY: str = ""
-<<<<<<< HEAD
-    GEMINI_CODE_MODEL: str = "gemini-2.5-flash"
-    # Used automatically when an image is attached (vision-guided layout editing).
-    GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-2.5-pro"
-=======
     GEMINI_CODE_MODEL: str = "gemini-3.5-flash"
     # Used when a reference image is attached (vision-guided layout editing / rebuild).
     GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-3.5-flash"
@@ -45,7 +40,6 @@ class Settings(BaseSettings):
     # Scene edit + layout rebuild use Gemini (GEMINI_API_KEY, GEMINI_CODE_MODEL,
     # GEMINI_CODE_MODEL_WITH_IMAGE). Defaults: gemini-3.5-flash; override in .env if needed.
     CLAUDE_CODE_MODEL: str = "claude-sonnet-4-6"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini") and DSPY_IMAGE_LM in env
     IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
@@ -64,9 +58,6 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $35/mo Standard plan (30 videos)
     STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $28/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
-<<<<<<< HEAD
-    STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
-=======
     CUSTOM_TEMPLATE_PRICE_ID: str = ""  # Price ID for $5 one-time custom-template slot
     STANDARD_PLAN_LIFETIME_DEAL: str = ""  # Price ID for $1000 one-time Standard lifetime
     PRO_PLAN_LIFETIME_DEAL: str = ""       # Price ID for $1600 one-time Pro lifetime
@@ -86,7 +77,6 @@ class Settings(BaseSettings):
     # which drives the abandoned-checkout win-back email. Stripe allows 1800–86400
     # (30 min – 24 h); values outside that range are clamped before use.
     STRIPE_CHECKOUT_EXPIRES_SECONDS: int = 86400
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"
@@ -125,8 +115,6 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
 
-<<<<<<< HEAD
-=======
     # Crafted templates (separate from built-ins and user custom templates)
     CRAFTED_TEMPLATES_ENABLED: bool = False
     CRAFTED_TEMPLATE_R2_PREFIX: str = ""  # optional namespace, e.g. "dev" | "staging" | "prod"
@@ -134,7 +122,6 @@ class Settings(BaseSettings):
     CRAFTED_TEMPLATE_MAX_PACKAGE_BYTES: int = 25 * 1024 * 1024
     CRAFTED_TEMPLATE_MAX_FILE_BYTES: int = 8 * 1024 * 1024
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Render reliability/progress controls
     RENDER_MAX_SECONDS: int = int(os.environ.get("RENDER_MAX_SECONDS", "2700"))
     RENDER_STALL_SECONDS: int = int(os.environ.get("RENDER_STALL_SECONDS", "300"))
@@ -146,8 +133,6 @@ class Settings(BaseSettings):
         os.environ.get("RENDER_PROGRESS_STALE_SECONDS", "360")
     )
 
-<<<<<<< HEAD
-=======
     # Stall recovery: if a background job's updated_at heartbeat goes stale for
     # longer than its threshold while still active, the status endpoint (and the
     # boot sweep) reverts the project and refunds the credit. Script is larger
@@ -163,7 +148,6 @@ class Settings(BaseSettings):
         os.environ.get("STALL_THRESHOLD_SCRIPT_SECONDS", "1200")
     )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # Email
     EMAIL_PROVIDER: str = "resend"              # currently only "resend" is supported

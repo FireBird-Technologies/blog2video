@@ -13,9 +13,6 @@ from app.models.saved_voice import SavedVoice
 from app.models.custom_voice import CustomVoice
 from app.models.prebuilt_voice import PrebuiltVoice
 from app.models.review import Review
-<<<<<<< HEAD
-from app.models.project_template_change_job import ProjectTemplateChangeJob
-=======
 from app.models.template_rating import TemplateRating
 from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
@@ -37,16 +34,11 @@ from app.models.support_conversation import (
     SupportMessageRole,
 )
 from app.models.mcp_oauth import MCPClient, MCPAuthCode
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 __all__ = [
 
     "User", "Project", "Scene", "Asset", "ChatMessage",
     "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
-<<<<<<< HEAD
-    "ProjectEditHistory", "SceneEditHistory", "Review", "TemplateVersion",
-    "ProjectTemplateChangeJob",
-=======
     "ProjectEditHistory", "SceneEditHistory", "Review", "TemplateRating", "TemplateVersion",
     "ProjectTemplateChangeJob", "ProjectRegenerateScriptJob", "ProjectVoiceChangeJob",
     "UpdateEmail", "UpdateEmailSend",
@@ -54,5 +46,4 @@ __all__ = [
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "MCPClient", "MCPAuthCode",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ]

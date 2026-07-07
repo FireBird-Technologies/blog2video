@@ -7,10 +7,7 @@ All scenes run in PARALLEL via asyncio.gather.
 """
 
 import asyncio
-<<<<<<< HEAD
-=======
 import hashlib
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import json
 import logging
 import re
@@ -41,22 +38,14 @@ class DecideBrandSceneTypes(dspy.Signature):
       Must use values from: "bullets", "steps", "metrics", "code",
       "quote", "comparison", "timeline", "plain"
       (These are the content types the classification system outputs — other values won't match.)
-<<<<<<< HEAD
-=======
       Do NOT use "dataviz" — charts and tables are rendered by dedicated, separate
       scenes that are always added automatically. Never create a content scene for
       charts/graphs/tables.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     - "description": one-line purpose
 
     Structural requirements:
     - Exactly 1 scene with scene_type="intro" and exactly 1 with scene_type="outro"
     - The rest are scene_type="content"
-<<<<<<< HEAD
-    """
-
-    brand_context: str = dspy.InputField(desc="Brand name, category, personality, visual patterns")
-=======
 
     Variety (THIS IS WHAT MAKES VIDEOS NOT LOOK REPETITIVE):
     - Produce 5–8 DISTINCT content scene types. Each MUST have a DIFFERENT best_for
@@ -88,7 +77,6 @@ class DecideBrandSceneTypes(dspy.Signature):
     user_brief: str = dspy.InputField(
         desc="The user's free-text prompt / uploaded-doc text describing the desired template (may be empty). Honor explicit scene requests stated here."
     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     scene_types_json: str = dspy.OutputField(
         desc='JSON array of scene type objects: [{"id": "...", "scene_type": "...", "best_for": [...], "description": "..."}]'
     )
@@ -141,14 +129,6 @@ class GenerateSceneCode(dspy.Signature):
       Each bullet is its OWN visible row/card — NEVER dump all bullets into one paragraph.
     - Stagger each item's entrance: opacity and translateX animated with delay = i * 12 frames.
 
-<<<<<<< HEAD
-    Images & Logo (MANDATORY — every scene MUST handle these):
-    - ALWAYS check props.logoUrl safely and render it when present:
-      {props.logoUrl && typeof props.logoUrl === 'string' && (
-        <Img src={props.logoUrl} style={{width: 80, height: 80, objectFit: "contain", ...}} />
-      )}
-      ALWAYS set explicit width + height on logo Img so layout never collapses if image fails to load.
-=======
     Images & Logo (MANDATORY — every scene MUST handle these — NO exceptions for intro/outro):
     - EVERY scene (intro, content, outro) MUST support content images via props.imageUrl. There are
       NO image-less scene types — the validator REJECTS any scene that does not declare `hasImage`
@@ -160,7 +140,6 @@ class GenerateSceneCode(dspy.Signature):
       )}
       ALWAYS set explicit width + height on logo Img so layout never collapses if image fails to load.
       ALWAYS add data-logo="1" on the logo Img element (this distinguishes it from content images).
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       Use it as a brand watermark (corner), header element, or animated accent — but ALWAYS render it.
     - ALWAYS check props.imageUrl safely and render it prominently when present — NOT just a dim background.
       Use: const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
@@ -169,17 +148,6 @@ class GenerateSceneCode(dspy.Signature):
       Layer gradient overlays for text readability: linear-gradient(to top, rgba(bg,0.95) 0%, transparent 70%)
       plus radial-gradient vignette plus accent color wash with mixBlendMode:"overlay".
       ALWAYS set explicit width + height on image Img elements.
-<<<<<<< HEAD
-    - ADAPT LAYOUT based on image presence — use `const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');`
-      WITH image: split layout (image on one side, text on other). Example: width: hasImage ? "50%" : "100%"
-      WITHOUT image: text container MUST expand to width: "100%" to fill the full scene. Never leave an empty 50% gap.
-      Both modes must look intentionally designed — not like something is missing.
-    - When props.imageUrl is ABSENT (hasImage is false): use floating particle dots or geometric decorative shapes
-      as visual interest — ALWAYS respect the brand_context background instruction (solid vs gradient).
-      If brand_context says "solid backgrounds only", use the solid bg color. If it says "gradient", use the gradient.
-      Never leave the scene empty or with an empty 50% hole.
-    - If props.brandImages exists (Array.isArray(props.brandImages)), render gallery/carousel elements from it
-=======
     - Image focus & zoom (MANDATORY when rendering props.imageUrl):
       If using <Img> element: add data-content-img="1" and include in style:
         objectFit: "cover", objectPosition: props.imageObjectPosition || "50% 50%",
@@ -227,7 +195,6 @@ class GenerateSceneCode(dspy.Signature):
         • !hasImage → a fully-composed, full-width layout in its own right — NEVER a split with the
           image half left blank, and never a centered column that reserves space for a missing image.
       Design the no-image branch to look just as intentional as the with-image one.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     - Missing image handling is a BUG — the reward function penalizes scenes that ignore these props
 
     Typography (MANDATORY for readability at 1920×1080):
@@ -240,26 +207,6 @@ class GenerateSceneCode(dspy.Signature):
     - Bullet lists, card body text, quote body, metric labels: at least 30–36px so previews stay legible when scaled down in the UI.
     - Do NOT hardcode tiny font sizes (e.g. 12–18px) for primary readable content.
 
-<<<<<<< HEAD
-    Text animations — bring words to life:
-    - Word-by-word or line-by-line reveals: split text, stagger each word/line with spring(frame - i*8)
-    - Typewriter effect: show chars up to Math.floor(frame * 1.5) with a blinking cursor
-    - Scale-punch for key words: spring with damping:14, stiffness:220 for overshoot bounce
-    - Title entrance: translateY + scale + opacity with spring delay (don't just fade in)
-    - Bullet points: stagger each bullet with delay = 20 + i*10, slide from right (translateX: 40→0)
-    - Exit animations: start 20-30 frames before durationInFrames — fade out, scale down, or slide away
-
-    Scene motion — every scene should feel alive:
-    - Use multiple spring() calls with DIFFERENT configs for varied motion feel
-    - Stagger element entrances by 8-14 frames — never animate everything at once
-    - Combine transforms: scale(0.95→1) + translateY(30→0) + opacity(0→1) for depth
-    - Add ambient motion: subtle gradient shifts, floating particles, pulsing accent glows
-    - Metric count-ups: interpolate(frame, [start, end], [0, targetValue]) for animated numbers
-    - Card fly-ins: spring with mass:0.8 for snappy card reveals
-    - Decorative shapes: corner accents that scale in, accent lines that grow (width: 0→100%)
-    - Parallax: different layers move at different speeds for depth
-    - Spring configs: fast={damping:22,stiffness:140,mass:1.2}, bouncy={damping:14,stiffness:220,mass:1.1}, smooth={damping:20,stiffness:70}
-=======
     Overflow safety (MANDATORY — content must FIT the frame in BOTH orientations):
     The polished built-in templates never let text or rows escape the frame, and neither may you.
     overflow:'hidden' on the root only CLIPS spill — it does NOT make content fit. The frame is
@@ -301,35 +248,17 @@ class GenerateSceneCode(dspy.Signature):
     - Restraint: generous negative space, ONE decorative system at low intensity (not several),
       hairline borders, a single accent. Polished = calm and confident, not busy.
     Prefer the craft-kit components (they already encode these patterns) over re-deriving by hand.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     Available APIs (pre-injected as globals, do NOT import):
     - React, React.createElement, React.useState, React.useMemo
     - useCurrentFrame(), useVideoConfig() → { fps, width, height, durationInFrames }
-<<<<<<< HEAD
-    - interpolate(frame, inputRange, outputRange, options?)
-=======
     - interpolate(frame, inputRange, outputRange, options?) — BOTH ranges must be
       NUMBERS only. Never put strings/units inside (NOT ['0%','100%']); interpolate
       the number then add the unit in the style: width: `${interpolate(p,[0,1],[0,100])}%`
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     - spring({ frame, fps, config: { damping, stiffness, mass }?, from?, to? })
     - Easing: Easing.bezier(x1,y1,x2,y2), Easing.inOut(Easing.ease)
     - AbsoluteFill, Sequence, Img, random(seed)
 
-<<<<<<< HEAD
-    Component Props:
-    { displayText, narrationText, imageUrl?, sceneIndex, totalScenes,
-      logoUrl?, brandImages?, brandColors: { primary, secondary, accent, background, text },
-      aspectRatio: "landscape" | "portrait",
-      titleFontSize?: number, descriptionFontSize?: number,
-      headingFont?: string, bodyFont?: string,
-      contentType?: "plain"|"bullets"|"metrics"|"code"|"quote"|"comparison"|"timeline"|"steps",
-      bullets?: string[], metrics?: {value,label,suffix?}[], codeLines?: string[],
-      codeLanguage?: string, quote?: string, quoteAuthor?: string,
-      comparisonLeft?: {label,description}, comparisonRight?: {label,description},
-      timelineItems?: {label,description}[], steps?: string[] }
-=======
     Craft kit (pre-injected globals — OPTIONAL building blocks, do NOT import):
     These are tested, brand-themed helpers. They are ALREADY in scope — use them
     directly. NEVER redeclare them (no `const { staggerEntrance, panelRise } = {...}`
@@ -478,7 +407,6 @@ class GenerateSceneCode(dspy.Signature):
       comparisonLeft?: {label,description}, comparisonRight?: {label,description},
       timelineItems?: {label,description}[], steps?: string[],
       chartTable?: { headers?: string[], rows?: (string|number)[][] }, chartType?: string, chartSummary?: string }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     Resolution: 1920x1080 (landscape) / 1080x1920 (portrait), 30fps, 90-150 frames.
     """
@@ -493,8 +421,6 @@ class GenerateSceneCode(dspy.Signature):
     )
 
     code: str = dspy.OutputField(desc="Complete SceneComponent code (const SceneComponent = (props) => { ... };)")
-<<<<<<< HEAD
-=======
     image_box_width_fraction_landscape: float = dspy.OutputField(
         desc=(
             "Inside the `if (!isPortrait) { ... }` (or `!p && ...`) branch of your code: "
@@ -531,7 +457,6 @@ class GenerateSceneCode(dspy.Signature):
             "If portrait reuses the landscape branch, output the landscape height fraction."
         )
     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 # ─── Reward function for dspy.Refine ──────────────────────────
@@ -598,8 +523,6 @@ def _scene_reward(args, pred) -> float:
             score -= 0.4
             print(f"[F7-DEBUG] [REFINE] -0.4: bullets scene missing props.bullets reference or .map()")
 
-<<<<<<< HEAD
-=======
     # Soft kit-adoption nudge: when a content type has a tested kit recipe, prefer
     # composing the kit over hand-rolling (the recipe table in GenerateSceneCode).
     # Penalty drops a clean scene below threshold (0.75) so Refine retries for kit
@@ -729,7 +652,6 @@ def _scene_reward(args, pred) -> float:
             score -= 0.1
             print(f"[F7-DEBUG] [REFINE] -0.1: list prop mapped without a .slice(0,N) cap (rows may overshoot)")
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     line_count = code.count("\n") + 1
     print(f"[F7-DEBUG] [REFINE] Validation PASSED — score={score:.2f} | {line_count}L")
     return max(score, 0.0)
@@ -814,8 +736,6 @@ def _build_brand_context(
     else:
         ctx += f"Background: solid color {colors.get('bg')} — use SOLID backgrounds only, NO gradients\n"
 
-<<<<<<< HEAD
-=======
     # Craft-kit decor system. Prefer the explicit theme.decor field (set by the
     # theme extractor); fall back to deriving from decorative elements.
     decor = theme.get("decor") or {}
@@ -890,7 +810,6 @@ def _build_brand_context(
     if isinstance(scene_bias, list) and scene_bias:
         ctx += f"Preferred scene types for this brand: {', '.join(str(s) for s in scene_bias)}\n"
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if source_url:
         ctx += f"Website: {source_url}\n"
     if category:
@@ -906,11 +825,6 @@ def _build_brand_context(
 # ─── Brand scene type decision ──────────────────────────────────
 
 
-<<<<<<< HEAD
-def _decide_brand_scene_types(brand_context: str) -> list[dict]:
-    """Ask the AI to decide scene types tailored to this brand.
-
-=======
 def _extract_json_array(raw: str):
     """Parse a JSON array from an LLM string, tolerating common slop.
 
@@ -969,7 +883,6 @@ def _decide_brand_scene_types(brand_context: str, user_brief: str = "") -> list[
     `user_brief` is the user's raw prompt / uploaded-doc text (empty for URL-scraped
     templates); when present, explicit scene requests in it are honored.
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     Retries once on failure. Raises RuntimeError if both attempts fail.
     Returns list of dicts: [{"id": "...", "scene_type": "...", "best_for": [...], "description": "..."}]
     """
@@ -981,19 +894,6 @@ def _decide_brand_scene_types(brand_context: str, user_brief: str = "") -> list[
     for attempt in range(2):
         t0 = time.time()
         try:
-<<<<<<< HEAD
-            with dspy.context(lm=codegen_lm):
-                result = module(brand_context=brand_context)
-
-            raw = (result.scene_types_json or "").strip()
-            if raw.startswith("```"):
-                lines = raw.split("\n")[1:]
-                if lines and lines[-1].strip() == "```":
-                    lines = lines[:-1]
-                raw = "\n".join(lines)
-
-            scene_types = json.loads(raw)
-=======
             # On the RETRY, run with the LM cache disabled so we don't re-fetch the
             # same malformed response (which fails identically in ~0s and would also
             # poison every later template with the same inputs). Guarded with
@@ -1017,7 +917,6 @@ def _decide_brand_scene_types(brand_context: str, user_brief: str = "") -> list[
             # Tolerant parse — the model sometimes appends prose / a second fence
             # after the array ("Extra data: line N"), so extract the array itself.
             scene_types = _extract_json_array(result.scene_types_json or "")
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
             if not isinstance(scene_types, list) or len(scene_types) < 3:
                 raise ValueError(f"Expected list of 3+ scene types, got {type(scene_types).__name__} with {len(scene_types) if isinstance(scene_types, list) else 0} items")
@@ -1046,8 +945,6 @@ def _decide_brand_scene_types(brand_context: str, user_brief: str = "") -> list[
             if not content_types:
                 raise ValueError("AI returned no content scene types")
 
-<<<<<<< HEAD
-=======
             # Enforce archetype non-repetition: two content scenes with the same
             # best_for signature resolve to near-identical layouts, which is the #1
             # reason custom videos feel repetitive. Keep the first of each signature.
@@ -1067,14 +964,11 @@ def _decide_brand_scene_types(brand_context: str, user_brief: str = "") -> list[
                     + [s for s in non_content if s["scene_type"] == "outro"]
                 )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             elapsed = time.time() - t0
             print(
                 f"[F7-DEBUG] [SCENE-TYPES] Decided {len(validated)} scene types in {elapsed:.1f}s: "
                 f"{[s['id'] for s in validated]}"
             )
-<<<<<<< HEAD
-=======
             # ── V3 verification: confirm Decision D took effect at runtime ──
             # D = 5–8 DISTINCT content archetypes, and NO "dataviz" archetype
             # (charts/tables come ONLY from dedicated kit scenes now).
@@ -1097,7 +991,6 @@ def _decide_brand_scene_types(brand_context: str, user_brief: str = "") -> list[
                 f"[F7-DEBUG] [V3][SCENE-TYPES] content={_n_content} [{_in_range}] | "
                 f"breakdown={[s['scene_type'] for s in validated]} | {_dataviz_status}"
             )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             return validated
 
         except (json.JSONDecodeError, ValueError) as e:
@@ -1146,14 +1039,9 @@ def _generate_single_scene_sync(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
-<<<<<<< HEAD
-) -> str:
-    """Generate a single scene using DSPy ChainOfThought + Refine (sync)."""
-=======
 ) -> tuple[str, dict[str, str]]:
     """Generate a single scene using DSPy ChainOfThought + Refine (sync).
     Returns (code, {"landscape": "W / H", "portrait": "W / H"})."""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ensure_dspy_configured()
 
     base_module = dspy.ChainOfThought(
@@ -1186,12 +1074,6 @@ def _generate_single_scene_sync(
 
     elapsed = time.time() - t0
     code = clean_code(result.code or "")
-<<<<<<< HEAD
-    line_count = code.count("\n") + 1
-
-    print(f"[F7-DEBUG] [REFINE] Scene {scene_index} ({scene_type}) done: {line_count} lines in {elapsed:.1f}s")
-    return code
-=======
 
     # Derive image-box aspect ratios for both orientations from the fractions the AI reported.
     # Landscape canvas: 1920x1080. Portrait canvas: 1080x1920.
@@ -1220,7 +1102,6 @@ def _generate_single_scene_sync(
         f"portrait_ar={portrait_ar!r} (w={pw:.2f}, h={ph:.2f})"
     )
     return code, aspect_ratios
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 _SCENE_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="scene-gen")
@@ -1233,14 +1114,9 @@ async def _generate_single_scene(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
-<<<<<<< HEAD
-) -> str:
-    """Async wrapper — runs the sync Refine call in a dedicated thread pool."""
-=======
 ) -> tuple[str, dict[str, str]]:
     """Async wrapper — runs the sync Refine call in a dedicated thread pool.
     Returns (code, {"landscape": "W / H", "portrait": "W / H"})."""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
         _SCENE_EXECUTOR,
@@ -1254,8 +1130,6 @@ async def _generate_single_scene(
     )
 
 
-<<<<<<< HEAD
-=======
 # ─── Per-scene brief hints ──────────────────────────────────────
 
 
@@ -1306,7 +1180,6 @@ def _scene_hint_for(brief: str, archetype: dict) -> str:
     return f" | USER REQUEST for this scene (honor it): {hint}"
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 # ─── Main generation entry point ────────────────────────────────
 
 
@@ -1346,11 +1219,7 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         brand_kit_data,
         template.name,
         category=template.category or "",
-<<<<<<< HEAD
-        video_style=getattr(template, "supported_video_style", "") or "",
-=======
         video_style="",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         personality=personality,
         source_url=template.source_url or "",
     )
@@ -1363,11 +1232,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         f"[F7-DEBUG] [CODEGEN] LLM model={codegen_lm.model!r} max_tokens={_tok}"
     )
 
-<<<<<<< HEAD
-    # Step 1: AI decides scene types for this brand
-    loop = asyncio.get_event_loop()
-    all_scene_types = await loop.run_in_executor(None, _decide_brand_scene_types, brand_context)
-=======
     # Step 1: AI decides scene types for this brand. The raw brief (prompt / doc
     # text, empty for URL-scraped templates) lets the user request specific scenes.
     user_brief = (theme.get("brief") or "").strip() if isinstance(theme, dict) else ""
@@ -1377,7 +1241,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
     all_scene_types = await loop.run_in_executor(
         None, _decide_brand_scene_types, brand_context, user_brief
     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     intro_archetype = next(s for s in all_scene_types if s["scene_type"] == "intro")
     outro_archetype = next(s for s in all_scene_types if s["scene_type"] == "outro")
@@ -1394,8 +1257,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         f"1 intro + {num_content} content archetypes + 1 outro"
     )
 
-<<<<<<< HEAD
-=======
     # Composition archetypes the per-scene directive in GenerateSceneCode rotates
     # through — surfaced in scene_purpose so each content scene is explicitly told
     # which distinct layout to build (defeats centered-card repetition). These
@@ -1436,7 +1297,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         f"| content_pool={_content_pool} | outro={_outro_artifact}"
     )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Step 3: Generate ALL scenes in parallel
     tasks = [
         _generate_single_scene(
@@ -1445,9 +1305,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             scene_type="intro",
             scene_index=0,
             total_scenes=total_scenes,
-<<<<<<< HEAD
-            scene_purpose=f"{intro_archetype['id']}: {intro_archetype['description']}",
-=======
             scene_purpose=(
                 f"{intro_archetype['id']}: {intro_archetype['description']} "
                 "| brand-reveal opener: lead with an animated brand-name title + a real "
@@ -1457,15 +1314,12 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
                 "energetic moment of the whole video; the title entrance should be the "
                 "video's biggest motion beat"
             ),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         ),
     ]
     for i, arch in enumerate(content_archetypes):
         best_for_hint = (
             f" | best_for={arch['best_for']}" if arch.get("best_for") else ""
         )
-<<<<<<< HEAD
-=======
         _comp = _comp_order[i % len(_comp_order)]
         _brief_hint = _scene_hint_for(user_brief, arch)
         _scene_artifact = _content_pool[i % len(_content_pool)]
@@ -1476,7 +1330,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             f"(archetype={arch['id']!r}) -> composition={_comp!r} artifact={_scene_artifact!r}"
             f"{' [+brief-hint]' if _brief_hint else ''}"
         )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         tasks.append(
             _generate_single_scene(
                 brand_context=brand_context,
@@ -1484,9 +1337,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
                 scene_type="content",
                 scene_index=i + 1,
                 total_scenes=total_scenes,
-<<<<<<< HEAD
-                scene_purpose=f"{arch['id']}: {arch['description']}{best_for_hint}",
-=======
                 scene_purpose=(
                     f"{arch['id']}: {arch['description']}{best_for_hint} "
                     f"| content scene {i + 1} of {num_content}: use a '{_comp}' composition, "
@@ -1496,7 +1346,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
                     "(not the intro's hero take), placed differently than neighbouring scenes"
                     f"{_brief_hint}"
                 ),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             ),
         )
     tasks.append(
@@ -1506,13 +1355,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             scene_type="outro",
             scene_index=total_scenes - 1,
             total_scenes=total_scenes,
-<<<<<<< HEAD
-            scene_purpose=f"{outro_archetype['id']}: {outro_archetype['description']}",
-        ),
-    )
-
-    scenes = await asyncio.gather(*tasks)
-=======
             scene_purpose=(
                 f"{outro_archetype['id']}: {outro_archetype['description']} "
                 "| closing brand recap (a CTA + socials row is overlaid automatically — "
@@ -1531,7 +1373,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
     scenes = [code for code, _ in scene_tuples]
     # Each entry is a dict {"landscape": "W / H", "portrait": "W / H"}
     scene_aspect_ratios: list[dict[str, str]] = [ar for _, ar in scene_tuples]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # Log what was generated
     scene_labels = [intro_archetype["id"]] + [a["id"] for a in content_archetypes] + [outro_archetype["id"]]
@@ -1567,11 +1408,8 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         "content_codes": content_codes,
         # Full archetype metadata for content-aware matching at video time
         "archetype_ids": [{"id": a["id"], "best_for": a["best_for"]} for a in content_archetypes],
-<<<<<<< HEAD
-=======
         # Image box aspect ratios per scene type — used to configure the image adjustment modal
         "intro_aspect_ratio": scene_aspect_ratios[0],
         "outro_aspect_ratio": scene_aspect_ratios[-1],
         "content_aspect_ratios": scene_aspect_ratios[1:-1],
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }

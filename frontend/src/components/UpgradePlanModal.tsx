@@ -160,11 +160,7 @@ export default function UpgradePlanModal({
                 <p className="text-xs text-gray-400 mt-0.5">Pay as you go</p>
               </div>
               <div className="mb-4">
-<<<<<<< HEAD
-                <span className="text-2xl font-bold text-gray-900">$3</span>
-=======
                 <span className="text-2xl font-bold text-gray-900">$3.99</span>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 <span className="text-xs text-gray-400 ml-1">/video</span>
               </div>
               <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
@@ -222,10 +218,6 @@ export default function UpgradePlanModal({
                 <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
                 <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-<<<<<<< HEAD
-                <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
                 <li className="flex items-start gap-2"><CheckMark />Priority support</li>
               </ul>
@@ -279,10 +271,6 @@ export default function UpgradePlanModal({
                 <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
                 <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-<<<<<<< HEAD
-                <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
                 <li className="flex items-start gap-2"><CheckMark />Priority support</li>
               </ul>

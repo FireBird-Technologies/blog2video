@@ -1,19 +1,11 @@
 {
   "id": "blackswan",
   "name": "Black Swan",
-<<<<<<< HEAD
-  "new_template": true,
-  "description": "Neon cyan on pure black cinematic theme with elliptical water ripples, swan/bird motifs, and data-forward explainer layouts.",
-  "styles": [
-    "promotional",
-    "storytelling"
-=======
   "new_template": false,
   "description": "Neon cyan on pure black cinematic theme with elliptical water ripples, swan/bird motifs, and data-forward explainer layouts.",
   "genres": [
     "Finance",
     "Technology"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "preview_colors": {
     "accent": "#00E5FF",
@@ -32,11 +24,8 @@
     "dive_insight",
     "reactor_code",
     "flight_path",
-<<<<<<< HEAD
-=======
     "data_visualisation",
     "ticker_table",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -416,8 +405,6 @@
         }
       ]
     },
-<<<<<<< HEAD
-=======
     "data_visualisation": {
       "label": "Data Visualisation",
       "defaults": {
@@ -561,7 +548,6 @@
         }
       ]
     },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials": {
       "label": "Ending Socials",
       "defaults": {
@@ -670,8 +656,6 @@
           ]
         }
       ]
-<<<<<<< HEAD
-=======
     },
     "ticker_table": {
       "label": "Data Table",
@@ -760,7 +744,6 @@
           "type": "string"
         }
       ]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
   },
   "layouts_without_image": [
@@ -768,13 +751,9 @@
     "pulse_metric",
     "reactor_code",
     "flight_path",
-<<<<<<< HEAD
-    "ending_socials"
-=======
     "data_visualisation",
     "ending_socials",
     "ticker_table"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "features": [
     "Neon water-ring atmosphere on pure black",

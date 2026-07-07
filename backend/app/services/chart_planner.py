@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import html
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import json
 import re
 from typing import Any
@@ -25,9 +22,6 @@ _TIME_LIKE_RE = re.compile(
     r"|(^("
     r"jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|"
     r"jul(y)?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?"
-<<<<<<< HEAD
-    r")(\b|[./-]\d{2,4}|\s+\d{2,4})$)",
-=======
     r")(\b|[./-]\d{2,4}|\s+\d{2,4})$)"
     # "1 Jun", "5 June 2026", "11 Jun, 26" — day SPACE month (optional year)
     r"|(^\d{1,2}\s+("
@@ -43,7 +37,6 @@ _TIME_LIKE_RE = re.compile(
     r"|(^h[1-2](\s*\d{2,4})?$)"
     # year ranges ("2023-24", "2023/2024")
     r"|(^\d{4}\s*[-–/]\s*\d{2,4}$)",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     re.IGNORECASE,
 )
 _BUCKET_LIKE_RE = re.compile(r"(^\d+\s*[-–]\s*\d+$)|(^<\s*\d+$)|(^>\s*\d+$)|(^\d+\+$)")
@@ -55,8 +48,6 @@ _STRICT_NUMERIC_CELL_RE = re.compile(
 )
 _CURRENCY_HINT_RE = re.compile(r"(?:^|\b)(rs\.?|pkr|usd|eur|gbp|aed|sar|inr|\$|€|£|¥|₹)", re.IGNORECASE)
 _SYNTH_HEADER_RE = re.compile(r"^col_\d+$", re.IGNORECASE)
-<<<<<<< HEAD
-=======
 _PLACEHOLDER_HEADER_RE = re.compile(r"^series\s+\d+$", re.IGNORECASE)
 
 
@@ -246,7 +237,6 @@ def reconcile_chart_units(
         "chartTable": {"headers": headers, "rows": out_rows},
         "dropped": dropped,
     }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _looks_like_header_row(values: list[str]) -> bool:
@@ -266,13 +256,10 @@ def _parse_number(value: Any) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     text = str(value).strip()
-<<<<<<< HEAD
-=======
     # Strip HTML tags (e.g. "Rs.<br> 484,500" → "Rs. 484,500")
     text = re.sub(r"<[^>]+>", " ", text).strip()
     # Collapse any whitespace left by tag removal
     text = re.sub(r"\s{2,}", " ", text).strip()
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if not text:
         return None
     # Guardrail: only parse cells that are mostly numeric.
@@ -315,23 +302,6 @@ def _tokenize(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(t) > 2}
 
 
-<<<<<<< HEAD
-def _are_series_labels_comparable(labels: list[str]) -> bool:
-    if len(labels) < 2:
-        return False
-    stop = {"series", "value", "values", "data", "index"}
-    token_sets = []
-    for label in labels:
-        toks = {t for t in _tokenize(label) if t not in stop}
-        token_sets.append(toks)
-    base = token_sets[0]
-    if not base:
-        return False
-    for other in token_sets[1:]:
-        if base & other:
-            return True
-    return False
-=======
 def _clean_text_cell(value: Any) -> str:
     """Normalize scraped or LLM text for chart labels and table cells.
 
@@ -412,22 +382,17 @@ def sanitize_chart_descriptor(descriptor: dict | None) -> dict:
     out["layoutProps"] = props
     return out
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _extract_tables_from_visual_hint(visual_description: str) -> list[dict[str, Any]]:
     if not visual_description:
         return []
-<<<<<<< HEAD
-    m = re.search(r"TABLE_DATA_HINT_JSON:\s*(\{.*\})\s*$", visual_description, flags=re.DOTALL)
-=======
     m = re.search(
         r"(?:TABLE_DATA_HINT_JSON\s*:\s*|[═=]{2,}\s*EXTRACTED_TABLES_JSON\s*[═=]{2,}\s*)(\{.*\})"
         r"(?:\s*[═=]{2,}\s*END_EXTRACTED_TABLES_JSON\s*[═=]{2,})?",
         visual_description,
         flags=re.DOTALL,
     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if not m:
         return []
     try:
@@ -435,16 +400,12 @@ def _extract_tables_from_visual_hint(visual_description: str) -> list[dict[str, 
     except json.JSONDecodeError:
         return []
     tables = payload.get("tables") if isinstance(payload, dict) else None
-<<<<<<< HEAD
-    return tables if isinstance(tables, list) else []
-=======
     if not isinstance(tables, list):
         return []
     from app.services.table_extraction import _dedup_tables, _normalize_stored_table
 
     normalized = [_normalize_stored_table(t) for t in tables if isinstance(t, dict)]
     return _dedup_tables([t for t in normalized if t])
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def count_tables_in_visual_hint(visual_description: str) -> int:
@@ -467,8 +428,6 @@ def get_chartable_tables_from_visual_hint(
     ]
 
 
-<<<<<<< HEAD
-=======
 def get_line_chartable_tables_from_visual_hint(
     visual_description: str,
 ) -> list[tuple[int, dict[str, Any]]]:
@@ -1017,7 +976,6 @@ def extract_ticker_items_from_blog(blog_content: str, max_items: int = 10) -> li
     return items[:max_items]
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _score_table_for_scene(table: dict[str, Any], scene_text: str) -> float:
     headers = table.get("headers", []) or []
     rows = table.get("rows", []) or []
@@ -1081,15 +1039,11 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
                 return {}
 
     col_count = max(len(r) for r in rows)
-<<<<<<< HEAD
-    labels = [str(r[0] if len(r) > 0 else "").strip() or str(i + 1) for i, r in enumerate(rows)]
-=======
     headers = _ensure_chart_headers(headers, col_count, label_col_idx=0)
     labels = [
         _clean_text_cell(r[0] if len(r) > 0 else "") or str(i + 1)
         for i, r in enumerate(rows)
     ]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     numeric_columns: list[tuple[int, str, list[float]]] = []
     for c in range(1, col_count):
@@ -1104,11 +1058,7 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
             else:
                 values.append(n)
         if sum(1 for x in values if x == x) >= 2:
-<<<<<<< HEAD
-            label = headers[c] if c < len(headers) and headers[c] else f"Series {c}"
-=======
             label = headers[c] if c < len(headers) else ""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             numeric_columns.append((c, label, values))
 
     if not numeric_columns:
@@ -1118,17 +1068,12 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
     bucket_like = _is_bucket_like(labels)
 
     chart_table = {
-<<<<<<< HEAD
-        "headers": headers[:8],
-        "rows": [[str(cell or "") for cell in row[:8]] for row in rows[:20]],
-=======
         "headers": [_clean_text_cell(h) for h in headers[:8]],
         "rows": [[_clean_text_cell(cell) for cell in row[:8]] for row in rows[:20]],
     }
     axis_captions = {
         "subtitle": headers[0] if headers else "",
         "yAxisLabel": numeric_columns[0][1] if numeric_columns else "",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
 
     # Prefer line charts for ordered/time-like rows; otherwise histogram for bucket labels; else bar.
@@ -1142,23 +1087,15 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
             return {
                 "chartType": "line",
                 "chartTable": chart_table,
-<<<<<<< HEAD
-                "marketSymbol": numeric_columns[0][1],
-=======
                 **axis_captions,
                 "marketSymbol": _clean_text_cell(numeric_columns[0][1]),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 "marketValue": f"{end:g}",
                 "marketDelta": f"{delta:+.2f}",
                 "marketPercent": f"{pct:+.2f}%",
                 "marketTrend": "up" if delta >= 0 else "down",
             }
 
-<<<<<<< HEAD
-    primary_label = numeric_columns[0][1]
-=======
     primary_label = _clean_text_cell(numeric_columns[0][1])
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     primary_values = numeric_columns[0][2]
     rows_out = []
     for i, value in enumerate(primary_values):
@@ -1173,10 +1110,7 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
         return {
             "chartType": "histogram",
             "chartTable": chart_table,
-<<<<<<< HEAD
-=======
             **axis_captions,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             "marketSymbol": primary_label,
         }
 
@@ -1187,10 +1121,7 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
     return {
         "chartType": "bar",
         "chartTable": chart_table,
-<<<<<<< HEAD
-=======
         **axis_captions,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         "marketSymbol": primary_label,
         "marketValue": f"{end:g}",
         "marketDelta": f"{delta:+.2f}",

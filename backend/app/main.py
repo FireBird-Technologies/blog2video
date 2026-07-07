@@ -1,10 +1,7 @@
 import os
 import asyncio
 import logging
-<<<<<<< HEAD
-=======
 import warnings
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import shutil
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
@@ -14,8 +11,6 @@ from fastapi import FastAPI
 # Ensure app loggers (e.g. app.services.elevenlabs_voice_design) emit INFO to console
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("app").setLevel(logging.INFO)
-<<<<<<< HEAD
-=======
 
 # Suppress LiteLLM's LoggingWorker noise — background telemetry tasks that
 # don't affect functionality but flood the console with warnings.
@@ -32,7 +27,6 @@ warnings.filterwarnings(
     category=RuntimeWarning,
     module="litellm",
 )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -46,11 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-<<<<<<< HEAD
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, saved_voices, template_studio
-=======
 from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -216,10 +206,7 @@ async def _periodic_paid_tier_cleanup():
 
 
 from app.constants import FREE_PREMADE_VOICE_IDS as KNOWN_PREMADE_VOICE_IDS
-<<<<<<< HEAD
-=======
 from app.services.email import email_service
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _ensure_prebuilt_voices_seeded() -> None:
@@ -267,8 +254,6 @@ def _ensure_prebuilt_voices_seeded() -> None:
         db.close()
 
 
-<<<<<<< HEAD
-=======
 def _build_update_email_user_query(db, user_filter: str):
     from app.models.user import User, PlanTier
     q = db.query(User).filter(
@@ -422,7 +407,6 @@ async def _periodic_update_email_sender():
             await asyncio.sleep(3600)
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: init DB and start background tasks."""
@@ -449,8 +433,6 @@ async def lifespan(app: FastAPI):
         init_db()
         print("[STARTUP] Database initialized successfully")
         _ensure_prebuilt_voices_seeded()
-<<<<<<< HEAD
-=======
         # Recover background jobs orphaned by a previous crash/restart: roll them back
         # so projects aren't stuck "busy" forever and the reserved credit is refunded.
         # With --workers 1, any active job at boot is orphaned (its process is gone).
@@ -466,17 +448,13 @@ async def lifespan(app: FastAPI):
             reap_orphaned_voice_change_jobs()
         except Exception as e:
             print(f"[STARTUP] Orphaned-job recovery failed: {e}")
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     except Exception as e:
         print(f"[STARTUP] Database initialization failed: {e}")
         import traceback
         traceback.print_exc()
         raise
 
-<<<<<<< HEAD
-=======
     update_email_sender = None
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     try:
         free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
         paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
@@ -497,15 +475,11 @@ async def lifespan(app: FastAPI):
         import traceback
         traceback.print_exc()
 
-<<<<<<< HEAD
-    yield
-=======
     # Start the MCP Streamable HTTP session manager — claude.ai POSTs JSON-RPC
     # to /mcp/sse and the session manager handles connection lifecycle.
     from app.routers.mcp_transport import streamable_session_manager
     async with streamable_session_manager.run():
         yield
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     try:
         if free_cleanup:
@@ -589,10 +563,6 @@ app.include_router(pipeline.router)
 app.include_router(chat.router)
 app.include_router(contact.router)
 app.include_router(custom_templates.router)
-<<<<<<< HEAD
-app.include_router(saved_voices.router)
-app.include_router(template_studio.router)
-=======
 app.include_router(crafted_templates.router)
 app.include_router(free_templates.router)
 app.include_router(saved_voices.router)
@@ -621,7 +591,6 @@ app.include_router(mcp_oauth.root_router)
 app.mount("/mcp", mcp_oauth.build_sdk_starlette_app(
     extra_routes=mcp_transport.starlette_routes(),
 ))
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 @app.get("/api/health")
@@ -864,8 +833,6 @@ def design_voice_from_prompt(body: dict):
         raise HTTPException(status_code=502, detail="Voice design failed. Try a different prompt.")
 
 
-<<<<<<< HEAD
-=======
 def _build_voice_preview_session():
     """Shared HTTP session for the voice-preview proxy.
 
@@ -897,7 +864,6 @@ def _build_voice_preview_session():
 _voice_preview_session = _build_voice_preview_session()
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 @app.get("/api/voices/preview-audio")
 async def get_voice_preview_audio(key: str):
     """Stream voice preview audio so playback can start as soon as first bytes arrive."""

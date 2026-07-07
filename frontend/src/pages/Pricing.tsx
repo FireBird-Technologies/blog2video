@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { CredentialResponse } from "@react-oauth/google";
-import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
-=======
 import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -18,7 +12,6 @@ import {
   SubscriptionDetail,
 } from "../api/client";
 import type { BillingCycle, PlanKey } from "../api/billing";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
@@ -27,8 +20,6 @@ import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 import { pricingSchema } from "../seo/schema";
-<<<<<<< HEAD
-=======
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
 import LimitedSeatsBar from "../components/LimitedSeatsBar";
 import PlanCardCTA from "../components/PlanCardCTA";
@@ -49,7 +40,6 @@ import {
   PRO_CUSTOM_TEMPLATE_COUNT,
   pricingFaq,
 } from "../content/pricingContent";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
 
 export default function Pricing() {
@@ -58,14 +48,6 @@ export default function Pricing() {
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-<<<<<<< HEAD
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
-    "monthly"
-  );
-  const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
-  const [pendingCredential, setPendingCredential] = useState<string | null>(null);
-  const [reactivating, setReactivating] = useState(false);
-=======
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
   const [pendingCredential, setPendingCredential] = useState<string | null>(null);
@@ -116,7 +98,6 @@ export default function Pricing() {
       // ignore
     }
   };
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
@@ -355,20 +336,12 @@ export default function Pricing() {
             </div>
             <ul className="space-y-3 mb-8 flex-1">
               {[
-<<<<<<< HEAD
-                "3 videos free",
-=======
                 "2 videos free",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
-<<<<<<< HEAD
-                "Custom video templates",
-=======
                 `${FREE_CUSTOM_TEMPLATE_COUNT} custom video template`,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               ].map((f) => (
                 <li
                   key={f}
@@ -408,21 +381,6 @@ export default function Pricing() {
           </div>
 
           {/* Pay Per Video */}
-<<<<<<< HEAD
-          <div className="glass-card p-7 flex flex-col">
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Per Video
-              </h3>
-              <p className="text-sm text-gray-400">Pay as you go</p>
-            </div>
-            <div className="mb-6">
-              <span className="text-4xl font-bold text-gray-900">$3</span>
-              <span className="text-sm text-gray-400 ml-1">/video</span>
-            </div>
-            <ul className="space-y-3 mb-8 flex-1">
-              {[
-=======
           {user ? (
             <PerVideoSliderCard
               variant="full"
@@ -433,46 +391,10 @@ export default function Pricing() {
               onBuyBulk={handleBulkCredits}
               onBuy={(quantity) => handlePerVideo(quantity)}
               features={[
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 "No subscription required",
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Render & download MP4",
-<<<<<<< HEAD
-                "Unlimited AI edit & image generation",
-                "Custom video templates",
-                "Premium voiceover + cloning",
-                "Buy as many as you need",
-              ].map((f) => (
-                <li
-                  key={f}
-                  className="flex items-start gap-2.5 text-sm text-gray-600"
-                >
-                  <CheckIcon />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            {user ? (
-              <button
-                onClick={handlePerVideo}
-                disabled={perVideoLoading || isPaid}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
-              >
-                {perVideoLoading ? "Redirecting…" : "Buy a video"}
-              </button>
-            ) : (
-              <div className="flex justify-center">
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in failed")}
-                  text="continue_with"
-                  width="190"
-                />
-              </div>
-            )}
-          </div>
-=======
               ]}
             />
           ) : (
@@ -498,7 +420,6 @@ export default function Pricing() {
               }
             />
           )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
           {/* Standard */}
           <div className="glass-card p-7 flex flex-col">
@@ -546,11 +467,7 @@ export default function Pricing() {
                 "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
-<<<<<<< HEAD
-                "Custom video templates",
-=======
                 `${STANDARD_CUSTOM_TEMPLATE_COUNT} custom video templates`,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 "Premium voiceover + cloning",
                 "Priority support",
               ].map((f) => (
@@ -659,11 +576,7 @@ export default function Pricing() {
                 "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
-<<<<<<< HEAD
-                "Custom video templates",
-=======
                 `${PRO_CUSTOM_TEMPLATE_COUNT} custom video templates`,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 "Premium voiceover + cloning",
                 "Priority support",
               ].map((f) => (
@@ -806,29 +719,18 @@ export default function Pricing() {
             </thead>
             <tbody>
               {[
-<<<<<<< HEAD
-                { feature: "Price", free: "$0", perVideo: "$3/video", standard: isAnnual ? "$20/mo" : "$25/mo", pro: isAnnual ? "$40/mo" : "$50/mo", customized: "Custom" },
-                { feature: "Videos", free: "3 free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
-=======
                 { feature: "Price", free: "$0", perVideo: "$2.80–$3.99/video", standard: isLifetime ? "$999.99 one-time" : isAnnual ? `$${STANDARD_ANNUAL_MONTHLY_PRICE}/mo` : `$${STANDARD_MONTHLY_PRICE}/mo`, pro: isLifetime ? "$1,599.99 one-time" : isAnnual ? `$${PRO_ANNUAL_MONTHLY_PRICE}/mo` : `$${PRO_MONTHLY_PRICE}/mo`, customized: "Custom" },
                 { feature: "Videos", free: "2 free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 { feature: "AI script generation", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Voice selection (4 options)", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Video preview", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Render & download MP4", free: true, perVideo: true, standard: true, pro: true, customized: true },
-<<<<<<< HEAD
-                { feature: "Unlimited AI edit & image generation", free: false, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Custom video templates", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Premium voiceover + cloning", free: false, perVideo: true, standard: true, pro: true, customized: true },
-=======
                 { feature: "Unlimited AI edit & image generation", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Custom video templates", free: String(FREE_CUSTOM_TEMPLATE_COUNT), perVideo: "—", standard: String(STANDARD_CUSTOM_TEMPLATE_COUNT), pro: String(PRO_CUSTOM_TEMPLATE_COUNT), customized: "Custom" },
                 { feature: "Premium voiceover + cloning", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Music Addition", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Advanced voiceover settings", free: false, perVideo: false, standard: true, pro: true, customized: true },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 { feature: "Priority support", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "On-prem deployment", free: false, perVideo: false, standard: false, pro: false, customized: true },
               ].map((row, i) => (
@@ -1019,8 +921,6 @@ export default function Pricing() {
         onReactivate={handleReactivate}
         reactivating={reactivating}
       />
-<<<<<<< HEAD
-=======
 
       <PlanSwitchConfirmModal
         open={Boolean(pendingSwitch)}
@@ -1122,7 +1022,6 @@ export default function Pricing() {
         </div>,
         document.body
       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </div>
   );
 }

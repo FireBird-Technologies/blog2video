@@ -7,8 +7,6 @@ from app.dspy_modules import ensure_dspy_configured
 from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
     generate_chart_props_from_table_hints,
-<<<<<<< HEAD
-=======
     reconcile_chart_units,
     generate_terminal_chart_candlestick_items,
     generate_terminal_table_items,
@@ -20,7 +18,6 @@ from app.services.chart_planner import (
     _extract_tables_from_visual_hint,
     _score_table_for_scene,
     is_laduc_ticker_table,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 )
 from app.services.template_service import (
     get_prompt,
@@ -92,8 +89,6 @@ class BuiltInTemplateSceneToDescriptor(dspy.Signature):
     - For charts: extract ALL data points mentioned (categories, values, time points)
     - If a prop is optional and not in narration, omit it (don't guess)
     - Use EXACT prop key names from the layout catalog (e.g., "barChartRows" not "bar_chart", "metrics" not "metric")
-<<<<<<< HEAD
-=======
 
     ═══ CHART DATA INTEGRITY — BLOOMBERG TERMINAL/DATAVIZ LAYOUTS ═══
     - NEVER invent, fabricate, or guess year/date labels for chart data points.
@@ -102,7 +97,6 @@ class BuiltInTemplateSceneToDescriptor(dspy.Signature):
     - Use ONLY the exact labels present in the embedded table headers/rows.
     - If no time labels exist in the source table, use the row index (1, 2, 3...) or omit labels entirely.
     - The chartTable prop is always overridden deterministically from the raw table data — do not set it yourself.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     ═══ OUTPUT FORMAT ═══
     - layout: exact layout ID from catalog (lowercase, underscores)
@@ -504,114 +498,6 @@ class TemplateSceneGenerator:
         scene_index: int | None = None,
     ) -> dict:
         if layout != "data_visualization":
-<<<<<<< HEAD
-            return props
-
-        out = dict(props or {})
-
-        # Enforce chartTable-only data payloads for data_visualization even if
-        # planner cannot derive table props for this scene.
-        for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
-            out.pop(key, None)
-
-        preferred_table_index = None
-        if isinstance(scene_index, int):
-            preferred_table_index = self._newscast_data_viz_table_by_scene.get(scene_index)
-
-        planned = generate_chart_props_from_table_hints(
-            visual_description=visual_description,
-            scene_title=scene_title,
-            narration=narration,
-            preferred_table_index=preferred_table_index,
-        )
-        if not planned:
-            return out
-
-        chart_keys = {
-            "chartType",
-            "chartTable",
-            "marketSymbol",
-            "marketValue",
-            "marketDelta",
-            "marketPercent",
-            "marketTrend",
-        }
-
-        # Planner output is deterministic from extracted table hints, while model
-        # output may include noisy numeric hallucinations from mixed text cells.
-        # Prefer planner chart payload when available.
-        for k, v in planned.items():
-            if k in chart_keys:
-                if k == "chartType" and out.get("chartType"):
-                    continue
-                out[k] = v
-
-        return out
-
-    def _plan_newscast_data_visualization_targets(self, scenes_data: list[dict]) -> None:
-        self._newscast_forced_data_viz_scenes = set()
-        self._newscast_data_viz_table_by_scene = {}
-        if self.template_id != "newscast" or not scenes_data:
-            return
-
-        first_visual = str((scenes_data[0] or {}).get("visual_description") or "")
-
-        # Fix 1: only count tables that actually produce chart props.
-        chartable_tables = get_chartable_tables_from_visual_hint(first_visual)
-        if len(chartable_tables) < 2:
-            return
-
-        target_count = min(3, len(chartable_tables))
-
-        eligible: list[int] = []
-        total = len(scenes_data)
-        for i, scene in enumerate(scenes_data):
-            if i == 0:
-                continue
-            preferred = str(scene.get("preferred_layout") or "").strip().lower()
-            if preferred == "ending_socials":
-                continue
-            if total <= 4 and i == total - 1:
-                continue
-            # Fix 3: skip scenes whose visual description already signals a
-            # specific non-data layout (e.g. "story stack list …").
-            vis = str(scene.get("visual_description") or "")
-            if _visual_hints_at_layout(vis):
-                continue
-            eligible.append(i)
-
-        if not eligible:
-            return
-
-        # Spread targets across the timeline (middle-to-late content scenes).
-        chosen: list[int] = []
-        for slot in range(target_count):
-            pos = round((slot + 1) * (len(eligible) + 1) / (target_count + 1)) - 1
-            pos = max(0, min(len(eligible) - 1, pos))
-            candidate = eligible[pos]
-            if candidate not in chosen:
-                chosen.append(candidate)
-
-        for idx in eligible:
-            if len(chosen) >= target_count:
-                break
-            if idx not in chosen:
-                chosen.append(idx)
-
-        chosen = sorted(chosen)[:target_count]
-        for n, scene_idx in enumerate(chosen):
-            self._newscast_forced_data_viz_scenes.add(scene_idx)
-            orig_idx = chartable_tables[n % len(chartable_tables)][0]
-            self._newscast_data_viz_table_by_scene[scene_idx] = orig_idx
-            scenes_data[scene_idx]["preferred_layout"] = "data_visualization"
-
-    def _validate_props(self, layout: str, props: dict) -> dict:
-        """Validate props against layout schema in meta. If no schema, pass through."""
-        layout_meta = (self._meta or {}).get("layouts", {}).get(layout, {})
-        prop_schema = layout_meta.get("props", {})
-        if not prop_schema:
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             return props
 
         out = dict(props or {})
@@ -1869,12 +1755,6 @@ class TemplateSceneGenerator:
                 self._valid_arrangements, self._hero_arrangement,
             )
 
-<<<<<<< HEAD
-        # Built-in newscast only: when multiple tables are present in hints, force
-        # 2-3 scenes toward data_visualization and rotate table sources.
-        if not self._is_custom:
-            self._plan_newscast_data_visualization_targets(scenes_data)
-=======
         # Built-in templates: run template-specific table targeting as a fallback.
         # For newscast this may force data_visualization scenes; for bloomberg the
         # upstream binding (pipeline._generate_script) is preferred — these methods
@@ -1922,7 +1802,6 @@ class TemplateSceneGenerator:
                     and isinstance(scene.get("data_table_index"), int)
                 ):
                     self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         results: list[dict] = [{}] * total
 
@@ -2030,10 +1909,7 @@ class TemplateSceneGenerator:
 
                 props = self._parse_props_json(result.layout_props_json)
                 validated_props = self._validate_props(layout, props)
-<<<<<<< HEAD
-=======
                 validated_props = self._strip_example_stats(layout, validated_props)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 validated_props = self._merge_chart_planner_props(
                     layout=layout,
                     props=validated_props,
@@ -2042,8 +1918,6 @@ class TemplateSceneGenerator:
                     narration=narration,
                     scene_index=scene_index,
                 )
-<<<<<<< HEAD
-=======
                 validated_props = self._merge_bloomberg_table_props(
                     layout=layout,
                     props=validated_props,
@@ -2108,7 +1982,6 @@ class TemplateSceneGenerator:
                         scene_index,
                         layout,
                     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
                 chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
                 chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None
@@ -2135,8 +2008,6 @@ class TemplateSceneGenerator:
                         scene_index,
                         layout,
                     )
-<<<<<<< HEAD
-=======
 
                 # terminal_dataviz guard: if we ended up here with no chartTable,
                 # fall back to the template fallback to avoid rendering an empty chart.
@@ -2173,7 +2044,6 @@ class TemplateSceneGenerator:
                         chart_layout,
                         layout,
                     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
                 self.variety_tracker.record(layout)
                 return {"layout": layout, "layoutProps": validated_props}
@@ -2224,10 +2094,7 @@ class TemplateSceneGenerator:
 
         props = self._parse_props_json(result.layout_props_json)
         validated_props = self._validate_props(layout, props)
-<<<<<<< HEAD
-=======
         validated_props = self._strip_example_stats(layout, validated_props)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         validated_props = self._merge_chart_planner_props(
             layout=layout,
             props=validated_props,
@@ -2236,8 +2103,6 @@ class TemplateSceneGenerator:
             narration=narration,
             scene_index=scene_index,
         )
-<<<<<<< HEAD
-=======
         validated_props = self._merge_bloomberg_table_props(
             layout=layout,
             props=validated_props,
@@ -2287,7 +2152,6 @@ class TemplateSceneGenerator:
                 "[SCENE_GEN] Regenerate: terminal_chart rejected (no data), falling back to '%s'",
                 layout,
             )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
         chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None
@@ -2309,8 +2173,6 @@ class TemplateSceneGenerator:
                 layout,
             )
 
-<<<<<<< HEAD
-=======
         # terminal_dataviz guard: same as above for bloomberg.
         if layout == "terminal_dataviz" and not has_chart_table:
             layout = self._fallback_layout
@@ -2321,5 +2183,4 @@ class TemplateSceneGenerator:
                 layout,
             )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         return {"layout": layout, "layoutProps": validated_props}

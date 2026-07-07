@@ -10,8 +10,6 @@ import ErrorModal, { type ErrorModalHeadingVariant } from "../components/ErrorMo
 export const DEFAULT_ERROR_MESSAGE =
   "We got an unexpected error, please try again or contact support.";
 
-<<<<<<< HEAD
-=======
 /**
  * Shown when the backend is briefly unreachable — most commonly while a new
  * version is being deployed (old container is torn down before the new one is
@@ -46,7 +44,6 @@ export function isMaintenanceError(err: unknown): boolean {
   return false;
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export type ErrorModalVariant = ErrorModalHeadingVariant;
 
 interface ErrorOptions {
@@ -67,11 +64,6 @@ export function ErrorModalProvider({ children }: { children: ReactNode }) {
   const [variant, setVariant] = useState<ErrorModalHeadingVariant>("default");
 
   const showError = useCallback((msg: string, options?: ErrorOptions) => {
-<<<<<<< HEAD
-    setMessage(msg && msg.trim() ? msg : DEFAULT_ERROR_MESSAGE);
-    setShowUpgrade(Boolean(options?.showUpgrade));
-    setVariant(options?.variant === "pipeline" ? "pipeline" : "default");
-=======
     const finalMsg = msg && msg.trim() ? msg : DEFAULT_ERROR_MESSAGE;
     setMessage(finalMsg);
     setShowUpgrade(Boolean(options?.showUpgrade));
@@ -83,7 +75,6 @@ export function ErrorModalProvider({ children }: { children: ReactNode }) {
       nextVariant = "maintenance";
     }
     setVariant(nextVariant);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   }, []);
 
   const close = useCallback(() => {
@@ -135,12 +126,9 @@ export function getErrorMessage(
     ) {
       return detail.message;
     }
-<<<<<<< HEAD
-=======
   }
   if (err instanceof Error && err.message.trim()) {
     return err.message;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   }
   return fallback;
 }

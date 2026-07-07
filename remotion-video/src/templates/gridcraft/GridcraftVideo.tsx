@@ -50,9 +50,6 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: number | string;
   aspectRatio?: string;
-<<<<<<< HEAD
-  fontFamily?: string | null;
-=======
   playbackSpeed?: number;
   fontFamily?: string | null;
   bgmFile?: string | null;
@@ -62,7 +59,6 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
@@ -112,11 +108,7 @@ export const calculateGridcraftMetadata: CalculateMetadataFunction<VideoProps> =
       const sceneFrames = data.scenes.map((s) =>
         getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
-<<<<<<< HEAD
-      const totalFrames = Math.ceil(totalSeconds * FPS);
-=======
       const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       const isPortrait = data.aspectRatio === "portrait";
 
@@ -363,11 +355,8 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || COLORS.DARK,
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily: resolvedFontFamily || undefined,
         };
 

@@ -1,9 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
-<<<<<<< HEAD
-=======
 import { AccentBars, SpotlightBeam, StreakField } from "../components/SpotlightArtifacts";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 

@@ -522,17 +522,12 @@ def _scrape_with_requests(url: str) -> tuple[str, list[str], list[dict]]:
         hero_url = _extract_og_image_from_soup(soup, url)
         image_urls = _extract_image_urls(soup, url)
 
-<<<<<<< HEAD
-    extracted_tables = extract_tables_from_html(response.text, source="requests_html")
-    return text, image_urls, extracted_tables
-=======
         # Ensure hero image is first and deduplicated
         if hero_url:
             image_urls = [hero_url] + [u for u in image_urls if u != hero_url]
 
         extracted_tables = extract_tables_from_html(response.text, source="requests_html")
         return text, image_urls, extracted_tables
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _extract_og_image(url: str) -> str | None:

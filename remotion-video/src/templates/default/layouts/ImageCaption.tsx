@@ -140,11 +140,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         alignItems: "center",
         justifyContent: !hasImage ? "center" : undefined,
         padding: p ? "60px 50px" : "60px 80px",
-<<<<<<< HEAD
-        gap: hasImage ? (p ? 80 : 56) : 0, // No gap if no image
-=======
         gap: hasImage ? (p ? 80 : 56) : 0,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         overflow: "hidden",
       }}
     >
@@ -171,9 +167,6 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         >
           <AnimatedImage
             src={imageUrl!} // imageUrl is guaranteed to exist here due to `hasImage` condition
-<<<<<<< HEAD
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-=======
             style={{
               width: "100%",
               height: "100%",
@@ -182,7 +175,6 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
                 transform: `scale(${imageZoom ?? 1})`,
                 transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
             }}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           />
         </div>
       )}
@@ -190,12 +182,6 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
       {/* Text area */}
       <div
         style={{
-<<<<<<< HEAD
-          flex: hasImage ? (p ? "none" : 1) : 1, // If no image, text takes full available flex space.
-          opacity: currentTextOpacity,
-          transform: `translateY(${currentTextTranslateY}px) translateX(${currentTextTranslateX}px) scale(${currentTextScale})`,
-          textAlign: hasImage ? (p ? "center" : "left") : "center", // Center text if no image
-=======
           flex: hasImage ? (p ? "none" : 1) : "none",
           width: !hasImage ? (p ? "90%" : "70%") : undefined,
           opacity: currentTextOpacity,
@@ -204,7 +190,6 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         }}
       >
         <div

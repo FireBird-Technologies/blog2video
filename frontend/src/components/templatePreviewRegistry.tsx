@@ -8,11 +8,6 @@ import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 import NewscastPreview from "./templatePreviews/NewscastPreview";
 import BlackswanPreview from "./templatePreviews/BlackswanPreview";
-<<<<<<< HEAD
-
-/** Preview components keyed by built-in template id from the API. */
-export const TEMPLATE_PREVIEWS: Record<string, FC> = {
-=======
 import MosaicPreview from "./templatePreviews/MosaicPreview";
 import BloombergPreview from "./templatePreviews/BloombergPreview";
 import ChroniclePreview from "./templatePreviews/ChroniclePreview";
@@ -47,7 +42,6 @@ import { withPoster } from "./templatePreviews/PosterOrPlayer";
 // wrapped with `withPoster` below so it shows a static poster in thumbnailMode
 // (holding zero Players) and only renders the live preview when active.
 const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   default: DefaultPreview,
   nightfall: NightfallPreview,
   gridcraft: GridcraftPreview,
@@ -57,10 +51,6 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   newspaper: NewsPaperPreview,
   newscast: NewscastPreview,
   blackswan: BlackswanPreview,
-<<<<<<< HEAD
-};
-
-=======
   mosaic: MosaicPreview,
   bloomberg: BloombergPreview,
   chronicle: ChroniclePreview,
@@ -127,7 +117,6 @@ export function posterUrl(id: string, orientation: PosterOrientation): string {
     : `/template-posters/${id}.webp`;
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
   default: { title: "Geometric Explainer", subtitle: "Clean purple & white, geometric tech style" },
   nightfall: { title: "Nightfall", subtitle: "Dark cinematic glass aesthetic" },
@@ -144,8 +133,6 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
     title: "Black Swan",
     subtitle: "Neon-on-black cinematic ripples, swan energy, and data scenes",
   },
-<<<<<<< HEAD
-=======
   mosaic: {
     title: "Mosaic",
     subtitle: "Tessellated tile layouts with elegant guide lines and data panels",
@@ -166,7 +153,6 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   magazine: { title: "Magazine", subtitle: "Glossy editorial storytelling" },
   stickman_football: { title: "Stickman Football Match", subtitle: "Hand-drawn football action for match recaps & highlights" },
   sakura: { title: "Sakura", subtitle: "Japanese-aesthetic blog-to-video theme" },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };
 
 /** Purple primary "New" chip when template meta.json has new_template: true */
@@ -180,8 +166,6 @@ export function NewTemplateBadge({ className = "" }: { className?: string }) {
   );
 }
 
-<<<<<<< HEAD
-=======
 /** Amber "Popular" chip for templates marked popular_template: true */
 export function PopularTemplateBadge({ className = "" }: { className?: string }) {
   return (
@@ -193,7 +177,6 @@ export function PopularTemplateBadge({ className = "" }: { className?: string })
   );
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 /** Same treatment as {@link NewTemplateBadge} — used on custom template thumbnails in pickers. */
 export function CustomTemplateBadge({ className = "" }: { className?: string }) {
   return (

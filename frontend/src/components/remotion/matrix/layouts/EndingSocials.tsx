@@ -1,17 +1,11 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
-<<<<<<< HEAD
-import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
-import type { MatrixLayoutProps } from "../types";
-import { SocialIcons } from "../../SocialIcons";
-=======
 import { CipherRing, CodeFragments, RainBurst, ScanlinesOverlay } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { resolveCtas } from "../../../../utils/resolveCtas";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const GLITCH_CHARS = "アイウエオカキクケコ0123456789!@#$%^&*<>{}[]";
 
@@ -73,10 +67,7 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
-<<<<<<< HEAD
-=======
   ctas,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   bgColor,
   textColor,
@@ -92,15 +83,6 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   const resolvedFontFamily = (fontFamily ?? "").trim() || MATRIX_DEFAULT_FONT_FAMILY;
 
   const subtext = (narration ?? "").trim();
-<<<<<<< HEAD
-  const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
-
-  // --- Dynamic Sizing ---
-  const resolvedTitleSize = titleFontSize ?? (p ? 76 : 57);
-  const resolvedCtaSize = resolvedTitleSize * 1.2;
-=======
 
   // CTA cards (1-3). Only render cards with toggle on + a link.
   const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
@@ -113,7 +95,6 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   const resolvedTitleSize = titleFontSize ?? (p ? 76 : 57);
   const baseCtaSize = resolvedTitleSize * 1.2;
   const ctaSize = cardCount === 1 ? baseCtaSize : Math.max(28, baseCtaSize * 0.5);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // --- Timing logic ---
   const titleStart = 10;
@@ -137,15 +118,12 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <MatrixBackground bgColor={bgColor} opacity={0.25 * bgOpacity} fontFamily={resolvedFontFamily} />
 
-<<<<<<< HEAD
-=======
       {/* Decorative artifacts — rain surge, cipher dial, readouts, CRT texture for the outro. */}
       <RainBurst accentColor={accent} centerX={50} widthPct={85} columns={14} startFrame={0} seed={47} />
       <CipherRing accentColor={accent} scale={0.85} startFrame={Math.max(0, socialStart - 6)} seed={49} />
       <CodeFragments accentColor={accent} count={8} seed={75} startFrame={14} />
       <ScanlinesOverlay accentColor={accent} intensity={0.8} />
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       {/* 1. TOP GROUP: Moved significantly lower toward center */}
       <div style={{
         position: "absolute",
@@ -224,57 +202,6 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
         </div>
       </div>
 
-<<<<<<< HEAD
-      {/* 2. BOTTOM GROUP: Moved significantly higher toward center */}
-      {showWebsiteCta && (
-        <div style={{
-          position: "absolute",
-          bottom: p ? "18%" : "15%", // Increased from 8%/7% to move toward center
-          left: 0,
-          right: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          zIndex: 2,
-        }}>
-          {/* Large CTA Button */}
-          <div style={{
-            padding: p ? "15px 35px" : "12px 28px",
-            border: `2px solid ${accent}66`,
-            borderRadius: 12,
-            boxShadow: `0 0 25px ${accent}44`,
-            background: "rgba(0,0,0,0.5)",
-          }}>
-             <DecodeText
-                text={resolvedCta}
-                startFrame={ctaStart}
-                decodeFramesPerChar={2}
-                accent={accent}
-                fontFamily={resolvedFontFamily}
-                style={{
-                  color: accent,
-                  fontSize: resolvedCtaSize,
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  lineHeight: 1,
-                  letterSpacing: "0.02em",
-                }}
-              />
-          </div>
-          
-          {/* Website Link */}
-          <div style={{ 
-            marginTop: 10,
-            fontSize: p ? 24 : 20, 
-            color: textColor || "#00FF41", 
-            opacity: otherElementsOpacity,
-            fontFamily: resolvedFontFamily,
-            letterSpacing: "0.05em",
-            fontWeight: 600,
-          }}>
-            {resolvedWebsiteLink}
-          </div>
-=======
       {/* 2. BOTTOM GROUP — 1/2/3 CTA columns */}
       {hasAnyCard && (
         <div style={{
@@ -343,7 +270,6 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
               </div>
             </div>
           ))}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
       )}
     </AbsoluteFill>

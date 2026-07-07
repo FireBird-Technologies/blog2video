@@ -1,9 +1,5 @@
 import React from "react";
-<<<<<<< HEAD
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img } from "remotion";
-=======
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import type { NewscastLayoutProps } from "./types";
 import {
   DEFAULT_NEWSCAST_ACCENT,
@@ -19,10 +15,7 @@ import {
   headlineTextShadow,
   panelTumbleStyle,
 } from "../newscastLayoutMotion";
-<<<<<<< HEAD
-=======
 import { ZoomCropImg } from "../components/ZoomCropImg";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const NAVY_PANEL = "rgba(10,42,110,0.28)";
 const BORDER = "rgba(200,220,255,0.25)";
@@ -33,11 +26,8 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
   narration,
   category,
   imageUrl,
-<<<<<<< HEAD
-=======
   imageObjectPosition,
   imageZoom,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   tickerItems,
   lowerThirdTag,
   lowerThirdHeadline,
@@ -250,33 +240,20 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
               <div
                 style={{
                   flex: "0 0 40%",
-<<<<<<< HEAD
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  alignSelf: "center",
-=======
                   minHeight: 0,
                   borderRadius: 12,
                   overflow: "hidden",
                   alignSelf: "stretch",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   position: "relative",
                   opacity: imageOpacity,
                   transform: `translateX(${foldRightX}px) translateY(${imageY}px) scale(${imageScale})`,
                 }}
               >
-<<<<<<< HEAD
-                <Img
-                  src={imageUrl}
-                  alt=""
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-=======
                 <ZoomCropImg
                   src={imageUrl}
                   imageObjectPosition={imageObjectPosition}
                   imageZoom={imageZoom}
                   alt=""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 />
                 <div
                   aria-hidden
@@ -359,7 +336,4 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
   );
 };
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

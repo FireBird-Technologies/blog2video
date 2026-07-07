@@ -153,17 +153,10 @@ SEED_PLANS = [
     {
         "slug": "free",
         "name": "Free",
-<<<<<<< HEAD
-        "description": "3 videos free — no credit card needed",
-        "price_cents": 0,
-        "billing_interval": BillingInterval.ONE_TIME,
-        "video_limit": 3,
-=======
         "description": "2 videos free — no credit card needed",
         "price_cents": 0,
         "billing_interval": BillingInterval.ONE_TIME,
         "video_limit": 2,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         "includes_studio": False,
         "includes_chat_editor": False,
         "includes_priority_support": False,

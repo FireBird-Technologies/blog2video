@@ -10,13 +10,6 @@ const isCI = isCloudflare || isVercel;
 export default defineConfig({
   plugins: [react()],
   resolve: {
-<<<<<<< HEAD
-    alias: {
-      "@remotion-video/templates": isCI
-          ? path.resolve(__dirname, "./src/components/remotion")
-          : path.resolve(__dirname, "../remotion-video/src/templates"),
-    },
-=======
     // Array form required so RegExp entries can co-exist with string entries.
     // The sibling `remotion-video/` workspace is pulled in via the
     // `@remotion-video/templates` alias in local dev. Its source files may
@@ -57,7 +50,6 @@ export default defineConfig({
         replacement: path.resolve(__dirname, "node_modules/@remotion/transitions"),
       },
     ],
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   },
   server: {
     port: 5173,

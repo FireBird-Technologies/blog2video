@@ -21,14 +21,9 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   bgColor,
   aspectRatio,
   titleFontSize,
-<<<<<<< HEAD
-  descriptionFontSize,
-  imageUrl,
-=======
   descriptionFontSize,imageUrl,
   imageObjectPosition,
   imageZoom,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   fontFamily,
 }) => {
   const frame = useCurrentFrame();

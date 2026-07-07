@@ -42,9 +42,6 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: number | string;
   aspectRatio?: string;
-<<<<<<< HEAD
-  fontFamily?: string | null;
-=======
   playbackSpeed?: number;
   fontFamily?: string | null;
   bgmFile?: string | null;
@@ -54,7 +51,6 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
@@ -162,11 +158,8 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#111111",
           aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
           imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily: resolvedFontFamily || undefined,
         };
 

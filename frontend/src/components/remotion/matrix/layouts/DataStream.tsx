@@ -1,9 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
-<<<<<<< HEAD
-=======
 import { buildHudStatus, DecodeSweep, GridTunnel, ScanlinesOverlay, TelemetryGauge, TerminalHUD } from "../components/MatrixArtifacts";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -84,8 +81,6 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
-<<<<<<< HEAD
-=======
 
       {/* Decorative artifacts — wireframe floor, HUD edges, decode pass, CRT texture. */}
       <GridTunnel accentColor={accent} intensity={0.9} />
@@ -94,7 +89,6 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
       {!p && <TelemetryGauge accentColor={accent} label="LOAD" corner="top-right" startFrame={8} seed={65} />}
       <DecodeSweep accentColor={accent} startFrame={2} seed={57} />
       <ScanlinesOverlay accentColor={accent} intensity={0.8} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       <div
         style={{
@@ -122,18 +116,6 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
               transform: `translateX(${imageTranslateX}px) scale(${imageScale})`,
             }}
           >
-<<<<<<< HEAD
-            <Img
-              src={imageUrl}
-              style={{
-                width: "100%",
-                height: "auto",
-                maxHeight: p ? 260 : 300,
-                objectFit: "contain",
-                borderRadius: 8,
-              }}
-            />
-=======
             <div
               style={{
                 width: "100%",
@@ -148,7 +130,6 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                 imageZoom={imageZoom}
               />
             </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
         )}
 

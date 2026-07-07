@@ -1,20 +1,14 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { SocialIcons } from "./SocialIcons";
-<<<<<<< HEAD
-=======
 import { resolveCtas } from "../../utils/resolveCtas";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 interface CtaProps {
   socials?: Record<string, { enabled?: boolean; label?: string }>;
   showWebsiteButton?: boolean;
   websiteLink?: string;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   ctas?: unknown;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export interface CtaOverlayProps {
@@ -65,17 +59,11 @@ export const CtaOverlay: React.FC<CtaOverlayProps> = ({
     [0.8, 1],
   );
 
-<<<<<<< HEAD
-  const showWebsiteCta =
-    ctaProps.showWebsiteButton !== false &&
-    (ctaProps.websiteLink ?? "").trim().length > 0;
-=======
   const cards = resolveCtas(ctaProps).filter(
     (c) => c.showWebsiteButton && c.websiteLink.length > 0,
   );
   const hasAnyCard = cards.length > 0;
   const cardCount = Math.min(Math.max(cards.length, 1), 3);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const hasSocials =
     ctaProps.socials &&
@@ -87,10 +75,6 @@ export const CtaOverlay: React.FC<CtaOverlayProps> = ({
   const titleFont = headingFont || bodyFont || "'Inter', sans-serif";
   const font = bodyFont || "'Inter', sans-serif";
 
-<<<<<<< HEAD
-  return (
-    <AbsoluteFill style={{ backgroundColor: bg, overflow: "hidden" }}>
-=======
   const cardBasis = cardCount === 1 ? (p ? "80%" : "60%") : cardCount === 2 ? "45%" : "30%";
 
   // Brand-accent atmosphere — mirrors the render overlay (GeneratedCtaOverlay)
@@ -100,7 +84,6 @@ export const CtaOverlay: React.FC<CtaOverlayProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: bg, overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0, background: backdrop, opacity: interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" }) }} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 6, backgroundColor: accent }} />
 
       <div
@@ -156,15 +139,6 @@ export const CtaOverlay: React.FC<CtaOverlayProps> = ({
           }}
         />
 
-<<<<<<< HEAD
-        {showWebsiteCta && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: p ? 10 : 12,
-=======
         {hasAnyCard && (
           <div
             style={{
@@ -175,42 +149,10 @@ export const CtaOverlay: React.FC<CtaOverlayProps> = ({
               alignItems: "flex-start",
               gap: p ? 18 : 28,
               width: "100%",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               opacity: ctaOp,
               transform: `scale(${ctaScale})`,
             }}
           >
-<<<<<<< HEAD
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                borderRadius: 999,
-                padding: p ? "18px 36px" : "16px 32px",
-                backgroundColor: accent,
-                color: "#FFFFFF",
-                fontSize: p ? 28 : 26,
-                fontWeight: 700,
-                fontFamily: font,
-              }}
-            >
-              <span>{(ctaProps.ctaButtonText ?? "").trim() || "Get started"}</span>
-              <span style={{ fontSize: p ? 30 : 28 }}>→</span>
-            </div>
-            <div
-              style={{
-                fontSize: p ? 26 : 24,
-                fontWeight: 600,
-                color: `${text}AA`,
-                fontFamily: font,
-                maxWidth: p ? 560 : 760,
-                wordBreak: "break-word",
-              }}
-            >
-              {(ctaProps.websiteLink ?? "").trim()}
-            </div>
-=======
             {cards.map((card, idx) => {
               const ctaLabel = card.ctaButtonText.trim() || "Get started";
               return (
@@ -258,7 +200,6 @@ export const CtaOverlay: React.FC<CtaOverlayProps> = ({
                 </div>
               );
             })}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
         )}
 

@@ -32,9 +32,6 @@ from app.schemas.schemas import (
 )
 from app.config import settings
 from app.services.scraper import scrape_blog
-<<<<<<< HEAD
-from app.services.table_extraction import build_table_context_hint, extract_tables_from_content
-=======
 from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content, classify_chart_tables_for_template, append_tables_to_content
 from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
@@ -46,16 +43,11 @@ from app.services.chart_planner import (
     extract_ticker_items_from_blog,
     sanitize_chart_descriptor,
 )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from app.services.scraper import scrape_blog, BlogScrapeFailed
 from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
-<<<<<<< HEAD
-    PUBLIC_MSG_SCRAPE_FAILED,
-=======
     format_scrape_failed_public_message,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 )
 from app.services.language_detection import get_content_language_for_project
 from app.services.voiceover import generate_all_voiceovers
@@ -85,11 +77,6 @@ from app.services.template_service import (
     validate_template_id,
     get_layout_prompt,
     get_valid_layouts,
-<<<<<<< HEAD
-    is_custom_template,
-    _load_custom_template_data,
-)
-=======
     get_hero_layout,
     get_fallback_layout,
     get_script_style_hint,
@@ -101,7 +88,6 @@ from app.services.template_service import (
     is_builtin_ticker_layout,
 )
 from app.services.crafted_template_service import validate_crafted_template_access
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -128,8 +114,6 @@ _pipelines_failed = _meter.create_counter(
     description="Number of pipelines that failed",
 )
 
-<<<<<<< HEAD
-=======
 # Wealth Your Way ending scene is fully frozen — every video closes with the
 # same title, narration, and two CTA pills (Substack + Amazon).
 # Matches both the local-template id ("wealth_your_way") and the crafted/R2
@@ -360,7 +344,6 @@ def _sanitize_script_layouts(
 
     return scenes_raw
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 # ─── Single async generate endpoint ──────────────────────────
 
@@ -509,11 +492,7 @@ async def _run_pipeline(project_id: int, user_id: int):
                             db,
                             project_id,
                             user_id,
-<<<<<<< HEAD
-                            public_message=PUBLIC_MSG_SCRAPE_FAILED,
-=======
                             public_message=format_scrape_failed_public_message(project.blog_url),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             error_code="scrape_failed",
                             exc=e,
                         )
@@ -525,18 +504,12 @@ async def _run_pipeline(project_id: int, user_id: int):
                             db,
                             project_id,
                             user_id,
-<<<<<<< HEAD
-                            public_message=PUBLIC_MSG_SCRAPE_FAILED,
-=======
                             public_message=format_scrape_failed_public_message(project.blog_url),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             error_code="scrape_failed",
                             exc=e,
                         )
                         return
 
-<<<<<<< HEAD
-=======
             # Step 1.5: Resolve "auto" video_style now that we have scraped content.
             # The user picked "Auto" in the form → pick concrete style based on the article.
             if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED) \
@@ -550,7 +523,6 @@ async def _run_pipeline(project_id: int, user_id: int):
                     project_id, resolved,
                 )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             # Step 2: Generate script (async DSPy)
             if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED):
                 _pipeline_progress[project_id]["step"] = 2
@@ -788,14 +760,6 @@ async def _generate_script(
     hero_image = image_paths[0] if image_paths else ""
 
     # Determine template and load its layout prompt (layout-only catalog).
-<<<<<<< HEAD
-    template_id = validate_template_id(project.template if project.template else "default")
-    try:
-        layout_catalog = get_layout_prompt(template_id)
-    except Exception:
-        layout_catalog = ""
-
-=======
     template_id = validate_template_id(
         project.template if project.template else "default",
         db=db,
@@ -833,7 +797,6 @@ async def _generate_script(
                 + "\n".join(_constraints)
             )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     content_language = get_content_language_for_project(project)
     requested_video_length = getattr(project, "video_length", "auto") or "auto"
     video_style = getattr(project, "video_style", "explainer") or "explainer"
@@ -843,12 +806,6 @@ async def _generate_script(
     ) -> str:
         """Prevent hallucination: if content is short, downshift scene count.
 
-<<<<<<< HEAD
-        Only applies when user explicitly requests a longer video length.
-        """
-        req = (requested or "auto").strip().lower()
-        if req not in {"detailed", "medium", "short", "auto"}:
-=======
         Word thresholds per tier (content must meet minimum to justify the length):
           short        — no minimum
           medium       — 5 00 words  (else → short)
@@ -857,72 +814,11 @@ async def _generate_script(
         """
         req = (requested or "auto").strip().lower()
         if req not in {"mdetailed", "detailed", "medium", "short", "auto"}:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             return "auto"
         if req in {"auto", "short"}:
             return req
 
         text = (blog_content or "").strip()
-<<<<<<< HEAD
-        # Count words in prose-ish content; keep it simple and robust.
-        words = len([w for w in re.split(r"\s+", text) if w])
-
-        # Heuristic thresholds:
-        # - Very short posts can't support 15–20 distinct scenes without invention.
-        # - This keeps output grounded in the actual source.
-        if req == "medium":
-            return "short" if words < 250 else "medium"
-
-        # req == "detailed"
-        if words < 250:
-            return "short"
-        if words < 600:
-            return "medium"
-        return "detailed"
-
-    effective_video_length = _effective_video_length_for_content(
-        getattr(project, "blog_content", None), requested_video_length, video_style
-    )
-
-    if effective_video_length != requested_video_length:
-        try:
-            if project.id in _pipeline_progress:
-                _pipeline_progress[project.id]["notice"] = {
-                    "code": "video_shortened",
-                    "message": "We shortened the video because the scraped/uploaded content was too short for your selected length.",
-                    "requested_video_length": requested_video_length,
-                    "effective_video_length": effective_video_length,
-                    "video_style": video_style,
-                }
-        except Exception:
-            pass
-        logger.info(
-            "[PIPELINE] Project %s: content too short for video_length=%s (style=%s). Using effective video_length=%s for script generation.",
-            project.id,
-            requested_video_length,
-            video_style,
-            effective_video_length,
-            extra={"project_id": project.id, "user_id": project.user_id},
-        )
-        
-    generator = ScriptGenerator()
-    # Only append an ending / follow-along scene when the template declares `ending_socials`
-    # in meta.json (e.g. newscast has no EndingSocials layout — forcing it would map to a fallback).
-    include_ending_socials = (
-        not is_custom_template(template_id)
-        and "ending_socials" in get_valid_layouts(template_id)
-    )
-    result = await generator.generate(
-        blog_content=project.blog_content,
-        blog_images=image_paths,
-        hero_image=hero_image,
-        aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
-        video_style=video_style,
-        video_length=effective_video_length,
-        layout_catalog=layout_catalog,
-        content_language=content_language,
-        include_ending_socials=include_ending_socials,
-=======
         words = len([w for w in re.split(r"\s+", text) if w])
 
         if req == "medium":
@@ -946,7 +842,6 @@ async def _generate_script(
 
     effective_video_length = _effective_video_length_for_content(
         getattr(project, "blog_content", None), requested_video_length, video_style
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     )
 
     if effective_video_length != requested_video_length:
@@ -1315,21 +1210,6 @@ async def _generate_script(
     db.query(Scene).filter(Scene.project_id == project.id).delete()
     db.flush()
 
-<<<<<<< HEAD
-    # Template-aware display text generation
-    video_style = getattr(project, "video_style", None) or "explainer"
-    scenes_raw: list[dict] = result["scenes"]
-
-    display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
-    display_texts = await display_gen.generate_for_scenes(scenes_raw)
-
-    for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
-        vd = scene_data["visual_description"]
-        if scene_data.get("preferred_layout") == "ending_socials":
-            cta = (scene_data.get("cta_button_text") or "").strip()
-            if cta:
-                vd = prepend_b2v_cta_to_visual(cta, vd)
-=======
     is_custom = is_custom_template(template_id)
 
     # Economist: precompute chartable tables by type + track which indices have
@@ -1465,7 +1345,6 @@ async def _generate_script(
         # (e.g. data_impact → market_annotation). The local `preferred` captured at
         # the top of this loop was set before that upgrade, so it would be stale.
         preferred = scene_data.get("preferred_layout")
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -1474,14 +1353,10 @@ async def _generate_script(
             visual_description=vd,
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
-<<<<<<< HEAD
-            preferred_layout=scene_data.get("preferred_layout"),
-=======
             preferred_layout=preferred,
             # Dedicated data-viz scenes (custom templates) carry an explicit
             # scene_type so GeneratedVideo routes them to the kit chart/table scenes.
             scene_type=scene_data.get("_scene_type"),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
         db.add(scene)
 
@@ -1549,18 +1424,7 @@ async def _generate_scenes(
         raise RuntimeError(f"Project {_project_id} disappeared before scene generation")
 
     scenes = project.scenes
-    extracted_tables = extract_tables_from_content(getattr(project, "blog_content", None) or "")
-    # Provide up to 3 tables so newscast can build 2-3 data visualization scenes.
-    table_context_hint = build_table_context_hint(extracted_tables, max_tables=3)
 
-<<<<<<< HEAD
-    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
-    scenes_data = []
-    for s in scenes:
-        _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
-        if table_context_hint:
-            vis = (vis.rstrip() + "\n\n" + table_context_hint).strip()
-=======
     # Wealth Your Way: freeze the ending scene's narration + title BEFORE the
     # voiceover task reads them, so TTS speaks the locked client copy. The
     # descriptor override later in this function locks the on-screen text and
@@ -1584,7 +1448,6 @@ async def _generate_scenes(
     scenes_data = []
     for s in scenes:
         _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         scenes_data.append(
             {
                 "title": s.title,
@@ -1596,15 +1459,11 @@ async def _generate_scenes(
 
     # Prepare scene descriptor generator
     db.refresh(project)
-<<<<<<< HEAD
-    template_id = validate_template_id(project.template if project.template else "default")
-=======
     template_id = validate_template_id(
         project.template if project.template else "default",
         db=db,
         user_id=project.user_id,
     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     logger.info("[PIPELINE] Project %s: template='%s', validated='%s'", project.id, project.template, template_id)
     supports_ending_socials = "ending_socials" in get_valid_layouts(template_id)
     scene_gen = TemplateSceneGenerator(template_id)
@@ -1620,19 +1479,12 @@ async def _generate_scenes(
             return
         if getattr(project, "voice_gender", None) == "none":
             logger.info("[PIPELINE] Skipping voiceover — no-audio mode for project %s", project.id)
-<<<<<<< HEAD
-=======
             from app.services.voiceover import DURATION_PAD
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             for scene in scenes:
                 if scene.narration_text:
                     word_count = len(scene.narration_text.split())
                     scene.duration_seconds = round(
-<<<<<<< HEAD
-                        max(settings.MIN_SCENE_DURATION_SECONDS, max(5.0, word_count / 2.5) + 1.0),
-=======
                         max(settings.MIN_SCENE_DURATION_SECONDS, max(5.0, word_count / 2.5) + DURATION_PAD),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         1,
                     )
                 else:
@@ -1641,12 +1493,6 @@ async def _generate_scenes(
             db.commit()
         else:
             content_lang = get_content_language_for_project(project)
-<<<<<<< HEAD
-            await generate_all_voiceovers(
-                scenes, db,
-                video_style=getattr(project, "video_style", None) or "explainer",
-                content_language=content_lang,
-=======
             # Advanced Options (paid) projects carry voice tuning in voice_emotion; those run on v3
             # with the [excited] tag, so write the narration emotively too (emphasis / "!" / CAPS).
             expressive = bool(getattr(project, "voice_emotion", None))
@@ -1655,7 +1501,6 @@ async def _generate_scenes(
                 video_style=getattr(project, "video_style", None) or "explainer",
                 content_language=content_lang,
                 expressive=expressive,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             )
             # generate_all_voiceovers swallows per-scene TTS failures (returns "" for a
             # failed scene). In strict mode (regenerate-script, which has a restorable
@@ -1688,11 +1533,8 @@ async def _generate_scenes(
 
             # Build descriptors in the format the rest of the pipeline expects
             # layoutConfig must be present so downstream checks detect custom template scenes
-<<<<<<< HEAD
-=======
             # Note: imageBoxAspectRatio is injected per-scene later in remotion.py once
             # the actual content variant index is known (via match_scenes_to_archetypes).
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             descriptors = []
             for sc in structured_contents:
                 descriptors.append({
@@ -1700,12 +1542,9 @@ async def _generate_scenes(
                     "layoutConfig": {},
                 })
 
-<<<<<<< HEAD
-=======
             # Chart data for the 2 dedicated data-viz scenes is bound separately
             # (into layoutProps) in the descriptor-application loop below, where
             # both the DB scene and its descriptor are in scope.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             print(f"[F7-DEBUG] [PIPELINE] Custom template: extracted structured content for {len(descriptors)} scenes in 1 call")
             return descriptors
         else:
@@ -1724,12 +1563,6 @@ async def _generate_scenes(
     # Run both concurrently
     _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())
 
-<<<<<<< HEAD
-    # Re-load scenes to pick up voiceover changes from per-thread DB sessions
-    # CRITICAL: We MUST explicitly expire the existing Scene objects in the Identity Map, 
-    # otherwise SQLAlchemy will return the stale `duration_seconds` (e.g. 10.0 or 5.0) 
-    # instead of the newly calculated audio lengths, overwriting them when we commit `remotion_code`.
-=======
     # Force a fresh DB checkout. The descriptor task is a long LLM call that
     # runs concurrently with the voiceover task — if voiceovers finish first,
     # the main session sits idle through the rest of the descriptor await and
@@ -1769,7 +1602,6 @@ async def _generate_scenes(
     # Re-load scenes to pick up voiceover changes from per-thread DB sessions.
     # expire_all is now redundant (db.close already cleared the identity map),
     # but kept as a no-op safeguard in case future code re-fetches before this.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     db.expire_all()
     scenes = project.scenes
 
@@ -1792,36 +1624,6 @@ async def _generate_scenes(
         else ""
     )
 
-<<<<<<< HEAD
-    # Store descriptors as JSON in remotion_code, preserving existing image assignments
-    for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
-        # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
-        # We override the descriptor here so Remotion can render the themed ending consistently.
-        if getattr(scene, "preferred_layout", None) == "ending_socials" and supports_ending_socials:
-            cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
-            cta = (cta_from_visual or "").strip()
-            try:
-                if scene.remotion_code:
-                    old_desc = json.loads(scene.remotion_code)
-                    old_lp = old_desc.get("layoutProps") or {}
-                    old_cta = old_lp.get("ctaButtonText")
-                    if isinstance(old_cta, str) and old_cta.strip():
-                        cta = old_cta.strip()
-            except (json.JSONDecodeError, TypeError):
-                pass
-            if not cta:
-                cta = "Get started"
-            descriptor = {
-                "layout": "ending_socials",
-                "layoutProps": {
-                    "hideImage": True,
-                    "socials": ending_socials_default,
-                    "showWebsiteButton": bool(source_link),
-                    "websiteLink": source_link,
-                    "ctaButtonText": cta,
-                },
-            }
-=======
     # Store descriptors as JSON in remotion_code, optionally preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
         # Dedicated data-viz scenes: recover the bound table from the scene's
@@ -1875,7 +1677,6 @@ async def _generate_scenes(
                         "ctaButtonText": cta,
                     },
                 }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         # Custom templates: inject CTA props into the last (outro) scene
         if is_custom_template(template_id) and i == len(scenes) - 1 and len(scenes) > 1:
@@ -1926,12 +1727,6 @@ async def _generate_scenes(
                 i, lc.get("arrangement"), len(lc.get("elements", [])), lc.get("decorations"),
             )
         else:
-<<<<<<< HEAD
-            logger.info(
-                "[PIPELINE] Scene %s stored: legacy layout=%s, layoutProps keys=%s",
-                i, descriptor.get("layout"), list(descriptor.get("layoutProps", {}).keys()),
-            )
-=======
             lp_keys = list(descriptor.get("layoutProps", {}).keys())
             logger.info(
                 "[PIPELINE] Scene %s stored: legacy layout=%s, layoutProps keys=%s",
@@ -1942,7 +1737,6 @@ async def _generate_scenes(
                     "[PIPELINE] Scene %s terminal_dataviz full layoutProps=%s",
                     i, json.dumps(descriptor.get("layoutProps", {})),
                 )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     db.commit()
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 
@@ -2002,13 +1796,6 @@ def scrape_blog_endpoint(
     except BlogScrapeFailed as e:
         logger.warning("[SCRAPE_ENDPOINT] BlogScrapeFailed project=%s: %s", project_id, e)
         _rollback_project_after_endpoint_failure(db, project_id, user.id)
-<<<<<<< HEAD
-        raise HTTPException(status_code=410, detail=PUBLIC_MSG_SCRAPE_FAILED)
-    except Exception as e:
-        logger.exception("[SCRAPE_ENDPOINT] project=%s", project_id)
-        _rollback_project_after_endpoint_failure(db, project_id, user.id)
-        raise HTTPException(status_code=410, detail=PUBLIC_MSG_SCRAPE_FAILED)
-=======
         raise HTTPException(
             status_code=410,
             detail=format_scrape_failed_public_message(project.blog_url),
@@ -2020,7 +1807,6 @@ def scrape_blog_endpoint(
             status_code=410,
             detail=format_scrape_failed_public_message(project.blog_url),
         )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 @router.post("/generate-script", response_model=ProjectOut)
@@ -2151,12 +1937,6 @@ async def render_video_endpoint(
             "r2_video_url": project.r2_video_url,
         }
 
-<<<<<<< HEAD
-    if is_custom_template(project.template) and _load_custom_template_data(project.template, db=db) is None:
-        raise HTTPException(
-            status_code=409,
-            detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
-=======
     if (is_custom_template(project.template) or is_crafted_template(project.template)) and _load_custom_template_data(
         project.template,
         db=db,
@@ -2170,17 +1950,13 @@ async def render_video_endpoint(
         raise HTTPException(
             status_code=403,
             detail="This project no longer has access to its crafted template.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
 
     # Align per-video credits with Stripe (same as project creation) before any limit check.
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:
         raise HTTPException(status_code=401, detail="Not authenticated")
-<<<<<<< HEAD
-=======
     user_row.roll_video_period_if_due(db)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     user_row.sync_video_limit_bonus(db)
     user_row = db.query(User).filter(User.id == user.id).first()
     if not user_row:

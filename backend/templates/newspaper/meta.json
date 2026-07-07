@@ -2,19 +2,12 @@
   "id": "newspaper",
   "name": "Newspaper",
   "new_template": false,
-<<<<<<< HEAD
-  "description": "Editorial news-style template with headline cards, article lead, pull quotes, data snapshots, fact-check panels, and timelines.",
-  "styles": [
-    "storytelling",
-    "explainer"
-=======
   "popular_template": true,
   "description": "Editorial news-style template with headline cards, article lead, pull quotes, data snapshots, fact-check panels, and timelines.",
   "genres": [
     "Politics",
     "Business",
     "History"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "preview_colors": {
     "accent": "#FFE34D",
@@ -31,13 +24,10 @@
     "data_snapshot",
     "fact_check",
     "news_timeline",
-<<<<<<< HEAD
-=======
     "data_visualisation",
     "expert_profile",
     "perspective_split",
     "ticker_table",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -45,21 +35,12 @@
       "label": "News Headline",
       "defaults": {
         "titleFontSize": {
-<<<<<<< HEAD
-          "portrait": 82,
-          "landscape": 78
-        },
-        "descriptionFontSize": {
-          "portrait": 39,
-          "landscape": 35
-=======
           "portrait": 77,
           "landscape": 68
         },
         "descriptionFontSize": {
           "portrait": 39,
           "landscape": 29
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         },
         "category": "News",
         "leftThought": "breakthrough, launch",
@@ -424,8 +405,6 @@
         }
       ]
     },
-<<<<<<< HEAD
-=======
     "data_visualisation": {
       "label": "Data Visualisation",
       "defaults": {
@@ -564,26 +543,16 @@
         }
       ]
     },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials": {
       "label": "Ending / Follow along",
       "defaults": {
         "titleFontSize": {
-<<<<<<< HEAD
-          "portrait": 88,
-          "landscape": 72
-        },
-        "descriptionFontSize": {
-          "portrait": 35,
-          "landscape": 27
-=======
           "portrait": 70,
           "landscape": 55
         },
         "descriptionFontSize": {
           "portrait": 38,
           "landscape": 25
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         },
         "hideImage": true,
         "socials": [
@@ -687,8 +656,6 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
-<<<<<<< HEAD
-=======
     },
     "expert_profile": {
       "label": "Expert Profile",
@@ -921,20 +888,15 @@
           "type": "string"
         }
       ]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
   },
   "layouts_without_image": [
     "pull_quote",
     "data_snapshot",
-<<<<<<< HEAD
-    "ending_socials"
-=======
     "data_visualisation",
     "ending_socials",
     "perspective_split",
     "ticker_table"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "features": [
     "News headline hero with category and byline",

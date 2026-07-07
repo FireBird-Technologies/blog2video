@@ -1,5 +1,3 @@
-import type { SocialsMap } from "../SocialIcons";
-
 /** Matrix template layout types. */
 import type { SocialsMap } from "../SocialIcons";
 
@@ -13,11 +11,8 @@ export type MatrixLayoutType =
   | "matrix_image"
   | "transmission"
   | "awakening"
-<<<<<<< HEAD
-=======
   | "matrix_data"
   | "matrix_ticker"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   | "ending_socials";
 
 export interface MatrixLayoutProps {
@@ -52,8 +47,6 @@ export interface MatrixLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
-<<<<<<< HEAD
-=======
 
   // ── matrix_data (chart) — uses the shared chartTable data-viz contract ──
   /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
@@ -80,14 +73,10 @@ export interface MatrixLayoutProps {
   tickerHighlightCol?: number;
 
   // ending_socials
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

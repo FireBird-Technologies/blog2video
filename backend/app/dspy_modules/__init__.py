@@ -53,8 +53,6 @@ _codegen_lm_lock = threading.Lock()
 _theme_lm: dspy.LM | None = None
 _theme_lm_lock = threading.Lock()
 
-<<<<<<< HEAD
-=======
 _scene_lm: dspy.LM | None = None
 _scene_lm_lock = threading.Lock()
 
@@ -173,7 +171,6 @@ def _make_default_lm(model: str, temperature: float, max_tokens: int) -> dspy.LM
     factory = _make_anthropic_lm if _IS_PRODUCTION else _make_openrouter_lm
     return factory(model, temperature, max_tokens)
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 def ensure_dspy_configured():
     """Configure DSPy exactly once, thread-safe."""
@@ -189,47 +186,26 @@ def ensure_dspy_configured():
 
 
 def get_custom_lm() -> dspy.LM:
-<<<<<<< HEAD
-    """Claude Sonnet 4.6 via LiteLLM for custom-template Remotion codegen (app.services.code_generator)."""
-=======
     """Claude Sonnet 4.6 via Anthropic for custom-template Remotion codegen (app.services.code_generator).
 
     Always routes through the Anthropic API directly, regardless of environment —
     Remotion code generation requires Claude-quality output even in local/dev.
     """
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     global _codegen_lm
     if _codegen_lm is not None:
         return _codegen_lm
     with _codegen_lm_lock:
         if _codegen_lm is not None:
             return _codegen_lm
-<<<<<<< HEAD
-        _codegen_lm = dspy.LM(
-            "anthropic/claude-sonnet-4-6",
-            api_key=settings.ANTHROPIC_API_KEY,
-            temperature=0.7,
-            max_tokens=12000,
-=======
         _codegen_lm = _make_anthropic_lm(
             "anthropic/claude-sonnet-4-6",
             temperature=0.7,
             max_tokens=12000,
             api_key=_custom_anthropic_key(),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
         return _codegen_lm
 
 
-<<<<<<< HEAD
-def get_theme_lm() -> dspy.LM:
-    """Get or create the theme extraction LM (Haiku 4.5, temp 0.3, 2048 max tokens).
-
-    Used for theme extraction — deterministic, small output (JSON).
-    Haiku is sufficient for structured JSON extraction from HTML/CSS.
-    Lower temperature for consistency, smaller token budget since output is ~500 chars.
-    """
-=======
 def get_scene_lm() -> dspy.LM:
     """Scene descriptor LM — Claude Sonnet 4.6 via Anthropic in production, Qwen3 30B A3B (fast MoE) via OpenRouter locally."""
     global _scene_lm
@@ -243,21 +219,12 @@ def get_scene_lm() -> dspy.LM:
 
 
 def get_theme_lm() -> dspy.LM:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     global _theme_lm
     if _theme_lm is not None:
         return _theme_lm
     with _theme_lm_lock:
         if _theme_lm is not None:
             return _theme_lm
-<<<<<<< HEAD
-        _theme_lm = dspy.LM(
-            "anthropic/claude-haiku-4-5-20251001",
-            api_key=settings.ANTHROPIC_API_KEY,
-            temperature=0.3,
-            max_tokens=2048,
-        )
-=======
         # Theme extraction is custom-template work, so route it through the
         # custom key in production. Local/dev keeps OpenRouter (via _make_default_lm).
         if _IS_PRODUCTION:
@@ -266,5 +233,4 @@ def get_theme_lm() -> dspy.LM:
             )
         else:
             _theme_lm = _make_default_lm(_DEFAULT_MODEL, temperature=0.3, max_tokens=2048)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         return _theme_lm

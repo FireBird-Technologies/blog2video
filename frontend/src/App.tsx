@@ -1,19 +1,12 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-<<<<<<< HEAD
-import { useEffect } from "react";
-=======
 import { useEffect, lazy, Suspense } from "react";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
-<<<<<<< HEAD
-=======
 import { SupportTourProvider } from "./components/support/SupportTourContext";
 import { SupportWidget } from "./components/support/SupportWidget";
 import { UIHighlightOverlay } from "./components/support/UIHighlightOverlay";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
@@ -23,9 +16,6 @@ import InviteOthers from "./pages/InviteOthers";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
-<<<<<<< HEAD
-import TemplateStudio from "./pages/TemplateStudio";
-=======
 import HelpIndex from "./pages/HelpIndex";
 import HelpPostPage from "./pages/HelpPostPage";
 import ToolsHub from "./pages/ToolsHub";
@@ -37,16 +27,12 @@ function ExternalRedirect({ to }: { to: string }) {
   useEffect(() => { window.location.replace(to); }, [to]);
   return null;
 }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import Navbar from "./components/layout/navbar";
 import MarketingPageView from "./pages/MarketingPageView";
 import TemplatePageView from "./pages/TemplatePageView";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
-<<<<<<< HEAD
-import { trackPageView } from "./gtag";
-=======
 import ScrollToTop from "./components/layout/ScrollToTop";
 import EmbedPreviewPage from "./pages/EmbedPreviewPage";
 import FreeTemplatesPage from "./pages/FreeTemplatesPage";
@@ -58,7 +44,6 @@ import { trackPageView } from "./gtag";
 // Hidden poster-capture route (used by scripts/capture-posters.ts). Lazy so it
 // stays out of the main bundle.
 const CapturePage = lazy(() => import("./pages/CapturePage"));
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -119,8 +104,6 @@ function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/blogs" element={<Blog />} />
         <Route path="/blogs/:slug" element={<BlogPostPage />} />
-<<<<<<< HEAD
-=======
         <Route path="/help" element={<HelpIndex />} />
         <Route path="/help/:slug" element={<HelpPostPage />} />
         <Route path="/tools" element={<ToolsHub />} />
@@ -138,7 +121,6 @@ function AppRoutes() {
         <Route path="/tools/:slug" element={<ToolPage />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         {marketingPages.map((page) => (
           <Route
             key={page.path}
@@ -179,8 +161,6 @@ function AppRoutes() {
           }
         />
         <Route
-<<<<<<< HEAD
-=======
           path="/survey"
           element={
             <ProtectedRoute>
@@ -199,7 +179,6 @@ function AppRoutes() {
           }
         />
         <Route
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           path="/template-studio-editing-feature"
           element={
             <ProtectedRoute>
@@ -209,12 +188,9 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-<<<<<<< HEAD
-=======
 
         {/* Public embed preview — no auth required */}
         <Route path="/preview/:token" element={<EmbedPreviewPage />} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         {/* Catch-all */}
         <Route path="*" element={<NotFoundPage />} />
@@ -226,13 +202,6 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-<<<<<<< HEAD
-      <ErrorModalProvider>
-        <NoticeModalProvider>
-          <AppRoutes />
-        </NoticeModalProvider>
-      </ErrorModalProvider>
-=======
       <CraftedTemplatesProvider>
         <ErrorModalProvider>
           <NoticeModalProvider>
@@ -244,7 +213,6 @@ function App() {
           </NoticeModalProvider>
         </ErrorModalProvider>
       </CraftedTemplatesProvider>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </AuthProvider>
   );
 }

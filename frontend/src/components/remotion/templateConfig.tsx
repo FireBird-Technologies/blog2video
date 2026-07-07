@@ -17,8 +17,6 @@ import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposit
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
 import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
 import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition";
-<<<<<<< HEAD
-=======
 import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
 import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition";
 import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
@@ -27,23 +25,17 @@ import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoCompositio
 import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
 import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
 import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
   RemotionMatrixVideoComposition,
-<<<<<<< HEAD
-=======
   RemotionMosaicVideoComposition,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   RemotionNewspaperVideoComposition,
   RemotionNewscastVideoComposition,
   RemotionNightfallVideoComposition,
   RemotionSpotlightVideoComposition,
   RemotionWhiteboardVideoComposition,
   RemotionBlackswanVideoComposition,
-<<<<<<< HEAD
-=======
   RemotionBloombergVideoComposition,
   RemotionChronicleVideoComposition,
   RemotionEconomistVideoComposition,
@@ -51,7 +43,6 @@ import {
   RemotionMagazineVideoComposition,
   RemotionSakuraVideoComposition,
   RemotionStickmanFootballVideoComposition,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -117,12 +108,8 @@ const DEFAULT_LAYOUTS = new Set([
   "quote_callout",
   "image_caption",
   "timeline",
-<<<<<<< HEAD
-  "data_visualization",
-=======
   "default_data_visualization",
   "default_ticker",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -136,12 +123,8 @@ const NIGHTFALL_LAYOUTS = new Set([
   "split_glass",
   "chapter_break",
   "glass_image",
-<<<<<<< HEAD
-  "data_visualization",
-=======
   "nightfall_data_visualization",
   "nightfall_ticker",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -155,11 +138,8 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "bento_code",
   "pull_quote",
   "bento_steps",
-<<<<<<< HEAD
-=======
   "data_visualisation",
   "ticker_table",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -188,8 +168,6 @@ const MATRIX_LAYOUTS = new Set([
   "matrix_image",
   "transmission",
   "awakening",
-<<<<<<< HEAD
-=======
   "matrix_data",
   "matrix_ticker",
   "ending_socials",
@@ -205,7 +183,6 @@ const MOSAIC_LAYOUTS = new Set([
   "mosaic_close",
   "mosaic_data_visualization",
   "mosaic_ticker",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -219,11 +196,8 @@ const WHITEBOARD_LAYOUTS = new Set([
   "countdown_timer",
   "handwritten_equation",
   "speech_bubble_dialogue",
-<<<<<<< HEAD
-=======
   "data_visualisation",
   "ticker_table",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   "ending_socials",
 ]);
 
@@ -234,9 +208,6 @@ const NEWSPAPER_LAYOUTS = new Set([
   "data_snapshot",
   "fact_check",
   "news_timeline",
-<<<<<<< HEAD
-  "ending_socials",
-=======
   "data_visualisation",
   "expert_profile",
   "perspective_split",
@@ -374,33 +345,8 @@ const SAKURA_LAYOUTS = new Set([
   "ending_socials",
   "sakura_data_visualization",
   "sakura_ticker",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ]);
 
-const NEWSCAST_LAYOUTS = new Set([
-  "opening",
-  "anchor_narrative",
-  "live_metrics_board",
-  "data_visualization",
-  "briefing_code_panel",
-  "headline_insight",
-  "story_stack",
-  "side_by_side_brief",
-  "segment_break",
-  "field_image_focus",
-  "ending_socials",
-]);
-const BLACKSWAN_LAYOUTS = new Set([
-  "droplet_intro",
-  "neon_narrative",
-  "arc_features",
-  "pulse_metric",
-  "signal_split",
-  "dive_insight",
-  "reactor_code",
-  "flight_path",
-  "ending_socials"
-]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -466,8 +412,6 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     },
     baseWidth: 1920,
     baseHeight: 1080,
-<<<<<<< HEAD
-=======
   },
   mosaic: {
     component: MosaicVideoComposition as React.ComponentType<any>,
@@ -481,7 +425,6 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     },
     baseWidth: 1920,
     baseHeight: 1080,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   },
   whiteboard: {
     component: WhiteboardVideoComposition as React.ComponentType<any>,
@@ -534,8 +477,6 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     },
     baseWidth: 1920,
     baseHeight: 1080,
-<<<<<<< HEAD
-=======
   },
   bloomberg: {
     component: BloombergVideoComposition as React.ComponentType<any>,
@@ -627,7 +568,6 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     },
     baseWidth: 1920,
     baseHeight: 1080,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   },
 };
 
@@ -665,11 +605,8 @@ export function getTemplateConfig(
               ? RemotionSpotlightVideoComposition
               : id === "matrix"
                 ? RemotionMatrixVideoComposition
-<<<<<<< HEAD
-=======
                 : id === "mosaic"
                   ? RemotionMosaicVideoComposition
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 : id === "whiteboard"
                   ? RemotionWhiteboardVideoComposition
                   : id === "newspaper"
@@ -678,8 +615,6 @@ export function getTemplateConfig(
                       ? RemotionNewscastVideoComposition
                       : id === "blackswan"
                         ? RemotionBlackswanVideoComposition
-<<<<<<< HEAD
-=======
                         : id === "bloomberg"
                           ? RemotionBloombergVideoComposition
                           : id === "chronicle"
@@ -694,7 +629,6 @@ export function getTemplateConfig(
                                   ? RemotionSakuraVideoComposition
                                 : id === "stickman_football"
                                   ? RemotionStickmanFootballVideoComposition
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     : null;
 
     if (overrideComponent) {

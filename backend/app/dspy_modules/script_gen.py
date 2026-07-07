@@ -10,13 +10,10 @@ from app.services.social_content_signals import (
     detect_social_platforms_in_text,
     format_social_platforms_for_script_prompt,
 )
-<<<<<<< HEAD
-=======
 from app.services.template_service import (
     is_builtin_chart_layout,
     is_builtin_ticker_layout,
 )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 class BlogToScript(dspy.Signature):
     """
@@ -59,18 +56,11 @@ class BlogToScript(dspy.Signature):
     - Ensure title, scene titles, narrations, and visual_description all reflect the chosen style consistently.
 
     ═══ VIDEO LENGTH RULES (CRITICAL) ═══
-<<<<<<< HEAD
-    - video_length values: auto | short | medium | detailed
-    - short: best-effort 4-5 scenes (cap at 5).
-    - medium: best-effort 12–15 scenes (cap at 15).
-    - detailed: best-effort 15–20 scenes (cap at 20).
-=======
     - video_length values: auto | short | medium | detailed | more_detailed
     - short: best-effort 4-5 scenes (cap at 5).
     - medium: best-effort 12–15 scenes (cap at 15).
     - detailed: best-effort 25-34 scenes (cap at 34).
     - more_detailed: best-effort 43-50 scenes (cap at 50).
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     - auto: choose a natural scene count based on scraped blog_content length and structure,
       but NEVER exceed 20 scenes.
 
@@ -129,8 +119,6 @@ class BlogToScript(dspy.Signature):
 
     Output the scenes as a JSON array.
 
-<<<<<<< HEAD
-=======
     ═══ CONTENT COVERAGE — USE ALL SOURCE DATA (CRITICAL) ═══
     - You MUST cover the FULL blog_content — do not summarise only the first half or skip sections.
     - Read blog_content to the end before planning scenes. Every major point, statistic, finding,
@@ -140,7 +128,6 @@ class BlogToScript(dspy.Signature):
     - For bloomberg specifically: every numeric claim, statistic, or data point found anywhere in
       blog_content must be represented. Do not stop extracting data after the first few paragraphs.
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ═══ LANGUAGE RULE (CRITICAL) ═══
     - content_language specifies the language of the scraped blog content.
     - Generate ALL output (title, scene titles, narrations, visual_description) EXCLUSIVELY in that language.
@@ -153,12 +140,8 @@ class BlogToScript(dspy.Signature):
     ═══ DIVERSITY TARGETS BY VIDEO LENGTH ═══
     - short (4-5 scenes): use at least 6 distinct layouts. Max 2 scenes may share the same layout.
     - medium (12–15 scenes): use at least 9 distinct layouts. Max 2 scenes may share the same layout.
-<<<<<<< HEAD
-    - detailed (15–20 scenes): use at least 10 distinct layouts. Max 4 scenes may share the same layout.
-=======
     - detailed (25-34 scenes): use at least 18 distinct layouts. Max 6 scenes may share the same layout.
     - more_detailed (43-50 scenes): use at least 25 distinct layouts. Max 8 scenes may share the same layout.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     - For any other length: use at least ceil(total_scenes * 0.7) distinct layouts.
     - These are MINIMUM targets — more variety is always better if the content supports it.
 
@@ -178,13 +161,8 @@ class BlogToScript(dspy.Signature):
     - This planning happens in your reasoning — the final output is still just preferred_layout per scene.
 
     ═══ TEMPLATE-SPECIFIC RULES ═══
-<<<<<<< HEAD
-    - For BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix):
-    - Choose layout IDs EXACTLY from layout_catalog (e.g. hero_image, article_lead, data_snapshot).
-=======
     - For BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix, newscast, mosaic, blackswan, chronicle,bloomberg):
     - Choose layout IDs EXACTLY from layout_catalog — the layout_catalog field is the single source of truth for which layout IDs are allowed for this template. Do NOT guess layout IDs from examples here.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     - When include_ending_socials is true: assign preferred_layout "ending_socials" ONLY to the LAST scene in
       scenes_json. No other scene may use "ending_socials" — not the first scene, not the middle, only the final index.
     - ENDING SCENE (when include_ending_socials is true): the LAST scene MUST be a call-to-action grounded in the
@@ -200,8 +178,6 @@ class BlogToScript(dspy.Signature):
     - BUILT-IN: layout ID from the template's layout catalog.
     - CUSTOM: arrangement name from the layout_catalog list.
     - If unsure, leave preferred_layout as empty string "" for that scene.
-<<<<<<< HEAD
-=======
 
     ═══ USER INSTRUCTION RULES (when present) ═══
     - If `user_instruction_summary` is non-empty, treat it as a HARD CONSTRAINT.
@@ -212,7 +188,6 @@ class BlogToScript(dspy.Signature):
       key_point, narration, or visual_description — neither directly nor as a near-synonym.
     - These constraints override stylistic defaults from video_style when they conflict.
     - Empty strings for any of these three fields = no constraint of that kind; proceed normally.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     """
 
     blog_content: str = dspy.InputField(
@@ -230,16 +205,6 @@ class BlogToScript(dspy.Signature):
         "Write title, scene titles, narrations, and visual_description to match this style exactly."
     )
     video_length: str = dspy.InputField(
-<<<<<<< HEAD
-        desc="Video length category controlling scene count: auto | short | medium | detailed."
-    )
-    layout_catalog: str = dspy.InputField(
-        desc=(
-            "Optional: template-specific layout catalog text. Either layout IDs and short descriptions for "
-            "BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix), "
-            "or arrangement names and descriptions for CUSTOM templates. Use this ONLY to pick a suitable "
-            "preferred_layout per scene; do NOT copy it verbatim into narrations."
-=======
         desc="Video length category controlling scene count: auto | short | medium | detailed | more_detailed."
     )
     layout_catalog: str = dspy.InputField(
@@ -249,7 +214,6 @@ class BlogToScript(dspy.Signature):
             "layout IDs and short descriptions. For CUSTOM templates, this lists arrangement names and descriptions. "
             "This is the SINGLE SOURCE OF TRUTH for which preferred_layout values are valid for this template. "
             "Use it ONLY to pick a suitable preferred_layout per scene; do NOT copy it verbatim into narrations."
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
     )
     content_language: str = dspy.InputField(
@@ -271,8 +235,6 @@ class BlogToScript(dspy.Signature):
             "that are listed; if NONE, do not name social networks."
         )
     )
-<<<<<<< HEAD
-=======
 
     template_style_hint: str = dspy.InputField(
         desc=(
@@ -401,7 +363,6 @@ class BlogToScript(dspy.Signature):
             "visuals, or near-synonyms). Empty if none."
         )
     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     narrative_summary: str = dspy.OutputField(
@@ -413,35 +374,6 @@ class BlogToScript(dspy.Signature):
     )
     scenes_json: str = dspy.OutputField(
         desc=(
-<<<<<<< HEAD
-            'JSON array of scene objects. Each object has keys: "title" (str), '
-            '"narration" (str — length by video_style: explainer 12-25 words; promotional 10-18 words; storytelling about 15-30 words; so voiceover remains concise, and must strictly match selected style), '
-            '"visual_description" (str), "suggested_images" (list of str), '
-            '"duration_seconds" (int), and OPTIONAL "preferred_layout" (str). '
-            'FIRST scene title must be the actual blog title (never "Hero Opening"), '
-            'with a concise narration hook (12-15 words max, 1 sentence) and duration_seconds=6. '
-            'Narrations: storytelling (15-30) words per scene; explainer (12-25) words per scene; promotional (10-18) words max. '
-            'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
-            'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
-            'Example with image: [{"title": "How AI is Changing Everything", '
-            '"narration": "Let\'s explore how AI transforms software development.", '
-            '"visual_description": "Hero banner image with title overlay and fade-in", '
-            '"suggested_images": ["hero.jpg"], "duration_seconds": 6, "preferred_layout": "hero_image"}]. '
-            'Example without image: [{"title": "How AI is Changing Everything", '
-            '"narration": "Let\'s explore how AI transforms software development.", '
-            '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
-            '"suggested_images": [], "duration_seconds": 6, "preferred_layout": "text_narration"}]'
-            ' When include_ending_socials is true: append exactly one final ending scene as the LAST element. '
-            'The ending scene MUST set preferred_layout="ending_socials" and MUST NOT appear in any other scene. '
-            'That ending scene MUST be a content-grounded call to action: "title" = memorable CTA headline tied to '
-            'the blog topic; "narration" = CTA tied to the article (takeaway, next step, or follow-up) per video_style; '
-            '"visual_description" = CTA ending screen reflecting the topic. Use social_platforms_detected: only '
-            'mention social platforms listed there when inviting followers; if NONE, give a topic-based CTA without '
-            'naming Facebook, Instagram, YouTube, or other networks. '
-            'For that ending scene ONLY, also include "cta_button_text": a short pill label (2–6 words) for the '
-            'button above the website link — in content_language, grounded in the article topic (e.g. "Read the full guide", '
-            '"Explore the tutorial"), not generic English unless the content is English. '
-=======
             'COMPACT outline only — a JSON array where each object has these keys: '
             '"title" (str), "key_point" (str — 1 sentence describing the core idea of this scene), '
             '"preferred_layout" (str — layout ID from layout_catalog, or "" if unsure), '
@@ -559,7 +491,6 @@ class SceneExpander(dspy.Signature):
         desc=(
             "Only for ending scene: short pill label 2-6 words in content_language, grounded in the article topic "
             "(e.g. 'Read the full guide', 'Explore the tutorial'). Empty string for all other scenes."
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
     )
 
@@ -625,13 +556,6 @@ class ScriptGenerator:
         layout_catalog: str = "",
         content_language: str = "English",
         include_ending_socials: bool = False,
-<<<<<<< HEAD
-    ) -> dict:
-        """
-        Generate a video script from blog content (async).
-        Scene count is controlled by `video_length` (auto/short/medium/detailed).
-        video_style (explainer | promotional | storytelling) drives tone and structure.
-=======
         chartable_tables_json: str = "",
         template_id: str = "",
         template_style_hint: str = "",
@@ -647,14 +571,11 @@ class ScriptGenerator:
         If ``user_instruction`` is non-empty, an analyzer DSPy module distills it into
         structured constraints (must_include / must_avoid / tone / structural / summary)
         which are injected as InputFields into both stages.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         Returns:
             dict with 'title', 'scenes' (list of scene dicts), and
             '_user_instruction_summary' (str — surface for downstream layout planner).
         """
-<<<<<<< HEAD
-=======
         def emit_progress(step: str) -> None:
             if not progress_callback:
                 return
@@ -681,38 +602,10 @@ class ScriptGenerator:
             )
         emit_progress("generating_script")
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         social_flags = detect_social_platforms_in_text(blog_content)
         social_hint = format_social_platforms_for_script_prompt(social_flags)
         fallback_ending = self._build_fallback_ending_scene(social_flags)
 
-<<<<<<< HEAD
-        result = await self.generator(
-            blog_content=blog_content,
-            blog_images=json.dumps(blog_images),
-            hero_image=hero_image or "(no hero image available)",
-            aspect_ratio=aspect_ratio or "landscape",
-            video_style=(video_style or "explainer").strip().lower() or "explainer",
-            video_length=(video_length or "auto").strip().lower() or "auto",
-            layout_catalog=layout_catalog or "",
-            content_language=(content_language or "English").strip(),
-            include_ending_socials=bool(include_ending_socials),
-            social_platforms_detected=social_hint,
-        )
-
-        # Parse the scenes JSON and apply limits
-        style = (video_style or "explainer").strip().lower() or "explainer"
-        scenes = self._parse_scenes(
-            result.scenes_json,
-            video_style=style,
-            video_length=(video_length or "auto").strip().lower() or "auto",
-            include_ending_socials=include_ending_socials,
-            fallback_ending_scene=fallback_ending,
-        )
-
-        title_raw = getattr(result, "title", None)
-        title_str = self._coerce_text_str(title_raw).strip() or "Untitled"
-=======
         style = (video_style or "explainer").strip().lower() or "explainer"
         length = self._normalize_video_length_alias(video_length)
         ar = aspect_ratio or "landscape"
@@ -848,7 +741,6 @@ class ScriptGenerator:
             include_ending_socials=include_ending_socials,
             fallback_ending_scene=fallback_ending,
         )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         return {
             "title": title_str,
@@ -894,22 +786,12 @@ class ScriptGenerator:
 
     def _max_scenes_for_video_length(self, video_length: str) -> int:
         """Maximum number of scenes allowed for the given video length category."""
-<<<<<<< HEAD
-        vl = (video_length or "auto").strip().lower()
-=======
         vl = self._normalize_video_length_alias(video_length)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if vl == "short":
             return 5
         if vl == "medium":
             return 15
         if vl == "detailed":
-<<<<<<< HEAD
-            return 20
-        # auto: best-effort natural scene count, but never exceed 20 scenes
-        return 20
-
-=======
             return 30
         if vl == "more_detailed":
             return 50
@@ -1006,7 +888,6 @@ class ScriptGenerator:
                 out = out[: max(0, min_scenes - 1)] + [out[-1]]
         return out
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     @staticmethod
     def _norm_layout_key(raw: str | None) -> str:
         return (raw or "").strip().lower().replace(" ", "_").replace("-", "_")
@@ -1058,22 +939,6 @@ class ScriptGenerator:
 
         return out
 
-<<<<<<< HEAD
-    def _parse_scenes(
-        self,
-        scenes_json: str,
-        video_style: str = "explainer",
-        video_length: str = "auto",
-        include_ending_socials: bool = False,
-        fallback_ending_scene: dict | None = None,
-    ) -> list[dict]:
-        """Parse and validate scenes JSON.
-
-        - Scene cap is driven by `video_length` (not by `video_style`).
-        - Narration text is normalized for whitespace only.
-        """
-        try:
-=======
     def _enforce_chartable_bindings(
         self,
         scenes: list[dict],
@@ -1242,7 +1107,6 @@ class ScriptGenerator:
         - Narration text is normalized for whitespace only.
         """
         try:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             # Model may return a parsed object or non-string; normalize before .strip() / json.loads
             if not isinstance(scenes_json, str):
                 if isinstance(scenes_json, (dict, list)):
@@ -1269,8 +1133,6 @@ class ScriptGenerator:
                 max_scenes=max_scenes,
                 fallback_ending_scene=fallback_ending_scene,
             )
-<<<<<<< HEAD
-=======
             kept = self._ensure_min_scene_count(
                 kept,
                 min_scenes=self._min_scenes_for_video_length(video_length),
@@ -1278,7 +1140,6 @@ class ScriptGenerator:
                 fallback_ending_scene=fallback_ending_scene,
                 outline_mode=False,
             )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
             validated = []
             for i, scene in enumerate(kept):
@@ -1302,8 +1163,6 @@ class ScriptGenerator:
                 }
                 if preferred_layout == "ending_socials" and cta_btn:
                     row["cta_button_text"] = cta_btn
-<<<<<<< HEAD
-=======
                 raw_idx = scene.get("data_table_index")
                 _data_layouts = {"data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz", "market_annotation", "ticker"}
                 # Also preserve the binding for built-in data-viz templates'
@@ -1316,7 +1175,6 @@ class ScriptGenerator:
                     or is_builtin_ticker_layout(preferred_layout or "")
                 ):
                     row["data_table_index"] = raw_idx
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 validated.append(row)
 
             return validated

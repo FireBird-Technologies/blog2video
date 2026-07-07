@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import { resolveFontFamily } from "../../../fonts/registry";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import "../../../fonts/nightfall-defaults";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
@@ -12,40 +9,6 @@ import { BackgroundMusic } from "../BackgroundMusic";
 import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
-
-/** Convert schema format (barChartRows, etc.) to component format (barChart, etc.) for data_visualization */
-function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
-  const out = { ...lp };
-  if (Array.isArray(out.barChartRows)) {
-    const rows = out.barChartRows as { label?: string; value?: string }[];
-    out.barChart = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
-    };
-    delete out.barChartRows;
-  }
-  if (Array.isArray(out.pieChartRows)) {
-    const rows = out.pieChartRows as { label?: string; value?: string }[];
-    out.pieChart = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
-    };
-    delete out.pieChartRows;
-  }
-  if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
-    const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
-    const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
-      label: (d && d.label != null ? String(d.label) : "") as string,
-      values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
-        .split(",")
-        .map((s) => Number(s.trim()) || 0),
-    }));
-    out.lineChart = { labels, datasets };
-    delete out.lineChartLabels;
-    delete out.lineChartDatasets;
-  }
-  return out;
-}
 
 export interface NightfallSceneInput {
   id: number;
@@ -76,15 +39,12 @@ export interface NightfallVideoCompositionProps {
   bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
-<<<<<<< HEAD
-=======
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const NightfallVideoComposition: React.FC<
@@ -102,15 +62,12 @@ export const NightfallVideoComposition: React.FC<
   bgmVolume,
   aspectRatio,
   fontFamily,
-<<<<<<< HEAD
-=======
   playbackSpeed,
   captionsEnabled,
   captionPosition,
   captionFontFamily,
   captionFontSize,
   captionOffset,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -118,17 +75,12 @@ export const NightfallVideoComposition: React.FC<
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#0A0A1A", fontFamily }}>
-<<<<<<< HEAD
-      {scenes.map((scene) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
-=======
       {scenes.map((scene, index) => {
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
           resolvedPlaybackSpeed,
         );
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -136,13 +88,7 @@ export const NightfallVideoComposition: React.FC<
           NIGHTFALL_LAYOUT_REGISTRY[scene.layout] ||
           NIGHTFALL_LAYOUT_REGISTRY.glass_narrative;
 
-<<<<<<< HEAD
-        const rawLayoutProps = scene.layout === "data_visualization"
-          ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
-          : scene.layoutProps;
-=======
         const rawLayoutProps = scene.layoutProps;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         const layoutProps: NightfallLayoutProps = {
           ...rawLayoutProps,
@@ -153,11 +99,8 @@ export const NightfallVideoComposition: React.FC<
           textColor: textColor || "#E2E8F0",
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily,
         };
 

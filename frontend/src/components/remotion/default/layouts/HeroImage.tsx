@@ -27,23 +27,6 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
     sceneIndex,
   } = props;
 
-<<<<<<< HEAD
-export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
-  const {
-    title,
-    narration,
-    imageUrl,
-    accentColor,
-    bgColor,
-    textColor,
-    aspectRatio,
-    titleFontSize,
-    descriptionFontSize,
-    fontFamily,
-  } = props;
-
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const frame = useCurrentFrame();
   const fps = 30;
   const { durationInFrames, width, height } = useVideoConfig();
@@ -124,83 +107,6 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
         overflow: "hidden",
       }}
     >
-<<<<<<< HEAD
-      {/* IMAGE SECTION */}
-      {hasImage && (
-        <div
-          style={{
-            flex: 1,
-            position: "relative",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            transform: `${
-              isPortrait
-                ? `translateY(${imageHalfTranslate}px)`
-                : `translateX(${imageHalfTranslate}px)`
-            } scale(${contentScale})`,
-            opacity: contentOpacity,
-          }}
-        >
-          <AbsoluteFill
-            style={{
-              transform: `scale(${
-                interpolate(
-                  spring({ frame, fps, config: { damping: 200 } }),
-                  [0, 1],
-                  [1.1, 1]
-                ) * vanishItemScale
-              })`,
-              opacity: vanishItemOpacity,
-            }}
-          >
-            <AnimatedImage
-              src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          </AbsoluteFill>
-        </div>
-      )}
-
-      {/* CONTENT SECTION */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: "80px",
-          position: "relative",
-          transform: `${
-            isPortrait
-              ? `translateY(${contentHalfTranslate}px)`
-              : `translateX(${contentHalfTranslate}px)`
-          } scale(${contentScale * (!hasImage ? vanishItemScale : 1)})`,
-          opacity: contentOpacity * (!hasImage ? vanishItemOpacity : 1),
-        }}
-      >
-        {/* --- THE MOVING PLANE --- */}
-        <div
-          style={{
-            position: "absolute",
-            zIndex: 100,
-            transform: `translate(${planeX}px, ${planeY}px) rotate(${angle}deg) scale(${planeExitScale})`,
-            opacity: planeExitOpacity,
-            filter: "drop-shadow(0 10px 10px rgba(0,0,0,0.2))",
-          }}
-        >
-          <svg
-            width="60"
-            height="60"
-            viewBox="0 0 24 24"
-            fill={accentColor || "#000"}
-            style={{ transform: "rotate(90deg)" }} // Adjust based on SVG orientation
-          >
-            <path d="M21,16L21,14L13,9L13,3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z" />
-          </svg>
-        </div>
-
-=======
       <GeometricBackground accentColor={accentColor || "#6366F1"} frame={frame} sceneIndex={sceneIndex} />
       {/* IMAGE SECTION */}
       {hasImage && (
@@ -299,7 +205,6 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
           </svg>
         </div>
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <div style={{ textAlign: "center", maxWidth: "90%", zIndex: 10 }}>
           <h1
             style={{

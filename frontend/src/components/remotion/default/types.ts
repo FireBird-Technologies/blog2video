@@ -1,8 +1,4 @@
 import type { SocialsMap } from "../SocialIcons";
-<<<<<<< HEAD
-import type { BarChartData, LineChartData } from "../nightfall/types";
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export type LayoutType =
   | "hero_image"
@@ -15,12 +11,8 @@ export type LayoutType =
   | "quote_callout"
   | "image_caption"
   | "timeline"
-<<<<<<< HEAD
-  | "data_visualization"
-=======
   | "default_data_visualization"
   | "default_ticker"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   | "ending_socials";
 
 export interface SceneLayoutProps {
@@ -34,11 +26,8 @@ export interface SceneLayoutProps {
   textColor: string;
   aspectRatio?: string;
   fontFamily?: string;
-<<<<<<< HEAD
-=======
   /** Index of this scene in the video — used to vary the background fly-in direction per scene. */
   sceneIndex?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // code_block
   codeLines?: string[];
   codeLanguage?: string;
@@ -58,12 +47,6 @@ export interface SceneLayoutProps {
   rightDescription?: string;
   // timeline
   timelineItems?: { label: string; description: string }[];
-<<<<<<< HEAD
-  // data_visualization
-  barChart?: BarChartData;
-  lineChart?: LineChartData;
-  histogram?: BarChartData;
-=======
   // default_data_visualization
   chartTable?: { headers: string[]; rows: string[][] };
   chartType?: string;
@@ -78,7 +61,6 @@ export interface SceneLayoutProps {
   tickerTitle?: string;
   tickerFootnote?: string;
   tickerHighlightCol?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
@@ -86,9 +68,6 @@ export interface SceneLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

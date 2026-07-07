@@ -282,13 +282,8 @@ Choose decorations that match the template's decorative elements ({decorative_st
 def build_custom_meta(
     theme: dict,
     name: str,
-<<<<<<< HEAD
-    supported_video_style: str = "explainer",
-    content_codes_count: int = 0,
-=======
     content_codes_count: int = 0,
     content_archetype_ids: list | None = None,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ) -> dict[str, Any]:
     """
     Generate a meta.json equivalent for a custom template.
@@ -304,8 +299,6 @@ def build_custom_meta(
     (composition selection, layout dropdown in SceneEditModal).
     """
     colors = theme.get("colors", {})
-<<<<<<< HEAD
-=======
 
     # When generated code exists, expose variant-based layouts instead of arrangements
     if content_codes_count > 0:
@@ -334,7 +327,6 @@ def build_custom_meta(
         layout_names["custom_table"] = "Data Table"
         variant_layouts.append("outro")
         layout_names["outro"] = "Outro Scene"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         valid_layouts = variant_layouts
         no_image_layouts: list[str] = ["custom_chart", "custom_table"]
@@ -343,36 +335,11 @@ def build_custom_meta(
         layout_names = {}
         no_image_layouts = ["full-center", "stacked"]
 
-<<<<<<< HEAD
-    # When generated code exists, expose variant-based layouts instead of arrangements
-    if content_codes_count > 0:
-        variant_layouts = ["intro"]
-        layout_names = {"intro": "Intro Scene"}
-        for i in range(content_codes_count):
-            key = f"content_{i}"
-            variant_layouts.append(key)
-            layout_names[key] = f"Content Style {i + 1}"
-        variant_layouts.append("outro")
-        layout_names["outro"] = "Outro Scene"
-
-        valid_layouts = variant_layouts
-        no_image_layouts: list[str] = []
-    else:
-        valid_layouts = list(CUSTOM_ARRANGEMENTS)
-        layout_names = {}
-        no_image_layouts = ["full-center", "stacked"]
-
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     meta: dict[str, Any] = {
         "id": "custom",
         "name": name,
         "description": f"Custom template: {name}",
         "new_template": False,
-<<<<<<< HEAD
-        "styles": [style],
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         "preview_colors": {
             "accent": colors.get("accent", "#7C3AED"),
             "bg": colors.get("bg", "#FFFFFF"),

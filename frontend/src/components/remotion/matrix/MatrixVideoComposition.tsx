@@ -39,15 +39,12 @@ export interface MatrixVideoCompositionProps {
   bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
-<<<<<<< HEAD
-=======
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const MatrixVideoComposition: React.FC<
@@ -65,15 +62,12 @@ export const MatrixVideoComposition: React.FC<
   bgmVolume,
   aspectRatio,
   fontFamily,
-<<<<<<< HEAD
-=======
   playbackSpeed,
   captionsEnabled,
   captionPosition,
   captionFontFamily,
   captionFontSize,
   captionOffset,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -122,18 +116,11 @@ export const MatrixVideoComposition: React.FC<
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
-<<<<<<< HEAD
-      {scenes.map((scene) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
-        const startFrame = currentFrame;
-        currentFrame += durationFrames;
-=======
       <TransitionSeries>
         {scenes.map((scene, index) => {
           const LayoutComponent =
             MATRIX_LAYOUT_REGISTRY[scene.layout] ||
             MATRIX_LAYOUT_REGISTRY.terminal_text;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
           const sequence = (
             <TransitionSeries.Sequence
@@ -144,21 +131,7 @@ export const MatrixVideoComposition: React.FC<
             </TransitionSeries.Sequence>
           );
 
-<<<<<<< HEAD
-        const layoutProps: MatrixLayoutProps = {
-          ...scene.layoutProps,
-          title: scene.title,
-          narration: scene.narration,
-          accentColor: accentColor || "#00FF41",
-          bgColor: bgColor || "#000000",
-          textColor: textColor || "#00FF41",
-          aspectRatio: aspectRatio || "landscape",
-          imageUrl: scene.imageUrl,
-          fontFamily,
-        };
-=======
           if (index === scenes.length - 1) return sequence;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
           const choice = pickMatrixTransition(
             index,

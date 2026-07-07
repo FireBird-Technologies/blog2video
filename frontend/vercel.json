@@ -1,11 +1,6 @@
 {
   "routes": [
     { "handle": "filesystem" },
-<<<<<<< HEAD
-    { "src": "^/dashboard$", "dest": "/index.html" },
-    { "src": "^/project/(.*)$", "dest": "/index.html" },
-    { "src": "^/subscription$", "dest": "/index.html" }
-=======
     {
       "src": "^/preview/(.*)$",
       "dest": "/index.html",
@@ -15,6 +10,5 @@
       }
     },
     { "src": "^/(.*)$", "dest": "/index.html" }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ]
 }

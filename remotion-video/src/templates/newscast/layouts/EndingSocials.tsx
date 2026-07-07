@@ -2,10 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { NewscastLayoutProps } from "./types";
 import { SocialIcons } from "../../SocialIcons";
-<<<<<<< HEAD
-=======
 import { resolveCtas } from "../../shared/resolveCtas";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   DEFAULT_NEWSCAST_ACCENT,
   DEFAULT_NEWSCAST_TEXT,
@@ -24,10 +21,7 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
-<<<<<<< HEAD
-=======
   ctas,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   textColor,
   aspectRatio,
@@ -45,18 +39,12 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
   const bodyOp = interpolate(frame, [14, 30], [0, 1], { extrapolateRight: "clamp" });
 
   const subtext = (narration ?? "").trim();
-<<<<<<< HEAD
-  const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Visit site";
-=======
 
   // CTA cards (1-3). Only render cards with toggle on + a link.
   const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
     (c) => c.showWebsiteButton && c.websiteLink.length > 0,
   );
   const hasAnyCard = cards.length > 0;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const RED = accentColor || DEFAULT_NEWSCAST_ACCENT;
   const STEEL = textColor || DEFAULT_NEWSCAST_TEXT;
@@ -142,38 +130,6 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
             </div>
           ) : null}
 
-<<<<<<< HEAD
-          {showWebsiteCta ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 28, opacity: bodyOp }}>
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                  borderRadius: 8,
-                  padding: "12px 28px",
-                  backgroundColor: RED,
-                  color: "#fff",
-                  fontFamily: newscastFont(fontFamily, "title"),
-                  fontSize: scaleNewscastPx(15, portraitScale),
-                  fontWeight: 700,
-                  boxShadow: `0 8px 28px ${RED}55`,
-                }}
-              >
-                {resolvedCta}
-              </div>
-              <div
-                style={{
-                  fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: scaleNewscastPx(13, portraitScale),
-                  color: STEEL,
-                  wordBreak: "break-all",
-                  maxWidth: "100%",
-                }}
-              >
-                {resolvedWebsiteLink}
-              </div>
-=======
           {hasAnyCard ? (
             <div
               style={{
@@ -231,7 +187,6 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
                   </div>
                 </div>
               ))}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
           ) : null}
 

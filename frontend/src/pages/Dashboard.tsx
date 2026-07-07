@@ -16,11 +16,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
-<<<<<<< HEAD
-import BlogUrlForm from "../components/BlogUrlForm";
-=======
 import BlogUrlForm, { GENRE_CRAFTED } from "../components/BlogUrlForm";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import OutOfVideosOfferModal from "../components/OutOfVideosOfferModal";
@@ -43,10 +39,7 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   /** Increment when opening + New so BlogUrlForm remounts and picks a new random template each time. */
   const [blogFormMountKey, setBlogFormMountKey] = useState(0);
-<<<<<<< HEAD
-=======
   const [blogFormInitialGenre, setBlogFormInitialGenre] = useState<string | undefined>(undefined);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -190,8 +183,6 @@ export default function Dashboard() {
     else if (tab === "voices") setActiveTab("voices");
   }, [searchParams]);
 
-<<<<<<< HEAD
-=======
   // Open BlogUrlForm modal at step 2 with Designer Templates pre-selected
   useEffect(() => {
     if (searchParams.get("openDesignerTemplates") !== "1") return;
@@ -204,7 +195,6 @@ export default function Dashboard() {
     navigate(qs ? `/dashboard?${qs}` : "/dashboard", { replace: true });
   }, [searchParams]);
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // Leaving Projects (tab or URL) should close the new-project modal so returning does not reopen it.
   useEffect(() => {
     if (activeTab === "templates" || activeTab === "voices") {
@@ -212,8 +202,6 @@ export default function Dashboard() {
     }
   }, [activeTab]);
 
-<<<<<<< HEAD
-=======
   // Proactively show the out-of-videos offer when an already-walled free user
   // lands on the Dashboard — the "+ New" button is disabled in that state, so
   // the user-initiated 403 path never fires. The hook's open() enforces the
@@ -227,7 +215,6 @@ export default function Dashboard() {
     }
   }, [loading, user?.plan, user?.can_create_video, offer.isOpen, offer.open]);
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const loadProjects = async () => {
     try {
       const res = await listProjects();
@@ -261,12 +248,6 @@ export default function Dashboard() {
       if (isBulkUpgradeRequired) {
         setShowBulkUpgradeModal(true);
       } else if (err?.response?.status === 403) {
-<<<<<<< HEAD
-        showError(
-          getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
-          { showUpgrade: true }
-        );
-=======
         // Out-of-videos offer: walled free users get the limited-time discount
         // modal instead of a plain error. Past the 5-min window, fall through.
         const opened = user?.plan === "free" ? offer.open() : false;
@@ -276,7 +257,6 @@ export default function Dashboard() {
             { showUpgrade: true }
           );
         }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       } else {
         console.error("Bulk create failed:", err);
       }
@@ -302,16 +282,11 @@ export default function Dashboard() {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
-<<<<<<< HEAD
-    videoLength?: "auto" | "short" | "medium" | "detailed",
-    contentLanguage?: string | null
-=======
     videoLength?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
     contentLanguage?: string | null,
     voiceEmotion?: string,
     bgmTrackId?: string | null,
     bgmVolume?: number
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ) => {
     setCreating(true);
     try {
@@ -336,11 +311,8 @@ export default function Dashboard() {
           video_style: videoStyle,
           video_length: videoLength,
           content_language: contentLanguage,
-<<<<<<< HEAD
-=======
           bgm_track_id: bgmTrackId,
           bgm_volume: bgmVolume,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         });
       } else {
         // URL flow
@@ -360,14 +332,10 @@ export default function Dashboard() {
           template,
           videoStyle,
           videoLength,
-<<<<<<< HEAD
-          contentLanguage
-=======
           contentLanguage,
           voiceEmotion,
           bgmTrackId,
           bgmVolume
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         );
       }
 
@@ -385,12 +353,6 @@ export default function Dashboard() {
       navigate(`/project/${res.data.id}`);
     } catch (err: any) {
       if (err?.response?.status === 403) {
-<<<<<<< HEAD
-        showError(
-          getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
-          { showUpgrade: true }
-        );
-=======
         const opened = user?.plan === "free" ? offer.open() : false;
         if (!opened) {
           showError(
@@ -398,7 +360,6 @@ export default function Dashboard() {
             { showUpgrade: true }
           );
         }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       } else {
         console.error("Failed to create project:", err);
         showError(
@@ -441,10 +402,6 @@ export default function Dashboard() {
 
   // ─── Onboarding (0 projects): show form on first load; hide when show_form=0 (e.g. logo click) ───
   // Deep-linking to My Templates / Voices (?tab=) must use the normal tabbed layout even with 0 projects.
-<<<<<<< HEAD
-  const emptyOnboarding =
-    loaded &&
-=======
   // A walled free user (out of videos) must NOT be shown the create form — they can't
   // make a project. They fall through to the normal dashboard where the "+ New" button
   // is disabled and the out-of-videos upgrade modal opens instead.
@@ -452,7 +409,6 @@ export default function Dashboard() {
   const emptyOnboarding =
     loaded &&
     !isWalled &&
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     projects.length === 0 &&
     searchParams.get("show_form") !== "0" &&
     searchParams.get("tab") !== "templates" &&
@@ -532,11 +488,7 @@ export default function Dashboard() {
       </div>
 
       {/* Tab bar */}
-<<<<<<< HEAD
-      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
-=======
       <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         {(["projects", "templates", "voices"] as const).map((tab) => (
           <button
             key={tab}
@@ -563,10 +515,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
         <button
-<<<<<<< HEAD
-=======
           data-action="new-project"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           onClick={() => {
             setBlogFormMountKey((k) => k + 1);
             setShowModal(true);
@@ -586,14 +535,9 @@ export default function Dashboard() {
           onSubmitBulk={handleCreateBulk}
           loading={creating}
           asModal
-<<<<<<< HEAD
-          onClose={() => setShowModal(false)}
-          onDismissFlow={() => setShowModal(false)}
-=======
           onClose={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
           onDismissFlow={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
           initialGenre={blogFormInitialGenre}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         />
       )}
 

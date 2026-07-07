@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-import json
-import dspy
-from collections import Counter
-
-from app.dspy_modules import ensure_dspy_configured
-from app.services.template_service import get_layout_prompt, get_valid_layouts, is_custom_template
-=======
 ﻿import json
 import dspy
 from collections import Counter
@@ -37,30 +29,21 @@ def _is_hero_like(layout_id: str, hero_layout: str = "") -> bool:
     if hero_layout and lid == (hero_layout or "").lower().strip():
         return True
     return any(lid.startswith(p) for p in _HERO_LIKE_PREFIXES)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class PlanTemplateLayouts(dspy.Signature):
     """
     Assign preferred layouts for an existing scene sequence.
 
-<<<<<<< HEAD
-    You receive scene content and a template layout catalog. Return exactly one
-=======
     You receive scene content, a template layout catalog (the short ID list) and
     the full template prompt (the WHEN-to-use guidance). Return exactly one
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     preferred layout per scene, preserving order and minimizing repetition.
 
     Rules (must mirror script-generation layout policy):
     - Output length MUST equal total_scenes.
-<<<<<<< HEAD
-    - Use ONLY layout IDs/arrangements from layout_catalog.
-=======
     - Use ONLY layout IDs/arrangements present in layout_catalog. The full_prompt
       explains WHEN each is appropriate — consult it for opening / middle /
       closing placement and visual-weight balance.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     - Enforce diversity by video_length:
       - short: >=7 distinct layouts, max 2 uses per layout.
       - medium: >=9 distinct layouts, max 2 uses per layout.
@@ -69,14 +52,6 @@ class PlanTemplateLayouts(dspy.Signature):
     - Never repeat a layout in consecutive scenes.
     - When repeating a layout, keep at least 3-scene spacing where possible.
     - Spread heavy/light layouts across opening/middle/closing; avoid clustering.
-<<<<<<< HEAD
-    - Scene 0 should generally use a hero/opening style when available.
-    - For templates that support ending_socials, use ending_socials only for the
-      last scene if it is clearly a closing CTA; otherwise do not force it.
-    """
-
-    layout_catalog: str = dspy.InputField(desc="Template layout_prompt.md content")
-=======
 
     ─── HERO RULE (HARD) ───────────────────────────────────────────────────────
     Hero / opening / title layouts MUST appear AT MOST ONCE in the output, and
@@ -115,16 +90,11 @@ class PlanTemplateLayouts(dspy.Signature):
             "focus areas."
         )
     )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     scenes_json: str = dspy.InputField(
         desc='JSON array of scene objects with "title", "narration", "visual_description"'
     )
     total_scenes: int = dspy.InputField(desc="Total number of scenes")
-<<<<<<< HEAD
-    video_length: str = dspy.InputField(desc="auto | short | medium | detailed")
-=======
     video_length: str = dspy.InputField(desc="auto | short | medium | detailed | mdetailed")
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     content_language: str = dspy.InputField(
         desc="Language for reasoning consistency with scene content"
     )
@@ -135,12 +105,6 @@ class PlanTemplateLayouts(dspy.Signature):
 
 
 class TemplateLayoutPlanner:
-<<<<<<< HEAD
-    def __init__(self, template_id: str):
-        ensure_dspy_configured()
-        self.template_id = template_id
-        self.layout_catalog = get_layout_prompt(template_id)
-=======
     def __init__(
         self,
         template_id: str,
@@ -159,18 +123,12 @@ class TemplateLayoutPlanner:
         except Exception:
             self.full_prompt = ""
         self.user_instruction_summary = (user_instruction_summary or "").strip()
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         self._planner = dspy.ChainOfThought(PlanTemplateLayouts)
         self.plan = dspy.asyncify(self._planner)
 
         if is_custom_template(template_id):
             # Custom templates use universal arrangements, validated by scene generator.
             self.valid_layouts = set()
-<<<<<<< HEAD
-        else:
-            self.valid_layouts = get_valid_layouts(template_id)
-        self.supports_ending_socials = "ending_socials" in self.valid_layouts
-=======
             self.hero_layout = ""
         else:
             self.valid_layouts = get_valid_layouts(template_id)
@@ -186,7 +144,6 @@ class TemplateLayoutPlanner:
             self.ending_layout = "ending_cta"
         else:
             self.ending_layout = None
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     def _normalize_layout(self, raw: object) -> str:
         if not isinstance(raw, str):
@@ -309,15 +266,6 @@ class TemplateLayoutPlanner:
                     if swapped:
                         break
 
-<<<<<<< HEAD
-        # Built-in templates with ending_socials should always end on that layout.
-        if self.supports_ending_socials and total_scenes > 0:
-            for i in range(total_scenes - 1):
-                if out[i] == "ending_socials":
-                    replacement = ""
-                    for c in candidates:
-                        if c == "ending_socials":
-=======
         # Templates declaring a closer layout (ending_socials or ending_cta) must end on it.
         if self.ending_layout and total_scenes > 0:
             closer = self.ending_layout
@@ -326,7 +274,6 @@ class TemplateLayoutPlanner:
                     replacement = ""
                     for c in candidates:
                         if c == closer:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             continue
                         if i > 0 and out[i - 1] == c:
                             continue
@@ -336,11 +283,7 @@ class TemplateLayoutPlanner:
                         break
                     if replacement:
                         out[i] = replacement
-<<<<<<< HEAD
-            out[-1] = "ending_socials"
-=======
             out[-1] = closer
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         return out
 
@@ -373,22 +316,14 @@ class TemplateLayoutPlanner:
         try:
             result = await self.plan(
                 layout_catalog=self.layout_catalog or "",
-<<<<<<< HEAD
-=======
                 full_prompt=self.full_prompt or "",
                 user_instruction_summary=self.user_instruction_summary,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 scenes_json=json.dumps(scenes_data, ensure_ascii=False),
                 total_scenes=total_scenes,
                 video_length=(video_length or "auto").strip().lower(),
                 content_language=(content_language or "English").strip(),
             )
             coerced = self._coerce_output(result.preferred_layouts_json, total_scenes)
-<<<<<<< HEAD
-            return self._enforce_policy(coerced, total_scenes, video_length)
-        except Exception:
-            return [""] * total_scenes
-=======
             enforced = self._enforce_policy(coerced, total_scenes, video_length)
             return self._enforce_hero_rule(enforced)
         except Exception:
@@ -463,4 +398,3 @@ class TemplateLayoutPlanner:
             if c and not _is_hero_like(c, self.hero_layout):
                 return c
         return ""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

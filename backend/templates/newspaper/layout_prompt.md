@@ -23,13 +23,6 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `news_timeline`  
   - **Best for**: Chronology. Vertical timeline of events with dates and descriptions.
 
-<<<<<<< HEAD
-Global variety rules for `preferred_layout`:
-
-- Scene 0 → **always** `news_headline`.  
-- Strongly prefer using **article_lead** for scene 1 or 2 when the story body starts.  
-- Alternate between quote (`pull_quote`), data (`data_snapshot`), fact-check (`fact_check`), and timeline (`news_timeline`) when content allows.  
-=======
 - `expert_profile`
   - **Best for**: Spotlighting a named expert, source, or key person behind the story. Landscape: photo on the left with name/role credit, title + bio + stat on the right. Portrait: full-width photo + info stacked below.
   - **Props**: `leftThought` = expert's name; `rightThought` = expert's role/title; `imageUrl` = headshot; `category` = section label (e.g. "Expert Voices"); `stats[0]` = `{ value: "20yr", label: "in Policy" }` for a stat badge; `narration` = short bio or quote.
@@ -59,5 +52,4 @@ Global variety rules for `preferred_layout`:
 - Strongly prefer using **article_lead** for scene 1 or 2 when the story body starts.  
 - Alternate between quote (`pull_quote`), data (`data_snapshot`, `data_visualisation`, `ticker_table`), fact-check (`fact_check`), and timeline (`news_timeline`) when content allows.
 - `data_visualisation` and `ticker_table` are reserved for scenes the pipeline binds to a real table (`data_table_index` set).
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 

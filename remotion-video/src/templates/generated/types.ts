@@ -4,11 +4,8 @@ export interface GeneratedSceneProps {
   displayText: string;
   narrationText: string;
   imageUrl?: string;
-<<<<<<< HEAD
-=======
   imageObjectPosition?: string;
   imageZoom?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   sceneIndex: number;
   totalScenes: number;
   logoUrl?: string;
@@ -19,19 +16,12 @@ export interface GeneratedSceneProps {
     accent: string;
     background: string;
     text: string;
-<<<<<<< HEAD
-  };
-  aspectRatio: "landscape" | "portrait";
-  /** Structured content fields — populated when blog content contains lists, stats, quotes, etc. */
-  contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps";
-=======
     /** Optional gradient endpoint — when present the brand background is a gradient. */
     bg2?: string;
   };
   aspectRatio: "landscape" | "portrait";
   /** Structured content fields — populated when blog content contains lists, stats, quotes, etc. */
   contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps" | "dataviz";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   bullets?: string[];
   metrics?: { value: string; label: string; suffix?: string }[];
   codeLines?: string[];
@@ -42,13 +32,10 @@ export interface GeneratedSceneProps {
   comparisonRight?: { label: string; description: string };
   timelineItems?: { label: string; description: string }[];
   steps?: string[];
-<<<<<<< HEAD
-=======
   /** Data-viz fields — populated when blog content contains a table/chartable data. */
   chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
   chartType?: string;
   chartSummary?: string;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   titleFontSize?: number;
   descriptionFontSize?: number;
   headingFont?: string;
@@ -68,17 +55,12 @@ export interface GeneratedVideoData {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
-<<<<<<< HEAD
-=======
   playbackSpeed?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   fontFamily?: string | null;
   /** Font for headings/titles (from theme or user override) */
   headingFont?: string | null;
   /** Font for body/description text (from theme or user override) */
   bodyFont?: string | null;
-<<<<<<< HEAD
-=======
   bgmFile?: string | null;
   bgmVolume?: number;
   captionsEnabled?: boolean;
@@ -86,7 +68,6 @@ export interface GeneratedVideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: GeneratedSceneData[];
   /** Brand colors derived from template theme */
   brandColors?: {
@@ -95,9 +76,6 @@ export interface GeneratedVideoData {
     accent: string;
     background: string;
     text: string;
-<<<<<<< HEAD
-  };
-=======
     bg2?: string;
   };
   /** Optional gradient endpoint for the canvas background (solid when absent). */
@@ -110,7 +88,6 @@ export interface GeneratedVideoData {
     | "ink_wash"
     | "whip_blur"
   )[];
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   /** Number of unique content scene variants */
   contentVariantCount?: number;
   /** Brand images from BrandKit (resolved to public/ filenames) */
@@ -127,11 +104,6 @@ export interface GeneratedSceneData {
   /** Full voiceover narration script */
   narrationText?: string;
   durationSeconds: number;
-<<<<<<< HEAD
-  voiceoverFile: string | null;
-  images: string[];
-  sceneType?: "intro" | "content" | "outro";
-=======
   /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
@@ -139,21 +111,12 @@ export interface GeneratedSceneData {
   /** External image URL (og_image from brand kit) — used when no local image is assigned */
   ogImageUrl?: string;
   sceneType?: "intro" | "content" | "outro" | "dataviz_chart" | "dataviz_table";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   /** Index into content variant array (0-based, cycles) */
   contentVariantIndex?: number;
   /** Structured content extracted from blog content (bullets, metrics, quotes, etc.) */
   structuredContent?: { contentType: string; [key: string]: unknown };
   /** Layout config with font sizes and other per-scene settings */
   layoutConfig?: { titleFontSize?: number; descriptionFontSize?: number; [key: string]: unknown };
-<<<<<<< HEAD
-  /** CTA props for outro scenes (socials, website link, CTA button) */
-  ctaProps?: {
-    socials?: Record<string, { enabled?: boolean; label?: string }>;
-    showWebsiteButton?: boolean;
-    websiteLink?: string;
-    ctaButtonText?: string;
-=======
   layoutProps?: { imageFocusX?: number; imageFocusY?: number; imageBoxAspectRatio?: string; [key: string]: unknown };
   /** CTA props for outro scenes. Socials are scene-level (one global list).
    *  CTAs are an array of up to 3 pill+URL cards rendered as columns. */
@@ -170,6 +133,5 @@ export interface GeneratedSceneData {
       websiteLink?: string;
       showWebsiteButton?: boolean;
     }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   };
 }

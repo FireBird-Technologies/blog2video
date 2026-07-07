@@ -10,11 +10,8 @@ import {
   Scene,
   StudioResponse,
   ProjectTemplateChangeJob,
-<<<<<<< HEAD
-=======
   ProjectRegenerateScriptJob,
   RegenerateScriptPreviewOut,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 } from "./types";
 
 // ─── Project API ──────────────────────────────────────────
@@ -100,8 +97,6 @@ export const getProjectTemplateChangeStatus = (projectId: number) =>
     `/projects/${projectId}/template-change-status`
   );
 
-<<<<<<< HEAD
-=======
 export const regenerateScript = (
   projectId: number,
   body?: { user_instruction?: string },
@@ -139,7 +134,6 @@ export const rejectRegenerateScript = (
     body ?? {},
   );
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export const updateScene = (
   projectId: number,
   sceneId: number,

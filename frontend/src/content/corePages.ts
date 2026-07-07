@@ -3,42 +3,6 @@ import type { MarketingPage } from "./seoTypes";
 
 export const coreCommercialPages: MarketingPage[] = [
   createPage({
-<<<<<<< HEAD
-    path: "/blog-to-video",
-    title: "Blog to Video Converter | Turn Posts Into Videos | Blog2Video",
-    description:
-      "Turn blog posts into videos in minutes. Blog2Video converts articles to narrated videos with code, diagrams, and templates. No prompts needed.",
-    eyebrow: "Commercial workflow",
-    heroTitle: "Blog to Video: Turn Posts Into Videos Without Rebuilding",
-    heroDescription:
-      "Blog2Video is built for creators who already have long-form content and want a clean path to YouTube, Shorts, and social video without outsourcing every publish.",
-    category: "commercial",
-    primaryKeyword: "blog to video",
-    keywordVariant: "convert blog post to video",
-    badges: ["For bloggers", "Narrated explainers", "Preserves structure"],
-    proofPoints: [
-      "Starts from the URL of an existing article instead of a blank video timeline.",
-      "Keeps code snippets, diagrams, bullets, and key arguments visible in the final edit.",
-      "Supports templates, voice options, and AI scene editing for faster iteration.",
-    ],
-    sections: [
-      {
-        title: "Why this workflow converts",
-        body: [
-          "Most creators already know what they want to say. The problem is rebuilding the same thinking in a completely different medium. Blog2Video closes that gap by treating the article as the source of truth.",
-          "Instead of generic stock footage and one-size-fits-all narration, the platform maps your original content into scenes, visuals, and voiceover that match the actual ideas in the post.",
-        ],
-        bullets: [
-          "Paste a URL and generate the first draft from your real article.",
-          "Review scene structure instead of editing from a blank canvas.",
-          "Ship the output to YouTube, LinkedIn, Shorts, or newsletter embeds.",
-        ],
-      },
-      {
-        title: "Built for written-first creators",
-        body: [
-          "This is especially strong for technical blogs, product explainers, tutorials, and research commentary where the writing already contains the logic of the video.",
-=======
     path: "/blog-to-video-ai",
     title: "Blog to Video AI | Turn Any Blog Post Into Video | Blog2Video",
     description:
@@ -326,7 +290,6 @@ export const coreCommercialPages: MarketingPage[] = [
           "A YouTube channel built from your existing blog is not a separate content operation — it is the same writing, redistributed into a second discovery surface.",
           "YouTube's algorithm rewards consistent publishing. Blog2Video makes that consistency achievable because every article you already publish is a video waiting to happen. Finance analysis becomes a market breakdown video. A policy explainer becomes a desk commentary. A product tutorial becomes a YouTube walkthrough. Cut Shorts from the generated scenes, embed the full video back into the article, and ship the PNG frames as a LinkedIn carousel — all from one generation.",
           "The writers and creators who grow fastest on YouTube in 2026 are not making new content for the platform. They are translating the content they already make.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         ],
       },
     ],
@@ -337,9 +300,6 @@ export const coreCommercialPages: MarketingPage[] = [
       {
         question: "How do I convert a blog to video?",
         answer:
-<<<<<<< HEAD
-          "Paste your blog URL into Blog2Video. The tool reads the live page, extracts headings and content structure, and generates a scene-by-scene video outline. Pick a template and voice, then render. No prompts or manual scripting needed.",
-=======
           "Paste your blog URL into Blog2Video. The tool reads the live page, extracts headings and content structure, and generates a scene-by-scene video outline automatically. Pick a designer template and AI voice, then render. No scripting, recording, or editing required.",
       },
       {
@@ -361,31 +321,15 @@ export const coreCommercialPages: MarketingPage[] = [
         question: "How is Blog2Video different from InVideo, Fliki, or Descript?",
         answer:
           "InVideo, Fliki, and Descript are general-purpose video tools. Blog2Video is purpose-built for blog-to-video conversion: it reads your live article URL, preserves your original content structure (including code, bullets, and diagrams), and applies designer templates matched to content types like finance, long-form narrative, or technical explainers. The output still sounds and feels like the original post.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       },
       {
         question: "What is the best blog to video converter?",
         answer:
-<<<<<<< HEAD
-          "Blog2Video is built for bloggers because it treats your article as the source of truth, not a loose prompt. It preserves code blocks, diagrams, and argument structure, and supports templates, AI voiceover, and scene editing.",
-=======
           "Blog2Video is purpose-built for this workflow. It treats your article as the source of truth — not a loose prompt — and produces scene structure, narration, and visuals that stay faithful to the original content. It also offers more export formats (MP4, PNG, PDF, iframe) and designer templates than most alternatives.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       },
       {
         question: "How do I use my blog for videos?",
         answer:
-<<<<<<< HEAD
-          "Use Blog2Video to turn every published post into a narrated video. Paste the URL, generate the video, and export to YouTube, Shorts, LinkedIn, or embed back into the original article. One blog post becomes multiple video assets.",
-      },
-      ...createFaq(
-        "blog to video conversion",
-        "Writers and founder-creators",
-        "Blog2Video uses your real content structure and turns it into React-rendered scenes, diagrams, and code-aware layouts instead of vague stock footage."
-      ),
-    ],
-    relatedPaths: [
-=======
           "Use Blog2Video to turn every published post into a narrated video. Paste the URL, generate the video, and export to YouTube, Shorts, LinkedIn, or embed back into the original article. One blog post becomes multiple video assets across every channel.",
       },
       ...createFaq(
@@ -397,13 +341,10 @@ export const coreCommercialPages: MarketingPage[] = [
     relatedPaths: [
       "/blog-to-video-ai",
       "/ai-blog-to-video",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       "/article-to-video",
       "/blog-to-youtube-video",
       "/for-technical-bloggers",
       "/blogs/how-to-turn-a-blog-post-into-a-video",
-<<<<<<< HEAD
-=======
       "/blogs/blog-to-video-tools-compared",
     ],
   }),
@@ -475,7 +416,6 @@ export const coreCommercialPages: MarketingPage[] = [
       "/blog-to-video",
       "/distribution-flywheel",
       "/blogs/how-technical-bloggers-can-repurpose-posts-into-youtube-videos",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
   }),
   createPage({
@@ -804,8 +744,6 @@ export const coreCommercialPages: MarketingPage[] = [
       "/blogs/blog-to-youtube-shorts-strategy",
     ],
   }),
-<<<<<<< HEAD
-=======
   createPage({
     path: "/linkedin-carousel-generator",
     title: "LinkedIn Carousel Generator From Articles, PDFs, and Blog Posts",
@@ -879,5 +817,4 @@ export const coreCommercialPages: MarketingPage[] = [
       "/for-technical-bloggers",
     ],
   }),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ];

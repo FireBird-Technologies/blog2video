@@ -1,17 +1,10 @@
-<<<<<<< HEAD
-import React from "react";
-=======
 import * as React from "react";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY, GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
 import { SocialIcons } from "../../SocialIcons";
-<<<<<<< HEAD
-=======
 import { resolveCtas } from "../../../../utils/resolveCtas";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const BOX_STAGGER_DELAY = 8;
 
@@ -22,10 +15,7 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
-<<<<<<< HEAD
-=======
   ctas,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   textColor,
   aspectRatio,
@@ -38,18 +28,12 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
   const p = aspectRatio === "portrait";
 
   const subtext = (narration ?? "").trim();
-<<<<<<< HEAD
-  const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
-=======
 
   // CTA cards (1-3). Only render cards with toggle on + a link.
   const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
     (c) => c.showWebsiteButton && c.websiteLink.length > 0,
   );
   const showWebsiteCta = cards.length > 0;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   
   const rawFont = (fontFamily ?? "").trim();
   const titleFont = rawFont || GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
@@ -129,34 +113,6 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
           />
         </div>
 
-<<<<<<< HEAD
-        {/* 2. CTA Box (Accent Background) */}
-        {showWebsiteCta && (
-          <div style={{ ...getBoxStyle(1, true) }}>
-             <div
-                style={{
-                  fontSize: Math.max(24, (titleFontSize ?? (p ? 50 : 64)) * 0.5), 
-                  fontWeight: 800,
-                  color: "#FFFFFF",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                }}
-              >
-                <span>{resolvedCta}</span>
-                <span style={{ fontSize: "1.1em" }}>→</span>
-              </div>
-              <div style={{ 
-                marginTop: 14, 
-                fontSize: 20, // Increased link size from 16 to 20
-                fontWeight: 600, 
-                color: "rgba(255,255,255,0.85)", // Slightly higher opacity for better visibility
-              }}>
-                {resolvedWebsiteLink}
-              </div>
-=======
         {/* 2. CTA Box (Accent Background) — stacks 1-3 CTAs vertically inside the box */}
         {showWebsiteCta && (
           <div style={{ ...getBoxStyle(1, true), gap: cards.length > 1 ? 18 : 0 }}>
@@ -195,7 +151,6 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
                 </div>
               </React.Fragment>
             ))}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
         )}
 

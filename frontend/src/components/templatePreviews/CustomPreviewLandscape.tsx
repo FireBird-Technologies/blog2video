@@ -11,14 +11,10 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-<<<<<<< HEAD
-    const update = () => setScale(el.getBoundingClientRect().width / W);
-=======
     const update = () => {
       const s = el.offsetWidth / W;
       if (s > 0) setScale(s);
     };
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     update();
     const obs = new ResizeObserver(update);
     obs.observe(el);
@@ -374,11 +370,6 @@ interface Props {
   outroCode?: string;
   contentCodes?: string[];
   contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
-<<<<<<< HEAD
-  previewImageUrl?: string | null;
-  logoUrls?: string[];
-  ogImage?: string;
-=======
   validLayouts?: string[] | null;
   frontendFiles?: Record<string, string> | null;
   frontendEntryRel?: string | null;
@@ -389,7 +380,6 @@ interface Props {
   showLoaderOnEmptyOrError?: boolean;
   thumbnailFrame?: number;
   thumbnailMode?: boolean;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export default function CustomPreviewLandscape({
@@ -399,16 +389,6 @@ export default function CustomPreviewLandscape({
   outroCode,
   contentCodes,
   contentArchetypeIds,
-<<<<<<< HEAD
-  previewImageUrl,
-  logoUrls,
-  ogImage,
-}: Props) {
-  // If we have actual generated scene code, use CustomPreview (real scenes)
-  const hasGeneratedCode = !!(introCode || (contentCodes && contentCodes.length > 0));
-
-  if (hasGeneratedCode) {
-=======
   validLayouts,
   frontendFiles,
   frontendEntryRel,
@@ -426,7 +406,6 @@ export default function CustomPreviewLandscape({
     !!(frontendFiles && Object.keys(frontendFiles).length > 0 && frontendEntryRel);
 
   if (hasRuntimePreview) {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     return (
       <CustomPreview
         theme={theme}
@@ -435,11 +414,6 @@ export default function CustomPreviewLandscape({
         outroCode={outroCode}
         contentCodes={contentCodes}
         contentArchetypeIds={contentArchetypeIds}
-<<<<<<< HEAD
-        previewImageUrl={previewImageUrl}
-        logoUrls={logoUrls}
-        ogImage={ogImage}
-=======
         validLayouts={validLayouts}
         frontendFiles={frontendFiles}
         frontendEntryRel={frontendEntryRel}
@@ -450,18 +424,10 @@ export default function CustomPreviewLandscape({
         showLoaderOnEmptyOrError={showLoaderOnEmptyOrError}
         thumbnailFrame={thumbnailFrame}
         thumbnailMode={thumbnailMode}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       />
     );
   }
 
-<<<<<<< HEAD
-  // Fallback: old hardcoded slides for templates without generated code
-  return <FallbackSlides theme={theme} name={name} />;
-}
-
-function FallbackSlides({ theme, name }: { theme: CustomTemplateTheme; name?: string }) {
-=======
   if (thumbnailMode && (previewImageUrl || ogImage)) {
     return (
       <div className="w-full h-full min-h-[56px]">
@@ -481,19 +447,11 @@ function FallbackSlides({ theme, name }: { theme: CustomTemplateTheme; name?: st
 }
 
 function FallbackSlides({ theme, name, thumbnailMode = false }: { theme: CustomTemplateTheme; name?: string; thumbnailMode?: boolean }) {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const slides = [SlideCinematic, SlideMetrics, SlideCode];
   const [current, setCurrent] = useState(0);
   const [active, setActive] = useState(false);
 
   useEffect(() => {
-<<<<<<< HEAD
-    const t = setTimeout(() => setActive(true), 200);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-=======
     if (thumbnailMode) {
       setActive(true);
       return;
@@ -504,21 +462,10 @@ function FallbackSlides({ theme, name, thumbnailMode = false }: { theme: CustomT
 
   useEffect(() => {
     if (thumbnailMode) return;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const id = setInterval(() => {
       setCurrent((c) => (c + 1) % slides.length);
     }, SLIDE_DURATION);
     return () => clearInterval(id);
-<<<<<<< HEAD
-  }, [slides.length]);
-
-  // Re-trigger active state on slide change so CSS transition fires (mount at 0, then → 1)
-  useEffect(() => {
-    setActive(false);
-    const t = setTimeout(() => setActive(true), 30);
-    return () => clearTimeout(t);
-  }, [current]);
-=======
   }, [slides.length, thumbnailMode]);
 
   // Re-trigger active state on slide change so CSS transition fires (mount at 0, then → 1)
@@ -528,7 +475,6 @@ function FallbackSlides({ theme, name, thumbnailMode = false }: { theme: CustomT
     const t = setTimeout(() => setActive(true), 30);
     return () => clearTimeout(t);
   }, [current, thumbnailMode]);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   return (
     <ScaledCanvas>

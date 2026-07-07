@@ -17,14 +17,9 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
-<<<<<<< HEAD
-  stats,
-  imageUrl,
-=======
   stats,imageUrl,
   imageObjectPosition,
   imageZoom,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -163,10 +158,6 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   transform: "rotate(-1deg)",
                   border: "1px solid #ddd"
                 }}>
-<<<<<<< HEAD
-                  {/* Decreased height of image to prevent hiding narration text */}
-                  <Img src={imageUrl} style={{ width: "100%", height: 300, objectFit: "cover", filter: "sepia(0.2) grayscale(0.3)" }} />
-=======
                   {/* Clip box: zoom scales inside fixed frame (scale on img alone grows layout in flex) */}
                   <div
                     style={{
@@ -192,7 +183,6 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                       }}
                     />
                   </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                </div>
             </div>
           )}
@@ -227,9 +217,6 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   transform: "rotate(2deg)",
                   border: "1px solid #ddd"
                 }}>
-<<<<<<< HEAD
-                  <Img src={imageUrl} style={{ width: "100%", height: "auto", display: "block", filter: "sepia(0.2) contrast(1.1)" }} />
-=======
                   <div
                     style={{
                       width: "100%",
@@ -255,7 +242,6 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                       }}
                     />
                   </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   <div style={{ marginTop: 8, fontFamily: fontFamily ?? H_FONT, fontSize: 11, color: "#666", fontStyle: "italic", borderTop: "1px solid #eee", paddingTop: 4 }}>
                     Newspaper Archive / Photo
                   </div>
@@ -284,7 +270,4 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     </AbsoluteFill>
   );
 };
-<<<<<<< HEAD
-=======
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

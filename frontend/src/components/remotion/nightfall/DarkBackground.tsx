@@ -1,11 +1,7 @@
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { NightfallStarfield } from "./NightfallStarfield";
 
-<<<<<<< HEAD
-export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string }> = ({ drift = true, bgColor }) => {
-=======
 export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string; seed?: number }> = ({ drift = true, bgColor, seed = 0 }) => {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const bg = bgColor || "#0A0A1A";
   const frame = useCurrentFrame();
   const t = drift ? (frame / 300) % 1 : 0;

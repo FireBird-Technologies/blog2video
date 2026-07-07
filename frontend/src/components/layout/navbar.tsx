@@ -1,21 +1,13 @@
-<<<<<<< HEAD
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
-import DiscountBanner from "../DiscountBanner";
-=======
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import DiscountBanner from "../DiscountBanner";
 
 const AI_NAMES = ["Claude", "Gemini", "OpenAI", "n8n"];
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-<<<<<<< HEAD
-=======
   const [menuOpen, setMenuOpen] = useState(false);
   const [aiIdx, setAiIdx] = useState(0);
   const [fade, setFade] = useState(true);
@@ -30,7 +22,6 @@ const Navbar = () => {
     }, 1800);
     return () => clearInterval(id);
   }, []);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   if (!user) return null;
 
@@ -42,15 +33,6 @@ const Navbar = () => {
   return (
     <nav className="border-b border-white/20 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
       {/* Discount banner — only for free tier users, aligned with navbar width */}
-<<<<<<< HEAD
-      <DiscountBanner containerClassName="max-w-7xl" visible={user.plan === "free"} />
-
-      <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-        <Link
-          to="/dashboard?show_form=0"
-          onClick={goToDashboard}
-          className="flex items-center gap-2.5 cursor-pointer"
-=======
       {/* <DiscountBanner containerClassName="max-w-7xl" visible={user.plan === "free"} /> */}
 
       <div className="max-w-7xl mx-auto px-6 pt-5 pb-3 flex items-center justify-between gap-4">
@@ -58,7 +40,6 @@ const Navbar = () => {
           to="/dashboard?show_form=0"
           onClick={goToDashboard}
           className="group flex items-center gap-2.5 cursor-pointer"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         >
           <div className="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-[11px]">
             B2V

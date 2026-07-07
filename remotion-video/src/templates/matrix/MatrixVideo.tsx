@@ -9,10 +9,7 @@ import {
 } from "remotion";
 import { TransitionSeries } from "@remotion/transitions";
 import { MATRIX_LAYOUT_REGISTRY } from "./layouts";
-<<<<<<< HEAD
-=======
 import { pickMatrixTransition } from "./transitions";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { resolveFontFamily } from "../../fonts/registry";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MatrixLayoutType, MatrixLayoutProps } from "./types";
@@ -50,9 +47,6 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: number | string;
   aspectRatio?: string;
-<<<<<<< HEAD
-  fontFamily?: string | null;
-=======
   playbackSpeed?: number;
   fontFamily?: string | null;
   bgmFile?: string | null;
@@ -62,7 +56,6 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
@@ -89,9 +82,6 @@ export const calculateMatrixMetadata: CalculateMetadataFunction<VideoProps> =
       const sceneFrames = data.scenes.map((s) =>
         getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
-<<<<<<< HEAD
-      const totalFrames = Math.ceil(totalSeconds * FPS);
-=======
       let totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
       for (let i = 0; i < data.scenes.length - 1; i++) {
         totalFrames -= pickMatrixTransition(
@@ -100,7 +90,6 @@ export const calculateMatrixMetadata: CalculateMetadataFunction<VideoProps> =
           data.scenes[i + 1].layout,
         ).frames;
       }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       const isPortrait = data.aspectRatio === "portrait";
 
@@ -232,18 +221,11 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-<<<<<<< HEAD
-      {data.scenes.map((scene, index) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
-        const startFrame = currentFrame;
-        currentFrame += durationFrames;
-=======
       <TransitionSeries>
         {data.scenes.map((scene, index) => {
           const LayoutComponent =
             MATRIX_LAYOUT_REGISTRY[scene.layout] ||
             MATRIX_LAYOUT_REGISTRY.terminal_text;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
           const sequence = (
             <TransitionSeries.Sequence
@@ -256,19 +238,6 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
           if (index === data.scenes.length - 1) return sequence;
 
-<<<<<<< HEAD
-        const layoutProps: MatrixLayoutProps = {
-          ...scene.layoutProps,
-          title: scene.title,
-          narration: scene.narration,
-          accentColor: data.accentColor || "#00FF41",
-          bgColor: data.bgColor || "#000000",
-          textColor: data.textColor || "#00FF41",
-          aspectRatio: data.aspectRatio || "landscape",
-          imageUrl,
-          fontFamily: resolvedFontFamily || undefined,
-        };
-=======
           const choice = pickMatrixTransition(
             index,
             scene.layout,
@@ -287,7 +256,6 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           );
         })}
       </TransitionSeries>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       {/* Audio runs on its own overlap-adjusted timeline. */}
       {data.scenes.map((scene, index) =>

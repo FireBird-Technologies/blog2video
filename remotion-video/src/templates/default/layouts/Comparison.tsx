@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
-=======
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { SceneLayoutProps } from "../types";
 
 const PLANE_SVG_PATH =
@@ -244,81 +240,10 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
   const dividerH = interpolate(frame, [5, 35], [0, 100], { extrapolateRight: "clamp" });
   const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 43 : 33);
 
-  const { durationInFrames } = useVideoConfig();
-
-  const exitStartFrame = durationInFrames - 30;
-
-  // Left section exit animation
-  const leftExitSpring = spring({
-    frame: frame - exitStartFrame,
-    fps,
-    config: { damping: 18, stiffness: 100, mass: 1 },
-  });
-  const leftOutX = interpolate(leftExitSpring, [0, 1], [0, p ? 0 : -200], {
-    extrapolateLeft: "clamp",
-  });
-  const leftOutY = interpolate(leftExitSpring, [0, 1], [0, p ? -150 : 0], {
-    extrapolateLeft: "clamp",
-  });
-
-  // Right section exit animation
-  const rightExitSpring = spring({
-    frame: frame - exitStartFrame,
-    fps,
-    config: { damping: 18, stiffness: 100, mass: 1 },
-  });
-  const rightOutX = interpolate(rightExitSpring, [0, 1], [0, p ? 0 : 200], {
-    extrapolateLeft: "clamp",
-  });
-  const rightOutY = interpolate(rightExitSpring, [0, 1], [0, p ? 150 : 0], {
-    extrapolateLeft: "clamp",
-  });
-
-  // Combine entry and exit transformations
-  const finalLeftX = leftX + leftOutX;
-  const finalLeftY = leftY + leftOutY;
-  const finalRightX = rightX + rightOutX;
-  const finalRightY = rightY + rightOutY;
-
-  // Combine entry and exit opacity
-  const outroOp = interpolate(leftExitSpring, [0, 1], [1, 0], {
-    extrapolateLeft: "clamp",
-  });
-  const finalOp = op * outroOp;
-
-  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 43 : 33);
-
   return (
-<<<<<<< HEAD
-    <AbsoluteFill
-      style={{
-        backgroundColor: bgColor,
-        padding: p ? "60px 50px" : "80px 100px",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      <h2
-        style={{
-          color: textColor,
-          fontSize: titleFontSize ?? (p ? 70 : 78),
-          fontWeight: 700,
-          fontFamily: fontFamily ?? "'Roboto Slab', serif",
-          opacity: titleOp,
-          marginTop: 0,
-          marginBottom: p ? 28 : 40,
-          textAlign: "center",
-        }}
-      >
-        {title}
-      </h2>
-      <div
-=======
     <>
       {/* ── Content ─────────────────────────────────────────────────────────── */}
       <AbsoluteFill
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         style={{
           backgroundColor: bgColor,
           padding: p ? "60px 50px" : "80px 100px",
@@ -329,57 +254,6 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
       >
         <h2
           style={{
-<<<<<<< HEAD
-            flex: 1,
-            padding: p ? "24px 20px" : 40,
-            opacity: finalOp,
-            transform: p
-              ? `translateY(${finalLeftY}px)`
-              : `translateX(${finalLeftX}px)`,
-          }}
-        >
-          <div
-            style={{
-              // Adjust width and height based on the new font size
-              width: resolvedDescriptionFontSize * 1.2,
-              height: resolvedDescriptionFontSize * 1.2,
-              borderRadius: 12,
-              backgroundColor: "#FEE2E2",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 16,
-            }}
-          >
-            <svg width={resolvedDescriptionFontSize} height={resolvedDescriptionFontSize} viewBox="0 0 24 24" fill="none">
-              <path d="M6 6L18 18M6 18L18 6" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <h3
-            style={{
-              fontSize: resolvedDescriptionFontSize,
-              fontWeight: 600,
-              color: textColor,
-              fontFamily: fontFamily ?? "'Roboto Slab', serif",
-              margin: 0,
-              marginBottom: 12,
-            }}
-          >
-            {leftLabel}
-          </h3>
-          <p
-            style={{
-              fontSize: resolvedDescriptionFontSize,
-              color: textColor,
-              fontFamily: fontFamily ?? "'Roboto Slab', serif",
-              lineHeight: 1.6,
-              opacity: 0.7,
-              margin: 0,
-            }}
-          >
-            {leftDescription}
-          </p>
-=======
             color: textColor,
             fontSize: titleFontSize ?? (p ? 70 : 78),
             fontWeight: 700,
@@ -419,79 +293,11 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
             <h3 style={{ fontSize: resolvedDescriptionFontSize, fontWeight: 600, color: textColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", margin: 0, marginBottom: 12 }}>{rightLabel}</h3>
             <p style={{ fontSize: resolvedDescriptionFontSize, color: textColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", lineHeight: 1.6, opacity: 0.7, margin: 0 }}>{rightDescription}</p>
           </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
 
         <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 4, backgroundColor: accentColor }} />
       </AbsoluteFill>
 
-<<<<<<< HEAD
-        {/* Right / Bottom side */}
-        <div
-          style={{
-            flex: 1,
-            padding: p ? "24px 20px" : 40,
-            opacity: finalOp,
-            transform: p
-              ? `translateY(${finalRightY}px)`
-              : `translateX(${finalRightX}px)`,
-          }}
-        >
-          <div
-            style={{
-              // Adjust width and height based on the new font size
-              width: resolvedDescriptionFontSize * 1.2,
-              height: resolvedDescriptionFontSize * 1.2,
-              borderRadius: 12,
-              backgroundColor: "#DCFCE7",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 16,
-            }}
-          >
-            <svg width={resolvedDescriptionFontSize} height={resolvedDescriptionFontSize} viewBox="0 0 24 24" fill="none">
-              <path d="M5 12L10 17L19 7" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <h3
-            style={{
-              fontSize: resolvedDescriptionFontSize,
-              fontWeight: 600,
-              color: textColor,
-              fontFamily: fontFamily ?? "'Roboto Slab', serif",
-              margin: 0,
-              marginBottom: 12,
-            }}
-          >
-            {rightLabel}
-          </h3>
-          <p
-            style={{
-              fontSize: resolvedDescriptionFontSize,
-              color: textColor,
-              fontFamily: fontFamily ?? "'Roboto Slab', serif",
-              lineHeight: 1.6,
-              opacity: 0.7,
-              margin: 0,
-            }}
-          >
-            {rightDescription}
-          </p>
-        </div>
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          width: "100%",
-          height: 4,
-          backgroundColor: accentColor,
-        }}
-      />
-    </AbsoluteFill>
-=======
       {/* ── Plane overlay — outside overflow:hidden ──────────────────────────── */}
       <svg
         width={width}
@@ -508,6 +314,5 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
         {p && renderPlane(accentColor, activePBotPlaneX, activePBotPlaneY, activePBotOp, activePBotRot, P_SCALE, activePBotTetherOp, pBotCardCx, P_BOTTOM_CARD_CY, "left")}
       </svg>
     </>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   );
 };

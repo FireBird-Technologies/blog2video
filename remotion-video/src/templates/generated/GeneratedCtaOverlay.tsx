@@ -1,10 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { SocialIcons } from "../SocialIcons";
-<<<<<<< HEAD
-=======
 import { resolveCtas } from "../shared/resolveCtas";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import type { GeneratedSceneData } from "./types";
 
 type CtaProps = NonNullable<GeneratedSceneData["ctaProps"]>;
@@ -57,11 +54,6 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
     [0.8, 1],
   );
 
-<<<<<<< HEAD
-  const showWebsiteCta =
-    ctaProps.showWebsiteButton !== false &&
-    (ctaProps.websiteLink ?? "").trim().length > 0;
-=======
   // CTA cards: only render cards that have a visible pill (toggle on + link).
   // Empty cards (user added but never filled in) are dropped to avoid blank columns.
   const cards = resolveCtas(ctaProps).filter(
@@ -69,7 +61,6 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
   );
   const hasAnyCard = cards.length > 0;
   const cardCount = Math.min(Math.max(cards.length, 1), 3);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const hasSocials =
     ctaProps.socials &&
@@ -81,10 +72,6 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
   const titleFont = headingFont || bodyFont || "'Inter', sans-serif";
   const font = bodyFont || "'Inter', sans-serif";
 
-<<<<<<< HEAD
-  return (
-    <AbsoluteFill style={{ backgroundColor: bg, overflow: "hidden" }}>
-=======
   // Column widths: 1 → comfortable centered; 2 → ~45%; 3 → ~30%.
   const cardBasis = cardCount === 1 ? (p ? "80%" : "60%") : cardCount === 2 ? "45%" : "30%";
 
@@ -97,7 +84,6 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
     <AbsoluteFill style={{ backgroundColor: bg, overflow: "hidden" }}>
       {/* Brand atmosphere backdrop */}
       <div style={{ position: "absolute", inset: 0, background: backdrop, opacity: interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" }) }} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       {/* Accent bar at bottom */}
       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 6, backgroundColor: accent }} />
 
@@ -157,16 +143,6 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
           }}
         />
 
-<<<<<<< HEAD
-        {/* CTA button + website */}
-        {showWebsiteCta && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: p ? 10 : 12,
-=======
         {/* CTA cards — 1/2/3 columns based on count */}
         {hasAnyCard && (
           <div
@@ -178,46 +154,10 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
               alignItems: "flex-start",
               gap: p ? 18 : 28,
               width: "100%",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               opacity: ctaOp,
               transform: `scale(${ctaScale})`,
             }}
           >
-<<<<<<< HEAD
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                borderRadius: 999,
-                padding: p ? "18px 36px" : "16px 32px",
-                backgroundColor: accent,
-                color: "#FFFFFF",
-                fontSize: p ? 28 : 26,
-                fontWeight: 700,
-                fontFamily: font,
-              }}
-            >
-              <span>{(ctaProps.ctaButtonText ?? "").trim() || "Get started"}</span>
-              <span style={{ fontSize: p ? 30 : 28 }}>→</span>
-            </div>
-            <div
-              style={{
-                fontSize: p ? 26 : 24,
-                fontWeight: 600,
-                color: `${text}AA`,
-                fontFamily: font,
-                maxWidth: p ? 560 : 760,
-                wordBreak: "break-word",
-              }}
-            >
-              {(ctaProps.websiteLink ?? "").trim()}
-            </div>
-          </div>
-        )}
-
-        {/* Social icons */}
-=======
             {cards.map((card, idx) => {
               const ctaLabel = card.ctaButtonText.trim() || "Get started";
               return (
@@ -269,7 +209,6 @@ export const GeneratedCtaOverlay: React.FC<GeneratedCtaOverlayProps> = ({
         )}
 
         {/* Global socials row */}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         {hasSocials && (
           <div style={{ marginTop: p ? 8 : 14, width: "100%", opacity: socialsOp }}>
             <SocialIcons

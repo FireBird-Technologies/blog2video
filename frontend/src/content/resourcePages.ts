@@ -3,8 +3,6 @@ import type { MarketingPage } from "./seoTypes";
 
 export const resourcePages: MarketingPage[] = [
   createPage({
-<<<<<<< HEAD
-=======
     path: "/video-seo-checklist",
     title: "Video SEO Checklist for Google and YouTube Rankings",
     description:
@@ -244,7 +242,6 @@ export const resourcePages: MarketingPage[] = [
     },
   }),
   createPage({
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     path: "/distribution-flywheel",
     title: "Blog2Video Distribution Flywheel for Medium, Substack, and Video",
     description:
@@ -355,8 +352,6 @@ export const resourcePages: MarketingPage[] = [
       "/pricing",
     ],
   }),
-<<<<<<< HEAD
-=======
   createPage({
     path: "/for-finance-publishers",
     title: "Custom Branded Video Templates for Finance Publishers | Blog2Video",
@@ -460,5 +455,4 @@ export const resourcePages: MarketingPage[] = [
       "/pricing",
     ],
   }),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ];

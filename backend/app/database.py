@@ -96,8 +96,6 @@ def _migrate_sqlite(eng) -> None:
             "aspect_ratio": "VARCHAR(20) DEFAULT 'landscape'",
             "ai_assisted_editing_count": "INTEGER DEFAULT 0",
             "font_family": "VARCHAR(255)",
-<<<<<<< HEAD
-=======
             "is_active": "BOOLEAN DEFAULT 1",
             "embed_token": "VARCHAR(64)",
             "video_length": "VARCHAR(10) DEFAULT 'auto'",
@@ -110,7 +108,6 @@ def _migrate_sqlite(eng) -> None:
             "content_language": "VARCHAR(10)",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         }
         with eng.begin() as conn:
             for col_name, col_def in migrations.items():
@@ -213,13 +210,10 @@ def _migrate_sqlite(eng) -> None:
             "current_version_id": "INTEGER",
             "content_codes": "TEXT",
             "content_archetype_ids": "TEXT",
-<<<<<<< HEAD
-=======
             "image_box_aspect_ratios": "TEXT",
             "generation_failed": "BOOLEAN DEFAULT 0",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         }
         with eng.begin() as conn:
             for col_name, col_def in ct_migrations.items():
@@ -387,8 +381,6 @@ def _migrate_sqlite(eng) -> None:
                         text(f"ALTER TABLE saved_voices ADD COLUMN {col_name} {col_def}")
                     )
 
-<<<<<<< HEAD
-=======
     # ─── Project template change jobs ────────────────────────────────
     if "project_template_change_jobs" in insp.get_table_names():
         tcj_cols = {c["name"] for c in insp.get_columns("project_template_change_jobs")}
@@ -407,7 +399,6 @@ def _migrate_sqlite(eng) -> None:
                     text("ALTER TABLE project_voice_change_jobs ADD COLUMN voice_snapshot TEXT")
                 )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 def init_db():
     """
@@ -433,12 +424,6 @@ def init_db():
         ProjectEditHistory,
         SceneEditHistory,
         TemplateVersion,
-<<<<<<< HEAD
-        # Ensure SQLite creates the prebuilt_voices table in dev/local.
-        PrebuiltVoice,
-        Review,
-        ProjectTemplateChangeJob,
-=======
         PrebuiltVoice,
         Review,
         TemplateRating,
@@ -449,7 +434,6 @@ def init_db():
         ReferralSignup,
         SupportConversation,
         SupportMessage,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     )
     from app.models.subscription import seed_plans
 

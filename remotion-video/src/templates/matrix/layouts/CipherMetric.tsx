@@ -1,9 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
-<<<<<<< HEAD
-=======
 import { buildHudStatus, CipherRing, DecodeSweep, ScanlinesOverlay, TelemetryGauge, TerminalHUD } from "../components/MatrixArtifacts";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -101,8 +98,6 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
-<<<<<<< HEAD
-=======
 
       {/* Decorative artifacts — cipher dial, decode pass, verification HUD, CRT texture. */}
       {!hasImage && <CipherRing accentColor={accent} startFrame={4} seed={15} />}
@@ -111,7 +106,6 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
       {/* Telemetry gauge sweeps up like a confidence reading on the metric. */}
       <TelemetryGauge accentColor={accent} label="CONF" corner="top-right" startFrame={14} seed={63} />
       <ScanlinesOverlay accentColor={accent} intensity={0.8} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       <div
         style={{

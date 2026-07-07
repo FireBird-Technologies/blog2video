@@ -1,28 +1,9 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
-<<<<<<< HEAD
-=======
 import { buildHudStatus, DecodeSweep, GlitchSlice, ScanlinesOverlay, SignalWaveform, TerminalHUD } from "../components/MatrixArtifacts";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
-
-// Define default spring config for various effects
-const springConfigSoftBounce = {
-  damping: 8, // Softer bounce for position
-  stiffness: 80, // Medium stiffness
-  mass: 0.8, // Lighter for quicker reaction
-  overshootClamping: false, // Allow overshoot for the bounce effect
-};
-
-const springConfigEaseOut = {
-  damping: 20, // Higher damping for smoother ease-out, minimal oscillation
-  stiffness: 100, // Reasonable stiffness
-  mass: 1,
-  overshootClamping: true, // Prevents any overshoot for a clean ease-out
-};
-
 
 // Define default spring config for various effects
 const springConfigSoftBounce = {
@@ -139,8 +120,6 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
-<<<<<<< HEAD
-=======
 
       {/* Decorative artifacts — transmission HUD, decode pass, glitch ticks, CRT texture. */}
       <TerminalHUD accentColor={accent} statusText={buildHudStatus("TRANSMISSION", title)} startFrame={2} seed={23} />
@@ -149,7 +128,6 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
       <DecodeSweep accentColor={accent} startFrame={4} seed={27} />
       <GlitchSlice accentColor={accent} every={66} seed={63} />
       <ScanlinesOverlay accentColor={accent} intensity={0.85} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       {displayPhrases.map((phrase, i) => {
         const isActive = currentIdx === i;
@@ -180,17 +158,11 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
             {hasImage && (
               <div
                 style={{
-<<<<<<< HEAD
-                  flex: "0 0 38%",
-                  height: "100%",
-                  padding: "8% 0 8% 8%",
-=======
                   flex: p ? "0 0 auto" : "0 0 38%",
                   width: p ? "76%" : undefined,
                   maxWidth: p ? 760 : undefined,
                   height: p ? "44%" : "100%",
                   padding: p ? "0" : "8% 0 8% 8%",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   // Apply image animations
                   opacity: imageOpacity,
                   transform: `translateY(${imageTranslateY}px) scale(${imageScale})`,

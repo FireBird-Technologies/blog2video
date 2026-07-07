@@ -45,18 +45,13 @@ _render_processes_lock = threading.Lock()
 _render_progress: dict[int, dict] = {}
 _RENDER_LOG_TAIL_MAX = 80
 _render_progress_last_upload_at: dict[int, float] = {}
-<<<<<<< HEAD
-=======
 _MIN_PLAYBACK_SPEED = 0.5
 _MAX_PLAYBACK_SPEED = 2.5
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 # Per-project workspace locks to prevent concurrent file writes
 _workspace_locks: dict[int, threading.Lock] = {}
 
 
-<<<<<<< HEAD
-=======
 def _clamp_focus_value(value: object | None) -> float:
     try:
         num = float(value)
@@ -69,7 +64,6 @@ def _clamp_focus_value(value: object | None) -> float:
     return round(num, 2)
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _get_workspace_lock(project_id: int) -> threading.Lock:
     """Get or create a per-project workspace lock."""
     if project_id not in _workspace_locks:
@@ -105,26 +99,16 @@ _TEMPLATE_CONFIG_FILES = [
 _SHARED_SRC_FILES = [
     "src/Root.tsx",
     "src/index.ts",
-<<<<<<< HEAD
-    "src/components/LogoOverlay.tsx",
-    "src/components/Transitions.tsx",
-    "src/components/LogoOverlay.tsx",
-    # Shared font registry so templates can resolve font IDs to CSS families
-    "src/fonts/registry.ts",
-=======
     # Shared playback speed helpers imported by all template compositions.
     "src/templates/playbackSpeed.ts",
     # Shared font registry so templates can resolve font IDs to CSS families
     "src/fonts/registry.ts",
     # Caption font constant + render preload helpers (used by CaptionTrack)
     "src/fonts/captionFont.ts",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Newspaper template default fonts (bundled, not in registry)
     "src/fonts/newspaper-defaults.ts",
     # Nightfall template default fonts (bundled, not in registry)
     "src/fonts/nightfall-defaults.ts",
-<<<<<<< HEAD
-=======
     # Chronicle template default fonts (bundled, not in registry)
     "src/fonts/chronicle-defaults.ts",
     # Economist template default fonts (bundled, not in registry)
@@ -133,7 +117,6 @@ _SHARED_SRC_FILES = [
     "src/fonts/laduc-defaults.ts",
     # Magazine template default fonts (bundled, not in registry)
     "src/fonts/magazine-defaults.ts",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Shared socials renderer used by multiple template layouts
     "src/templates/SocialIcons.tsx",
 ]
@@ -276,10 +259,7 @@ def provision_workspace(project_id: int, template_id: str | None = None) -> str:
 
         os.makedirs(workspace, exist_ok=True)
         os.makedirs(os.path.join(workspace, "public"), exist_ok=True)
-<<<<<<< HEAD
-=======
         _copy_template_public_assets(workspace)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         _link_directory(
             os.path.join(template, "node_modules"),
@@ -301,15 +281,9 @@ def provision_workspace(project_id: int, template_id: str | None = None) -> str:
                 os.makedirs(os.path.dirname(dst), exist_ok=True)
                 shutil.copy2(src, dst)
 
-<<<<<<< HEAD
-        # For custom templates with AI-generated code, overwrite the placeholder
-        # scene files with the actual generated code from the database.
-        if template_id and is_custom_template(template_id):
-=======
         # For custom/crafted templates, inject runtime sources after base copy.
         # scene files with the actual generated code from the database.
         if template_id and (is_custom_template(template_id) or is_crafted_template(template_id)):
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             _write_generated_scene_files(workspace, template_id)
 
         return workspace
@@ -330,9 +304,6 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     from app.services.template_service import _load_custom_template_data
 
     custom_data = _load_custom_template_data(template_id)
-<<<<<<< HEAD
-    if not custom_data or not custom_data.get("has_generated_code"):
-=======
     if not custom_data:
         return
 
@@ -341,7 +312,6 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
         return
 
     if not custom_data.get("has_generated_code"):
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         return
 
     generated_dir = os.path.join(workspace, "src", "templates", "generated")
@@ -404,13 +374,6 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
         f.write(registry)
     logger.info("Wrote contentRegistry.ts with %d content variants", num_content)
 
-<<<<<<< HEAD
-
-def _wrap_generated_code(raw_code: str) -> str:
-    """
-    Wrap AI-generated component code in a proper .tsx module.
-
-=======
     # Optional composition implementation override for crafted templates.
     # If provided, this allows the package to fully control how scenes are composed
     # during preview and final render.
@@ -569,7 +532,6 @@ def _wrap_generated_code(raw_code: str) -> str:
     """
     Wrap AI-generated component code in a proper .tsx module.
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     The raw code looks like:
         const SceneComponent = (props) => { ... };
 
@@ -590,8 +552,6 @@ import {{
 }} from "remotion";
 import type {{ GeneratedSceneProps }} from "./types";
 
-<<<<<<< HEAD
-=======
 // Craft kit — OPTIONAL, brand-themed building blocks the generated scene may
 // compose when the content fits (never forced). See generated/kit/.
 import {{
@@ -638,7 +598,6 @@ import {{
   seededRand,
 }} from "./kit";
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 // Safe wrapper — ensures inputRange is strictly monotonic even when dynamic values resolve equal
 const interpolate: typeof _interpolate = (frame, inputRange, outputRange, options?) => {{
   const safe = (inputRange as number[]).map((v: number, i: number) =>
@@ -777,18 +736,12 @@ def write_remotion_data(
                     layout = desc["layoutConfig"].get("arrangement", fallback)
                 else:
                     layout = desc.get("layout", fallback)
-<<<<<<< HEAD
-                lp = desc.get("layoutProps", {}) or {}
-            except (json.JSONDecodeError, TypeError):
-                pass
-=======
                 lp = dict(desc.get("layoutProps", {}) or {})
             except (json.JSONDecodeError, TypeError):
                 pass
         if lp.get("assignedImage") and not lp.get("hideImage"):
             lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
             lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         parsed_descs.append(desc)
         scene_layouts.append(layout)
         scene_layout_props.append(lp)
@@ -796,9 +749,6 @@ def write_remotion_data(
     # Track which scene descriptors were modified (need serialization at end)
     dirty: set[int] = set()
 
-<<<<<<< HEAD
-    if all_image_files and scenes:
-=======
     if redistribute_images:
         # Full script regeneration creates a new scene sequence. Clear sticky
         # image choices first so assignment below behaves like fresh generation.
@@ -818,7 +768,6 @@ def write_remotion_data(
         # In redistribution mode, files named for deleted old scene ids should
         # behave like generic project images and be assigned to the new sequence.
         id_to_idx = {s.id: i for i, s in enumerate(scenes)}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         image_assets = [
             a for a in project.assets
             if a.asset_type.value == "image" and not a.excluded
@@ -828,10 +777,6 @@ def write_remotion_data(
         except Exception:
             image_assets.sort(key=lambda a: a.id)
 
-<<<<<<< HEAD
-        used_generic_files: set[str] = set()
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         scene_specific: list[tuple[int, str]] = []
         generic_files: list[str] = []
         for asset in image_assets:
@@ -844,18 +789,10 @@ def write_remotion_data(
                     scene_specific.append((scene_id, asset.filename))
             else:
                 generic_files.append(asset.filename)
-        scene_specific_files = {fn for _, fn in scene_specific}
 
-<<<<<<< HEAD
-        # Build scene_id -> index lookup
-        id_to_idx = {s.id: i for i, s in enumerate(scenes)}
-
-        # Step 1: Process stored assignments + layout constraints
-=======
         # Step 1: Honor stored assignedImage (any filename); multiple scenes may share one file.
         # In redistribution mode, old assignments were cleared above so this only
         # preserves assignments written by current descriptor generation.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         for i, scene in enumerate(scenes):
             layout = scene_layouts[i]
             lp = scene_layout_props[i]
@@ -865,12 +802,9 @@ def write_remotion_data(
                 changed = False
                 if lp.get("assignedImage"):
                     lp.pop("assignedImage", None)
-<<<<<<< HEAD
-=======
                     lp.pop("imageFocusX", None)
                     lp.pop("imageFocusY", None)
                     lp.pop("imageZoom", None)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     changed = True
                 if not lp.get("hideImage"):
                     lp["hideImage"] = True
@@ -886,29 +820,6 @@ def write_remotion_data(
 
             if hide_image_flags[i]:
                 lp.pop("assignedImage", None)
-<<<<<<< HEAD
-                dirty.add(i)
-            elif assigned in all_image_files:
-                m = re.match(r"^scene_(\d+)_", str(assigned))
-                if m:
-                    if int(m.group(1)) == scene.id:
-                        scene_image_map[i] = [assigned]
-                    else:
-                        lp.pop("assignedImage", None)
-                        dirty.add(i)
-                else:
-                    if assigned in used_generic_files:
-                        lp.pop("assignedImage", None)
-                        dirty.add(i)
-                    else:
-                        used_generic_files.add(str(assigned))
-                        scene_image_map[i] = [assigned]
-            else:
-                lp.pop("assignedImage", None)
-                dirty.add(i)
-
-        # Step 2: Scene-specific images (override stored assignments)
-=======
                 lp.pop("imageFocusX", None)
                 lp.pop("imageFocusY", None)
                 lp.pop("imageZoom", None)
@@ -928,50 +839,10 @@ def write_remotion_data(
             lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
 
         # Step 2: Orphan scene_<id>_ files on disk with no layoutProps assignment — bind once per scene.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         for scene_id, filename in scene_specific:
             idx = id_to_idx.get(scene_id, -1)
             if idx < 0 or scene_layouts[idx] in no_image_layouts:
                 continue
-<<<<<<< HEAD
-            scene_image_map[idx] = [filename]
-            lp = scene_layout_props[idx]
-            if lp.get("assignedImage") != filename or lp.get("hideImage"):
-                lp["assignedImage"] = filename
-                lp.pop("hideImage", None)
-                hide_image_flags[idx] = False
-                dirty.add(idx)
-
-        # Step 3: Scene-type pre-assignment (intro gets hero, outro skips image)
-        # Persist layoutProps for both: intro hero must write assignedImage to DB (otherwise
-        # removing that image does not set hideImage and another generic fills the slot).
-        # Outro must write hideImage so the UI/remotion do not auto-assign a generic later.
-        for i, scene in enumerate(scenes):
-            if scene_image_map[i]:
-                continue
-            scene_type = getattr(scene, "scene_type", None)
-            if scene_type is None:
-                if i == 0:
-                    scene_type = "intro"
-                elif i == len(scenes) - 1 and len(scenes) > 1:
-                    scene_type = "outro"
-
-            if scene_type == "outro":
-                hide_image_flags[i] = True
-                lp = scene_layout_props[i]
-                if scene_layouts[i] not in no_image_layouts:
-                    changed = False
-                    if lp.get("assignedImage"):
-                        lp.pop("assignedImage", None)
-                        changed = True
-                    if not lp.get("hideImage"):
-                        lp["hideImage"] = True
-                        changed = True
-                    if changed:
-                        dirty.add(i)
-                continue
-
-=======
             if hide_image_flags[idx]:
                 continue
             lp = scene_layout_props[idx]
@@ -1022,7 +893,6 @@ def write_remotion_data(
                         dirty.add(i)
                 continue
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             if hide_image_flags[i] or scene_layouts[i] in no_image_layouts:
                 continue
 
@@ -1039,11 +909,8 @@ def write_remotion_data(
                 if lp.get("assignedImage") != hero_image_file:
                     lp["assignedImage"] = hero_image_file
                     changed = True
-<<<<<<< HEAD
-=======
                 lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
                 lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 if lp.get("hideImage"):
                     lp.pop("hideImage", None)
                     hide_image_flags[i] = False
@@ -1059,22 +926,13 @@ def write_remotion_data(
             while generic_idx < len(generic_files):
                 candidate = generic_files[generic_idx]
                 generic_idx += 1
-<<<<<<< HEAD
-                if candidate in used_generic_files or candidate in scene_specific_files:
-=======
                 if candidate in used_generic_files:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     continue
                 scene_image_map[i] = [candidate]
                 used_generic_files.add(candidate)
                 lp = scene_layout_props[i]
                 if lp.get("assignedImage") != candidate:
                     lp["assignedImage"] = candidate
-<<<<<<< HEAD
-                    dirty.add(i)
-                break
-
-=======
                     lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
                     lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
                     dirty.add(i)
@@ -1100,7 +958,6 @@ def write_remotion_data(
             if changed:
                 dirty.add(i)
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Serialize modified descriptors back to scenes (single write per scene)
     if dirty:
         is_custom = is_custom_template(template_id)
@@ -1234,8 +1091,6 @@ def write_remotion_data(
 
         extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
         effective_duration = scene.duration_seconds + extra_hold
-<<<<<<< HEAD
-=======
         # Spoken-audio length for caption timing: scene.duration_seconds is set to
         # (audio length + DURATION_PAD of trailing silence) during voiceover
         # generation, so the speech occupies roughly the first
@@ -1248,7 +1103,6 @@ def write_remotion_data(
             if voiceover_filename
             else 0.0
         )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         scene_entry: dict = {
             "id": scene.id,
             "order": scene.order,
@@ -1258,10 +1112,7 @@ def write_remotion_data(
             "narrationText": scene.narration_text or "",
             "visualDescription": scene.visual_description,
             "durationSeconds": round(effective_duration, 1),
-<<<<<<< HEAD
-=======
             "speechDurationSeconds": speech_duration,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             "voiceoverFile": voiceover_filename,
             "images": scene_images,
             "layoutProps": layout_props,
@@ -1287,10 +1138,6 @@ def write_remotion_data(
         else:
             # Built-in templates: legacy format
             scene_entry["layout"] = layout
-<<<<<<< HEAD
-            scene_entry["layoutProps"] = layout_props
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             # Still pass structuredContent if present (custom templates always have it)
             if is_custom_template(template_id) and scene.remotion_code:
                 try:
@@ -1348,15 +1195,9 @@ def write_remotion_data(
     data = {
         "projectName": project.name,
         "heroImage": hero_image_file,
-<<<<<<< HEAD
-        "accentColor": project.accent_color or "#7C3AED",
-        "bgColor": project.bg_color or "#FFFFFF",
-        "textColor": project.text_color or "#000000",
-=======
         "accentColor": project.accent_color or _tpl_colors.get("accent") or "#7C3AED",
         "bgColor": project.bg_color or _tpl_colors.get("bg") or "#FFFFFF",
         "textColor": project.text_color or _tpl_colors.get("text") or "#000000",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         "fontFamily": getattr(project, "font_family", None),
         "logo": logo_file,
         "logoPosition": getattr(project, "logo_position", None) or "bottom_right",
@@ -1378,11 +1219,6 @@ def write_remotion_data(
     print(f"[F7-DEBUG] write_remotion_data: final bgmFile={data['bgmFile']!r}, bgmVolume={data['bgmVolume']!r}")
 
     # Include theme + brandColors for custom templates (GeneratedVideo composition)
-<<<<<<< HEAD
-    if is_custom_template(template_id):
-        from app.services.template_service import _load_custom_template_data
-        custom_data = _load_custom_template_data(template_id, db=db)
-=======
     if is_custom_template(template_id) or is_crafted_template(template_id):
         from app.services.template_service import _load_custom_template_data
         custom_data = _load_custom_template_data(template_id, db=db, user_id=getattr(project, "user_id", None))
@@ -1401,7 +1237,6 @@ def write_remotion_data(
                 for idx, sd in enumerate(scene_data):
                     if idx == 0 and not sd.get("images"):
                         sd["ogImageUrl"] = ct_og_image
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if custom_data and custom_data.get("theme"):
             data["theme"] = custom_data["theme"]
             theme_colors = custom_data["theme"].get("colors", {})
@@ -1416,9 +1251,6 @@ def write_remotion_data(
                 "background": project.bg_color or theme_colors.get("bg", "#FFFFFF"),
                 "text": project.text_color or theme_colors.get("text", "#1A1A2E"),
             }
-<<<<<<< HEAD
-            # Tag each scene with a sceneType for GeneratedVideo
-=======
             # Background style as a render prop: the optional gradient endpoint
             # (bg2) flows through so the kit's SceneFrame renders solid-vs-gradient
             # at render time — toggling Background Style no longer needs a regen.
@@ -1433,17 +1265,12 @@ def write_remotion_data(
             if isinstance(tfam, list) and tfam:
                 data["transitionFamily"] = tfam
             # Tag each scene with a sceneType for GeneratedVideo (custom only).
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             total = len(scene_data)
             content_codes = custom_data.get("content_codes") or []
             archetype_ids = custom_data.get("content_archetype_ids") or []
             num_content_variants = len(content_codes) if content_codes else 1
-<<<<<<< HEAD
-            data["contentVariantCount"] = num_content_variants
-=======
             if is_custom_template(template_id):
                 data["contentVariantCount"] = num_content_variants
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
             # Font props: user override (project.font_family) takes precedence
             # over template theme fonts. Components use these as props, not hardcoded.
@@ -1469,15 +1296,9 @@ def write_remotion_data(
                         pass
 
                 # Priority: override > db_type > position-based
-<<<<<<< HEAD
-                if override_type in ("intro", "content", "outro"):
-                    sd["sceneType"] = override_type
-                elif db_type in ("intro", "content", "outro"):
-=======
                 if override_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
                     sd["sceneType"] = override_type
                 elif db_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     sd["sceneType"] = db_type
                 elif idx == 0:
                     sd["sceneType"] = "intro"
@@ -1542,8 +1363,6 @@ def write_remotion_data(
                 else:
                     sd.pop("_override_variant", None)
 
-<<<<<<< HEAD
-=======
             # Pull aspect ratios stored at template generation time (one per variant).
             # Each entry may be either:
             #   - a dict {"landscape": "W / H", "portrait": "W / H"} (current format)
@@ -1566,18 +1385,10 @@ def write_remotion_data(
             content_ars_raw = ar_map.get("content") or []
             content_ars = [_pick_ar(e) for e in content_ars_raw]
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             # Persist variant assignments to DB (fixes preview bug)
             for idx in range(len(scene_data)):
                 sd = scene_data[idx]
                 scene_obj = scenes[idx] if idx < len(scenes) else None
-<<<<<<< HEAD
-                if scene_obj and sd.get("contentVariantIndex") is not None:
-                    try:
-                        desc = json.loads(scene_obj.remotion_code) if scene_obj.remotion_code else {}
-                    except (json.JSONDecodeError, TypeError):
-                        desc = {}
-=======
                 if scene_obj is None:
                     continue
                 try:
@@ -1586,14 +1397,10 @@ def write_remotion_data(
                     desc = {}
 
                 if sd.get("contentVariantIndex") is not None:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     desc["contentVariantIndex"] = sd["contentVariantIndex"]
                     desc["sceneTypeOverride"] = sd.get("sceneType", "content")
                     if sd.get("contentArchetype"):
                         desc["contentArchetype"] = sd["contentArchetype"]
-<<<<<<< HEAD
-                    scene_obj.remotion_code = json.dumps(desc)
-=======
 
                 # Inject the correct image-box aspect ratio for this scene's actual variant
                 scene_type_for_ar = sd.get("sceneType", "content")
@@ -1614,7 +1421,6 @@ def write_remotion_data(
                 desc["layoutProps"] = lp
 
                 scene_obj.remotion_code = json.dumps(desc)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
             db.commit()
             logger.info(
@@ -1626,21 +1432,6 @@ def write_remotion_data(
             # Use brand logo as fallback when no project-level logo was uploaded
             brand_kit = custom_data.get("brand_kit")
             if brand_kit:
-<<<<<<< HEAD
-                logos = brand_kit.get("logos", [])
-                if logos:
-                    primary = logos[0] if isinstance(logos[0], dict) else {"url": logos[0]}
-                    logo_url = primary.get("url", "")
-                    if logo_url:
-                        logo_filename = "brand-logo.png"
-                        logo_dest = os.path.join(public_dir, logo_filename)
-                        if _download_url_to_file(logo_url, logo_dest):
-                            # Set as main logo if no project logo exists
-                            if not data.get("logo"):
-                                data["logo"] = logo_filename
-                            data["brandLogo"] = logo_filename
-                            logger.info("Brand logo downloaded to workspace: %s", logo_filename)
-=======
                 logos = brand_kit.get("logos", []) or []
                 # Try each URL in order — first one that downloads and
                 # decodes wins. The "primary" entry can be broken (e.g. a
@@ -1664,7 +1455,6 @@ def write_remotion_data(
                         data["logo"] = logo_filename
                     data["brandLogo"] = logo_filename
                     logger.info("Brand logo downloaded to workspace: %s", logo_filename)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
                 # Pass brand images for AI scene components
                 brand_images_raw = brand_kit.get("images", [])
@@ -2059,14 +1849,6 @@ def render_video(project: Project, resolution: str = "1080p") -> str:
     return output_path
 
 
-<<<<<<< HEAD
-MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)
-
-
-def start_render_async(project: Project, resolution: str = "1080p", run_id: str | None = None) -> None:
-    """Kick off the Remotion render as a background subprocess with progress tracking."""
-    workspace = get_workspace_dir(project.id)
-=======
 def render_still(project: Project, frame: int) -> str:
     """
     Render a single frame of the project composition using Remotion renderStill.
@@ -2128,7 +1910,6 @@ MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)
 def start_render_async(project: Project, resolution: str = "1080p", run_id: str | None = None) -> None:
     """Kick off the Remotion render as a background subprocess with progress tracking."""
     workspace = get_workspace_dir(project.id)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # /render endpoint rebuilds workspace immediately before calling this.
     # Keep a safety fallback for unusual call paths.
     if not os.path.exists(os.path.join(workspace, "public", "data.json")):
@@ -2796,21 +2577,12 @@ def _download_url_to_file(url: str, dest: str) -> bool:
     Returns True on success, False on failure.
     """
     try:
-<<<<<<< HEAD
-        resp = requests.get(url, timeout=30, stream=True)
-        resp.raise_for_status()
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        with open(dest, "wb") as f:
-            for chunk in resp.iter_content(chunk_size=8192):
-                f.write(chunk)
-=======
         with requests.get(url, timeout=30, stream=True) as resp:
             resp.raise_for_status()
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             with open(dest, "wb") as f:
                 for chunk in resp.iter_content(chunk_size=8192):
                     f.write(chunk)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         logger.info("[REMOTION] Downloaded from R2: %s", os.path.basename(dest))
         return True
     except Exception as e:

@@ -40,11 +40,6 @@ import {
   calculateBlackswanMetadata,
 } from "./templates/blackswan/BlackswanVideo";
 import {
-<<<<<<< HEAD
-  GeneratedVideo,
-  calculateGeneratedMetadata,
-} from "./templates/generated/GeneratedVideo";
-=======
   BloombergVideo,
   calculateBloombergMetadata,
 } from "./templates/bloomberg/BloombergVideo";
@@ -76,7 +71,6 @@ import {
   SakuraVideo,
   calculateSakuraMetadata,
 } from "./templates/sakura/SakuraVideo";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -146,8 +140,8 @@ export const RemotionRoot: React.FC = () => {
         component={MosaicVideo}
         durationInFrames={30 * 300}
         fps={30}
-        width={1280}
-        height={720}
+        width={1920}
+        height={1080}
         defaultProps={{
           dataUrl: "/data.json",
         }}
@@ -202,8 +196,6 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={calculateBlackswanMetadata}
       />
       <Composition
-<<<<<<< HEAD
-=======
         id="BloombergVideo"
         component={BloombergVideo}
         durationInFrames={30 * 300}
@@ -245,7 +237,6 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={calculateEconomistMetadata}
       />
       <Composition
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         id="GeneratedVideo"
         component={GeneratedVideo}
         durationInFrames={30 * 300}
@@ -256,8 +247,6 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateGeneratedMetadata}
-<<<<<<< HEAD
-=======
       />
       <Composition
         id="Stickman2Video"
@@ -311,7 +300,6 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateSakuraMetadata}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       />
     </>
   );

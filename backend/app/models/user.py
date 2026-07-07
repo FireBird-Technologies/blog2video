@@ -1,11 +1,6 @@
 import enum
-<<<<<<< HEAD
-from datetime import datetime
-from sqlalchemy import String, Enum, DateTime, Integer, Boolean
-=======
 from datetime import datetime, timedelta
 from sqlalchemy import String, Enum, DateTime, Integer, Boolean, func
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 from app.database import Base
 
@@ -17,11 +12,7 @@ class PlanTier(str, enum.Enum):
 
 
 # Included videos for plan FREE (before video_limit_bonus). Used for limits and delete-account capping.
-<<<<<<< HEAD
-FREE_TIER_INCLUDED_VIDEOS = 3
-=======
 FREE_TIER_INCLUDED_VIDEOS = 2
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class User(Base):
@@ -39,11 +30,8 @@ class User(Base):
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     videos_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
     video_limit_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # per-video credits purchased
-<<<<<<< HEAD
-=======
     custom_template_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # +1 custom-template slot per $5 purchase
     custom_templates_created: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # lifetime counter, never decrements
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     retention_offer_shown_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     retention_offer_suppressed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     period_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -76,9 +64,6 @@ class User(Base):
     saved_voices = relationship("SavedVoice", back_populates="user", cascade="all, delete-orphan")
     custom_voices = relationship("CustomVoice", back_populates="user", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="user", cascade="all, delete-orphan")
-<<<<<<< HEAD
-    brand_kits = relationship("BrandKit", back_populates="user", cascade="all, delete-orphan")
-=======
     template_ratings = relationship("TemplateRating", back_populates="user", cascade="all, delete-orphan")
     brand_kits = relationship("BrandKit", back_populates="user", cascade="all, delete-orphan")
     crafted_template_entitlements = relationship("CraftedTemplateEntitlement", back_populates="user", cascade="all, delete-orphan")
@@ -91,7 +76,6 @@ class User(Base):
     @property
     def survey_submitted(self) -> bool:
         return self.survey_response is not None
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     @property
     def video_limit(self) -> int:
@@ -108,8 +92,6 @@ class User(Base):
     def can_create_video(self) -> bool:
         return self.videos_used_this_period < self.video_limit
 
-<<<<<<< HEAD
-=======
     def roll_video_period_if_due(self, db: Session) -> bool:
         """Lazily reset the monthly video counter when Stripe won't.
 
@@ -175,7 +157,6 @@ class User(Base):
     def can_create_custom_template(self) -> bool:
         return (self.custom_templates_created or 0) < self.custom_template_limit
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     def sync_video_limit_bonus(self, db: Session) -> bool:
     
@@ -186,15 +167,10 @@ class User(Base):
         if not per_video_plan:
             return False
 
-<<<<<<< HEAD
-        active_credits = (
-            db.query(Subscription)
-=======
         # Sum Subscription.quantity so slider packs (N credits in one row)
         # are counted correctly.
         active_credits = int(
             db.query(func.coalesce(func.sum(Subscription.quantity), 0))
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             .filter(
                 Subscription.user_id == self.id,
                 Subscription.plan_id == per_video_plan.id,
@@ -204,32 +180,19 @@ class User(Base):
                     (Subscription.current_period_end > now)
                 ),
             )
-<<<<<<< HEAD
-            .count()
-=======
             .scalar() or 0
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
 
         current_bonus = self.video_limit_bonus or 0
 
-<<<<<<< HEAD
-        total_purchased_credits = (
-            db.query(Subscription)
-=======
         total_purchased_credits = int(
             db.query(func.coalesce(func.sum(Subscription.quantity), 0))
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             .filter(
                 Subscription.user_id == self.id,
                 Subscription.plan_id == per_video_plan.id,
                 Subscription.status == SubscriptionStatus.COMPLETED,
             )
-<<<<<<< HEAD
-            .count()
-=======
             .scalar() or 0
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
 
         expired_credits = total_purchased_credits - active_credits

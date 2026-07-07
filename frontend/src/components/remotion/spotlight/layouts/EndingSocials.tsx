@@ -1,17 +1,11 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
-<<<<<<< HEAD
-import type { SpotlightLayoutProps } from "../types";
-import { SocialIcons } from "../../SocialIcons";
-import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
-=======
 import { FlashPop, StarburstBadge, StreakField } from "../components/SpotlightArtifacts";
 import type { SpotlightLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import { resolveCtas } from "../../../../utils/resolveCtas";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   title,
@@ -20,10 +14,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
-<<<<<<< HEAD
-=======
   ctas,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   bgColor,
   textColor,
@@ -36,13 +27,6 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const p = aspectRatio === "portrait";
 
   const subtext = (narration ?? "").trim();
-<<<<<<< HEAD
-  const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
-  const bodyFont = fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
-
-=======
   const bodyFont = fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
 
   // CTA cards (1-3). Only render cards with toggle on + a link.
@@ -52,7 +36,6 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const hasAnyCard = cards.length > 0;
   const cardCount = Math.min(Math.max(cards.length, 1), 3);
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const resolvedTitleSize = titleFontSize ?? (p ? 74 : 64);
   const resolvedCtaSize = resolvedTitleSize + 30;
 
@@ -89,19 +72,11 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const separatorAnim = getPopUpStyles(currentDelay);
   currentDelay += itemSpacing;
 
-<<<<<<< HEAD
-  let ctaTextAnim;
-  let ctaLinkAnim;
-  if (showWebsiteCta) {
-    ctaTextAnim = getPopUpStyles(currentDelay);
-    currentDelay += itemSpacing; 
-=======
   let ctaTextAnim: ReturnType<typeof getPopUpStyles> | undefined;
   let ctaLinkAnim: ReturnType<typeof getPopUpStyles> | undefined;
   if (hasAnyCard) {
     ctaTextAnim = getPopUpStyles(currentDelay);
     currentDelay += itemSpacing;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ctaLinkAnim = getPopUpStyles(currentDelay);
     currentDelay += itemSpacing;
   }
@@ -116,16 +91,12 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-<<<<<<< HEAD
-      <SpotlightBackground bgColor={bgColor} />
-=======
       <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
 
       {/* Decorative artifacts — streaks + flashes + a spinning seal for the send-off. */}
       <StreakField accentColor={accentColor} count={8} seed={29} startFrame={6} />
       <FlashPop count={2} every={84} seed={17} startFrame={24} />
       <StarburstBadge accentColor={accentColor} corner="top-right" size={p ? 132 : 156} startFrame={18} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       {/* 1. TOP GROUP: Moved further down from the top edge */}
       <div style={{
@@ -161,55 +132,14 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
         }} />
       </div>
 
-<<<<<<< HEAD
-      {/* 2. CENTER GROUP */}
-      {showWebsiteCta && (
-=======
       {/* 2. CENTER GROUP — 1/2/3 CTA columns */}
       {hasAnyCard && (
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <div style={{
           position: "absolute",
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
           display: "flex",
-<<<<<<< HEAD
-          flexDirection: "column",
-          alignItems: "center",
-          width: "100%",
-          zIndex: 2,
-        }}>
-          <div style={{
-            color: accentColor || "#7C3AED",
-            fontSize: resolvedCtaSize,
-            fontWeight: 900,
-            lineHeight: 1,
-            fontFamily: bodyFont,
-            textAlign: "center",
-            textTransform: "uppercase",
-            marginInline: 15, /* Added left and right margin */
-            ...ctaTextAnim,
-          }}>
-            {resolvedCta}
-          </div>
-          <div style={{ 
-            marginTop: 10, /* Reduced vertical spacing from CTA text */
-            padding: "10px 20px", /* Added internal padding */
-            marginInline: 15, /* Added left and right margin */
-            fontSize: p ? 28 : 26, 
-            fontWeight: 600, 
-            color: textColor || "#FFFFFF", 
-            fontFamily: bodyFont, 
-            textAlign: "center", // Ensure text is centered
-            maxWidth: "90%", // Limit width to prevent overflow
-            whiteSpace: "normal", // Allow text to wrap
-            overflowWrap: "break-word", // Break long words if necessary
-            ...ctaLinkAnim, 
-          }}>
-            {resolvedWebsiteLink}
-          </div>
-=======
           flexDirection: "row",
           flexWrap: "wrap",
           justifyContent: "center",
@@ -261,7 +191,6 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
               </div>
             </div>
           ))}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
       )}
 

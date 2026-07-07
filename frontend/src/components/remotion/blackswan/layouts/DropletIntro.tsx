@@ -1,10 +1,7 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Swan } from "../components/Swan";
-<<<<<<< HEAD
-=======
 import { ZoomCropImg } from "../components/ZoomCropImg";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import type { BlackswanLayoutProps } from "../types";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { NeonWater } from "./neonWater";
@@ -125,9 +122,6 @@ const DropletImpact: React.FC<{ t: number; iy: number; accentColor: string }> = 
 };
 
 export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
-<<<<<<< HEAD
-  const { title, narration, accentColor = "#00E5FF", bgColor = "#000000", textColor = "#FFFFFF", titleFontSize, descriptionFontSize, fontFamily, aspectRatio = "landscape", imageUrl } = props;
-=======
   const {
     title,
     narration,
@@ -142,7 +136,6 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
     imageObjectPosition,
     imageZoom,
   } = props;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const t = frame / fps;
@@ -173,19 +166,12 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
 
       {/* Full-screen image — behind neon water only */}
       {hasImage && (
-<<<<<<< HEAD
-        <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 1 }}>
-          <img
-            src={imageUrl}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-=======
         <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 1, overflow: "hidden" }}>
           <ZoomCropImg
             src={imageUrl}
             imageObjectPosition={imageObjectPosition}
             imageZoom={imageZoom}
             alt=""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           />
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }} />
           <div style={{ position: "absolute", inset: 0 }}>

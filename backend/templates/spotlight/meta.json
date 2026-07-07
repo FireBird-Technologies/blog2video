@@ -3,14 +3,9 @@
   "name": "Spotlight",
   "new_template": false,
   "description": "Bold kinetic typography on a dark stage. Words fill the frame, slam in, and cascade. Glass panels for data moments. High contrast, fast-paced, social-first. Spring-slam animations with accent red highlights. All layouts support optional images alongside content.",
-<<<<<<< HEAD
-  "styles": [
-    "promotional"
-=======
   "genres": [
     "Business",
     "Technology"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "preview_colors": {
     "accent": "#EF4444",
@@ -29,11 +24,8 @@
     "versus",
     "spotlight_image",
     "rapid_points",
-<<<<<<< HEAD
-=======
     "spotlight_data",
     "spotlight_table",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "closer",
     "ending_socials"
   ],
@@ -360,8 +352,6 @@
         }
       ]
     },
-<<<<<<< HEAD
-=======
     "spotlight_data": {
       "label": "Data Chart",
       "defaults": {
@@ -612,7 +602,6 @@
         }
       ]
     },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "closer": {
       "label": "Closer",
       "defaults": {
@@ -774,13 +763,9 @@
     }
   },
   "layouts_without_image": [
-<<<<<<< HEAD
-    "ending_socials"
-=======
     "ending_socials",
     "spotlight_data",
     "spotlight_table"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "features": [
     "Oversized kinetic typography with spring-slam animations",

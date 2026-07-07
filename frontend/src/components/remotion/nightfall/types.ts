@@ -10,36 +10,9 @@ export type NightfallLayoutType =
   | "split_glass"
   | "chapter_break"
   | "glass_image"
-<<<<<<< HEAD
-  | "data_visualization"
-  | "ending_socials";
-
-// Chart data types
-export interface BarChartData {
-  labels: string[];
-  values: number[];
-  colors?: string[];
-}
-
-export interface LineChartData {
-  labels: string[];
-  datasets: Array<{
-    label: string;
-    values: number[];
-    color?: string;
-  }>;
-}
-
-export interface PieChartData {
-  labels: string[];
-  values: number[];
-  colors?: string[];
-}
-=======
   | "nightfall_data_visualization"
   | "nightfall_ticker"
   | "ending_socials";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface NightfallLayoutProps {
   title: string;
@@ -84,9 +57,6 @@ export interface NightfallLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

@@ -26,8 +26,6 @@ declare module "@remotion-video/templates/matrix/layouts" {
   export type MatrixLayoutProps = Record<string, any>;
 }
 
-<<<<<<< HEAD
-=======
 declare module "@remotion-video/templates/spotlight/transitions" {
   import type { TransitionPresentation, TransitionTiming } from "@remotion/transitions";
   export interface SpotlightTransitionChoice {
@@ -68,7 +66,6 @@ declare module "@remotion-video/templates/mosaic/layouts" {
   export type MosaicLayoutProps = Record<string, any>;
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 declare module "@remotion-video/templates/whiteboard/layouts" {
   export const WHITEBOARD_LAYOUT_REGISTRY: Record<string, any>;
   export type WhiteboardLayoutType = string;
@@ -92,8 +89,6 @@ declare module "@remotion-video/templates/blackswan/layouts" {
   export type BlackswanLayoutType = string;
   export type BlackswanLayoutProps = Record<string, any>;
 }
-<<<<<<< HEAD
-=======
 
 declare module "@remotion-video/templates/chronicle/layouts" {
   export const CHRONICLE_LAYOUT_REGISTRY: Record<string, any>;
@@ -105,4 +100,3 @@ declare module "@remotion-video/templates/chronicle/components/ChronicleChrome" 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export const ChronicleChrome: React.FC<any>;
 }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

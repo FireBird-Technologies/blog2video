@@ -11,11 +11,7 @@ import threading
 from datetime import date
 from pydantic import BaseModel, Field
 import logging
-<<<<<<< HEAD
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
-=======
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File, Form
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -24,13 +20,9 @@ from app.config import settings
 from app.auth import get_current_user
 from app.models.user import User
 from app.models.custom_template import CustomTemplate
-<<<<<<< HEAD
-from app.models.project import Project
-=======
 from app.models.template_rating import TemplateRating
 from app.models.project import Project
 from app.schemas.schemas import TemplateRatingSubmit, TemplateRatingOut
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from app.services.custom_prompt_builder import build_custom_prompt
 
 logger = logging.getLogger(__name__)
@@ -99,47 +91,6 @@ def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
     except Exception as e:
         logger.warning("Background thumbnail render failed for template %d: %s", template_id, e)
 
-# ─── Rate limiting ───────────────────────────────────────────
-# Per-user, per-day AI call counter: user_id -> (date_str, count)
-_ai_call_counts: dict[int, tuple[str, int]] = {}
-AI_DAILY_LIMIT = 20
-
-
-def _check_ai_rate_limit(user_id: int) -> None:
-    """Enforce daily AI generation limit. Raises 429 if exceeded."""
-    today = date.today().isoformat()
-    date_str, count = _ai_call_counts.get(user_id, (today, 0))
-    if date_str != today:
-        date_str, count = today, 0
-    if count >= AI_DAILY_LIMIT:
-        raise HTTPException(
-            status_code=429,
-            detail=f"AI generation limit reached ({AI_DAILY_LIMIT}/day). Try again tomorrow.",
-        )
-    _ai_call_counts[user_id] = (date_str, count + 1)
-
-
-def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
-    """Background task: render a preview thumbnail and store URL in DB."""
-    try:
-        from app.services.thumbnail_renderer import render_template_thumbnail
-        from app.database import SessionLocal
-        from app.models.custom_template import CustomTemplate as CT
-
-        url = render_template_thumbnail(template_id, user_id)
-        if url:
-            db = SessionLocal()
-            try:
-                tpl = db.query(CT).filter(CT.id == template_id).first()
-                if tpl:
-                    tpl.preview_image_url = url
-                    db.commit()
-                    logger.info("Thumbnail stored for template %d: %s", template_id, url)
-            finally:
-                db.close()
-    except Exception as e:
-        logger.warning("Background thumbnail render failed for template %d: %s", template_id, e)
-
 
 # ─── Pydantic schemas ────────────────────────────────────────
 
@@ -167,10 +118,6 @@ class CreateCustomTemplateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     source_url: str | None = Field(None, max_length=2048)
     theme: dict
-<<<<<<< HEAD
-    supported_video_style: str | None = None
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     logo_urls: list[str] | None = None
     og_image: str | None = None
     screenshot_url: str | None = None
@@ -252,12 +199,6 @@ def _serialize_template(
     """
     theme = json.loads(tpl.theme) if isinstance(tpl.theme, str) else tpl.theme
     colors = theme.get("colors", {})
-<<<<<<< HEAD
-    style = (getattr(tpl, "supported_video_style", None) or "").strip().lower()
-    if style not in VALID_VIDEO_STYLES:
-        style = "explainer"
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # Pull logo_urls and og_image from linked BrandKit (if any)
     logo_urls: list[str] = []
@@ -302,15 +243,10 @@ def _serialize_template(
         "logo_urls": logo_urls,
         "og_image": og_image,
         "generation_failed": bool(tpl.generation_failed),
-<<<<<<< HEAD
-        "created_at": tpl.created_at.isoformat() if tpl.created_at else "",
-        "updated_at": tpl.updated_at.isoformat() if tpl.updated_at else "",
-=======
         "my_rating": my_rating,
         "my_rating_comment": my_rating_comment,
         "created_at": _utc_iso(tpl.created_at),
         "updated_at": _utc_iso(tpl.updated_at),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
 
 
@@ -538,12 +474,9 @@ def create_custom_template(
     """Create a new custom template from an extracted/edited theme."""
     from app.models.brand_kit import BrandKit
 
-<<<<<<< HEAD
-=======
     # Enforce the per-plan creation quota before doing any work.
     _check_custom_template_quota(user)
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     theme = _validate_theme(data.theme)
     category = theme.get("category", "blog")
 
@@ -766,12 +699,6 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
             "error": None,
         }
 
-<<<<<<< HEAD
-        db = SessionLocal()
-        try:
-            tpl = (
-                db.query(CustomTemplate)
-=======
         # Fetch template before the long LLM call, then close the connection
         # so NeonDB doesn't drop the SSL link during the ~370s codegen.
         _db_pre = SessionLocal()
@@ -779,7 +706,6 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
             tpl = (
                 _db_pre.query(CustomTemplate)
                 .options(joinedload(CustomTemplate.brand_kit))
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 .filter(CustomTemplate.id == template_id, CustomTemplate.user_id == user_id)
                 .first()
             )
@@ -791,15 +717,6 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
                     "error": "Template not found",
                 }
                 return
-<<<<<<< HEAD
-
-            t_start = time.time()
-            _codegen_progress[template_id]["step"] = "generating_scenes"
-            variants = loop.run_until_complete(generate_component_code(tpl))
-
-            # Expire and re-fetch to avoid stale SSL connections
-            db.expire_all()
-=======
             # Detach from session so attributes remain accessible after close
             _db_pre.expunge_all()
         finally:
@@ -812,7 +729,6 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
         # Open a fresh connection to save — avoids SSL drop from long idle
         db = SessionLocal()
         try:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             tpl = (
                 db.query(CustomTemplate)
                 .filter(CustomTemplate.id == template_id, CustomTemplate.user_id == user_id)
@@ -824,15 +740,12 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
             tpl.outro_code = variants["outro_code"]
             tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
             tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
-<<<<<<< HEAD
-=======
             _default_ar = {"landscape": "16 / 9", "portrait": "9 / 16"}
             tpl.image_box_aspect_ratios = json.dumps({
                 "intro": variants.get("intro_aspect_ratio") or _default_ar,
                 "content": variants.get("content_aspect_ratios") or [],
                 "outro": variants.get("outro_aspect_ratio") or _default_ar,
             })
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             print(f"[F7-DEBUG] [CODEGEN] Stored {len(variants.get('content_codes', []))} content archetypes: {variants.get('archetype_ids', [])}")
 
             _codegen_progress[template_id]["step"] = "saving"
@@ -887,17 +800,10 @@ async def generate_code(
 ):
     """Launch AI code generation in the background. Returns 202 immediately."""
     _check_ai_rate_limit(user.id)
-<<<<<<< HEAD
-    if not (settings.ANTHROPIC_API_KEY or "").strip():
-        raise HTTPException(
-            status_code=400,
-            detail="ANTHROPIC_API_KEY is required for AI template code generation.",
-=======
     if not ((settings.CUSTOM_ANTHROPIC_API_KEY or settings.ANTHROPIC_API_KEY or "").strip()):
         raise HTTPException(
             status_code=400,
             detail="CUSTOM_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY is required for AI template code generation.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
     tpl = _get_user_template(template_id, user.id, db)
 
@@ -1034,31 +940,21 @@ async def regenerate_code(
     from app.services.code_generator import generate_component_code
 
     _check_ai_rate_limit(user.id)
-<<<<<<< HEAD
-    if not (settings.ANTHROPIC_API_KEY or "").strip():
-        raise HTTPException(
-            status_code=400,
-            detail="ANTHROPIC_API_KEY is required for AI template code generation.",
-=======
     if not ((settings.CUSTOM_ANTHROPIC_API_KEY or settings.ANTHROPIC_API_KEY or "").strip()):
         raise HTTPException(
             status_code=400,
             detail="CUSTOM_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY is required for AI template code generation.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         )
     tpl = _get_user_template(template_id, user.id, db)
 
     if not tpl.intro_code:
         raise HTTPException(status_code=400, detail="No code to regenerate — run generate-code first.")
 
-<<<<<<< HEAD
-=======
     # Regenerating a SUCCEEDED template (intro_code present) is a fresh design and
     # counts against the quota. A FAILED template has no intro_code and reaches this
     # endpoint only via the 400 above — its free retry goes through generate-code.
     _check_custom_template_quota(user)
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Snapshot current state before overwriting
     _save_version(tpl, "Before regeneration", db)
 
@@ -1080,15 +976,12 @@ async def regenerate_code(
     tpl.outro_code = variants["outro_code"]
     tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
     tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
-<<<<<<< HEAD
-=======
     _default_ar = {"landscape": "16 / 9", "portrait": "9 / 16"}
     tpl.image_box_aspect_ratios = json.dumps({
         "intro": variants.get("intro_aspect_ratio") or _default_ar,
         "content": variants.get("content_aspect_ratios") or [],
         "outro": variants.get("outro_aspect_ratio") or _default_ar,
     })
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     _save_version(tpl, "Regenerated", db)
     db.commit()

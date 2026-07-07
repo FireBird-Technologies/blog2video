@@ -20,10 +20,6 @@ import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
-<<<<<<< HEAD
-import { getSceneLayoutLabel } from "../utils/layoutLabels";
-import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
-=======
 import GenerateSceneImageModal from "./GenerateSceneImageModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
@@ -214,7 +210,6 @@ const _resolveCraftedFontDefaultsFromFiles = (
 
   return _pickCraftedFontPair(hit, orientation);
 };
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -347,12 +342,9 @@ const LEGACY_NEWSCAST_LAYOUT_ID_ALIASES: Record<string, string> = {
   newscast_kinetic_insight: "headline_insight",
 };
 
-<<<<<<< HEAD
-=======
 const TICKER_TABLE_MAX_COLS = 6;
 const TICKER_TABLE_MAX_ROWS = 20;
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function normalizeLegacyNewscastLayoutId(template: string, layoutId: string): string {
   const normalizedTemplate = (template || "").toLowerCase();
   if (normalizedTemplate !== "newscast" && normalizedTemplate !== "newsreport") return layoutId;
@@ -409,8 +401,6 @@ export function getDefaultFontSizesFromSchema(
   };
 }
 
-<<<<<<< HEAD
-=======
 export function resolveDefaultFontSizesForScene(args: {
   template: string;
   layoutId: string | null;
@@ -442,7 +432,6 @@ export function resolveDefaultFontSizesForScene(args: {
   );
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 // ─── Layout text field definitions ──────────────────────────
 type FieldType =
   | "string"
@@ -451,16 +440,12 @@ type FieldType =
   | "string_array"
   | "object_array"
   | "chart_table"
-<<<<<<< HEAD
-  | "select";
-=======
   | "ohlcv_table"
   | "pipe_table"
   | "ticker_table"
   | "select"
   | "number"
   | "range";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 interface FieldDef {
   key: string;
@@ -469,10 +454,6 @@ interface FieldDef {
   subFields?: { key: string; label: string; placeholder?: string }[];
   placeholder?: string;
   maxItems?: number;
-<<<<<<< HEAD
-  /** Options when type === "select" */
-  options?: { value: string; label: string }[];
-=======
   minItems?: number;
   /** Options when type === "select" */
   options?: { value: string; label: string }[];
@@ -481,7 +462,6 @@ interface FieldDef {
   step?: number;
   /** Display/render default when the value hasn't been saved yet. */
   default?: string | number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 function normalizeColorValue(input: unknown, fallback: string): string {
@@ -687,11 +667,7 @@ function hasLegacyHistogramData(lp: Record<string, unknown>): boolean {
 
 function getEmptyChartTableForMode(mode: Exclude<DataVizTableMode, "auto">): { headers: string[]; rows: string[][] } {
   if (mode === "line") {
-<<<<<<< HEAD
-    return { headers: ["Label", "Series 1"], rows: [] };
-=======
     return { headers: ["Category", "Value"], rows: [] };
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   }
   if (mode === "histogram") {
     return { headers: ["Bucket", "Frequency"], rows: [] };
@@ -703,8 +679,6 @@ function chartTableHasData(table: { headers: string[]; rows: string[][] }): bool
   return table.rows.some((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
 }
 
-<<<<<<< HEAD
-=======
 /** Maps LaDuc `market_annotation*` layout ids to a concrete chart kind for example-table seeding. */
 function getLaDucMarketAnnotationChartTypeForLayout(
   layoutId: string,
@@ -949,7 +923,6 @@ function mergeMarketAnnotationChartDefaultsForLayout(
   return next;
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function projectChartTableForMode(
   table: { headers: string[]; rows: string[][] },
   mode: DataVizTableMode,
@@ -1222,8 +1195,6 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   data_stream: [{ key: "items", label: "Items", type: "string_array", maxItems: 8 }],
   cipher_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
     subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 3 }],
-<<<<<<< HEAD
-=======
   // Mosaic template
   mosaic_text: [
     { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
@@ -1312,7 +1283,6 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
     { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
   ],
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   data_visualization: [
     { key: "barChartRows", label: "Bar chart data", type: "object_array",
       subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
@@ -1536,8 +1506,6 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
   newscast: {
     data_visualization: [
       { key: "chartTable", label: "Chart data table", type: "chart_table" },
-<<<<<<< HEAD
-=======
       {
         key: "chartType",
         label: "Chart Type",
@@ -1549,16 +1517,12 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
           { label: "Histogram", value: "histogram" },
         ],
       },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       { key: "barPrimaryColor", label: "Bar color 1", type: "color", placeholder: "#FF3B30" },
       { key: "barSecondaryColor", label: "Bar color 2", type: "color", placeholder: "#1E5FD4" },
       { key: "barTertiaryColor", label: "Bar color 3", type: "color", placeholder: "#FF3B30" },
       { key: "lineUpColor", label: "Line color 1", type: "color", placeholder: "#3CE46A" },
       { key: "lineDownColor", label: "Line color 2", type: "color", placeholder: "#FF3B30" },
-<<<<<<< HEAD
-=======
       { key: "lineThirdColor", label: "Line color 3", type: "color", placeholder: "#1E5FD4" },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
   },
   whiteboard: {
@@ -1572,8 +1536,6 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "stats", label: "Source / publication", type: "object_array", subFields: [{ key: "label", label: "Source" }], maxItems: 1 },
     ],
   },
-<<<<<<< HEAD
-=======
   /** Bloomberg Terminal — layout content keys. ending_socials uses the dedicated CTA / socials block. */
   bloomberg: {
     terminal_boot: [
@@ -1718,7 +1680,6 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "cta", label: "Sign-off", type: "string" },
     ],
   },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   /** Black Swan — layout content keys (typography still uses sliders + meta defaults). ending_socials uses the dedicated CTA / socials block above. */
   blackswan: {
     droplet_intro: [],
@@ -1757,8 +1718,6 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "phrases", label: "Path steps", type: "string_array", maxItems: 8 },
     ],
   },
-<<<<<<< HEAD
-=======
   /** Stick Man 2 (Night Edition) — layout content keys per prompt.md. ending_socials uses the dedicated CTA / socials block. */
   stickman_2: {
     chalk_title: [],
@@ -2164,7 +2123,6 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     closing_page: [],
     ending_socials: [],
   },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };
 
 /** Structured content fields for AI-generated custom template scenes. */
@@ -2189,8 +2147,6 @@ const CUSTOM_CONTENT_FIELDS: Record<string, FieldDef[]> = {
   timeline: [{ key: "timelineItems", label: "Timeline items", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 6 }],
   steps: [{ key: "steps", label: "Steps", type: "string_array", maxItems: 8 }],
-<<<<<<< HEAD
-=======
 };
 
 // Editable fields for the custom-template dedicated data-viz scenes (chart +
@@ -2214,7 +2170,6 @@ const CUSTOM_DATAVIZ_FIELDS: Record<"chart" | "table", FieldDef[]> = {
   table: [
     { key: "chartTable", label: "Table data (col 1: row labels; cols 2+: values; max 20 rows)", type: "chart_table" },
   ],
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };
 
 function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
@@ -2223,8 +2178,6 @@ function getLayoutFields(template: string, layoutId: string | null): FieldDef[] 
   const normalizedTemplate = t === "newsreport" ? "newscast" : t;
   const canonicalLayoutId = normalizeLegacyNewscastLayoutId(t, layoutId);
   return LAYOUT_TEXT_FIELDS_OVERRIDE[normalizedTemplate]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
-<<<<<<< HEAD
-=======
 }
 
 /**
@@ -2447,17 +2400,7 @@ function parseUnknownLayoutPropValue(raw: string, prevValue: unknown): unknown {
     }
   }
   return raw;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
-
-/** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
-const HIDDEN_LAYOUT_PROP_KEYS = new Set([
-  "hideImage",
-  "assignedImage",
-  "imageUrl",
-  "titleFontSize",
-  "descriptionFontSize",
-]);
 
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2, disabled = false }: {
@@ -2698,13 +2641,9 @@ export default function SceneEditModal({
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
   const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
-<<<<<<< HEAD
-  const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
-=======
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(demoMode?.regenerateVoiceover ?? false);
   // When true, the narration is spoken word-for-word (no AI rephrasing on regeneration).
   const [matchNarrationExactly, setMatchNarrationExactly] = useState(true);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
   const ENDING_SOCIALS_KEYS = [
     "instagram",
@@ -2727,14 +2666,6 @@ export default function SceneEditModal({
     linkedin: { enabled: false, label: "LinkedIn" },
     tiktok: { enabled: false, label: "TikTok" },
   };
-<<<<<<< HEAD
-  const [endingSocials, setEndingSocials] = useState<
-    Record<typeof ENDING_SOCIALS_KEYS[number], { enabled: boolean; label: string }>
-  >(ENDING_SOCIALS_DEFAULT);
-  const [endingShowWebsiteButton, setEndingShowWebsiteButton] = useState(true);
-  const [endingWebsiteLink, setEndingWebsiteLink] = useState("");
-  const [endingCtaButtonText, setEndingCtaButtonText] = useState("");
-=======
   type EndingSocialKey = typeof ENDING_SOCIALS_KEYS[number];
   type CtaDraft = {
     ctaButtonText: string;
@@ -2759,7 +2690,6 @@ export default function SceneEditModal({
   const endingShowWebsiteButton = ctas[0]?.showWebsiteButton ?? true;
   const endingWebsiteLink = ctas[0]?.websiteLink ?? "";
   const endingCtaButtonText = ctas[0]?.ctaButtonText ?? "";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
@@ -2846,22 +2776,16 @@ export default function SceneEditModal({
   const canUseAI = isPro || aiUsageCount < 3;
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
-<<<<<<< HEAD
-=======
   const isCraftedTemplate = (project.template || "").startsWith("crafted_");
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const normalizedTemplateId = (project.template || "default").toLowerCase();
   const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
   const isDefaultTemplate = normalizedTemplateId === "default";
-<<<<<<< HEAD
-=======
   const isBloombergTemplate = normalizedTemplateId === "bloomberg";
   const isLaDucTemplate = normalizedTemplateId === "laduc";
   const isEconomistTemplate = normalizedTemplateId === "economist";
   // FJ Market Brief is a crafted template — project.template carries the public id.
   const isFjBriefTemplate = normalizedTemplateId === "crafted_fj_market_brief_bundle";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Custom templates get 2 dedicated, editable data-viz scenes (chart + table).
   // A content scene can also be converted to data-viz via the layout dropdown, in
@@ -2887,14 +2811,9 @@ export default function SceneEditModal({
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
-<<<<<<< HEAD
-        // Custom templates: check for variant override first
-        if (desc.sceneTypeOverride) {
-=======
         // Only custom templates use sceneType/content variant routing.
         // Crafted + built-in templates should map by explicit layout id.
         if (isCustomTemplate && desc.sceneTypeOverride) {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           if (desc.sceneTypeOverride === "content" && typeof desc.contentVariantIndex === "number") {
             return `content_${desc.contentVariantIndex}`;
           }
@@ -2922,8 +2841,6 @@ export default function SceneEditModal({
         currentLayoutId,
         layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " ")
       )
-<<<<<<< HEAD
-=======
     : "Current layout";
   // Label for the scene's REAL current layout — used by the dropdown's "Keep
   // current" row so it names the saved layout even while a new one is picked.
@@ -2933,18 +2850,14 @@ export default function SceneEditModal({
         savedLayoutId,
         layouts?.layout_names[savedLayoutId] || savedLayoutId.replace(/[-_]/g, " ")
       )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     : "Current layout";
 
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
   // `supportsImage` follows the EFFECTIVE layout so switching into an image-less
   // layout hides the image controls before saving.
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
-<<<<<<< HEAD
-=======
   // Per the scene's SAVED layout — for the "Keep current" dropdown row's note.
   const savedSupportsImage = !savedLayoutId || !layoutsWithoutImage.has(savedLayoutId);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // Custom templates: detect outro by sceneTypeOverride, ctaProps presence, or position (last scene)
   const isCustomOutro = isCustomTemplate && (() => {
     if (currentLayoutId === "outro") return true;
@@ -2960,20 +2873,6 @@ export default function SceneEditModal({
     return sorted.length > 1 && sorted[sorted.length - 1].id === scene.id;
   })();
   const isEndingScene = currentLayoutId === "ending_socials" || isCustomOutro;
-<<<<<<< HEAD
-
-  const defaultFontSizes =
-    getDefaultFontSizesFromSchema(
-      layouts?.layout_prop_schema,
-      currentLayoutId,
-      project.aspect_ratio || "landscape"
-    ) ??
-    getDefaultFontSizes(
-      project.template || "default",
-      currentLayoutId,
-      project.aspect_ratio || "landscape"
-    );
-=======
   const [craftedFrontendFiles, setCraftedFrontendFiles] = useState<Record<string, string> | null>(null);
   // Per-layout SceneEditModal field overrides loaded from the crafted
   // template's bundled `frontend/layoutFields.ts`. Compiled at runtime;
@@ -2991,7 +2890,6 @@ export default function SceneEditModal({
     layoutPropSchema: layouts?.layout_prop_schema,
     craftedFrontendFiles,
   });
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const aiHasChanges =
     description.trim().length > 0 ||
@@ -3027,10 +2925,7 @@ export default function SceneEditModal({
     setDisplayText(initialDisplay);
     setAiNarration(scene.narration_text || "");
     setExtraHoldSeconds(scene.extra_hold_seconds != null ? String(scene.extra_hold_seconds) : "");
-<<<<<<< HEAD
-=======
     setShowImproveBox(false);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
@@ -3070,11 +2965,6 @@ export default function SceneEditModal({
           const lpAny = lp as Record<string, unknown>;
           if (isNewscastTemplate) {
             const directChartTable = normalizeChartTableValue(lpAny.chartTable);
-<<<<<<< HEAD
-            lpCopy.chartTable = chartTableHasData(directChartTable)
-              ? directChartTable
-              : buildChartTableFromDataVizLayoutProps(lpAny);
-=======
             const builtTable = chartTableHasData(directChartTable)
               ? directChartTable
               : buildChartTableFromDataVizLayoutProps(lpAny);
@@ -3085,7 +2975,6 @@ export default function SceneEditModal({
               lpCopy.chartTable = getLaDucMarketAnnotationExampleTable("bar");
               lpCopy.chartType = "bar";
             }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           }
           // Bar: { labels, values } -> barChartRows
           if (lpAny.barChart && typeof lpAny.barChart === "object") {
@@ -3195,82 +3084,6 @@ export default function SceneEditModal({
             delete (lpCopy as Record<string, unknown>).chartType;
           }
         }
-<<<<<<< HEAD
-      } catch { /* ignore */ }
-    }
-    // For custom templates, CTA data lives in ctaProps, not layoutProps
-    if (isCustomTemplate && scene.remotion_code) {
-      try {
-        const desc = JSON.parse(scene.remotion_code);
-        if (desc.ctaProps && typeof desc.ctaProps === "object") {
-          lpCopy = { ...lpCopy, ...desc.ctaProps };
-        }
-      } catch { /* ignore */ }
-    }
-    setEditableLayoutProps(lpCopy);
-    if (isEndingScene) {
-      const lpSocials = (lpCopy as Record<string, unknown>).socials;
-      if (
-        lpSocials &&
-        typeof lpSocials === "object" &&
-        !Array.isArray(lpSocials)
-      ) {
-        setEndingSocials(lpSocials as Record<
-          typeof ENDING_SOCIALS_KEYS[number],
-          { enabled: boolean; label: string }
-        >);
-      } else {
-        setEndingSocials(ENDING_SOCIALS_DEFAULT);
-      }
-      const lpShowWebsiteButton = (lpCopy as Record<string, unknown>).showWebsiteButton;
-      setEndingShowWebsiteButton(lpShowWebsiteButton !== false);
-      const lpWebsiteLink = (lpCopy as Record<string, unknown>).websiteLink;
-      const projectUrl = (project.blog_url || "").trim();
-      const fallbackUrl =
-        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
-      const normalizedWebsiteLink =
-        typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
-          ? lpWebsiteLink.trim()
-          : fallbackUrl;
-      setEndingWebsiteLink(normalizedWebsiteLink);
-      const lpCta = (lpCopy as Record<string, unknown>).ctaButtonText;
-      setEndingCtaButtonText(typeof lpCta === "string" ? lpCta : "");
-    } else {
-      setEndingSocials(ENDING_SOCIALS_DEFAULT);
-      setEndingShowWebsiteButton(true);
-      setEndingWebsiteLink("");
-      setEndingCtaButtonText("");
-    }
-    // Initialize structured content for custom templates
-    let scInit: Record<string, unknown> = {};
-    if (scene.remotion_code) {
-      try {
-        const desc = JSON.parse(scene.remotion_code);
-        if (desc.structuredContent && typeof desc.structuredContent === "object") {
-          scInit = { ...desc.structuredContent };
-          // Flatten comparison objects for dot-key editing
-          if (scInit.comparisonLeft && typeof scInit.comparisonLeft === "object") {
-            const cl = scInit.comparisonLeft as Record<string, string>;
-            scInit["comparisonLeft.label"] = cl.label || "";
-            scInit["comparisonLeft.description"] = cl.description || "";
-          }
-          if (scInit.comparisonRight && typeof scInit.comparisonRight === "object") {
-            const cr = scInit.comparisonRight as Record<string, string>;
-            scInit["comparisonRight.label"] = cr.label || "";
-            scInit["comparisonRight.description"] = cr.description || "";
-          }
-        }
-      } catch { /* ignore */ }
-    }
-    setEditableStructuredContent(scInit);
-    const schemaDefaults = getDefaultFontSizesFromSchema(
-      layouts?.layout_prop_schema,
-      layoutId,
-      project.aspect_ratio || "landscape"
-    );
-    const defaults = schemaDefaults ?? getDefaultFontSizes(
-      project.template || "default",
-=======
         // Bloomberg terminal_dataviz: normalize chartTable on modal open
         if (isBloombergTemplate && layoutId === "terminal_dataviz") {
           const lpAny = lpCopy as Record<string, unknown>;
@@ -3381,7 +3194,6 @@ export default function SceneEditModal({
     // under stored layoutProps (bar colors, chart table, axis captions, etc.).
     lpCopy = mergeLayoutSchemaDefaults(
       lpCopy,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       layoutId,
       layouts?.layout_prop_schema as
         | Record<string, { defaults?: Record<string, unknown> }>
@@ -3478,9 +3290,6 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-<<<<<<< HEAD
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema]);
-=======
   }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, craftedFrontendFiles, isCraftedTemplate, openImageAdjustOnOpen]);
 
   useEffect(() => {
@@ -3553,7 +3362,6 @@ export default function SceneEditModal({
       cancelled = true;
     };
   }, [open, isCraftedTemplate, project.template, craftedTemplates]);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -3572,42 +3380,6 @@ export default function SceneEditModal({
     shouldAutoOpenAdjustRef.current = false;
     openImageAdjustModal(src);
   }, [open, imageAdjustOpen, imagePreviewUrl, imageItems]);
-
-  // Merge schema defaults for missing layout props (e.g. new props added via rebuild)
-  // useEffect(() => {
-  //   if (!open || !layouts?.layout_prop_schema) return;
-  //   let layoutId: string | null = null;
-  //   try {
-  //     if (scene.remotion_code) {
-  //       const desc = JSON.parse(scene.remotion_code);
-  //       layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? null;
-  //     }
-  //   } catch { /* ignore */ }
-  //   if (!layoutId) return;
-  //   const schema = layouts.layout_prop_schema[layoutId];
-  //   if (!schema?.defaults && !schema?.fields?.length) return;
-  //   const aspectRatio = project.aspect_ratio || "landscape";
-  //   const isPortrait = aspectRatio === "portrait";
-  //   setEditableLayoutProps((prev) => {
-  //     const next = { ...prev };
-  //     let changed = false;
-  //     const fieldKeys = new Set((schema.fields ?? []).map((f) => f.key));
-  //     const defaults = schema.defaults ?? {};
-  //     for (const key of fieldKeys) {
-  //       if (key in next) continue;
-  //       const def = defaults[key];
-  //       if (def !== undefined && def !== null) {
-  //         if (typeof def === "object" && !Array.isArray(def) && "portrait" in def && "landscape" in def) {
-  //           next[key] = isPortrait ? (def as { portrait: unknown }).portrait : (def as { landscape: unknown }).landscape;
-  //         } else {
-  //           next[key] = def;
-  //         }
-  //         changed = true;
-  //       }
-  //     }
-  //     return changed ? next : prev;
-  //   });
-  // }, [open, layouts?.layout_prop_schema, scene.remotion_code, project.aspect_ratio]);
 
   // Merge schema defaults for missing layout props (e.g. new props added via rebuild)
   // useEffect(() => {
@@ -3726,8 +3498,6 @@ export default function SceneEditModal({
           }
           // Custom templates use layoutConfig — skip layoutProps editing
           if (isCustomTemplate) {
-<<<<<<< HEAD
-=======
             // Exception: dedicated data-viz scenes persist their edited chart data
             // into layoutProps (the location GeneratedVideo's kit scenes read).
             if (dataVizKind) {
@@ -3743,7 +3513,6 @@ export default function SceneEditModal({
                   : {}),
               };
             }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             // Ensure layoutConfig exists for custom templates
             if (!desc.layoutConfig) desc.layoutConfig = {};
             const config = desc.layoutConfig as Record<string, unknown>;
@@ -3773,12 +3542,6 @@ export default function SceneEditModal({
             }
             if (isEndingScene) {
               desc.ctaProps = {
-<<<<<<< HEAD
-                socials: endingSocials,
-                showWebsiteButton: endingShowWebsiteButton,
-                websiteLink: (endingWebsiteLink || "").trim(),
-                ctaButtonText: (endingCtaButtonText || "").trim(),
-=======
                 // Socials are global to the scene (matches original UX).
                 socials: endingSocials,
                 // Legacy single-CTA mirror (from ctas[0]) so renderers that haven't
@@ -3792,7 +3555,6 @@ export default function SceneEditModal({
                   websiteLink: (c.websiteLink || "").trim(),
                   showWebsiteButton: c.showWebsiteButton,
                 })),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               };
             }
             remotionCode = JSON.stringify(desc);
@@ -3927,8 +3689,6 @@ export default function SceneEditModal({
                 delete lp.lineChart;
                 delete lp.histogram;
               }
-<<<<<<< HEAD
-=======
             }
             // Bloomberg terminal_dataviz: normalize chartTable on save
             if (isBloombergTemplate && layoutId === "terminal_dataviz") {
@@ -3976,7 +3736,6 @@ export default function SceneEditModal({
                   if (newItems.length >= 4) lp.items = newItems;
                 }
               }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             }
             // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
             const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
@@ -4001,12 +3760,6 @@ export default function SceneEditModal({
             else delete lp.descriptionFontSize;
             if (isEndingScene) {
               lp.hideImage = true;
-<<<<<<< HEAD
-              lp.socials = endingSocials;
-              lp.showWebsiteButton = endingShowWebsiteButton;
-              lp.websiteLink = (endingWebsiteLink || "").trim();
-              lp.ctaButtonText = (endingCtaButtonText || "").trim();
-=======
               delete lp.assignedImage;
               delete lp.imageFocusX;
               delete lp.imageFocusY;
@@ -4025,7 +3778,6 @@ export default function SceneEditModal({
               }));
             } else if (zoomToSave !== undefined) {
               lp.imageZoom = zoomToSave;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             }
             desc.layoutProps = lp;
             remotionCode = JSON.stringify(desc);
@@ -4377,11 +4129,8 @@ export default function SceneEditModal({
         hideImage: true,
       };
       delete layoutProps.assignedImage;
-<<<<<<< HEAD
-=======
       delete layoutProps.imageFocusX;
       delete layoutProps.imageFocusY;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       descriptor.layoutProps = layoutProps;
 
       await updateScene(project.id, scene.id, {
@@ -4806,10 +4555,6 @@ export default function SceneEditModal({
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               {(() => {
                 if (isEndingScene) {
-<<<<<<< HEAD
-                  return (
-                    <div className="space-y-3">
-=======
                   const updateCta = (idx: number, patch: Partial<CtaDraft>) => {
                     setCtas((prev) =>
                       prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
@@ -4855,36 +4600,10 @@ export default function SceneEditModal({
                           </div>
                         ))}
                       </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                         Social media Links
                       </h4>
                       <div className="space-y-3">
-<<<<<<< HEAD
-                        <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-medium text-gray-800">
-                              Call to Action Button
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setEndingShowWebsiteButton((prev) => !prev)}
-                              className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
-                                endingShowWebsiteButton ? "bg-purple-600" : "bg-gray-200"
-                              }`}
-                              role="switch"
-                              aria-checked={endingShowWebsiteButton}
-                              aria-label="Toggle website call to action"
-                            >
-                              <span
-                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                                  endingShowWebsiteButton ? "translate-x-4" : "translate-x-0"
-                                }`}
-                              />
-                            </button>
-                          </div>
-                          <div className="space-y-2">
-=======
                         {ctas.map((cta, idx) => (
                           <div
                             key={idx}
@@ -4925,22 +4644,16 @@ export default function SceneEditModal({
                                 ) : null}
                               </div>
                             </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             <div>
                               <label className="block text-[11px] font-medium text-gray-500 mb-1">
                                 CTA button label
                               </label>
                               <input
                                 type="text"
-<<<<<<< HEAD
-                                value={endingCtaButtonText}
-                                onChange={(e) => setEndingCtaButtonText(e.target.value)}
-=======
                                 value={cta.ctaButtonText}
                                 onChange={(e) =>
                                   updateCta(idx, { ctaButtonText: e.target.value })
                                 }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                 className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 placeholder="e.g. Read the full article"
                               />
@@ -4948,27 +4661,6 @@ export default function SceneEditModal({
                                 Short text on the pill above the link (matches the project font in the video).
                               </p>
                             </div>
-<<<<<<< HEAD
-                          </div>
-                          {endingShowWebsiteButton ? (
-                            <div>
-                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                                Website URL
-                              </label>
-                              <input
-                                type="text"
-                                value={endingWebsiteLink}
-                                onChange={(e) => setEndingWebsiteLink(e.target.value)}
-                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                placeholder="https://example.com/article"
-                              />
-                              <p className="mt-1 text-[11px] text-gray-500">
-                                Shown under the CTA pill when the toggle is on.
-                              </p>
-                            </div>
-                          ) : null}
-                        </div>
-=======
                             {cta.showWebsiteButton ? (
                               <div>
                                 <label className="block text-[11px] font-medium text-gray-500 mb-1">
@@ -4999,16 +4691,11 @@ export default function SceneEditModal({
                             + Add another CTA
                           </button>
                         ) : null}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         {ENDING_SOCIALS_KEYS.map((k) => {
                           const item = endingSocials[k];
                           const enabled = Boolean(item?.enabled ?? false);
                           const label = (item?.label ?? ENDING_SOCIALS_DEFAULT[k].label) as string;
                           const platformLabel = ENDING_SOCIALS_DEFAULT[k].label;
-<<<<<<< HEAD
-                          const platformInitials = platformLabel.slice(0, 2).toUpperCase();
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                           return (
                             <div key={k} className="space-y-2">
                               <div className="flex items-center gap-3">
@@ -5063,10 +4750,6 @@ export default function SceneEditModal({
                   );
                 }
 
-<<<<<<< HEAD
-                const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
-                let layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
-=======
                 // Crafted templates: prefer fields shipped in the bundle's
                 // `frontend/layoutFields.ts`. Fall back to LAYOUT_TEXT_FIELDS
                 // (keyed by layout id) for any layout the bundle hasn't
@@ -5116,7 +4799,6 @@ export default function SceneEditModal({
                   getLayoutFields(project.template || "default", currentLayoutId) ??
                   bundledMetaSchemaFields;
                 let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
                 if (isNewscastTemplate && currentLayoutId === "data_visualization") {
                   const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
@@ -5126,20 +4808,12 @@ export default function SceneEditModal({
                   const lineSeriesCount = mode === "line" ? Math.min(3, numericSeriesCount) : 0;
 
                   layoutFields = layoutFields.filter((field) => {
-<<<<<<< HEAD
-                    if (field.key === "barPrimaryColor") return mode === "bar" && barSeriesCount >= 1;
-                    if (field.key === "barSecondaryColor") return mode === "bar" && barSeriesCount >= 2;
-                    if (field.key === "barTertiaryColor") return mode === "bar" && barSeriesCount >= 3;
-                    if (field.key === "lineUpColor") return mode === "line" && lineSeriesCount >= 1;
-                    if (field.key === "lineDownColor") return mode === "line" && lineSeriesCount >= 1;
-=======
                     if (field.key === "barPrimaryColor") return mode === "bar";
                     if (field.key === "barSecondaryColor") return mode === "bar";
                     if (field.key === "barTertiaryColor") return mode === "bar";
                     if (field.key === "lineUpColor") return mode === "line";
                     if (field.key === "lineDownColor") return mode === "line";
                     if (field.key === "lineThirdColor") return mode === "line";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     return true;
                   });
                 }
@@ -5148,14 +4822,6 @@ export default function SceneEditModal({
                 const suppressExtraKeysForDataViz =
                   (isNewscastTemplate || isNightfallTemplate || isDefaultTemplate) &&
                   currentLayoutId === "data_visualization";
-<<<<<<< HEAD
-                const extraKeys =
-                  suppressExtraKeysForDataViz
-                    ? []
-                    : currentLayoutId && editableLayoutProps
-                      ? Object.keys(editableLayoutProps).filter(
-                          (key) => !knownKeys.has(key) && !HIDDEN_LAYOUT_PROP_KEYS.has(key)
-=======
                 const suppressExtraKeysForBloombergChart =
                   isBloombergTemplate && currentLayoutId === "terminal_chart";
                 const suppressExtraKeysForBloombergDataViz =
@@ -5202,7 +4868,6 @@ export default function SceneEditModal({
                               currentLayoutId,
                               key,
                             ),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         )
                       : [];
                 if (!currentLayoutId || (layoutFields.length === 0 && extraKeys.length === 0)) return null;
@@ -5220,9 +4885,6 @@ export default function SceneEditModal({
                       const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                       const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
                       if (field.type === "color") {
-<<<<<<< HEAD
-                        const fallbackColor = normalizeColorValue(field.placeholder ?? "#1E5FD4", "#1E5FD4");
-=======
                         // Unsaved swatch falls back to the field's declared `default`
                         // first (the documented "display value when unset"), then its
                         // placeholder, then a generic blue. Without the `default` branch
@@ -5234,7 +4896,6 @@ export default function SceneEditModal({
                           fieldDefaultColor ?? field.placeholder ?? "#1E5FD4",
                           "#1E5FD4",
                         );
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         const currentColor = normalizeColorValue(editableLayoutProps[field.key], fallbackColor);
                         return (
                           <div key={field.key}>
@@ -5251,8 +4912,6 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
-<<<<<<< HEAD
-=======
                       if (field.type === "ohlcv_table") {
                         const raw = editableLayoutProps[field.key] as { headers: string[]; rows: string[][] } | null | undefined;
                         return (
@@ -5418,7 +5077,6 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       if (field.type === "chart_table") {
                         const table = normalizeChartTableValue(editableLayoutProps[field.key]);
                         const fixedModeByFieldKey: Partial<Record<string, DataVizTableMode>> = {
@@ -5427,10 +5085,6 @@ export default function SceneEditModal({
                           pieChartTable: "pie",
                           histogramChartTable: "histogram",
                         };
-<<<<<<< HEAD
-                        const mode = fixedModeByFieldKey[field.key] ?? inferDataVizTableMode(editableLayoutProps);
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         const isSeparateDataVizTableEditor =
                           (isNightfallTemplate || isDefaultTemplate) && currentLayoutId === "data_visualization";
                         const primaryChartType = String(
@@ -5467,129 +5121,6 @@ export default function SceneEditModal({
                           );
                         }
 
-<<<<<<< HEAD
-                        const inferredLineSeriesCount = lineSeriesCountFromLayoutProps(editableLayoutProps);
-                        const tableLineSeriesCount = countLineSeriesInChartTable(table);
-                        const effectiveLineSeriesCount =
-                          tableLineSeriesCount > 0 ? tableLineSeriesCount : inferredLineSeriesCount;
-                        const projected = projectChartTableForMode(table, mode, effectiveLineSeriesCount);
-                        const fixedColumnCount =
-                          mode === "histogram" || mode === "pie"
-                            ? 2
-                            : mode === "bar" || mode === "line"
-                              ? Math.max(2, Math.min(4, 1 + effectiveLineSeriesCount))
-                              : null;
-                        const visibleTable = fixedColumnCount != null
-                          ? {
-                              headers: projected.headers.slice(0, fixedColumnCount),
-                              rows: projected.rows.map((r) => r.slice(0, fixedColumnCount)),
-                            }
-                          : projected;
-                        const updateTable = (next: { headers: string[]; rows: string[][] }) => {
-                          const normalizedNext = normalizeChartTableValue(next);
-                          const clampedNext = fixedColumnCount != null
-                            ? {
-                                headers: normalizedNext.headers.slice(0, fixedColumnCount),
-                                rows: normalizedNext.rows.map((r) => r.slice(0, fixedColumnCount)),
-                              }
-                            : normalizedNext;
-                          setEditableLayoutProps((prev) => ({ ...prev, [field.key]: clampedNext }));
-                        };
-                        return (
-                          <div key={field.key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
-                            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 overflow-x-auto">
-                              <table className="min-w-full border-separate border-spacing-0">
-                                <thead>
-                                  <tr>
-                                    {visibleTable.headers.map((header, colIndex) => (
-                                      <th key={`h-${colIndex}`} className="p-1.5 align-top">
-                                        <input
-                                          type="text"
-                                          value={header}
-                                          placeholder={colIndex === 0 ? "Label" : `Series ${colIndex}`}
-                                          onChange={(e) => {
-                                            const headers = [...visibleTable.headers];
-                                            headers[colIndex] = e.target.value;
-                                            updateTable({ headers, rows: visibleTable.rows });
-                                          }}
-                                          className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                        />
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {visibleTable.rows.map((row, rowIndex) => (
-                                    <tr key={`r-${rowIndex}`}>
-                                      {visibleTable.headers.map((_, colIndex) => (
-                                        <td key={`c-${rowIndex}-${colIndex}`} className="p-1.5">
-                                          <input
-                                            type="text"
-                                            value={row[colIndex] ?? ""}
-                                            onChange={(e) => {
-                                              const rows = visibleTable.rows.map((r) => [...r]);
-                                              rows[rowIndex][colIndex] = e.target.value;
-                                              updateTable({ headers: visibleTable.headers, rows });
-                                            }}
-                                            className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                          />
-                                        </td>
-                                      ))}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const rows = [...visibleTable.rows, Array.from({ length: visibleTable.headers.length }, () => "")];
-                                    updateTable({ headers: visibleTable.headers, rows });
-                                  }}
-                                  className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
-                                >
-                                  + Row
-                                </button>
-                                {fixedColumnCount == null ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const headers = [...visibleTable.headers, `Series ${visibleTable.headers.length}`];
-                                      const rows = visibleTable.rows.map((r) => [...r, ""]);
-                                      updateTable({ headers, rows });
-                                    }}
-                                    className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
-                                  >
-                                    + Column
-                                  </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (visibleTable.rows.length === 0) return;
-                                    updateTable({ headers: visibleTable.headers, rows: visibleTable.rows.slice(0, -1) });
-                                  }}
-                                  className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
-                                >
-                                  - Row
-                                </button>
-                                {fixedColumnCount == null ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (visibleTable.headers.length <= 2) return;
-                                      const headers = visibleTable.headers.slice(0, -1);
-                                      const rows = visibleTable.rows.map((r) => r.slice(0, -1));
-                                      updateTable({ headers, rows });
-                                    }}
-                                    className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
-                                  >
-                                    - Column
-                                  </button>
-                                ) : null}
-                              </div>
-=======
                         const rowCount = table.rows.length;
                         const colCount = table.headers.length;
                         return (
@@ -5619,17 +5150,12 @@ export default function SceneEditModal({
                               >
                                 Edit table
                               </button>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                             </div>
                           </div>
                         );
                       }
                       if (field.type === "select") {
                         const opts = field.options ?? [];
-<<<<<<< HEAD
-                        const defaultVal = opts[0]?.value ?? "";
-                        const sel = String(editableLayoutProps[field.key] ?? defaultVal);
-=======
                         const defaultVal = field.default ?? opts[0]?.value ?? "";
                         const sel = String(editableLayoutProps[field.key] ?? defaultVal);
                         const isLaDucChartTypeField =
@@ -5659,17 +5185,11 @@ export default function SceneEditModal({
                           isCustomTemplate &&
                           currentLayoutId === "custom_chart" &&
                           field.key === "chartType";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
                             <select
                               value={sel}
-<<<<<<< HEAD
-                              onChange={(e) =>
-                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))
-                              }
-=======
                               onChange={(e) => {
                                 const nextChartType = e.target.value;
                                 if (isBuiltinChartTypeField) {
@@ -5733,7 +5253,6 @@ export default function SceneEditModal({
                                 }
                                 setEditableLayoutProps((prev) => ({ ...prev, [field.key]: nextChartType }));
                               }}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                               className={inputClass}
                             >
                               {opts.map((o) => (
@@ -5745,8 +5264,6 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
-<<<<<<< HEAD
-=======
                       if (field.type === "number") {
                         return (
                           <div key={field.key}>
@@ -5783,7 +5300,6 @@ export default function SceneEditModal({
                           </div>
                         );
                       }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       if (field.type === "string") {
                         return (
                           <div key={field.key}>
@@ -5937,26 +5453,6 @@ export default function SceneEditModal({
                     })}
                     {extraKeys.length > 0 && (
                       <div className="space-y-3">
-<<<<<<< HEAD
-                        {extraKeys.map((key) => (
-                          <div key={key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
-                              {humanLabel(key)}
-                            </label>
-                            <input
-                              type="text"
-                              value={String(editableLayoutProps[key] ?? "")}
-                              onChange={(e) =>
-                                setEditableLayoutProps((prev) => ({
-                                  ...prev,
-                                  [key]: e.target.value,
-                                }))
-                              }
-                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                          </div>
-                        ))}
-=======
                         {extraKeys.map((key) => {
                           const rawValue = editableLayoutProps[key];
                           const looksLikeObjectArray = Array.isArray(rawValue)
@@ -6043,7 +5539,6 @@ export default function SceneEditModal({
                             </div>
                           );
                         })}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       </div>
                     )}
                   </div>
@@ -6167,10 +5662,6 @@ export default function SceneEditModal({
                             </div>
                           );
                         }
-<<<<<<< HEAD
-                        if (field.type === "object_array" && field.subFields) {
-                          const items = (Array.isArray(editableStructuredContent[field.key]) ? editableStructuredContent[field.key] : []) as Record<string, string>[];
-=======
                         if (field.type === "object_array") {
                           const items = normalizeObjectArrayItems(editableStructuredContent[field.key]);
                           const subFields =
@@ -6178,7 +5669,6 @@ export default function SceneEditModal({
                               ? field.subFields
                               : inferObjectArraySubFields(items);
                           if (!subFields.length) return null;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                           return (
                             <div key={field.key}>
                               <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
@@ -6187,11 +5677,7 @@ export default function SceneEditModal({
                                   <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                                     <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                     <div className="flex-1 space-y-2">
-<<<<<<< HEAD
-                                      {field.subFields!.map((sf) => (
-=======
                                       {subFields.map((sf) => (
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                         <div key={sf.key}>
                                           <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
                                           <input
@@ -6227,11 +5713,7 @@ export default function SceneEditModal({
                                     type="button"
                                     onClick={() => {
                                       const empty: Record<string, string> = {};
-<<<<<<< HEAD
-                                      field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
-=======
                                       subFields.forEach((sf) => { empty[sf.key] = ""; });
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                       setEditableStructuredContent((prev) => ({ ...prev, [field.key]: [...items, empty] }));
                                     }}
                                     className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
@@ -6668,11 +6150,7 @@ export default function SceneEditModal({
                     {!isCustomTemplate && (
                       <button
                         type="button"
-<<<<<<< HEAD
-                        onClick={() => { setSelectedLayout("__auto__"); setLayoutOpen(false); }}
-=======
                         onClick={() => { applySelectedLayout("__auto__"); setLayoutOpen(false); }}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
                           selectedLayout === "__auto__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                         }`}

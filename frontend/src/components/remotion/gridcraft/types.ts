@@ -11,13 +11,9 @@ export type GridcraftLayoutType =
   | "bento_code"
   | "pull_quote"
   | "bento_steps"
-<<<<<<< HEAD
-  | "ending_socials";
-=======
   | "data_visualisation"
   | "ending_socials"
   | "ticker_table";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface DataPoint {
   label: string;
@@ -110,9 +106,6 @@ export interface GridcraftLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

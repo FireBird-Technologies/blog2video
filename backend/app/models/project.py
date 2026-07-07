@@ -14,8 +14,6 @@ class ProjectStatus(str, enum.Enum):
     DONE = "done"
     ERROR = "error"
     GENERATING = "regenerating"
-<<<<<<< HEAD
-=======
     # Dedicated state for the "regenerate script" job (keep narration/voiceover, refresh
     # titles/layouts). Distinct from SCRIPTED so a reload mid-job doesn't auto-start the
     # full generation pipeline.
@@ -24,7 +22,6 @@ class ProjectStatus(str, enum.Enum):
     # voice-change-status endpoint doesn't need to guess whether GENERATING belongs
     # to a voice change or a template relayout.
     VOICE_REGENERATING = "voice_regenerating"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class Project(Base):
@@ -86,10 +83,6 @@ class Project(Base):
     video_style: Mapped[str] = mapped_column(String(30), default="explainer")
 
     # Video length selection controls how many scenes are generated.
-<<<<<<< HEAD
-    # Values: auto, short (6-8), medium (12-15), detailed (15-20)
-    video_length: Mapped[str] = mapped_column(String(10), default="auto")
-=======
     # Values: auto, short (4-5), medium (12-15), detailed (23-30), mdetailed (35-40)
     video_length: Mapped[str] = mapped_column(String(20), default="auto")
     playback_speed: Mapped[float] = mapped_column(Float, default=1.0)
@@ -97,7 +90,6 @@ class Project(Base):
     # Background music
     bgm_track_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     bgm_volume: Mapped[float] = mapped_column(Float, default=0.10)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.
     # All generated content (script, display text, voiceover) is produced in this language.
@@ -129,9 +121,6 @@ class Project(Base):
     project_edit_history = relationship("ProjectEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     scene_edit_history = relationship("SceneEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     reviews = relationship("Review", back_populates="project", cascade="all, delete-orphan")
-<<<<<<< HEAD
-=======
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

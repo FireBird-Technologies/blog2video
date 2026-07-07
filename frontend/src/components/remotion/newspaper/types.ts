@@ -40,11 +40,6 @@ export interface BlogLayoutProps {
 
   /** Optional image URL for hero (news_headline). */
   imageUrl?: string;
-<<<<<<< HEAD
-
-  /** Project-level font override; when set, used for all text in the layout. */
-  fontFamily?: string;
-=======
   imageObjectPosition?: string;
   imageZoom?: number;
 
@@ -75,16 +70,12 @@ export interface BlogLayoutProps {
   tickerFootnote?: string;
   tickerHighlightCol?: number;
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export type NewspaperLayoutType =
@@ -94,12 +85,8 @@ export type NewspaperLayoutType =
   | "data_snapshot"
   | "fact_check"
   | "news_timeline"
-<<<<<<< HEAD
-  | "ending_socials";
-=======
   | "data_visualisation"
   | "ending_socials"
   | "expert_profile"
   | "perspective_split"
   | "ticker_table";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

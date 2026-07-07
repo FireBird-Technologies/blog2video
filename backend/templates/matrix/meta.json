@@ -3,13 +3,8 @@
   "name": "Matrix",
   "new_template": false,
   "description": "Digital rain on a black void. Green monospace text decodes from random characters, numbers count up through cipher noise, and data streams in like intercepted transmissions. Terminal aesthetic with glitch effects. Fast, cryptic, cyberpunk.",
-<<<<<<< HEAD
-  "styles": [
-    "promotional"
-=======
   "genres": [
     "Technology"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "preview_colors": {
     "accent": "#00FF41",
@@ -29,11 +24,8 @@
     "matrix_image",
     "transmission",
     "awakening",
-<<<<<<< HEAD
-=======
     "matrix_data",
     "matrix_ticker",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -411,8 +403,6 @@
         }
       ]
     },
-<<<<<<< HEAD
-=======
     "matrix_data": {
       "label": "Data Chart",
       "defaults": {
@@ -663,7 +653,6 @@
         }
       ]
     },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials": {
       "label": "Ending / Follow along",
       "defaults": {
@@ -780,13 +769,9 @@
     }
   },
   "layouts_without_image": [
-<<<<<<< HEAD
-    "ending_socials"
-=======
     "ending_socials",
     "matrix_data",
     "matrix_ticker"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "features": [
     "Digital rain background animation on every scene",

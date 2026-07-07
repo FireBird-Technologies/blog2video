@@ -303,8 +303,6 @@ def download_json(key: str) -> dict | None:
         return None
 
 
-<<<<<<< HEAD
-=======
 def download_bytes(key: str) -> bytes | None:
     """Download raw bytes from R2. Returns None if missing/unavailable."""
     if not is_r2_configured():
@@ -345,7 +343,6 @@ def object_size(key: str) -> int | None:
         return None
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def download_render_progress_json(user_id: int, project_id: int) -> dict | None:
     """Download per-project render progress JSON from R2."""
     return download_json(render_progress_key(user_id, project_id))

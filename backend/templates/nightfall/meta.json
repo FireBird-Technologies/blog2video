@@ -2,17 +2,11 @@
   "id": "nightfall",
   "name": "Nightfall",
   "new_template": false,
-<<<<<<< HEAD
-  "description": "Dark cinematic glass — frosted panels over gradient mesh, neon-glow data visualizations, animated charts, and dramatic kinetic title reveals. Premium tech keynote feel with full support for data/stats blogs. All layouts support images alongside content.",
-  "styles": [
-    "promotional"
-=======
   "popular_template": true,
   "description": "Dark cinematic glass — frosted panels over gradient mesh, neon-glow data visualizations, animated charts, and dramatic kinetic title reveals. Premium tech keynote feel with full support for data/stats blogs. All layouts support images alongside content.",
   "genres": [
     "Technology",
     "Business"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "preview_colors": {
     "accent": "#818CF8",
@@ -32,12 +26,8 @@
     "split_glass",
     "chapter_break",
     "glass_image",
-<<<<<<< HEAD
-    "data_visualization",
-=======
     "nightfall_data_visualization",
     "nightfall_ticker",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -455,50 +445,6 @@
         }
       ]
     },
-<<<<<<< HEAD
-    "data_visualization": {
-      "label": "Data Visualization",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 67,
-          "landscape": 61
-        },
-        "descriptionFontSize": {
-          "portrait": 40,
-          "landscape": 36
-        },
-        "barChartRows": [
-          {
-            "label": "Q1",
-            "value": "18"
-          },
-          {
-            "label": "Q2",
-            "value": "24"
-          }
-        ],
-        "lineChartLabels": [
-          "Jan",
-          "Feb",
-          "Mar"
-        ],
-        "lineChartDatasets": [
-          {
-            "label": "Series A",
-            "valuesStr": "10, 14, 18"
-          }
-        ],
-        "pieChartRows": [
-          {
-            "label": "Segment A",
-            "value": "45"
-          },
-          {
-            "label": "Segment B",
-            "value": "55"
-          }
-        ]
-=======
     "nightfall_data_visualization": {
       "label": "Data Visualisation",
       "defaults": {
@@ -532,91 +478,19 @@
         "title": "The data behind the story",
         "narration": "The numbers reveal what the narrative hints at.",
         "durationSeconds": 7
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       },
       "fields": [
         {
           "key": "titleFontSize",
-<<<<<<< HEAD
-          "label": "Title Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 20,
-          "max": 220,
-=======
           "label": "Title Size",
           "type": "number",
           "responsive": true,
           "min": 14,
           "max": 160,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           "step": 1
         },
         {
           "key": "descriptionFontSize",
-<<<<<<< HEAD
-          "label": "Body Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 12,
-          "max": 140,
-          "step": 1
-        },
-        {
-          "key": "barChartRows",
-          "label": "Bar Chart Rows",
-          "type": "object_array",
-          "maxItems": 12,
-          "subFields": [
-            {
-              "key": "label",
-              "label": "Label"
-            },
-            {
-              "key": "value",
-              "label": "Value"
-            }
-          ]
-        },
-        {
-          "key": "lineChartLabels",
-          "label": "Line Chart Labels",
-          "type": "string_array",
-          "maxItems": 12
-        },
-        {
-          "key": "lineChartDatasets",
-          "label": "Line Chart Series",
-          "type": "object_array",
-          "maxItems": 6,
-          "subFields": [
-            {
-              "key": "label",
-              "label": "Series"
-            },
-            {
-              "key": "valuesStr",
-              "label": "Values (comma-separated)"
-            }
-          ]
-        },
-        {
-          "key": "pieChartRows",
-          "label": "Pie Chart Rows",
-          "type": "object_array",
-          "maxItems": 12,
-          "subFields": [
-            {
-              "key": "label",
-              "label": "Label"
-            },
-            {
-              "key": "value",
-              "label": "Value"
-            }
-          ]
-        }
-=======
           "label": "Body Size",
           "type": "number",
           "responsive": true,
@@ -741,7 +615,6 @@
           "label": "Footnote / source attribution",
           "type": "string"
         }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       ]
     },
     "ending_socials": {
@@ -864,12 +737,8 @@
     "glass_code",
     "kinetic_insight",
     "chapter_break",
-<<<<<<< HEAD
-    "data_visualization",
-=======
     "nightfall_data_visualization",
     "nightfall_ticker",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials"
   ],
   "features": [

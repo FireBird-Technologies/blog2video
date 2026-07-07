@@ -120,13 +120,10 @@ export interface Scene {
   voiceover_path: string | null;
   duration_seconds: number;
   extra_hold_seconds?: number | null;
-<<<<<<< HEAD
-=======
   bgm_volume?: number | null;
   preferred_layout?: string | null;
   /** "intro"|"content"|"outro"|"dataviz_chart"|"dataviz_table" (custom templates). */
   scene_type?: string | null;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   created_at: string;
 }
 
@@ -170,11 +167,6 @@ export interface Project {
   voice_emotion: string | null;
   aspect_ratio: string;
   video_style?: VideoStyleId;
-<<<<<<< HEAD
-  video_length?: "auto" | "short" | "medium" | "detailed";
-  ai_assisted_editing_count?: number;
-  custom_theme?: CustomTemplateTheme | null;
-=======
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
   playback_speed?: number;
   bgm_track_id?: string | null;
@@ -192,7 +184,6 @@ export interface Project {
     content?: (string | { landscape?: string; portrait?: string })[];
     outro?: string | { landscape?: string; portrait?: string };
   } | null;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   custom_template_missing?: boolean;
   brand_logo_url?: string | null;
   review_state?: ReviewState | null;
@@ -293,12 +284,9 @@ export interface SubscriptionDetail {
   amount_paid_cents: number;
   canceled_at: string | null;
   retention_offer_eligible: boolean;
-<<<<<<< HEAD
-=======
   scheduled_plan_slug: string | null;
   scheduled_plan_name: string | null;
   scheduled_change_at: string | null;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   created_at: string;
 }
 
@@ -351,10 +339,6 @@ export interface PublicConfig {
 
 // ─── Auth API ─────────────────────────────────────────────
 
-<<<<<<< HEAD
-export const googleLogin = (credential: string, reactivate = false) =>
-  api.post<AuthResponse>("/auth/google", { credential }, { params: { reactivate } });
-=======
 export const googleLogin = (credential: string, reactivate = false, refCode?: string | null) => {
   const params: Record<string, unknown> = { reactivate };
   if (refCode) params.ref_code = refCode;
@@ -384,7 +368,6 @@ export interface SurveyPayload {
 
 export const submitSurvey = (payload: SurveyPayload) =>
   api.post<{ submitted: boolean; promo_code: string | null }>("/affiliate/survey", payload);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const getMe = () => api.get<UserInfo>("/auth/me");
 
@@ -527,23 +510,16 @@ export interface TemplateMeta {
   description: string;
   /** When true, show a highlighted "New" tag on the template picker (step 2). */
   new_template?: boolean;
-<<<<<<< HEAD
-  styles?: string[];  // video styles this template supports: explainer, promotional, storytelling
-=======
   /** When true, show an amber "Popular" tag on the template picker. */
   popular_template?: boolean;
   styles?: string[];  // DEPRECATED — was video_style filter; now replaced by `genres`. Kept for back-compat readers.
   genres?: string[];  // topical categorization, e.g. ["Finance", "Politics"] — drives the genre dropdown filter
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   preview_colors?: { accent: string; bg: string; text: string };
   composition_id?: string;
   hero_layout?: string;
   fallback_layout?: string;
   valid_layouts?: string[];
-<<<<<<< HEAD
-=======
   studio_only_layouts?: string[];
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   layouts_without_image?: string[];
   layout_prop_schema?: Record<string, LayoutPropSchema>;
 }
@@ -555,13 +531,9 @@ export type LayoutPropFieldType =
   | "color"
   | "select"
   | "string_array"
-<<<<<<< HEAD
-  | "object_array";
-=======
   | "object_array"
   | "chart_table"
   | "ticker_table";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface LayoutPropSubField {
   key: string;
@@ -579,10 +551,7 @@ export interface LayoutPropField {
   max?: number;
   step?: number;
   maxItems?: number;
-<<<<<<< HEAD
-=======
   minItems?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   options?: Array<{ label: string; value: string }>;
   subFields?: LayoutPropSubField[];
 }
@@ -597,12 +566,9 @@ export interface LayoutPropSchema {
   label?: string;
   description?: string;
   defaults?: Record<string, unknown>;
-<<<<<<< HEAD
-=======
   /** Studio-preview-only prop samples — merged over defaults in Template Studio,
       NEVER merged into real renders (remotion.py reads only `defaults`). */
   sample_props?: Record<string, unknown>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scene_defaults?: LayoutSceneDefaults;
   fields: LayoutPropField[];
 }
@@ -610,8 +576,6 @@ export interface LayoutPropSchema {
 export const getTemplates = (style?: string) =>
   api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
 
-<<<<<<< HEAD
-=======
 export interface TemplateAvailabilitySignal {
   has_custom_templates: boolean;
   has_crafted_templates: boolean;
@@ -690,7 +654,6 @@ export const getCraftedTemplateDetail = (
     craftedRequestConfig(opts),
   );
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export interface AspectValue {
   portrait: number;
   landscape: number;
@@ -913,8 +876,6 @@ export const createTemplateLayoutFile = (payload: {
   });
 };
 
-<<<<<<< HEAD
-=======
 // The structured plan extracted from a (normalized) design doc. Passed
 // opaquely from POST /template/plan back into POST /template/create.
 export type TemplatePlan = Record<string, unknown>;
@@ -999,7 +960,6 @@ export const extractDesignDocFile = (file: File) => {
   });
 };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export const renderTemplateLayout = (payload: {
   template_id: string;
   layout_id: string;
@@ -1007,8 +967,6 @@ export const renderTemplateLayout = (payload: {
   duration_seconds?: number;
   layout_props?: Record<string, unknown>;
   resolution?: "1080p" | "720p";
-<<<<<<< HEAD
-=======
   scenes?: Array<{
     id?: number;
     order?: number;
@@ -1019,7 +977,6 @@ export const renderTemplateLayout = (payload: {
     durationSeconds?: number;
     imageUrl?: string;
   }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) =>
   api.post<Blob>("/template-studio/render-layout", payload, {
     responseType: "blob",
@@ -1061,10 +1018,6 @@ export const createProject = (
   aspect_ratio?: string,
   template?: string,
   video_style?: VideoStyleId,
-<<<<<<< HEAD
-  video_length?: "auto" | "short" | "medium" | "detailed",
-  content_language?: string | null
-=======
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
   content_language?: string | null,
   voice_emotion?: string,
@@ -1072,7 +1025,6 @@ export const createProject = (
   bgm_volume?: number,
   captions_enabled?: boolean,
   caption_position?: "bottom_center" | "top_center"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -1091,14 +1043,11 @@ export const createProject = (
     video_style,
     video_length,
     content_language,
-<<<<<<< HEAD
-=======
     voice_emotion,
     bgm_track_id,
     bgm_volume,
     captions_enabled,
     caption_position,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -1107,11 +1056,7 @@ export interface BulkProjectItem {
   name?: string;
   template?: string;
   video_style?: VideoStyleId;
-<<<<<<< HEAD
-  video_length?: "auto" | "short" | "medium" | "detailed";
-=======
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   voice_gender?: string;
   voice_accent?: string;
   voice_emotion?: string;
@@ -1124,11 +1069,8 @@ export interface BulkProjectItem {
   custom_voice_id?: string;
   aspect_ratio?: string;
   content_language?: string | null;
-<<<<<<< HEAD
-=======
   captions_enabled?: boolean;
   caption_position?: "bottom_center" | "top_center";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export interface BulkCreateResponse {
@@ -1173,15 +1115,10 @@ export const createProjectFromDocs = (
     aspect_ratio?: string;
     template?: string;
     video_style?: VideoStyleId;
-<<<<<<< HEAD
-    video_length?: "auto" | "short" | "medium" | "detailed";
-    content_language?: string | null;
-=======
     video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
     content_language?: string | null;
     bgm_track_id?: string | null;
     bgm_volume?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   } = {}
 ) => {
   const formData = new FormData();
@@ -1208,13 +1145,10 @@ export const createProjectFromDocs = (
   if (config.video_length !== undefined && config.video_length !== null) {
     formData.append("video_length", config.video_length);
   }
-<<<<<<< HEAD
-=======
   if (config.bgm_track_id) formData.append("bgm_track_id", config.bgm_track_id);
   if (config.bgm_volume !== undefined && config.bgm_volume !== null) {
     formData.append("bgm_volume", String(config.bgm_volume));
   }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -1325,8 +1259,6 @@ export const updateProject = (
     text_color?: string;
     font_family?: string | null;
     aspect_ratio?: string;
-<<<<<<< HEAD
-=======
     playback_speed?: number;
     bgm_track_id?: string | null;
     bgm_volume?: number;
@@ -1335,7 +1267,6 @@ export const updateProject = (
     caption_font_family?: string;
     caption_font_size?: number;
     caption_offset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 
@@ -1721,17 +1652,12 @@ export interface CustomTemplateItem {
   logo_urls?: string[];
   og_image?: string;
   generation_failed: boolean;
-<<<<<<< HEAD
-=======
   my_rating?: number | null;
   my_rating_comment?: string | null;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   created_at: string;
   updated_at: string;
 }
 
-<<<<<<< HEAD
-=======
 export interface TemplateRating {
   id: number;
   user_id: number;
@@ -1742,7 +1668,6 @@ export interface TemplateRating {
   updated_at: string;
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export interface TemplateVersionItem {
   id: number;
   label: string;
@@ -1774,10 +1699,6 @@ export const createCustomTemplate = (data: {
   name: string;
   source_url?: string;
   theme: CustomTemplateTheme;
-<<<<<<< HEAD
-  supported_video_style?: VideoStyleId;
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   logo_urls?: string[];
   og_image?: string;
   screenshot_url?: string;
@@ -1795,8 +1716,6 @@ export const deleteCustomTemplate = (id: number, force = false) =>
 export const extractTheme = (url: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
 
-<<<<<<< HEAD
-=======
 export const extractThemeFromPrompt = (prompt: string, name?: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme-from-prompt", { prompt, name });
 
@@ -1811,7 +1730,6 @@ export const extractThemeFromDoc = (file: File, name?: string) => {
   );
 };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export const generateTemplateCode = (templateId: number) =>
   api.post<{ detail: string; template_id: number }>(`/custom-templates/${templateId}/generate-code`);
 
@@ -1855,14 +1773,11 @@ export const rollbackTemplateVersion = (templateId: number, versionId: number) =
     `/custom-templates/${templateId}/versions/${versionId}/rollback`
   );
 
-<<<<<<< HEAD
-=======
 export const submitTemplateRating = (
   templateId: number,
   data: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }
 ) => api.post<TemplateRating>(`/custom-templates/${templateId}/rating`, data);
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 // ─── ElevenLabs voices (default / available) ─────────────────
 
 export interface ElevenLabsVoice {
@@ -1990,12 +1905,9 @@ export const createCustomVoiceClone = (formData: FormData) =>
 export const deleteSavedVoice = (id: number) =>
   api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
 
-<<<<<<< HEAD
-=======
 // ─── Embed API ────────────────────────────────────────────
 
 export const generateEmbedToken = (projectId: number) =>
   api.post<{ embed_token: string; preview_url: string }>(`/embed/token/${projectId}`);
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export default api;

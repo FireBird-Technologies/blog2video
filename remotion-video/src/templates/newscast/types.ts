@@ -94,11 +94,8 @@ export interface NewscastLayoutProps {
 
   /** Optional full-bleed background image URL; supported on all newscast layouts. */
   imageUrl?: string;
-<<<<<<< HEAD
-=======
   imageObjectPosition?: string;
   imageZoom?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   fontFamily?: string;
 
@@ -107,11 +104,8 @@ export interface NewscastLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export type NewscastLayoutType =

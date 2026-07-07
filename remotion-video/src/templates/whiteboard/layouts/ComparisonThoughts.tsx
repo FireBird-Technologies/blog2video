@@ -65,13 +65,6 @@ interface ThoughtBubbleProps {
   descriptionFontSize?: number;
 }
 
-<<<<<<< HEAD
-function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index, fontFamily, descriptionFontSize }: ThoughtBubbleProps) {
-  // Reduce text size in bubble: Cap the font size for the bubble text
-  const baseBubbleFontSize = isPortrait ? 22 : 26;
-  const maxBubbleFontSize = isPortrait ? 28 : 30; // Max font size for text inside the bubble
-  const fontSize = Math.min(descriptionFontSize ?? baseBubbleFontSize, maxBubbleFontSize);
-=======
 // Shrink the bubble text as content grows so the bubble height stays bounded
 // and the layout (incl. the stickman below) doesn't get pushed out of flow.
 function adaptivePortraitFontSize(text: string, base: number, min: number): number {
@@ -98,7 +91,6 @@ function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait,
   const fontSize = isPortrait
     ? adaptivePortraitFontSize(thought, cappedFontSize, 14)
     : adaptivePortraitFontSize(thought, Math.min(baseBubbleFontSize, descFontSize - 2), 10);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const bubbleInnerW = isPortrait ? 240 : 272; 
   const contentH = estimateBubbleHeight(thought, fontSize, bubbleInnerW);
@@ -238,15 +230,9 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
     const footY = 155;
 
     return (
-<<<<<<< HEAD
-      <svg viewBox="0 0 100 160" 
-        // Reduce the sizes of the stickman for both landscape and portrait mode
-        style={{ width: p ? "38%" : "28%", maxWidth: 180, height: "auto", overflow: "visible" }} 
-=======
       <svg viewBox="0 0 100 160"
         // Slightly smaller stickman in portrait; landscape unchanged.
         style={{ width: p ? "30%" : "28%", maxWidth: 180, height: "auto", overflow: "visible" }}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         fill="none"
       >
         <defs>
@@ -311,11 +297,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-<<<<<<< HEAD
-              fontSize: titleFontSize ?? (p ? 62 : 61),
-=======
               fontSize: titleFontSize ?? (p ? 50 : 57),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               lineHeight: 1.1,
               filter: "url(#ink)",
             }}
@@ -327,11 +309,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               style={{
                 marginTop: 8,
                 color: textColor,
-<<<<<<< HEAD
-                fontSize: descriptionFontSize ?? (p ? 20 : 20),
-=======
                 fontSize: descriptionFontSize ?? (p ? 22 : 29),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 opacity: 0.88,
                 filter: "url(#ink)",
                 maxWidth: p ? "92%" : "auto",
@@ -366,21 +344,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               minWidth: 0,
             }}
           >
-<<<<<<< HEAD
-            <ThoughtBubble
-              thought={leftThought}
-              textColor={textColor}
-              dash={dash}
-              offset={offset}
-              bubbleOp={bubbleOp}
-              isPortrait={p}
-              index={0}
-              fontFamily={fontFamily}
-              descriptionFontSize={descriptionFontSize}
-            />
-            <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
-              <Stickman isRight={false} seed={2} />
-=======
             <div
               style={{
                 display: "flex",
@@ -404,7 +367,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
                 <Stickman isRight={false} seed={2} />
               </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
           </div>
 
@@ -451,21 +413,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               minWidth: 0,
             }}
           >
-<<<<<<< HEAD
-            <ThoughtBubble
-              thought={rightThought}
-              textColor={textColor}
-              dash={dash}
-              offset={offset}
-              bubbleOp={bubbleOp}
-              isPortrait={p}
-              index={1}
-              fontFamily={fontFamily}
-              descriptionFontSize={descriptionFontSize}
-            />
-            <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
-              <Stickman isRight={true} seed={3} />
-=======
             <div
               style={{
                 display: "flex",
@@ -489,7 +436,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
                 <Stickman isRight={true} seed={3} />
               </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
           </div>
         </div>

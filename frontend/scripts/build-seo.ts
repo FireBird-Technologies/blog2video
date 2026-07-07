@@ -4,23 +4,15 @@ import {
   blogPosts,
   defaultOgImage,
   getBlogPost,
-<<<<<<< HEAD
-  getMarketingPage,
-  getPublicPaths,
-=======
   getHelpPost,
   getMarketingPage,
   getPublicPaths,
   helpPosts,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   marketingPages,
   siteName,
   siteUrl,
 } from "../src/content/siteContent";
-<<<<<<< HEAD
-=======
 import type { BlogPost, HelpPost, MarketingPage } from "../src/content/seoTypes";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   normalizeSchemaForJsonLd,
   SEO_JSON_LD_SCRIPT_ID,
@@ -31,11 +23,8 @@ import {
   blogPostSchema,
   contactSchema,
   homepageSchema,
-<<<<<<< HEAD
-=======
   helpIndexSchema,
   helpPostSchema,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   marketingPageSchema,
   pricingSchema,
 } from "../src/seo/schema";
@@ -60,8 +49,6 @@ function escapeHtml(value: string) {
     .replaceAll('"', "&quot;");
 }
 
-<<<<<<< HEAD
-=======
 function renderBlogPostHtml(post: BlogPost): string {
   const heroImg = post.heroImage
     ? `<img src="${post.heroImage}" alt="${escapeHtml(post.heroImageAlt ?? "")}" />`
@@ -156,7 +143,6 @@ function getAppHtml(routePath: string): string {
   return "";
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function getSeoPayload(routePath: string): SeoPayload {
   if (routePath === "/") {
     return {
@@ -198,8 +184,6 @@ function getSeoPayload(routePath: string): SeoPayload {
     };
   }
 
-<<<<<<< HEAD
-=======
   if (routePath === "/help") {
     return {
       title: "Help / How-to",
@@ -210,7 +194,6 @@ function getSeoPayload(routePath: string): SeoPayload {
     };
   }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   if (routePath === "/404") {
     return {
       title: "Page Not Found",
@@ -233,8 +216,6 @@ function getSeoPayload(routePath: string): SeoPayload {
     }
   }
 
-<<<<<<< HEAD
-=======
   if (routePath.startsWith("/help/")) {
     const post = getHelpPost(routePath.replace("/help/", ""));
     if (post) {
@@ -248,7 +229,6 @@ function getSeoPayload(routePath: string): SeoPayload {
     }
   }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const page = getMarketingPage(routePath);
   if (page) {
     return {
@@ -300,17 +280,8 @@ ${
 }
 
 function renderUrl(url: string) {
-<<<<<<< HEAD
-  // Head-only prerender to avoid importing runtime UI modules that pull CSS/fontsource
-  // during Node execution (tsx can't evaluate CSS imports in this script context).
-  const appHtml = "";
-
-  const head = buildHeadTags(url);
-
-=======
   const appHtml = getAppHtml(url);
   const head = buildHeadTags(url);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return { appHtml, head };
 }
 
@@ -372,16 +343,6 @@ async function buildPrerenderedPages() {
     await ensureDirFor(filePath);
     await writeFile(filePath, injectRenderedMarkup(template, appHtml, head), "utf8");
   }
-<<<<<<< HEAD
-
-  const notFound = renderUrl("/404");
-  await writeFile(
-    path.join(distDir, "404.html"),
-    injectRenderedMarkup(template, notFound.appHtml, notFound.head),
-    "utf8"
-  );
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 async function buildSeoFiles() {
@@ -430,14 +391,11 @@ Sitemap: ${siteUrl}/sitemap-index.xml
         category: post.category,
         primaryKeyword: post.primaryKeyword,
       })),
-<<<<<<< HEAD
-=======
       helpPosts: helpPosts.map((post) => ({
         path: `/help/${post.slug}`,
         category: post.category,
         primaryKeyword: post.primaryKeyword,
       })),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     },
     null,
     2

@@ -62,12 +62,9 @@ remotion-video/src/templates/wealth_your_way/
 CLAUDE.md
 .claude/
 
-<<<<<<< HEAD
-=======
 # Support bot generated artifacts (rebuilt in CI)
 backend/app/support/code_map.json
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 # OS
 .DS_Store
 Thumbs.db

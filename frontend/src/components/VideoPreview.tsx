@@ -1,24 +1,12 @@
-<<<<<<< HEAD
-import React, { useMemo, useEffect, useState, useCallback } from "react";
-import { Player } from "@remotion/player";
-=======
 import React, { useMemo, useEffect, useState, useCallback, useRef, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import { Player } from "@remotion/player";
 import type { PlayerRef } from "@remotion/player";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   AbsoluteFill,
   Sequence,
   Audio,
 } from "remotion";
-<<<<<<< HEAD
-import { BACKEND_URL, Project, getTemplateCode } from "../api/client";
-import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
-import { resolveFontFamily } from "../fonts/registry";
-import {
-  compileComponentCode,
-=======
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import {
   BACKEND_URL,
@@ -41,13 +29,10 @@ import { planMagazineBoundaries, resolveMagazineLayout } from "./remotion/magazi
 import {
   compileComponentCode,
   compileModuleGraphEntry,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   type SceneProps,
 } from "../utils/compileComponent";
 import { LogoOverlay } from "./remotion/LogoOverlay";
 import { CtaOverlay } from "./remotion/CtaOverlay";
-<<<<<<< HEAD
-=======
 import { BackgroundMusic } from "./remotion/BackgroundMusic";
 import { CaptionTrack } from "./remotion/CaptionTrack";
 // Brand exit-flourish between scenes — mirrors the headless render so the
@@ -56,7 +41,6 @@ import { pickGeneratedTransition } from "./remotion/generated/generatedTransitio
 // Dedicated data-viz scenes (custom templates) — same kit components the render
 // uses, so preview matches the final video.
 import { DataChartScene, DataTableScene } from "./remotion/generated/kit";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -65,13 +49,10 @@ const StableCustomComposition: React.FC<any> = ({
   project,
   numContentVariants,
   resolvedFontFamily,
-<<<<<<< HEAD
-=======
   captionsEnabled,
   captionFontFamily,
   captionFontSize,
   captionOffset,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   if (!isCustom || !compiledScenes) return null;
 
@@ -94,8 +75,6 @@ const StableCustomComposition: React.FC<any> = ({
   const aspectRatio = (project.aspect_ratio || "landscape") as "landscape" | "portrait";
   const totalScenes = scenes.length;
   const FPS = 30;
-<<<<<<< HEAD
-=======
   const playbackSpeed = 1;
 
   // Brand transition family (motion personality) — drives which real two-scene
@@ -109,7 +88,6 @@ const StableCustomComposition: React.FC<any> = ({
     // eslint-disable-next-line no-console
     console.log(`[F7-DEBUG][V3][PREVIEW-TRANSITION] injecting ${Math.max(0, totalScenes - 1)} transitions, family=${transitionFamily ? transitionFamily.join(",") : "default"}`);
   }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const sceneAssignments: { type: string; variantKey: string }[] = [];
   let contentIdx = 0;
@@ -118,15 +96,12 @@ const StableCustomComposition: React.FC<any> = ({
     let sceneType = "content";
     let variantIdx = 0;
 
-<<<<<<< HEAD
-=======
     // Dedicated data-viz scenes route by scene_type (set on the DB scene).
     if (scene?.scene_type === "dataviz_chart" || scene?.scene_type === "dataviz_table") {
       sceneAssignments.push({ type: scene.scene_type, variantKey: scene.scene_type });
       continue;
     }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if (scene?.remotion_code) {
       try {
         const desc = JSON.parse(scene.remotion_code);
@@ -162,25 +137,6 @@ const StableCustomComposition: React.FC<any> = ({
   let offset = 0;
   for (const s of scenes) {
     frameOffsets.push(offset);
-<<<<<<< HEAD
-    const dur = Math.max(1, Math.round(s.durationSeconds * FPS));
-    frameDurations.push(dur);
-    offset += dur;
-  }
-
-  return (
-    <AbsoluteFill style={{ fontFamily: resolvedFontFamily || undefined }}>
-      {scenes.map((s: any, i: number) => {
-        const assignment = sceneAssignments[i];
-        const SceneComp =
-          compiledScenes[assignment.variantKey] ||
-          compiledScenes["intro"] ||
-          Object.values(compiledScenes)[0];
-
-        if (!SceneComp) return null;
-
-        const sc = (s.structuredContent || {}) as Record<string, unknown>;
-=======
     const dur = getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed);
     frameDurations.push(dur);
     offset += dur;
@@ -217,16 +173,12 @@ const StableCustomComposition: React.FC<any> = ({
           1,
           Number((s.layoutProps as Record<string, unknown> | undefined)?.imageZoom ?? 1),
         );
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         const sceneProps: SceneProps = {
           displayText: s.narration || s.title,
           narrationText: s.narration || "",
           imageUrl: s.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
           imageZoom,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           sceneIndex: i,
           totalScenes,
           logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
@@ -250,27 +202,6 @@ const StableCustomComposition: React.FC<any> = ({
         };
 
         // console.log(`[F7-DEBUG] [CustomComp] scene ${i}: displayText=${sceneProps.displayText?.substring(0,60)}, contentType=${sceneProps.contentType}, bullets=${sceneProps.bullets?.length}`);
-<<<<<<< HEAD
-        return (
-          <Sequence key={s.id} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
-            {s.ctaProps ? (
-              <CtaOverlay
-                ctaProps={s.ctaProps as any}
-                brandColors={brandColors}
-                aspectRatio={aspectRatio}
-                headingFont={headingFont}
-                bodyFont={bodyFont}
-                title={sceneProps.displayText}
-                logoUrl={sceneProps.logoUrl}
-              />
-            ) : (
-              <SceneComp {...sceneProps} />
-            )}
-            {s.voiceoverUrl && <Audio src={s.voiceoverUrl} />}
-          </Sequence>
-        );
-      })}
-=======
         const visual = !SceneComp ? (
           <AbsoluteFill />
         ) : s.ctaProps ? (
@@ -352,7 +283,6 @@ const StableCustomComposition: React.FC<any> = ({
           </Sequence>
         ) : null,
       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       {project.logo_r2_url && (
         <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>
@@ -365,8 +295,6 @@ const StableCustomComposition: React.FC<any> = ({
           />
         </AbsoluteFill>
       )}
-<<<<<<< HEAD
-=======
 
       {project.bgm_track_url && (
         <BackgroundMusic
@@ -378,7 +306,6 @@ const StableCustomComposition: React.FC<any> = ({
           }))}
         />
       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </AbsoluteFill>
   );
 };
@@ -393,21 +320,16 @@ interface VideoPreviewProps {
   logoSizeOverride?: number;
   logoOpacityOverride?: number;
   logoPositionOverride?: string;
-<<<<<<< HEAD
-=======
   onPlaybackSpeedChange?: (speed: number) => void | Promise<void>;
   playbackSpeedSaving?: boolean;
   onCaptionSettingsChange?: (settings: CaptionSettings) => void | Promise<void>;
   captionsSaving?: boolean;
   captionSettingsKey?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   precompiledTemplateData?: {
     intro_code: string | null;
     content_codes: string[] | null;
     outro_code: string | null;
   };
-<<<<<<< HEAD
-=======
   /** Start the player at this frame and keep it paused there (for modal preview). */
   initialFrame?: number;
   /** Hide the Remotion playback controls bar. */
@@ -418,7 +340,6 @@ interface VideoPreviewProps {
    * which require an authenticated user and are unavailable on public preview pages.
    */
   precompiledCraftedDetail?: CraftedTemplateDetail | null;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 interface SceneInput {
@@ -437,23 +358,6 @@ interface SceneInput {
   voiceoverUrl?: string;
 }
 
-<<<<<<< HEAD
-/** Map of scene type keys ("intro", "content_0", ..., "outro") to compiled React components. */
-type CompiledSceneMap = Record<string, React.FC<SceneProps>>;
-
-export default function VideoPreview({
-  project,
-  logoSizeOverride,
-  logoOpacityOverride,
-  logoPositionOverride,
-  precompiledTemplateData,
-}: VideoPreviewProps) {
-  const templateId = normalizeBuiltInTemplateId(project.template);
-  const config = useMemo(() => getTemplateConfig(templateId), [templateId]);
-  const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
-
-  const isCustom = templateId.startsWith("custom_");
-=======
 function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | CraftedTemplateDetail | null): string | null {
   if (!template) return null;
   const directLogo = Array.isArray(template.logo_urls)
@@ -1410,7 +1314,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     },
     [ref]
   );
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
   const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
@@ -1546,10 +1449,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       }
       for (const { sceneId, url, asset } of sceneSpecificAssets) {
         const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
-<<<<<<< HEAD
-        if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
-          sceneImageMap[sceneIdx] = url;
-=======
         if (sceneIdx < 0 || hideImageFlags[sceneIdx]) continue;
         let layoutProps: Record<string, unknown> = {};
         if (project.scenes[sceneIdx].remotion_code) {
@@ -1559,7 +1458,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           } catch {
             /* legacy */
           }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         }
         if (layoutProps.assignedImage || layoutProps.hideImage) continue;
         sceneImageMap[sceneIdx] = url;
@@ -1599,13 +1497,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
             if (descriptor.ctaProps) {
               ctaProps = descriptor.ctaProps;
             }
-<<<<<<< HEAD
-=======
             // Custom templates also store image controls in layoutProps.
             // Without this, imageFocusX/imageFocusY/imageZoom from remotion_code
             // are ignored in preview even though they exist in DB.
             layoutProps = descriptor.layoutProps || {};
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             if (descriptor.layoutConfig) {
               layoutConfig = descriptor.layoutConfig;
               layout = descriptor.layoutConfig.arrangement || "full-center";
@@ -1708,15 +1603,12 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         ...(structuredContent ? { structuredContent } : {}),
         ...(ctaProps ? { ctaProps } : {}),
         durationSeconds: (Number(scene.duration_seconds) || 5) + (Number(scene.extra_hold_seconds) || 0),
-<<<<<<< HEAD
-=======
         // Spoken-audio window for caption timing: scene.duration_seconds = audio + ~1s pad,
         // so speech ≈ duration - 1.0s. Only meaningful when a voiceover exists.
         speechDurationSeconds: scene.voiceover_path
           ? Math.max(0.5, (Number(scene.duration_seconds) || 5) - 1.0)
           : 0,
         bgmVolume: scene.bgm_volume ?? null,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
       };
@@ -1725,30 +1617,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
-<<<<<<< HEAD
-    const sceneFrames = project.scenes.map((s) => {
-      const base = Number(s.duration_seconds) || 5;
-      const extra = Number(s.extra_hold_seconds) || 0;
-      return Math.max(1, Math.round((base + extra) * FPS));
-    });
-    const sum = sceneFrames.reduce((a, b) => a + b, 0);
-    // Keep duration aligned with Remotion metadata calculation (no extra padded tail).
-    return Math.max(sum, FPS * 5);
-  }, [project.scenes]);
-
-  // Preload images and voiceover so they're in browser cache when Remotion renders
-  const [mediaReady, setMediaReady] = useState(false);
-  const [isPreloadingMedia, setIsPreloadingMedia] = useState(false);
-  const mediaSources = useMemo(
-    () =>
-      scenes
-        .flatMap((s) => [s.imageUrl, s.voiceoverUrl])
-        .filter(Boolean) as string[],
-    [scenes],
-  );
-  const mediaSourcesKey = useMemo(() => mediaSources.join("||"), [mediaSources]);
-
-=======
     // Chronicle uses TransitionSeries with scene-minimum enforcement and last-scene
     // trimming, so its actual rendered length differs from a raw sum. Use its own
     // calculator to keep the Player duration in sync (no brown tail at the end).
@@ -1831,7 +1699,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
   );
   const mediaSourcesKey = useMemo(() => mediaSources.join("||"), [mediaSources]);
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   useEffect(() => {
     let cancelled = false;
     const cleanupFns: Array<() => void> = [];
@@ -1943,8 +1810,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
     logoSize: logoSizeOverride ?? (typeof project.logo_size === "number" ? project.logo_size : 100),
     aspectRatio: project.aspect_ratio || "landscape",
-<<<<<<< HEAD
-=======
     bgmUrl: project.bgm_track_url || null,
     bgmVolume: project.bgm_volume ?? 0.10,
     // Captions ride on the voiceover — never show them when there's no audio,
@@ -1960,7 +1825,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       activeCaptionSettings.captionFontFamily,
     captionFontSize: activeCaptionSettings.captionFontSize,
     captionOffset: activeCaptionSettings.captionOffset,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ...(resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {}),
     ...(project.custom_theme ? { theme: project.custom_theme } : {}),
   };
@@ -1970,11 +1834,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     ? Object.keys(compiledScenes).filter((k) => k.startsWith("content_")).length
     : 0;
 
-<<<<<<< HEAD
-  const Composition = (isCustom && compiledScenes) ? StableCustomComposition : config.component;
-
-  const isPreviewLoading = (isCustom && isCompiling) || isPreloadingMedia || !mediaReady;
-=======
   const Composition = (isCustom && compiledScenes)
     ? StableCustomComposition
     : (isCrafted && compiledCrafted)
@@ -1986,7 +1845,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     (isCrafted && (craftedTemplatesLoading || !craftedItem || isCompilingCrafted || !compiledCrafted)) ||
     isPreloadingMedia ||
     !mediaReady;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Show unified loader until template + media are fully ready.
   if (isPreviewLoading) {
@@ -2065,11 +1923,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         }}
       >
         <Player
-<<<<<<< HEAD
-          key={`preview-${project.id}-${isPortrait ? "p" : "l"}`}
-=======
           key={`preview-${project.id}-${isPortrait ? "p" : "l"}${safeInitialFrame !== undefined ? `-f${safeInitialFrame}` : ""}-ck${captionSettingsKey}`}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           component={Composition}
           inputProps={{
             ...inputProps,

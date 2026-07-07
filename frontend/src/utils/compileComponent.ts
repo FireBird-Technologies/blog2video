@@ -16,8 +16,6 @@ import {
   Img,
   random,
 } from "remotion";
-<<<<<<< HEAD
-=======
 import * as Remotion from "remotion";
 import * as Recharts from "recharts";
 import * as RemotionTransitions from "@remotion/transitions";
@@ -43,17 +41,13 @@ const KIT_EXPORTS = [
   "BigGlyphBackdrop", "PulseRing", "AccentSweep",
   "DiagonalShards", "HalftoneField", "StarburstBadge", "LightDust", "OrbitRings",
 ] as const;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface SceneProps {
   displayText: string;
   narrationText: string;
   imageUrl?: string;
-<<<<<<< HEAD
-=======
   imageObjectPosition?: string;
   imageZoom?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   sceneIndex: number;
   totalScenes: number;
   logoUrl?: string;
@@ -67,11 +61,7 @@ export interface SceneProps {
   };
   aspectRatio: "landscape" | "portrait";
   /** Structured content fields — populated when blog content contains lists, stats, quotes, etc. */
-<<<<<<< HEAD
-  contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps";
-=======
   contentType?: "plain" | "bullets" | "metrics" | "code" | "quote" | "comparison" | "timeline" | "steps" | "dataviz";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   bullets?: string[];
   metrics?: { value: string; label: string; suffix?: string }[];
   codeLines?: string[];
@@ -82,13 +72,10 @@ export interface SceneProps {
   comparisonRight?: { label: string; description: string };
   timelineItems?: { label: string; description: string }[];
   steps?: string[];
-<<<<<<< HEAD
-=======
   /** Data-viz fields — used by the dedicated kit chart/table scenes (DataChartScene/DataTableScene). */
   chartTable?: { headers?: string[]; rows?: (string | number)[][] };
   chartType?: string;
   chartSummary?: string;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   titleFontSize?: number;
   descriptionFontSize?: number;
   headingFont?: string;
@@ -99,13 +86,10 @@ export type CompileResult =
   | { success: true; component: React.FC<SceneProps> }
   | { success: false; error: string };
 
-<<<<<<< HEAD
-=======
 export type MultiFileCompileResult =
   | { success: true; component: React.ComponentType<any>; exports: Record<string, unknown> }
   | { success: false; error: string };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 // Lazy-loaded Babel reference
 let babelPromise: Promise<typeof import("@babel/standalone")> | null = null;
 
@@ -161,11 +145,7 @@ export async function compileComponentCode(
       return interpolate(frame, safe, outputRange, options);
     };
 
-<<<<<<< HEAD
-    // Create factory function that receives Remotion APIs as parameters
-=======
     // Create factory function that receives Remotion APIs + craft kit as parameters
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     // eslint-disable-next-line no-new-func
     const factory = new Function(
       "React",
@@ -178,10 +158,7 @@ export async function compileComponentCode(
       "Sequence",
       "Img",
       "random",
-<<<<<<< HEAD
-=======
       ...KIT_EXPORTS,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       result.code + "\nreturn SceneComponent;"
     );
 
@@ -195,12 +172,8 @@ export async function compileComponentCode(
       AbsoluteFill,
       Sequence,
       Img,
-<<<<<<< HEAD
-      random
-=======
       random,
       ...KIT_EXPORTS.map((name) => (Kit as Record<string, unknown>)[name])
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     );
 
     if (typeof SceneComponent !== "function") {
@@ -219,8 +192,6 @@ export async function compileComponentCode(
     return { success: false, error: message };
   }
 }
-<<<<<<< HEAD
-=======
 
 /**
  * Compile a single self-contained TSX preview component.
@@ -700,4 +671,3 @@ export async function compileModuleGraphEntry(
     return { success: false, error: message };
   }
 }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

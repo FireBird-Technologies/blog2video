@@ -1,8 +1,4 @@
 from datetime import datetime
-<<<<<<< HEAD
-from pydantic import BaseModel, Field, HttpUrl, field_validator
-from typing import Optional
-=======
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 from typing import Optional, Union
 
@@ -19,7 +15,6 @@ def _normalize_caption_position(v: Optional[str]) -> Optional[str]:
     if n not in VALID_CAPTION_POSITIONS:
         raise ValueError("caption_position must be 'top_center' or 'bottom_center'")
     return n
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 # ─── Project ───────────────────────────────────────────────
@@ -41,11 +36,6 @@ class ProjectCreate(BaseModel):
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     voice_emotion: Optional[str] = None      # narration emotion/tone key (paid); neutral/None = default v2 path
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
-<<<<<<< HEAD
-    video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
-    video_length: Optional[str] = "auto"  # auto | short (6-8) | medium (12-15) | detailed (15-20)
-    content_language: Optional[str] = None     # preferred target language (ISO code or name)
-=======
     video_style: Optional[str] = "auto"   # auto | explainer | promotional | storytelling (auto = LLM picks after scraping)
     video_length: Optional[str] = "auto"  # auto | short (4-5) | medium (12-15) | detailed (23-30) | more_detailed (35-40)
     playback_speed: Optional[float] = 1.0
@@ -79,7 +69,6 @@ class ProjectCreate(BaseModel):
         if value < MIN_PLAYBACK_SPEED or value > MAX_PLAYBACK_SPEED:
             raise ValueError("playback_speed must be between 0.5 and 2.5")
         return value
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class ProjectUpdate(BaseModel):
@@ -90,8 +79,6 @@ class ProjectUpdate(BaseModel):
     content_language: Optional[str] = None
     video_length: Optional[str] = None
     aspect_ratio: Optional[str] = None  # "landscape" | "portrait"
-<<<<<<< HEAD
-=======
     playback_speed: Optional[float] = None
     bgm_track_id: Optional[str] = None
     bgm_volume: Optional[float] = None
@@ -129,7 +116,6 @@ class ProjectUpdate(BaseModel):
     @classmethod
     def validate_update_caption_position(cls, v: Optional[str]) -> Optional[str]:
         return _normalize_caption_position(v)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     @field_validator("aspect_ratio")
     @classmethod
@@ -141,8 +127,6 @@ class ProjectUpdate(BaseModel):
             raise ValueError("aspect_ratio must be 'landscape' or 'portrait'")
         return n
 
-<<<<<<< HEAD
-=======
     @field_validator("playback_speed")
     @classmethod
     def validate_playback_speed(cls, v: Optional[float]) -> Optional[float]:
@@ -161,7 +145,6 @@ class ProjectVoiceChange(BaseModel):
     custom_voice_id: Optional[str] = None
     voice_emotion: Optional[str] = None
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 class ProjectTemplateChangeRequest(BaseModel):
     template: str
@@ -182,8 +165,6 @@ class ProjectTemplateChangeJobOut(BaseModel):
 
     class Config:
         from_attributes = True
-<<<<<<< HEAD
-=======
 
 
 class ProjectRegenerateScriptJobOut(BaseModel):
@@ -202,7 +183,6 @@ class ProjectRegenerateScriptJobOut(BaseModel):
 
     class Config:
         from_attributes = True
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 class SceneOut(BaseModel):
     id: int
@@ -218,10 +198,7 @@ class SceneOut(BaseModel):
     voiceover_path: Optional[str] = None
     duration_seconds: float
     extra_hold_seconds: Optional[float] = None
-<<<<<<< HEAD
-=======
     bgm_volume: Optional[float] = None
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     created_at: datetime
 
     class Config:
@@ -329,8 +306,6 @@ class ReviewSubmitResponse(BaseModel):
     review_state: ReviewStateOut
 
 
-<<<<<<< HEAD
-=======
 class TemplateRatingOut(BaseModel):
     id: int
     user_id: int
@@ -357,7 +332,6 @@ class TemplateRatingSubmit(BaseModel):
         return trimmed or None
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 class ProjectOut(BaseModel):
     id: int
     name: str
@@ -386,11 +360,6 @@ class ProjectOut(BaseModel):
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
     video_length: str = "auto"
-<<<<<<< HEAD
-    content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
-    ai_assisted_editing_count: int = 0
-    custom_theme: Optional[dict] = None
-=======
     playback_speed: float = 1.0
     bgm_track_id: Optional[str] = None
     bgm_volume: float = 0.10
@@ -404,7 +373,6 @@ class ProjectOut(BaseModel):
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
     custom_image_box_aspect_ratios: Optional[dict] = None
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     custom_template_missing: bool = False
     brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None
@@ -453,8 +421,6 @@ class BulkProjectItem(BaseModel):
     aspect_ratio: Optional[str] = "landscape"
     content_language: Optional[str] = None
     video_length: Optional[str] = "auto"
-<<<<<<< HEAD
-=======
     playback_speed: Optional[float] = 1.0
     voice_emotion: Optional[str] = None
     bgm_track_id: Optional[str] = None
@@ -478,7 +444,6 @@ class BulkProjectItem(BaseModel):
         if value < MIN_PLAYBACK_SPEED or value > MAX_PLAYBACK_SPEED:
             raise ValueError("playback_speed must be between 0.5 and 2.5")
         return value
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class BulkCreateResponse(BaseModel):
@@ -527,8 +492,6 @@ class SceneUpdate(BaseModel):
     remotion_code: Optional[str] = None
     duration_seconds: Optional[float] = None
     extra_hold_seconds: Optional[float] = None
-<<<<<<< HEAD
-=======
     bgm_volume: Optional[float] = None
 
     @field_validator("bgm_volume")
@@ -537,7 +500,6 @@ class SceneUpdate(BaseModel):
         if v is None:
             return None
         return round(max(0.0, min(1.0, float(v))), 2)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 # ─── Scene Editing ──────────────────────────────────────────

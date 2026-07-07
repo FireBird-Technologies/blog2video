@@ -16,44 +16,6 @@ import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
-/** Schema rows → barChart / lineChart / histogram for data_visualization */
-function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
-  const out = { ...lp };
-  if (Array.isArray(out.barChartRows)) {
-    const rows = out.barChartRows as { label?: string; value?: string }[];
-    out.barChart = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) =>
-        r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
-      ),
-    };
-    delete out.barChartRows;
-  }
-  if (Array.isArray(out.histogramRows)) {
-    const rows = out.histogramRows as { label?: string; value?: string }[];
-    out.histogram = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) =>
-        r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
-      ),
-    };
-    delete out.histogramRows;
-  }
-  if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
-    const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
-    const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
-      label: (d && d.label != null ? String(d.label) : "") as string,
-      values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
-        .split(",")
-        .map((s) => Number(s.trim()) || 0),
-    }));
-    out.lineChart = { labels, datasets };
-    delete out.lineChartLabels;
-    delete out.lineChartDatasets;
-  }
-  return out;
-}
-
 // ─── Types ───────────────────────────────────────────────────
 
 interface SceneData {
@@ -83,9 +45,6 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: number | string;
   aspectRatio?: string;
-<<<<<<< HEAD
-  fontFamily?: string | null;
-=======
   playbackSpeed?: number;
   fontFamily?: string | null;
   bgmFile?: string | null;
@@ -95,7 +54,6 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
@@ -281,18 +239,11 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
-<<<<<<< HEAD
-        const rawLayoutProps =
-          scene.layout === "data_visualization"
-            ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
-            : scene.layoutProps;
-=======
         const rawLayoutProps = scene.layoutProps;
         const imageFocusX = Number((rawLayoutProps as Record<string, unknown>)?.imageFocusX ?? 50);
         const imageFocusY = Number((rawLayoutProps as Record<string, unknown>)?.imageFocusY ?? 50);
         const imageZoom = Math.max(0.1, Number((rawLayoutProps as Record<string, unknown>)?.imageZoom ?? 1));
         const imageObjectPosition = `${Math.max(0, Math.min(100, imageFocusX))}% ${Math.max(0, Math.min(100, imageFocusY))}%`;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         // Build props for the layout component
         // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
@@ -305,14 +256,10 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#000000",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
-<<<<<<< HEAD
-          fontFamily: resolvedFontFamily || undefined,
-=======
           imageObjectPosition,
   imageZoom,
           fontFamily: resolvedFontFamily || undefined,
           sceneIndex: index,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         };
 
         return (

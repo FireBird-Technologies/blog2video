@@ -11,43 +11,6 @@ import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 
-function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
-  const out = { ...lp };
-  if (Array.isArray(out.barChartRows)) {
-    const rows = out.barChartRows as { label?: string; value?: string }[];
-    out.barChart = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) =>
-        r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
-      ),
-    };
-    delete out.barChartRows;
-  }
-  if (Array.isArray(out.histogramRows)) {
-    const rows = out.histogramRows as { label?: string; value?: string }[];
-    out.histogram = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) =>
-        r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
-      ),
-    };
-    delete out.histogramRows;
-  }
-  if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
-    const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
-    const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
-      label: (d && d.label != null ? String(d.label) : "") as string,
-      values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
-        .split(",")
-        .map((s) => Number(s.trim()) || 0),
-    }));
-    out.lineChart = { labels, datasets };
-    delete out.lineChartLabels;
-    delete out.lineChartDatasets;
-  }
-  return out;
-}
-
 export interface DefaultSceneInput {
   id: number;
   order: number;
@@ -77,15 +40,12 @@ export interface DefaultVideoCompositionProps {
   bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
-<<<<<<< HEAD
-=======
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = ({
@@ -101,15 +61,12 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
   bgmVolume,
   aspectRatio,
   fontFamily,
-<<<<<<< HEAD
-=======
   playbackSpeed,
   captionsEnabled,
   captionPosition,
   captionFontFamily,
   captionFontSize,
   captionOffset,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -117,18 +74,11 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily }}>
-<<<<<<< HEAD
-      {scenes.map((scene) => {
-        const durationFrames = Math.max(
-          1,
-          Math.round((Number(scene.durationSeconds) || 5) * FPS)
-=======
       {scenes.map((scene, sceneIndex) => {
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
           resolvedPlaybackSpeed,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
@@ -136,12 +86,6 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
         const LayoutComponent =
           LAYOUT_REGISTRY[scene.layout] || LAYOUT_REGISTRY.text_narration;
 
-<<<<<<< HEAD
-        const rawLayoutProps =
-          scene.layout === "data_visualization"
-            ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
-            : scene.layoutProps;
-=======
         const rawLayoutProps = scene.layoutProps;
 
         const lp = scene.layoutProps as Record<string, unknown>;
@@ -149,7 +93,6 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
         const imageFocusY = Number(lp?.imageFocusY ?? 50);
         const imageObjectPosition = `${Math.max(0, Math.min(100, imageFocusX))}% ${Math.max(0, Math.min(100, imageFocusY))}%`;
         const imageZoom = Math.max(0.1, Number(lp?.imageZoom ?? 1));
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         const layoutProps: SceneLayoutProps = {
           ...(rawLayoutProps as Record<string, unknown>),
@@ -163,10 +106,7 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
           textColor,
           aspectRatio,
           fontFamily,
-<<<<<<< HEAD
-=======
           sceneIndex,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         };
 
         return (

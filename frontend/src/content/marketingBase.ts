@@ -4,11 +4,7 @@ export const defaultCta: PageCta = {
   title: "Turn your existing content into a video this week",
   body:
     "Paste a URL, upload a document, or use an existing newsletter archive and convert it into a polished video without starting from a blank timeline.",
-<<<<<<< HEAD
-  primaryLabel: "Start with 3 free videos",
-=======
   primaryLabel: "Start with 2 free videos",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   primaryHref: "/",
   secondaryLabel: "See pricing",
   secondaryHref: "/pricing",
@@ -84,11 +80,7 @@ export const templateProfiles: TemplateProfile[] = [
   },
   {
     slug: "whiteboard",
-<<<<<<< HEAD
-    name: "Whiteboard",
-=======
     name: "Stick Man",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     description:
       "A classroom-friendly visual system built for teaching, diagrams, and guided explanation.",
     bestFor: "Course content, tutorials, lesson plans, onboarding, and process walkthroughs.",
@@ -136,11 +128,7 @@ export const templateProfiles: TemplateProfile[] = [
     name: "Newscast",
     description:
       "A broadcast news package with desk-style glass panels, ticker, lower third, and crimson-navy visuals.",
-<<<<<<< HEAD
-    bestFor: "Briefings, updates, explainers, and stories that should feel like television news — not print.",
-=======
     bestFor: "Briefings, updates, explainers, stories that should feel like television news rather than print, and student or classroom newscasts.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     differentiator:
       "Puts your article into a live-broadcast frame: globe, chrome, and on-air typography without stock b-roll.",
     styleFit: "Best for summaries, fact-first updates, and editorial storytelling with a TV desk rhythm.",
@@ -158,28 +146,19 @@ export const templateProfiles: TemplateProfile[] = [
       "ending_socials",
     ],
     longDescription:
-<<<<<<< HEAD
-      "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from Newscast Opening and Anchor Narrative to Live Metrics Board, Briefing Code Panel, Headline Insight, Side-by-Side Brief, Segment Break, and Field Image Focus — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows.",
-=======
       "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from Newscast Opening and Anchor Narrative to Live Metrics Board, Briefing Code Panel, Headline Insight, Side-by-Side Brief, Segment Break, and Field Image Focus — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows. It also works well as a student newscast template: paste a class summary, book report, or current-events assignment into Blog2Video and it generates a narrated, broadcast-style video automatically, without needing a camera, classroom set, or assigned anchor roles.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     idealFor: [
       "Weekly briefings and industry roundups",
       "Policy and regulatory explainers",
       "Crisis or fast-moving story updates",
       "Data-backed segments with charts and metrics",
       "Editorial voiceovers that need a serious broadcast tone",
-<<<<<<< HEAD
-=======
       "Student newscasts, classroom current-events projects, and school news segments",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     exampleTopics: [
       "Markets close higher after central bank signals",
       "Five takeaways from the climate summit",
       "What the new rules mean for your sector",
-<<<<<<< HEAD
-=======
       "This week in our classroom: a student current-events newscast",
     ],
   },
@@ -448,45 +427,6 @@ export const templateProfiles: TemplateProfile[] = [
     ],
   },
   {
-    slug: "magazine",
-    name: "Magazine",
-    description:
-      "A glossy editorial cover-story template that puts your subject on the cover of a TIME-style magazine, complete with feature spreads, pull quotes, and by-the-numbers panels.",
-    bestFor: "Personal-brand features, founder and customer profiles, milestone announcements, and prestige storytelling that should feel like a magazine cover story.",
-    differentiator:
-      "Puts you — or your subject — on the cover of a TIME-style magazine, then unfolds the story as a designed editorial spread: cover reveals, feature layouts, interview Q&As, and by-the-numbers panels that no stock-footage tool can replicate.",
-    styleFit: "Best for prestige, personal-brand, and milestone content that should feel like a cover story.",
-    previewSceneKey: "preview-magazine",
-    layouts: [
-      "magazine_cover",
-      "feature",
-      "editorial_quote",
-      "interview_qa",
-      "by_the_numbers",
-      "colorblock",
-      "comparison",
-      "timeline_journey",
-      "magazine_data_visualization",
-      "magazine_ticker",
-      "text_narration",
-      "ending_socials",
-    ],
-    longDescription:
-      "Magazine turns written content into a glossy editorial cover story. It opens by putting your subject on the cover of a TIME-style magazine — masthead, cover lines, and hero portrait — then unfolds the rest as a designed print spread. Layouts like Magazine Cover, Feature, Editorial Quote, Interview Q&A, By the Numbers, and Colorblock give founder profiles, personal-brand pieces, and milestone announcements the weight and prestige of a published feature. Pull quotes, data charts, and ticker tables carry the substance, so the final video reads like a cover story a real editorial team art-directed rather than an auto-generated slideshow.",
-    idealFor: [
-      "Personal-brand features and founder profiles",
-      "Customer and case-study spotlights",
-      "Milestone and launch announcements that deserve prestige treatment",
-      "Award, list, and 'person of the year' style features",
-      "Interview and Q&A content packaged as an editorial spread",
-    ],
-    exampleTopics: [
-      "Put yourself on the cover: a founder's year in review",
-      "Customer of the month: how one team shipped 12 videos in an afternoon",
-      "The interview issue: five questions with our lead designer",
-    ],
-  },
-  {
     slug: "custom",
     name: "Custom Templates",
     description:
@@ -518,7 +458,6 @@ export const templateProfiles: TemplateProfile[] = [
       "Turn your latest product announcement into an on-brand explainer",
       "Repurpose your blog archive with your brand on every frame",
       "Generate a branded video series straight from your website",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
   },
 ];

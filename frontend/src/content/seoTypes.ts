@@ -7,8 +7,6 @@ export type PageCategory =
   | "resource"
   | "alternative";
 
-<<<<<<< HEAD
-=======
 export type ToolCategory =
   | "calculator"
   | "formatter"
@@ -17,7 +15,6 @@ export type ToolCategory =
   | "generator"
   | "download";
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export interface FaqItem {
   question: string;
   answer: string;
@@ -57,10 +54,7 @@ export interface MarketingPage {
   faq: FaqItem[];
   relatedPaths: string[];
   cta: PageCta;
-<<<<<<< HEAD
-=======
   demoWidget?: boolean;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export interface TemplateProfile {
@@ -87,11 +81,7 @@ export interface BlogSection {
 }
 
 export interface DistributionAsset {
-<<<<<<< HEAD
-  channel: "site" | "substack" | "medium" | "video";
-=======
   channel: "site" | "substack" | "medium" | "video" | "twitter";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   title: string;
   angle: string;
 }
@@ -115,8 +105,6 @@ export interface BlogPost {
   faq: FaqItem[];
   distributionPlan: DistributionAsset[];
 }
-<<<<<<< HEAD
-=======
 
 export interface HelpMedia {
   src: string;
@@ -195,4 +183,3 @@ export interface SubstackNiche {
   publicationSlugs: string[];
   relatedNicheSlugs: string[];
 }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

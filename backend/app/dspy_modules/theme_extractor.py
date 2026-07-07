@@ -138,11 +138,7 @@ class ExtractThemeFromContent(dspy.Signature):
     """
 
     url: str = dspy.InputField(desc="The source URL being analyzed")
-<<<<<<< HEAD
-    html_content: str = dspy.InputField(desc="First 40K chars of rendered HTML with inline styles and CSS")
-=======
     html_content: str = dspy.InputField(desc="Rendered HTML with extracted CSS prepended (inline styles + external stylesheets)")
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     markdown_content: str = dspy.InputField(desc="First 5K chars of page content as markdown")
     page_title: str = dspy.InputField(desc="Page title from metadata")
     page_description: str = dspy.InputField(desc="Meta description from metadata")
@@ -167,8 +163,6 @@ class ExtractThemeFromContent(dspy.Signature):
     )
 
 
-<<<<<<< HEAD
-=======
 class ExtractThemeFromBrief(dspy.Signature):
     """
     You are an expert web designer, brand strategist, and visual identity analyst.
@@ -269,7 +263,6 @@ class ExtractThemeFromBrief(dspy.Signature):
     )
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _decide_gradient(theme: dict) -> bool:
@@ -303,8 +296,6 @@ def _compute_bg2(bg_hex: str) -> str:
         return "#{:02x}{:02x}{:02x}".format(int(r2 * 255), int(g2 * 255), int(b2 * 255))
     except Exception:
         return bg_hex  # Fallback: same color (effectively no gradient)
-<<<<<<< HEAD
-=======
 
 
 # Transition-style pools by motion energy. Family keys MUST exist in the
@@ -588,7 +579,6 @@ def _derive_extended_theme_fields(theme: dict) -> None:
         else:
             bias = ["bullets", "metrics", "quote", "image"]
         theme["sceneBias"] = bias
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class ThemeExtractor:
@@ -693,20 +683,12 @@ class ThemeExtractor:
             if raw_reason:
                 logger.info(
                     "Theme not extractable for %s (model reason): %s",
-<<<<<<< HEAD
-                    scraped.url,
-=======
                     label,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     raw_reason[:500],
                 )
             return {
                 "extractable": False,
-<<<<<<< HEAD
-                "reason": USER_THEME_NOT_EXTRACTABLE,
-=======
                 "reason": not_extractable_reason,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 "theme": None,
                 "template_name": "",
             }
@@ -716,11 +698,7 @@ class ThemeExtractor:
         if theme is None:
             logger.warning(
                 "Failed to parse theme JSON for %s (theme_json len=%s, patterns len=%s)",
-<<<<<<< HEAD
-                scraped.url,
-=======
                 label,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 len(result.theme_json or ""),
                 len(result.patterns_json or ""),
             )
@@ -744,8 +722,6 @@ class ThemeExtractor:
             theme["colors"]["bg2"] = bg2
             print(f"[F7-DEBUG] [GRADIENT-DECISION] bg={theme['colors'].get('bg')} → bg2={bg2}")
 
-<<<<<<< HEAD
-=======
         # Derive first-class motion / charts / decor / sceneBias fields from the
         # extracted signals so the craft kit + codegen get explicit brand cues.
         _derive_extended_theme_fields(theme)
@@ -764,7 +740,6 @@ class ThemeExtractor:
             f"motionEnergy={_sig.get('motionEnergy')} | transitionFamily={_sig.get('transitionFamily')}"
         )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         colors = theme.get("colors", {})
         fonts = theme.get("fonts", {})
         print(
@@ -775,10 +750,7 @@ class ThemeExtractor:
             f"category='{theme.get('category')}', gradient={colors.get('bg2') is not None}"
         )
 
-<<<<<<< HEAD
-=======
         template_name = (result.template_name or "").strip() or (template_name_fallback or "").strip() or "Custom Theme"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         return {
             "extractable": True,
             "reason": result.reason or "Theme extracted successfully",

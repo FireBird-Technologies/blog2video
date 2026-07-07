@@ -1,67 +1,12 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-<<<<<<< HEAD
-import { Player } from "@remotion/player";
-=======
 import { Player, type PlayerRef } from "@remotion/player";
 import PlayerScaledCanvas from "../PlayerScaledCanvas";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { getTemplateConfig } from "../../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-<<<<<<< HEAD
-// ─── Enlarged Logical Dimensions (9:16)
-// Lower values here make the content (text/images) appear larger in the box
-const INTERNAL_W = 240; 
-const INTERNAL_H = 426; 
-const AUTO_PLAY_DURATION = 5000; // Switch every 5 seconds
-
-function ScaledCanvas({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      setScale(rect.width / INTERNAL_W);
-    };
-    update();
-    const obs = new ResizeObserver(update);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  return (
-    <div 
-      ref={ref} 
-      style={{ 
-        width: "100%", 
-        maxWidth: "400px", // Simple rectangle width
-        margin: "0 auto",
-        aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, 
-        overflow: "hidden", 
-        position: "relative",
-        backgroundColor: "#000",
-      }}
-    >
-      <div style={{ 
-        width: INTERNAL_W, 
-        height: INTERNAL_H, 
-        transform: `scale(${scale})`, 
-        transformOrigin: "top left", 
-        position: "absolute" 
-      }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-=======
 const INTERNAL_W = 270;
 const INTERNAL_H = 480;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const NEWCAST_PREVIEW_SCENES = [
   {
@@ -126,28 +71,6 @@ const NEWCAST_PREVIEW_SCENES = [
 
 const T_COLORS = { accent: "#E82020", bg: "#060614", text: "#B8C8E0" };
 
-<<<<<<< HEAD
-export default function NewscastPreviewPortrait() {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const activeScene = NEWCAST_PREVIEW_SCENES[activeIdx];
-  
-  const fps = 30;
-  const durationInFrames = Math.round(activeScene.durationSeconds * fps) + 45;
-  const config = getTemplateConfig("newscast");
-  const Composition = config.component as React.ComponentType<any>;
-
-  // ─── Automatic Switching ───
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveIdx((prev) => (prev + 1) % NEWCAST_PREVIEW_SCENES.length);
-    }, AUTO_PLAY_DURATION);
-    return () => clearInterval(timer);
-  }, []);
-
-  const inputProps = useMemo(() => ({
-    ...activeScene.layoutProps,
-    scenes: [activeScene],
-=======
 const FPS = 30;
 function sceneFrames(s: { durationSeconds: number }): number {
   return Math.round(s.durationSeconds * FPS) + 45;
@@ -175,33 +98,10 @@ export default function NewscastPreviewPortrait({ thumbnailMode = false }: { thu
 
   const inputProps = useMemo(() => ({
     scenes: NEWCAST_PREVIEW_SCENES,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     accentColor: T_COLORS.accent,
     bgColor: T_COLORS.bg,
     textColor: T_COLORS.text,
     aspectRatio: "portrait",
-<<<<<<< HEAD
-  }), [activeScene]);
-
-  return (
-    <div style={{ width: "100%" }}>
-      <ScaledCanvas>
-        <div style={{ width: "100%", height: "100%", position: "relative" }}>
-          <Player
-            key={activeIdx} // Remounts to reset animations on switch
-            component={Composition}
-            inputProps={inputProps}
-            durationInFrames={durationInFrames}
-            compositionWidth={1080}
-            compositionHeight={1920}
-            fps={fps}
-            controls={false}
-            autoPlay
-            loop
-            acknowledgeRemotionLicense
-            style={{ width: "100%", height: "100%" }}
-          />
-=======
   }), []);
 
   // Side (thumbnail) cards park on a static frame and never play, so off-center
@@ -255,7 +155,6 @@ export default function NewscastPreviewPortrait({ thumbnailMode = false }: { thu
             style={{ width: INTERNAL_W, height: INTERNAL_H, display: "block" }}
           />
       </PlayerScaledCanvas>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           
           {/* Compact navigation dots — no scene titles */}
           <div
@@ -283,11 +182,6 @@ export default function NewscastPreviewPortrait({ thumbnailMode = false }: { thu
               />
             ))}
           </div>
-<<<<<<< HEAD
-        </div>
-      </ScaledCanvas>
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </div>
   );
 }

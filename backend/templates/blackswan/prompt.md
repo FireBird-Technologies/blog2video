@@ -121,8 +121,6 @@ Core rules:
 
 ---
 
-<<<<<<< HEAD
-=======
 ## data_visualisation
 **Visual:** A real animated chart (line / bar / histogram) on a neon-cyan-on-black panel with subtle glow and ripple ambience. Line charts draw in; bars grow staggered. A short read sits beside the chart.
 
@@ -157,7 +155,6 @@ Core rules:
 
 ---
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ## ending_socials
 
 **Visual:** DropletIntro-style cinematic frame (star field, swan silhouette, animated droplet fall, NeonWater ripple band). Instead of a title, a neon pill-shaped CTA button is centred on stage. Below the button: an optional website URL in muted accent text, a neon divider line, the narration paragraph in body text, and a row of social-platform icons at the bottom.
@@ -187,16 +184,10 @@ Core rules:
 # Scene Flow Rules
 
 - Scene **0** must use **`droplet_intro`** (hero).
-<<<<<<< HEAD
-- **Middle:** alternate **`neon_narrative`** (prose) with structured layouts (`arc_features`, `flight_path`, `pulse_metric`, `signal_split`, `dive_insight`, `reactor_code`) as the content demands.
-- **Closing:** use **`ending_socials`** as the final scene when CTA or social data is available; otherwise close with `dive_insight` (quote), `pulse_metric`, or a strong `neon_narrative`.
-- For **6+** total scenes, include **at least one** data-forward layout: **`pulse_metric`** (unless the source material has no numbers at all).
-=======
 - **Middle:** alternate **`neon_narrative`** (prose) with structured layouts (`arc_features`, `flight_path`, `pulse_metric`, `signal_split`, `dive_insight`, `reactor_code`, `data_visualisation`, `ticker_table`) as the content demands.
 - **Closing:** use **`ending_socials`** as the final scene when CTA or social data is available; otherwise close with `dive_insight` (quote), `pulse_metric`, or a strong `neon_narrative`.
 - For **6+** total scenes, include **at least one** data-forward layout: **`pulse_metric`**, **`data_visualisation`**, or **`ticker_table`** (unless the source material has no numbers at all).
 - **`data_visualisation`** and **`ticker_table`** are reserved for scenes the pipeline binds to a real table (`data_table_index` set) — never assign them otherwise.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 - Balance **structure** (lists, path, code) with **breathing room** (`neon_narrative`, `dive_insight`).
 
 ---

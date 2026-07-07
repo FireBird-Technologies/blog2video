@@ -8,10 +8,7 @@ import {
 } from "remotion";
 import type { BlogLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
-<<<<<<< HEAD
-=======
 import { resolveCtas } from "../../shared/resolveCtas";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const EndingSocials: React.FC<
   BlogLayoutProps & { narration?: string }
@@ -22,10 +19,7 @@ export const EndingSocials: React.FC<
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
-<<<<<<< HEAD
-=======
   ctas,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   bgColor,
   textColor,
@@ -45,9 +39,6 @@ export const EndingSocials: React.FC<
     "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
   const subtext = (narration ?? "").trim();
   const resolvedWebsiteLink = (websiteLink ?? "").trim();
-<<<<<<< HEAD
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Read More";
-=======
 
   // CTA cards (1-3). Newspaper shows the highlighted CTA label whenever the toggle
   // is on (original behaviour), even with no link, so a card needs a label OR a link.
@@ -55,7 +46,6 @@ export const EndingSocials: React.FC<
     (c) => c.showWebsiteButton && (c.websiteLink.length > 0 || c.ctaButtonText.trim().length > 0),
   );
   const hasAnyCard = cards.length > 0;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const textCol = textColor ?? "#000000";
   const newsprintBg = bgColor ?? "#F4F1EA";
@@ -243,11 +233,7 @@ export const EndingSocials: React.FC<
             <div
               style={{
                 fontFamily: H_FONT,
-<<<<<<< HEAD
-                fontSize: titleFontSize ?? (p ? 70 : 60),
-=======
                 fontSize: titleFontSize ?? (p ? 70 : 55),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 fontWeight: 900,
                 textTransform: "uppercase",
                 lineHeight: 1.1,
@@ -262,11 +248,7 @@ export const EndingSocials: React.FC<
             <div
               style={{
                 textAlign: "justify",
-<<<<<<< HEAD
-                fontSize: descriptionFontSize ?? (p ? 26 : 21),
-=======
                 fontSize: descriptionFontSize ?? (p ? 38 : 25),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 lineHeight: 1.6,
                 fontFamily: B_FONT,
                 color: textCol,
@@ -321,36 +303,6 @@ export const EndingSocials: React.FC<
             }}
           />
 
-<<<<<<< HEAD
-          {showWebsiteButton && (
-            <div style={{ marginBottom: 35 }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  backgroundColor: `${highlightCol}CC`,
-                  color: "#000",
-                  padding: "4px 12px",
-                  fontSize: p ? 38 : 34,
-                  fontWeight: 800,
-                  fontFamily: H_FONT,
-                  transform: "rotate(-1deg)",
-                  boxShadow: `2px 2px 0px rgba(0,0,0,0.1)`,
-                }}
-              >
-                {resolvedCta}
-              </span>
-              <div
-                style={{
-                  marginTop: 12,
-                  fontSize: 20,
-                  fontWeight: 700,
-                  color: textCol,
-                  textDecoration: "underline",
-                }}
-              >
-                {resolvedWebsiteLink}
-              </div>
-=======
           {hasAnyCard && (
             <div
               style={{
@@ -407,7 +359,6 @@ export const EndingSocials: React.FC<
                   ) : null}
                 </div>
               ))}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
           )}
 

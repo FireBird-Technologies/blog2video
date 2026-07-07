@@ -1,8 +1,5 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
-<<<<<<< HEAD
-=======
 import { DiagonalShards, FilmGrain, HalftoneField, KineticTicker, StreakField } from "../components/SpotlightArtifacts";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
@@ -60,17 +57,11 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
             style={{
               width: "100%",
               height: "100%",
-<<<<<<< HEAD
-              objectFit: "cover",
-              opacity: bgOpacity,
-              transform: `scale(${bgScale})`,
-=======
               objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
               objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
               opacity: bgOpacity,
               transform: `scale(${(imageZoom ?? 1) * bgScale})`,
               transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             }}
           />
         ) : (
@@ -78,8 +69,6 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
         )}
         <AbsoluteFill style={{ backgroundColor: "rgba(0, 0, 0, 0.45)" }} />
       </AbsoluteFill>
-<<<<<<< HEAD
-=======
 
       {/* Decorative artifacts — red shards, drifting streaks, marquee strip below the list. */}
       <DiagonalShards accentColor={accentColor} corner="top-right" startFrame={3} />
@@ -93,7 +82,6 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
         label={(title || "THE LIST").slice(0, 48)}
         speed={0.9}
       />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       <div
         style={{

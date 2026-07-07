@@ -3,10 +3,7 @@ import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
-<<<<<<< HEAD
-=======
 import { ZoomCropImg } from "../components/ZoomCropImg";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
   steps,

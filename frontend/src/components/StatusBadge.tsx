@@ -7,11 +7,8 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   done: { label: "Complete", color: "bg-green-400" },
   error: { label: "Error", color: "bg-red-400" },
   regenerating: { label: "Regenerating", color: "bg-yellow-700" },
-<<<<<<< HEAD
-=======
   script_regenerating: { label: "Regenerating Script", color: "bg-yellow-700" },
   voice_regenerating: { label: "Regenerating Voiceover", color: "bg-yellow-700" },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };
 
 export default function StatusBadge({ status }: { status: string }) {

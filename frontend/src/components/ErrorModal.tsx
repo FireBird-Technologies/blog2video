@@ -1,10 +1,6 @@
 import ReactDOM from "react-dom";
 
-<<<<<<< HEAD
-export type ErrorModalHeadingVariant = "default" | "pipeline";
-=======
 export type ErrorModalHeadingVariant = "default" | "pipeline" | "maintenance" | "warning";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 interface Props {
   open: boolean;
@@ -15,11 +11,8 @@ interface Props {
 }
 
 const PIPELINE_HEADING = "Oops 😢";
-<<<<<<< HEAD
-=======
 const MAINTENANCE_HEADING = "We're updating right now";
 const WARNING_HEADING = "Oops 😢";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export default function ErrorModal({
   open,
@@ -66,19 +59,10 @@ export default function ErrorModal({
       >
         <div className="flex items-start gap-4">
           <div
-<<<<<<< HEAD
-            className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-              variant === "pipeline" ? "bg-amber-100" : "bg-red-100"
-            }`}
-          >
-            <svg
-              className={`w-5 h-5 ${variant === "pipeline" ? "text-amber-700" : "text-red-600"}`}
-=======
             className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${iconBgClass}`}
           >
             <svg
               className={`w-5 h-5 ${iconColorClass}`}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -110,11 +94,7 @@ export default function ErrorModal({
           </div>
           <div className="flex-1 min-w-0">
             <h3 id="error-modal-title" className="text-base font-semibold text-gray-900 mb-1">
-<<<<<<< HEAD
-              {variant === "pipeline" ? PIPELINE_HEADING : "Error"}
-=======
               {heading}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </h3>
             <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">
               {message}

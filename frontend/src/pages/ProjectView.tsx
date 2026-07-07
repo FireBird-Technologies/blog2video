@@ -31,18 +31,11 @@ import {
   bulkUpdateSceneTypography,
   submitProjectReview,
   updateProject,
-<<<<<<< HEAD
-=======
   getMe,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   getTemplates,
   listCustomTemplates,
   changeProjectTemplateRegenerateLayouts,
   getProjectTemplateChangeStatus,
-<<<<<<< HEAD
-  type TemplateMeta,
-  type CustomTemplateItem,
-=======
   regenerateScript,
   getRegenerateScriptStatus,
   getRegenerateScriptPreview,
@@ -56,7 +49,6 @@ import {
   type CustomTemplateItem,
   getBgmTracks,
   type BgmTrack,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -66,19 +58,6 @@ import { useNoticeModal } from "../contexts/NoticeModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-<<<<<<< HEAD
-import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSizesFromSchema } from "../components/SceneEditModal";
-import ChatPanel from "../components/ChatPanel";
-import UpgradeModal from "../components/UpgradeModal";
-import UpgradePlanModal from "../components/UpgradePlanModal";
-import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
-import VideoPreview from "../components/VideoPreview";
-import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
-import CustomPreview from "../components/templatePreviews/CustomPreview";
-import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
-import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
-=======
 import SceneEditModal, {
   SceneImageItem,
   resolveDefaultFontSizesForScene,
@@ -106,20 +85,16 @@ import CraftedTemplatePreview from "../components/templatePreviews/CraftedTempla
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
 import GetMoreTemplatesModal from "../components/GetMoreTemplatesModal";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
-<<<<<<< HEAD
-=======
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
 import type { PlayerRef } from "@remotion/player";
 import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sceneSlideExport";
 import { getSceneExportGlobalFrame, SCENE_EXPORT_TIMELINE_FRACTION } from "../utils/sceneFrameSchedule";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 type Tab = ProjectTabId;
 type SlideExportWizardState = { format: "pptx" | "pdf" | "zip"; fractions: number[]; stepIndex: number };
@@ -173,8 +148,6 @@ function buildProjectTourSteps(project: Project | null): Step[] {
   return steps;
 }
 
-<<<<<<< HEAD
-=======
 function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | null): string | null {
   if (!template) return null;
   const directLogo = Array.isArray(template.logo_urls)
@@ -206,7 +179,6 @@ function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | null): s
   return null;
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 /** Display string for ETA from total seconds (smoothed server/client estimate). */
 function formatEtaSecondsRounded(sec: number): string {
   if (!Number.isFinite(sec) || sec < 0) return "";
@@ -629,107 +601,6 @@ function AudioRow({
   );
 }
 
-<<<<<<< HEAD
-/** Built-in or custom template preview for settings / picker (matches BlogUrlForm step 2 styling). */
-function TemplateAssignPreview({
-  templateId,
-  customTemplates,
-  projectCustomTheme,
-  projectName,
-  variant,
-}: {
-  templateId: string;
-  customTemplates: CustomTemplateItem[];
-  projectCustomTheme: Project["custom_theme"];
-  projectName?: string;
-  variant: "large" | "thumb";
-}) {
-  if (templateId.startsWith("custom_")) {
-    const cid = parseInt(templateId.replace("custom_", ""), 10);
-    const ct = customTemplates.find((c) => c.id === cid);
-    if (ct) {
-      return variant === "large" ? (
-        <CustomPreview
-          theme={ct.theme}
-          name={ct.name}
-          previewImageUrl={ct.preview_image_url}
-          introCode={ct.intro_code || undefined}
-          outroCode={ct.outro_code || undefined}
-          contentCodes={ct.content_codes || undefined}
-          contentArchetypeIds={ct.content_archetype_ids || undefined}
-          logoUrls={ct.logo_urls}
-          ogImage={ct.og_image}
-        />
-      ) : (
-        <CustomPreviewLandscape
-          theme={ct.theme}
-          name={ct.name}
-          introCode={ct.intro_code || undefined}
-          outroCode={ct.outro_code || undefined}
-          contentCodes={ct.content_codes || undefined}
-          contentArchetypeIds={ct.content_archetype_ids || undefined}
-          previewImageUrl={ct.preview_image_url}
-          logoUrls={ct.logo_urls}
-          ogImage={ct.og_image}
-        />
-      );
-    }
-    if (projectCustomTheme) {
-      const fallback = (
-        <CustomPreview
-          theme={projectCustomTheme}
-          name={projectName || "Custom"}
-          previewImageUrl={null}
-          introCode={undefined}
-          outroCode={undefined}
-          contentCodes={undefined}
-          contentArchetypeIds={undefined}
-          logoUrls={undefined}
-          ogImage={undefined}
-        />
-      );
-      if (variant === "thumb") {
-        return (
-          <div className="relative w-full overflow-hidden max-h-[80px] min-h-[64px] bg-gray-50">{fallback}</div>
-        );
-      }
-      return fallback;
-    }
-    return (
-      <div
-        className={`flex w-full items-center justify-center bg-gray-100 text-center text-xs text-gray-400 ${
-          variant === "thumb" ? "min-h-[64px] max-h-[80px] p-2" : "aspect-video p-4"
-        }`}
-      >
-        Custom template preview unavailable
-      </div>
-    );
-  }
-
-  const Comp = TEMPLATE_PREVIEWS[templateId];
-  if (Comp) {
-    if (variant === "thumb") {
-      return (
-        <div className="relative w-full overflow-hidden max-h-[80px] min-h-[64px] bg-gray-50">
-          <Comp key={templateId} />
-        </div>
-      );
-    }
-    return <Comp key={templateId} />;
-  }
-  return (
-    <div
-      className={`flex w-full items-center justify-center bg-gray-100 text-gray-300 ${
-        variant === "thumb" ? "min-h-[64px] max-h-[80px] text-[10px] px-1" : "aspect-video text-sm"
-      }`}
-    >
-      {templateId}
-    </div>
-  );
-}
-
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function normalizeProjectAspectRatio(ar: string | undefined | null): "landscape" | "portrait" {
   return ar === "portrait" ? "portrait" : "landscape";
 }
@@ -778,8 +649,6 @@ export default function ProjectView() {
   const [settingsFontId, setSettingsFontId] = useState<string | null>(null);
   const [savingFontFamily, setSavingFontFamily] = useState(false);
   const [showFontDropdown, setShowFontDropdown] = useState(false);
-<<<<<<< HEAD
-=======
   const [playbackSpeedDraft, setPlaybackSpeedDraft] = useState<number>(1);
   const [savingPlaybackSpeed, setSavingPlaybackSpeed] = useState(false);
   // Captions
@@ -799,19 +668,14 @@ export default function ProjectView() {
   const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
   const savingPlaybackSpeedRef = useRef(false);
   const pendingPlaybackSpeedRef = useRef<number | null>(null);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const fontDropdownRef = useRef<HTMLDivElement>(null);
   const [templateMetas, setTemplateMetas] = useState<TemplateMeta[]>([]);
   const [customTemplatesList, setCustomTemplatesList] = useState<CustomTemplateItem[]>([]);
   const [customTemplatesLoading, setCustomTemplatesLoading] = useState(true);
   const [showTemplateChangeModal, setShowTemplateChangeModal] = useState(false);
-<<<<<<< HEAD
-  const [templateChangePickerTab, setTemplateChangePickerTab] = useState<"builtin" | "custom">("builtin");
-=======
   const [showGetMoreTemplates, setShowGetMoreTemplates] = useState(false);
   const [showDesignerRequest, setShowDesignerRequest] = useState(false);
   const [templateChangePickerTab, setTemplateChangePickerTab] = useState<"builtin" | "custom" | "crafted">("builtin");
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [templateChangeDraft, setTemplateChangeDraft] = useState<string>("default");
   const [templateRelayoutPendingId, setTemplateRelayoutPendingId] = useState<string | null>(null);
   const [templateRelayoutJob, setTemplateRelayoutJob] = useState<{
@@ -823,8 +687,6 @@ export default function ProjectView() {
   } | null>(null);
   const [submittingTemplateRelayout, setSubmittingTemplateRelayout] = useState(false);
   const templateRelayoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-<<<<<<< HEAD
-=======
   const [regenerateScriptJob, setRegenerateScriptJob] = useState<ProjectRegenerateScriptJob | null>(null);
   const [showRegenerateScriptConfirm, setShowRegenerateScriptConfirm] = useState(false);
   // The "Regenerate" action at the verify step reuses the same modal, pre-filled with the
@@ -842,7 +704,6 @@ export default function ProjectView() {
   // the verify step. Reset whenever a fresh stage-A run starts (initiate / regenerate).
   const regenerateScriptProceededRef = useRef(false);
   const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   useEffect(() => {
     if (!project?.template?.startsWith("crafted_")) return;
@@ -870,11 +731,6 @@ export default function ProjectView() {
       setSettingsBgColor(project.bg_color || "#FFFFFF");
       setSettingsTextColor(project.text_color || "#000000");
       setSettingsFontId(project.font_family ?? null);
-<<<<<<< HEAD
-    }
-  }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
-      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family]);
-=======
       const current = Number(project.playback_speed ?? 1);
       setPlaybackSpeedDraft(Math.min(2.5, Math.max(0.5, Number.isFinite(current) ? current : 1)));
       setBgmTrackDraft(project.bgm_track_id ?? null);
@@ -910,7 +766,6 @@ export default function ProjectView() {
       project?.captions_enabled,
       project?.caption_font_family, project?.caption_font_size, project?.caption_offset,
       project?.scenes?.some((s) => !!s.voiceover_path)]);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   useEffect(() => {
     if (project) {
@@ -1031,17 +886,6 @@ export default function ProjectView() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  useEffect(() => {
-    const onClickOutside = (evt: MouseEvent) => {
-      const target = evt.target as Node;
-      if (fontDropdownRef.current && !fontDropdownRef.current.contains(target)) {
-        setShowFontDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
-
   // Scenes tab: expanded scene detail, edit modal, drag reorder
   const [expandedScene, setExpandedScene] = useState<number | null>(
     project?.scenes?.[0]?.id ?? null
@@ -1111,10 +955,7 @@ export default function ProjectView() {
   const [showReviewPopup, setShowReviewPopup] = useState(false);
   const [firstProjectPopupDismissed, setFirstProjectPopupDismissed] = useState(false);
   const reviewPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-<<<<<<< HEAD
-=======
   const localSceneImageInputRef = useRef<HTMLInputElement>(null);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const dismissTabsGuide = useCallback(() => {
     if (tourShownThisSessionRef.current && user) localStorage.setItem(tabsGuideSeenKey, "true");
     tourShownThisSessionRef.current = false;
@@ -1124,8 +965,6 @@ export default function ProjectView() {
   const projectTourSteps = buildProjectTourSteps(project);
   const scenesLoaded = (project?.scenes?.length ?? 0) > 0;
   const pipelineFinished = project?.status === "generated" || project?.status === "done";
-<<<<<<< HEAD
-=======
 
   // Force back to scenes tab when video finishes generating, resetting the manual-change flag.
   useEffect(() => {
@@ -1135,7 +974,6 @@ export default function ProjectView() {
     }
   }, [pipelineFinished]);
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const reviewState = project?.review_state ?? null;
   const isFirstProject = reviewState?.project_sequence === 1;
   const clearReviewPopupTimer = useCallback(() => {
@@ -1481,8 +1319,6 @@ export default function ProjectView() {
     [projectId, showError],
   );
 
-<<<<<<< HEAD
-=======
   const handlePreviewPlaybackSpeedChange = useCallback(
     async (speed: number) => {
       if (!project) return;
@@ -1541,13 +1377,10 @@ export default function ProjectView() {
     [project, loadProject, showError],
   );
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const stopTemplateRelayoutPolling = useCallback(() => {
     if (templateRelayoutPollRef.current) {
       clearInterval(templateRelayoutPollRef.current);
       templateRelayoutPollRef.current = null;
-<<<<<<< HEAD
-=======
     }
   }, []);
 
@@ -1598,72 +1431,8 @@ export default function ProjectView() {
       setRegenScriptPreviousScenes(res.data?.previous_scenes ?? []);
     } catch {
       setRegenScriptPreviousScenes([]);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
-  }, []);
-
-  const startTemplateRelayoutPolling = useCallback(() => {
-    stopTemplateRelayoutPolling();
-    templateRelayoutPollRef.current = setInterval(async () => {
-      try {
-        const res = await getProjectTemplateChangeStatus(projectId);
-        const job = res.data;
-        if (!job) return;
-        setTemplateRelayoutJob(job);
-        if (job.status === "completed") {
-          stopTemplateRelayoutPolling();
-          setTemplateRelayoutJob({
-            ...job,
-            processed_scenes: 0,
-            total_scenes: 0,
-          });
-          await loadProject();
-        } else if (job.status === "failed") {
-          stopTemplateRelayoutPolling();
-        }
-      } catch {
-        stopTemplateRelayoutPolling();
-      }
-    }, 2000);
-  }, [loadProject, projectId, stopTemplateRelayoutPolling]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setCustomTemplatesLoading(true);
-    getTemplates()
-      .then((r) => {
-        if (!cancelled) setTemplateMetas(r.data || []);
-      })
-      .catch(() => {});
-    listCustomTemplates()
-      .then((r) => {
-        if (!cancelled) setCustomTemplatesList(r.data || []);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setCustomTemplatesLoading(false);
-      });
-    return () => {
-      cancelled = true;
-      stopTemplateRelayoutPolling();
-    };
-  }, [stopTemplateRelayoutPolling]);
-
-  useEffect(() => {
-    const refreshTemplateJob = async () => {
-      try {
-        const res = await getProjectTemplateChangeStatus(projectId);
-        if (!res.data) return;
-        setTemplateRelayoutJob(res.data);
-        if (res.data.status === "queued" || res.data.status === "running") {
-          startTemplateRelayoutPolling();
-        }
-      } catch {
-        // ignore
-      }
-    };
-    refreshTemplateJob();
-  }, [projectId, startTemplateRelayoutPolling]);
+  }, [projectId]);
 
   const startRegenerateScriptPolling = useCallback(() => {
     stopRegenerateScriptPolling();
@@ -1946,8 +1715,6 @@ export default function ProjectView() {
             );
           }
           await loadProject({ silent404: true });
-<<<<<<< HEAD
-=======
           // Trigger A: free user just finished their last available video → out-of-videos offer.
           // We re-fetch the user directly because refreshUser() updates context async
           // and the closure's `user` is still stale here.
@@ -1960,7 +1727,6 @@ export default function ProjectView() {
           } catch {
             // ignore — eligibility just won't fire this tick
           }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           return;
         }
 
@@ -2096,14 +1862,10 @@ export default function ProjectView() {
         if (err?.response?.status === 403) {
           const baseMsg = message || "Video limit reached. Re-render counts as a video. Upgrade your plan or buy more credits to continue.";
           const hasExisting = Boolean(project?.r2_video_url);
-<<<<<<< HEAD
-          showError(baseMsg, { showUpgrade: true });
-=======
           const opened = user?.plan === "free" ? offer.open() : false;
           if (!opened) {
             showError(baseMsg, { showUpgrade: true });
           }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           setHasError(true);
           setRendering(false);
           if (hasExisting) setRendered(true);
@@ -2646,10 +2408,6 @@ export default function ProjectView() {
     }
   };
 
-<<<<<<< HEAD
-  const assignedTemplateId = project?.template || "default";
-  const readyCustomForPicker = customTemplatesList.filter((ct) => !!ct.intro_code);
-=======
   const applyRegenerateScript = async (instruction: string) => {
     if (!project) return;
     try {
@@ -2779,7 +2537,6 @@ export default function ProjectView() {
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, [imageAdjustSceneId, imageAdjustSrc]);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   if (loading) {
     return (
@@ -2811,9 +2568,6 @@ export default function ProjectView() {
     navigate(`/dashboard?${params.toString()}`);
   };
 
-<<<<<<< HEAD
-  const tabs: { id: Tab; label: string }[] = [
-=======
   const tabs: ProjectTabItem[] = [
     {
       id: "scenes",
@@ -2824,7 +2578,6 @@ export default function ProjectView() {
         </svg>
       ),
     },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
     ...(project.voice_gender !== "none" || project.bgm_track_id ? [{ id: "audio" as Tab, label: "Audio" }] : []),
@@ -2921,12 +2674,6 @@ export default function ProjectView() {
     }
     for (const { sceneId, url, asset } of sceneSpecific) {
       const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
-<<<<<<< HEAD
-      if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
-        // Overwrite any existing assignment; scene-specific re-enables images
-        sceneImageMap[sceneIdx] = [url];
-        sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
-=======
       if (sceneIdx < 0 || hideImageFlags[sceneIdx]) continue;
       let layoutProps: Record<string, unknown> = {};
       if (project.scenes[sceneIdx].remotion_code) {
@@ -2936,7 +2683,6 @@ export default function ProjectView() {
         } catch {
           /* legacy */
         }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       }
       if (layoutProps.assignedImage || layoutProps.hideImage) continue;
       sceneImageMap[sceneIdx] = [url];
@@ -3271,10 +3017,6 @@ export default function ProjectView() {
   // ─── Generation loader ────────────────────────────────────
   const templateRelayoutRunning =
     templateRelayoutJob?.status === "running" || templateRelayoutJob?.status === "queued";
-<<<<<<< HEAD
-  const statusForBadge = templateRelayoutRunning ? "regenerating" : project.status;
-  const renderGenerationLoader = (mode: "pipeline" | "template-relayout" = "pipeline") => {
-=======
   // Also treat the project's own "script_regenerating" status as running so the loader stays
   // visible during the brief window before the job poll loads (and on resume after reload).
   // "awaiting_review" must keep the loader up too: at the running→awaiting_review transition the
@@ -3287,7 +3029,6 @@ export default function ProjectView() {
     project.status === "script_regenerating";
   const statusForBadge = templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
   const renderGenerationLoader = (mode: "pipeline" | "template-relayout" | "regenerate-script" = "pipeline") => {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const relayoutProgressRaw =
       templateRelayoutJob && templateRelayoutJob.total_scenes > 0
         ? (templateRelayoutJob.processed_scenes / templateRelayoutJob.total_scenes) * 100
@@ -3295,14 +3036,6 @@ export default function ProjectView() {
         ? 8
         : 0;
     const relayoutProgress = Math.max(8, Math.min(98, Math.round(relayoutProgressRaw)));
-<<<<<<< HEAD
-    const stepLabels =
-      mode === "template-relayout"
-        ? []
-        : PIPELINE_STEPS.map((s) => s.label);
-    const currentStepIdx =
-      mode === "template-relayout"
-=======
     // Regenerate-script is shown as discrete backend phases instead of a percentage.
     // The "verify" step is a user-gated pause between the script and scene stages.
     const REGEN_SCRIPT_STEPS = [
@@ -3338,7 +3071,6 @@ export default function ProjectView() {
         : PIPELINE_STEPS.map((s) => s.label);
     const currentStepIdx =
       mode === "template-relayout" || mode === "regenerate-script"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         ? 0
         : Math.max(0, pipelineStep - 1);
     const progress = mode === "template-relayout" ? relayoutProgress : smoothProgress;
@@ -3354,15 +3086,11 @@ export default function ProjectView() {
           </div>
 
           <h2 className="text-base font-semibold text-gray-900 mb-1">
-<<<<<<< HEAD
-            {mode === "template-relayout" ? "Regenerating scene layouts" : "Generating your video"}
-=======
             {mode === "regenerate-script"
               ? "Regenerating script"
               : mode === "template-relayout"
               ? "Regenerating scene layouts"
               : "Generating your video"}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </h2>
           <p className="text-xs text-gray-400 mb-8">{project.name}</p>
 
@@ -3375,72 +3103,6 @@ export default function ProjectView() {
             </div>
           )}
 
-<<<<<<< HEAD
-          {mode !== "template-relayout" && (
-            <div className="flex items-center justify-between mb-8">
-              {stepLabels.map((label, i) => {
-                const isActive = i === currentStepIdx;
-                const isDone =
-                  i < currentStepIdx ||
-                  pipelineStep > PIPELINE_STEPS.length;
-                return (
-                  <div
-                    key={label}
-                    className="flex flex-col items-center gap-2"
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-                        isDone
-                          ? "bg-green-100 text-green-600"
-                          : isActive
-                          ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
-                          : "bg-gray-100 text-gray-400"
-                      }`}
-                    >
-                      {isDone ? (
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      ) : (
-                        i + 1
-                      )}
-                    </div>
-                    <span
-                      className={`text-xs font-medium ${
-                        isDone
-                          ? "text-green-600"
-                          : isActive
-                          ? "text-purple-600"
-                          : "text-gray-400"
-                      }`}
-                    >
-                      {label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="flex items-center justify-center gap-2">
-            <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-            <span className="text-xs text-gray-400">
-              {mode === "template-relayout"
-                ? `${progress}% complete`
-                : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
-            </span>
-          </div>
-=======
           {/* Regenerate-script: a standalone progress bar (fills purple as the run proceeds)
               above a row of independent step circles — the circles are NOT connected. */}
           {mode === "regenerate-script" && (
@@ -3570,7 +3232,6 @@ export default function ProjectView() {
           {!(mode === "regenerate-script" && regenScriptAwaitingReview) && (
             <GenerationTips />
           )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
           {hasError && (
             <div className="mt-6">
@@ -3739,15 +3400,9 @@ export default function ProjectView() {
                 </h2>
                 <StatusBadge status={statusForBadge} />
               </div>
-<<<<<<< HEAD
-              <div className="flex items-center gap-2">
-                {/* Video format (landscape / portrait) — left of download */}
-                <div className="flex items-center shrink-0">
-=======
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Video format (landscape / portrait) — left of download */}
                 <div className="flex items-center shrink-0" data-action="aspect-ratio">
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
                     <button
                       type="button"
@@ -3929,23 +3584,6 @@ export default function ProjectView() {
                   <button
                     onClick={() => {
                       if (missingCustomTemplate) {
-<<<<<<< HEAD
-                        showError("You can't render this video because its custom template has been deleted.");
-                        return;
-                      }
-                      setHasError(false);
-                      setDownloadWarningMode("render");
-                      setShowDownloadWarning(true);
-                    }}
-                    disabled={missingCustomTemplate}
-                    className={`px-4 py-1.5 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
-                      missingCustomTemplate
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : hasError
-                        ? "bg-orange-500 hover:bg-orange-600"
-                        : "bg-purple-600 hover:bg-purple-700"
-                    }`}
-=======
                         showError("You can't re-render this video because its custom template has been deleted.");
                         return;
                       }
@@ -3953,7 +3591,6 @@ export default function ProjectView() {
                     }}
                     disabled={rendering || missingCustomTemplate}
                     className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -3966,17 +3603,6 @@ export default function ProjectView() {
                 {project?.scenes && project.scenes.length > 0 && (
                   <div className="relative" ref={shareAnchorRef}>
                     <button
-<<<<<<< HEAD
-                      onClick={() => {
-                        if (missingCustomTemplate) {
-                          showError("You can't re-render this video because its custom template has been deleted.");
-                          return;
-                        }
-                        setShowReRenderWarning(true);
-                      }}
-                      disabled={rendering || missingCustomTemplate}
-                      className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
-=======
                       type="button"
                       onClick={() => {
                         setShowSlidesExportMenu(false);
@@ -3984,7 +3610,6 @@ export default function ProjectView() {
                       }}
                       disabled={embedLoading}
                       className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -4031,12 +3656,6 @@ export default function ProjectView() {
                       }}
                     >
                       <VideoPreview
-<<<<<<< HEAD
-                        project={project}
-                        logoSizeOverride={logoSize}
-                        logoOpacityOverride={logoOpacity}
-                        logoPositionOverride={logoPosition}
-=======
                         ref={previewPlayerRef}
                         project={project}
                         layoutPropSchema={layoutPropSchema !== null ? layoutPropSchema : undefined}
@@ -4048,7 +3667,6 @@ export default function ProjectView() {
                         onCaptionSettingsChange={handleCaptionSettingsChange}
                         captionsSaving={savingCaptions}
                         captionSettingsKey={captionSettingsKey}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       />
                     </div>
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
@@ -4107,8 +3725,6 @@ export default function ProjectView() {
         subtitle="Custom templates and the template builder require a paid plan. Pick a plan to continue."
       />
 
-<<<<<<< HEAD
-=======
       <OutOfVideosOfferModal
         open={offer.isOpen}
         onClose={offer.dismiss}
@@ -4132,7 +3748,6 @@ export default function ProjectView() {
         kickstart={voiceOpKickstart}
       />
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       {showReviewPopup && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9997] flex items-center justify-center px-4">
           <div
@@ -4340,11 +3955,6 @@ export default function ProjectView() {
               {downloadWarningMode === "download" ? "Before you download" : "Before you render"}
             </h3>
             <p className="text-sm text-gray-600 mb-6">
-<<<<<<< HEAD
-              {downloadWarningMode === "download"
-                ? "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video. "
-                : "Make sure You have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count."}
-=======
               {downloadWarningMode === "download" ? (
                 "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video."
               ) : (
@@ -4361,7 +3971,6 @@ export default function ProjectView() {
                   })()}
                 </>
               )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </p>
 
 
@@ -4500,321 +4109,6 @@ export default function ProjectView() {
       {/* Cancel render warning */}
       {showCancelRenderWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
-<<<<<<< HEAD
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => {
-              if (!cancellingRender) setShowCancelRenderWarning(false);
-            }}
-          />
-          <div
-            className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel rendering?</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              This will stop your current render process. You can start rendering again anytime.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                disabled={cancellingRender}
-                onClick={async () => {
-                  await handleCancelRender();
-                  setShowCancelRenderWarning(false);
-                }}
-                className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-70 disabled:cursor-wait flex items-center justify-center gap-2"
-              >
-                {cancellingRender ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Cancelling…
-                  </>
-                ) : (
-                  "Yes, cancel render"
-                )}
-              </button>
-              <button
-                type="button"
-                disabled={cancellingRender}
-                onClick={() => setShowCancelRenderWarning(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-60"
-              >
-                Keep rendering
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      <ConfirmDeleteModal
-        open={showTemplateRelayoutWarning}
-        onClose={() => {
-          setShowTemplateRelayoutWarning(false);
-          setTemplateRelayoutPendingId(null);
-        }}
-        title="Proceed with video regeneration?"
-        subtitle={project?.name}
-        warningMessage="This will deduct 1 video count from your quota. Do you want to continue?"
-        confirmLabel="Proceed"
-        confirmLoadingLabel="Starting..."
-        iconVariant="warning"
-        onConfirm={applyTemplateRelayout}
-      />
-
-      {showTemplateChangeModal &&
-        project &&
-        ReactDOM.createPortal(
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div
-              className="absolute inset-0 bg-black/45 backdrop-blur-sm"
-              onClick={() => !submittingTemplateRelayout && setShowTemplateChangeModal(false)}
-              aria-hidden
-            />
-            <div
-              className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border border-gray-200/80 bg-white shadow-2xl overflow-hidden"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="template-change-title"
-            >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                <h3 id="template-change-title" className="text-base font-semibold text-gray-900">
-                  Change template
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowTemplateChangeModal(false)}
-                  className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
-                  aria-label="Close"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-                <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
-                  <button
-                    type="button"
-                    onClick={() => setTemplateChangePickerTab("builtin")}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      templateChangePickerTab === "builtin"
-                        ? "bg-white text-purple-600 shadow-sm"
-                        : "text-gray-400 hover:text-gray-600"
-                    }`}
-                  >
-                    Built-in
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTemplateChangePickerTab("custom")}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      templateChangePickerTab === "custom"
-                        ? "bg-white text-purple-600 shadow-sm"
-                        : "text-gray-400 hover:text-gray-600"
-                    }`}
-                  >
-                    Custom
-                  </button>
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">Selected preview</p>
-                  <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.08)]">
-                    <div className="relative max-h-[200px] overflow-hidden">
-                      <TemplateAssignPreview
-                        templateId={templateChangeDraft}
-                        customTemplates={customTemplatesList}
-                        projectCustomTheme={project.custom_theme ?? null}
-                        projectName={project.name}
-                        variant="large"
-                      />
-                    </div>
-                    <div className="px-3 py-2 bg-purple-50/80 flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-gray-800 truncate">
-                        {templateChangeDraft.startsWith("custom_")
-                          ? customTemplatesList.find(
-                              (c) => c.id === parseInt(templateChangeDraft.replace("custom_", ""), 10)
-                            )?.name ?? "Custom"
-                          : TEMPLATE_DESCRIPTIONS[templateChangeDraft]?.title ?? templateMetas.find((m) => m.id === templateChangeDraft)?.name ?? templateChangeDraft}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">
-                    All {templateChangePickerTab === "builtin" ? "built-in" : "custom"} templates
-                  </p>
-                  <div className="border border-gray-200/60 rounded-xl p-4 max-h-[240px] overflow-y-auto bg-gray-50/40">
-                    {templateChangePickerTab === "builtin" ? (
-                      templateMetas.length > 0 ? (
-                        <div className="grid grid-cols-3 gap-4">
-                          {templateMetas.map((t) => {
-                            const PreviewComp = TEMPLATE_PREVIEWS[t.id];
-                            const desc = TEMPLATE_DESCRIPTIONS[t.id];
-                            const isSel = templateChangeDraft === t.id;
-                            const isNew = t.new_template === true;
-                            return (
-                              <button
-                                key={t.id}
-                                type="button"
-                                onClick={() => setTemplateChangeDraft(t.id)}
-                                className={`text-left rounded-lg overflow-hidden transition-all ${
-                                  isSel
-                                    ? "ring-2 ring-purple-500 ring-offset-1 ring-offset-gray-50"
-                                    : isNew
-                                    ? "ring-1 ring-purple-400/60 hover:ring-purple-500"
-                                    : "ring-1 ring-gray-200/60 hover:ring-purple-300/60"
-                                }`}
-                              >
-                                <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                                  {PreviewComp ? (
-                                    <PreviewComp key={`pick-${t.id}`} />
-                                  ) : (
-                                    <div className="w-full min-h-[56px] bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 px-1">
-                                      {t.name}
-                                    </div>
-                                  )}
-                                  {isNew && (
-                                    <div className="absolute top-0.5 left-0.5 z-[1]">
-                                      <NewTemplateBadge />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className={`px-2 py-1 ${isSel ? "bg-purple-50/90" : "bg-white/90"}`}>
-                                  <div className="text-[10px] font-semibold text-gray-800 truncate">{desc?.title ?? t.name}</div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-gray-500 py-6 text-center">No built-in templates loaded.</p>
-                      )
-                    ) : (
-                      <div className="grid grid-cols-3 gap-4">
-                        <CraftYourTemplateCard
-                          variant="default"
-                          isPro={isPro}
-                          onClick={openCraftCustomTemplateFromProjectSettings}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              openCraftCustomTemplateFromProjectSettings();
-                            }
-                          }}
-                        />
-                        {readyCustomForPicker.map((ct) => {
-                          const cid = `custom_${ct.id}`;
-                          const isSel = templateChangeDraft === cid;
-                          return (
-                            <button
-                              key={cid}
-                              type="button"
-                              onClick={() => {
-                                if (!isPro) {
-                                  setShowUpgrade(true);
-                                  return;
-                                }
-                                setTemplateChangeDraft(cid);
-                              }}
-                              className={`text-left rounded-lg overflow-hidden border-2 transition-all ${
-                                isSel ? "border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.12)]" : "border-gray-200/60 hover:border-purple-300/60"
-                              }`}
-                            >
-                              <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
-                                {/* Previews use canvas/Remotion; without pointer-events-none clicks never reach the button. */}
-                                <div className="relative z-0 min-h-[56px] pointer-events-none">
-                                  <CustomPreviewLandscape
-                                    theme={ct.theme}
-                                    name={ct.name}
-                                    introCode={ct.intro_code || undefined}
-                                    outroCode={ct.outro_code || undefined}
-                                    contentCodes={ct.content_codes || undefined}
-                                    contentArchetypeIds={ct.content_archetype_ids || undefined}
-                                    previewImageUrl={ct.preview_image_url}
-                                    logoUrls={ct.logo_urls}
-                                    ogImage={ct.og_image}
-                                  />
-                                </div>
-                                {!isPro && (
-                                  <div
-                                    className="pointer-events-none absolute top-1 left-1 z-20 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white shadow-sm"
-                                    aria-hidden
-                                  >
-                                    Pro
-                                  </div>
-                                )}
-                              </div>
-                              <div className={`px-2 py-1 ${isSel ? "bg-purple-50/80" : "bg-white/80"}`}>
-                                <div className="text-[10px] font-semibold text-gray-800 truncate">{ct.name}</div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                        {customTemplatesLoading && (
-                          <div
-                            className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
-                            role="status"
-                            aria-live="polite"
-                          >
-                            <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" aria-hidden />
-                            <p className="text-[10px] text-gray-500 leading-snug">
-                              Loading custom templates, please wait.
-                            </p>
-                          </div>
-                        )}
-                        {!customTemplatesLoading && readyCustomForPicker.length === 0 && (
-                          <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
-                            No custom templates ready yet.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
-                <button
-                  type="button"
-                  onClick={() => setShowTemplateChangeModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={templateChangeDraft === assignedTemplateId || templateRelayoutRunning}
-                  onClick={() => {
-                    if (templateChangeDraft === assignedTemplateId) return;
-                    if (!isPro && templateChangeDraft.startsWith("custom_")) {
-                      setShowUpgrade(true);
-                      return;
-                    }
-                    setTemplateRelayoutPendingId(templateChangeDraft);
-                    setShowTemplateChangeModal(false);
-                    setShowTemplateRelayoutWarning(true);
-                  }}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 disabled:cursor-not-allowed rounded-xl"
-                >
-                  Confirm
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
-      {showShareMenu && project?.r2_video_url && (
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setShowShareMenu(false)} />
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => {
@@ -5610,17 +4904,12 @@ export default function ProjectView() {
         )}
 
       {/* Upper area: loader when running, editor when complete */}
-<<<<<<< HEAD
-      {pipelineRunning || templateRelayoutRunning ? (
-        renderGenerationLoader(templateRelayoutRunning ? "template-relayout" : "pipeline")
-=======
       {pipelineRunning || templateRelayoutRunning || regenerateScriptRunning ? (
         renderGenerationLoader(
           regenerateScriptRunning ? "regenerate-script"
           : templateRelayoutRunning ? "template-relayout"
           : "pipeline"
         )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       ) : pipelineComplete && project.scenes.length > 0 ? (
         renderCompleted()
       ) : (
@@ -5813,135 +5102,7 @@ export default function ProjectView() {
                             .finally(() => setReorderSaving(false));
                         }}
                       >
-<<<<<<< HEAD
-                        <div className="flex items-stretch gap-0">
-                          {/* Drag handle — only this area starts the drag */}
-                          <div
-                            draggable
-                            onDragStart={(e) => {
-                              setDraggedSceneId(scene.id);
-                              e.dataTransfer.setData("text/plain", String(scene.id));
-                              e.dataTransfer.effectAllowed = "move";
-                              const row = (e.currentTarget as HTMLElement).closest("[data-scene-row]");
-                              if (row) {
-                                const rect = row.getBoundingClientRect();
-                                e.dataTransfer.setDragImage(row, e.clientX - rect.left, e.clientY - rect.top);
-                              }
-                            }}
-                            onDragEnd={() => {
-                              setDraggedSceneId(null);
-                              setDragOverSceneId(null);
-                            }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            className="flex items-center justify-center w-10 flex-shrink-0 rounded-l-lg border border-r-0 border-purple-200 bg-purple-50 cursor-grab active:cursor-grabbing hover:bg-purple-100 select-none touch-none"
-                            title="Drag to reorder"
-                          >
-                            <svg className="w-5 h-5 text-purple-800 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 6h2v2H8V6zm0 5h2v2H8v-2zm0 5h2v2H8v-2zm5-10h2v2h-2V6zm0 5h2v2h-2v-2zm0 5h2v2h-2v-2z" />
-                            </svg>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            {/* Clickable scene header */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedScene(isExpanded ? null : scene.id)
-                              }
-                              className="w-full text-left glass-card p-4 border-l-2 border-l-purple-200 hover:border-l-purple-400 transition-all rounded-r-lg border"
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  {scene.order}
-                                </span>
-                                <h3 className="text-sm font-medium text-gray-900 flex-1 truncate">
-                                  {scene.title}
-                                </h3>
-
-                                {/* Edit — icon + label, opens modal */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSceneEditModal(scene);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
-                                  title="Edit scene"
-                                  data-tour={idx === 0 ? "scene-edit-first" : undefined}
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                  <span className="text-xs font-medium">Edit</span>
-                                </button>
-
-                                {/* Status pills */}
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                      scene.remotion_code
-                                        ? "bg-green-50 text-green-600"
-                                        : "bg-gray-50 text-gray-300"
-                                    }`}
-                                  >
-                                    Scene
-                                  </span>
-                                  {project.voice_gender !== "none" && (
-                                    <span
-                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                        scene.voiceover_path
-                                          ? "bg-green-50 text-green-600"
-                                          : "bg-gray-50 text-gray-300"
-                                      }`}
-                                    >
-                                      Audio
-                                    </span>
-                                  )}
-                                  <span className="text-[11px] text-gray-300 ml-1">
-                                    {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
-                                  </span>
-
-                                  {/* Expand chevron */}
-                                  <svg
-                                    className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${
-                                      isExpanded ? "rotate-180" : ""
-                                    }`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  </svg>
-                                </div>
-
-                                {/* Delete — at the end of the row */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSceneToDelete(scene);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0 ml-auto"
-                                  title="Delete scene"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                  <span className="text-xs font-medium">Delete</span>
-                                </button>
-                              </div>
-                            </button>
-
-                            {/* Expanded scene detail */}
-                            {isExpanded && (
-=======
                         {isExpanded && (
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                               <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
                                 {/* Narration */}
                                 <div>
@@ -6007,10 +5168,6 @@ export default function ProjectView() {
                                     const layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? "text_narration";
                                     const template = project.template ?? "default";
                                     const aspectRatio = project.aspect_ratio ?? "landscape";
-<<<<<<< HEAD
-                                    const schemaDefaults = getDefaultFontSizesFromSchema(layoutPropSchema ?? undefined, layoutId, aspectRatio);
-                                    const defaults = schemaDefaults ?? getDefaultFontSizes(template, layoutId, aspectRatio);
-=======
                                     const craftedFrontendFiles =
                                       template.startsWith("crafted_")
                                         ? (craftedTemplates.find((ct) => ct.id === template)?.frontend_files as Record<string, string> | null) || null
@@ -6022,7 +5179,6 @@ export default function ProjectView() {
                                       layoutPropSchema: layoutPropSchema ?? undefined,
                                       craftedFrontendFiles,
                                     });
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                                     const override = sceneFontOverrides[scene.id];
                                     const isCustomTpl = (template).startsWith("custom_");
                                     const storedTitle = isCustomTpl ? desc.layoutConfig?.titleFontSize : desc.layoutProps?.titleFontSize;
@@ -6604,8 +5760,6 @@ export default function ProjectView() {
                 />
 
 
-<<<<<<< HEAD
-=======
                 {project && imageGenModalSceneId !== null && (() => {
                   const imageGenScene = project.scenes?.find((s) => s.id === imageGenModalSceneId);
                   if (!imageGenScene) return null;
@@ -6635,7 +5789,6 @@ export default function ProjectView() {
                   );
                 })()}
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 {/* AI generated image preview modal */}
                 {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(
                   <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -6714,196 +5867,6 @@ export default function ProjectView() {
 
        {activeTab === "settings" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-visible">
-<<<<<<< HEAD
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Font family</h2>
-            <p className="text-xs text-gray-400 mb-5">
-            Leave as Default to use the template’s built-in fonts.
-            </p>
-            <div className="glass-card p-6 flex flex-col gap-4 overflow-visible relative z-30">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-gray-700">
-                  Font family
-                </label>
-                <div ref={fontDropdownRef} className="relative w-full max-w-sm">
-                  <button
-                    type="button"
-                    onClick={() => setShowFontDropdown((v) => !v)}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between"
-                  >
-                    <span>
-                      {settingsFontId
-                        ? FONT_REGISTRY[settingsFontId as keyof typeof FONT_REGISTRY]?.label || settingsFontId
-                        : "Default (template)"}
-                    </span>
-                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showFontDropdown && (
-                    <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 max-h-72 overflow-y-auto">
-                      <div className="grid grid-cols-1 gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSettingsFontId(null);
-                            setShowFontDropdown(false);
-                          }}
-                          className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
-                            !settingsFontId ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-700"
-                          }`}
-                        >
-                          Default
-                        </button>
-                        {Object.values(FONT_REGISTRY)
-                          .filter((opt) => opt.id !== "fira_code")
-                          .map((opt) => (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              onClick={() => {
-                                setSettingsFontId(opt.id);
-                                setShowFontDropdown(false);
-                              }}
-                              className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
-                                settingsFontId === opt.id
-                                  ? "bg-purple-50 text-purple-700"
-                                  : "hover:bg-gray-50 text-gray-700"
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {settingsFontId && (
-                <div className="mt-2">
-                  <p className="text-[11px] text-gray-500 mb-1">Preview</p>
-                  <div
-                    className="px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
-                    style={{
-                      fontFamily:
-                        resolveFontFamily(settingsFontId) ??
-                        "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                    }}
-                  >
-                    The quick brown fox jumps over the lazy dog.
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={savingFontFamily}
-                  onClick={async () => {
-                    setSavingFontFamily(true);
-                    try {
-                      await updateProject(project.id, {
-                        font_family: settingsFontId || null,
-                      });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to save font family."));
-                    } finally {
-                      setSavingFontFamily(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingFontFamily ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    "Save font"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Project Template</h2>
-            <p className="text-xs text-gray-400 mb-5">
-              Rebuild scene layouts for a new template while preserving narration, display text, voiceovers.
-            </p>
-            <div className="glass-card p-6 overflow-visible relative z-20">
-              {(() => {
-                const tid = assignedTemplateId;
-                const selectedCustom =
-                  tid.startsWith("custom_") && project
-                    ? customTemplatesList.find((ct) => ct.id === parseInt(tid.replace("custom_", ""), 10))
-                    : null;
-                const selectedDesc = TEMPLATE_DESCRIPTIONS[tid];
-                const assignedBuiltinNew =
-                  !tid.startsWith("custom_") && templateMetas.some((t) => t.id === tid && t.new_template === true);
-                return (
-                  <div className="flex flex-row items-stretch gap-4">
-                    <div className="shrink-0 self-start w-[9.5rem] sm:w-40 rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.08)]">
-                      <TemplateAssignPreview
-                        templateId={tid}
-                        customTemplates={customTemplatesList}
-                        projectCustomTheme={project?.custom_theme ?? null}
-                        projectName={project?.name}
-                        variant="thumb"
-                      />
-                      <div className="px-2 py-1.5 bg-purple-50/80 flex items-center justify-center gap-1">
-                        <div className="w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
-                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-between items-end text-right gap-2 min-h-0">
-                      <div className="flex flex-col items-end gap-1">
-                        <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-                          Current template
-                        </label>
-                        <div className="flex items-center gap-2 flex-wrap justify-end">
-                          <span className="text-sm font-semibold text-gray-800">
-                            {selectedCustom ? selectedCustom.name : selectedDesc?.title ?? tid}
-                          </span>
-                          {assignedBuiltinNew && <NewTemplateBadge className="shrink-0" />}
-                          {selectedCustom && (
-                            <span
-                              className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white shrink-0"
-                              style={{ backgroundColor: selectedCustom.preview_colors.accent }}
-                            >
-                              Custom
-                            </span>
-                          )}
-                        </div>
-                        {selectedCustom ? (
-                          <div className="text-[11px] text-gray-400">Custom template</div>
-                        ) : selectedDesc?.subtitle ? (
-                          <div className="text-[11px] text-gray-400">{selectedDesc.subtitle}</div>
-                        ) : null}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={submittingTemplateRelayout || templateRelayoutRunning || missingCustomTemplate}
-                        onClick={() => {
-                          setTemplateChangeDraft(assignedTemplateId);
-                          setTemplateChangePickerTab(assignedTemplateId.startsWith("custom_") ? "custom" : "builtin");
-                          setShowTemplateChangeModal(true);
-                        }}
-                        className="shrink-0 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors"
-                      >
-                        Change template
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-
-=======
           {/* 1. Template */}
           <div data-tour="template-picker">
           <ProjectTemplateSettingsCard
@@ -7361,7 +6324,6 @@ export default function ProjectView() {
           </div>
 
           {/* 5. Global Text Sizes */}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
             <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
@@ -7429,87 +6391,6 @@ export default function ProjectView() {
             </div>
           </div>
 
-<<<<<<< HEAD
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Colors</h2>
-            <p className="text-xs text-gray-400 mb-5">Theme colors applied across all scenes.</p>
-            <div className="glass-card p-6 flex flex-col gap-5">
-              {(
-                [
-                  { label: "Accent color", value: settingsAccentColor, setter: setSettingsAccentColor, hint: "Buttons, highlights, and brand color" },
-                  { label: "Text color", value: settingsTextColor, setter: setSettingsTextColor, hint: "Primary on-screen text" },
-                  { label: "Background color", value: settingsBgColor, setter: setSettingsBgColor, hint: "Scene background" },
-                ] as const
-              ).map(({ label, value, setter, hint }) => (
-                <div key={label} className="flex items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-700">{label}</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <div
-                      className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm cursor-pointer overflow-hidden"
-                      style={{ backgroundColor: value }}
-                      onClick={() => (document.getElementById(`color-input-${label}`) as HTMLInputElement)?.click()}
-                    >
-                      <input
-                        id={`color-input-${label}`}
-                        type="color"
-                        value={value}
-                        onChange={(e) => setter(e.target.value)}
-                        className="opacity-0 w-full h-full cursor-pointer"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={value}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setter(v);
-                      }}
-                      className="w-24 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300 bg-white"
-                      placeholder="#000000"
-                      maxLength={7}
-                    />
-                  </div>
-                </div>
-              ))}
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={savingColors}
-                  onClick={async () => {
-                    setSavingColors(true);
-                    try {
-                      await updateProject(project.id, {
-                        accent_color: settingsAccentColor,
-                        bg_color: settingsBgColor,
-                        text_color: settingsTextColor,
-                      });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to save colors."));
-                    } finally {
-                      setSavingColors(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingColors ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    "Save colors"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
       )}
 

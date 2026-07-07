@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
-<<<<<<< HEAD
-=======
 import {
   detectInAppBrowser,
   escapeToSystemBrowser,
   copyLink,
 } from "../../lib/inAppBrowser";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 interface GoogleAuthButtonProps {
   onSuccess: (response: CredentialResponse) => void;
@@ -23,11 +20,6 @@ export default function GoogleAuthButton({
   width = "300",
 }: GoogleAuthButtonProps) {
   const [mounted, setMounted] = useState(false);
-<<<<<<< HEAD
-
-  useEffect(() => {
-    setMounted(true);
-=======
   const [inApp, setInApp] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -35,7 +27,6 @@ export default function GoogleAuthButton({
   useEffect(() => {
     setMounted(true);
     setInApp(detectInAppBrowser().isInApp);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   }, []);
 
   if (!mounted) {
@@ -46,8 +37,6 @@ export default function GoogleAuthButton({
     );
   }
 
-<<<<<<< HEAD
-=======
   // Inside an in-app browser (e.g. opened from LinkedIn/Instagram), Google
   // silently blocks OAuth in the embedded webview. Render an escape flow instead
   // of the dead Google button.
@@ -97,7 +86,6 @@ export default function GoogleAuthButton({
     );
   }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return (
     <GoogleLogin
       onSuccess={onSuccess}

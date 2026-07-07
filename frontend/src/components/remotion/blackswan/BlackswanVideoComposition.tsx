@@ -1,28 +1,17 @@
-<<<<<<< HEAD
-=======
 import { resolveFontFamily } from "../../../fonts/registry";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { BLACKSWAN_LAYOUT_REGISTRY } from "./layouts";
 import type { BlackswanLayoutProps, BlackswanLayoutType } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
-<<<<<<< HEAD
-=======
 import { BackgroundMusic } from "../BackgroundMusic";
 import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface BlackswanSceneInput {
   id: number;
   order: number;
   title: string;
   narration: string;
-<<<<<<< HEAD
-  layout: BlackswanLayoutType;
-  layoutProps: Record<string, unknown>;
-  durationSeconds: number;
-=======
   /** Spoken narration text — used for captions (may differ from on-screen narration). */
   narrationText?: string;
   layout: BlackswanLayoutType;
@@ -30,7 +19,6 @@ export interface BlackswanSceneInput {
   durationSeconds: number;
   /** Spoken-audio length in seconds — for caption timing. */
   speechDurationSeconds?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -44,10 +32,6 @@ export interface BlackswanVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
-<<<<<<< HEAD
-  aspectRatio?: string;
-  fontFamily?: string;
-=======
   bgmUrl?: string | null;
   bgmVolume?: number;
   aspectRatio?: string;
@@ -58,7 +42,6 @@ export interface BlackswanVideoCompositionProps {
   captionFontFamily?: string;
   captionFontSize?: number;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const BlackswanVideoComposition: React.FC<
@@ -72,12 +55,6 @@ export const BlackswanVideoComposition: React.FC<
   logoPosition,
   logoOpacity,
   logoSize,
-<<<<<<< HEAD
-  aspectRatio,
-  fontFamily,
-}) => {
-  const FPS = 30;
-=======
   bgmUrl,
   bgmVolume,
   aspectRatio,
@@ -91,21 +68,16 @@ export const BlackswanVideoComposition: React.FC<
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   let currentFrame = 0;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
       {scenes.map((scene) => {
-<<<<<<< HEAD
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
-=======
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
           resolvedPlaybackSpeed,
         );
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -122,11 +94,8 @@ export const BlackswanVideoComposition: React.FC<
           textColor: textColor || "#DFFFFF",
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           layoutType: scene.layout,
           fontFamily,
         };
@@ -139,9 +108,6 @@ export const BlackswanVideoComposition: React.FC<
             name={scene.title}
           >
             <LayoutComponent {...layoutProps} />
-<<<<<<< HEAD
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-=======
             {scene.voiceoverUrl && (
               <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
             )}
@@ -160,7 +126,6 @@ export const BlackswanVideoComposition: React.FC<
                 }
               />
             )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </Sequence>
         );
       })}
@@ -174,11 +139,6 @@ export const BlackswanVideoComposition: React.FC<
           aspectRatio={aspectRatio || "landscape"}
         />
       )}
-<<<<<<< HEAD
-    </AbsoluteFill>
-  );
-};
-=======
     
       {bgmUrl && (
         <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
@@ -187,4 +147,3 @@ export const BlackswanVideoComposition: React.FC<
   );
 };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

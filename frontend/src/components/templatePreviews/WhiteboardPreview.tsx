@@ -15,18 +15,10 @@ interface DemoScene {
   durationSeconds: number;
 }
 
-<<<<<<< HEAD
-/* ─── TOKENS ─────────────────────────────────────────────── */
-const BG     = "#F7F3E8";
-const TEXT   = "#1a1209";
-const ACCENT = "#0a0a0a";
-const FONT   = "'Patrick Hand', system-ui, sans-serif";
-=======
 // Dot-grid paper background (mirrors WhiteboardBackground) so the container
 // never flashes a flat color around the Player.
 const WHITEBOARD_BG_IMAGE =
   "radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px)";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const WHITEBOARD_PREVIEW_SCENES: DemoScene[] = [
   {

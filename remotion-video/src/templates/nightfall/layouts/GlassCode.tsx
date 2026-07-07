@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import React from "react";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
@@ -35,11 +32,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
   } = props ?? {};
 
   const frame = useCurrentFrame();
-<<<<<<< HEAD
-  const { height: compHeight } = useVideoConfig();
-=======
   const { height: compHeight, width: compWidth } = useVideoConfig();
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const fps = 30;
   const p = aspectRatio === "portrait";
 
@@ -244,9 +237,6 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground bgColor={bgColor} />
-<<<<<<< HEAD
-      
-=======
 
       {/* Sparkle decoration — portrait only */}
       {p && (
@@ -278,7 +268,6 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
         </svg>
       )}
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div
         style={{
           position: "absolute",
@@ -296,18 +285,11 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
             ...glassCardStyle(safeAccentColor, 0.12),
             display: "flex",
             flexDirection: "column",
-<<<<<<< HEAD
-            width: p ? "98%" : "95%",
-            maxWidth: 1200,
-            height: p ? "200vh" : "auto",
-            minHeight: p ? 240 : 500,
-=======
             width: p ? "92%" : "95%",
             maxWidth: 1200,
             height: "auto",
             maxHeight: p ? "88%" : undefined,
             minHeight: p ? 320 : 500,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             overflow: "hidden",
             opacity: cardOpacity,
             transform: `translateY(${(1 - cardY) * 40}px)`,

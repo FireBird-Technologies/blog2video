@@ -36,15 +36,12 @@ export interface WhiteboardVideoCompositionProps {
   bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
-<<<<<<< HEAD
-=======
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const WhiteboardVideoComposition: React.FC<
@@ -62,15 +59,12 @@ export const WhiteboardVideoComposition: React.FC<
   bgmVolume,
   aspectRatio,
   fontFamily,
-<<<<<<< HEAD
-=======
   playbackSpeed,
   captionsEnabled,
   captionPosition,
   captionFontFamily,
   captionFontSize,
   captionOffset,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);

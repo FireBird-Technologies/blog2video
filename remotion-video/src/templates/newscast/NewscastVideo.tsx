@@ -13,19 +13,13 @@ import { NEWSCAST_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { NewscastLayoutProps, NewscastLayoutType } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
-<<<<<<< HEAD
-=======
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
 import { NEWSCAST_BACKGROUND_VARIANT } from "./backgroundVariant";
-<<<<<<< HEAD
-=======
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   opening: "opening",
@@ -187,8 +181,6 @@ const NewscastSequenceInner: React.FC<{
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverSrc?: string;
-<<<<<<< HEAD
-=======
   playbackSpeed: number;
   captionsEnabled?: boolean;
   captionText?: string;
@@ -199,7 +191,6 @@ const NewscastSequenceInner: React.FC<{
   aspectRatio?: string;
   fontFamily?: string;
   speechDurationFrames?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }> = ({
   startFrame,
   durationInFrames,
@@ -210,8 +201,6 @@ const NewscastSequenceInner: React.FC<{
   layoutProps,
   LayoutComponent,
   voiceoverSrc,
-<<<<<<< HEAD
-=======
   playbackSpeed,
   captionsEnabled,
   captionText,
@@ -222,7 +211,6 @@ const NewscastSequenceInner: React.FC<{
   aspectRatio,
   fontFamily,
   speechDurationFrames,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const localFrame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -281,9 +269,6 @@ const NewscastSequenceInner: React.FC<{
           </div>
         </div>
       </NewscastSceneZTransition>
-<<<<<<< HEAD
-      {voiceoverSrc ? <Audio src={voiceoverSrc} /> : null}
-=======
       {voiceoverSrc ? <Audio src={voiceoverSrc} playbackRate={playbackSpeed} /> : null}
       {captionsEnabled && captionText && (
         <CaptionTrack
@@ -296,7 +281,6 @@ const NewscastSequenceInner: React.FC<{
           speechDurationFrames={speechDurationFrames}
         />
       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </AbsoluteFill>
   );
 };
@@ -306,20 +290,14 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
-<<<<<<< HEAD
-=======
   /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
   narrationText?: string;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   layout: string;
   layoutProps: Record<string, unknown>;
   layoutConfig?: { titleFontSize?: number; descriptionFontSize?: number };
   durationSeconds: number;
-<<<<<<< HEAD
-=======
   /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
   speechDurationSeconds?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   voiceoverFile: string | null;
   images: string[];
   imageUrl?: string;
@@ -327,20 +305,13 @@ interface SceneData {
 
 interface VideoData {
   projectName: string;
-<<<<<<< HEAD
-=======
   heroImage?: string | null;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor: string;
   bgColor: string;
   textColor: string;
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
-<<<<<<< HEAD
-  aspectRatio?: string;
-  fontFamily?: string | null;
-=======
   logoSize?: number | string;
   aspectRatio?: string;
   playbackSpeed?: number;
@@ -352,7 +323,6 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
@@ -369,16 +339,11 @@ export const calculateNewscastMetadata: CalculateMetadataFunction<VideoProps> =
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-<<<<<<< HEAD
-      const totalSeconds = data.scenes.reduce((sum, s) => sum + (s.durationSeconds || 5), 0);
-      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
-=======
       const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
       const sceneFrames = data.scenes.map((s) =>
         getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
       const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const isPortrait = data.aspectRatio === "portrait";
 
       // Newscast base resolution: 1280×720 in landscape, 720×1280 in portrait
@@ -442,10 +407,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   if (!data) return <AbsoluteFill style={{ backgroundColor: "#FAFAF8" }} />;
 
   const FPS = 30;
-<<<<<<< HEAD
-=======
   const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   let currentFrame = 0;
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
@@ -459,15 +421,11 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       {data.scenes.map((scene, sceneIndex) => {
         const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
         const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
-<<<<<<< HEAD
-        const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
-=======
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
           playbackSpeed,
         );
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -483,13 +441,10 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             ? normalizeNewscastDataVizProps(base)
             : base;
         const lc = scene.layoutConfig;
-<<<<<<< HEAD
-=======
         const focusX = Number((lp.imageFocusX as number | undefined) ?? 50);
         const focusY = Number((lp.imageFocusY as number | undefined) ?? 50);
         const imageZoom = Math.max(0.1, Number((lp.imageZoom as number | undefined) ?? 1));
         const imageObjectPosition = `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         const layoutProps: NewscastLayoutProps = {
           ...normalizedBase,
@@ -505,11 +460,8 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             imageUrlFromAssets ??
             scene.imageUrl ??
             (typeof lp.imageUrl === "string" ? lp.imageUrl : undefined),
-<<<<<<< HEAD
-=======
           imageObjectPosition,
   imageZoom,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily: resolvedFontFamily || undefined,
           globeRotationFrameOffset: startFrame,
         };
@@ -529,8 +481,6 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               layoutProps={layoutProps}
               LayoutComponent={LayoutComponent}
               voiceoverSrc={scene.voiceoverFile ? staticFile(scene.voiceoverFile) : undefined}
-<<<<<<< HEAD
-=======
               playbackSpeed={playbackSpeed}
               captionsEnabled={data.captionsEnabled}
               captionText={scene.narrationText || scene.narration}
@@ -545,7 +495,6 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                   ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)
                   : undefined
               }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             />
           </Sequence>
         );
@@ -556,11 +505,6 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
-<<<<<<< HEAD
-          aspectRatio={data.aspectRatio || "landscape"}
-        />
-      )}
-=======
           size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
@@ -569,7 +513,6 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       {data.bgmFile && (
         <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </AbsoluteFill>
   );
 };

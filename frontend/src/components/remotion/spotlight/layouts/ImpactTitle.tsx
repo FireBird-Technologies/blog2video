@@ -1,8 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import {
-<<<<<<< HEAD
-=======
   AccentBars,
   BigGlyphBackdrop,
   FilmGrain,
@@ -12,7 +10,6 @@ import {
   SpotlightBeam,
 } from "../components/SpotlightArtifacts";
 import {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
@@ -59,14 +56,9 @@ function resolveImpactTitleHighlightIndex(
  */
 export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   title,
-<<<<<<< HEAD
-  narration,
-  imageUrl,
-=======
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   highlightWord,
   accentColor,
   textColor,

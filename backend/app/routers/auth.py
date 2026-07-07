@@ -17,10 +17,7 @@ from app.models.project import Project
 from app.models.subscription import Subscription
 from app.auth import create_access_token, get_current_user
 from app.services.voice_seed import ensure_free_voices_for_user
-<<<<<<< HEAD
-=======
 from app.models.referral import Referral, ReferralSignup, REFERRAL_BONUS_VIDEOS, REFERRAL_MAX_SIGNUPS
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.observability.logging import get_logger
@@ -62,8 +59,6 @@ class UserOut(BaseModel):
 AuthResponse.model_rebuild()
 
 
-<<<<<<< HEAD
-=======
 def _apply_referral_bonus(ref_code: str, new_user: User, db: Session) -> None:
     try:
         referral = db.query(Referral).filter_by(code=ref_code, is_active=True).first()
@@ -92,7 +87,6 @@ def _apply_referral_bonus(ref_code: str, new_user: User, db: Session) -> None:
         logger.error("[REFERRAL] Failed to apply bonus for user %s, code %r: %s", new_user.id, ref_code, e)
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _delete_project_storage(project: Project) -> None:
     """Delete all storage (local + R2) for a project."""
     if r2_storage.is_r2_configured():
@@ -115,10 +109,7 @@ def _delete_project_storage(project: Project) -> None:
 def google_login(
     body: GoogleLoginRequest,
     reactivate: bool = Query(False, description="Confirm reactivation of a previously deleted account"),
-<<<<<<< HEAD
-=======
     ref_code: str | None = Query(None, description="Referral code from an invite link"),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     db: Session = Depends(get_db),
 ):
     """
@@ -184,10 +175,7 @@ def google_login(
         user.is_active = True
         user.plan = PlanTier.FREE
         user.video_limit_bonus = 0
-<<<<<<< HEAD
-=======
         user.referral_video_bonus = 0
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         user.period_start = None
         user.stripe_customer_id = None
         user.stripe_subscription_id = None
@@ -207,13 +195,10 @@ def google_login(
     db.commit()
     db.refresh(user)
 
-<<<<<<< HEAD
-=======
     # Grant referral bonuses for brand-new users only
     if created_new_user and ref_code:
         _apply_referral_bonus(ref_code, user, db)
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ensure_free_voices_for_user(db, user.id)
 
     token = create_access_token(user.id)
@@ -336,10 +321,7 @@ def delete_account(
         user.stripe_subscription_id = None
         user.plan = PlanTier.FREE
         user.video_limit_bonus = 0
-<<<<<<< HEAD
-=======
         user.referral_video_bonus = 0
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         user.period_start = None
 
         db.commit()

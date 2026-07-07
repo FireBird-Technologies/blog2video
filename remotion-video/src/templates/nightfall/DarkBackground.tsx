@@ -4,11 +4,7 @@ import { NightfallStarfield } from "./NightfallStarfield";
 const BASE_BG = "#0A0A1A";
 
 /** Dark gradient mesh background for nightfall. Optional slow drift. */
-<<<<<<< HEAD
-export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string }> = ({ drift = true, bgColor }) => {
-=======
 export const DarkBackground: React.FC<{ drift?: boolean; bgColor?: string; seed?: number }> = ({ drift = true, bgColor, seed = 0 }) => {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const bg = bgColor || BASE_BG;
   const frame = useCurrentFrame();
   const t = drift ? (frame / 300) % 1 : 0;

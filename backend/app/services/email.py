@@ -12,11 +12,8 @@ Notifications:
   - send_free_tier_video_limit_announcement() → campaign: free plan included-video limit raised
 """
 
-<<<<<<< HEAD
-=======
 import hashlib
 import hmac
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import html
 import logging
 import re
@@ -48,8 +45,6 @@ def _resend_response_id(result) -> Optional[str]:
     return str(rid) if rid is not None else None
 
 
-<<<<<<< HEAD
-=======
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 
 # Appended only to the copy of a contact/request email sent back to the
@@ -71,7 +66,6 @@ def _extract_email(text: Optional[str]) -> Optional[str]:
     return match.group(0) if match else None
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 # ─── Provider abstraction ──────────────────────────────────────
 
 
@@ -139,11 +133,8 @@ class ResendEmailProvider(BaseEmailProvider):
             "to": [to],
             "subject": subject,
         }
-<<<<<<< HEAD
-=======
         if cc:
             params["cc"] = cc
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if html_content:
             params["html"] = html_content
         if text_content:
@@ -247,10 +238,7 @@ class EmailService:
               <p style="margin:0;font-size:12px;color:#9ca3af;">
                 You received this because you have an account at Blog2Video.<br/>
                 &copy; 2026 Blog2Video &middot; All rights reserved.
-<<<<<<< HEAD
-=======
                 {f'<br/><a href="{unsubscribe_url}" style="color:#9ca3af;">Unsubscribe</a>' if unsubscribe_url else ""}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               </p>
             </td>
           </tr>
@@ -405,8 +393,6 @@ class EmailService:
         )
 
 
-<<<<<<< HEAD
-=======
     def _send_coupon_email(
         self,
         *,
@@ -527,7 +513,6 @@ class EmailService:
         )
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     def schedule_followup_email(
         self,
@@ -610,11 +595,7 @@ class EmailService:
                       style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
                   <tr>
                     <td style="background:#9333EA;padding:24px 40px;">
-<<<<<<< HEAD
-                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Enterprise Contact</span>
-=======
                       <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — {kind_label}</span>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     </td>
                   </tr>
                   <tr>
@@ -624,11 +605,7 @@ class EmailService:
                         <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Company</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{company}</td></tr>
                         <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Contact</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{contact_details}</td></tr>
                       </table>
-<<<<<<< HEAD
-                      <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Message</p>
-=======
                       <p style="margin:24px 0 8px;font-weight:600;color:#374151;">{"Theme / Description" if is_designer_request else "Message"}</p>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{message}</p>
                     </td>
                   </tr>
@@ -639,8 +616,6 @@ class EmailService:
         </body>
         </html>"""
         self.provider.send_email(to=to, subject=subject, html_content=html, text_content=text)
-<<<<<<< HEAD
-=======
 
         # Send the requester a confirmation with the spam-folder note, if they gave an email.
         sender_email = _extract_email(contact_details)
@@ -934,366 +909,6 @@ class EmailService:
             to=user_email,
             subject=subject,
             html_content=html_body,
-            text_content=text,
-            from_email="Arslan Shahid <arslan@blog2video.app>",
-        )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
-
-    def send_free_tier_video_limit_announcement(
-        self,
-        user_email: str,
-        user_name: str,
-        *,
-        free_video_limit: int = 3,
-        dashboard_url: Optional[str] = None,
-    ) -> None:
-        """
-        One-off / campaign email: tell free-plan users the included video limit was raised.
-        Plain text only (no HTML template).
-        """
-        base = "https://blog2video.app"
-        cta_url = dashboard_url or f"{base}"
-        display = (user_name or "").strip() or "there"
-        subject = "Growing your blog has never been easier"
-
-        text = (
-            f"Hey {display},\n\n"
-            f"Good news, we have added {free_video_limit} free videos in your account.\n\n"
-            "More opportunities to create, experiment, and bring your ideas to life at no cost.\n\n"
-            "Most people don’t fully use what they already have. Make sure you do.\n\n"
-            f"Start creating more now: {cta_url}\n\n"
-            "Team Blog2Video \n"
-        )
-        self.provider.send_email(
-            to=user_email,
-            subject=subject,
-            text_content=text,
-            from_email="Arslan Shahid <arslan@blog2video.app>",
-        )
-
-
-
-    def send_custom_template_request_email(
-        self,
-        user_name: str,
-        user_email: str,
-        user_plan: str,
-        description: str,
-        alternate_contact: str | None = None,
-        company_information: str | None = None,
-        to: str = "arslan@firebird-technologies.com",
-    ) -> None:
-        """
-        Forward a custom template request from a logged-in user to the internal team.
-        Triggered by POST /api/contact/custom-template-request.
-        """
-        subject = f"[Custom Template Request] from {user_name}"
-        alt_line = f"Alternate contact: {alternate_contact}" if alternate_contact else "Alternate contact: —"
-        company_line = (
-            f"Company information:\n{company_information}\n"
-            if company_information
-            else "Company information: —"
-        )
-        text = (
-            f"New custom template request:\n\n"
-            f"Name: {user_name}\n"
-            f"Account email: {user_email}\n"
-            f"Plan: {user_plan}\n"
-            f"{alt_line}\n"
-            f"{company_line}\n"
-            f"Description:\n{description}\n"
-        )
-        alt_cell = f"<td style='color:#111827;border-bottom:1px solid #f3f4f6;'>{alternate_contact}</td>" if alternate_contact else "<td style='color:#9ca3af;border-bottom:1px solid #f3f4f6;'>—</td>"
-        company_safe = html.escape(company_information, quote=False) if company_information else ""
-        company_block = (
-            f'<p style="margin:16px 0 8px;font-weight:600;color:#374151;">Company information</p>'
-            f'<p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{company_safe}</p>'
-            if company_information
-            else ""
-        )
-        html_body = f"""<!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8" /></head>
-        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f4f5;padding:40px 0;margin:0;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td align="center">
-                <table width="560" cellpadding="0" cellspacing="0"
-                      style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-                  <tr>
-                    <td style="background:#9333EA;padding:24px 40px;">
-                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Custom Template Request</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:32px 40px;">
-                      <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;">
-                        <tr><td style="font-weight:600;color:#374151;width:160px;border-bottom:1px solid #f3f4f6;">Name</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_name}</td></tr>
-                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Account email</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_email}</td></tr>
-                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Plan</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_plan}</td></tr>
-                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Alternate contact</td>{alt_cell}</tr>
-                      </table>
-                      {company_block}
-                      <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Theme / Description</p>
-                      <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{description}</p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>"""
-        self.provider.send_email(to=to, subject=subject, html_content=html_body, text_content=text, from_email="sales@blog2video.app")
-
-
-
-    def send_free_tier_video_limit_announcement(
-        self,
-        user_email: str,
-        user_name: str,
-        *,
-        free_video_limit: int = 3,
-        dashboard_url: Optional[str] = None,
-    ) -> None:
-        """
-        One-off / campaign email: tell free-plan users the included video limit was raised.
-        Plain text only (no HTML template).
-        """
-        base = "https://blog2video.app"
-        cta_url = dashboard_url or f"{base}"
-        display = (user_name or "").strip() or "there"
-        subject = "Growing your blog has never been easier"
-
-        text = (
-            f"Hey {display},\n\n"
-            f"Good news, we have added {free_video_limit} free videos in your account.\n\n"
-            "More opportunities to create, experiment, and bring your ideas to life at no cost.\n\n"
-            "Most people don’t fully use what they already have. Make sure you do.\n\n"
-            f"Start creating more now: {cta_url}\n\n"
-            "Team Blog2Video \n"
-        )
-        self.provider.send_email(
-            to=user_email,
-            subject=subject,
-            text_content=text,
-            from_email="Arslan Shahid <arslan@blog2video.app>",
-        )
-
-
-
-    def send_custom_template_request_email(
-        self,
-        user_name: str,
-        user_email: str,
-        user_plan: str,
-        description: str,
-        alternate_contact: str | None = None,
-        company_information: str | None = None,
-        to: str = "arslan@firebird-technologies.com",
-    ) -> None:
-        """
-        Forward a custom template request from a logged-in user to the internal team.
-        Triggered by POST /api/contact/custom-template-request.
-        """
-        subject = f"[Custom Template Request] from {user_name}"
-        alt_line = f"Alternate contact: {alternate_contact}" if alternate_contact else "Alternate contact: —"
-        company_line = (
-            f"Company information:\n{company_information}\n"
-            if company_information
-            else "Company information: —"
-        )
-        text = (
-            f"New custom template request:\n\n"
-            f"Name: {user_name}\n"
-            f"Account email: {user_email}\n"
-            f"Plan: {user_plan}\n"
-            f"{alt_line}\n"
-            f"{company_line}\n"
-            f"Description:\n{description}\n"
-        )
-        alt_cell = f"<td style='color:#111827;border-bottom:1px solid #f3f4f6;'>{alternate_contact}</td>" if alternate_contact else "<td style='color:#9ca3af;border-bottom:1px solid #f3f4f6;'>—</td>"
-        company_safe = html.escape(company_information, quote=False) if company_information else ""
-        company_block = (
-            f'<p style="margin:16px 0 8px;font-weight:600;color:#374151;">Company information</p>'
-            f'<p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{company_safe}</p>'
-            if company_information
-            else ""
-        )
-        html_body = f"""<!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8" /></head>
-        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f4f5;padding:40px 0;margin:0;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td align="center">
-                <table width="560" cellpadding="0" cellspacing="0"
-                      style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-                  <tr>
-                    <td style="background:#9333EA;padding:24px 40px;">
-                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Custom Template Request</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:32px 40px;">
-                      <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;">
-                        <tr><td style="font-weight:600;color:#374151;width:160px;border-bottom:1px solid #f3f4f6;">Name</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_name}</td></tr>
-                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Account email</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_email}</td></tr>
-                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Plan</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_plan}</td></tr>
-                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Alternate contact</td>{alt_cell}</tr>
-                      </table>
-                      {company_block}
-                      <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Theme / Description</p>
-                      <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{description}</p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>"""
-        self.provider.send_email(to=to, subject=subject, html_content=html_body, text_content=text, from_email="sales@blog2video.app")
-
-
-
-    def send_free_tier_video_limit_announcement(
-        self,
-        user_email: str,
-        user_name: str,
-        *,
-        free_video_limit: int = 3,
-        dashboard_url: Optional[str] = None,
-    ) -> None:
-        """
-        One-off / campaign email: tell free-plan users the included video limit was raised.
-        Plain text only (no HTML template).
-        """
-        base = "https://blog2video.app"
-        cta_url = dashboard_url or f"{base}"
-        display = (user_name or "").strip() or "there"
-        subject = "Growing your blog has never been easier"
-
-        text = (
-            f"Hey {display},\n\n"
-            f"Good news, we have added {free_video_limit} free videos in your account.\n\n"
-            "More opportunities to create, experiment, and bring your ideas to life at no cost.\n\n"
-            "Most people don’t fully use what they already have. Make sure you do.\n\n"
-            f"Start creating more now: {cta_url}\n\n"
-            "Team Blog2Video \n"
-        )
-        self.provider.send_email(
-            to=user_email,
-            subject=subject,
-            text_content=text,
-            from_email="Arslan Shahid <arslan@blog2video.app>",
-        )
-
-
-
-    def send_custom_template_request_email(
-        self,
-        user_name: str,
-        user_email: str,
-        user_plan: str,
-        description: str,
-        alternate_contact: str | None = None,
-        company_information: str | None = None,
-        to: str = "arslan@firebird-technologies.com",
-    ) -> None:
-        """
-        Forward a custom template request from a logged-in user to the internal team.
-        Triggered by POST /api/contact/custom-template-request.
-        """
-        subject = f"[Custom Template Request] from {user_name}"
-        alt_line = f"Alternate contact: {alternate_contact}" if alternate_contact else "Alternate contact: —"
-        company_line = (
-            f"Company information:\n{company_information}\n"
-            if company_information
-            else "Company information: —"
-        )
-        text = (
-            f"New custom template request:\n\n"
-            f"Name: {user_name}\n"
-            f"Account email: {user_email}\n"
-            f"Plan: {user_plan}\n"
-            f"{alt_line}\n"
-            f"{company_line}\n"
-            f"Description:\n{description}\n"
-        )
-        alt_cell = f"<td style='color:#111827;border-bottom:1px solid #f3f4f6;'>{alternate_contact}</td>" if alternate_contact else "<td style='color:#9ca3af;border-bottom:1px solid #f3f4f6;'>—</td>"
-        company_safe = html.escape(company_information, quote=False) if company_information else ""
-        company_block = (
-            f'<p style="margin:16px 0 8px;font-weight:600;color:#374151;">Company information</p>'
-            f'<p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{company_safe}</p>'
-            if company_information
-            else ""
-        )
-        html_body = f"""<!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8" /></head>
-        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f4f5;padding:40px 0;margin:0;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td align="center">
-                <table width="560" cellpadding="0" cellspacing="0"
-                      style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-                  <tr>
-                    <td style="background:#9333EA;padding:24px 40px;">
-                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Custom Template Request</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:32px 40px;">
-                      <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;">
-                        <tr><td style="font-weight:600;color:#374151;width:160px;border-bottom:1px solid #f3f4f6;">Name</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_name}</td></tr>
-                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Account email</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_email}</td></tr>
-                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Plan</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_plan}</td></tr>
-                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Alternate contact</td>{alt_cell}</tr>
-                      </table>
-                      {company_block}
-                      <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Theme / Description</p>
-                      <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{description}</p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>"""
-        self.provider.send_email(to=to, subject=subject, html_content=html_body, text_content=text, from_email="sales@blog2video.app")
-
-
-
-    def send_free_tier_video_limit_announcement(
-        self,
-        user_email: str,
-        user_name: str,
-        *,
-        free_video_limit: int = 3,
-        dashboard_url: Optional[str] = None,
-    ) -> None:
-        """
-        One-off / campaign email: tell free-plan users the included video limit was raised.
-        Plain text only (no HTML template).
-        """
-        base = "https://blog2video.app"
-        cta_url = dashboard_url or f"{base}"
-        display = (user_name or "").strip() or "there"
-        subject = "Growing your blog has never been easier"
-
-        text = (
-            f"Hey {display},\n\n"
-            f"Good news, we have added {free_video_limit} free videos in your account.\n\n"
-            "More opportunities to create, experiment, and bring your ideas to life at no cost.\n\n"
-            "Most people don’t fully use what they already have. Make sure you do.\n\n"
-            f"Start creating more now: {cta_url}\n\n"
-            "Team Blog2Video \n"
-        )
-        self.provider.send_email(
-            to=user_email,
-            subject=subject,
             text_content=text,
             from_email="Arslan Shahid <arslan@blog2video.app>",
         )

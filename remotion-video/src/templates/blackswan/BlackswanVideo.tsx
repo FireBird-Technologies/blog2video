@@ -2,15 +2,10 @@ import { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
-<<<<<<< HEAD
-  Sequence,
-  staticFile,
-=======
   interpolate,
   Sequence,
   staticFile,
   useCurrentFrame,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   CalculateMetadataFunction,
   continueRender,
   delayRender,
@@ -19,23 +14,15 @@ import { BLACKSWAN_LAYOUT_REGISTRY } from "./layouts";
 import type { BlackswanLayoutProps, BlackswanLayoutType } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
-<<<<<<< HEAD
-=======
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 interface SceneData {
   id: number;
   order: number;
   title: string;
   narration: string;
-<<<<<<< HEAD
-  layout: BlackswanLayoutType;
-  layoutProps: Record<string, any>;
-  durationSeconds: number;
-=======
   /** Spoken narration text — used for captions (may differ from on-screen `narration`/displayText). */
   narrationText?: string;
   layout: BlackswanLayoutType;
@@ -43,28 +30,19 @@ interface SceneData {
   durationSeconds: number;
   /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
   speechDurationSeconds?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   voiceoverFile: string | null;
   images: string[];
 }
 
 interface VideoData {
   projectName: string;
-<<<<<<< HEAD
-=======
   heroImage?: string | null;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor: string;
   bgColor: string;
   textColor: string;
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
-<<<<<<< HEAD
-  logoSize?: string;
-  aspectRatio?: string;
-  fontFamily?: string | null;
-=======
   logoSize?: number | string;
   aspectRatio?: string;
   playbackSpeed?: number;
@@ -76,7 +54,6 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
@@ -84,8 +61,6 @@ interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
-<<<<<<< HEAD
-=======
 const BlackswanTransition: React.FC = () => {
   const frame = useCurrentFrame();
   const opacity = interpolate(frame, [0, 12], [0, 1], {
@@ -107,7 +82,6 @@ const BlackswanTransition: React.FC = () => {
   );
 };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export const calculateBlackswanMetadata: CalculateMetadataFunction<VideoProps> =
   async ({ props }) => {
     const FPS = 30;
@@ -117,15 +91,6 @@ export const calculateBlackswanMetadata: CalculateMetadataFunction<VideoProps> =
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-<<<<<<< HEAD
-      const totalSeconds = data.scenes.reduce(
-        (sum, s) => sum + (s.durationSeconds || 5),
-        0,
-      );
-      const isPortrait = data.aspectRatio === "portrait";
-      return {
-        durationInFrames: Math.max(Math.ceil(totalSeconds * FPS), FPS * 5),
-=======
       const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
       const sceneFrames = data.scenes.map((s) =>
         getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
@@ -134,7 +99,6 @@ export const calculateBlackswanMetadata: CalculateMetadataFunction<VideoProps> =
       const isPortrait = data.aspectRatio === "portrait";
       return {
         durationInFrames: Math.max(totalFrames, FPS * 5),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         fps: FPS,
         width: isPortrait ? 1080 : 1920,
         height: isPortrait ? 1920 : 1080,
@@ -203,10 +167,7 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   }
 
   const FPS = 30;
-<<<<<<< HEAD
-=======
   const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   let currentFrame = 0;
 
   return (
@@ -216,17 +177,12 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-<<<<<<< HEAD
-      {data.scenes.map((scene) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
-=======
       {data.scenes.map((scene, index) => {
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
           playbackSpeed,
         );
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -246,11 +202,8 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#DFFFFF",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           layoutType: scene.layout,
           fontFamily: resolvedFontFamily || undefined,
         };
@@ -263,9 +216,6 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             name={scene.title}
           >
             <LayoutComponent {...layoutProps} />
-<<<<<<< HEAD
-            {scene.voiceoverFile && <Audio src={staticFile(scene.voiceoverFile)} />}
-=======
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
             )}
@@ -289,7 +239,6 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 <BlackswanTransition />
               </Sequence>
             )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </Sequence>
         );
       })}
@@ -303,11 +252,6 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}
-<<<<<<< HEAD
-    </AbsoluteFill>
-  );
-};
-=======
 
       {data.bgmFile && (
         <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
@@ -316,4 +260,3 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   );
 };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

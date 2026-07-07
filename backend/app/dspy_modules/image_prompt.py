@@ -56,8 +56,4 @@ def refine_image_prompt(image_description: str, scene_context: str = "") -> str:
             "[IMAGE_PROMPT] Failed to refine prompt: %s",
             e,
         )
-<<<<<<< HEAD
-        return idea.strip()
-=======
         return primary
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

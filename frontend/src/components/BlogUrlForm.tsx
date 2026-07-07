@@ -5,45 +5,6 @@ import { useAuth } from "../hooks/useAuth";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
-<<<<<<< HEAD
-import { getTemplates, getVoicePreviews, getMyVoices, getPrebuiltVoices, listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
-import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
-import UpgradePlanModal from "./UpgradePlanModal";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
-import CustomPreview from "./templatePreviews/CustomPreview";
-import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
-import CraftYourTemplateCard from "./CraftYourTemplateCard";
-import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
-
-export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
-
-const DEFAULT_VIDEO_STYLE: VideoStyleId = "storytelling";
-
-/** First entry in template `styles` from meta.json; fallback if missing (legacy meta). */
-function defaultVideoStyleForTemplate(meta: TemplateMeta | undefined | null): VideoStyleId {
-  const raw = meta?.styles?.[0];
-  if (typeof raw === "string" && raw.trim() !== "") {
-    return normalizeVideoStyle(raw);
-  }
-  return DEFAULT_VIDEO_STYLE;
-}
-
-/** Video style aligned with a bulk row template id (built-in meta or custom supported_video_style). */
-function videoStyleForBulkTemplateId(
-  templateId: string,
-  builtinTemplates: TemplateMeta[],
-  customTemplatesList: CustomTemplateItem[]
-): VideoStyleId {
-  if (templateId.startsWith("custom_")) {
-    const cid = parseInt(templateId.replace("custom_", ""), 10);
-    if (Number.isNaN(cid)) return DEFAULT_VIDEO_STYLE;
-    const ct = customTemplatesList.find((t) => t.id === cid);
-    return ct?.supported_video_style
-      ? normalizeVideoStyle(ct.supported_video_style)
-      : DEFAULT_VIDEO_STYLE;
-  }
-  return defaultVideoStyleForTemplate(builtinTemplates.find((t) => t.id === templateId));
-=======
 import { classifyUrl, classifyUrlScrapability } from "../utils/urlScrapability";
 import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import {
@@ -208,7 +169,6 @@ export interface BlogUrlFormDemoMode {
   voicePreviewsData?: Record<string, VoicePreview>;
   /** Replaces every built-in template preview with a static filler (used by help videos). */
   templatePreviewOverride?: (opts: { templateId: string; selected: boolean; thumbnail: boolean }) => ReactNode;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 interface Props {
@@ -229,16 +189,11 @@ interface Props {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
-<<<<<<< HEAD
-    videoLength?: "short" | "medium" | "detailed",
-    contentLanguage?: string | null
-=======
     videoLength?: "short" | "medium" | "detailed" | "more_detailed",
     contentLanguage?: string | null,
     voiceEmotion?: string,
     bgmTrackId?: string | null,
     bgmVolume?: number
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
@@ -247,13 +202,10 @@ interface Props {
   onClose?: () => void;
   /** Invoked before navigating to My Templates to craft a template (e.g. close the new-project modal). */
   onDismissFlow?: () => void;
-<<<<<<< HEAD
-=======
   /** When set, the form renders in read-only demo mode for help videos. */
   demoMode?: BlogUrlFormDemoMode;
   /** Pre-select a genre filter when step 2 opens (e.g. GENRE_CRAFTED to show Designer Templates). */
   initialGenre?: string;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 const MAX_UPLOAD_FILES = 5;
@@ -274,15 +226,6 @@ const MAX_BULK_LINKS = (() => {
 })();
 
 /** Estimated wall-clock range per tier (UI only; backend still uses short | medium | detailed). */
-<<<<<<< HEAD
-const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", string> = {
-  short: "Short  ~  30 sec – 1 min",
-  medium: "Medium  ~  1 - 3 mins",
-  detailed: "Detailed  ~  3 – 8 mins",
-};
-
-const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"];
-=======
 const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed" | "more_detailed", string> = {
   short: "Short  ~  30 sec – 1 min",
   medium: "Medium  ~  1 - 3 mins",
@@ -301,7 +244,6 @@ const VIDEO_LENGTH_MIN_WORDS: Partial<Record<"short" | "medium" | "detailed" | "
 };
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"];
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 const ALLOWED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -309,10 +251,7 @@ const ALLOWED_TYPES = [
   "text/plain",
   "text/markdown",
   "text/x-markdown",
-<<<<<<< HEAD
-=======
   "text/vtt",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ];
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -480,15 +419,9 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
           </div>
 
           {/* Video content */}
-<<<<<<< HEAD
-          <div className="bg-black">
-            {customTemplate ? (
-              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} logoUrls={customTemplate.logo_urls} ogImage={customTemplate.og_image} />
-=======
           <div className="relative aspect-video overflow-hidden bg-black">
             {customTemplate && customTemplate.theme ? (
               <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url ?? undefined} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} validLayouts={(customTemplate as any).valid_layouts || undefined} frontendFiles={(customTemplate as any).frontend_files || undefined} frontendEntryRel={(customTemplate as any).frontend_entry_rel || undefined} publicAssetUrls={templateId.startsWith("crafted_") ? ((customTemplate as CraftedTemplateItem).public_asset_urls ?? undefined) : undefined} logoUrls={customTemplate.logo_urls ?? undefined} ogImage={customTemplate.og_image ?? undefined} showLoaderOnEmptyOrError={templateId.startsWith("crafted_")} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             ) : PreviewComp ? (
               <PreviewComp />
             ) : (
@@ -846,20 +779,12 @@ function getFileExtension(s: string): string | null {
   }
 }
 
-<<<<<<< HEAD
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow }: Props) {
-  const { user } = useAuth();
-  const { showError } = useErrorModal();
-  const navigate = useNavigate();
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
-=======
 export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
   const isPro = demoMode ? true : user?.plan === "pro" || user?.plan === "standard";
   const isDemo = !!demoMode;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Wizard step
   const [step, setStep] = useState<1 | 2 | 3>(demoMode?.step ?? 1);
@@ -884,13 +809,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   bulkTemplatesRef.current = bulkTemplates;
   const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
-<<<<<<< HEAD
-  const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
-  const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
-  const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed")[]>(["short"]);
-  const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
-  const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
-=======
   const [bulkVoiceStability, setBulkVoiceStability] = useState<number[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[0]]);
   const [bulkVoiceSpeed, setBulkVoiceSpeed] = useState<number[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[1]]);
   const [bulkVoiceEmotion, setBulkVoiceEmotion] = useState<string[]>(() => [parseVoiceTuning(user?.preferred_voice_emotion)[2]]);
@@ -901,7 +819,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
   const bulkStyleManuallySet = useRef<boolean[]>([false]);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // Empty string = "not yet set from template"; we derive from template.preview_colors on step 2.
   const [bulkAccentColors, setBulkAccentColors] = useState<string[]>([""]);
   const [bulkBgColors, setBulkBgColors] = useState<string[]>([""]);
@@ -922,10 +839,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
   const [voiceAccent, setVoiceAccent] = useState<string>("american");
-<<<<<<< HEAD
-  const [contentLanguage, setContentLanguage] = useState<string>("auto");
-  const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed">("short");
-=======
   // Voice tuning sliders (paid). Initialized from the remembered per-user preference so a returning
   // user sees their last settings pre-selected.
   const [voiceStability, setVoiceStability] = useState<number>(() => parseVoiceTuning(user?.preferred_voice_emotion)[0]);
@@ -994,7 +907,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [expressiveEnabled, setExpressiveEnabled] = useState<boolean>(() => parseVoiceTuning(user?.preferred_voice_emotion)[4]);
   const [contentLanguage, setContentLanguage] = useState<string>("auto");
   const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed" | "more_detailed">("short");
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
   const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
@@ -1007,14 +919,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const customVoiceIdRef = useRef(customVoiceId);
   voiceGenderRef.current = voiceGender;
   customVoiceIdRef.current = customVoiceId;
-<<<<<<< HEAD
-
-  // Step 2 — video style & template
-  const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
-  const [template, setTemplate] = useState("default");
-  const [templates, setTemplates] = useState<TemplateMeta[]>([]);
-  /** Built-in template list fetch (getTemplates) — drives step 2 loading overlay. */
-=======
 
   // Background music
   const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
@@ -1041,7 +945,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     }
   }, [template, ensureCraftedTemplateDetail]);
   /** Built-in template list fetch — drives step 2 loading overlay (often warmed by Dashboard prefetch). */
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [builtinTemplatesLoading, setBuiltinTemplatesLoading] = useState(true);
   /** After built-ins load: session random pick (or skip) has finished — step 2 can interact. */
   const [sessionBuiltinInitDone, setSessionBuiltinInitDone] = useState(false);
@@ -1073,10 +976,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   pickerDefaultTemplateIdRef.current = pickerDefaultTemplateId;
   // Only show templates that have finished generating (intro_code exists)
   const readyCustomTemplates = customTemplates.filter((ct) => !!ct.intro_code);
-<<<<<<< HEAD
-  const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
-  const [customTemplatesLoading, setCustomTemplatesLoading] = useState(true);
-=======
   const readyCraftedTemplates = craftedTemplates.filter((ct) => !!ct.theme);
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
   const [showGetMoreTemplates, setShowGetMoreTemplates] = useState(false);
@@ -1098,7 +997,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     }
     return Array.from(byId.values());
   }, [templates, craftedTemplates]);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const renderLanguageDropdown = (
     value: string,
@@ -1154,18 +1052,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   );
 
   const renderVideoLengthDropdown = (
-<<<<<<< HEAD
-    value: "short" | "medium" | "detailed",
-    onSelect: (next: "short" | "medium" | "detailed") => void
-  ) => (
-=======
     value: "short" | "medium" | "detailed" | "more_detailed",
     onSelect: (next: "short" | "medium" | "detailed" | "more_detailed") => void
   ) => {
     const minWords = VIDEO_LENGTH_MIN_WORDS[value];
     return (
     <>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     <details className="relative group">
       <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
         <span>{VIDEO_LENGTH_DURATION_LABELS[value]}</span>
@@ -1180,11 +1072,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       </summary>
       <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
         <div className="max-h-[18.5rem] overflow-y-auto py-1">
-<<<<<<< HEAD
-          {(["short", "medium", "detailed"] as const).map((opt) => (
-=======
           {(["short", "medium", "detailed", "more_detailed"] as const).map((opt) => (
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             <button
               key={opt}
               type="button"
@@ -1203,9 +1091,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </div>
     </details>
-<<<<<<< HEAD
-  );
-=======
     {minWords && (
       <p className="mt-1.5 flex items-start gap-1 text-[11px] text-red-600 leading-relaxed">
         <svg className="w-3.5 h-3.5 flex-shrink-0 mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1220,17 +1105,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     </>
     );
   };
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Load templates, voice previews, and user's saved voices once
   useEffect(() => {
     let mounted = true;
-<<<<<<< HEAD
-    getTemplates()
-      .then((r) => {
-        if (mounted) {
-          setTemplates(r.data);
-=======
     if (isDemo) {
       if (demoMode?.templatesData) setTemplates(demoMode.templatesData);
       if (demoMode?.customTemplatesData) setCustomTemplates(demoMode.customTemplatesData);
@@ -1266,22 +1144,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       .then((data) => {
         if (mounted) {
           setTemplates(data);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           setBuiltinTemplatesLoading(false);
         }
       })
       .catch(() => {
         if (mounted) setBuiltinTemplatesLoading(false);
       });
-<<<<<<< HEAD
-    listCustomTemplates()
-      .then((r) => {
-        if (mounted) setCustomTemplates(r.data);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (mounted) setCustomTemplatesLoading(false);
-=======
     fetchBlogUrlFormAvailabilityDeduped()
       .then(({ hasCraftedTemplatesEligible: eligible, customTemplates }) => {
         if (!mounted) return;
@@ -1296,20 +1164,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setCustomTemplates([]);
         setCustomTemplatesLoading(false);
         setTemplateAvailabilityLoading(false);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       });
     getVoicePreviews()
       .then((r) => {
         if (mounted) setVoicePreviews(r.data);
       })
-<<<<<<< HEAD
-=======
       .catch(() => {});
     getBgmTracks()
       .then((r) => {
         if (mounted) setBgmTracks(r.data);
       })
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       .catch(() => {});
     setMyVoicesLoading(true);
     getMyVoices()
@@ -1351,27 +1215,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Keep bulk rows in sync: whenever we have saved voices and bulk URLs,
   // ensure each populated row gets a default custom voice if it doesn't have one.
-<<<<<<< HEAD
-  useEffect(() => {
-    if (!myVoicesList.length) return;
-    const firstId = myVoicesList[0].voice_id;
-    setBulkCustomVoiceId((prev) => {
-      const next = [...prev];
-      let changed = false;
-      bulkRows.forEach((row, idx) => {
-        if (row.url.trim() && !next[idx]) {
-          next[idx] = firstId;
-          changed = true;
-        }
-      });
-      return changed ? next : prev;
-    });
-  }, [myVoicesList, bulkRows]);
-
-  // Sync colors to the selected template when templates load or selection changes.
-  // Runs before session random pick on the same commit so random pick can override starter "default" colors.
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   useEffect(() => {
     if (!myVoicesList.length) return;
     const firstId = myVoicesList[0].voice_id;
@@ -1456,64 +1299,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setSessionBuiltinInitDone(true);
   }, [templates]);
 
-  // Built-ins loaded but empty (error / no data): unblock step 2 without random pick.
-  useEffect(() => {
-    if (builtinTemplatesLoading) return;
-    if (templates.length === 0) {
-      setSessionBuiltinInitDone(true);
-    }
-  }, [builtinTemplatesLoading, templates.length]);
-
-  // Once per form mount: pick a random built-in template for this session (single + all bulk rows).
-  const sessionRandomAppliedRef = useRef(false);
-  useEffect(() => {
-    if (templates.length === 0) return;
-    if (sessionRandomAppliedRef.current) {
-      setSessionBuiltinInitDone(true);
-      return;
-    }
-    const idx = Math.floor(Math.random() * templates.length);
-    const picked = templates[idx];
-    if (!picked?.id) {
-      setSessionBuiltinInitDone(true);
-      return;
-    }
-    sessionRandomAppliedRef.current = true;
-    setPickerDefaultTemplateId(picked.id);
-    if (templateManuallySelectedRef.current) {
-      setSessionBuiltinInitDone(true);
-      return;
-    }
-    const styleForPick = defaultVideoStyleForTemplate(picked);
-    const prevBulkTpls = bulkTemplatesRef.current;
-    const builtin = templates;
-    const customList = customTemplatesRef.current;
-    setVideoStyle(styleForPick);
-    if (picked.preview_colors) {
-      setAccentColor(picked.preview_colors.accent);
-      setBgColor(picked.preview_colors.bg);
-      setTextColor(picked.preview_colors.text);
-    }
-    setBulkVideoStyles((prevStyles) => {
-      if (prevBulkTpls.length === 0) return [styleForPick];
-      return prevBulkTpls.map((tpl, i) => {
-        if (tpl === "default") return styleForPick;
-        const prev = prevStyles[i];
-        if (prev !== undefined) return prev;
-        return videoStyleForBulkTemplateId(tpl, builtin, customList);
-      });
-    });
-    setTemplate((prev) =>
-      prev === "default" ? picked.id : prev
-    );
-    setBulkTemplates((prev) =>
-      prev.length > 0
-        ? prev.map((tpl) => (tpl === "default" ? picked.id : tpl))
-        : [picked.id]
-    );
-    setSessionBuiltinInitDone(true);
-  }, [templates]);
-
   // Preload voice preview audio on mount so it's ready by step 3
   useEffect(() => {
     if (isDemo) return;
@@ -1584,33 +1369,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     audio.play().catch(() => setPlayingKey(null));
     audioRef.current = audio;
     setPlayingKey(key);
-<<<<<<< HEAD
-  };
-
-  const playPremiumTeaser = (voice: ElevenLabsVoice) => {
-    const key = `premium_${voice.voice_id}`;
-    if (playingKey === key) {
-      audioRef.current?.pause();
-      setPlayingKey(null);
-      return;
-    }
-    if (!voice.preview_url) return;
-    audioRef.current?.pause();
-    const audio = new Audio(voice.preview_url);
-    audio.onended = () => setPlayingKey(null);
-    audio.onerror = () => setPlayingKey(null);
-    audio.play().catch(() => setPlayingKey(null));
-    audioRef.current = audio;
-    setPlayingKey(key);
-  };
-
-  // ─── File helpers ────────────────────────────────────────────
-  const isAllowedFile = (file: File) => {
-    if (ALLOWED_TYPES.includes(file.type)) return true;
-    const ext = file.name.toLowerCase().split(".").pop();
-    return ext ? ALLOWED_EXTENSIONS.includes(`.${ext}`) : false;
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   };
 
   const playPremiumTeaser = (voice: ElevenLabsVoice) => {
@@ -1650,11 +1408,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setDocError(null);
     for (const f of incoming) {
       if (!isAllowedFile(f)) {
-<<<<<<< HEAD
-        setDocError(`"${f.name}" is not supported. Use PDF, DOCX, PPTX, Markdown, or TXT.`);
-=======
         setDocError(`"${f.name}" is not supported. Use PDF, DOCX, PPTX, Markdown, TXT, or VTT.`);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         return;
       }
       if (f.size > MAX_UPLOAD_SIZE) {
@@ -1731,8 +1485,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     : [];
   const hasBulkFileExt = bulkFileExtRows.some(Boolean);
 
-<<<<<<< HEAD
-=======
   // ─── Non-scrapable link detection ────────────────────────────
   const urlClassification = mode === "url" ? classifyUrl(urls[0] ?? "") : { kind: "ok" as const };
   const urlScrape = urlClassification.kind;
@@ -1741,27 +1493,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     : [];
   const hasBulkBlocked = bulkScrapeRows.some((s) => s === "blocked");
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // ─── Navigation ──────────────────────────────────────────────
   // Step order: 1 = Project (URL/Upload/Bulk), 2 = Template, 3 = Voice
   const canGoNext1 =
     mode === "url"
-<<<<<<< HEAD
-      ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0]) && !urlFileExt
-=======
       ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0]) && !urlFileExt && urlScrape !== "blocked"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       : mode === "upload"
         ? docFiles.length > 0
         : bulkRows.some((r) => r.url.trim()) &&
           bulkRows.every(
             (r) =>
               !r.url.trim() || (!hasSpacesInMiddle(r.url) && containsDot(r.url))
-<<<<<<< HEAD
-          ) && !hasBulkFileExt;
-=======
           ) && !hasBulkFileExt && !hasBulkBlocked;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const goNext = () => {
     if (step === 1 && canGoNext1) {
@@ -1932,8 +1675,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         video_length: bulkVideoLength[i] ?? "short",
         voice_gender: inferredGender,
         voice_accent: inferredAccent,
-<<<<<<< HEAD
-=======
         voice_emotion: (() => {
           const s = bulkVoiceStability[i] ?? VOICE_STABILITY_DEFAULT;
           const sp = bulkVoiceSpeed[i] ?? VOICE_SPEED_DEFAULT;
@@ -1943,7 +1684,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           // the backend only applies tuning to the project when the flag is on.
           return isPro && inferredGender !== "none" ? serializeVoiceTuning(s, sp, em, sty, expressiveEnabled) : undefined;
         })(),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         accent_color:
           bulkAccentColors[i] && bulkAccentColors[i].trim()
             ? bulkAccentColors[i]
@@ -2013,13 +1753,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     if (mode === "upload") {
       if (docFiles.length === 0) return;
-<<<<<<< HEAD
-      if (template.startsWith("custom_") && !isPro) {
-        setShowCustomTemplateUpgrade(true);
-        return;
-      }
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
       const inferredGender =
         voiceGender === "none"
@@ -2045,29 +1778,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         template !== "default" ? template : undefined,
         videoStyle,
         videoLength,
-<<<<<<< HEAD
-        contentLanguage === "auto" ? null : contentLanguage
-=======
         contentLanguage === "auto" ? null : contentLanguage,
         isPro && inferredGender !== "none"
           ? serializeVoiceTuning(voiceStability, voiceSpeed, voiceEmotion, voiceStyle, expressiveEnabled)
           : undefined,
         selectedBgmTrackId,
         selectedBgmVolume
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       );
       setDocFiles([]);
       setName("");
     } else {
       const validUrls = urls.filter((u) => u.trim());
       if (validUrls.length === 0) return;
-<<<<<<< HEAD
-      if (template.startsWith("custom_") && !isPro) {
-        setShowCustomTemplateUpgrade(true);
-        return;
-      }
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
       const inferredGender =
         voiceGender === "none"
@@ -2094,16 +1816,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           template !== "default" ? template : undefined,
           videoStyle,
           videoLength,
-<<<<<<< HEAD
-          contentLanguage === "auto" ? null : contentLanguage
-=======
           contentLanguage === "auto" ? null : contentLanguage,
           isPro && inferredGender !== "none"
           ? serializeVoiceTuning(voiceStability, voiceSpeed, voiceEmotion, voiceStyle, expressiveEnabled)
           : undefined,
           selectedBgmTrackId,
           selectedBgmVolume
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         );
       }
       setUrls([""]);
@@ -2114,13 +1832,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // ─── Template apply colors ───────────────────────────────────
   const applyTemplate = (id: string) => {
     templateManuallySelectedRef.current = true;
-<<<<<<< HEAD
-    if (id.startsWith("custom_") && !isPro) {
-      setShowCustomTemplateUpgrade(true);
-      return;
-    }
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     setTemplate(id);
     // Custom template
     if (id.startsWith("custom_")) {
@@ -2133,14 +1844,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       }
       return;
     }
-<<<<<<< HEAD
-    const meta = templates.find((t) => t.id === id);
-    if (meta) {
-      setVideoStyle(defaultVideoStyleForTemplate(meta));
-    }
-=======
     const meta = allTemplates.find((t) => t.id === id);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
       setBgColor(meta.preview_colors.bg);
@@ -2149,15 +1853,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   };
 
   const openStep2CustomTemplateCreator = (style: VideoStyleId, _bulkRow: number | null) => {
-<<<<<<< HEAD
-    if (!isPro) {
-      setShowCustomTemplateUpgrade(true);
-      return;
-    }
-=======
     // Creation is open to all plans; the dashboard creator enforces the per-plan
     // template-creation cap (1 free + purchased slots) via can_create_custom_template.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     onDismissFlow?.();
     const params = new URLSearchParams();
     params.set("tab", "templates");
@@ -2166,8 +1863,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     navigate(`/dashboard?${params.toString()}`);
   };
 
-<<<<<<< HEAD
-=======
   const openStep3CustomVoiceCreator = () => {
     if (!isPro) {
       setShowCustomTemplateUpgrade(true);
@@ -2180,7 +1875,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     navigate(`/dashboard?${params.toString()}`);
   };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // ─── Step 1: Project (URL or Upload) ─────────────────────────
   const bulkStep1ActiveIndex = Math.min(bulkActiveIndex, Math.max(0, bulkRows.length - 1));
   const bulkStep1MasterIndex = Math.min(bulkLengthMasterIndex, Math.max(0, bulkRows.length - 1));
@@ -2394,8 +2088,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               </p>
             </div>
           )}
-<<<<<<< HEAD
-=======
           {urlScrape === "blocked" && urls[0]?.trim() && (
             <p className="text-xs text-red-500 mt-1">
               This site can't be scraped, please use a different link.
@@ -2406,7 +2098,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               {urlClassification.message}
             </p>
           )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
             Use a paywall-free link for best results.{" "}
             <button
@@ -2482,19 +2173,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <p className="text-sm text-gray-500">
               Drop files here or <span className="text-purple-600 font-medium">paste text (Ctrl+V)</span>
             </p>
-<<<<<<< HEAD
-            <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint, Markdown, Text</p>
-            <input
-              ref={docInputRef}
-              type="file"
-              accept=".pdf,.docx,.pptx,.md,.markdown,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/x-markdown"
-=======
             <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint, Markdown, Text, VTT — or paste plain text as a .txt file</p>
             <input
               ref={docInputRef}
               type="file"
               accept=".pdf,.docx,.pptx,.md,.markdown,.txt,.vtt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/x-markdown,text/vtt"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               multiple
               className="hidden"
               onChange={(e) => { addDocFiles(e.target.files); e.target.value = ""; }}
@@ -2696,17 +2379,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     </div>
   );
 
-<<<<<<< HEAD
-  // ─── Step 2: Video style + Template ──────────────────────────
-  const styleLower = normalizeVideoStyle(videoStyle);
-  const sourceList = templates;
-  const suggestedTemplates = sourceList.filter(
-    (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
-  );
-  const customTemplatesForStyle = readyCustomTemplates.filter(
-    (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
-  );
-=======
   // ─── Step 2: Genre/source filter + Template list ──────────────────────────
   // Genre dropdown has two source-bucket options at the top — "Custom Templates"
   // and "Designer Templates" — encoded with sentinel values. Below them are
@@ -2727,7 +2399,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
     return rank(a) - rank(b);
   });
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const styleTemplateItems: Array<
     | { type: "builtin"; id: string; data: TemplateMeta }
@@ -2744,16 +2415,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const selectedCustom = template.startsWith("custom_")
     ? customTemplates.find((ct) => ct.id === parseInt(template.replace("custom_", "")))
     : null;
-<<<<<<< HEAD
-  const selectedBuiltinNew =
-    !template.startsWith("custom_") && templates.some((t) => t.id === template && t.new_template === true);
-=======
   const selectedCrafted = template.startsWith("crafted_")
     ? craftedTemplates.find((ct) => ct.id === template)
     : null;
   const selectedBuiltinNew =
     !template.startsWith("custom_") && allTemplates.some((t) => t.id === template && t.new_template === true);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   const step2Template = (
     <div className="space-y-5">
@@ -2763,11 +2429,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           Selected Template
         </label>
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
-<<<<<<< HEAD
-          <div className="relative">
-            {selectedCustom ? (
-              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
-=======
           <div className="relative aspect-video overflow-hidden">
             {demoMode?.templatePreviewOverride && !selectedCustom && !selectedCrafted ? (
               demoMode.templatePreviewOverride({ templateId: template, selected: true, thumbnail: false })
@@ -2784,7 +2445,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               <div className="w-full aspect-video bg-[#1a1a2e] flex items-center justify-center">
                 <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
               </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             ) : SelectedPreviewComp ? (
               <SelectedPreviewComp key={`selected-${template}-${step}`} />
             ) : (
@@ -2834,42 +2494,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
             Genre
           </label>
-<<<<<<< HEAD
-          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
-            {VIDEO_STYLES.map((s) => {
-              const isSelected = videoStyle === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    setVideoStyle(s.id);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                    isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
-          Suggested templates for the selected video style
-        </p>
-        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
-          <>
-            <div className="grid grid-cols-3 gap-2">
-              <CraftYourTemplateCard
-                variant="default"
-                isPro={isPro}
-                onClick={() => openStep2CustomTemplateCreator(videoStyle, null)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openStep2CustomTemplateCreator(videoStyle, null);
-=======
           <div className="relative">
             <button
               type="button"
@@ -2999,7 +2623,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     setShowGetMoreTemplates(true);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   }
                 }}
               />
@@ -3018,20 +2641,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           : "border-gray-200/60 hover:border-purple-300/60"
                       }`}
                     >
-<<<<<<< HEAD
-                      <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
-                        <div className="relative z-0 min-h-[56px]">
-                          <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-${step}`} />
-                        </div>
-                        <div className="absolute top-0 left-0.5 z-[5]">
-                          <CustomTemplateBadge />
-                        </div>
-                        {!isPro && (
-                          <div className="absolute top-6 left-0.5 z-[5] px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
-                            Pro
-                          </div>
-                        )}
-=======
                       <div className="relative isolate h-[70px] overflow-hidden">
                         <div className="relative z-0 h-full">
                           {item.type === "crafted" ? (
@@ -3053,7 +2662,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                             </span>
                           )}
                         </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 z-20 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-md ring-2 ring-white">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3076,10 +2684,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = template === t.id;
                 const isNewTemplate = t.new_template === true;
-<<<<<<< HEAD
-=======
                 const isPopularTemplate = t.popular_template === true;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 return (
                   <div
                     key={t.id}
@@ -3089,11 +2694,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
-<<<<<<< HEAD
-=======
                         : isPopularTemplate
                         ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
@@ -3114,23 +2716,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           </svg>
                         </div>
                       )}
-<<<<<<< HEAD
-                      {t.new_template === true && (
-=======
                       {isNewTemplate && (
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <NewTemplateBadge />
                         </div>
                       )}
-<<<<<<< HEAD
-=======
                       {!isNewTemplate && isPopularTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <PopularTemplateBadge />
                         </div>
                       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     </div>
                     <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
                       <div className="text-[10px] font-semibold text-gray-800 truncate">
@@ -3152,15 +2747,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   </p>
                 </div>
               )}
-<<<<<<< HEAD
-            </div>
-            {styleTemplateItems.length === 0 && (
-              <p className="text-xs text-gray-500 py-3 text-center">
-                No built-in templates for this style. Add a custom template above or try another video style.
-              </p>
-            )}
-          </>
-=======
               {craftedTemplatesLoading && (
                 <div
                   className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
@@ -3209,7 +2795,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               })}
             </div>
           </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
       </div>
 
@@ -3297,18 +2882,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const selectedCustomBulk = tpl.startsWith("custom_")
       ? customTemplates.find((ct) => ct.id === parseInt(tpl.replace("custom_", "")))
       : null;
-<<<<<<< HEAD
-    const selectedBuiltinNewBulk = !tpl.startsWith("custom_") && templateMeta?.new_template === true;
-    const defaultAccent = selectedCustomBulk
-      ? selectedCustomBulk.preview_colors.accent
-      : templateMeta?.preview_colors?.accent ?? accentColor;
-    const defaultBg = selectedCustomBulk
-      ? selectedCustomBulk.preview_colors.bg
-      : templateMeta?.preview_colors?.bg ?? bgColor;
-    const defaultText = selectedCustomBulk
-      ? selectedCustomBulk.preview_colors.text
-      : templateMeta?.preview_colors?.text ?? textColor;
-=======
     const selectedCraftedBulk = tpl.startsWith("crafted_")
       ? craftedTemplates.find((ct) => ct.id === tpl)
       : null;
@@ -3328,7 +2901,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       ?? selectedCraftedBulk?.preview_colors?.text
       ?? templateMeta?.preview_colors?.text
       ?? textColor;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     const accent =
       bulkAccentColors[activeIndex] && bulkAccentColors[activeIndex].trim()
@@ -3416,21 +2988,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     const applyBulkTemplate = (id: string) => {
       templateManuallySelectedRef.current = true;
-<<<<<<< HEAD
-      if (id.startsWith("custom_") && !isPro) {
-        setShowCustomTemplateUpgrade(true);
-        return;
-      }
-      const matchedCustom = id.startsWith("custom_")
-        ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))
-        : null;
-      const styleUpdate: VideoStyleId | null = id.startsWith("custom_")
-        ? matchedCustom?.supported_video_style
-          ? normalizeVideoStyle(matchedCustom.supported_video_style)
-          : null
-        : defaultVideoStyleForTemplate(templates.find((t) => t.id === id));
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const colors = id.startsWith("custom_")
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
         : id.startsWith("crafted_")
@@ -3445,16 +3002,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           next[activeIndex] = id;
           return next;
         });
-<<<<<<< HEAD
-        if (styleUpdate !== null) {
-          setBulkVideoStyles((prev) => {
-            const next = [...prev];
-            next[activeIndex] = styleUpdate;
-            return next;
-          });
-        }
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if (colors) {
           setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
           setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
@@ -3469,16 +3016,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           targetIndices.forEach((idx) => { next[idx] = id; });
           return next;
         });
-<<<<<<< HEAD
-        if (styleUpdate !== null) {
-          setBulkVideoStyles((prev) => {
-            const next = [...prev];
-            targetIndices.forEach((idx) => { next[idx] = styleUpdate; });
-            return next;
-          });
-        }
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if (colors) {
           setBulkAccentColors((prev) => {
             const next = [...prev];
@@ -3504,16 +3041,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         next[activeIndex] = id;
         return next;
       });
-<<<<<<< HEAD
-      if (styleUpdate !== null) {
-        setBulkVideoStyles((prev) => {
-          const next = [...prev];
-          next[activeIndex] = styleUpdate;
-          return next;
-        });
-      }
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       if (colors) {
         setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
         setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
@@ -3544,16 +3071,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const SelectedPreviewComp = TEMPLATE_PREVIEWS[tpl];
     const selectedDesc = TEMPLATE_DESCRIPTIONS[tpl];
 
-<<<<<<< HEAD
-    const styleLower = normalizeVideoStyle(activeVideoStyle);
-    const sourceList = templates;
-    const suggestedTemplates = sourceList.filter(
-      (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
-    );
-    const customTemplatesForStyle = readyCustomTemplates.filter(
-      (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
-    );
-=======
     const {
       suggestedTemplates,
       customTemplatesForStyle,
@@ -3563,7 +3080,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
       return rank(a) - rank(b);
     });
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     const styleTemplateItems: Array<
       | { type: "builtin"; id: string; data: TemplateMeta }
       | { type: "custom"; id: string; data: CustomTemplateItem }
@@ -3669,8 +3185,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <div className="relative aspect-video overflow-hidden">
               {selectedCustomBulk ? (
                 <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
-<<<<<<< HEAD
-=======
               ) : selectedCraftedBulk && ((selectedCraftedBulk as any).frontend_files || selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
                 <CraftedTemplatePreviewSmart
                   item={selectedCraftedBulk}
@@ -3682,7 +3196,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 <div className="w-full aspect-video bg-[#1a1a2e] flex items-center justify-center">
                   <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
                 </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               ) : SelectedPreviewComp ? (
                 <SelectedPreviewComp key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
               ) : (
@@ -3694,11 +3207,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-<<<<<<< HEAD
-                  <div className="text-sm font-semibold text-gray-800">{selectedCustomBulk ? selectedCustomBulk.name : (selectedDesc?.title ?? tpl)}</div>
-=======
                   <div className="text-sm font-semibold text-gray-800">{selectedCustomBulk ? selectedCustomBulk.name : selectedCraftedBulk ? selectedCraftedBulk.name : (selectedDesc?.title ?? tpl)}</div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   {selectedBuiltinNewBulk && <NewTemplateBadge className="shrink-0" />}
                   {selectedCustomBulk && (
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: selectedCustomBulk.preview_colors.accent }}>
@@ -3728,59 +3237,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
         </div>
 
-<<<<<<< HEAD
-        {/* Video Style tabs */}
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Video Style
-          </label>
-          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
-            {VIDEO_STYLES.map((s) => {
-              const isSelected = activeVideoStyle === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    const targetIndices = indexed.map(({ i }) => i);
-                    if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
-                      setBulkApplyTemplateAll(false);
-                      setBulkVideoStyles((prev) => {
-                        const next = [...prev];
-                        next[activeIndex] = s.id;
-                        return next;
-                      });
-                      return;
-                    }
-                    if (bulkApplyTemplateAll && activeIndex === masterIndex) {
-                      setBulkVideoStyles((prev) => {
-                        const next = [...prev];
-                        targetIndices.forEach((idx) => { next[idx] = s.id; });
-                        return next;
-                      });
-                      return;
-                    }
-                    setBulkVideoStyles((prev) => {
-                      const next = [...prev];
-                      next[activeIndex] = s.id;
-                      return next;
-                    });
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                    isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
-          Suggested templates for the selected video style
-        </p>
-        {/* Templates list filtered by style */}
-=======
         {/* Genre filter — same `genre` state as single-link step 2 */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -3904,22 +3360,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           {genreTemplateListCaption(genre)}
         </p>
         {/* Template thumbnails — filtered by genre; video style below is orthogonal */}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           <>
             <div className="grid grid-cols-3 gap-2">
               <CraftYourTemplateCard
                 variant="compact"
                 isPro={isPro}
-<<<<<<< HEAD
-                onClick={() => openStep2CustomTemplateCreator(activeVideoStyle, activeIndex)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openStep2CustomTemplateCreator(activeVideoStyle, activeIndex);
-                  }
-                }}
-=======
                 onClick={() => {
                   setShowGetMoreTemplates(true);
                 }}
@@ -3929,7 +3375,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     setShowGetMoreTemplates(true);
                   }
                 }}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               />
               {styleTemplateItems.map((item) => {
                 if (item.type === "custom" || item.type === "crafted") {
@@ -3946,20 +3391,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           : "border-gray-200/60 hover:border-purple-300/60"
                       }`}
                     >
-<<<<<<< HEAD
-                      <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
-                        <div className="relative z-0 min-h-[56px]">
-                          <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-bulk-${activeIndex}`} />
-                        </div>
-                        <div className="absolute top-0.5 left-0.5 z-[5]">
-                          <CustomTemplateBadge />
-                        </div>
-                        {!isPro && (
-                          <div className="absolute top-6 left-0.5 z-[5] px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
-                            Pro
-                          </div>
-                        )}
-=======
                       <div className="relative isolate h-[70px] overflow-hidden">
                         <div className="relative z-0 h-full">
                           {item.type === "crafted" ? (
@@ -3981,7 +3412,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                             </span>
                           )}
                         </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 z-20 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-md ring-2 ring-white">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4004,10 +3434,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = tpl === t.id;
                 const isNewTemplate = t.new_template === true;
-<<<<<<< HEAD
-=======
                 const isPopularTemplate = t.popular_template === true;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 return (
                   <div
                     key={t.id}
@@ -4017,11 +3444,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
-<<<<<<< HEAD
-=======
                         : isPopularTemplate
                         ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
@@ -4040,23 +3464,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           </svg>
                         </div>
                       )}
-<<<<<<< HEAD
-                      {t.new_template === true && (
-=======
                       {isNewTemplate && (
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <NewTemplateBadge />
                         </div>
                       )}
-<<<<<<< HEAD
-=======
                       {!isNewTemplate && isPopularTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <PopularTemplateBadge />
                         </div>
                       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                     </div>
                     <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
                       <div className="text-[10px] font-semibold text-gray-800 truncate">
@@ -4078,15 +3495,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   </p>
                 </div>
               )}
-<<<<<<< HEAD
-            </div>
-            {styleTemplateItems.length === 0 && (
-              <p className="text-xs text-gray-500 py-3 text-center">
-                No built-in templates for this style. Add a custom template above or try another video style.
-              </p>
-            )}
-          </>
-=======
               {craftedTemplatesLoading && (
                 <div
                   className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
@@ -4159,7 +3567,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               })}
             </div>
           </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
 
         {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
@@ -4404,13 +3811,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       </label>
 
       {/* Voices from user's saved list + premium teasers for free users */}
-<<<<<<< HEAD
-      <div className={voiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
-        <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
-          Voice — Select and Play to Preview
-        </label>
-        <div className="space-y-2 max-h-[320px] overflow-y-auto">
-=======
       <div>
         <div className="flex items-center justify-between mb-3">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
@@ -4486,7 +3886,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               }
             }}
           />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           {myVoicesLoading ? (
             <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
               <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
@@ -4570,12 +3969,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </>
           )}
         </div>
-<<<<<<< HEAD
-        {!myVoicesLoading && myVoicesList.length === 0 && (
-=======
         )}
         {voicePanelTab === "voice" && !myVoicesLoading && myVoicesList.length === 0 && (
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           <p className="text-[11px] text-gray-500 mt-2">
             No voices saved. Add voices in the Voices tab to use them here.{" "}
             {!isPro && (
@@ -4585,10 +3980,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             )}
           </p>
         )}
-<<<<<<< HEAD
-      </div>
-
-=======
         {/* Advanced Options tab content — voice tuning sliders (paid) */}
         {voicePanelTab === "advanced" && isPro && voiceGender !== "none" && (
           <AdvancedVoiceOptions
@@ -4733,7 +4124,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       )}
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div className="flex gap-2 pt-1">
         <button
           type="button"
@@ -5002,134 +4392,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </label>
 
         <div className={rowVoiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
-<<<<<<< HEAD
-          <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
-            Voice — select and play to preview
-          </label>
-          <div className="space-y-2 max-h-[320px] overflow-y-auto">
-            {myVoicesLoading ? (
-              <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
-                <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
-                <p className="text-[11px] text-gray-500">Loading your voices…</p>
-              </div>
-            ) : (
-              <>
-                {myVoicesList.map((saved) => {
-                  const isSelectedBulk = rowCustomVoiceId === saved.voice_id;
-                  const canSelectBulk = isPro || (saved.plan !== "paid" && !saved.custom_voice_id);
-                  const hasPreview = !!saved.preview_url;
-                  const myKey = `my_${saved.voice_id}`;
-                  const isPlaying = playingKey === myKey;
-                  const { displayName } = getMyVoiceDisplayName(saved.name);
-                  const isCustom = !!saved.custom_voice_id;
-                  return (
-                    <VoiceItem
-                      key={`saved_${saved.id}`}
-                      name={displayName}
-                      subtitle={subtitleForSavedVoice(saved)}
-                      hasPreview={hasPreview}
-                      isPlaying={isPlaying}
-                      onPlay={() => playMyVoice(saved)}
-                      disabled={false}
-                      isSelected={isSelectedBulk}
-                      onClick={() => {
-                        if (!canSelectBulk) {
-                          setShowUpgrade(true);
-                          return;
-                        }
-                        const value = isSelectedBulk ? "" : saved.voice_id;
-                        const g = normalizeVoiceGender(saved.gender);
-                        const a = normalizeVoiceAccent(saved.accent);
-                        const targetIndices = indexed.map(({ i }) => i);
-                        if (bulkApplyVoiceAll && activeIndex === masterIndex) {
-                          if (g) {
-                            setBulkVoiceGender((prev) => {
-                              const next = [...prev];
-                              targetIndices.forEach((idx) => { next[idx] = g; });
-                              return next;
-                            });
-                          }
-                          if (a) {
-                            setBulkVoiceAccent((prev) => {
-                              const next = [...prev];
-                              targetIndices.forEach((idx) => { next[idx] = a; });
-                              return next;
-                            });
-                          }
-                          setBulkCustomVoiceId((prev) => {
-                            const next = [...prev];
-                            targetIndices.forEach((idx) => { next[idx] = value; });
-                            return next;
-                          });
-                        } else {
-                          setBulkApplyVoiceAll(false);
-                          if (g) {
-                            setBulkVoiceGender((prev) => {
-                              const next = [...prev];
-                              next[activeIndex] = g;
-                              return next;
-                            });
-                          }
-                          if (a) {
-                            setBulkVoiceAccent((prev) => {
-                              const next = [...prev];
-                              next[activeIndex] = a;
-                              return next;
-                            });
-                          }
-                          setBulkCustomVoiceId((prev) => {
-                            const next = [...prev];
-                            next[activeIndex] = value;
-                            return next;
-                          });
-                        }
-                      }}
-                      badge={
-                        isCustom ? (
-                          <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Custom</span>
-                        ) : saved.plan === "paid" ? (
-                          <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
-                        ) : null
-                      }
-                      actions={
-                        isSelectedBulk ? (
-                          <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
-                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        ) : null
-                      }
-                    />
-                  );
-                })}
-                {!isPro && premiumTeaserVoices.map((voice) => {
-                  const key = `premium_${voice.voice_id}`;
-                  const isPlaying = playingKey === key;
-                  const labels = voice.labels ?? {};
-                  const subtitle = formatVoiceSubtitle(labels.gender, labels.accent, voice.description ?? "Premium voice");
-                  return (
-                    <VoiceItem
-                      key={key}
-                      name={voice.name}
-                      subtitle={subtitle}
-                      hasPreview={!!voice.preview_url}
-                      isPlaying={isPlaying}
-                      onPlay={() => playPremiumTeaser(voice)}
-                      disabled={false}
-                      isSelected={false}
-                      onClick={() => setShowUpgrade(true)}
-                      badge={
-                        <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
-                      }
-                    />
-                  );
-                })}
-              </>
-            )}
-          </div>
-          {!myVoicesLoading && myVoicesList.length === 0 && (
-=======
           <div className="flex items-center justify-between mb-3">
             <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
               {showAdvancedOptions && isPro ? "Advanced Options" : "Voice — select and play to preview"}
@@ -5293,7 +4555,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
           )}
           {!(showAdvancedOptions && isPro) && !myVoicesLoading && myVoicesList.length === 0 && (
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             <p className="text-[11px] text-gray-500 mt-2">
               No voices saved. Add voices in the Voices tab to use them here.{" "}
               {!isPro && (
@@ -5305,8 +4566,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           )}
         </div>
 
-<<<<<<< HEAD
-=======
         {/* Voice tuning — Stability + Speed sliders (paid); apply-to-all sync mirrors other voice controls */}
         {(() => {
           const applyBulkTuning = <T,>(
@@ -5474,7 +4733,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           );
         })()}
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <div className="flex gap-2 pt-1">
           <button
             type="button"
@@ -5519,11 +4777,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const modalWidth = "max-w-xl";
 
   const isStep2TemplatesPending =
-<<<<<<< HEAD
-    step === 2 && (builtinTemplatesLoading || !sessionBuiltinInitDone);
-=======
     step === 2 && (builtinTemplatesLoading || templateAvailabilityLoading || !sessionBuiltinInitDone);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Constant form size: min-height so layout doesn’t jump between steps
   const stepContentWrapper = (
@@ -5567,10 +4821,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <UpgradePlanModal
           open={showCustomTemplateUpgrade}
           onClose={() => setShowCustomTemplateUpgrade(false)}
-<<<<<<< HEAD
-          title="Upgrade to use custom template"
-          subtitle="Your custom template is ready. Upgrade to Pro to use it when creating new videos."
-=======
           subscriptionsOnly
           title="Upgrade to use custom template"
           subtitle="Custom templates are a Standard & Pro feature. Upgrade your plan to use this template in your videos."
@@ -5590,7 +4840,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <DesignerTemplateRequestModal
           open={showDesignerRequest}
           onClose={() => setShowDesignerRequest(false)}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         />
       </form>
     </>

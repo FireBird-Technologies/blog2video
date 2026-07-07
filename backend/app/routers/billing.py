@@ -1,13 +1,8 @@
 """
 Stripe billing router: checkout sessions, customer portal, webhooks.
-<<<<<<< HEAD
-Supports both Pro subscription ($50/mo) and per-video purchase ($3).
-"""
-=======
 Supports both Pro subscription ($60/mo) and per-video purchase ($3).
 """
 import time
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -24,23 +19,18 @@ from app.models.subscription import (
     Subscription, SubscriptionStatus, SubscriptionPlan,
 )
 from app.observability.logging import get_logger
-<<<<<<< HEAD
-=======
 from app.services.email import email_service
 from app.services.per_video_pricing import (
     per_unit_cents as per_video_unit_cents,
     MIN_QUANTITY as PER_VIDEO_MIN_QTY,
     MAX_QUANTITY as PER_VIDEO_MAX_QTY,
 )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 logger = get_logger(__name__)
 MAX_RETENTION_OFFER_SHOWS = 2
-<<<<<<< HEAD
-=======
 
 
 # ─── Post-checkout win-back coupon ────────────────────────
@@ -64,7 +54,6 @@ def _checkout_expires_at() -> int:
     """Absolute expiry timestamp for a new session, clamped to Stripe's valid range."""
     secs = max(_CHECKOUT_EXPIRES_MIN, min(settings.STRIPE_CHECKOUT_EXPIRES_SECONDS, _CHECKOUT_EXPIRES_MAX))
     return int(time.time()) + secs
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 class CheckoutResponse(BaseModel):
@@ -134,14 +123,6 @@ def list_plans(db: Session = Depends(get_db)):
 
 def _count_active_per_video_credits(user_id: int, db: Session) -> int:
     """
-<<<<<<< HEAD
-    Count per-video Subscription records for a user that are COMPLETED and
-    not yet expired (current_period_end is in the future or not set).
-
-    These are the only credits that should contribute to video_limit_bonus.
-    Free grants given manually (directly setting video_limit_bonus in the DB)
-    are NOT represented here, so they are excluded by this count.
-=======
     Sum per-video credits for a user from Subscription rows that are COMPLETED
     and not yet expired (current_period_end is in the future or not set).
 
@@ -151,20 +132,14 @@ def _count_active_per_video_credits(user_id: int, db: Session) -> int:
     These are the only credits that should contribute to video_limit_bonus.
     Free grants given manually (directly setting video_limit_bonus in the DB)
     are NOT represented here, so they are excluded by this sum.
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     """
     now = datetime.utcnow()
     per_video_plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
     if not per_video_plan:
         return 0
 
-<<<<<<< HEAD
-    return (
-        db.query(Subscription)
-=======
     total = (
         db.query(func.coalesce(func.sum(Subscription.quantity), 0))
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         .filter(
             Subscription.user_id == user_id,
             Subscription.plan_id == per_video_plan.id,
@@ -175,78 +150,15 @@ def _count_active_per_video_credits(user_id: int, db: Session) -> int:
                 (Subscription.current_period_end > now)
             ),
         )
-<<<<<<< HEAD
-        .count()
-    )
-=======
         .scalar()
     )
     return int(total or 0)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     """
     Called when a user subscribes to a Pro/Standard plan, or when a plan renews.
 
-<<<<<<< HEAD
-    Free grants are consumed first in the usage hierarchy. When a user upgrades
-    to a paid plan, free grants are stripped from video_limit_bonus, and any
-    videos already used are charged against those grants first — so usage that
-    came from free grants disappears along with the grants themselves.
-
-    Formula
-    -------
-        paid_credits      = count of non-expired per-video Subscription rows
-        free_grants       = old_bonus - paid_credits          (≥ 0)
-        usage_from_grants = min(videos_used_this_period, free_grants)
-        new_videos_used   = max(0, videos_used_this_period - usage_from_grants)
-        new_bonus         = paid_credits
-
-    Example
-    -------
-        video_limit_bonus = 4  (2 free grants + 2 paid credits)
-        videos_used_this_period = 2
-        Subscribes to Standard (30 videos/month).
-
-        free_grants       = 4 - 2 = 2
-        usage_from_grants = min(2, 2) = 2   ← both used videos came from grants
-        new_videos_used   = max(0, 2 - 2) = 0
-        new_bonus         = 2
-
-        Result: 30 (plan) + 2 (paid credits) = 32 total, 0 used.
-
-    Another example
-    ---------------
-        video_limit_bonus = 4  (2 free grants + 2 paid credits)
-        videos_used_this_period = 3   ← 2 from grants, 1 from paid credit
-        Subscribes to Standard (30 videos/month).
-
-        free_grants       = 2
-        usage_from_grants = min(3, 2) = 2
-        new_videos_used   = max(0, 3 - 2) = 1
-        new_bonus         = 2
-
-        Result: 30 + 2 = 32 total, 1 used (the 1 video charged against paid credit).
-    """
-    old_bonus = getattr(user, "video_limit_bonus", 0) or 0
-    videos_used = user.videos_used_this_period or 0
-    paid_credits = _count_active_per_video_credits(user.id, db)
-
-    free_grants = max(0, old_bonus - paid_credits)
-    usage_from_grants = min(videos_used, free_grants)
-    new_videos_used = max(0, videos_used - usage_from_grants)
-
-    user.video_limit_bonus = paid_credits
-    user.videos_used_this_period = new_videos_used
-
-    print(
-        f"[BILLING] Recalculated video_limit_bonus for user {user.id}: "
-        f"old_bonus={old_bonus} (free_grants={free_grants}, paid_credits={paid_credits}), "
-        f"videos_used {videos_used} → {new_videos_used} "
-        f"({usage_from_grants} absorbed by free grants), "
-        f"new video_limit_bonus={paid_credits}"
-=======
     Absorption order: base(2) → free_grants → referral_video_bonus → paid_credits.
     Base and free-grant usage disappears on upgrade. Referral and paid usage carries
     into the new period's videos_used_this_period so the user doesn't get phantom headroom.
@@ -299,7 +211,6 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
         f"old_bonus={old_bonus} (free_grants={free_grants}, paid={paid_credits}), "
         f"referral={referral_bonus} → consumed={referral_consumed}, "
         f"videos_used {videos_used} → {new_videos_used}"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     )
 
 
@@ -405,10 +316,6 @@ def create_checkout_session(
                 "quantity": 1,
             }
         ],
-<<<<<<< HEAD
-        allow_promotion_codes=True,
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         success_url=f"{settings.FRONTEND_URL}/dashboard?upgraded=true&session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
         metadata={
@@ -1099,12 +1006,9 @@ class SubscriptionDetailOut(BaseModel):
     amount_paid_cents: int
     canceled_at: str | None = None
     retention_offer_eligible: bool = False
-<<<<<<< HEAD
-=======
     scheduled_plan_slug: str | None = None
     scheduled_plan_name: str | None = None
     scheduled_change_at: str | None = None
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     created_at: str
 
     class Config:
@@ -1377,12 +1281,9 @@ def get_subscription_detail(
         amount_paid_cents=sub.amount_paid_cents,
         canceled_at=sub.canceled_at.isoformat() if sub.canceled_at else None,
         retention_offer_eligible=_is_retention_offer_eligible(user),
-<<<<<<< HEAD
-=======
         scheduled_plan_slug=sub.scheduled_plan.slug if sub.scheduled_plan else None,
         scheduled_plan_name=sub.scheduled_plan.name if sub.scheduled_plan else None,
         scheduled_change_at=sub.scheduled_change_at.isoformat() if sub.scheduled_change_at else None,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         created_at=sub.created_at.isoformat(),
     )
 
@@ -1840,14 +1741,6 @@ def _handle_checkout_completed(session: dict, db: Session):
 
                 db.commit()
                 logger.info(
-<<<<<<< HEAD
-                    "[BILLING] Per-video credit purchased for user %s, expires %s, new video_limit_bonus=%s",
-                    user_id,
-                    credit_expiry.date(),
-                    user.video_limit_bonus,
-                    extra={"user_id": int(user_id)},
-                )
-=======
                     "[BILLING] Per-video credits purchased: user=%s qty=%s expires=%s new_bonus=%s",
                     user_id,
                     qty,
@@ -1986,7 +1879,6 @@ def _handle_checkout_completed(session: dict, db: Session):
                 plan_slug,
                 extra={"user_id": int(user_id)},
             )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     else:
         # ── Pro or Standard subscription checkout ───────────────────────────
         subscription_id = session.get("subscription")
@@ -2178,8 +2070,6 @@ def _handle_invoice_paid(invoice: dict, db: Session):
             )
         user.video_limit_bonus = new_bonus
 
-<<<<<<< HEAD
-=======
         # Referral bonus resets each billing period — users earn it once per cycle.
         if user.referral_video_bonus:
             print(
@@ -2188,7 +2078,6 @@ def _handle_invoice_paid(invoice: dict, db: Session):
             )
         user.referral_video_bonus = 0
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         # Reset usage on the Subscription record too
         if stripe_sub_id:
             sub = db.query(Subscription).filter_by(

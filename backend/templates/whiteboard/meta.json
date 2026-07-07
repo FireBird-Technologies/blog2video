@@ -2,18 +2,11 @@
   "id": "whiteboard",
   "name": "Stick Man",
   "new_template": false,
-<<<<<<< HEAD
-  "description": "Storytelling-first template with hand-drawn marker motion, line-draw text reveals, and stick-figure visual metaphors.",
-  "styles": [
-    "storytelling",
-    "explainer"
-=======
   "popular_template": true,
   "description": "Storytelling-first template with hand-drawn marker motion, line-draw text reveals, and stick-figure visual metaphors.",
   "genres": [
     "Technology",
     "Business"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "preview_colors": {
     "accent": "#1F2937",
@@ -33,11 +26,8 @@
     "countdown_timer",
     "handwritten_equation",
     "speech_bubble_dialogue",
-<<<<<<< HEAD
-=======
     "data_visualisation",
     "ticker_table",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials"
   ],
   "layouts_without_image": [
@@ -49,13 +39,9 @@
     "countdown_timer",
     "handwritten_equation",
     "speech_bubble_dialogue",
-<<<<<<< HEAD
-    "ending_socials"
-=======
     "data_visualisation",
     "ending_socials",
     "ticker_table"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "layout_prop_schema": {
     "drawn_title": {
@@ -315,21 +301,12 @@
       },
       "defaults": {
         "titleFontSize": {
-<<<<<<< HEAD
-          "portrait": 62,
-          "landscape": 61
-        },
-        "descriptionFontSize": {
-          "portrait": 20,
-          "landscape": 20
-=======
           "portrait": 50,
           "landscape": 57
         },
         "descriptionFontSize": {
           "portrait": 22,
           "landscape": 29
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         },
         "leftThought": "Coffee first thing in the morning",
         "rightThought": "Tea for a mindful start to the day"
@@ -570,8 +547,6 @@
         }
       ]
     },
-<<<<<<< HEAD
-=======
     "data_visualisation": {
       "label": "Data Visualisation",
       "defaults": {
@@ -715,7 +690,6 @@
         }
       ]
     },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials": {
       "label": "Ending / Follow along",
       "defaults": {
@@ -829,8 +803,6 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
-<<<<<<< HEAD
-=======
     },
     "ticker_table": {
       "label": "Data Table",
@@ -919,7 +891,6 @@
           "type": "string"
         }
       ]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
   },
   "features": [

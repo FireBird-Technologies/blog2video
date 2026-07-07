@@ -17,10 +17,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
-<<<<<<< HEAD
-=======
   sceneIndex,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -41,19 +38,6 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
 
   const safeSteps = Array.isArray(steps) ? steps : [];
 
-  const underlineSpring = spring({
-    frame: frame - 15, // Start animation after title appears
-    fps,
-    config: { damping: 18, stiffness: 80, mass: 1 },
-  });
-
-  const underlineWidth = interpolate(underlineSpring, [0, 1], [0, 100], {
-    extrapolateRight: "clamp",
-  });
-  const underlineOpacity = interpolate(underlineSpring, [0, 0.5], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-
   return (
     <AbsoluteFill
       style={{
@@ -66,30 +50,21 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
         overflow: "hidden",
       }}
     >
-<<<<<<< HEAD
-=======
       <GeometricBackground accentColor={accentColor} frame={frame} sceneIndex={sceneIndex} />
 
       {/* Decorative plane sweeps top area mid-scene */}
       <FlybyPlane accentColor={accentColor} startFrame={45} yZone={0.10} />
 
       {/* ── Title block ────────────────────────────────────────────────── */}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-<<<<<<< HEAD
-          position: "relative", // Needed for absolute positioning of underline
-          marginBottom: p ? 72 : 100, // Increased gap between title and steps
-          opacity: titleOp,
-=======
           position: "relative",
           marginBottom: p ? 72 : 100,
           opacity: titleOp,
           transform: `translateY(${titleY}px)`,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         }}
       >
         <h2
@@ -99,33 +74,13 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
             fontWeight: 700,
             fontFamily: fontFamily ?? "'Roboto Slab', serif",
             marginTop: 0,
-<<<<<<< HEAD
-            marginBottom: 0, // Reset margin since parent div handles spacing
-=======
             marginBottom: 0,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             textAlign: "center",
             lineHeight: 1.1,
           }}
         >
           {title}
         </h2>
-<<<<<<< HEAD
-        <div
-          style={{
-            position: "absolute",
-            bottom: p ? -10 : -15, // Adjust position relative to title
-            left: "50%",
-            transform: `translateX(-50%)`,
-            width: `${underlineWidth}%`, // Animated width
-            height: p ? 4 : 4,
-            backgroundColor: accentColor,
-            borderRadius: 4,
-            opacity: underlineOpacity, // Animated opacity
-          }}
-        />
-      </div>
-=======
         {/* Animated underline */}
         <div
           style={{
@@ -143,7 +98,6 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
       </div>
 
       {/* ── Steps row / column ──────────────────────────────────────────── */}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div
         style={{
           display: "flex",
@@ -229,21 +183,9 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
               {/* ── Node card ─────────────────────────────────────────── */}
               <div
                 style={{
-<<<<<<< HEAD
-                  padding: p ? "14px 22px" : "16px 28px",
-                  borderRadius: 14,
-                  backgroundColor: isLast ? accentColor : `${accentColor}15`,
-                  border: `2px solid ${isLast ? accentColor : accentColor + "40"}`,
-                  transform: `scale(${scale})`,
-                  opacity: op,
-                  textAlign: "center",
-                  // Removed maxWidth to allow the pill to adjust its width based on content
-                  // The parent `steps` container with `flexWrap: "wrap"` and `maxWidth: "100%"` will handle overall layout.
-=======
                   position: "relative",
                   transform: `translateX(${nodeX}px) translateY(${nodeY}px) scale(${nodeScale})`,
                   opacity: nodeOp,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 }}
               >
                 {/* Entry glow ring — briefly lights up after appearing */}
@@ -264,15 +206,6 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
                 {/* Main pill */}
                 <div
                   style={{
-<<<<<<< HEAD
-                    fontSize: descriptionFontSize ?? (p ? 35 : 27),
-                    fontWeight: 600,
-                    color: isLast ? "#FFF" : textColor,
-                    fontFamily: fontFamily ?? "'Roboto Slab', serif",
-                    // Added wordBreak and hyphens to better handle long content without overflowing
-                    wordBreak: "break-word",
-                    hyphens: "auto",
-=======
                     padding: p ? "14px 22px" : "16px 28px",
                     borderRadius: 14,
                     backgroundColor: isLast ? accentColor : `${accentColor}15`,
@@ -281,7 +214,6 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
                     boxShadow: isLast
                       ? `0 8px 28px ${accentColor}44`
                       : `0 4px 14px rgba(0,0,0,0.08)`,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   }}
                 >
                   <span
@@ -323,11 +255,8 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
                   {i + 1}
                 </div>
               </div>
-<<<<<<< HEAD
-=======
 
               {/* ── Arrow — draws itself on ─────────────────────────── */}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               {!isLast &&
                 (p ? (
                   <svg

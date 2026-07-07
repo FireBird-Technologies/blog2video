@@ -3,10 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } fr
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
-<<<<<<< HEAD
-=======
 import { resolveCtas } from "../../shared/resolveCtas";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
   title,
@@ -15,10 +12,7 @@ export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
   websiteLink,
   showWebsiteButton,
   ctaButtonText,
-<<<<<<< HEAD
-=======
   ctas,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   accentColor,
   bgColor,
   textColor,
@@ -57,13 +51,6 @@ const legSway = Math.cos(frame * motionSpeed) * 4 * presentProgress;
 const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
 
   const subtext = (narration ?? "").trim();
-<<<<<<< HEAD
-  const resolvedWebsiteLink = (websiteLink ?? "").trim();
-  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
-  const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
-  const markerFont = (fontFamily ?? "").trim() || "'Patrick Hand', system-ui, sans-serif";
-
-=======
   const markerFont = (fontFamily ?? "").trim() || "'Patrick Hand', system-ui, sans-serif";
 
   // CTA cards (1-3). Only render cards with toggle on + a link.
@@ -76,7 +63,6 @@ const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
   const resolvedCta = firstCard?.ctaButtonText.trim() || "Get started";
   const resolvedWebsiteLink = firstCard?.websiteLink ?? "";
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // --- Stickman Bone Map ---
   const hipX = 50 + legSway;
   const hipY = 90 + heavyBob;
@@ -228,8 +214,6 @@ const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
           </div>
         ) : null}
 
-<<<<<<< HEAD
-=======
         {/* Extra CTA cards (cards 2 & 3) — plain pills without the stickman */}
         {extraCards.length > 0 ? (
           <div style={{
@@ -283,7 +267,6 @@ const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
           </div>
         ) : null}
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         {/* Subtext Section */}
         {subtext ? (
           <div style={{

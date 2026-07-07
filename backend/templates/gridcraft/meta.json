@@ -3,15 +3,9 @@
   "name": "Gridcraft",
   "new_template": false,
   "description": "Bento grid layouts with editorial typography and data clarity. Spatial content arrangement with accent-pop cells. SaaS landing page in motion.",
-<<<<<<< HEAD
-  "styles": [
-    "promotional",
-    "explainer"
-=======
   "genres": [
     "Technology",
     "Business"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ],
   "preview_colors": {
     "accent": "#F97316",
@@ -31,11 +25,8 @@
     "bento_code",
     "pull_quote",
     "bento_steps",
-<<<<<<< HEAD
-=======
     "data_visualisation",
     "ticker_table",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials"
   ],
   "layout_prop_schema": {
@@ -536,8 +527,6 @@
         }
       ]
     },
-<<<<<<< HEAD
-=======
     "data_visualisation": {
       "label": "Data Visualisation",
       "defaults": {
@@ -681,7 +670,6 @@
         }
       ]
     },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     "ending_socials": {
       "label": "Ending / Follow along",
       "defaults": {
@@ -795,8 +783,6 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
-<<<<<<< HEAD
-=======
     },
     "ticker_table": {
       "label": "Data Table",
@@ -885,18 +871,13 @@
           "type": "string"
         }
       ]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
   },
   "layouts_without_image": [
     "bento_code",
     "editorial_body",
-<<<<<<< HEAD
-    "ending_socials"
-=======
     "data_visualisation",
     "ending_socials",
     "ticker_table"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ]
 }

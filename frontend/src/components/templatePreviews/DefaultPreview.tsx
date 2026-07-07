@@ -236,16 +236,10 @@ function SlideMetric({ active }: { active: boolean }) {
   );
 }
 
-<<<<<<< HEAD
-export default function TemplatePreview() {
-=======
 export default function TemplatePreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [current, setCurrent] = useState(0);
-  const [active, setActive] = useState(true);
+  const [active, setActive] = useState(false);
 
-<<<<<<< HEAD
-=======
   // Side cards play the first slide's intro once and rest on its settled state
   // (no slide cycling). Pinning to slide 0 also means the animation restarts
   // from the top when the card returns to center.
@@ -260,7 +254,6 @@ export default function TemplatePreview({ thumbnailMode = false }: { thumbnailMo
     return () => clearTimeout(t);
   }, [thumbnailMode]);
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   useEffect(() => {
     if (thumbnailMode) return;
     const id = setInterval(() => {

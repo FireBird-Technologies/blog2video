@@ -13,10 +13,7 @@ import {
   cancelSubscription,
   acceptRetentionOffer,
   resumeSubscription,
-<<<<<<< HEAD
-=======
   cancelScheduledPlanChange,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   deleteAccount,
   BillingStatus,
   SubscriptionDetail,
@@ -27,8 +24,6 @@ import type { BillingCycle, PlanKey } from "../api/billing";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
-<<<<<<< HEAD
-=======
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
 import LimitedSeatsBar from "../components/LimitedSeatsBar";
 import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
@@ -40,7 +35,6 @@ import {
   STANDARD_CUSTOM_TEMPLATE_COUNT,
   PRO_CUSTOM_TEMPLATE_COUNT,
 } from "../content/pricingContent";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export default function Subscription() {
   const { user, refreshUser, logout } = useAuth();
@@ -60,9 +54,6 @@ export default function Subscription() {
   } | null>(null);
   const [retentionErrorMessage, setRetentionErrorMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-<<<<<<< HEAD
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
-=======
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   // Default the monthly/annual toggle to the user's current plan cycle, but only
   // once — after that the user's manual toggling wins.
@@ -71,7 +62,6 @@ export default function Subscription() {
     plan: PlanKey;
     billing_cycle: BillingCycle;
   } | null>(null);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const { showError } = useErrorModal();
 
   useEffect(() => {
@@ -224,8 +214,6 @@ export default function Subscription() {
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleCancelScheduledChange = async () => {
     setActionLoading("cancel-scheduled");
     try {
@@ -251,7 +239,6 @@ export default function Subscription() {
     setPendingSwitch({ plan, billing_cycle: cycle });
   };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const handleDeleteAccount = async () => {
     try {
       await deleteAccount();
@@ -664,19 +651,11 @@ export default function Subscription() {
               <span className="text-2xl font-bold text-gray-900">$0</span>
             </div>
             <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
-<<<<<<< HEAD
-              <li className="flex items-start gap-2"><CheckMark />3 videos free</li>
-              <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
-              <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
-              <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
-=======
               <li className="flex items-start gap-2"><CheckMark />2 videos free</li>
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />{FREE_CUSTOM_TEMPLATE_COUNT} custom video template</li>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               <li className="flex items-start gap-2 text-gray-300"><CrossMark />Unlimited AI edit & image generation</li>
               <li className="flex items-start gap-2 text-gray-300"><CrossMark />Premium voiceover + cloning</li>
             </ul>
@@ -689,45 +668,6 @@ export default function Subscription() {
             )}
           </div>
 
-<<<<<<< HEAD
-          {/* Per Video */}
-          <div className="glass-card p-5 flex flex-col">
-            <div className="mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">Per Video</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Pay as you go</p>
-            </div>
-            <div className="mb-4">
-              <span className="text-2xl font-bold text-gray-900">$3</span>
-              <span className="text-xs text-gray-400 ml-1">/video</span>
-            </div>
-            <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
-              <li className="flex items-start gap-2"><CheckMark />No subscription needed</li>
-              <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
-              <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
-              <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
-              <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
-            </ul>
-            <button
-              onClick={async () => {
-                setActionLoading("per_video");
-                try {
-                  const res = await createPerVideoCheckout();
-                  if (res.data.checkout_url) window.location.href = res.data.checkout_url;
-                } catch (err) {
-                  console.error("Per-video checkout error:", err);
-                } finally {
-                  setActionLoading(null);
-                }
-              }}
-              disabled={actionLoading === "per_video" || isPaid}
-              className="w-full py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
-            >
-              {actionLoading === "per_video" ? "Redirecting…" : "Buy a video"}
-            </button>
-          </div>
-=======
           {/* Per Video — slider normally; fixed 500/$300 deal on the Lifetime tab */}
           <PerVideoSliderCard
             variant="compact"
@@ -756,7 +696,6 @@ export default function Subscription() {
               }
             }}
           />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
           {/* Standard */}
           <div className={`glass-card p-5 flex flex-col ${isStandard ? "ring-2 ring-purple-200" : ""}`}>
@@ -802,11 +741,7 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-<<<<<<< HEAD
-              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
-=======
               <li className="flex items-start gap-2"><CheckMark />{STANDARD_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
@@ -884,11 +819,7 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-<<<<<<< HEAD
-              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
-=======
               <li className="flex items-start gap-2"><CheckMark />{PRO_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
@@ -1070,8 +1001,6 @@ export default function Subscription() {
         confirmLabel="Delete"
         onConfirm={handleDeleteAccount}
       />
-<<<<<<< HEAD
-=======
 
       <PlanSwitchConfirmModal
         open={Boolean(pendingSwitch)}
@@ -1080,7 +1009,6 @@ export default function Subscription() {
         onClose={() => setPendingSwitch(null)}
         onSuccess={handlePlanSwitchSuccess}
       />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </div>
   );
 }

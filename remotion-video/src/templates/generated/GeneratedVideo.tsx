@@ -13,11 +13,7 @@
  * The contentVariantIndex field on each scene (from data.json) assigns which
  * content variant to use. Scenes cycle through variants for visual variety.
  */
-<<<<<<< HEAD
-import { useEffect, useState } from "react";
-=======
 import { Fragment, useEffect, useState } from "react";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   AbsoluteFill,
   Audio,
@@ -27,14 +23,10 @@ import {
   delayRender,
   continueRender,
 } from "remotion";
-<<<<<<< HEAD
-import { LogoOverlay } from "../../components/LogoOverlay";
-=======
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { resolveFontFamily } from "../../fonts/registry";
 import type { GeneratedVideoData, GeneratedSceneData, GeneratedSceneProps } from "./types";
 
@@ -47,10 +39,6 @@ import OutroScene from "./SceneOutro";
 // In the repo this file exports an empty array; at render time it's overwritten
 // with imports of SceneContent0, SceneContent1, etc.
 import { CONTENT_VARIANTS } from "./contentRegistry";
-<<<<<<< HEAD
-import { GeneratedTransition } from "./GeneratedTransition";
-import { GeneratedCtaOverlay } from "./GeneratedCtaOverlay";
-=======
 import { pickGeneratedTransition } from "./generatedTransitions";
 import { GeneratedCtaOverlay } from "./GeneratedCtaOverlay";
 // Dedicated, deterministic data-viz scenes (chart + table) — rendered from a
@@ -58,7 +46,6 @@ import { GeneratedCtaOverlay } from "./GeneratedCtaOverlay";
 // editable chart/table pair like the built-in templates.
 import { DataChartScene, DataTableScene } from "./kit";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -77,21 +64,12 @@ export const calculateGeneratedMetadata: CalculateMetadataFunction<VideoProps> =
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: GeneratedVideoData = await res.json();
-<<<<<<< HEAD
-
-      const totalSeconds = data.scenes.reduce(
-        (sum, s) => sum + (s.durationSeconds || 5),
-        0,
-      );
-      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
-=======
       const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
 
       const sceneFrames = data.scenes.map((s) =>
         getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
       const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       const isPortrait = data.aspectRatio === "portrait";
 
       return {
@@ -129,12 +107,9 @@ function getSceneComponent(
 
   if (sceneType === "intro") return IntroScene;
   if (sceneType === "outro") return OutroScene;
-<<<<<<< HEAD
-=======
   // Dedicated data-viz scenes render via the kit (deterministic, not AI code).
   if (sceneType === "dataviz_chart") return DataChartScene;
   if (sceneType === "dataviz_table") return DataTableScene;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Content scene — pick variant by contentVariantIndex (cycling through available variants)
   if (CONTENT_VARIANTS.length > 0) {
@@ -174,15 +149,6 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       .then((d: GeneratedVideoData) => {
         setData(d);
 
-<<<<<<< HEAD
-        // Try project-level font first
-        const resolvedProjectFont = resolveFontFamily(d.fontFamily ?? null);
-        if (resolvedProjectFont) {
-          Promise.all([
-            document.fonts.load(`400 16px ${resolvedProjectFont}`),
-            document.fonts.load(`700 16px ${resolvedProjectFont}`),
-          ])
-=======
         // Wait for EVERY font the scenes actually paint with before releasing the
         // render — not just the project font. The intro leads with the large
         // heading font, so if it isn't loaded the title paints in the fallback and
@@ -225,18 +191,13 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             safeLoad(`700 16px "${f}"`),
           ]);
           Promise.all(loads)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             .then(() => document.fonts.ready)
             .then(() => finishFontLoad())
             .catch(() => finishFontLoad());
           return;
         }
 
-<<<<<<< HEAD
-        // No custom font — just finish
-=======
         // No custom fonts — just finish
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         finishFontLoad();
       })
       .catch(() => {
@@ -300,11 +261,6 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     background: data.bgColor || "#FFFFFF",
     text: data.textColor || "#1A1A2E",
   };
-<<<<<<< HEAD
-
-  let currentFrame = 0;
-  const totalScenes = data.scenes.length;
-=======
   // Thread the optional gradient endpoint so the kit (SceneFrame) can render a
   // solid-vs-gradient background at render time without regenerating code.
   if (data.bg2Color && !brandColors.bg2) {
@@ -316,14 +272,11 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const isPortrait = (data.aspectRatio as string) === "portrait";
   const canvasW = isPortrait ? 1080 : 1920;
   const canvasH = isPortrait ? 1920 : 1080;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   console.log(
     `[GeneratedVideo] Rendering ${totalScenes} scenes with ${CONTENT_VARIANTS.length} content variants`,
   );
 
-<<<<<<< HEAD
-=======
   // Per-scene durations (audio-aligned) + the transition consumed AFTER each
   // non-last scene. By setting each non-last TransitionSeries.Sequence to
   // sceneFrames + transitionFrames, the overlap the transition consumes is
@@ -353,7 +306,6 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     }
   }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return (
     <AbsoluteFill
       style={{
@@ -361,85 +313,6 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-<<<<<<< HEAD
-      {data.scenes.map((scene, index) => {
-        const durationFrames = Math.max(
-          1,
-          Math.round((Number(scene.durationSeconds) || 5) * FPS),
-        );
-        const startFrame = currentFrame;
-        currentFrame += durationFrames;
-
-        const SceneComp = getSceneComponent(scene, index, totalScenes);
-        const imageUrl =
-          scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
-
-        // Spread structured content (bullets, metrics, quotes, etc.) onto scene props
-        const sc = (scene.structuredContent || {}) as Record<string, unknown>;
-        const sceneProps: GeneratedSceneProps = {
-          displayText: scene.displayText || scene.narration || scene.title,
-          narrationText: scene.narrationText || scene.narration || "",
-          imageUrl,
-          sceneIndex: index,
-          totalScenes,
-          logoUrl: (data.logo || data.brandLogo) ? staticFile((data.logo || data.brandLogo)!) : undefined,
-          brandImages: data.brandImages?.map((f) => staticFile(f)),
-          brandColors,
-          aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
-          contentType: sc.contentType as GeneratedSceneProps["contentType"],
-          bullets: sc.bullets as string[] | undefined,
-          metrics: sc.metrics as GeneratedSceneProps["metrics"],
-          codeLines: sc.codeLines as string[] | undefined,
-          codeLanguage: sc.codeLanguage as string | undefined,
-          quote: sc.quote as string | undefined,
-          quoteAuthor: sc.quoteAuthor as string | undefined,
-          comparisonLeft: sc.comparisonLeft as GeneratedSceneProps["comparisonLeft"],
-          comparisonRight: sc.comparisonRight as GeneratedSceneProps["comparisonRight"],
-          timelineItems: sc.timelineItems as GeneratedSceneProps["timelineItems"],
-          steps: sc.steps as string[] | undefined,
-          titleFontSize: scene.layoutConfig?.titleFontSize as number | undefined,
-          descriptionFontSize: scene.layoutConfig?.descriptionFontSize as number | undefined,
-          headingFont,
-          bodyFont,
-        };
-
-        const transitionDuration = 15;
-        const transitionFrom = Math.max(0, durationFrames - transitionDuration);
-
-        return (
-          <Sequence
-            key={scene.id}
-            from={startFrame}
-            durationInFrames={durationFrames}
-            name={scene.title}
-          >
-            {scene.ctaProps ? (
-              <GeneratedCtaOverlay
-                ctaProps={scene.ctaProps}
-                brandColors={brandColors}
-                aspectRatio={(data.aspectRatio as "landscape" | "portrait") || "landscape"}
-                headingFont={headingFont}
-                bodyFont={bodyFont}
-                title={sceneProps.displayText}
-                logoUrl={sceneProps.logoUrl}
-              />
-            ) : (
-              <SceneComp {...sceneProps} />
-            )}
-            {scene.voiceoverFile && (
-              <Audio src={staticFile(scene.voiceoverFile)} />
-            )}
-
-            {/* Brand-aware transition overlay between scenes */}
-            {index < totalScenes - 1 && transitionDuration > 0 && (
-              <Sequence from={transitionFrom} durationInFrames={transitionDuration}>
-                <GeneratedTransition brandColors={brandColors} />
-              </Sequence>
-            )}
-          </Sequence>
-        );
-      })}
-=======
       <TransitionSeries>
         {data.scenes.map((scene, index) => {
           const SceneComp = getSceneComponent(scene, index, totalScenes);
@@ -564,18 +437,12 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           </Sequence>
         ) : null,
       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       {data.logo && (
         <LogoOverlay
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
-<<<<<<< HEAD
-          aspectRatio={data.aspectRatio || "landscape"}
-        />
-      )}
-=======
           size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
@@ -584,7 +451,6 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       {data.bgmFile && (
         <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </AbsoluteFill>
   );
 };

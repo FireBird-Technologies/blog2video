@@ -10,11 +10,8 @@ export type SpotlightLayoutType =
   | "versus"
   | "spotlight_image"
   | "rapid_points"
-<<<<<<< HEAD
-=======
   | "spotlight_data"
   | "spotlight_table"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   | "closer"
   | "ending_socials";
 
@@ -51,8 +48,6 @@ export interface SpotlightLayoutProps {
   titleFontSize?: number;
   descriptionFontSize?: number;
 
-<<<<<<< HEAD
-=======
   // ── spotlight_data (chart) — uses the shared chartTable data-viz contract ──
   /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
   chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
@@ -77,15 +72,11 @@ export interface SpotlightLayoutProps {
   /** 0-based column index to color-code +/- (e.g. % change). -1 disables. */
   tickerHighlightCol?: number;
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // ending_socials
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

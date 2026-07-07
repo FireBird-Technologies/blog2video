@@ -9,35 +9,22 @@ class ProjectTemplateChangeJob(Base):
     __tablename__ = "project_template_change_jobs"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-<<<<<<< HEAD
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
-=======
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     target_template: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="queued", index=True)
     total_scenes: Mapped[int] = mapped_column(Integer, default=0)
     processed_scenes: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-<<<<<<< HEAD
-=======
     # JSON snapshot of each scene's remotion_code + preferred_layout (and the prior
     # project.template) captured before the in-place relayout, so a reaped/failed run
     # can be fully reverted.
     scene_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-<<<<<<< HEAD
-    project = relationship("Project")
-    user = relationship("User")
-=======
     project = relationship("Project", back_populates="template_change_jobs")
     user = relationship("User", back_populates="template_change_jobs")
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

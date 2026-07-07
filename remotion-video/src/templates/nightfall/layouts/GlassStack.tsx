@@ -343,7 +343,4 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-<<<<<<< HEAD
-=======
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

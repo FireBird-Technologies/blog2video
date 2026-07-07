@@ -4,9 +4,6 @@ import {
   siteName,
   siteUrl,
 } from "../content/siteContent";
-<<<<<<< HEAD
-import type { BlogPost, FaqItem, MarketingPage } from "../content/seoTypes";
-=======
 import { pricingLabels } from "../content/substackDirectory";
 import { tools, toolsHub } from "../content/tools";
 import type {
@@ -18,7 +15,6 @@ import type {
   SubstackPublication,
   ToolDefinition,
 } from "../content/seoTypes";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 function breadcrumbList(items: Array<{ name: string; path: string }>) {
   return {
@@ -80,16 +76,6 @@ export function homepageSchema() {
       name: siteName,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
-<<<<<<< HEAD
-      description:
-        "Turn blog posts, articles, PDFs, and documents into structured narrated videos.",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD",
-        availability: "https://schema.org/InStock",
-        url: `${siteUrl}/pricing`,
-=======
       url: siteUrl,
       image: defaultOgImage,
       description:
@@ -101,23 +87,12 @@ export function homepageSchema() {
       publisher: {
         "@type": "Organization",
         name: organizationName,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       },
     },
   ];
 }
 
 export function pricingSchema() {
-<<<<<<< HEAD
-  const sharedOfferFields = {
-    availability: "https://schema.org/InStock",
-    url: `${siteUrl}/pricing`,
-  };
-
-  return [
-    {
-      "@context": "https://schema.org",
-=======
   return [
     {
       "@context": "https://schema.org",
@@ -130,7 +105,6 @@ export function pricingSchema() {
     },
     {
       "@context": "https://schema.org",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       "@type": "SoftwareApplication",
       name: "Blog2Video",
       applicationCategory: "BusinessApplication",
@@ -139,50 +113,14 @@ export function pricingSchema() {
       description:
         "Turn blog posts, articles, PDFs, and documents into narrated videos with reusable templates and AI scene editing.",
       image: defaultOgImage,
-<<<<<<< HEAD
-=======
       brand: {
         "@type": "Organization",
         name: organizationName,
       },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       publisher: {
         "@type": "Organization",
         name: organizationName,
       },
-<<<<<<< HEAD
-      offers: [
-        {
-          "@type": "Offer",
-          name: "Free",
-          price: "0",
-          priceCurrency: "USD",
-          ...sharedOfferFields,
-        },
-        {
-          "@type": "Offer",
-          name: "Per Video",
-          price: "3",
-          priceCurrency: "USD",
-          ...sharedOfferFields,
-        },
-        {
-          "@type": "Offer",
-          name: "Standard",
-          price: "25",
-          priceCurrency: "USD",
-          ...sharedOfferFields,
-        },
-        {
-          "@type": "Offer",
-          name: "Pro",
-          price: "50",
-          priceCurrency: "USD",
-          ...sharedOfferFields,
-        },
-      ],
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     },
     breadcrumbList([
       { name: "Home", path: "/" },
@@ -227,8 +165,6 @@ export function blogIndexSchema() {
   ];
 }
 
-<<<<<<< HEAD
-=======
 export function helpIndexSchema() {
   return [
     {
@@ -273,7 +209,6 @@ export function toolsHubSchema() {
   ];
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export function marketingPageSchema(page: MarketingPage) {
   const schemas: Record<string, unknown>[] = [
     {
@@ -285,18 +220,6 @@ export function marketingPageSchema(page: MarketingPage) {
       url: `${siteUrl}${page.path}`,
       image: defaultOgImage,
       description: page.description,
-<<<<<<< HEAD
-      publisher: {
-        "@type": "Organization",
-        name: organizationName,
-      },
-      offers: {
-        "@type": "Offer",
-        priceCurrency: "USD",
-        price: "0",
-        availability: "https://schema.org/InStock",
-        url: `${siteUrl}/pricing`,
-=======
       brand: {
         "@type": "Organization",
         name: organizationName,
@@ -304,7 +227,6 @@ export function marketingPageSchema(page: MarketingPage) {
       publisher: {
         "@type": "Organization",
         name: organizationName,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       },
     },
     breadcrumbList([
@@ -322,8 +244,6 @@ export function marketingPageSchema(page: MarketingPage) {
   return schemas;
 }
 
-<<<<<<< HEAD
-=======
 export function toolPageSchema(tool: ToolDefinition) {
   const schemas: Record<string, unknown>[] = [
     {
@@ -439,7 +359,6 @@ export function substackDirectoryPublicationSchema(
   return schemas;
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export function blogPostSchema(post: BlogPost) {
   const articleImage = post.heroImage ? `${siteUrl}${post.heroImage}` : defaultOgImage;
   const schemas: Record<string, unknown>[] = [
@@ -480,8 +399,6 @@ export function blogPostSchema(post: BlogPost) {
 
   return schemas;
 }
-<<<<<<< HEAD
-=======
 
 export function helpPostSchema(post: HelpPost) {
   const articleImage = post.heroImage ? `${siteUrl}${post.heroImage}` : defaultOgImage;
@@ -534,4 +451,3 @@ export function helpPostSchema(post: HelpPost) {
 
   return schemas;
 }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

@@ -80,15 +80,11 @@ export default function PublicFooter() {
                         ? "Pricing"
                         : path === "/contact"
                           ? "Contact"
-<<<<<<< HEAD
-                          : path);
-=======
                           : path === "/terms"
                             ? "Terms of Service"
                             : path === "/privacy"
                               ? "Privacy Policy"
                               : path);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
                   return (
                     <Link

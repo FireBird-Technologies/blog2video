@@ -3,10 +3,7 @@ import json
 import os
 import re
 import time
-<<<<<<< HEAD
-=======
 from typing import Callable
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import requests
 from mutagen.mp3 import MP3
 from elevenlabs import ElevenLabs
@@ -40,8 +37,6 @@ VOICE_MAP = {
 DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
 ELEVENLABS_VOICE_META_URL = "https://api.elevenlabs.io/v1/voices/{voice_id}"
 
-<<<<<<< HEAD
-=======
 # TTS models. Default narration stays on v2. The paid "Advanced Options" path (any project with
 # voice_emotion tuning set) routes through v3 — the only model with real emotion control — and
 # injects the user-selected emotion audio tag (e.g. [excited], [calm]) per sentence.
@@ -127,7 +122,6 @@ def _inject_emotion_tag(text: str, emotion: str | None = None) -> str:
         return text
     return " ".join(f"{tag} {s}" for s in sentences)
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 def _voice_settings_for_video_style(video_style: str | None) -> dict | None:
     """Return ElevenLabs voice_settings tuned by video style.
@@ -160,22 +154,6 @@ def _voice_settings_for_video_style(video_style: str | None) -> dict | None:
         "style": 0.38,
         "use_speaker_boost": True,
     }
-<<<<<<< HEAD
-
-
-def _get_voice_id(project: Project) -> str | None:
-    gender = getattr(project, "voice_gender", "female")
-    if gender == "none":
-        return None
-
-    custom = getattr(project, "custom_voice_id", None)
-    custom_str = custom.strip() if isinstance(custom, str) else None
-    if custom_str:
-        return custom_str
-
-    accent = getattr(project, "voice_accent", "american")
-    return VOICE_MAP.get((gender, accent), DEFAULT_VOICE_ID)
-=======
 
 
 def resolve_voice_id(gender: str | None, accent: str | None, custom_voice_id: str | None) -> str | None:
@@ -244,7 +222,6 @@ def synthesize_voice_preview(
         voice_settings=voice_settings,
     )
     return b"".join(audio)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _get_audio_duration(filepath: str) -> float:
@@ -666,11 +643,7 @@ def _should_spell_loose_phone_span(raw: str) -> bool:
     if _looks_like_date_span(r):
         return False
     rs = _collapse_ws(r)
-<<<<<<< HEAD
-    if re.match(r"^\d+\.\d+$", rs) and len(d) <= 4:
-=======
     if re.match(r"^\d+\.\d+$", rs):
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         return False
     return True
 
@@ -704,16 +677,9 @@ def _should_spell_number_token_for_tts(raw: str) -> bool:
     had_comma = "," in t
     t_nocomma = t.replace(",", "")
 
-<<<<<<< HEAD
-    # Two-part decimals with ≤4 digits total (e.g. 9.99, 12.50): natural
-    if re.match(r"^\d+\.\d+$", t_nocomma):
-        if len(_digits_only(t_nocomma)) <= 4:
-            return False
-=======
     # All decimals (e.g. 9.99, 12.50, 9.875, 1234.56): natural — TTS reads them as numbers
     if re.match(r"^\d+\.\d+$", t_nocomma):
         return False
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     if _looks_like_date_token(t_nocomma):
         return False
@@ -781,8 +747,6 @@ def _expand_spelled_numeric_token(
     return " ".join(parts) if parts else token
 
 
-<<<<<<< HEAD
-=======
 def _expand_decimals_for_tts(text: str, content_language: str | None = None) -> str:
     """Replace decimal numbers with explicit spoken form so TTS says 'point' not 'thousand'.
 
@@ -822,7 +786,6 @@ def _expand_decimals_for_tts(text: str, content_language: str | None = None) -> 
     return re.sub(pattern, _replace, text)
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _spell_digits_for_tts(text: str, content_language: str | None = None) -> str:
     """Expand phone-like spans and straight numbers (>4 digits) digit-by-digit for TTS.
 
@@ -834,11 +797,8 @@ def _spell_digits_for_tts(text: str, content_language: str | None = None) -> str
     if not text:
         return text
 
-<<<<<<< HEAD
-=======
     text = _expand_decimals_for_tts(text, content_language)
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     digit_map, symbol_map = _number_lexicon(content_language)
     plus_word = _plus_word_for_language(content_language)
 
@@ -950,8 +910,6 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     content_language = getattr(project, "content_language", None) if project else None
     voiceover_text = _spell_digits_for_tts(voiceover_text, content_language)
     voiceover_text = _spell_abbreviations_for_tts(voiceover_text)
-<<<<<<< HEAD
-=======
 
     # Advanced Options (paid): when voice tuning is set, route this project through the expressive
     # v3 model, inject the [excited] tag per sentence, and apply the user's Strength + Speed.
@@ -980,7 +938,6 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
             speed,
             extra={"project_id": scene.project_id},
         )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # No-audio mode: estimate duration from word count, skip TTS
     if voice_id is None:
@@ -1015,11 +972,7 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
         audio_generator = client.text_to_speech.convert(
             text=voiceover_text,
             voice_id=vid,
-<<<<<<< HEAD
-            model_id="eleven_multilingual_v2",
-=======
             model_id=model_id,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             output_format="mp3_44100_128",
             voice_settings=voice_settings,
         )
@@ -1125,9 +1078,6 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
 
 
 async def generate_all_voiceovers(
-<<<<<<< HEAD
-    scenes: list[Scene], db: Session, video_style: str | None = None, content_language: str = "English"
-=======
     scenes: list[Scene],
     db: Session,
     video_style: str | None = None,
@@ -1135,7 +1085,6 @@ async def generate_all_voiceovers(
     verbatim: bool = False,
     progress_cb: "Callable[[], None] | None" = None,
     expressive: bool = False,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ) -> list[str]:
     """Generate voiceover audio for all scenes concurrently.
 
@@ -1166,29 +1115,6 @@ async def generate_all_voiceovers(
     else:
         expand_sem = asyncio.Semaphore(4)
 
-<<<<<<< HEAD
-    async def _expand(scene: Scene) -> str:
-        if not scene.narration_text or not scene.narration_text.strip():
-            return scene.narration_text or ""
-        async with expand_sem:
-            return await expand_narration_to_voiceover(
-                scene.narration_text, scene.title, video_style=style, content_language=content_language
-            )
-
-    expanded_texts = await asyncio.gather(
-        *[_expand(s) for s in scenes], return_exceptions=True
-    )
-    # Replace exceptions with original text
-    for i, result in enumerate(expanded_texts):
-        if isinstance(result, Exception):
-            logger.warning(
-                "[VOICEOVER] Expand failed for scene %s: %s",
-                scenes[i].order,
-                result,
-                extra={"project_id": scenes[i].project_id},
-            )
-            expanded_texts[i] = scenes[i].narration_text or ""
-=======
         async def _expand(scene: Scene) -> str:
             if not scene.narration_text or not scene.narration_text.strip():
                 return scene.narration_text or ""
@@ -1211,7 +1137,6 @@ async def generate_all_voiceovers(
                     extra={"project_id": scenes[i].project_id},
                 )
                 expanded_texts[i] = scenes[i].narration_text or ""
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     # ── Phase B: Concurrent TTS (semaphore=2, per-thread DB session) ─
     tts_sem = asyncio.Semaphore(2)

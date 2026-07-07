@@ -3,8 +3,6 @@ import re
 from typing import Any
 
 from bs4 import BeautifulSoup
-<<<<<<< HEAD
-=======
 from app.services.chart_planner import (
     compute_ohlcv_chart_analysis,
     is_candlestick_table,
@@ -14,7 +12,6 @@ from app.services.chart_planner import (
     _clean_text_cell,
     _ensure_chart_headers,
 )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 TABLE_SECTION_MARKER = "EXTRACTED_TABLES_JSON"
@@ -23,10 +20,7 @@ MAX_ROWS_PER_TABLE = 20
 MAX_COLS_PER_TABLE = 8
 MAX_CELL_CHARS = 120
 _SYNTH_HEADER_RE = re.compile(r"^col_\d+$", re.IGNORECASE)
-<<<<<<< HEAD
-=======
 _OHLCV_REQUIRED = frozenset({"open", "high", "low", "close"})
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def _looks_like_header_row(row: list[str]) -> bool:
@@ -40,27 +34,17 @@ def _looks_like_header_row(row: list[str]) -> bool:
 
 
 def _clean_cell(value: Any) -> str:
-<<<<<<< HEAD
-    text = str(value or "").strip()
-    text = re.sub(r"\s+", " ", text)
-=======
     text = _clean_text_cell(value)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if len(text) > MAX_CELL_CHARS:
         return text[:MAX_CELL_CHARS].rstrip() + "..."
     return text
 
 
 def _normalize_table(headers: list[str], rows: list[list[str]], source: str) -> dict[str, Any] | None:
-<<<<<<< HEAD
-    clean_rows: list[list[str]] = []
-    for row in rows[:MAX_ROWS_PER_TABLE]:
-=======
     header_set = {h.lower() for h in headers if h}
     row_cap = 60 if _OHLCV_REQUIRED.issubset(header_set) else MAX_ROWS_PER_TABLE
     clean_rows: list[list[str]] = []
     for row in rows[:row_cap]:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         cells = [_clean_cell(cell) for cell in row[:MAX_COLS_PER_TABLE]]
         if any(cells):
             clean_rows.append(cells)
@@ -82,11 +66,6 @@ def _normalize_table(headers: list[str], rows: list[list[str]], source: str) -> 
             clean_rows = clean_rows[1:]
 
     if not any(clean_headers):
-<<<<<<< HEAD
-        # Last-resort fallback for truly headerless tables.
-        col_count = max(len(r) for r in clean_rows)
-        clean_headers = [f"Series {i + 1}" for i in range(col_count)]
-=======
         # Last-resort: category column + value/metric columns (never generic "Series N").
         col_count = max(len(r) for r in clean_rows)
         clean_headers = ["Category"]
@@ -94,17 +73,13 @@ def _normalize_table(headers: list[str], rows: list[list[str]], source: str) -> 
             clean_headers.append("Value")
         else:
             clean_headers.extend(f"Metric {i}" for i in range(1, col_count))
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
     if len(clean_rows) < 2:
         return None
 
-<<<<<<< HEAD
-=======
     col_count = max(len(clean_headers), max((len(r) for r in clean_rows), default=0))
     clean_headers = _ensure_chart_headers(clean_headers, col_count, label_col_idx=0)
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     return {
         "source": source,
         "headers": clean_headers,
@@ -197,8 +172,6 @@ def extract_tables_from_markdown(markdown_text: str, source: str) -> list[dict[s
     return tables
 
 
-<<<<<<< HEAD
-=======
 def _normalize_stored_table(table: dict[str, Any]) -> dict[str, Any] | None:
     """Clean headers/rows on an already-extracted table dict."""
     if not isinstance(table, dict):
@@ -242,16 +215,11 @@ def _table_fingerprint(table: dict[str, Any]) -> str:
     return f"{headers}::{'||'.join(row_sigs)}"
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def append_tables_to_content(content: str, tables: list[dict[str, Any]]) -> str:
     if not tables:
         return content
 
-<<<<<<< HEAD
-    clipped = tables[:MAX_TABLES]
-=======
     clipped = _dedup_tables([t for t in tables if isinstance(t, dict)])[:MAX_TABLES]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     payload = json.dumps({"tables": clipped}, ensure_ascii=False, separators=(",", ":"))
     block = (
         f"\n\n═══ {TABLE_SECTION_MARKER} ═══\n"
@@ -261,8 +229,6 @@ def append_tables_to_content(content: str, tables: list[dict[str, Any]]) -> str:
     return (content or "").rstrip() + block
 
 
-<<<<<<< HEAD
-=======
 def _dedup_tables(tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Remove duplicate tables that share the same normalized content fingerprint.
 
@@ -301,16 +267,11 @@ def _dedup_tables(tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(seen.values())
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def extract_tables_from_content(content: str) -> list[dict[str, Any]]:
     if not content:
         return []
     pattern = (
-<<<<<<< HEAD
-        rf"═══ {TABLE_SECTION_MARKER} ═══\s*(\{{.*?\}})\s*"
-=======
         rf"═══ {TABLE_SECTION_MARKER} ═══\s*(\{{.*\}})\s*"
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         rf"═══ END_{TABLE_SECTION_MARKER} ═══"
     )
     match = re.search(pattern, content, flags=re.DOTALL)
@@ -321,12 +282,8 @@ def extract_tables_from_content(content: str) -> list[dict[str, Any]]:
     except json.JSONDecodeError:
         return []
     tables = payload.get("tables") if isinstance(payload, dict) else None
-<<<<<<< HEAD
-    return tables if isinstance(tables, list) else []
-=======
     tables = tables if isinstance(tables, list) else []
     return _dedup_tables(tables)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 def build_table_context_hint(
@@ -338,15 +295,6 @@ def build_table_context_hint(
         return ""
     clipped = []
     for table in tables[:max_tables]:
-<<<<<<< HEAD
-        if not isinstance(table, dict):
-            continue
-        clipped.append(
-            {
-                "source": table.get("source"),
-                "headers": table.get("headers", []),
-                "rows": (table.get("rows", []) or [])[:max_rows],
-=======
         norm = _normalize_stored_table(table) if isinstance(table, dict) else None
         if not norm:
             continue
@@ -355,7 +303,6 @@ def build_table_context_hint(
                 "source": norm.get("source"),
                 "headers": norm.get("headers", []),
                 "rows": (norm.get("rows", []) or [])[:max_rows],
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             }
         )
     if not clipped:
@@ -364,8 +311,6 @@ def build_table_context_hint(
         "TABLE_DATA_HINT_JSON:\n"
         + json.dumps({"tables": clipped}, ensure_ascii=False, separators=(",", ":"))
     )
-<<<<<<< HEAD
-=======
 
 
 def build_chartable_tables_payload(
@@ -471,4 +416,3 @@ def classify_chart_tables_for_template(
         max_rows=max_rows,
     )
     return tables, payload
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

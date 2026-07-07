@@ -118,23 +118,6 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
         )
 
     # Must reference imageUrl as a conditional — layout must adapt to its presence/absence.
-<<<<<<< HEAD
-    # Intro and outro are branded scenes (logo/title/CTA) — image support is optional there.
-    # Accepts: hasImage, props.imageUrl &&, imageUrl &&, !!props.imageUrl, imageUrl ?
-    if scene_type == "content":
-        has_image_conditional = bool(re.search(
-            r'(?:hasImage\b|props\.imageUrl\s*&&|imageUrl\s*&&|!!props\.imageUrl|imageUrl\s*\?[^:])',
-            code,
-        ))
-        if not has_image_conditional:
-            return False, (
-                "Missing conditional imageUrl rendering — scene must declare hasImage and adapt layout: "
-                "e.g. const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string')"
-            )
-
-    # Non-monotonic interpolate inputRange causes Remotion runtime crash
-    for m in re.finditer(r'interpolate\s*\([^,]+,\s*\[([^\]]+)\]\s*,\s*\[([^\]]+)\]', code):
-=======
     # Required in EVERY scene type (intro, content, outro): every custom-template scene must support
     # displaying a content image when one is provided, with a graceful fallback when imageUrl is null.
     # Accepts: hasImage, props.imageUrl &&, imageUrl &&, !!props.imageUrl, imageUrl ?
@@ -166,7 +149,6 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
             return False, (
                 f"interpolate inputRange contains a string literal (must be numbers): [{m.group(1).strip()}]"
             )
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         try:
             inputs = [float(v.strip()) for v in m.group(1).split(',') if v.strip()]
             outputs = [float(v.strip()) for v in m.group(2).split(',') if v.strip()]
@@ -177,8 +159,6 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
         except ValueError:
             pass
 
-<<<<<<< HEAD
-=======
     # Self-referential destructure of pre-injected kit globals crashes with a TDZ
     # "Cannot access 'X' before initialization": the model writes
     #   const { staggerEntrance, panelRise } = { staggerEntrance, panelRise };
@@ -211,5 +191,4 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
                 "in scope — use them directly, never redeclare them."
             )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     return True, None

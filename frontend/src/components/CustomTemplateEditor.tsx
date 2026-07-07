@@ -18,21 +18,11 @@ interface Props {
 
 export default function CustomTemplateEditor({ template, onSaved, onCancel, onTemplatePatch }: Props) {
   const [name, setName] = useState(template.name);
-<<<<<<< HEAD
-  const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(template.supported_video_style);
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [accentColor, setAccentColor] = useState(template.theme.colors.accent);
   const [useGradient, setUseGradient] = useState(template.theme.colors.bg2 != null);
   // const aiDecidedGradient = template.theme.colors.bg2 != null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-<<<<<<< HEAD
-  const [styleOpen, setStyleOpen] = useState(false);
-  const [gradientOpen, setGradientOpen] = useState(false);
-  const styleRef = useRef<HTMLDivElement>(null);
-  const gradientRef = useRef<HTMLDivElement>(null);
-=======
   const [gradientOpen, setGradientOpen] = useState(false);
   const [liveScene, setLiveScene] = useState(0);
   const [myRating, setMyRating] = useState<number | null>(template.my_rating ?? null);
@@ -70,13 +60,9 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel, onTe
     contentCodes: template.content_codes || undefined,
     contentArchetypeIds: template.content_archetype_ids || undefined,
   });
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (gradientRef.current && !gradientRef.current.contains(e.target as Node)) {
-        setGradientOpen(false);
-      }
       if (gradientRef.current && !gradientRef.current.contains(e.target as Node)) {
         setGradientOpen(false);
       }
@@ -99,10 +85,6 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel, onTe
       };
       const res = await updateCustomTemplate(template.id, {
         name: name.trim(),
-<<<<<<< HEAD
-        supported_video_style: supportedVideoStyle,
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         theme: { ...template.theme, colors: updatedColors },
       });
       onSaved(res.data);
@@ -136,9 +118,6 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel, onTe
 
           {/* Live preview */}
           <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-<<<<<<< HEAD
-            <CustomPreview theme={theme} name={name || undefined} introCode={template.intro_code || undefined} outroCode={template.outro_code || undefined} contentCodes={template.content_codes || undefined} contentArchetypeIds={template.content_archetype_ids || undefined} previewImageUrl={template.preview_image_url} logoUrls={template.logo_urls} ogImage={template.og_image} />
-=======
             <CustomPreview theme={theme} name={name || undefined} introCode={template.intro_code || undefined} outroCode={template.outro_code || undefined} contentCodes={template.content_codes || undefined} contentArchetypeIds={template.content_archetype_ids || undefined} previewImageUrl={template.preview_image_url} logoUrls={template.logo_urls} ogImage={template.og_image} onLiveSceneChange={setLiveScene} />
           </div>
 
@@ -179,7 +158,6 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel, onTe
               showLabel
               allowComment
             />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
 
           {/* Name */}

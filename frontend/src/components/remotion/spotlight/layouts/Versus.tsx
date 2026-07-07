@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
-=======
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { BigGlyphBackdrop, DiagonalShards, FilmGrain, FlashPop, HalftoneField } from "../components/SpotlightArtifacts";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,

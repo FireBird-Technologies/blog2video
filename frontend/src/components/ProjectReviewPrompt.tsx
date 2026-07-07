@@ -174,28 +174,6 @@ export default function ProjectReviewPrompt({
 
           {displayError ? <p className="text-sm text-red-600">{displayError}</p> : null}
 
-<<<<<<< HEAD
-          <div className="flex items-center justify-end gap-3">
-            {onDismiss && (
-              <button
-                type="button"
-                onClick={onDismiss}
-                className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-700"
-              >
-                Close
-              </button>
-            )}
-            {showSubmit && (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="inline-flex items-center rounded-full bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(124,58,237,0.28)] transition-all hover:from-violet-600 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? "Sending..." : "Submit"}
-              </button>
-            )}
-=======
           <div className="flex items-center justify-between gap-3">
             {/* Share B2V disabled
             <a
@@ -229,7 +207,6 @@ export default function ProjectReviewPrompt({
                 </button>
               )}
             </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
         </div>
       </div>

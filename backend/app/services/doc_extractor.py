@@ -37,10 +37,7 @@ _EXT_MAP = {
     ".md": "text",
     ".markdown": "text",
     ".txt": "text",
-<<<<<<< HEAD
-=======
     ".vtt": "vtt",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 
@@ -79,18 +76,6 @@ def extract_from_documents(
             tmp_path = tmp.name
 
         try:
-<<<<<<< HEAD
-            if handler == "pdf":
-                md, imgs, tables = _extract_pdf(tmp_path, image_dir)
-            elif handler == "docx":
-                md, imgs, tables = _extract_docx(tmp_path, image_dir)
-            elif handler == "pptx":
-                md, imgs, tables = _extract_pptx(tmp_path, image_dir)
-            elif handler == "text":
-                md, imgs, tables = _extract_text_document(tmp_path)
-            else:
-                md, imgs, tables = "", [], []
-=======
             try:
                 if handler == "pdf":
                     md, imgs, tables = _extract_pdf(tmp_path, image_dir)
@@ -110,7 +95,6 @@ def extract_from_documents(
                 # text-decode failure (e.g. a docx renamed to .vtt/.txt).
                 from fastapi import HTTPException
                 raise HTTPException(status_code=400, detail=f"'{filename}': {e}") from e
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
             if md and md.strip():
                 all_markdown.append(md)
@@ -151,12 +135,9 @@ def extract_from_documents(
                 pass
 
     # ── Persist results ───────────────────────────────────────
-<<<<<<< HEAD
-=======
     # Strip NUL bytes — Postgres text columns reject \x00 outright. Stray NULs
     # can sneak in from UTF-16 .vtt decodes, malformed PDFs, or binary leaks.
     all_markdown = [md.replace("\x00", "") for md in all_markdown]
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     merged_markdown = "\n\n---\n\n".join(all_markdown) if all_markdown else ""
     project.blog_content = append_tables_to_content(merged_markdown, all_tables)
     # Only set content_language if not already set (preserve user's explicit choice)
@@ -508,8 +489,6 @@ def _extract_pptx(
 # ─── MD/TXT extraction ───────────────────────────────────────
 
 
-<<<<<<< HEAD
-=======
 def _looks_like_binary(raw: bytes) -> bool:
     """Heuristic — detect that `raw` is a binary container (not text).
 
@@ -542,7 +521,6 @@ def _looks_like_binary(raw: bytes) -> bool:
     return False
 
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 def _extract_text_document(
     file_path: str,
 ) -> tuple[str, list[tuple[str, str]], list[dict]]:
@@ -550,15 +528,12 @@ def _extract_text_document(
     with open(file_path, "rb") as f:
         raw = f.read()
 
-<<<<<<< HEAD
-=======
     if _looks_like_binary(raw):
         raise ValueError(
             "File appears to be a binary document (Word/PDF/image) renamed with a "
             "text extension. Please upload the original file with its correct extension."
         )
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     text = ""
     for encoding in ("utf-8", "utf-8-sig", "utf-16", "latin-1"):
         try:
@@ -571,10 +546,6 @@ def _extract_text_document(
     if not text:
         text = raw.decode("utf-8", errors="replace")
 
-<<<<<<< HEAD
-    normalized = text.replace("\r\n", "\n").replace("\r", "\n").strip()
-    return normalized, [], []
-=======
     normalized = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "").strip()
     return normalized, [], []
 
@@ -659,7 +630,6 @@ def _extract_vtt_document(
             last_was_blank = False
 
     return "\n".join(out_lines).strip(), [], []
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
 # ─── Helpers ──────────────────────────────────────────────────

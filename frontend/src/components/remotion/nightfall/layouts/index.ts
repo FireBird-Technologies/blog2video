@@ -7,12 +7,8 @@ import { GlassStack } from "./GlassStack";
 import { SplitGlass } from "./SplitGlass";
 import { ChapterBreak } from "./ChapterBreak";
 import { GlassImage } from "./GlassImage";
-<<<<<<< HEAD
-import { DataVisualization } from "./DataVisualization";
-=======
 import { NightfallDataChart } from "./NightfallDataChart";
 import { NightfallTable } from "./NightfallTable";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { EndingSocials } from "./EndingSocials";
 import type { NightfallLayoutType, NightfallLayoutProps } from "../types";
 
@@ -31,11 +27,7 @@ export const NIGHTFALL_LAYOUT_REGISTRY: Record<
   split_glass: SplitGlass,
   chapter_break: ChapterBreak,
   glass_image: GlassImage,
-<<<<<<< HEAD
-  data_visualization: DataVisualization,
-=======
   nightfall_data_visualization: NightfallDataChart,
   nightfall_ticker: NightfallTable,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   ending_socials: EndingSocials,
 };

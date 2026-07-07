@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-import { lazy, Suspense, useState, useCallback, useMemo, useEffect, useRef } from "react";
-import type { CustomTemplateTheme } from "../../api/client";
-import { compileComponentCode, type SceneProps } from "../../utils/compileComponent";
-=======
 import { lazy, Suspense, Fragment, useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { AbsoluteFill } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
@@ -11,22 +6,11 @@ import { compileComponentCode, compileModuleGraphEntry, type SceneProps } from "
 import { DataChartScene, DataTableScene } from "../remotion/generated/kit";
 import { CtaOverlay } from "../remotion/CtaOverlay";
 import { pickGeneratedTransition } from "../remotion/generated/generatedTransitions";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 const RemotionPreviewPlayer = lazy(() => import("../RemotionPreviewPlayer"));
 
 type ContentSampleData = Partial<SceneProps> & { displayText: string; narrationText: string };
 
-<<<<<<< HEAD
-/** Map archetype best_for tags to rich sample data so previews look realistic */
-function buildArchetypeSampleData(
-  brandName: string,
-  bestFor?: string[],
-): ContentSampleData {
-  const n = brandName || "Our Brand";
-  const tag = bestFor?.[0] || "plain";
-
-=======
 /** One scene in the preview carousel. Code scenes (intro/content) compile from AI
  *  source; data-viz scenes render the kit chart/table; the outro renders the same
  *  CTA overlay the final video composites (so preview === render). */
@@ -198,7 +182,6 @@ function buildArchetypeSampleData(
   const n = brandName || "Our Brand";
   const tag = bestFor?.[0] || "plain";
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   switch (tag) {
     case "metrics":
       return {
@@ -278,8 +261,6 @@ function buildArchetypeSampleData(
         ],
         codeLanguage: "typescript",
       };
-<<<<<<< HEAD
-=======
     case "dataviz":
       // Defensive only — content archetypes no longer use "dataviz" (charts/tables are
       // dedicated kit scenes). Keep a sensible fallback so a legacy archetype id that
@@ -289,7 +270,6 @@ function buildArchetypeSampleData(
         narrationText: `The data behind ${n}'s momentum, at a glance.`,
         contentType: "plain",
       };
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     default:
       return {
         displayText: `The ${n} Experience`,
@@ -317,13 +297,6 @@ interface CustomPreviewProps {
   outroCode?: string;
   contentCodes?: string[];
   contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
-<<<<<<< HEAD
-  previewImageUrl?: string | null;
-  logoUrls?: string[];
-  ogImage?: string;
-  onRetry?: () => void;
-  onAllScenesEnded?: () => void;
-=======
   validLayouts?: string[] | null;
   frontendFiles?: Record<string, string> | null;
   frontendEntryRel?: string | null;
@@ -340,7 +313,6 @@ interface CustomPreviewProps {
    *  so a parent (e.g. the Edit Template modal) can drive a live-highlighted scene strip. */
   onLiveSceneChange?: (idx: number) => void;
   thumbnailMode?: boolean;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export default function CustomPreview({
@@ -350,17 +322,6 @@ export default function CustomPreview({
   outroCode,
   contentCodes,
   contentArchetypeIds,
-<<<<<<< HEAD
-  previewImageUrl,
-  logoUrls,
-  ogImage,
-  onRetry,
-  onAllScenesEnded,
-}: CustomPreviewProps) {
-  const [activeScene, setActiveScene] = useState(0);
-  const [outgoingScene, setOutgoingScene] = useState<number | null>(null);
-  const [compiledMap, setCompiledMap] = useState<Map<number, React.FC<SceneProps>>>(new Map());
-=======
   validLayouts,
   frontendFiles,
   frontendEntryRel,
@@ -382,77 +343,11 @@ export default function CustomPreview({
   const [continuousScene, setContinuousScene] = useState(0);
   const [compiledMap, setCompiledMap] = useState<Map<number, React.FC<SceneProps>>>(new Map());
   const [compiledComposition, setCompiledComposition] = useState<React.ComponentType<any> | null>(null);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [isCompiling, setIsCompiling] = useState(true);
   const [compileError, setCompileError] = useState(false);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const compileTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-<<<<<<< HEAD
-  // Build ordered list of scene codes: intro, content variants, outro
-  const sceneCodes = useMemo(() => {
-    const codes: { code: string; label: string }[] = [];
-    if (introCode) codes.push({ code: introCode, label: "Intro" });
-    if (contentCodes && contentCodes.length > 0) {
-      contentCodes.forEach((c, i) => {
-        const rawArch = contentArchetypeIds?.[i];
-        const archId = typeof rawArch === "string" ? rawArch : rawArch?.id;
-        const archetypeLabel = archId
-          ?.replace(/_/g, " ")
-          ?.replace(/\b\w/g, (ch: string) => ch.toUpperCase());
-        codes.push({ code: c, label: archetypeLabel || `Content ${i + 1}` });
-      });
-    }
-    if (outroCode) codes.push({ code: outroCode, label: "Outro" });
-    return codes;
-  }, [introCode, outroCode, contentCodes, contentArchetypeIds]);
-
-  const hasCode = sceneCodes.length > 0;
-  const hasMultipleScenes = sceneCodes.length > 1;
-
-  // Pre-compute stable sampleProps for each scene so object references don't change
-  // between re-renders (avoids Remotion Player restarting animation mid-playback)
-  const fallbackSamples = useMemo(() => buildFallbackSamples(name || ""), [name]);
-
-  const sceneSampleProps = useMemo(() => {
-    // Only pass ogImage. Never use previewImageUrl as an image prop, as that is the template's
-    // own thumbnail and will cause a broken recursive image load, resulting in empty space.
-    const imageProps = ogImage ? { imageUrl: ogImage } : {};
-    const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
-    const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
-    const fontProps = { titleFontSize: 88, descriptionFontSize: 44 };
-
-    return sceneCodes.map((sc, idx) => {
-      const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...imageProps, ...logoProps, ...brandImageProps, ...fontProps };
-      const n = name || "Our Brand";
-
-      if (sc.label === "Intro") {
-        return { displayText: n, narrationText: `Discover what makes ${n} special.`, ...base };
-      }
-      if (sc.label === "Outro") {
-        return { displayText: n, narrationText: `Learn more at ${n}. Thank you for watching.`, ...base };
-      }
-      // Use archetype-aware sample data when available
-      const contentIdx = idx - (introCode ? 1 : 0);
-      const rawArch = contentArchetypeIds?.[contentIdx];
-      const bestFor = typeof rawArch === "object" ? rawArch?.best_for : undefined;
-      if (bestFor && bestFor.length > 0) {
-        const sample = buildArchetypeSampleData(n, bestFor);
-        return { ...sample, ...base };
-      }
-      const fallback = fallbackSamples[contentIdx % fallbackSamples.length];
-      return { ...fallback, ...base };
-    });
-  }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples]);
-
-  // Pre-compile ALL scene codes on mount (eliminates per-scene "Compiling preview..." flash)
-  useEffect(() => {
-    if (sceneCodes.length === 0) {
-      setIsCompiling(false);
-      return;
-    }
-
-=======
   // Report the on-screen scene index up to the parent so it can drive a live
   // scene strip (the strip itself now lives above the template name in the editor).
   useEffect(() => {
@@ -687,7 +582,6 @@ export default function CustomPreview({
     }
 
     setCompiledComposition(null);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     let cancelled = false;
     setIsCompiling(true);
     setCompileError(false);
@@ -708,13 +602,9 @@ export default function CustomPreview({
       const map = new Map<number, React.FC<SceneProps>>();
       for (let i = 0; i < sceneCodes.length; i++) {
         if (cancelled) return;
-<<<<<<< HEAD
-        const result = await compileComponentCode(sceneCodes[i].code);
-=======
         const sc = sceneCodes[i];
         if (sc.kind !== "code") continue; // data-viz scenes render via the kit, no compile
         const result = await compileComponentCode(sc.code);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if (result.success) {
           map.set(i, result.component);
         } else {
@@ -735,11 +625,7 @@ export default function CustomPreview({
       cancelled = true;
       clearTimeout(compileTimeoutRef.current);
     };
-<<<<<<< HEAD
-  }, [sceneCodes]);
-=======
   }, [sceneCodes, hasFrontendRuntime, frontendFiles, frontendEntryRel, publicAssetUrls]);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
   // Cleanup fade timer on unmount
   useEffect(() => {
@@ -759,10 +645,7 @@ export default function CustomPreview({
   }, []);
 
   const handleSceneEnded = useCallback(() => {
-<<<<<<< HEAD
-=======
     if (thumbnailMode) return;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if (hasMultipleScenes) {
       switchScene((prev) => {
         const isLast = prev === sceneCodes.length - 1;
@@ -770,111 +653,6 @@ export default function CustomPreview({
         return (prev + 1) % sceneCodes.length;
       });
     }
-<<<<<<< HEAD
-  }, [hasMultipleScenes, sceneCodes.length, switchScene, onAllScenesEnded]);
-
-  const goToScene = useCallback((idx: number) => {
-    switchScene(() => idx);
-  }, [switchScene]);
-
-  // ─── No code yet — show blank placeholder ─────────────────────
-  if (!hasCode) {
-    return (
-      <div
-        style={{
-          width: "100%",
-          aspectRatio: "16/9",
-          background: theme.colors.bg,
-          borderRadius: 8,
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-        }}
-      >
-        <div
-          style={{
-            fontFamily: `${theme.fonts.heading}, sans-serif`,
-            fontSize: 34,
-            fontWeight: 700,
-            color: theme.colors.text,
-            textAlign: "center",
-          }}
-        >
-          {name || "Your Template"}
-        </div>
-        <div
-          style={{
-            fontFamily: `${theme.fonts.body}, sans-serif`,
-            fontSize: 20,
-            color: theme.colors.muted,
-            textAlign: "center",
-          }}
-        >
-          Preview will appear after generation
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Still compiling all scenes — show once on initial load ───
-  if (isCompiling) {
-    return (
-      <div
-        style={{
-          width: "100%",
-          aspectRatio: "16/9",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#1a1a2e",
-          borderRadius: 8,
-        }}
-      >
-        <div
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: "50%",
-            border: "2px solid rgba(156, 163, 175, 0.35)",
-            borderTopColor: "#8b5cf6",
-            animation: "spin 0.9s linear infinite",
-          }}
-        />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  // ─── Compile error / timeout ────────────────────────────────
-  if (compileError || compiledMap.size === 0) {
-    return (
-      <div style={{ width: "100%", aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backgroundColor: "#1a1a2e", border: "1px solid #ef4444", borderRadius: 8, padding: 16, gap: 8 }}>
-        <span style={{ color: "#ef4444", fontSize: 13 }}>
-          {compileError ? "Preview compilation timed out" : "Preview compilation failed"}
-        </span>
-        {onRetry && (
-          <button onClick={onRetry} style={{ marginTop: 4, padding: "4px 12px", fontSize: 12, borderRadius: 4, border: "1px solid #6366f1", background: "transparent", color: "#6366f1", cursor: "pointer" }}>
-            Regenerate
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  const fallback = previewImageUrl ? (
-    <img
-      src={previewImageUrl}
-      alt="Loading preview..."
-      style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", borderRadius: 8, display: "block" }}
-    />
-  ) : (
-    <div style={{ width: "100%", aspectRatio: "16/9", background: "#1a1a2e", borderRadius: 8 }} />
-  );
-
-=======
   }, [hasMultipleScenes, sceneCodes.length, switchScene, onAllScenesEnded, thumbnailMode]);
 
   const goToScene = useCallback((idx: number) => {
@@ -1129,19 +907,11 @@ export default function CustomPreview({
     }
   };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return (
     <div style={{ position: "relative" }}>
       {/* Scene layers — div wrappers always mounted so CSS transitions work on opacity */}
       <Suspense fallback={fallback}>
         <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", borderRadius: 8, overflow: "hidden" }}>
-<<<<<<< HEAD
-          {sceneCodes.map((_, idx) => {
-            const isActive = idx === activeScene;
-            const isOutgoing = idx === outgoingScene;
-            const compiled = compiledMap.get(idx);
-            const shouldRenderPlayer = (isActive || isOutgoing) && compiled;
-=======
           {sceneCodes.map((sc, idx) => {
             const isActive = idx === activeScene;
             const isOutgoing = idx === outgoingScene;
@@ -1157,7 +927,6 @@ export default function CustomPreview({
                     : undefined;
             const compiled = kitComp ?? compiledMap.get(idx);
             const shouldRenderPlayer = (isActive || isOutgoing) && !!compiled;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
             return (
               <div
@@ -1165,40 +934,24 @@ export default function CustomPreview({
                 style={{
                   position: "absolute",
                   inset: 0,
-<<<<<<< HEAD
-                  opacity: isActive ? 1 : 0,
-                  transform: isActive ? "scale(1)" : isOutgoing ? "scale(1.02)" : "scale(0.98)",
-                  transition: "opacity 300ms ease-out, transform 300ms ease-out",
-=======
                   ...transitionStyleFor(idx, isActive),
                   transition:
                     "opacity 320ms ease-out, transform 320ms ease-out, filter 320ms ease-out, clip-path 360ms ease-out",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   zIndex: isActive ? 2 : 1,
                   pointerEvents: isActive ? "auto" : "none",
                 }}
               >
-<<<<<<< HEAD
-                {shouldRenderPlayer && (
-=======
                 {shouldRenderPlayer && compiled && (
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   <RemotionPreviewPlayer
                     compiledComponent={compiled}
                     theme={theme}
                     sampleProps={sceneSampleProps[idx]}
                     durationSeconds={5}
-<<<<<<< HEAD
-                    loop={!hasMultipleScenes}
-                    onRetry={onRetry}
-                    onEnded={isActive ? handleSceneEnded : undefined}
-=======
                     loop={!thumbnailMode && !hasMultipleScenes}
                     thumbnailMode={thumbnailMode}
                     thumbnailFrame={thumbnailFrame}
                     onRetry={onRetry}
                     onEnded={!thumbnailMode && isActive ? handleSceneEnded : undefined}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   />
                 )}
               </div>
@@ -1207,41 +960,6 @@ export default function CustomPreview({
         </div>
       </Suspense>
 
-<<<<<<< HEAD
-      {/* Scene navigation dots (minimal — no layout labels) */}
-      {hasMultipleScenes && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 6,
-            left: 0,
-            right: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-            zIndex: 10,
-          }}
-        >
-          {sceneCodes.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => goToScene(idx)}
-              type="button"
-              style={{
-                width: idx === activeScene ? 10 : 3,
-                height: 3,
-                borderRadius: 2,
-                background: idx === activeScene ? "#fff" : "rgba(255,255,255,0.35)",
-                border: "none",
-                cursor: "pointer",
-                padding: 0,
-                transition: "all 0.2s",
-              }}
-              aria-label={`Preview scene ${idx + 1} of ${sceneCodes.length}`}
-            />
-          ))}
-=======
       {/* Scene navigation — control bar BELOW the video (prev/next + counter + dots) */}
       {hasMultipleScenes && !thumbnailMode && (
         <div
@@ -1329,7 +1047,6 @@ export default function CustomPreview({
               ))}
             </div>
           </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         </div>
       )}
     </div>

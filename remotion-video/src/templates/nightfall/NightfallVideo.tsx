@@ -16,40 +16,6 @@ import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
-/** Convert schema format (barChartRows, etc.) to component format (barChart, etc.) for data_visualization */
-function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
-  const out = { ...lp };
-  if (Array.isArray(out.barChartRows)) {
-    const rows = out.barChartRows as { label?: string; value?: string }[];
-    out.barChart = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
-    };
-    delete out.barChartRows;
-  }
-  if (Array.isArray(out.pieChartRows)) {
-    const rows = out.pieChartRows as { label?: string; value?: string }[];
-    out.pieChart = {
-      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-      values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
-    };
-    delete out.pieChartRows;
-  }
-  if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
-    const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
-    const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
-      label: (d && d.label != null ? String(d.label) : "") as string,
-      values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
-        .split(",")
-        .map((s) => Number(s.trim()) || 0),
-    }));
-    out.lineChart = { labels, datasets };
-    delete out.lineChartLabels;
-    delete out.lineChartDatasets;
-  }
-  return out;
-}
-
 // ─── Types ───────────────────────────────────────────────────
 
 interface SceneData {
@@ -79,9 +45,6 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: number | string;
   aspectRatio?: string;
-<<<<<<< HEAD
-  fontFamily?: string | null;
-=======
   playbackSpeed?: number;
   fontFamily?: string | null;
   bgmFile?: string | null;
@@ -91,7 +54,6 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   scenes: SceneData[];
 }
 
@@ -114,11 +76,7 @@ export const calculateNightfallMetadata: CalculateMetadataFunction<VideoProps> =
       const sceneFrames = data.scenes.map((s) =>
         getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
-<<<<<<< HEAD
-      const totalFrames = Math.ceil(totalSeconds * FPS);
-=======
       const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       const isPortrait = data.aspectRatio === "portrait";
 
@@ -214,13 +172,7 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
-<<<<<<< HEAD
-        const rawLayoutProps = scene.layout === "data_visualization"
-          ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
-          : scene.layoutProps;
-=======
         const rawLayoutProps = scene.layoutProps;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
         const layoutProps: NightfallLayoutProps = {
@@ -232,11 +184,8 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#E2E8F0",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily: resolvedFontFamily || undefined,
         };
 

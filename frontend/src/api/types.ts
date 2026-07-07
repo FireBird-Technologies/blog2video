@@ -71,15 +71,12 @@ export interface Project {
   custom_voice_id: string | null;
   voice_emotion?: string | null;
   aspect_ratio: string;
-<<<<<<< HEAD
-=======
   playback_speed?: number;
   captions_enabled?: boolean;
   caption_position?: "bottom_center" | "top_center";
   caption_font_family?: string;
   caption_font_size?: string | number;
   caption_offset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   custom_template_missing?: boolean;
   review_state?: ReviewState | null;
   created_at: string;
@@ -112,8 +109,6 @@ export interface ProjectTemplateChangeJob {
   completed_at: string | null;
 }
 
-<<<<<<< HEAD
-=======
 export interface ProjectRegenerateScriptJob {
   id: number;
   project_id: number;
@@ -144,7 +139,6 @@ export interface RegenerateScriptPreviewOut {
   previous_scenes: RegenerateScriptPreviewScene[];
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export interface ChatMessage {
   id: number;
   role: string;
@@ -216,12 +210,9 @@ export interface SubscriptionDetail {
   amount_paid_cents: number;
   canceled_at: string | null;
   retention_offer_eligible: boolean;
-<<<<<<< HEAD
-=======
   scheduled_plan_slug: string | null;
   scheduled_plan_name: string | null;
   scheduled_change_at: string | null;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   created_at: string;
 }
 

@@ -65,15 +65,12 @@ export interface GridcraftVideoCompositionProps {
   bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
-<<<<<<< HEAD
-=======
   playbackSpeed?: number;
   captionsEnabled?: boolean;
   captionPosition?: string;
   captionFontFamily?: string;
   captionFontSize?: number;
   captionOffset?: number;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 export const GridcraftVideoComposition: React.FC<
@@ -91,15 +88,12 @@ export const GridcraftVideoComposition: React.FC<
   bgmVolume,
   aspectRatio,
   fontFamily,
-<<<<<<< HEAD
-=======
   playbackSpeed,
   captionsEnabled,
   captionPosition,
   captionFontFamily,
   captionFontSize,
   captionOffset,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }) => {
   const FPS = 30;
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
@@ -136,11 +130,8 @@ export const GridcraftVideoComposition: React.FC<
           textColor: textColor || COLORS.DARK,
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily,
         };
 

@@ -1,17 +1,10 @@
 import React from "react";
-<<<<<<< HEAD
-import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, Easing } from "remotion";
-=======
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Easing } from "remotion";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import type { SpringConfig } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
-<<<<<<< HEAD
-=======
 import { ZoomCropImg } from "../components/ZoomCropImg";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   // Backend props

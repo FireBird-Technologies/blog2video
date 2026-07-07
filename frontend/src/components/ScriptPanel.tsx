@@ -137,18 +137,6 @@ export default function ScriptPanel({
 
       {/* Scene cards */}
       <div className="space-y-2">
-<<<<<<< HEAD
-        {scenes.map((scene) => (
-          <div
-            key={scene.id}
-            className="glass-card p-5 border-l-2 border-l-purple-200"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-sm font-medium text-gray-900">{scene.title}</h3>
-              <span className="text-[11px] text-gray-300">
-                {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
-              </span>
-=======
         {scenes.map((scene) => {
           const layout = resolveLayout(scene);
           const isEditing = editingSceneId === scene.id;
@@ -258,7 +246,6 @@ export default function ScriptPanel({
                   )}
                 </>
               )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
           );
         })}

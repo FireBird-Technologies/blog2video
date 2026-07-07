@@ -10,13 +10,9 @@ export type WhiteboardLayoutType =
   | "countdown_timer"
   | "handwritten_equation"
   | "speech_bubble_dialogue"
-<<<<<<< HEAD
-  | "ending_socials";
-=======
   | "data_visualisation"
   | "ending_socials"
   | "ticker_table";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface WhiteboardStatItem {
   label: string;
@@ -40,9 +36,6 @@ export interface WhiteboardLayoutProps {
   rightThought?: string;
   fontFamily?: string;
 
-<<<<<<< HEAD
-  // ending_socials
-=======
   // ── data_visualisation (chart) — shared chartTable data-viz contract ──
   /** Column 0 = X labels; columns 1–3 = up to three numeric series. */
   chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
@@ -67,14 +60,10 @@ export interface WhiteboardLayoutProps {
   tickerFootnote?: string;
   tickerHighlightCol?: number;
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

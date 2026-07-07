@@ -1,9 +1,5 @@
 import { createFaq, createPage, templateBySlug } from "./marketingBase";
-<<<<<<< HEAD
-import type { MarketingPage } from "./seoTypes";
-=======
 import type { FaqItem, MarketingPage } from "./seoTypes";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 type AlternativeSeed = {
   path: string;
@@ -18,11 +14,8 @@ type AlternativeSeed = {
   proofPoints: string[];
   sections: { title: string; body: string[]; bullets?: string[] }[];
   relatedPaths: string[];
-<<<<<<< HEAD
-=======
   demoWidget?: boolean;
   faq?: FaqItem[];
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 };
 
 const seeds: AlternativeSeed[] = [
@@ -42,10 +35,7 @@ const seeds: AlternativeSeed[] = [
       "Blog2Video extracts content directly from a live URL — no copy-paste.",
       "ElevenLabs voice integration with per-voice preview before generation.",
       "Scene structure follows your article's actual headings, not a generic template.",
-<<<<<<< HEAD
-=======
       "Standard plan ($34.99/mo) covers up to ~240 minutes of video a month — flat video count, no minute or credit caps.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     sections: [
       {
@@ -105,10 +95,7 @@ const seeds: AlternativeSeed[] = [
       "No stock footage library needed — templates drive the visual language.",
       "Blog2Video uses the full article structure, not just highlighted sentences.",
       "ElevenLabs narration sounds natural and stays close to the original writing.",
-<<<<<<< HEAD
-=======
       "Pictory's 200-minute Starter allowance is gated by a separate AI-credit pool — Blog2Video's 240-minute Standard plan has just one cap: video count.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     sections: [
       {
@@ -160,10 +147,7 @@ const seeds: AlternativeSeed[] = [
       "Blog2Video requires no manual scene building — the article structure does it.",
       "Full automation from URL to video in under three minutes.",
       "No subscription to a stock media library required.",
-<<<<<<< HEAD
-=======
       "InVideo AI Plus caps out around 50 AI-generation minutes a month at $25/mo — Blog2Video Standard covers up to ~240 minutes at $34.99/mo.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     sections: [
       {
@@ -210,10 +194,7 @@ const seeds: AlternativeSeed[] = [
       "No recording equipment or existing footage required.",
       "Start from a URL or document — no raw video file needed.",
       "Better for teams that produce content writing-first.",
-<<<<<<< HEAD
-=======
       "Descript meters by transcription hours, not finished video minutes — Blog2Video's flat per-video plans skip that conversion entirely.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     sections: [
       {
@@ -259,10 +240,7 @@ const seeds: AlternativeSeed[] = [
       "No stock library browsing or slide-by-slide adjustment.",
       "Article headings drive scene structure automatically.",
       "ElevenLabs voice integration with preview before generation.",
-<<<<<<< HEAD
-=======
       "No published total-minutes cap on Lumen5's paid plans to compare against — Blog2Video Standard gives a clear, flat ~240 minutes a month for $35.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     sections: [
       {
@@ -285,8 +263,6 @@ const seeds: AlternativeSeed[] = [
           "If you write posts that rely on precision, structure, and specific examples, Blog2Video's article-driven approach preserves that. Lumen5's stock-footage approach tends to flatten the specificity of technical content.",
         ],
       },
-<<<<<<< HEAD
-=======
       {
         title: "Lumen5 pricing vs Blog2Video pricing",
         body: [
@@ -300,7 +276,6 @@ const seeds: AlternativeSeed[] = [
           "Both offer a free starting tier — Blog2Video's free videos are full-quality, not watermarked previews",
         ],
       },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     relatedPaths: [
       "/blog2video-vs-lumen5",
@@ -308,8 +283,6 @@ const seeds: AlternativeSeed[] = [
       "/for-technical-bloggers",
       "/pictory-alternative",
     ],
-<<<<<<< HEAD
-=======
     faq: [
       {
         question: "Is there a free alternative to Lumen5?",
@@ -332,7 +305,6 @@ const seeds: AlternativeSeed[] = [
           "Yes. Blog2Video doesn't import Lumen5 projects directly, but since it generates videos from your live blog URL or document rather than a slide editor, you can regenerate any article you've already published in a few minutes without rebuilding scenes by hand.",
       },
     ],
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   },
   {
     path: "/pictory-alternative",
@@ -350,10 +322,7 @@ const seeds: AlternativeSeed[] = [
       "No stock footage — templates make your content the visual.",
       "Scene structure follows your article headings, not AI-picked highlights.",
       "ElevenLabs voices sound more natural than standard TTS options.",
-<<<<<<< HEAD
-=======
       "Pictory's minute allowance sits on top of a separate AI-credit cap that usually binds first — Blog2Video's video count is the only limit on its plans.",
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     ],
     sections: [
       {
@@ -384,8 +353,6 @@ const seeds: AlternativeSeed[] = [
       "/lumen5-alternative",
     ],
   },
-<<<<<<< HEAD
-=======
   {
     path: "/heygen-alternative",
     title: "HeyGen Alternative for Blog-to-Video",
@@ -762,7 +729,6 @@ const seeds: AlternativeSeed[] = [
       "/ai-scene-editor",
     ],
   },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ];
 
 export const alternativePages: MarketingPage[] = seeds.map((seed) =>
@@ -770,13 +736,6 @@ export const alternativePages: MarketingPage[] = seeds.map((seed) =>
     ...seed,
     category: "alternative",
     recommendedTemplateReason: templateBySlug[seed.recommendedTemplate].differentiator,
-<<<<<<< HEAD
-    faq: createFaq(
-      seed.primaryKeyword,
-      "Teams looking to switch from or compare another blog-to-video tool",
-      "Blog2Video is strongest when the original content already has structure and depth — it preserves that structure in the output rather than replacing it with generic stock media."
-    ),
-=======
     faq:
       seed.faq ??
       createFaq(
@@ -784,6 +743,5 @@ export const alternativePages: MarketingPage[] = seeds.map((seed) =>
         "Teams looking to switch from or compare another blog-to-video tool",
         "Blog2Video is strongest when the original content already has structure and depth — it preserves that structure in the output rather than replacing it with generic stock media."
       ),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   })
 );

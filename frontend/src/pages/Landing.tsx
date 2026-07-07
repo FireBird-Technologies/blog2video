@@ -1,24 +1,11 @@
-<<<<<<< HEAD
-import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
-=======
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
-<<<<<<< HEAD
-import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
-import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
-// import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
-import GoogleAuthButton from "../components/public/GoogleAuthButton";
-import AccountDeletedModal from "../components/AccountDeletedModal";
-import LandingResourceSection from "../components/public/LandingResourceSection";
-=======
 import CoverflowCarousel, { type CoverflowTemplate, type CoverflowOrientation } from "../components/CoverflowCarousel";
 import OrientationToggle from "../components/OrientationToggle";
 import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS } from "../components/templatePreviewRegistry";
@@ -36,7 +23,6 @@ import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
 import UserReviewsSection from "../components/UserReviewsSection";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import PublicFooter from "../components/public/PublicFooter";
 import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
@@ -310,11 +296,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
   }`;
 
   return (
-<<<<<<< HEAD
-    <section id="demo" className="py-20 border-t border-gray-100">
-=======
     <section id="demo" className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div className="max-w-6xl mx-auto px-6">
         <div className="reveal">
           <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -329,23 +311,6 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
         </div>
 
         {demos.length > 1 && (
-<<<<<<< HEAD
-          <div className="flex items-center justify-center gap-2 mb-8 reveal">
-            {demos.map((video, idx) => (
-              <button
-                key={video.id}
-                type="button"
-                onClick={() => setActiveVideoIdx(idx)}
-                className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
-                  activeVideoIdx === idx
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                {video.title}
-              </button>
-            ))}
-=======
           <div className="flex items-center justify-center mb-8 reveal">
             <div className="inline-flex p-1 rounded-full border border-white/60 backdrop-blur-xl" style={{ background: "rgba(255,255,255,0.50)", boxShadow: "0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
               {demos.map((video, idx) => (
@@ -364,7 +329,6 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
                 </button>
               ))}
             </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
         )}
 
@@ -376,11 +340,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
               href={v.blogUrl}
               target="_blank"
               rel="noopener noreferrer"
-<<<<<<< HEAD
-              className="glass-card overflow-hidden group hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all flex flex-col"
-=======
               className="overflow-hidden group transition-all duration-300 flex flex-col rounded-2xl border border-white/70 hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.90)" }}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             >
               <div className="aspect-[16/9] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden flex-shrink-0">
                 {v.blogImage ? (
@@ -457,11 +417,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
               </div>
             </div>
 
-<<<<<<< HEAD
-            <div className="glass-card overflow-hidden flex flex-col ring-2 ring-purple-100 hover:ring-purple-200 transition-all hover:shadow-[0_4px_20px_rgba(124,58,237,0.1)]">
-=======
             <div className="overflow-hidden flex flex-col transition-all duration-300 rounded-2xl border border-purple-100/60 hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.08), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               {/* YouTube host stays outside opacity/transform cross-fade — animating the grid broke iframe API in several browsers */}
               <div className="aspect-[16/9] relative flex-shrink-0 bg-black w-full overflow-hidden">
                 <div id={LANDING_YT_HOST_ID} className="absolute inset-0 z-0 w-full h-full" />
@@ -503,28 +459,20 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 }
 
 export default function Landing() {
-<<<<<<< HEAD
-  const { login } = useAuth();
-  const navigate = useNavigate();
-=======
   const { login, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const { showError } = useErrorModal();
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
   const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
   const [pendingCredential, setPendingCredential] = useState<string | null>(null);
   const [reactivating, setReactivating] = useState(false);
-<<<<<<< HEAD
-=======
   const [heroUrl, setHeroUrl] = useState("");
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
   const [designerOpen, setDesignerOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [templatesOrientation, setTemplatesOrientation] = useState<CoverflowOrientation>("landscape");
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const scrollRef = useScrollReveal();
 
   // "Your Own Brand" CTA card: logged-in users get the in-app designer request
@@ -705,10 +653,7 @@ export default function Landing() {
       } else {
         showError(getErrorMessage(err, "Authentication failed. Please try again."));
       }
-<<<<<<< HEAD
-=======
       setSigningIn(false);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     }
   };
 
@@ -720,14 +665,11 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       setAccountDeletedOpen(false);
       setPendingCredential(null);
-<<<<<<< HEAD
-=======
       if (localStorage.getItem("b2v_pending_mcp")) {
         localStorage.removeItem("b2v_pending_mcp");
         navigate("/mcp-connector");
         return;
       }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       navigate("/dashboard");
     } catch (err: any) {
       showError(getErrorMessage(err, "Failed to reactivate account."));
@@ -745,15 +687,9 @@ export default function Landing() {
         schema={homepageSchema()}
       />
       {/* ─── Nav ─── */}
-<<<<<<< HEAD
-      <nav className="bg-white/60 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/50">
-        {/* Banner above navbar so it appears first on scroll */}
-        <DiscountBanner containerClassName="max-w-6xl" />
-=======
       <nav className="sticky top-0 z-50 border-b border-white/50 backdrop-blur-2xl" style={{ background: "rgba(255,255,255,0.60)", boxShadow: "0 1px 0 rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.03)" }}>
         {/* Banner above navbar so it appears first on scroll */}
         {/* <DiscountBanner containerClassName="max-w-6xl" /> */}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -785,8 +721,6 @@ export default function Landing() {
                 </Link>
               )
             )}
-<<<<<<< HEAD
-=======
             <button
               type="button"
               onClick={handleGenerateClick}
@@ -794,7 +728,6 @@ export default function Landing() {
             >
               Sign in
             </button>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
           {/* Mobile: login + dropdown trigger */}
           <div className="relative md:hidden flex items-center gap-2">
@@ -824,11 +757,7 @@ export default function Landing() {
                   aria-hidden="true"
                   onClick={() => setNavOpen(false)}
                 />
-<<<<<<< HEAD
-                <div className="absolute right-0 top-full mt-1 py-2 w-48 bg-white rounded-xl border border-gray-200/80 shadow-lg z-50">
-=======
                 <div className="absolute right-0 top-full mt-1 py-2 w-48 rounded-xl border border-white/60 backdrop-blur-2xl z-50" style={{ background: "rgba(255,255,255,0.80)", boxShadow: "0 8px 32px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   {NAV_LINKS.map(({ href, label }) =>
                     href.startsWith("#") ? (
                       <a
@@ -877,36 +806,15 @@ export default function Landing() {
             Turn blog posts and updates into narrated videos in minutes.
           </p>
 
-<<<<<<< HEAD
-          <p className="text-sm text-gray-400 mb-10 max-w-xl mx-auto">
-            Perfect for technical writers who need their content to reach everywhere,
-            researchers presenting findings, and teachers turning lessons into visual guides.
-          </p>
-
-          <div className="flex flex-col items-center gap-4">
-=======
           {/* Hidden Google button — triggered programmatically on form submit.
               In an in-app browser it's revealed so the escape/instructions UI shows. */}
           <div ref={googleBtnRef} className={isInApp ? "mt-4 flex justify-center" : "hidden"}>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}
               text="continue_with"
               width="300"
             />
-<<<<<<< HEAD
-            <p className="text-xs text-gray-400">
-              3 videos free — no credit card required
-            </p>
-            <Link
-              to="/blog-to-video"
-              className="text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
-            >
-              Learn more: Blog to video converter →
-            </Link>
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
 
           <form
@@ -936,9 +844,6 @@ export default function Landing() {
         </div>
       </section>
 
-<<<<<<< HEAD
-      <LandingDemoSection demos={demos} />
-=======
       {/* Platform + Reviews share one grey band (Reviews flows out of Platform) */}
       <div style={{ background: "rgba(246,247,249,0.70)" }}>
         <PlatformShowcaseSection />
@@ -964,7 +869,6 @@ export default function Landing() {
           <CoverflowCarousel key={templatesOrientation} templates={carouselTemplates} initialIndex={carouselInitialIndex} orientation={templatesOrientation} showInputShowcase />
         </div>
       </section>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 
       <LandingDemoSection demos={demos} />
@@ -974,12 +878,6 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto px-6">
           <FullTemplateShowcase />
         </div>
-<<<<<<< HEAD
-      </section>
-
-      {/* ─── Custom template showcase ─── */}
-      <section className="py-20 border-t border-gray-100">
-=======
       </section> */}
 
 
@@ -992,7 +890,6 @@ export default function Landing() {
 
       {/* ─── Custom template showcase ─── */}
       <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         <div className="max-w-5xl mx-auto px-6">
           <CustomTemplateShowcase />
         </div>
@@ -1316,13 +1213,8 @@ export default function Landing() {
             Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-<<<<<<< HEAD
-            Your first 3 videos are free. Then $3/video pay-as-you-go, $25/month
-            (or $20/mo annual), $50/month with unlimited AI edit & image generation,
-=======
             Your first 2 videos are free. Then from $2.80/video pay-as-you-go, $34.99/month,
             $59.99/month with unlimited AI edit & image generation,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             or custom plans for enterprise teams.
           </p>
 
@@ -1330,21 +1222,12 @@ export default function Landing() {
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
-<<<<<<< HEAD
-              <p className="text-xs text-gray-400 mt-1">3 videos free</p>
-=======
               <p className="text-xs text-gray-400 mt-1">2 videos free</p>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
-<<<<<<< HEAD
-              <p className="text-3xl font-bold text-gray-900">$3</p>
-              <p className="text-xs text-gray-400 mt-1">pay as you go</p>
-=======
               <p className="text-3xl font-bold text-gray-900">$3.99</p>
               <p className="text-xs text-gray-400 mt-1">from $2.80 bulk</p>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
@@ -1388,14 +1271,6 @@ export default function Landing() {
             Turn the content you already publish into videos you can share everywhere, without freelancers, agencies, or extra production overhead.
           </p>
           <div className="flex justify-center">
-<<<<<<< HEAD
-            <GoogleAuthButton
-              onSuccess={handleGoogleSuccess}
-              onError={() => showError("Google sign-in failed")}
-              text="continue_with"
-              width="300"
-            />
-=======
             <div className="flex flex-col items-center gap-3 px-8 py-6 rounded-2xl border border-white/70" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
               <GoogleAuthButton
                 onSuccess={handleGoogleSuccess}
@@ -1405,14 +1280,11 @@ export default function Landing() {
               />
               <p className="text-xs text-gray-400">2 videos free — no credit card required</p>
             </div>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           </div>
         </div>
       </section>
 
       <PublicFooter />
-<<<<<<< HEAD
-=======
 
       {signingIn && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
@@ -1420,7 +1292,6 @@ export default function Landing() {
           <p className="text-sm font-medium text-gray-700">Signing you in…</p>
         </div>
       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       <AccountDeletedModal
         open={accountDeletedOpen}
@@ -1428,8 +1299,6 @@ export default function Landing() {
         onReactivate={handleReactivate}
         reactivating={reactivating}
       />
-<<<<<<< HEAD
-=======
 
       <DesignerTemplateRequestModal open={designerOpen} onClose={() => setDesignerOpen(false)} />
       <ContactModal
@@ -1440,7 +1309,6 @@ export default function Landing() {
         messagePlaceholder="Describe your ideal template, your brand, and any reference links."
         isDesignerRequest
       />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     </div>
   );
 }

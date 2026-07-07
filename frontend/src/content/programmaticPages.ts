@@ -11,10 +11,7 @@ type ProgrammaticSeed = {
   primaryKeyword: string;
   keywordVariant: string;
   recommendedTemplate: string;
-<<<<<<< HEAD
-=======
   recommendedTemplateReason?: string;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   proofPoints: string[];
   sections: ContentSection[];
   relatedPaths: string[];
@@ -534,8 +531,6 @@ const seeds: ProgrammaticSeed[] = [
     ],
     relatedPaths: ["/for-substack-writers", "/for-newsletters/url-to-video", "/distribution-flywheel"],
   },
-<<<<<<< HEAD
-=======
   {
     path: "/convert-political-blog-to-video",
     title: "Convert Political Blog To Video",
@@ -716,20 +711,15 @@ const seeds: ProgrammaticSeed[] = [
     ],
     relatedPaths: ["/blog-to-video", "/templates/whiteboard", "/how-to-turn-a-blog-post-into-a-video"],
   },
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 ];
 
 export const programmaticPages: MarketingPage[] = seeds.map((seed) =>
   createPage({
     ...seed,
     category: "programmatic",
-<<<<<<< HEAD
-    recommendedTemplateReason: templateBySlug[seed.recommendedTemplate].differentiator,
-=======
     recommendedTemplateReason:
       seed.recommendedTemplateReason ??
       templateBySlug[seed.recommendedTemplate].differentiator,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     faq: createFaq(
       seed.primaryKeyword,
       "Teams using an existing source asset as the starting point",

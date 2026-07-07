@@ -19,8 +19,6 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-<<<<<<< HEAD
-=======
 
 # Built-in templates that share LaDuc's chart/ticker data-viz contract via their
 # own (chart_layout, ticker_layout) ids. Single source of truth consumed by the
@@ -77,7 +75,6 @@ def is_builtin_ticker_layout(layout: str) -> bool:
     """True for a built-in data-viz ticker / data-table layout."""
     return layout in CHART_TICKER_TICKER_LAYOUT_IDS
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 # Path to backend/templates/ (relative to this file: app/services/template_service.py)
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
 
@@ -106,12 +103,6 @@ def _parse_custom_id(template_id: str) -> int | None:
 def _build_template_result(tpl) -> dict[str, Any]:
     """Build the template data dict from a CustomTemplate ORM object."""
     theme = json.loads(tpl.theme) if isinstance(tpl.theme, str) else tpl.theme
-<<<<<<< HEAD
-    style = (getattr(tpl, "supported_video_style", None) or "").strip().lower()
-    if style not in {"explainer", "promotional", "storytelling"}:
-        style = "explainer"
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     # Load brand kit data if linked
     brand_kit_data = None
     if tpl.brand_kit_id and tpl.brand_kit:
@@ -132,42 +123,22 @@ def _build_template_result(tpl) -> dict[str, Any]:
         except (json.JSONDecodeError, TypeError):
             content_codes = None
 
-<<<<<<< HEAD
-=======
     og_image = ""
     if brand_kit_data and brand_kit_data.get("images"):
         imgs = brand_kit_data["images"]
         if imgs and isinstance(imgs[0], str):
             og_image = imgs[0]
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     return {
         "theme": theme,
         "generated_prompt": tpl.generated_prompt or "",
         "name": tpl.name,
         "category": tpl.category or "blog",
-<<<<<<< HEAD
-        "supported_video_style": style,
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         "has_generated_code": bool(content_codes),
         "intro_code": tpl.intro_code,
         "outro_code": tpl.outro_code,
         "content_codes": content_codes,
         "content_archetype_ids": json.loads(tpl.content_archetype_ids) if getattr(tpl, "content_archetype_ids", None) else [],
-<<<<<<< HEAD
-        "brand_kit": brand_kit_data,
-    }
-
-
-def _load_custom_template_data(
-    template_id: str, db: Session | None = None
-) -> dict[str, Any] | None:
-    """
-    Load a custom template's theme + generated_prompt from DB.
-    Returns a dict with keys: theme, generated_prompt, name, category, supported_video_style.
-    Returns None if not found.
-=======
         "image_box_aspect_ratios": json.loads(tpl.image_box_aspect_ratios) if getattr(tpl, "image_box_aspect_ratios", None) else None,
         "brand_kit": brand_kit_data,
         "og_image": og_image,
@@ -246,11 +217,7 @@ def _load_custom_template_data(
         if not package:
             return None
         return _build_crafted_template_result(package)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
-    If a `db` session is provided, it is used directly (no new connection).
-    Otherwise a short-lived SessionLocal is created and closed automatically.
-    """
     custom_id = _parse_custom_id(template_id)
     if custom_id is None:
         return None
@@ -258,14 +225,10 @@ def _load_custom_template_data(
     from app.models.custom_template import CustomTemplate
 
     if db is not None:
-<<<<<<< HEAD
-        tpl = db.query(CustomTemplate).filter(CustomTemplate.id == custom_id).first()
-=======
         q = db.query(CustomTemplate).filter(CustomTemplate.id == custom_id)
         if user_id is not None:
             q = q.filter(CustomTemplate.user_id == user_id)
         tpl = q.first()
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if not tpl:
             return None
         return _build_template_result(tpl)
@@ -275,14 +238,10 @@ def _load_custom_template_data(
 
     own_db = SessionLocal()
     try:
-<<<<<<< HEAD
-        tpl = own_db.query(CustomTemplate).filter(CustomTemplate.id == custom_id).first()
-=======
         q = own_db.query(CustomTemplate).filter(CustomTemplate.id == custom_id)
         if user_id is not None:
             q = q.filter(CustomTemplate.user_id == user_id)
         tpl = q.first()
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if not tpl:
             return None
         return _build_template_result(tpl)
@@ -290,15 +249,9 @@ def _load_custom_template_data(
         own_db.close()
 
 
-<<<<<<< HEAD
-def _get_custom_meta(template_id: str, db: Session | None = None) -> dict[str, Any] | None:
-    """Build a meta.json equivalent for a custom template from DB data."""
-    data = _load_custom_template_data(template_id, db=db)
-=======
 def _get_custom_meta(template_id: str, db: Session | None = None, user_id: int | None = None) -> dict[str, Any] | None:
     """Build a meta.json equivalent for a custom template from DB data."""
     data = _load_custom_template_data(template_id, db=db, user_id=user_id)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if not data:
         return None
     if is_crafted_template(template_id):
@@ -309,16 +262,6 @@ def _get_custom_meta(template_id: str, db: Session | None = None, user_id: int |
     return build_custom_meta(
         data["theme"],
         data["name"],
-<<<<<<< HEAD
-        supported_video_style=data.get("supported_video_style", "explainer"),
-        content_codes_count=len(content_codes),
-    )
-
-
-def _get_custom_prompt(template_id: str, db: Session | None = None) -> str:
-    """Get the generated prompt for a custom template."""
-    data = _load_custom_template_data(template_id, db=db)
-=======
         content_codes_count=len(content_codes),
         content_archetype_ids=data.get("content_archetype_ids"),
     )
@@ -327,7 +270,6 @@ def _get_custom_prompt(template_id: str, db: Session | None = None) -> str:
 def _get_custom_prompt(template_id: str, db: Session | None = None, user_id: int | None = None) -> str:
     """Get the generated prompt for a custom template."""
     data = _load_custom_template_data(template_id, db=db, user_id=user_id)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     if not data:
         return ""
     if data["generated_prompt"]:
@@ -349,17 +291,10 @@ def _load_registry() -> list[str]:
     return data if isinstance(data, list) else ["default"]
 
 
-<<<<<<< HEAD
-def _load_meta(template_id: str, db: Session | None = None) -> dict[str, Any] | None:
-    """Load meta.json for a template. Returns None if not found."""
-    if is_custom_template(template_id):
-        return _get_custom_meta(template_id, db=db)
-=======
 def _load_meta(template_id: str, db: Session | None = None, user_id: int | None = None) -> dict[str, Any] | None:
     """Load meta.json for a template. Returns None if not found."""
     if is_custom_template(template_id) or is_crafted_template(template_id):
         return _get_custom_meta(template_id, db=db, user_id=user_id)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     path = _TEMPLATES_DIR / template_id / "meta.json"
     if not path.exists():
         return None
@@ -367,17 +302,10 @@ def _load_meta(template_id: str, db: Session | None = None, user_id: int | None 
         return json.load(f)
 
 
-<<<<<<< HEAD
-def _load_prompt(template_id: str, db: Session | None = None) -> str:
-    """Load prompt.md content for a template. Returns empty string if not found."""
-    if is_custom_template(template_id):
-        return _get_custom_prompt(template_id, db=db)
-=======
 def _load_prompt(template_id: str, db: Session | None = None, user_id: int | None = None) -> str:
     """Load prompt.md content for a template. Returns empty string if not found."""
     if is_custom_template(template_id) or is_crafted_template(template_id):
         return _get_custom_prompt(template_id, db=db, user_id=user_id)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     path = _TEMPLATES_DIR / template_id / "prompt.md"
     if not path.exists():
         return ""
@@ -440,28 +368,6 @@ def get_layout_prompt(template_id: str, db: Session | None = None, user_id: int 
 
     # Fallback: use full prompt.md
     return _load_prompt(template_id, db=db, user_id=user_id)
-
-
-def get_layout_prompt(template_id: str) -> str:
-    """
-    Get layout_prompt.md content for one template.
-
-    - For built-in templates, tries backend/templates/<id>/layout_prompt.md first,
-      falling back to prompt.md when not present.
-    - For custom templates (custom_N), falls back to the generated prompt
-      (the full template prompt already contains the layout/arrangement catalog).
-    """
-    if is_custom_template(template_id):
-        # Custom templates do not have layout_prompt.md files on disk; use their full prompt.
-        return _get_custom_prompt(template_id)
-
-    layout_path = _TEMPLATES_DIR / template_id / "layout_prompt.md"
-    if layout_path.exists():
-        with open(layout_path, encoding="utf-8") as f:
-            return f.read()
-
-    # Fallback: use full prompt.md
-    return _load_prompt(template_id)
 
 
 def get_valid_layouts(template_id: str) -> set[str]:
@@ -537,11 +443,7 @@ def get_preview_colors(template_id: str) -> dict[str, str] | None:
     return pc
 
 
-<<<<<<< HEAD
-def validate_template_id(template_id: str | None, db: Session | None = None) -> str:
-=======
 def validate_template_id(template_id: str | None, db: Session | None = None, user_id: int | None = None) -> str:
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     """Return template_id if valid, else 'default'.
     Accepts both built-in IDs and 'custom_N' format."""
     if not template_id or not isinstance(template_id, str):
@@ -550,11 +452,7 @@ def validate_template_id(template_id: str | None, db: Session | None = None, use
 
     # Custom templates: validate format and existence in DB
     if is_custom_template(tid):
-<<<<<<< HEAD
-        data = _load_custom_template_data(tid, db=db)
-=======
         data = _load_custom_template_data(tid, db=db, user_id=user_id)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         if data is not None:
             return tid
         return "default"

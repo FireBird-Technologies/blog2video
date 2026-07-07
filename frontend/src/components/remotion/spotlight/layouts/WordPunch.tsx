@@ -1,9 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
-<<<<<<< HEAD
-=======
 import { StreakField, BigGlyphBackdrop, FilmGrain, FlashPop, HalftoneField, TitleEcho } from "../components/SpotlightArtifacts";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
@@ -123,13 +120,9 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
           >
             <Img
               src={imageUrl!}
-<<<<<<< HEAD
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-=======
               style={{ width: "100%", height: "100%", objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover", objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
                 transform: `scale(${imageZoom ?? 1})`,
                 transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%") }}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             />
           </div>
         )}

@@ -12,12 +12,6 @@ import {
   type CustomTemplateItem,
   type ExtractThemeResponse,
 } from "../api/client";
-<<<<<<< HEAD
-import {
-  VIDEO_STYLE_OPTIONS,
-  type VideoStyleId,
-} from "../constants/videoStyles";
-=======
 
 type CreateMode = "url" | "prompt" | "doc";
 
@@ -37,20 +31,14 @@ export interface CustomTemplateCreatorDemoMode {
   scrapedLogoUrls?: string[];
   themeOverride?: CustomTemplateTheme;
 }
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 interface Props {
   onCreated: (template: CustomTemplateItem) => void;
   onCancel: () => void;
-<<<<<<< HEAD
-  /** Pre-selects supported video style (explainer / promotional / storytelling) for the new template. */
-  initialVideoStyle?: VideoStyleId;
-=======
   /** Called when create is blocked by the plan quota (403) — parent shows the upgrade modal. */
   onLimitReached?: () => void;
   /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
   demoMode?: CustomTemplateCreatorDemoMode;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }
 
 const DEFAULT_THEME: CustomTemplateTheme = {
@@ -68,29 +56,6 @@ const DEFAULT_THEME: CustomTemplateTheme = {
   },
 };
 
-<<<<<<< HEAD
-export default function CustomTemplateCreator({ onCreated, onCancel, initialVideoStyle }: Props) {
-  const [step, setStep] = useState<1 | 2>(1);
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<CustomTemplateTheme>(DEFAULT_THEME);
-  const [accentColor, setAccentColor] = useState(DEFAULT_THEME.colors.accent);
-  const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(
-    () => initialVideoStyle ?? "explainer"
-  );
-  const [templateName, setTemplateName] = useState("");
-  const [sourceUrl, setSourceUrl] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [styleOpen, setStyleOpen] = useState(false);
-  const styleRef = useRef<HTMLDivElement>(null);
-  const [generatingCode, setGeneratingCode] = useState(false);
-  const [createdTemplate, setCreatedTemplate] = useState<CustomTemplateItem | null>(null);
-  const [codeGenError, setCodeGenError] = useState<string | null>(null);
-  const [scrapedLogoUrls, setScrapedLogoUrls] = useState<string[]>([]);
-  const [scrapedOgImage, setScrapedOgImage] = useState("");
-  const [scrapedScreenshotUrl, setScrapedScreenshotUrl] = useState("");
-=======
 export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
   const theme = {
     ...DEFAULT_THEME,
@@ -282,7 +247,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
   const [scrapedLogoUrls, setScrapedLogoUrls] = useState<string[]>(demoMode?.scrapedLogoUrls ?? []);
   const [scrapedOgImage, setScrapedOgImage] = useState(demoMode?.scrapedOgImage ?? "");
   const [scrapedScreenshotUrl, setScrapedScreenshotUrl] = useState(demoMode?.scrapedScreenshotUrl ?? "");
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const [extractedReason, setExtractedReason] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [genStep, setGenStep] = useState<string>("");
@@ -296,26 +260,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
   }, [generatingCode]);
 
   useEffect(() => {
-<<<<<<< HEAD
-    const handler = (e: MouseEvent) => {
-      if (styleRef.current && !styleRef.current.contains(e.target as Node)) setStyleOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  useEffect(() => {
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, []);
-
-  useEffect(() => {
-    if (initialVideoStyle) {
-      setSupportedVideoStyle(initialVideoStyle);
-    }
-  }, [initialVideoStyle]);
-
-  // Step 1: Extract theme from URL
-=======
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
 
@@ -339,7 +283,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
     : !!docFile;
 
   // Step 1: Extract theme from the selected input (URL / prompt / uploaded doc)
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const handleExtract = async () => {
     if (isDemo || !canExtract) return;
     setLoading(true);
@@ -354,23 +297,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
         res = await extractThemeFromDoc(docFile!);
       }
       if (!res.data.extractable || !res.data.theme) {
-<<<<<<< HEAD
-        setError(res.data.reason || "We couldn't pull a usable theme from this page. Try a different URL.");
-        return;
-      }
-      setTheme(res.data.theme);
-      setAccentColor(res.data.theme.colors.accent);
-      setSupportedVideoStyle(initialVideoStyle ?? "explainer");
-      setTemplateName(res.data.template_name || "");
-      setSourceUrl(url.trim());
-      setScrapedLogoUrls(res.data.logo_urls || []);
-      setScrapedOgImage(res.data.og_image || "");
-      setScrapedScreenshotUrl(res.data.screenshot_url || "");
-      setExtractedReason(res.data.reason || "");
-      setStep(2);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || "We couldn't load that website. Try another URL, or try again in a moment.");
-=======
         setError(
           res.data.reason ||
             (mode === "url"
@@ -388,14 +314,11 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
           ? "We couldn't read that file. Try a text-based PDF, Word, Markdown, or text document."
           : "Something went wrong analyzing that. Please try again.";
       setError(err?.response?.data?.detail || fallback);
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
     } finally {
       setLoading(false);
     }
   };
 
-<<<<<<< HEAD
-=======
   const handlePickFile = (file: File | undefined | null) => {
     if (!file) return;
     const lower = file.name.toLowerCase();
@@ -411,7 +334,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
     setDocFile(file);
   };
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // Step 2: Save template then trigger generation inline
   const handleSave = async () => {
     if (isDemo) return;
@@ -424,10 +346,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
         name: templateName.trim(),
         source_url: sourceUrl || undefined,
         theme: updatedTheme,
-<<<<<<< HEAD
-        supported_video_style: supportedVideoStyle,
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         logo_urls: scrapedLogoUrls.length > 0 ? scrapedLogoUrls : undefined,
         og_image: scrapedOgImage || undefined,
         screenshot_url: scrapedScreenshotUrl || undefined,
@@ -436,9 +354,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
       setCreatedTemplate(res.data);
       handleGenerateCode(res.data);
     } catch (err: any) {
-<<<<<<< HEAD
-      setError(err?.response?.data?.detail || "Failed to save template.");
-=======
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
       // Quota hit → let the parent open the upgrade modal instead of an error.
@@ -450,7 +365,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
       setError(
         typeof detail === "string" ? detail : "Failed to save template."
       );
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       setSaving(false);
     }
   };
@@ -497,13 +411,8 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
   const isGenerating = saving || generatingCode;
   const isDone = !isGenerating && !codeGenError && createdTemplate?.intro_code;
 
-<<<<<<< HEAD
-  return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-=======
   const modal = (
     <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center p-4" : "fixed inset-0 z-[60] flex items-center justify-center p-4"}>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -672,11 +581,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     {mode === "url" ? "Extracting theme..." : "Designing theme..."}
                   </>
-<<<<<<< HEAD
-                ) : "Extract Theme"}
-=======
                 ) : mode === "url" ? "Extract Theme" : "Generate Theme"}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               </button>
               {loading && (
                 <p className="text-xs text-gray-400 text-center">
@@ -749,40 +654,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
                 <p className="text-[10px] text-gray-400 mt-2">Click the accent swatch to change the brand color</p>
               </div>
 
-<<<<<<< HEAD
-              {/* Video style */}
-              <div>
-                <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-                  Template Style Category
-                </label>
-                <div ref={styleRef} className="relative">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                      {VIDEO_STYLE_OPTIONS.find((s) => s.id === supportedVideoStyle)?.label ?? supportedVideoStyle}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setStyleOpen(!styleOpen)}
-                      className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                    >
-                      <svg className={`w-4 h-4 transition-transform ${styleOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                  {styleOpen && (
-                    <div className="absolute z-10 mt-1.5 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1">
-                      {VIDEO_STYLE_OPTIONS.map((style) => (
-                        <button
-                          key={style.id}
-                          type="button"
-                          onClick={() => { setSupportedVideoStyle(style.id); setStyleOpen(false); }}
-                          className={`w-full text-left px-3 py-2 text-xs hover:bg-purple-50 transition-colors ${supportedVideoStyle === style.id ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"}`}
-                        >
-                          {style.label}
-                          <span className="ml-1 text-gray-400">— {style.subtitle}</span>
-                        </button>
-=======
               {/* Brand info */}
               <div className="space-y-3">
                 <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Brand Identity</span>
@@ -808,7 +679,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
                         theme.patterns.layout?.direction || "centered",
                       ].map((tag) => (
                         <span key={tag} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">{tag}</span>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                       ))}
                     </div>
                   </>
@@ -843,38 +713,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
                 )}
               </div>
 
-<<<<<<< HEAD
-              {/* Brand info */}
-              <div className="space-y-3">
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Brand Identity</span>
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.fonts.heading}</span>
-                  <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
-                    {theme.colors.bg2 ? "Gradient" : "Solid"}
-                  </span>
-                  {/* style + animationPreset — internal AI signals, not user-facing */}
-                  {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.style}</span> */}
-                  {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.animationPreset}</span> */}
-                </div>
-                {theme.patterns && (
-                  <>
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Visual Patterns</span>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        `${theme.patterns.cards?.corners || "rounded"} cards`,
-                        `${theme.patterns.spacing?.density || "balanced"} spacing`,
-                        `${theme.patterns.images?.treatment || "rounded"} images`,
-                        theme.patterns.layout?.direction || "centered",
-                      ].map((tag) => (
-                        <span key={tag} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">{tag}</span>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               {/* Actions */}
               <div className="flex gap-3">
                 <button
@@ -937,11 +775,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
                 <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: accentColor }} />
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{createdTemplate.name}</p>
-<<<<<<< HEAD
-                  <p className="text-xs text-gray-400">{VIDEO_STYLE_OPTIONS.find((s) => s.id === createdTemplate.supported_video_style)?.label} · {theme.fonts.heading}</p>
-=======
                   <p className="text-xs text-gray-400">{theme.fonts.heading}</p>
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                 </div>
               </div>
 

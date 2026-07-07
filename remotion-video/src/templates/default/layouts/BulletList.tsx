@@ -24,27 +24,6 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
     points?: { key: string; value: string }[];
   };
 
-<<<<<<< HEAD
-export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
-  const {
-    title,
-    accentColor,
-    bgColor,
-    textColor,
-    aspectRatio,
-    titleFontSize,
-    descriptionFontSize,
-    imageUrl, // New Prop
-    fontFamily,
-    ...extra
-  } = props;
-
-  const { points = [] } = extra as {
-    points?: { key: string; value: string }[];
-  };
-
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   const frame = useCurrentFrame();
   const { fps } = { fps: 30 };
   const p = aspectRatio === "portrait";
@@ -61,12 +40,9 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", overflow: "hidden" }}>
-<<<<<<< HEAD
-=======
       <GeometricBackground accentColor={accentColor} frame={frame} sceneIndex={sceneIndex} />
       {/* Decorative flyby — dipping/spiraling plane crosses top area mid-scene */}
       <FlybyPlane accentColor={accentColor} startFrame={38} yZone={0.12} />
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
       <div
         style={{
           display: "flex",
@@ -93,14 +69,10 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
               style={{
                 width: "100%",
                 height: "100%",
-<<<<<<< HEAD
-                objectFit: "cover",
-=======
                 objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
                 objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
                 transform: `scale(${imageZoom ?? 1})`,
                 transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
               }}
             />
             {/* Subtle Gradient Overlay to blend with text side */}

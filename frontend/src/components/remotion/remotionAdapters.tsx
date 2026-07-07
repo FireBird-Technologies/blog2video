@@ -1,9 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, useCurrentFrame } from "remotion";
-<<<<<<< HEAD
-=======
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { LogoOverlay } from "./default/../LogoOverlay";
 import {
   LAYOUT_REGISTRY as REMOTION_DEFAULT_LAYOUT_REGISTRY,
@@ -25,32 +22,24 @@ import {
   type SpotlightLayoutType as RemotionSpotlightLayoutType,
   type SpotlightLayoutProps as RemotionSpotlightLayoutProps,
 } from "@remotion-video/templates/spotlight/layouts";
-<<<<<<< HEAD
-=======
 import { pickSpotlightTransition } from "@remotion-video/templates/spotlight/transitions";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   MATRIX_LAYOUT_REGISTRY as REMOTION_MATRIX_LAYOUT_REGISTRY,
   type MatrixLayoutType as RemotionMatrixLayoutType,
   type MatrixLayoutProps as RemotionMatrixLayoutProps,
 } from "@remotion-video/templates/matrix/layouts";
-<<<<<<< HEAD
-=======
 import { pickMatrixTransition } from "@remotion-video/templates/matrix/transitions";
 import {
   MOSAIC_LAYOUT_REGISTRY as REMOTION_MOSAIC_LAYOUT_REGISTRY,
   type MosaicLayoutType as RemotionMosaicLayoutType,
   type MosaicLayoutProps as RemotionMosaicLayoutProps,
 } from "@remotion-video/templates/mosaic/layouts";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import {
   WHITEBOARD_LAYOUT_REGISTRY as REMOTION_WHITEBOARD_LAYOUT_REGISTRY,
   type WhiteboardLayoutType as RemotionWhiteboardLayoutType,
   type WhiteboardLayoutProps as RemotionWhiteboardLayoutProps,
 } from "@remotion-video/templates/whiteboard/layouts";
 import {
-<<<<<<< HEAD
-=======
   STICKMAN_2_LAYOUT_REGISTRY as REMOTION_STICKMAN_2_LAYOUT_REGISTRY,
   type Stickman2LayoutType as RemotionStickman2LayoutType,
   type SceneLayoutProps as RemotionStickman2LayoutProps,
@@ -61,13 +50,10 @@ import {
   type SceneLayoutProps as RemotionStickmanFootballLayoutProps,
 } from "@remotion-video/templates/stickman_football/layouts";
 import {
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   NEWSPAPER_LAYOUT_REGISTRY as REMOTION_NEWSPAPER_LAYOUT_REGISTRY,
   type NewspaperLayoutType as RemotionNewspaperLayoutType,
   type BlogLayoutProps as RemotionNewspaperLayoutProps,
 } from "@remotion-video/templates/newspaper/layouts";
-<<<<<<< HEAD
-=======
 import {
   MAGAZINE_LAYOUT_REGISTRY as REMOTION_MAGAZINE_LAYOUT_REGISTRY,
   type MagazineLayoutType as RemotionMagazineLayoutType,
@@ -86,7 +72,6 @@ import {
   type SceneLayoutProps as RemotionSakuraLayoutProps,
 } from "@remotion-video/templates/sakura/layouts";
 import { pickSakuraTransition as remotionPickSakuraTransition } from "@remotion-video/templates/sakura/sakuraTransitions";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 import {
   NEWSCAST_LAYOUT_REGISTRY as REMOTION_NEWSCAST_LAYOUT_REGISTRY,
@@ -98,8 +83,6 @@ import {
   type BlackswanLayoutType as RemotionBlackswanLayoutType,
   type BlackswanLayoutProps as RemotionBlackswanLayoutProps,
 } from "@remotion-video/templates/blackswan/layouts";
-<<<<<<< HEAD
-=======
 import {
   BLOOMBERG_LAYOUT_REGISTRY as REMOTION_BLOOMBERG_LAYOUT_REGISTRY,
   type BloombergLayoutType as RemotionBloombergLayoutType,
@@ -123,7 +106,6 @@ import {
   getPlaybackSpeed as getEconomistPlaybackSpeed,
   getSceneDurationFrames as getEconomistSceneDurationFrames,
 } from "@remotion-video/templates/playbackSpeed";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { NewsCastBackground } from "./newscast/NewsCastBackground";
 import { NewsCastChrome } from "./newscast/NewsCastChrome";
 import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
@@ -340,11 +322,8 @@ export const RemotionDefaultVideoComposition: React.FC<
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           accentColor,
           bgColor,
           textColor,
@@ -486,11 +465,8 @@ export const RemotionNightfallVideoComposition: React.FC<
           textColor: textColor || "#E2E8F0",
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily,
         };
 
@@ -588,11 +564,8 @@ export const RemotionGridcraftVideoComposition: React.FC<
           textColor: textColor || GRIDCRAFT_COLORS.DARK,
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily,
         };
 
@@ -676,45 +649,6 @@ export const RemotionSpotlightVideoComposition: React.FC<
   fontFamily,
 }) => {
   const FPS = 30;
-<<<<<<< HEAD
-  let currentFrame = 0;
-
-  return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
-      {scenes.map((scene) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
-        const startFrame = currentFrame;
-        currentFrame += durationFrames;
-
-        const LayoutComponent =
-          REMOTION_SPOTLIGHT_LAYOUT_REGISTRY[scene.layout] ??
-          REMOTION_SPOTLIGHT_LAYOUT_REGISTRY.statement;
-
-        const layoutProps: RemotionSpotlightLayoutProps = {
-          ...(scene.layoutProps as Record<string, unknown>),
-          title: scene.title,
-          narration: scene.narration,
-          accentColor: accentColor || "#EF4444",
-          bgColor: bgColor || "#000000",
-          textColor: textColor || "#FFFFFF",
-          aspectRatio: aspectRatio || "landscape",
-          imageUrl: scene.imageUrl,
-          fontFamily,
-        };
-
-        return (
-          <Sequence
-            key={scene.id}
-            from={startFrame}
-            durationInFrames={durationFrames}
-            name={scene.title}
-          >
-            <LayoutComponent {...layoutProps} />
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-          </Sequence>
-        );
-      })}
-=======
   const isPortrait = aspectRatio === "portrait";
   const w = isPortrait ? 1080 : 1920;
   const h = isPortrait ? 1920 : 1080;
@@ -803,7 +737,6 @@ export const RemotionSpotlightVideoComposition: React.FC<
           </Sequence>
         ) : null,
       )}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
       {logo && (
         <LogoOverlay
@@ -892,11 +825,8 @@ export const RemotionBlackswanVideoComposition: React.FC<
           textColor: textColor || "#DFFFFF",
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           layoutType: scene.layout,
           fontFamily,
         };
@@ -955,14 +885,6 @@ export const RemotionMatrixVideoComposition: React.FC<
   fontFamily,
 }) => {
   const FPS = 30;
-<<<<<<< HEAD
-  let currentFrame = 0;
-
-  return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
-      {scenes.map((scene) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
-=======
   const isPortrait = aspectRatio === "portrait";
   const w = isPortrait ? 1080 : 1920;
   const h = isPortrait ? 1920 : 1080;
@@ -1111,25 +1033,10 @@ export const RemotionMosaicVideoComposition: React.FC<
     <AbsoluteFill style={{ backgroundColor: bgColor || "#0F1E2D", fontFamily }}>
       {scenes.map((scene) => {
         const durationFrames = Math.max(1, Math.round(scene.durationSeconds * FPS));
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
         const LayoutComponent =
-<<<<<<< HEAD
-          REMOTION_MATRIX_LAYOUT_REGISTRY[scene.layout] ??
-          REMOTION_MATRIX_LAYOUT_REGISTRY.terminal_text;
-
-        const layoutProps: RemotionMatrixLayoutProps = {
-          ...(scene.layoutProps as Record<string, unknown>),
-          title: scene.title,
-          narration: scene.narration,
-          accentColor: accentColor || "#00FF41",
-          bgColor: bgColor || "#000000",
-          textColor: textColor || "#00FF41",
-          aspectRatio: aspectRatio || "landscape",
-          imageUrl: scene.imageUrl,
-=======
           REMOTION_MOSAIC_LAYOUT_REGISTRY[scene.layout] ??
           REMOTION_MOSAIC_LAYOUT_REGISTRY.mosaic_text;
 
@@ -1144,7 +1051,6 @@ export const RemotionMosaicVideoComposition: React.FC<
           imageUrl: scene.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           fontFamily,
         };
 
@@ -1232,11 +1138,8 @@ export const RemotionWhiteboardVideoComposition: React.FC<
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           accentColor: accentColor || "#1F2937",
           bgColor: bgColor || "#F7F3E8",
           textColor: textColor || "#111827",
@@ -1338,11 +1241,8 @@ export const RemotionNewspaperVideoComposition: React.FC<
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           accentColor: accentColor || "#FFE34D",
           bgColor: bgColor || "#FAFAF8",
           textColor: textColor || "#111111",
@@ -1519,11 +1419,8 @@ export const RemotionNewscastVideoComposition: React.FC<
           narration: scene.narration,
           // Prefer top-level scene image; fall back to layoutProps.imageUrl (editor / JSON often set it only on layoutProps).
           imageUrl: scene.imageUrl ?? lp.imageUrl,
-<<<<<<< HEAD
-=======
           imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
           accentColor: accentColor || "#FF3B30",
           bgColor: bgColor || "#FAFAF8",
           textColor: textColor || "#111111",
@@ -1570,9 +1467,6 @@ export const RemotionNewscastVideoComposition: React.FC<
   );
 };
 
-<<<<<<< HEAD
-
-=======
 // ─── Bloomberg ────────────────────────────────────────────────────────────────
 
 export interface RemotionBloombergSceneInput {
@@ -2552,4 +2446,3 @@ export const RemotionStickmanFootballVideoComposition: React.FC<
     </AbsoluteFill>
   );
 };
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

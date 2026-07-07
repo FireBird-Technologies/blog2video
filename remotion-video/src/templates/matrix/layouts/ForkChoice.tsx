@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
-=======
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { CodeFragments, DecodeSweep, GlitchSlice, ScanlinesOverlay } from "../components/MatrixArtifacts";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -102,12 +98,8 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
           >
             <ZoomCropImg
               src={imageUrl}
-<<<<<<< HEAD
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} // Image fills 100% of its container
-=======
               imageObjectPosition={imageObjectPosition}
               imageZoom={imageZoom}
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
             />
           </div>
         </div>

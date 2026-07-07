@@ -122,11 +122,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
                 objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
                 opacity: imageOpacity,
                 transform: `
-<<<<<<< HEAD
-                  scale(${kenBurnsScale})
-=======
                   scale(${(imageZoom ?? 1) * kenBurnsScale})
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
                   translate(${kenBurnsPanX}%, ${kenBurnsPanY}%)
                 `,
                 transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
@@ -289,7 +285,4 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-<<<<<<< HEAD
-=======
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

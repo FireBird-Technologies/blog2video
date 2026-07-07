@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-/** Gridcraft template layout types. */
-import type { SocialsMap } from "../SocialIcons";
-
-=======
 import type { SocialsMap } from "../SocialIcons";
 
 /** Gridcraft template layout types (frontend mirror). */
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 export type GridcraftLayoutType =
   | "bento_hero"
   | "bento_features"
@@ -17,13 +11,9 @@ export type GridcraftLayoutType =
   | "bento_code"
   | "pull_quote"
   | "bento_steps"
-<<<<<<< HEAD
-  | "ending_socials";
-=======
   | "data_visualisation"
   | "ending_socials"
   | "ticker_table";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 
 export interface DataPoint {
   label: string;
@@ -47,11 +37,7 @@ export interface GridcraftLayoutProps {
   textColor: string;
   aspectRatio?: string;
   fontFamily?: string;
-<<<<<<< HEAD
-  
-=======
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   // Shared data points (used by KPI, Steps)
   dataPoints?: DataPoint[];
 
@@ -116,18 +102,10 @@ export interface GridcraftLayoutProps {
   titleFontSize?: number;
   descriptionFontSize?: number;
   categoryFontSize?: number;
-<<<<<<< HEAD
-
-  // ending_socials
-=======
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
-<<<<<<< HEAD
-=======
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 }

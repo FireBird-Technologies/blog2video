@@ -21,14 +21,9 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
     { value: "Jan 19", label: "Senate reaches bipartisan deal on 45-day extension" },
     { value: "Jan 31", label: "Midnight deadline missed — partial shutdown begins" },
     { value: "Feb 3", label: "Emergency session called to negotiate reopening" },
-<<<<<<< HEAD
-  ],
-  imageUrl,
-=======
   ],imageUrl,
   imageObjectPosition,
   imageZoom,
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -247,7 +242,4 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
     </AbsoluteFill>
   );
 };
-<<<<<<< HEAD
-=======
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb

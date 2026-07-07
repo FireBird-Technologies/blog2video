@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 import { useState } from "react";
 import ReactDOM from "react-dom";
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 import type { LayoutPropField, LayoutPropSchema } from "../../api/client";
 
 interface ManifestPropEditorProps {
@@ -31,8 +28,6 @@ function asAspectObject(input: unknown, fallback: { portrait: number; landscape:
   };
 }
 
-<<<<<<< HEAD
-=======
 function asChartTable(input: unknown): { headers: string[]; rows: string[][] } {
   if (input && typeof input === "object" && !Array.isArray(input)) {
     const tbl = input as Record<string, unknown>;
@@ -47,7 +42,6 @@ function asChartTable(input: unknown): { headers: string[]; rows: string[][] } {
   return { headers: ["Label", "Value"], rows: [["", ""]] };
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function asStringArray(input: unknown): string[] {
   if (!Array.isArray(input)) return [];
   return input.map((item) => asString(item));
@@ -81,8 +75,6 @@ function FieldHeader({ label }: { label: string }) {
   );
 }
 
-<<<<<<< HEAD
-=======
 const TICKER_MAX_COLS = 6;
 const TICKER_MAX_ROWS = 20;
 
@@ -310,7 +302,6 @@ function TickerTableFieldEditor({
   );
 }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
 function renderField(
   field: LayoutPropField,
   current: Record<string, unknown>,
@@ -578,8 +569,6 @@ function renderField(
     );
   }
 
-<<<<<<< HEAD
-=======
   if (field.type === "ticker_table") {
     return (
       <TickerTableFieldEditor
@@ -682,7 +671,6 @@ function renderField(
     );
   }
 
->>>>>>> 8b6ac7366adf74401e1a4f6ca60a4b50c9b30acb
   return null;
 }
 
