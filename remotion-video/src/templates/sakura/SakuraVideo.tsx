@@ -10,6 +10,8 @@ import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { SAKURA_LAYOUT_REGISTRY as LAYOUT_REGISTRY, SakuraLayoutType, SceneLayoutProps } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
+import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { pickSakuraTransition, SAKURA_TRANSITION_FRAMES } from "./sakuraTransitions";
 
@@ -18,10 +20,14 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: SakuraLayoutType;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
 }
@@ -39,6 +45,13 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  captionOffset?: number;
   scenes: SceneData[];
 }
 
@@ -173,6 +186,44 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     };
   };
 
+  // On-screen captions for a scene, synced to its voiceover window. Rendered in an
+  // absolutely-positioned Sequence so it stays in step with the overlap-adjusted
+  // scene starts — matching how the magazine composition renders captions.
+  const captionSequence = (
+    scene: SceneData,
+    index: number,
+    startFrame: number,
+    durationFrames: number,
+  ) => {
+    const text = scene.narrationText || scene.narration;
+    if (!data.captionsEnabled || !text) return null;
+    return (
+      <Sequence
+        key={`caption-${scene.id}-${index}`}
+        from={startFrame}
+        durationInFrames={durationFrames}
+      >
+        <CaptionTrack
+          text={text}
+          position={data.captionPosition || "bottom_center"}
+          aspectRatio={data.aspectRatio || "landscape"}
+          fontFamily={
+            data.captionFontFamily
+              ? resolveFontFamily(data.captionFontFamily) || data.captionFontFamily
+              : resolvedFontFamily || undefined
+          }
+          fontSize={data.captionFontSize ? Number(data.captionFontSize) : undefined}
+          offset={data.captionOffset ?? 0}
+          speechDurationFrames={
+            scene.speechDurationSeconds
+              ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, playbackSpeed)
+              : undefined
+          }
+        />
+      </Sequence>
+    );
+  };
+
   return (
     <AbsoluteFill
       style={{
@@ -232,6 +283,11 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         );
       })}
 
+      {/* On-screen captions, one Sequence per scene, synced to the voiceover window. */}
+      {resolved.map((r, index) =>
+        captionSequence(r.scene, index, sceneStartFrames[index], r.durationFrames),
+      )}
+
       {data.logo && (
         <LogoOverlay
           src={staticFile(data.logo)}
@@ -240,6 +296,10 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
+      )}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} scenes={data.scenes} />
       )}
     </AbsoluteFill>
   );
