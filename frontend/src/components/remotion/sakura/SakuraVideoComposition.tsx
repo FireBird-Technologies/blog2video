@@ -3,6 +3,9 @@ import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { SAKURA_LAYOUT_REGISTRY as LAYOUT_REGISTRY, SakuraLayoutType, SceneLayoutProps } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
+import { resolveFontFamily } from "../../../fonts/registry";
 import { pickSakuraTransition, SAKURA_TRANSITION_FRAMES } from "./sakuraTransitions";
 
 export interface SakuraSceneInput {
@@ -10,10 +13,14 @@ export interface SakuraSceneInput {
   order: number;
   title: string;
   narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
   layout: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   layoutProps: Record<string, any>;
   durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
@@ -29,6 +36,13 @@ export interface SakuraVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
 }
 
 const FPS = 30;
@@ -92,6 +106,13 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
   logoSize,
   aspectRatio,
   fontFamily,
+  bgmUrl,
+  bgmVolume,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
 }) => {
   const resolved = resolveScenes(scenes);
 
@@ -127,6 +148,44 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
       sceneDurationInFrames: durationFrames,
       fontFamily,
     };
+  };
+
+  // On-screen captions for a scene, synced to its voiceover window. Rendered in an
+  // absolutely-positioned Sequence so it stays in step with the overlap-adjusted
+  // scene starts — matching how the magazine composition renders captions.
+  const captionSequence = (
+    scene: SakuraSceneInput,
+    index: number,
+    startFrame: number,
+    durationFrames: number,
+  ) => {
+    const text = scene.narrationText || scene.narration;
+    if (!captionsEnabled || !text) return null;
+    return (
+      <Sequence
+        key={`caption-${scene.id}-${index}`}
+        from={startFrame}
+        durationInFrames={durationFrames}
+      >
+        <CaptionTrack
+          text={text}
+          position={captionPosition || "bottom_center"}
+          aspectRatio={aspectRatio || "landscape"}
+          fontFamily={
+            captionFontFamily
+              ? resolveFontFamily(captionFontFamily) || captionFontFamily
+              : fontFamily || undefined
+          }
+          fontSize={captionFontSize || undefined}
+          offset={captionOffset ?? 0}
+          speechDurationFrames={
+            scene.speechDurationSeconds
+              ? Math.round(scene.speechDurationSeconds * FPS)
+              : undefined
+          }
+        />
+      </Sequence>
+    );
   };
 
   return (
@@ -183,6 +242,11 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
         );
       })}
 
+      {/* On-screen captions, one Sequence per scene, synced to the voiceover window. */}
+      {resolved.map((s, index) =>
+        captionSequence(s.scene, index, sceneStartFrames[index], s.durationFrames),
+      )}
+
       {logo && (
         <LogoOverlay
           src={logo}
@@ -191,6 +255,10 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
       )}
     </AbsoluteFill>
   );
