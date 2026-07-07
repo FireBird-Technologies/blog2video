@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds between retries
 SCENE_DELAY = 2  # seconds between scenes to avoid rate limits
-DURATION_PAD = 1.0  # extra seconds added to voiceover duration for scene
+DURATION_PAD = 4.0  # extra seconds held after the voiceover ends, per scene
 
 # ElevenLabs premade voices -- narrator / documentary style
 # Verified against the official premade voice list:
