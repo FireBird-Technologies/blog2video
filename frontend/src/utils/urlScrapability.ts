@@ -35,9 +35,19 @@ const CHAT_SHARE_RULES: { domain: string; pathPrefixes: string[] }[] = [
   { domain: "copilot.microsoft.com", pathPrefixes: ["/share/"] },
   {
     domain: "docs.google.com",
-    pathPrefixes: ["/document/d/", "/spreadsheets/d/", "/presentation/d/"],
+    // Also matches the multi-account variant Google inserts, e.g.
+    // /document/u/0/d/... — see isGoogleDocsPath() for the full check.
+    pathPrefixes: ["/document/", "/spreadsheets/", "/presentation/"],
   },
 ];
+
+// Google Drive file/folder links: allowed but warned. Unlike Docs, a Drive link
+// can point at any file type (PDF, image, binary), so the warning also stresses
+// that the document must be text-readable to scrape.
+const GOOGLE_DRIVE_RULE: { domain: string; pathPrefixes: string[] } = {
+  domain: "drive.google.com",
+  pathPrefixes: ["/file/d/", "/drive/", "/open", "/uc"],
+};
 
 // Broad adult-site heuristic — match these substrings anywhere in the hostname.
 export const ADULT_KEYWORDS = [
@@ -58,6 +68,8 @@ export const WARN_DOMAINS = ["youtube.com", "youtu.be", "m.youtube.com"];
 
 export const PUBLIC_SHARE_WARNING =
   "Make sure this chat/document is public — private links can't be scraped.";
+export const GOOGLE_DRIVE_WARNING =
+  "Ensure this document is public and is text-readable — private or non-text files can't be scraped.";
 export const PAYWALL_WARNING =
   "Paywalled articles may not scrape fully — use a free/gift link if you have one.";
 export const MAYBE_UNSCRAPABLE_WARNING =
@@ -117,6 +129,14 @@ export function classifyUrl(s: string): UrlClassification {
   // Social: block the main page, allow a specific post/reference (silently).
   if (SOCIAL_DOMAINS.some((d) => matchesDomain(host, d))) {
     return isMainPage(path) ? { kind: "blocked" } : { kind: "ok" };
+  }
+
+  // Google Drive: warn on any Drive file/folder link — ensure public + text-readable.
+  if (
+    matchesDomain(host, GOOGLE_DRIVE_RULE.domain) &&
+    GOOGLE_DRIVE_RULE.pathPrefixes.some((p) => path.startsWith(p))
+  ) {
+    return { kind: "warn", message: GOOGLE_DRIVE_WARNING };
   }
 
   // AI-chat shares + Google Docs: warn only when the URL points at a shared chat/doc.
