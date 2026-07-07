@@ -1,7 +1,9 @@
 import type { SocialsMap, SocialsRow } from "../SocialIcons";
 
 export type SakuraLayoutType =
-  | "sakura_intro" | "sakura_section" | "sakura_quote" | "sakura_two_column_detail" | "sakura_stat_highlight" | "sakura_list_scene" | "sakura_text_narration" | "sakura_image_focus" | "sakura_chapter_transition" | "sakura_ending_socials";
+  // "ending_socials" is the canonical id the backend emits for the ending scene;
+  // it is aliased to the sakura_ending_socials component in SAKURA_LAYOUT_REGISTRY.
+  | "sakura_intro" | "sakura_section" | "sakura_quote" | "sakura_two_column_detail" | "sakura_stat_highlight" | "sakura_list_scene" | "sakura_text_narration" | "sakura_ending_socials" | "ending_socials" | "sakura_data_visualization" | "sakura_ticker";
 
 export interface SceneLayoutProps {
   title: string;
@@ -55,4 +57,18 @@ export interface SceneLayoutProps {
   ctaText?: string;
   websiteUrl?: string;
   socialHandles?: string[];
+  // Data-visualization (sakura_data_visualization) props
+  chartTable?: { headers: string[]; rows: string[][] };
+  chartType?: string;
+  chartSummary?: string;
+  subtitle?: string;
+  yAxisLabel?: string;
+  chartYAxisTicks?: string[];
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+  // Data-table (sakura_ticker) props
+  tickerTable?: { headers: string[]; rows: string[][] };
+  tickerTitle?: string;
+  tickerFootnote?: string;
+  tickerHighlightCol?: number;
 }

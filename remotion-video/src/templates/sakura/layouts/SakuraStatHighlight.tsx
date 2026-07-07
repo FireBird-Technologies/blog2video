@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
+import { useCurrentFrame, useVideoConfig, interpolate, spring, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   SAKURA,
@@ -8,14 +8,28 @@ import {
   SakuraScene,
   SoftPetal,
   BrushUnderline,
+  SakuraBlossomCanopy,
   hexToRgba,
+  sakuraRand,
+  readableTextColor,
 } from "../sakuraStyle";
 
+/**
+ * Stat scene: the number sits dead-center while a burst of sakura blossoms POPS
+ * and sprouts outward from behind it — each flower springs from scale 0 with a
+ * staggered delay so they appear to bloom outward in a shockwave. Label +
+ * context sit centered beneath.
+ */
 export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
   const {
     title,
     narration,
+    imageUrl,
+    imageObjectPosition,
+    imageZoom,
+    accentColor,
     bgColor,
+    textColor,
     aspectRatio,
     sceneDurationInFrames,
     titleFontSize,
@@ -27,28 +41,75 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
   const { fps, width, height } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 150;
 
-  const stat = (props as any).stat ?? title ?? "0";
+  // Dark backdrop: accent drives the hero number; text drives the context copy,
+  // but a near-black text color would vanish on dark, so fall back to light washi.
+  const crimson = accentColor || SAKURA.crimson;
+  const ink = readableTextColor(textColor, "dark");
+
+  // Never fall back to prose (e.g. an editor's "Hello World" title) for the big
+  // number — the stat scene must always read as a NUMBER. Only accept `title` as
+  // the stat if it actually contains a digit; otherwise show a numeric default.
+  const rawStat = (props as any).stat;
+  const titleHasDigit = typeof title === "string" && /\d/.test(title);
+  const stat = rawStat != null && String(rawStat).length > 0
+    ? String(rawStat)
+    : titleHasDigit
+      ? title
+      : "100%";
   const statLabel = (props as any).statLabel ?? "";
   const context = (props as any).context ?? narration ?? "";
 
-  const statPx = titleFontSize ?? (p ? 150 : 180);
-  const contextPx = descriptionFontSize ?? (p ? 28 : 26);
+  const statPx = titleFontSize ?? (p ? 190 : 240);
+  const contextPx = descriptionFontSize ?? (p ? 28 : 24);
 
-  // The number sits on the left third (landscape) so the spotlight + ring
-  // center on it; portrait keeps it centered.
-  const statCx = p ? width / 2 : width * 0.32;
-  const statCy = height / 2;
+  const cx = width / 2;
+  const cy = height / 2 - (p ? 40 : 30);
 
-  // Stat spring + count-up
-  const statSpring = spring({ frame, fps, config: { damping: 16, stiffness: 55 }, from: 0.5, to: 1 });
-  const statOpacity = interpolate(frame, [0, 18], [0, 1], {
+  // ── Reveal choreography ────────────────────────────────────────────────────
+  // 1. A tight cluster of blossoms gathers over the center, hiding the number.
+  // 2. At BURST they bloom apart outward — slow and graceful — and the number
+  //    eases in through the gap they leave behind. The pop of the flowers IS the
+  //    reveal, but it should read as an unfolding, not a snap.
+  const BURST = 22; // frame the flower ball starts to bloom apart
+
+  // The flower cluster gathers gently, holds, then drifts apart. Softer springs
+  // (higher damping, lower stiffness) keep both moves fluid instead of snappy.
+  const gather = spring({ frame, fps, config: { damping: 18, stiffness: 70 }, from: 0, to: 1 });
+  // `burst` goes 0→1 slowly across a wide window so the flowers float outward
+  // rather than being flung. mass>1 + high damping = a slow, settled expansion.
+  const burst = spring({
+    frame: Math.max(0, frame - BURST),
+    fps,
+    config: { damping: 20, stiffness: 40, mass: 1.4, overshootClamping: true },
+    from: 0,
+    to: 1,
+  });
+
+  // Number stays hidden behind the cluster, then eases in as the flowers scatter.
+  // A well-damped spring (no overshoot kick) so the number settles smoothly.
+  const statSpring = spring({
+    frame: Math.max(0, frame - BURST),
+    fps,
+    config: { damping: 16, stiffness: 90, mass: 1 },
+    from: 0.7,
+    to: 1,
+  });
+  // one gentle breath of scale after it lands — subtle, not a shockwave kick
+  const punch = interpolate(frame, [BURST, BURST + 8, BURST + 20], [1, 1.05, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
+    easing: (t) => t * t * (3 - 2 * t),
+  });
+  const statScale = statSpring * punch;
+  const statOpacity = interpolate(frame, [BURST, BURST + 14], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: (t) => 1 - Math.pow(1 - t, 2),
   });
   const numericValue = parseFloat(stat.replace(/[^0-9.]/g, ""));
   const isNumeric = !isNaN(numericValue) && stat.replace(/[^0-9.]/g, "").length > 0;
   const suffix = isNumeric ? stat.replace(/[0-9.,]/g, "") : "";
-  const countProgress = interpolate(frame, [0, 22], [0, 1], {
+  const countProgress = interpolate(frame, [BURST, BURST + 34], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 3),
@@ -57,144 +118,277 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
     ? Math.round(numericValue * countProgress).toLocaleString() + suffix
     : stat;
 
-  // Kamon-style ring scaling in behind the number
-  const ringScale = interpolate(frame, [0, 26], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: (t) => 1 - Math.pow(1 - t, 3),
-  });
-  const ringR = p ? 340 : 300;
+  // ── Flower cluster → explosion ─────────────────────────────────────────────
+  // Each flower has a "gathered" position (tight over center) and an "exploded"
+  // position (flung far out). We lerp gathered→exploded on `burst`.
+  const gatherR = p ? 95 : 90;          // radius of the tight cover cluster
+  const explodeR1 = p ? 340 : 360;
+  const explodeR2 = p ? 500 : 560;
+  const explodeR0 = p ? 200 : 200;
+  const flowers = React.useMemo(() => {
+    const out: Array<{
+      ga: number; gr: number; ea: number; er: number;
+      r: number; rot: number; color: string; stagger: number; sway: number;
+    }> = [];
+    const rings = [
+      { count: p ? 5 : 6, explodeR: explodeR0, size: 30 },
+      { count: p ? 9 : 12, explodeR: explodeR1, size: 26 },
+      { count: p ? 12 : 16, explodeR: explodeR2, size: 20 },
+    ];
+    rings.forEach((ring, ri) => {
+      for (let i = 0; i < ring.count; i++) {
+        const s = ri * 50 + i * 7.3;
+        const a = (i / ring.count) * Math.PI * 2 + ri * 0.4 + sakuraRand(s, 6) * 0.3;
+        const jitter = 0.85 + sakuraRand(s, 1) * 0.3;
+        out.push({
+          // gathered: packed tight near center (small jittered radius)
+          ga: a,
+          gr: gatherR * (0.15 + sakuraRand(s, 7) * 0.85) * (ri === 0 ? 0.4 : 1),
+          // exploded: flung outward along the same angle
+          ea: a,
+          er: ring.explodeR * jitter,
+          r: ring.size * (0.85 + sakuraRand(s, 2) * 0.6),
+          rot: sakuraRand(s, 3) * 360,
+          color: [SAKURA.blush, SAKURA.deepBlush, SAKURA.mist][i % 3],
+          // slight per-flower stagger so the explosion has grit, not a rigid ring
+          stagger: sakuraRand(s, 4) * 0.12,
+          sway: sakuraRand(s, 5) * Math.PI * 2,
+        });
+      }
+    });
+    return out;
+  }, [p, gatherR, explodeR0, explodeR1, explodeR2]);
 
-  // Orbiting blossoms
-  const orbitSpin = frame * 0.12;
-  const orbitReveal = interpolate(frame, [10, 30], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const labelReveal = interpolate(frame, [18, 32], [0, 1], {
+  const labelReveal = interpolate(frame, [BURST + 18, BURST + 34], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 2),
   });
-  const contextReveal = interpolate(frame, [26, 42], [0, 1], {
+  const contextReveal = interpolate(frame, [BURST + 28, BURST + 46], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 2),
   });
+
+  // A dense blossom canopy blooms as a band across the bottom of the frame —
+  // boughs draw then blossoms unfurl in a slow, smooth wave, then it sways. The
+  // stat number/label/context sit above it in the vertical center.
+  const canopyGrow = interpolate(frame, [8, dur - 16], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    // smootherstep — eased at both ends, no abrupt in/out
+    easing: (t) => t * t * t * (t * (t * 6 - 15) + 10),
+  });
+
+  // Optional supporting image: a soft CIRCULAR vignette centered behind the
+  // number — this scene is centered on a dark spotlight, so a side panel would
+  // not fit. The photo emerges from behind the exploding blossoms (keyed to the
+  // same `burst` reveal) and sits at reduced opacity so the crimson number stays
+  // the hero. Radial feather + a plum scrim keep the digits legible over it.
+  const vignetteSize = p ? 420 : 560;
+  const vignetteReveal = interpolate(frame, [BURST, BURST + 20], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: (t) => 1 - Math.pow(1 - t, 2),
+  });
+  const vignetteMask =
+    "radial-gradient(circle at 50% 50%, #000 42%, rgba(0,0,0,0.6) 66%, transparent 84%)";
+  const imageVignette = imageUrl ? (
+    <div
+      style={{
+        position: "absolute",
+        left: cx - vignetteSize / 2,
+        top: cy - vignetteSize / 2,
+        width: vignetteSize,
+        height: vignetteSize,
+        pointerEvents: "none",
+        opacity: vignetteReveal * 0.42,
+        transform: `scale(${interpolate(vignetteReveal, [0, 1], [0.86, 1])})`,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          borderRadius: "50%",
+          overflow: "hidden",
+          maskImage: vignetteMask,
+          WebkitMaskImage: vignetteMask,
+        }}
+      >
+        <Img
+          src={imageUrl}
+          style={{
+            width: "100%",
+            height: "100%",
+            // Zoom-out (imageZoom < 1) keeps the whole image visible instead of
+            // cropping — matches the newspaper template's fit handling.
+            objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+            objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+            transform: `scale(${imageZoom ?? 1})`,
+            transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+          }}
+        />
+      </div>
+      {/* Plum scrim over the photo so the number reads cleanly on top. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: "50%",
+          background: `radial-gradient(circle at 50% 50%, ${hexToRgba(SAKURA.plum, 0.55)}, ${hexToRgba(SAKURA.plum, 0.15)} 70%, transparent)`,
+          maskImage: vignetteMask,
+          WebkitMaskImage: vignetteMask,
+        }}
+      />
+    </div>
+  ) : null;
 
   return (
     <SakuraScene
       backdrop="spotlight"
       entranceLayout="sakura_stat_highlight"
       bgColor={bgColor}
-      side="left"
+      accentColor={crimson}
       dur={dur}
       petals={p ? 8 : 12}
-      petalIntensity={0.8}
+      petalIntensity={0.7}
       petalSeed={57}
+      animateEntrance={false}
       chrome={
-        <svg
-          width={width}
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
-          style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-        >
-          <circle cx={statCx} cy={statCy} r={ringR * ringScale} fill="none" stroke={SAKURA.gold} strokeWidth={2} opacity={0.14} />
-          <circle cx={statCx} cy={statCy} r={ringR * 0.85 * ringScale} fill="none" stroke={SAKURA.blush} strokeWidth={0.8} opacity={0.1} />
-          {Array.from({ length: 12 }, (_, i) => {
-            const a = ((i * 30 - 90 + orbitSpin) * Math.PI) / 180;
+        <>
+          {/* Dense blossom canopy blooming as a band across the bottom edge —
+              boughs arch across the width, blossoms unfurling in a slow wave. */}
+          <SakuraBlossomCanopy
+            width={width}
+            height={height}
+            grow={canopyGrow}
+            orientation="bottom"
+            windStyle="breeze"
+            petalColors={[SAKURA.blush, SAKURA.mist, SAKURA.deepBlush, SAKURA.crimson]}
+            opacity={0.85}
+            bandHeight={p ? height * 0.3 : height * 0.32}
+            textFadeRect={
+              p
+                ? { x: width * 0.06, y: height * 0.2, w: width * 0.88, h: height * 0.6 }
+                : { x: width * 0.14, y: height * 0.22, w: width * 0.72, h: height * 0.56 }
+            }
+            textFadeOpacity={0.16}
+          />
+          <svg
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+          >
+          {/* Flower ball gathers over the number, then EXPLODES apart to reveal it */}
+          {flowers.map((f, i) => {
+            // Appear (scale up) as the cluster gathers over center.
+            const appear = interpolate(gather, [0, 0.6], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            });
+            // Per-flower explosion progress, staggered slightly for grit.
+            const bRaw = Math.max(0, Math.min(1, (burst - f.stagger) / (1 - f.stagger || 1)));
+            // Ease-out the flight so flowers decelerate as they drift out — they
+            // float apart and settle rather than being flung to a hard stop.
+            const b = 1 - Math.pow(1 - bRaw, 2.2);
+            // radius + angle lerp: tight cluster → drifted outward
+            const radius = f.gr + (f.er - f.gr) * b;
+            // gentle perpetual sway, scaled by how far out the flower has drifted
+            const drift = Math.sin(frame * 0.03 + f.sway) * 7 * b;
+            const fx = cx + Math.cos(f.ga) * radius;
+            const fy = cy + Math.sin(f.ga) * radius + drift;
+            // Flowers fade as they drift out so they clear the number — a smoother
+            // fade curve so they don't blink off all at once.
+            const opacity = appear * (1 - Math.pow(b, 1.6) * 0.92);
+            // Swell a touch as they open, then ease down as they scatter.
+            const scale = appear * (1 + b * 0.35 - Math.pow(b, 2) * 0.55);
+            if (opacity <= 0.01) return null;
             return (
-              <SoftPetal
+              <g
                 key={i}
-                cx={statCx + Math.cos(a) * ringR * 0.92}
-                cy={statCy + Math.sin(a) * ringR * 0.92}
-                r={[9, 7, 8][i % 3]}
-                rotation={i * 30 + orbitSpin}
-                color={i % 2 === 0 ? SAKURA.blush : SAKURA.mist}
-                opacity={0.25 * orbitReveal}
-              />
+                transform={`translate(${fx}, ${fy}) scale(${scale})`}
+                opacity={opacity}
+              >
+                <SoftPetal cx={0} cy={0} r={f.r} rotation={f.rot + b * 100} color={f.color} />
+              </g>
             );
           })}
-        </svg>
+          </svg>
+        </>
       }
     >
-      {/* Asymmetric: big number left, label + context right */}
+      {/* Circular photo vignette behind the number (only when an image is set) */}
+      {imageVignette}
+      {/* Centered: number in the middle, label + context beneath */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: p ? "column" : "row",
+          flexDirection: "column",
           alignItems: "center",
-          justifyContent: p ? "center" : "space-between",
-          gap: p ? 30 : 80,
-          padding: p ? "150px 90px" : "80px 150px",
-          textAlign: p ? "center" : "left",
+          justifyContent: "center",
+          textAlign: "center",
+          padding: p ? "150px 80px" : "80px 160px",
         }}
       >
-        {/* Big stat with count-up */}
         <div
           style={{
             fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
             fontWeight: 700,
             fontSize: statPx,
-            color: SAKURA.blush,
+            color: crimson,
             lineHeight: 0.95,
             letterSpacing: "0.02em",
-            textShadow: `0 0 80px ${hexToRgba(SAKURA.blush, 0.4)}`,
+            textShadow: `0 0 90px ${hexToRgba(crimson, 0.5)}`,
             opacity: statOpacity,
-            transform: `scale(${statSpring})`,
-            flexShrink: 0,
+            transform: `scale(${statScale})`,
+            marginBottom: p ? 40 : 30,
           }}
         >
           {displayedStat}
         </div>
 
-        {/* Right column: underline + label + context */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: p ? "center" : "flex-start",
-            maxWidth: p ? undefined : 620,
-          }}
-        >
-          <div style={{ marginBottom: 24 }}>
-            <BrushUnderline width={p ? 240 : 200} color={SAKURA.gold} startFrame={14} durationFrames={14} opacity={0.9} />
-          </div>
-          {statLabel ? (
-            <div
-              style={{
-                fontFamily: SAKURA_BODY_FONT,
-                fontSize: p ? 26 : 28,
-                color: SAKURA.gold,
-                letterSpacing: "0.4em",
-                textTransform: "uppercase",
-                opacity: labelReveal,
-                transform: `translateY(${(1 - labelReveal) * 12}px)`,
-                marginBottom: 22,
-              }}
-            >
-              {statLabel}
-            </div>
-          ) : null}
-          {context ? (
-            <div
-              style={{
-                fontFamily: SAKURA_BODY_FONT,
-                fontStyle: "italic",
-                fontSize: contextPx,
-                color: hexToRgba(SAKURA.washi, 0.85),
-                lineHeight: 1.65,
-                opacity: contextReveal,
-                transform: `translateY(${(1 - contextReveal) * 12}px)`,
-              }}
-            >
-              {context}
-            </div>
-          ) : null}
+        <div style={{ marginBottom: 22 }}>
+          <BrushUnderline width={p ? 260 : 240} color={SAKURA.gold} startFrame={BURST + 16} durationFrames={18} opacity={0.9} />
         </div>
+
+        {statLabel ? (
+          <div
+            style={{
+              fontFamily: SAKURA_BODY_FONT,
+              fontSize: p ? 26 : 26,
+              color: SAKURA.gold,
+              letterSpacing: "0.4em",
+              textTransform: "uppercase",
+              textIndent: "0.4em",
+              opacity: labelReveal,
+              transform: `translateY(${(1 - labelReveal) * 12}px)`,
+              marginBottom: 20,
+            }}
+          >
+            {statLabel}
+          </div>
+        ) : null}
+
+        {context ? (
+          <div
+            style={{
+              fontFamily: SAKURA_BODY_FONT,
+              fontStyle: "italic",
+              fontSize: contextPx,
+              color: hexToRgba(ink, 0.85),
+              lineHeight: 1.65,
+              maxWidth: p ? 760 : 820,
+              opacity: contextReveal,
+              transform: `translateY(${(1 - contextReveal) * 12}px)`,
+            }}
+          >
+            {context}
+          </div>
+        ) : null}
       </div>
     </SakuraScene>
   );

@@ -41,6 +41,7 @@ import {
   RemotionEconomistVideoComposition,
   RemotionStickman2VideoComposition,
   RemotionMagazineVideoComposition,
+  RemotionSakuraVideoComposition,
   RemotionStickmanFootballVideoComposition,
 } from "./remotionAdapters";
 
@@ -338,9 +339,12 @@ const SAKURA_LAYOUTS = new Set([
   "sakura_stat_highlight",
   "sakura_list_scene",
   "sakura_text_narration",
-  "sakura_image_focus",
-  "sakura_chapter_transition",
   "sakura_ending_socials",
+  // Canonical ending id the backend emits; aliased to sakura_ending_socials in the
+  // layout registry. Must be a valid layout so VideoPreview doesn't fall it back.
+  "ending_socials",
+  "sakura_data_visualization",
+  "sakura_ticker",
 ]);
 
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
@@ -621,6 +625,8 @@ export function getTemplateConfig(
                                 ? RemotionStickman2VideoComposition
                                 : id === "magazine"
                                   ? RemotionMagazineVideoComposition
+                                : id === "sakura"
+                                  ? RemotionSakuraVideoComposition
                                 : id === "stickman_football"
                                   ? RemotionStickmanFootballVideoComposition
                     : null;

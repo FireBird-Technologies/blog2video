@@ -1079,11 +1079,12 @@ def write_remotion_data(
         extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
         effective_duration = scene.duration_seconds + extra_hold
         # Spoken-audio length for caption timing: scene.duration_seconds is set to
-        # (audio length + DURATION_PAD=1.0s of trailing silence) during voiceover
-        # generation, so the speech occupies roughly the first (duration - 1.0s).
-        # Captions span only this window so they don't drift into the silent tail.
-        # 0 when there's no voiceover (captions are disabled in that case anyway).
-        _VOICEOVER_TRAILING_PAD = 1.0
+        # (audio length + DURATION_PAD of trailing silence) during voiceover
+        # generation, so the speech occupies roughly the first
+        # (duration - DURATION_PAD). Captions span only this window so they don't
+        # drift into the silent tail. Reference the same constant so the two can
+        # never diverge. 0 when there's no voiceover (captions disabled anyway).
+        from app.services.voiceover import DURATION_PAD as _VOICEOVER_TRAILING_PAD
         speech_duration = (
             max(0.5, round(scene.duration_seconds - _VOICEOVER_TRAILING_PAD, 2))
             if voiceover_filename

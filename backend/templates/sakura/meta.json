@@ -26,21 +26,31 @@
     "sakura_stat_highlight",
     "sakura_list_scene",
     "sakura_text_narration",
-    "sakura_image_focus",
-    "sakura_chapter_transition",
-    "sakura_ending_socials"
+    "ending_socials",
+    "sakura_data_visualization",
+    "sakura_ticker"
   ],
   "layout_prop_schema": {
     "sakura_intro": {
       "label": "Sakura Intro",
+      "scene_defaults": {
+        "title": "The Season of Blossoms",
+        "narration": "A quiet meditation on the fleeting beauty of the cherry blossom.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "kanjiTitle": "桜",
+        "romanTitle": "Cherry Blossom",
+        "tagline": "A quiet meditation on the fleeting beauty of spring"
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
-          "landscape": 76
+          "landscape": 132
         },
         "descriptionFontSize": {
           "portrait": 52,
-          "landscape": 40
+          "landscape": 67
         }
       },
       "fields": [
@@ -66,13 +76,13 @@
           "key": "kanjiTitle",
           "label": "Kanjititle",
           "type": "string",
-          "description": "Large Japanese characters displayed as the main title."
+          "description": "Large main title in Japanese — a short (2–6 character) Japanese translation of the title / romanTitle. ALWAYS Japanese regardless of content language; never English letters."
         },
         {
           "key": "romanTitle",
           "label": "Romantitle",
           "type": "string",
-          "description": "Romanized reading of the title shown beneath the kanji."
+          "description": "English MEANING (translation) of the kanjiTitle, shown beneath the kanji — NOT its rōmaji reading (桜 → \"Cherry Blossom\", never \"Sakura\"). Stays in the content language."
         },
         {
           "key": "tagline",
@@ -84,6 +94,17 @@
     },
     "sakura_section": {
       "label": "Content Section",
+      "scene_defaults": {
+        "title": "The First Bloom",
+        "narration": "Each spring, the trees keep an unspoken appointment with the season.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "chapterKanji": "第一章",
+        "chapterLabel": "Chapter One",
+        "headline": "The first bloom of the season",
+        "body": "For a few short days each spring, the trees keep an unspoken appointment with the season — petals opening all at once, then drifting free on the smallest breeze."
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
@@ -117,13 +138,13 @@
           "key": "chapterKanji",
           "label": "Chapterkanji",
           "type": "string",
-          "description": "Vertical Japanese chapter label (e.g. 第一章)."
+          "description": "Short Japanese chapter label corresponding to chapterLabel (e.g. 第一章). ALWAYS Japanese regardless of content language."
         },
         {
           "key": "chapterLabel",
           "label": "Chapterlabel",
           "type": "string",
-          "description": "Roman chapter subtitle shown beside the kanji eyebrow."
+          "description": "English MEANING (translation) of chapterKanji shown beside the kanji eyebrow — NOT its rōmaji reading (第一章 → \"Chapter One\", never \"Dai Isshō\"). Stays in the content language."
         },
         {
           "key": "headline",
@@ -136,17 +157,21 @@
           "label": "Body",
           "type": "text",
           "description": "Body paragraph text for this section."
-        },
-        {
-          "key": "imageUrl",
-          "label": "Imageurl",
-          "type": "string",
-          "description": "Optional supporting image for the right column."
         }
       ]
     },
     "sakura_quote": {
       "label": "Quote / Key Concept",
+      "scene_defaults": {
+        "title": "物の哀れ",
+        "narration": "Mono no aware — a gentle sadness at the passing of things.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "quote": "物の哀れ",
+        "quoteRoman": "mono no aware",
+        "quoteTranslation": "A gentle sadness at the passing of things"
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
@@ -154,7 +179,7 @@
         },
         "descriptionFontSize": {
           "portrait": 52,
-          "landscape": 40
+          "landscape": 48
         }
       },
       "fields": [
@@ -180,24 +205,37 @@
           "key": "quote",
           "label": "Quote",
           "type": "string",
-          "description": "Japanese characters for the vertical quote display."
+          "description": "The quote phrase in Japanese — same phrase as quoteTranslation, expressed in Japanese. ALWAYS Japanese regardless of content language."
         },
         {
           "key": "quoteRoman",
           "label": "Quoteroman",
           "type": "string",
-          "description": "Romanized reading displayed in angle brackets below the vertical text."
+          "description": "Rōmaji reading of quote, displayed in angle brackets below the vertical text. Must match the Japanese quote exactly."
         },
         {
           "key": "quoteTranslation",
           "label": "Quotetranslation",
           "type": "string",
-          "description": "English translation displayed in italic beneath the romanized reading."
+          "description": "English translation displayed in italic beneath the romanized reading. quote / quoteRoman / quoteTranslation are the same phrase in Japanese / Rōmaji / English and must stay consistent."
         }
       ]
     },
     "sakura_two_column_detail": {
       "label": "Two-Column Detail",
+      "scene_defaults": {
+        "title": "Two Ways of Seeing",
+        "narration": "The bloom and the fall — two halves of a single, fleeting story.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "leftHeadline": "The Bloom",
+        "leftBody": "In full flower the grove turns to cloud — soft, pink, and impossibly bright against the spring sky.",
+        "rightHeadline": "The Fall",
+        "rightBody": "Days later the petals let go all at once, a slow snow that reminds us nothing beautiful is meant to last.",
+        "leftKanji": "開花",
+        "rightKanji": "落下"
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
@@ -231,7 +269,7 @@
           "key": "leftHeadline",
           "label": "Leftheadline",
           "type": "string",
-          "description": "Headline for the left column."
+          "description": "Headline for the left column. MAX 2 WORDS — a tight label summarizing leftBody below it (e.g. 'The Bloom'). Never a phrase or sentence."
         },
         {
           "key": "leftBody",
@@ -243,7 +281,7 @@
           "key": "rightHeadline",
           "label": "Rightheadline",
           "type": "string",
-          "description": "Headline for the right column."
+          "description": "Headline for the right column. MAX 2 WORDS — a tight label summarizing rightBody. Never a phrase or sentence."
         },
         {
           "key": "rightBody",
@@ -252,15 +290,31 @@
           "description": "Body text for the right column (used when no image provided)."
         },
         {
-          "key": "imageUrl",
-          "label": "Imageurl",
+          "key": "leftKanji",
+          "label": "Left Kanji",
           "type": "string",
-          "description": "Optional image replacing right column body text."
+          "description": "EXACT Japanese translation of the left headline, shown vertically (tategaki) above it. Translate the headline itself into an authentic, concise Japanese word/phrase (~2–4 chars, 6 max; drop filler like Your/The) — not a loosely-related marker glyph. E.g. 'Your Website' → ウェブサイト, 'The Bloom' → 開花."
+        },
+        {
+          "key": "rightKanji",
+          "label": "Right Kanji",
+          "type": "string",
+          "description": "EXACT Japanese translation of the right headline, shown vertically (tategaki) above it. Translate the headline itself into an authentic, concise Japanese word/phrase (~2–4 chars, 6 max; drop filler like Your/The) — not a loosely-related marker glyph. Never a bare kanji fragment (映 alone for 'video' → 映像). E.g. 'Your Video' → 映像, 'The Fall' → 落下."
         }
       ]
     },
     "sakura_stat_highlight": {
       "label": "Stat / Number Highlight",
+      "scene_defaults": {
+        "title": "98%",
+        "narration": "Nearly all readers finished the piece — a rare feat for long-form writing.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "stat": "98%",
+        "statLabel": "Completion Rate",
+        "context": "Nearly all readers finished the piece — a rare feat for long-form writing."
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
@@ -312,6 +366,20 @@
     },
     "sakura_list_scene": {
       "label": "Bullet List",
+      "scene_defaults": {
+        "title": "Where to Watch the Blossoms",
+        "narration": "A handful of the most beloved places to greet the spring bloom.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "headline": "Where to watch the blossoms",
+        "items": [
+          "Ueno Park — lantern-lit avenues at dusk",
+          "Yoshino — thousands of trees across the hillside",
+          "Hirosaki Castle — petals drifting on the moat",
+          "The Philosopher's Path — a quiet canal walk"
+        ]
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
@@ -358,6 +426,16 @@
     },
     "sakura_text_narration": {
       "label": "Text Narration",
+      "scene_defaults": {
+        "title": "A Brief Bloom",
+        "narration": "The blossom lasts barely a week — and that is exactly the point.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "eyebrow": "On Impermanence",
+        "headline": "A brief bloom",
+        "body": "The cherry blossom lasts barely a week before it scatters. That brevity is not a flaw but the whole point — beauty made sharper by knowing it will soon be gone."
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
@@ -407,104 +485,23 @@
         }
       ]
     },
-    "sakura_image_focus": {
-      "label": "Image Focus",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 92,
-          "landscape": 76
-        },
-        "descriptionFontSize": {
-          "portrait": 52,
-          "landscape": 40
-        }
-      },
-      "fields": [
-        {
-          "key": "titleFontSize",
-          "label": "Title Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 18,
-          "max": 220,
-          "step": 1
-        },
-        {
-          "key": "descriptionFontSize",
-          "label": "Body Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 10,
-          "max": 140,
-          "step": 1
-        },
-        {
-          "key": "imageUrl",
-          "label": "Imageurl",
-          "type": "string",
-          "description": "The hero image to display."
-        },
-        {
-          "key": "caption",
-          "label": "Caption",
-          "type": "string",
-          "description": "Primary caption below the image."
-        },
-        {
-          "key": "subCaption",
-          "label": "Subcaption",
-          "type": "string",
-          "description": "Optional secondary caption in italic deep color."
-        }
-      ]
-    },
-    "sakura_chapter_transition": {
-      "label": "Chapter Transition",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 92,
-          "landscape": 76
-        },
-        "descriptionFontSize": {
-          "portrait": 52,
-          "landscape": 40
-        }
-      },
-      "fields": [
-        {
-          "key": "titleFontSize",
-          "label": "Title Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 18,
-          "max": 220,
-          "step": 1
-        },
-        {
-          "key": "descriptionFontSize",
-          "label": "Body Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 10,
-          "max": 140,
-          "step": 1
-        },
-        {
-          "key": "chapterNumber",
-          "label": "Chapternumber",
-          "type": "string",
-          "description": "Chapter number as kanji or numeral (e.g. 二 or \"02\")."
-        },
-        {
-          "key": "chapterTitle",
-          "label": "Chaptertitle",
-          "type": "string",
-          "description": "Chapter title in Roman type."
-        }
-      ]
-    },
-    "sakura_ending_socials": {
+    "ending_socials": {
       "label": "Outro / Socials",
+      "scene_defaults": {
+        "title": "Hanami Journal",
+        "narration": "Follow along for more quiet stories of the season.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "brandName": "Hanami Journal",
+        "tagline": "Quiet stories of the season",
+        "ctaText": "Follow for more",
+        "websiteUrl": "hanamijournal.com",
+        "socialHandles": [
+          "@hanamijournal",
+          "@hanami.stories"
+        ]
+      },
       "defaults": {
         "titleFontSize": {
           "portrait": 92,
@@ -566,15 +563,263 @@
           "description": "Optional array of social handles shown in small type below the URL."
         }
       ]
+    },
+    "sakura_data_visualization": {
+      "label": "Data Visualisation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 70,
+          "landscape": 66
+        },
+        "descriptionFontSize": {
+          "portrait": 36,
+          "landscape": 34
+        },
+        "chartType": "line",
+        "chartSummary": "The blossom count rises through the season before it settles.",
+        "chartTable": {
+          "headers": [
+            "Week",
+            "Blossoms",
+            "Buds"
+          ],
+          "rows": [
+            [
+              "W1",
+              "298",
+              "72"
+            ],
+            [
+              "W2",
+              "308",
+              "68"
+            ],
+            [
+              "W3",
+              "315",
+              "61"
+            ],
+            [
+              "W4",
+              "324",
+              "55"
+            ],
+            [
+              "W5",
+              "318",
+              "59"
+            ]
+          ]
+        },
+        "chartYAxisTicks": [],
+        "subtitle": "Week",
+        "yAxisLabel": "Recorded value",
+        "barPrimaryColor": "#C0143C",
+        "barSecondaryColor": "#E8739A"
+      },
+      "scene_defaults": {
+        "title": "The pattern in the numbers",
+        "narration": "The season turns, and the figures bloom with it.",
+        "durationSeconds": 10
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — col 1: X labels; cols 2–4: up to 3 numeric series (max 20 data rows). Use bar for named categories; histogram for bins/ranges (0–10, <5, 50+).",
+          "type": "chart_table"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis label (overrides chart header)",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "X-axis / category caption (overrides first column header)",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis tick labels (top → bottom; 2–4 values)",
+          "type": "string_array"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart summary (short read beside the graphic)",
+          "type": "string"
+        },
+        {
+          "key": "barPrimaryColor",
+          "label": "Series color 1",
+          "type": "color"
+        },
+        {
+          "key": "barSecondaryColor",
+          "label": "Series color 2",
+          "type": "color"
+        }
+      ]
+    },
+    "sakura_ticker": {
+      "label": "Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 50,
+          "landscape": 44
+        },
+        "descriptionFontSize": {
+          "portrait": 22,
+          "landscape": 19
+        },
+        "tickerTitle": "A record of the season",
+        "tickerFootnote": "Source: the garden ledger",
+        "tickerHighlightCol": 5,
+        "tickerTable": {
+          "headers": [
+            "Name",
+            "Shares",
+            "Price",
+            "Cost",
+            "Value",
+            "% Chg"
+          ],
+          "rows": [
+            [
+              "Bloom A",
+              "25",
+              "$20",
+              "$500",
+              "$600",
+              "+20%"
+            ],
+            [
+              "Bloom B",
+              "20",
+              "$30",
+              "$600",
+              "$500",
+              "-16.7%"
+            ],
+            [
+              "Bloom C",
+              "30",
+              "$90",
+              "$2,700",
+              "$3,000",
+              "+11.1%"
+            ],
+            [
+              "Bloom D",
+              "50",
+              "$100",
+              "$5,000",
+              "$10,000",
+              "+100%"
+            ],
+            [
+              "Bloom E",
+              "100",
+              "$20",
+              "$2,000",
+              "$1,000",
+              "-50%"
+            ]
+          ]
+        }
+      },
+      "scene_defaults": {
+        "title": "The data in view",
+        "narration": "Each entry set down like a pressed petal in the record.",
+        "durationSeconds": 10
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Cell Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "tickerTitle",
+          "label": "Table sub-headline",
+          "type": "string"
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — col 1: row labels; cols 2–6: numeric or text values. Max 20 rows, max 6 columns.",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight column index (0-based) for gain/loss coloring, e.g. 5 for the 6th column. Set to -1 to disable.",
+          "type": "number"
+        },
+        {
+          "key": "tickerFootnote",
+          "label": "Footnote / source attribution",
+          "type": "string"
+        }
+      ]
     }
   },
   "layouts_without_image": [
-    "sakura_intro",
     "sakura_quote",
-    "sakura_stat_highlight",
-    "sakura_list_scene",
-    "sakura_text_narration",
-    "sakura_chapter_transition",
-    "sakura_ending_socials"
+    "sakura_two_column_detail",
+    "ending_socials",
+    "sakura_data_visualization",
+    "sakura_ticker"
   ]
 }
