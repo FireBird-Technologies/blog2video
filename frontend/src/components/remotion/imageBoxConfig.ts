@@ -662,6 +662,52 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.389, h: 0.219 },
     circular: true,
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SAKURA template  (canvas 1920 × 1080)
+  // Mirrors SAKURA_LAYOUTS in templateConfig.tsx + SAKURA_LAYOUT_REGISTRY.
+  // Only sakura_intro, sakura_section, sakura_text_narration,
+  // sakura_list_scene and sakura_stat_highlight render an image; every other
+  // sakura layout (incl. sakura_two_column_detail) is in meta.json
+  // `layouts_without_image`, so the editor hides the image picker.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Hero: image is a full-bleed blended BACKGROUND behind the title stack.
+  // See SakuraIntro.tsx (heroBg).
+  sakura_intro: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+
+  // Right-column photo panel: 620×700 landscape; (width−160)×620 portrait.
+  // See SakuraSection.tsx (panelW/panelH).
+  sakura_section: {
+    landscape: { w: 0.323, h: 0.648 }, // 620 × 700
+    portrait:  { w: 0.852, h: 0.323 }, // (1080−160) × 620
+  },
+
+  // Right-side supporting panel: 620×700 landscape; (width−160)×620 portrait.
+  // See SakuraTextNarration.tsx (panelW/panelH).
+  sakura_text_narration: {
+    landscape: { w: 0.323, h: 0.648 },
+    portrait:  { w: 0.852, h: 0.323 },
+  },
+
+  // Right-side supporting panel down the list's empty right edge: 36% × full
+  // height landscape; bottom band (width−160 × 30%) portrait.
+  // See SakuraListScene.tsx (imagePanel).
+  sakura_list_scene: {
+    landscape: { w: 0.360, h: 1.0 },
+    portrait:  { w: 0.852, h: 0.30 },
+  },
+
+  // Circular vignette behind the number: 560 landscape / 420 portrait.
+  // See SakuraStatHighlight.tsx (vignetteSize).
+  sakura_stat_highlight: {
+    landscape: { w: 0.292, h: 0.519 }, // 560 × 560 (1:1 box)
+    portrait:  { w: 0.389, h: 0.219 }, // 420 × 420 (1:1 box)
+    circular: true,
+  },
 };
 
 /**

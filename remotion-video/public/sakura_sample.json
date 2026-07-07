@@ -1,7 +1,7 @@
 {
   "projectName": "Sakura Demo", "accentColor": "#C0143C", "bgColor": "#FDF6F0", "textColor": "#2A0A12", "aspectRatio": "landscape", "playbackSpeed": 1,
   "scenes": [
-    { "id": 5, "order": 0, "title": "7", "narration": "", "layout": "sakura_stat_highlight", "layoutProps": { "stat": "72%", "statLabel": "In Full Bloom", "context": "of the trees reach peak flowering in the same week." }, "durationSeconds": 6, "voiceoverFile": null, "images": [] },
-    { "id": 9, "order": 1, "title": "The Return", "narration": "", "layout": "sakura_chapter_transition", "layoutProps": { "chapterNumber": "二", "chapterKanji": "再来", "chapterLabel": "Chapter Two", "chapterTitle": "The Return", "description": "When the season turns and the branches remember how to bloom." }, "durationSeconds": 6, "voiceoverFile": null, "images": [] }
+    { "id": 3, "order": 0, "title": "Signs of the Season", "narration": "", "layout": "sakura_list_scene", "layoutProps": { "headline": "Signs of the Season", "items": ["The first buds swell along the oldest branches", "Petals open from the south-facing side first", "A soft pink haze settles over the hillsides", "Warm afternoons draw the crowds beneath the trees", "The wind carries the first drifting blossoms"] }, "durationSeconds": 8, "voiceoverFile": null, "images": [] },
+    { "id": 5, "order": 1, "title": "7", "narration": "", "layout": "sakura_stat_highlight", "layoutProps": { "stat": "72%", "statLabel": "In Full Bloom", "context": "of the trees reach peak flowering in the same week." }, "durationSeconds": 6, "voiceoverFile": null, "images": [] }
   ]
 }

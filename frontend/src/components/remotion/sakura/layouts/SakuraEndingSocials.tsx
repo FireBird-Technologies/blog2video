@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
+import { useVideoConfig, interpolate, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import {
@@ -8,6 +8,7 @@ import {
   SAKURA_BODY_FONT,
   SAKURA_DETAIL_FONT,
   SakuraScene,
+  useSakuraFrame,
   KamonWatermark,
   CornerBlossoms,
   SoftPetal,
@@ -29,14 +30,17 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
   } = props;
 
   const p = aspectRatio === "portrait";
-  const frame = useCurrentFrame();
+  const frame = useSakuraFrame();
   const { fps, width, height } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 150;
 
   const brandName = (props as any).brandName ?? title ?? "";
   const tagline = (props as any).tagline ?? narration ?? "";
-  const ctaText = (props as any).ctaText ?? "";
-  const websiteUrl = (props as any).websiteUrl ?? "";
+  // Prefer the Studio-authored Sakura prop names, then fall back to the canonical
+  // ending_socials descriptor names the backend pipeline emits (ctaButtonText /
+  // websiteLink) so the CTA box and website line populate on generated videos.
+  const ctaText = (props as any).ctaText ?? (props as any).ctaButtonText ?? "";
+  const websiteUrl = (props as any).websiteUrl ?? (props as any).websiteLink ?? "";
   const socialHandles: string[] = (props as any).socialHandles ?? [];
 
   const titlePx = titleFontSize ?? (p ? 80 : 64);
@@ -113,6 +117,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
       petals={p ? 24 : 35}
       petalIntensity={1.4}
       petalSeed={99}
+      petalMode="settle"
       chrome={
         <>
           {/* Kamon watermark rings */}

@@ -1,15 +1,15 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, interpolate, spring, Img } from "remotion";
+import { useVideoConfig, interpolate, spring, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
   SAKURA_BODY_FONT,
   SakuraScene,
+  useSakuraFrame,
   KamonWatermark,
   SoftPetal,
-  CornerBrackets,
-  SakuraTreePanel,
+  GrowingSakuraTree,
   hexToRgba,
 } from "../sakuraStyle";
 
@@ -30,7 +30,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
-  const frame = useCurrentFrame();
+  const frame = useSakuraFrame();
   const { fps, width, height } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 150;
 
@@ -91,7 +91,19 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
   });
 
   const panelW = p ? width - 160 : 620;
-  const panelH = p ? 620 : 700;
+  // Cap the panel to the height actually available inside the scene padding so a
+  // SHORTENED scene never overflows / "amplifies" the image past the frame — the
+  // panel shrinks with the canvas instead of staying a fixed 700px box.
+  const vPad = p ? 130 : 90; // matches the container's top/bottom padding below
+  const panelH = Math.min(p ? 620 : 700, height - vPad * 2);
+
+  // Twin windswept cherry trees root in the two bottom corners and grow inward
+  // on a slant across the frame.
+  const treeGrow = interpolate(frame, [6, dur - 24], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: (t) => 1 - Math.pow(1 - t, 2.2),
+  });
 
   const textBlock = (
     <div
@@ -134,7 +146,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
               style={{
                 fontFamily: SAKURA_BODY_FONT,
                 fontSize: p ? 19 : 16,
-                color: SAKURA.deepBlush,
+                color: hexToRgba(ink, 0.6),
                 letterSpacing: "0.5em",
                 textTransform: "uppercase",
                 paddingTop: 6,
@@ -178,7 +190,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
           lineHeight: 1.8,
           letterSpacing: "0.01em",
           margin: 0,
-          maxWidth: p ? undefined : 620,
+          maxWidth: p ? undefined : imageUrl ? 620 : 900,
           opacity: bodyReveal,
           transform: `translateY(${(1 - bodyReveal) * 16}px)`,
         }}
@@ -188,39 +200,74 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
     </div>
   );
 
-  const imagePanel = (
+  // Feathered edge so the photo dissolves into the washi backdrop instead of
+  // sitting in a hard-edged frame — reads as part of the scene, not a paste-in.
+  const featherMask =
+    "radial-gradient(120% 120% at 50% 45%, #000 55%, rgba(0,0,0,0.55) 78%, transparent 100%)";
+
+  // When the image is smaller than the panel (zoomed out → letterboxed with
+  // `contain`) the feather mask + wash would paint a visible box over the empty
+  // letterbox area — reading as a placeholder backing behind the image. So only
+  // apply the feather mask and the plum wash when the image actually FILLS the
+  // panel (`cover`); when it's contained, show just the bare image, no box.
+  const imageFills = (imageZoom ?? 1) >= 1;
+
+  // Only render an image panel when a source is actually provided. With no
+  // image the text block spans the frame and the growing cherry trees carry the
+  // composition — no placeholder box, tree panel or brackets appear.
+  const imagePanel = imageUrl ? (
     <div
       style={{
         width: panelW,
         height: panelH,
+        maxHeight: "100%",
         flexShrink: 0,
         position: "relative",
         opacity: panelReveal,
         transform: `translateX(${(1 - panelReveal) * (p ? 0 : 60)}px) translateY(${(1 - panelReveal) * (p ? 40 : 0)}px)`,
-        backgroundColor: SAKURA.mist,
-        padding: 14,
-        boxSizing: "border-box",
       }}
     >
-      {imageUrl ? (
-        <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
-          <Img
-            src={imageUrl}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: imageObjectPosition ?? "50% 50%",
-              transform: `scale(${imageZoom ?? 1})`,
-            }}
-          />
-        </div>
-      ) : (
-        <SakuraTreePanel width={panelW - 28} height={panelH - 28} />
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          overflow: "hidden",
+          maskImage: imageFills ? featherMask : undefined,
+          WebkitMaskImage: imageFills ? featherMask : undefined,
+        }}
+      >
+        <Img
+          src={imageUrl}
+          style={{
+            width: "100%",
+            height: "100%",
+            // Zoom-out (imageZoom < 1) keeps the whole image visible instead of
+            // cropping — matches the newspaper template's fit handling.
+            objectFit: imageFills ? "cover" : "contain",
+            objectPosition: imageFills ? (imageObjectPosition ?? "50% 50%") : "center",
+            transform: `scale(${imageZoom ?? 1})`,
+            transformOrigin: imageFills ? (imageObjectPosition ?? "50% 50%") : "center center",
+          }}
+        />
+      </div>
+      {/* Plum→washi wash over the photo so it settles into the palette. Only
+          drawn when the image fills the panel — a contained (smaller) image
+          shows bare, with no box painted over its empty margins. */}
+      {imageFills && (
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background: `linear-gradient(135deg, ${hexToRgba(SAKURA.plum, 0.18)}, transparent 42%), linear-gradient(0deg, ${hexToRgba(crimson, 0.1)}, transparent 55%)`,
+          mixBlendMode: "multiply",
+          maskImage: featherMask,
+          WebkitMaskImage: featherMask,
+        }}
+      />
       )}
-      <CornerBrackets topColor={crimson} bottomColor={SAKURA.deepBlush} />
     </div>
-  );
+  ) : null;
 
   return (
     <SakuraScene
@@ -233,9 +280,55 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
       petals={p ? 12 : 18}
       petalIntensity={0.6}
       petalSeed={11}
+      petalMode="drift"
       petalsBehind
+      ambient="mist_gold"
       chrome={
         <>
+          {/* Twin windswept shidarezakura root in the two bottom corners and
+              grow inward on a slant — the right tree sweeps up-and-left, the
+              left tree sweeps up-and-right. Dimmed where the copy sits so the
+              text stays legible. */}
+          <GrowingSakuraTree
+            width={width}
+            height={height}
+            grow={treeGrow}
+            variant="windswept"
+            lean="left"
+            windStyle="breeze"
+            seed={23}
+            depth={p ? 8 : 9}
+            spreadAngle={p ? 28 : 30}
+            originX={p ? width * 0.94 : width * 0.98}
+            originY={height * 1.02}
+            opacity={p ? 0.18 : 0.2}
+            textFadeRect={
+              p
+                ? { x: width * 0.06, y: height * 0.36, w: width * 0.88, h: height * 0.3 }
+                : { x: width * 0.05, y: height * 0.2, w: width * 0.58, h: height * 0.62 }
+            }
+            textFadeOpacity={0.16}
+          />
+          <GrowingSakuraTree
+            width={width}
+            height={height}
+            grow={treeGrow}
+            variant="windswept"
+            lean="right"
+            windStyle="breeze"
+            seed={47}
+            depth={p ? 8 : 9}
+            spreadAngle={p ? 28 : 30}
+            originX={p ? width * 0.06 : width * 0.02}
+            originY={height * 1.02}
+            opacity={p ? 0.18 : 0.2}
+            textFadeRect={
+              p
+                ? { x: width * 0.06, y: height * 0.36, w: width * 0.88, h: height * 0.3 }
+                : { x: width * 0.05, y: height * 0.2, w: width * 0.58, h: height * 0.62 }
+            }
+            textFadeOpacity={0.16}
+          />
           {/* Left accent band: crimson → deepBlush → transparent */}
           <div
             style={{

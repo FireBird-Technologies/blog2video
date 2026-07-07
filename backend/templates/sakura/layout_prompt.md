@@ -23,12 +23,14 @@ Use this list when picking the `preferred_layout` for each scene.
 - `sakura_text_narration`  
   - **Best for**: Pure narration or transitional text with no supporting visuals — the baseline readable layout.
 
-- `sakura_image_focus`  
-  - **Best for**: Showcasing a single hero image with a caption or brief annotation.
-
-- `sakura_chapter_transition`  
-  - **Best for**: Brief full-bleed interstitial between major sections to signal a new chapter.
-
-- `sakura_ending_socials`  
+- `ending_socials`  
   - **Best for**: Closing branded card with call-to-action and social/website links.
+
+- `sakura_data_visualization`  
+  - **Best for**: A chart (line / bar / histogram) bound to a chartable table. line = trend over time, bar = comparison across named categories, histogram = distribution across bins/ranges.
+  - **Rule**: Use ONLY when the pipeline binds a chartable table to this scene (preferred_layout=sakura_data_visualization). Never invent figures. The `chartType` field switches line/bar/histogram — there are no `_bar`/`_histogram` variant layout ids.
+
+- `sakura_ticker`  
+  - **Best for**: A data table of rows and columns lifted from the blog.
+  - **Rule**: Use ONLY when the pipeline binds a data table to this scene (preferred_layout=sakura_ticker). Never invent rows.
 

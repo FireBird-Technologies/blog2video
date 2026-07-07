@@ -1,118 +1,153 @@
-const P = {
-  plum: "#4A1220",
-  void: "#080305",
-  blush: "#F4B8C8",
-  deepBlush: "#E8739A",
-  mist: "#E8D5DF",
-  crimson: "#C0143C",
-  gold: "#C9A84C",
-  washi: "#FDF6F0",
-};
+import { useMemo, useState, useEffect, useRef } from "react";
+import { Player, type PlayerRef } from "@remotion/player";
+import PlayerScaledCanvas from "./PlayerScaledCanvas";
+import { getTemplateConfig } from "../remotion/templateConfig";
+import { computeSakuraVideoTotalFrames } from "../remotion/sakura/SakuraVideoComposition";
+import { SAKURA_PREVIEW_SCENES } from "./sakuraPreviewScenes";
 
-// A soft five-ellipse sakura blossom
-const Blossom = ({
-  x,
-  y,
-  r,
-  rot = 0,
-  color = P.blush,
-  opacity = 1,
-}: {
-  x: number;
-  y: number;
-  r: number;
-  rot?: number;
-  color?: string;
-  opacity?: number;
-}) => (
-  <g transform={`translate(${x},${y}) rotate(${rot})`} opacity={opacity}>
-    {[0, 1, 2, 3, 4].map((i) => {
-      const a = ((i * 72 - 90) * Math.PI) / 180;
-      const px = Math.cos(a) * r;
-      const py = Math.sin(a) * r;
-      return (
-        <ellipse
-          key={i}
-          cx={px}
-          cy={py}
-          rx={r * 0.55}
-          ry={r * 0.35}
-          transform={`rotate(${i * 72 - 90}, ${px}, ${py})`}
-          fill={color}
-        />
-      );
-    })}
-    <circle r={r * 0.18} fill={P.deepBlush} />
-  </g>
-);
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-const SakuraPreview = ({ thumbnailMode = false }: { thumbnailMode?: boolean }) => {
-  void thumbnailMode;
+export default function SakuraPreview({
+  thumbnailMode = false,
+}: { thumbnailMode?: boolean } = {}) {
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const playerRef = useRef<PlayerRef>(null);
+  const fps = 30;
+  const config = getTemplateConfig("sakura");
+  const Composition = config.component as React.ComponentType<any>;
+  const { accent: accentColor, bg: bgColor, text: textColor } = config.defaultColors;
+
+  // Play the WHOLE Sakura timeline (intro → stat → quote → ending → loop) WITH
+  // the template's own petal transitions — exactly like the real video. The
+  // composition renders the TransitionSeries internally; we only need its total
+  // length so the Player's declared duration matches (no clipped/raced scenes).
+  const durationInFrames = useMemo(
+    () => Math.max(1, computeSakuraVideoTotalFrames(SAKURA_PREVIEW_SCENES)),
+    [],
+  );
+
+  // Approximate per-scene start frames for the dot indicator. Sakura doesn't
+  // export a start-frame array (it plans overlaps internally), and the small
+  // transition overlap only shifts a boundary by a few frames — close enough to
+  // keep the active dot in sync while scrubbing.
+  const sceneStartFrames = useMemo(() => {
+    const starts: number[] = [];
+    let acc = 0;
+    for (const s of SAKURA_PREVIEW_SCENES) {
+      starts.push(acc);
+      acc += Math.max(1, Math.round((Number(s.durationSeconds) || 5) * fps));
+    }
+    return starts;
+  }, []);
+
+  // Freeze on a settled intro frame for the static thumbnail.
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 80);
+
+  const inputProps = useMemo(
+    () => ({
+      scenes: SAKURA_PREVIEW_SCENES,
+      accentColor,
+      bgColor,
+      textColor,
+      logo: null,
+      logoPosition: "bottom_right",
+      logoOpacity: 0,
+      logoSize: 0,
+      aspectRatio: "landscape",
+    }),
+    [accentColor, bgColor, textColor],
+  );
+
+  // Side cards are static: the moment a card is not the centered/live card it
+  // pauses and locks to the thumbnail frame, so only the live card ever animates.
+  useEffect(() => {
+    if (!thumbnailMode) return;
+    const pl = playerRef.current;
+    if (!pl) return;
+    pl.pause();
+    pl.seekTo(thumbnailFrame);
+  }, [thumbnailMode, thumbnailFrame]);
+
+  // When the card becomes live, restart the timeline from the top so the
+  // animation plays fresh — the thumbnail effect above pauses it once it leaves.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    const pl = playerRef.current;
+    if (!pl) return;
+    setActiveSceneIndex(0);
+    pl.seekTo(0);
+    pl.play();
+  }, [thumbnailMode]);
+
+  // Keep the active dot in sync with which scene is currently on screen.
+  useEffect(() => {
+    if (thumbnailMode) return;
+    const pl = playerRef.current;
+    if (!pl) return;
+    const onFrame = () => {
+      const f = pl.getCurrentFrame();
+      let idx = 0;
+      for (let i = sceneStartFrames.length - 1; i >= 0; i--) {
+        if (f >= sceneStartFrames[i]) {
+          idx = i;
+          break;
+        }
+      }
+      setActiveSceneIndex((prev) => (prev === idx ? prev : idx));
+    };
+    pl.addEventListener("frameupdate", onFrame);
+    return () => pl.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, sceneStartFrames]);
+
+  // Clicking a dot seeks the continuous timeline to that scene's start.
+  const seekToScene = (index: number) => {
+    setActiveSceneIndex(index);
+    const pl = playerRef.current;
+    if (pl) {
+      pl.seekTo(sceneStartFrames[index] ?? 0);
+      if (!thumbnailMode) pl.play();
+    }
+  };
+
   return (
-    <div
-      style={{
-        width: "100%",
-        aspectRatio: "16/9",
-        position: "relative",
-        overflow: "hidden",
-        fontFamily: "Georgia, serif",
-      }}
-    >
-      <svg
-        viewBox="0 0 320 180"
-        preserveAspectRatio="xMidYMid slice"
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-      >
-        <defs>
-          <radialGradient id="skp-bg" cx="30%" cy="20%" r="90%">
-            <stop offset="0%" stopColor={P.plum} />
-            <stop offset="100%" stopColor={P.void} />
-          </radialGradient>
-        </defs>
-        <rect width="320" height="180" fill="url(#skp-bg)" />
-        {/* kamon rings */}
-        <circle cx="160" cy="90" r="78" fill="none" stroke={P.gold} strokeWidth="1" opacity="0.14" />
-        <circle cx="160" cy="90" r="58" fill="none" stroke={P.blush} strokeWidth="0.8" opacity="0.1" />
-        {/* corner blossoms */}
-        <Blossom x={22} y={24} r={11} rot={15} color={P.blush} opacity={0.8} />
-        <Blossom x={40} y={12} r={7} rot={-20} color={P.mist} opacity={0.6} />
-        <Blossom x={298} y={156} r={11} rot={-15} color={P.blush} opacity={0.8} />
-        <Blossom x={280} y={168} r={7} rot={30} color={P.mist} opacity={0.6} />
-        {/* drifting petals */}
-        <Blossom x={90} y={40} r={6} rot={40} color={P.mist} opacity={0.5} />
-        <Blossom x={230} y={130} r={7} rot={10} color={P.blush} opacity={0.5} />
-        <Blossom x={250} y={50} r={5} rot={70} color={P.mist} opacity={0.45} />
-        {/* kanji */}
-        <text
-          x="160"
-          y="98"
-          textAnchor="middle"
-          fontFamily="'Noto Serif JP', Georgia, serif"
-          fontSize="66"
-          fontWeight={700}
-          fill={P.blush}
-          opacity="0.96"
-        >
-          桜
-        </text>
-        {/* split brush lines */}
-        <path d="M 160 118 Q 130 115 100 118" stroke={P.crimson} strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.8" />
-        <path d="M 160 118 Q 190 121 220 118" stroke={P.crimson} strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6" />
-        {/* gold label */}
-        <text
-          x="160"
-          y="136"
-          textAnchor="middle"
-          fontFamily="Georgia, serif"
-          fontSize="9"
-          letterSpacing="7"
-          fill={P.gold}
-        >
-          SAKURA
-        </text>
-      </svg>
+    <div className="w-full">
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
+        <PlayerScaledCanvas>
+          <Player
+            ref={playerRef}
+            component={Composition}
+            inputProps={inputProps}
+            durationInFrames={durationInFrames}
+            initialFrame={0}
+            compositionWidth={1920}
+            compositionHeight={1080}
+            fps={fps}
+            controls={false}
+            autoPlay
+            loop={!thumbnailMode}
+            acknowledgeRemotionLicense
+            style={{ width: "100%", height: "100%", display: "block" }}
+          />
+        </PlayerScaledCanvas>
+
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
+          {SAKURA_PREVIEW_SCENES.map((scene, index) => {
+            const isActive = index === activeSceneIndex;
+            return (
+              <button
+                key={scene.id}
+                onClick={() => seekToScene(index)}
+                disabled={thumbnailMode}
+                className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
+                style={isActive ? { background: accentColor } : undefined}
+                aria-label={`Preview ${scene.title} layout`}
+                title={scene.title}
+                type="button"
+              />
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
-};
-
-export default SakuraPreview;
+}
