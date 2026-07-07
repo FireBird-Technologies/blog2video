@@ -25,6 +25,7 @@ import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templa
 import { resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
 import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
+import { computeSakuraVideoTotalFrames } from "./remotion/sakura/SakuraVideoComposition";
 import { planMagazineBoundaries, resolveMagazineLayout } from "./remotion/magazine/MagazineVideoComposition";
 import {
   compileComponentCode,
@@ -1645,6 +1646,23 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         voiceoverUrl: s.voiceoverUrl,
       }));
       return computeChronicleVideoTotalFrames(chronicleScenes, 1);
+    }
+    if (templateId === "sakura") {
+      // Sakura renders as a TransitionSeries whose neighbouring scenes OVERLAP by the
+      // transition length, so its real length is the raw per-scene sum minus the overlaps.
+      // Use its own calculator so the Player's declared length matches the render.
+      const sakuraScenes = scenes.map((s) => ({
+        id: s.id,
+        order: s.order,
+        title: s.title,
+        narration: s.narration,
+        layout: s.layout,
+        layoutProps: s.layoutProps,
+        durationSeconds: s.durationSeconds,
+        imageUrl: s.imageUrl,
+        voiceoverUrl: s.voiceoverUrl,
+      }));
+      return computeSakuraVideoTotalFrames(sakuraScenes);
     }
     if (templateId === "magazine") {
       // Magazine renders as a black-bridged TransitionSeries whose real length is NOT the
