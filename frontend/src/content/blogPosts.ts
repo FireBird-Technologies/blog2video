@@ -17,6 +17,133 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "biggest-update-magazine-captions-custom-templates",
+    title: "Our Biggest Update Yet: The Magazine Template, Automatic Captions, and a Custom Template Generator",
+    description:
+      "A new Magazine template puts you on the cover of TIME, automatic captions now run on every video, and a Custom Template Generator lets you build your own look — plus upgrades across every existing template.",
+    category: "Product updates",
+    heroImage: "/blog/blog-cover-biggest-update-magazine-captions-custom-templates.png",
+    heroImageAlt:
+      "Blog2Video's biggest update: a TIME-style Magazine cover template, automatic captions, and a custom template generator.",
+    publishedAt: "2026-07-03",
+    readTime: "4 min read",
+    heroEyebrow: "Product updates",
+    heroTitle: "We're shipping our biggest update yet.",
+    heroDescription:
+      "A new Magazine template puts you on the cover of TIME. Automatic captions now run on every video. A Custom Template Generator lets you build your own look. Plus upgrades across every existing template.",
+    primaryKeyword: "blog2video magazine template",
+    keywordVariant: "automatic video captions",
+    relatedPaths: [
+      "/templates/magazine",
+      "/custom-branded-video-templates",
+      "/blog-to-video",
+      "/blogs/whats-new-in-blog2video-six-features",
+    ],
+    sections: [
+      {
+        heading: "A new Magazine template puts you on the cover of TIME",
+        paragraphs: [
+          "This is the one people have been asking for.",
+          "The Magazine template turns your content into a glossy editorial cover story — starting with your subject on the cover of a TIME-style magazine, masthead and cover lines included. From there it unfolds as a designed print spread: feature layouts, editorial pull quotes, interview Q&As, by-the-numbers panels, and data charts.",
+          "It's built for the content that deserves prestige treatment — founder profiles, customer spotlights, milestone announcements, and personal-brand pieces. Instead of a slideshow, you get something that looks like a real editorial team art-directed it.",
+        ],
+        ctaPath: "/templates/magazine",
+        ctaLabel: "See the Magazine template",
+      },
+      {
+        heading: "Automatic captions now run on every video",
+        paragraphs: [
+          "Most video gets watched on mute. Now every video you generate comes with captions automatically — no extra step, no separate tool, no manual timing.",
+          "Captions are burned in and synced to the narration, so your content stays readable in the feed whether the sound is on or off. It's on by default across every template.",
+        ],
+      },
+      {
+        heading: "A Custom Template Generator lets you build your own look",
+        paragraphs: [
+          "Our templates cover a lot of ground, but sometimes you want something that's unmistakably yours.",
+          "The Custom Template Generator lets you build your own look. Point it at your brand — your colors, your fonts, your style — and it generates a bespoke template that applies that identity to every scene, so your videos look like your design team made them instead of a generic theme.",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "Build a custom template",
+      },
+      {
+        heading: "Plus upgrades across every existing template",
+        paragraphs: [
+          "We didn't just add new things — we went back through every existing template and made it better. Cleaner layouts, smoother motion, sharper typography, and better handling of images and data across the board.",
+          "If you have a template you already love, it just got an upgrade too.",
+        ],
+      },
+      {
+        heading: "Not a subscription person? Lifetime access, for a limited time",
+        paragraphs: [
+          "We know subscriptions aren't for everyone. For a limited time, a handful of users can grab lifetime access instead — pay once, keep it.",
+          "It's a small batch and it won't last, so if the pay-once model is more your speed, this is the window.",
+        ],
+        ctaPath: "/pricing",
+        ctaLabel: "See lifetime access",
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "Turn any idea into a share-ready video in minutes. Everything above is live now at blog2video.app.",
+          "Made with love by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What is the new Magazine template?",
+        answer:
+          "Magazine is a glossy editorial template that turns your content into a cover story — it puts your subject on the cover of a TIME-style magazine, then unfolds the rest as a designed print spread with feature layouts, pull quotes, interview Q&As, and by-the-numbers panels.",
+      },
+      {
+        question: "Do I have to turn captions on?",
+        answer:
+          "No. Automatic captions now run on every video by default, synced to the narration and burned in, so your content stays readable whether viewers watch with the sound on or off.",
+      },
+      {
+        question: "What does the Custom Template Generator do?",
+        answer:
+          "It lets you build your own look. Give it your brand — colors, fonts, and style — and it generates a bespoke template that applies that identity to every scene, so your videos match your brand instead of using a generic theme.",
+      },
+      {
+        question: "What changed in the existing templates?",
+        answer:
+          "Every existing template received upgrades — cleaner layouts, smoother motion, sharper typography, and better handling of images and data — so templates you already use look better too.",
+      },
+      {
+        question: "How does lifetime access work?",
+        answer:
+          "For a limited time, a small batch of users can buy lifetime access instead of a subscription — a one-time purchase. It's limited availability, so it's offered while the batch lasts.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Our Biggest Update Yet: Magazine Template, Automatic Captions, and Custom Templates",
+        angle:
+          "Announce the Magazine cover-story template, automatic captions on every video, the Custom Template Generator, template-wide upgrades, and limited lifetime access in one product-update article.",
+      },
+      {
+        channel: "video",
+        title: "Put Yourself on the Cover: The New Magazine Template in 60 Seconds",
+        angle: "Show a video made with the Magazine template as a cover story, then cut to captions and the custom generator.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped: cover-story videos, captions everywhere, and bring-your-own-brand templates",
+        angle: "Written-first creators get concrete shipping notes tied to prestige packaging and accessibility.",
+      },
+      {
+        channel: "twitter",
+        title: "Biggest update yet: Magazine template + automatic captions + custom templates",
+        angle: "Thread the four headline features with a lifetime-access mention as the closer.",
+      },
+    ],
+  },
+  {
     slug: "new-template-finance-publication",
     title: "70% of Our Users Are Finance Publishers. Here's the Template We Built for Them.",
     description:

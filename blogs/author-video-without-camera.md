@@ -9,6 +9,8 @@ hero_image_alt: "Author creating professional structured videos without filming 
 
 # The Author's Guide to Video Without a Camera
 
+> **TL;DR:** Every objection nonfiction authors have to video ("I don't want to be on camera") disappears when you don't use a camera. Here's how to build a YouTube and LinkedIn presence from your book's existing text — without ever filming yourself.
+
 The most consistent thing nonfiction authors say about video is: "I should be doing it, but I don't want to be on camera."
 
 Behind that statement are several specific objections: I'm not photogenic on video. I don't have the setup. I'll come across awkwardly. I'm a writer, not a performer. I don't have time to learn video production on top of everything else.

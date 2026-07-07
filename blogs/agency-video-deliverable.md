@@ -9,6 +9,8 @@ hero_image_alt: "Client video deliverable package with MP4, PDF carousel, PowerP
 
 # How Agencies Can Add Video to Every Retainer Without Hiring a Video Team
 
+> **TL;DR:** A single account manager can turn a client blog post into a professional broadcast video in ~15 minutes — no camera, no editor. This post covers how agencies add video to every retainer and, the harder part, how to price it.
+
 Every marketing agency is already producing the raw material for video. Strategy documents, blog posts, case studies, landing page copy, client reports — it's all there. None of it becomes video because the assumption is that video requires a production team, filming days, editors, and a budget that blows up the margin.
 
 That assumption is now obsolete.
