@@ -38,6 +38,7 @@ CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "spotlight": ("spotlight_data", "spotlight_table"),
     "chronicle": ("chronicle_data", "chronicle_table"),
     "mosaic": ("mosaic_data_visualization", "mosaic_ticker"),
+    "sakura": ("sakura_data_visualization", "sakura_ticker"),
     "magazine": ("magazine_data_visualization", "magazine_ticker"),
     "default": ("default_data_visualization", "default_ticker"),
     "nightfall": ("nightfall_data_visualization", "nightfall_ticker"),
