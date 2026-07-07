@@ -411,6 +411,17 @@ export default function CustomTemplates() {
               </div>
             ))}
           </div>
+        ) : activeTemplatesTab === "custom" && templates.length === 0 ? (
+          // Custom tab, nothing created yet. This is reachable when the user has
+          // crafted templates but no custom ones (the both-empty case is handled by
+          // the full-page empty state above), so mirror the crafted tab's empty
+          // state rather than showing a blank grid.
+          <div className="glass-card p-10 text-center">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">No custom templates created yet</h3>
+            <p className="text-sm text-gray-400 max-w-md mx-auto">
+              Create a custom template from a website URL or via a design doc.
+            </p>
+          </div>
         ) : activeTemplatesTab === "custom" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {templates.map((tpl) => {
@@ -582,7 +593,7 @@ export default function CustomTemplates() {
           <div className="glass-card p-10 text-center">
             <h3 className="text-base font-semibold text-gray-900 mb-2">No designer templates yet</h3>
             <p className="text-sm text-gray-400 max-w-md mx-auto">
-              Request a designer template and it will appear here once assigned to your account.
+              Request a designer template and we will get one ready for you by our design team.
             </p>
           </div>
         ) : (

@@ -384,6 +384,14 @@ class ProjectOut(BaseModel):
     # True when the project has ≥1 member (invited/pending or accepted). Gates the
     # per-scene comment affordance in the UI.
     is_shared: bool = False
+    # True when the project OWNER is on a paid plan (standard/pro). On a shared
+    # project the owner pays, so the frontend gates Pro-only features (custom/crafted
+    # templates, paid voices) on the OWNER's plan for collaborators — not their own.
+    owner_is_pro: bool = False
+    # The project OWNER's display name. Populated for every project (owner + shared)
+    # so a collaborator's settings pop-ups can attribute the templates/voices they see
+    # as belonging to the owner (e.g. "Alice's custom templates").
+    owner_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []

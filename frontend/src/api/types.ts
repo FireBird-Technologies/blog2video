@@ -82,6 +82,10 @@ export interface Project {
   review_state?: ReviewState | null;
   /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
   is_shared?: boolean;
+  /** True when the project OWNER is on a paid plan — collaborators gate Pro-only features on this. */
+  owner_is_pro?: boolean;
+  /** The project OWNER's display name — used to attribute owner-scoped templates/voices in a collaborator's UI. */
+  owner_name?: string | null;
   created_at: string;
   updated_at: string;
   scenes: Scene[];

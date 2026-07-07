@@ -191,9 +191,17 @@ def _build_review_state(project: Project, user: User, db: Session) -> ReviewStat
 
 
 def _prepare_project_response(project: Project, user: User, db: Session) -> Project:
+    from app.models.user import PlanTier
     _inject_custom_theme(project)
     project.review_state = _build_review_state(project, user, db)
     project.is_shared = _project_is_shared(project, db)
+    # Expose the OWNER's paid-plan status so a collaborator gates Pro-only features
+    # (custom/crafted templates, paid voices) on the owner's plan — the owner pays.
+    # Also expose the owner's display name so a collaborator's settings pop-ups can
+    # attribute the owner's templates/voices to them.
+    owner = db.query(User).filter(User.id == project.user_id).first()
+    project.owner_is_pro = bool(owner and owner.plan in (PlanTier.STANDARD, PlanTier.PRO))
+    project.owner_name = owner.name if owner else None
     return project
 
 
@@ -788,6 +796,20 @@ def _run_project_template_change_job(job_id: int) -> None:
             job.status = "failed"
             job.error_message = str(e)
             job.completed_at = datetime.utcnow()
+            # Return the reserved video credit to the OWNER (job.user_id is the payer)
+            # and revert the project to its pre-change template/scenes, so a failed
+            # template change never leaves the owner charged for a video that wasn't
+            # produced. Mirrors the reaper's revert+refund, which only fires for jobs
+            # still in an active status (this one is now 'failed').
+            try:
+                _refund_video_credit(db, job.user_id)
+                project = db.query(Project).filter(Project.id == job.project_id).first()
+                if project is not None:
+                    _restore_template_change_snapshot(db, project, job.scene_snapshot)
+            except Exception:
+                logger.exception(
+                    "[PROJECT_TEMPLATE_CHANGE] job=%s refund/revert after failure failed", job_id
+                )
             db.commit()
     finally:
         stall_recovery.clear("template", job_id)
@@ -977,15 +999,35 @@ async def change_project_template_regenerate_layouts(
             status_code=403,
             detail=video_limit_message(payer, user, "change the template"),
         )
-    target_template = validate_template_id(body.template, db=db, user_id=user.id)
+    # Custom/crafted templates are OWNER-scoped. On a shared project the collaborator
+    # picks from the OWNER's templates (that's what the picker shows), so resolve the
+    # target against the OWNER, not the acting user.
+    #
+    # A custom/crafted template the owner does NOT own must FAIL loudly here rather
+    # than silently downgrade to "default": validate_template_id() returns "default"
+    # for an inaccessible custom template, which would otherwise (a) change the
+    # project to the wrong template and (b) leave the owner charged a video credit.
+    # This check runs BEFORE the credit is deducted below, so a rejection charges
+    # nothing — the owner's video count is preserved.
+    requested_template = (body.template or "").strip()
+    if is_custom_template(requested_template) or is_crafted_template(requested_template):
+        owns_requested = (
+            _load_custom_template_data(requested_template, db=db, user_id=project.user_id)
+            is not None
+        )
+        if not owns_requested:
+            raise HTTPException(
+                status_code=403,
+                detail="This project's owner does not have access to the selected template.",
+            )
+    target_template = validate_template_id(body.template, db=db, user_id=project.user_id)
     if target_template == project.template:
         raise HTTPException(status_code=400, detail="Project is already using this template.")
-    # Custom templates are usable on any plan (incl. Free) — gated by video credits and
-    # the template-creation cap, not subscription tier. See create_project.
-    if is_crafted_template(target_template) and not validate_crafted_template_access(target_template, user.id, db):
+    # Belt-and-suspenders: crafted templates additionally gate on an active entitlement.
+    if is_crafted_template(target_template) and not validate_crafted_template_access(target_template, project.user_id, db):
         raise HTTPException(
             status_code=403,
-            detail="You do not have access to this crafted template.",
+            detail="This project's owner does not have access to this crafted template.",
         )
 
     active_job = (
@@ -5073,7 +5115,9 @@ async def change_project_voice(
     if body.custom_voice_id is not None:
         project.custom_voice_id = body.custom_voice_id.strip() or None
     # Apply voice tuning when provided (Pro/Standard only; _resolve_voice_tuning raises 403 otherwise).
-    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(body.voice_emotion, user_row)
+    # Gate on the PAYER (owner) — on a shared project the owner's plan decides whether paid voice
+    # features are available, so a Free collaborator can use them on a paid owner's project.
+    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(body.voice_emotion, payer)
     project.voice_emotion = voice_tuning
     if voice_tuning_pref is not None:
         user_row.preferred_voice_emotion = voice_tuning_pref

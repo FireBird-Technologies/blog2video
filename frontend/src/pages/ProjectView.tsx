@@ -34,6 +34,9 @@ import {
   getMe,
   getTemplates,
   listCustomTemplates,
+  listProjectCustomTemplates,
+  listProjectCraftedTemplates,
+  getProjectCraftedTemplateDetail,
   changeProjectTemplateRegenerateLayouts,
   getProjectTemplateChangeStatus,
   regenerateScript,
@@ -46,6 +49,7 @@ import {
   generateEmbedToken,
   type TemplateMeta,
   type CraftedTemplateItem,
+  type CraftedTemplateDetail,
   type CustomTemplateItem,
   getBgmTracks,
   type BgmTrack,
@@ -714,7 +718,109 @@ export default function ProjectView() {
   // keep running (to catch the transition out of review, e.g. when another collaborator
   // approves) without re-fetching the before/after preview every tick.
   const regenerateScriptPreviewLoadedRef = useRef(false);
-  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
+  const {
+    craftedTemplates: ownCraftedTemplates,
+    loading: ownCraftedTemplatesLoading,
+    ensureCraftedTemplateDetail: ensureOwnCraftedTemplateDetail,
+  } = useCraftedTemplates();
+
+  // On a *shared* project, a collaborator must see the OWNER's custom/crafted
+  // templates and voices — not their own. The context above is user-scoped, so
+  // for a collaborator we source crafted templates from the project-scoped
+  // (owner-resolved) endpoints instead. Owners keep the plain global context.
+  const useOwnerScopedAssets =
+    project != null && user != null && project.user_id !== user.id;
+
+  // Pro-gating for shared-project assets keys off the OWNER's plan, not the acting
+  // collaborator's — the owner pays, so a Free collaborator can use the owner's
+  // custom/crafted templates and paid voices. On own projects this is just `isPro`.
+  const effectiveIsPro = useOwnerScopedAssets ? (project?.owner_is_pro ?? false) : isPro;
+
+  // On a shared project the custom/crafted templates and voices in the settings
+  // pop-ups belong to the OWNER, not the collaborator — attribute them so it's
+  // clear whose assets these are. A possessive form of the owner's name, or a
+  // generic "the owner's" when the name is unavailable. Empty on own projects.
+  const ownerAssetLabel = useOwnerScopedAssets
+    ? (() => {
+        const name = (project?.owner_name || "").trim();
+        if (!name) return "the owner's";
+        return name.endsWith("s") ? `${name}'` : `${name}'s`;
+      })()
+    : "";
+
+  const [ownerCraftedTemplates, setOwnerCraftedTemplates] = useState<CraftedTemplateItem[]>([]);
+  const [ownerCraftedLoading, setOwnerCraftedLoading] = useState(false);
+  // Lazily-fetched full crafted packages for the shared-project (owner-scoped)
+  // path, keyed by template id — mirrors the context's in-memory detail cache.
+  const [ownerCraftedDetails, setOwnerCraftedDetails] = useState<Record<string, CraftedTemplateItem>>({});
+  const ownerCraftedDetailInFlight = useRef<Map<string, Promise<CraftedTemplateItem | null>>>(new Map());
+
+  // Positively-known owner: skip the owner-scoped crafted fetch (owners use the
+  // cached global CraftedTemplatesContext). `project` may still be loading, in
+  // which case `isKnownOwner` is false and we pre-fetch — a collaborator then has
+  // the data ready the moment the project payload arrives, and an owner only pays
+  // one cheap summaries request that the memo below simply ignores. This keeps the
+  // slow (collaborator) path fast without waiting for the project round-trip.
+  const isKnownOwner =
+    project != null && user != null && project.user_id === user.id;
+
+  useEffect(() => {
+    if (!projectId || isKnownOwner) {
+      setOwnerCraftedTemplates([]);
+      setOwnerCraftedDetails({});
+      return;
+    }
+    let cancelled = false;
+    setOwnerCraftedLoading(true);
+    listProjectCraftedTemplates(projectId)
+      .then((r) => {
+        if (!cancelled) setOwnerCraftedTemplates((r.data as CraftedTemplateItem[]) || []);
+      })
+      .catch(() => {
+        if (!cancelled) setOwnerCraftedTemplates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setOwnerCraftedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, isKnownOwner]);
+
+  const ensureOwnerCraftedTemplateDetail = useCallback(
+    async (templateId: string): Promise<CraftedTemplateItem | null> => {
+      if (!projectId || !templateId?.startsWith("crafted_")) return null;
+      const existing = ownerCraftedDetails[templateId];
+      if (existing?.frontend_files) return existing;
+      const inFlight = ownerCraftedDetailInFlight.current.get(templateId);
+      if (inFlight) return inFlight;
+      const req = getProjectCraftedTemplateDetail(projectId, templateId)
+        .then((res) => {
+          const detail = res.data as CraftedTemplateItem;
+          if (detail?.id) {
+            setOwnerCraftedDetails((prev) => ({ ...prev, [detail.id]: detail }));
+          }
+          return detail ?? null;
+        })
+        .catch(() => null)
+        .finally(() => {
+          ownerCraftedDetailInFlight.current.delete(templateId);
+        });
+      ownerCraftedDetailInFlight.current.set(templateId, req);
+      return req;
+    },
+    [projectId, ownerCraftedDetails]
+  );
+
+  // Unified accessors: owner-scoped on a shared project, own-scoped otherwise.
+  const craftedTemplates = useMemo<CraftedTemplateItem[]>(() => {
+    if (!useOwnerScopedAssets) return ownCraftedTemplates;
+    return ownerCraftedTemplates.map((item) => ({ ...item, ...(ownerCraftedDetails[item.id] || {}) }));
+  }, [useOwnerScopedAssets, ownCraftedTemplates, ownerCraftedTemplates, ownerCraftedDetails]);
+  const craftedTemplatesLoading = useOwnerScopedAssets ? ownerCraftedLoading : ownCraftedTemplatesLoading;
+  const ensureCraftedTemplateDetail = useOwnerScopedAssets
+    ? ensureOwnerCraftedTemplateDetail
+    : ensureOwnCraftedTemplateDetail;
 
   useEffect(() => {
     if (!project?.template?.startsWith("crafted_")) return;
@@ -729,6 +835,38 @@ export default function ProjectView() {
     const found = craftedTemplates.find((ct) => ct.id === project.template);
     return resolveCraftedTemplateLogoUrl(found);
   }, [project?.template, craftedTemplates]);
+
+  // On a shared project, feed the owner-resolved crafted detail directly to
+  // VideoPreview so it bypasses the (user-scoped, entitlement-gated) context —
+  // which would 403 for a collaborator. Only pass a detail with a compiled
+  // bundle; otherwise leave undefined so VideoPreview keeps its loading state.
+  const ownerScopedCraftedDetail = useMemo<CraftedTemplateDetail | null>(() => {
+    if (!useOwnerScopedAssets || !project?.template?.startsWith("crafted_")) return null;
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    if (found?.frontend_files && found?.frontend_entry_rel) {
+      return found as CraftedTemplateDetail;
+    }
+    return null;
+  }, [useOwnerScopedAssets, project?.template, craftedTemplates]);
+
+  // The custom-template list already carries each template's intro/content/outro
+  // code (from _serialize_template), so when the project uses a custom template we
+  // can hand that code straight to VideoPreview as `precompiledTemplateData` and
+  // skip its separate `getTemplateCode`/`getProjectTemplateCode` round-trip — the
+  // preview compiles as soon as the list (loaded in parallel with the project) is
+  // in, instead of waiting on an extra fetch.
+  const currentCustomTemplateCode = useMemo(() => {
+    const m = project?.template?.match(/^custom_(\d+)$/);
+    if (!m) return undefined;
+    const id = parseInt(m[1], 10);
+    const tpl = customTemplatesList.find((ct) => ct.id === id);
+    if (!tpl || !tpl.intro_code) return undefined;
+    return {
+      intro_code: tpl.intro_code,
+      content_codes: tpl.content_codes ?? null,
+      outro_code: tpl.outro_code ?? null,
+    };
+  }, [project?.template, customTemplatesList]);
 
   const displayLogoUrl = project?.logo_r2_url || craftedTemplateLogoUrl;
 
@@ -1576,7 +1714,15 @@ export default function ProjectView() {
         if (!cancelled) setTemplateMetas(r.data || []);
       })
       .catch(() => {});
-    listCustomTemplates()
+    // Always fetch the OWNER-resolved custom templates via the project-scoped
+    // endpoint. It returns the owner's templates for a collaborator and the
+    // caller's own for the owner (owner resolves to self), so it's correct for
+    // both — and, crucially, it needs only `projectId` (known at mount), so it
+    // fires in PARALLEL with the project load instead of waiting for the project
+    // payload to arrive and flip `useOwnerScopedAssets`. That removes the serial
+    // round-trip (and the previous wrong-then-right double fetch) that made the
+    // template picker slow to populate for collaborators.
+    (projectId ? listProjectCustomTemplates(projectId) : listCustomTemplates())
       .then((r) => {
         if (!cancelled) setCustomTemplatesList(r.data || []);
       })
@@ -1588,7 +1734,7 @@ export default function ProjectView() {
       cancelled = true;
       stopTemplateRelayoutPolling();
     };
-  }, [stopTemplateRelayoutPolling]);
+  }, [stopTemplateRelayoutPolling, projectId]);
 
   useEffect(() => {
     const refreshTemplateJob = async () => {
@@ -3749,7 +3895,7 @@ export default function ProjectView() {
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
-                      {embedLoading ? "Loading..." : "Share"}
+                      {embedLoading ? "Loading..." : "Share & Invite"}
                       <svg className="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                       </svg>
@@ -3803,6 +3949,9 @@ export default function ProjectView() {
                         onCaptionSettingsChange={handleCaptionSettingsChange}
                         captionsSaving={savingCaptions}
                         captionSettingsKey={captionSettingsKey}
+                        ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+                        precompiledCraftedDetail={ownerScopedCraftedDetail}
+                        precompiledTemplateData={currentCustomTemplateCode}
                       />
                     </div>
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
@@ -4473,7 +4622,9 @@ export default function ProjectView() {
 
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">
-                    All {templateChangePickerTab === "builtin" ? "built-in" : templateChangePickerTab === "custom" ? "custom" : "designer"} templates
+                    All{" "}
+                    {ownerAssetLabel && templateChangePickerTab !== "builtin" ? `${ownerAssetLabel} ` : ""}
+                    {templateChangePickerTab === "builtin" ? "built-in" : templateChangePickerTab === "custom" ? "custom" : "designer"} templates
                   </p>
                   <div className="border border-gray-200/60 rounded-xl p-4 max-h-[240px] overflow-y-auto bg-gray-50/40">
                     {templateChangePickerTab === "builtin" ? (
@@ -4557,7 +4708,7 @@ export default function ProjectView() {
                               key={cid}
                               type="button"
                               onClick={() => {
-                                if (!isPro) {
+                                if (!effectiveIsPro) {
                                   setShowUpgrade(true);
                                   return;
                                 }
@@ -4583,7 +4734,7 @@ export default function ProjectView() {
                                     thumbnailMode
                                   />
                                 </div>
-                                {!isPro && (
+                                {!effectiveIsPro && (
                                   <div
                                     className="pointer-events-none absolute top-1 left-1 z-20 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white shadow-sm"
                                     aria-hidden
@@ -4993,6 +5144,9 @@ export default function ProjectView() {
                         logoPositionOverride={logoPosition}
                         initialFrame={getSceneExportGlobalFrame(project, idx, safeFraction)}
                         hideControls
+                        ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+                        precompiledCraftedDetail={ownerScopedCraftedDetail}
+                        precompiledTemplateData={currentCustomTemplateCode}
                       />
                     </div>
                     <div className="mt-3">
@@ -6102,11 +6256,12 @@ export default function ProjectView() {
                 voiceAccent={project.voice_accent}
                 customVoiceId={project.custom_voice_id}
                 voiceEmotion={project.voice_emotion ?? null}
-                isPro={isPro}
+                isPro={effectiveIsPro}
                 onError={(msg) => showError(msg)}
                 onUpgrade={() => setShowUpgrade(true)}
                 onOperationStarted={(op) => setVoiceOpKickstart(op)}
                 disabled={anyJobRunning}
+                ownerAssetLabel={ownerAssetLabel}
               />
 
               {/* 3. Playback Speed */}
