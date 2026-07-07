@@ -1479,11 +1479,12 @@ async def _generate_scenes(
             return
         if getattr(project, "voice_gender", None) == "none":
             logger.info("[PIPELINE] Skipping voiceover — no-audio mode for project %s", project.id)
+            from app.services.voiceover import DURATION_PAD
             for scene in scenes:
                 if scene.narration_text:
                     word_count = len(scene.narration_text.split())
                     scene.duration_seconds = round(
-                        max(settings.MIN_SCENE_DURATION_SECONDS, max(5.0, word_count / 2.5) + 1.0),
+                        max(settings.MIN_SCENE_DURATION_SECONDS, max(5.0, word_count / 2.5) + DURATION_PAD),
                         1,
                     )
                 else:
