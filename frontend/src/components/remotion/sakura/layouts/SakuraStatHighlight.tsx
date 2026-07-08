@@ -366,7 +366,7 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
         {statLabel ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: statLabelPx,
               color: SAKURA.gold,
               letterSpacing: "0.4em",
@@ -384,7 +384,7 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
         {context ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontStyle: "italic",
               fontSize: contextPx,
               color: hexToRgba(ink, 0.85),

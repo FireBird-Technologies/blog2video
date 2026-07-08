@@ -254,7 +254,7 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
         {eyebrow ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: eyebrowPx,
               color: SAKURA.gold,
               letterSpacing: "0.55em",
@@ -298,7 +298,7 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
         {/* Body */}
         <p
           style={{
-            fontFamily: SAKURA_BODY_FONT,
+            fontFamily: fontFamily ?? SAKURA_BODY_FONT,
             fontSize: bodyPx,
             color: hexToRgba(ink, 0.78),
             lineHeight: 1.8,

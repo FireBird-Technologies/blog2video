@@ -210,6 +210,7 @@ export const EconomistVideoComposition: React.FC<EconomistVideoCompositionProps>
                 disableFade={skipFade}
                 sceneIndex={index}
                 sceneCount={resolvedScenes.length}
+                fontFamily={layoutProps.fontFamily}
               >
                 <LayoutComponent {...layoutProps} />
               </EconomistChrome>
