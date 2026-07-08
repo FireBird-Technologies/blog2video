@@ -92,6 +92,21 @@ class User(Base):
     def can_create_video(self) -> bool:
         return self.videos_used_this_period < self.video_limit
 
+    def ensure_purchased_credit_usable(self, qty: int) -> None:
+        """After granting `qty` per-video credits, guarantee they are net-positive
+        headroom even if pre-existing usage was at/over the (possibly lowered) limit.
+
+        Because ``video_limit`` is blended (base + bonus + referral), a purchase that
+        only bumps ``video_limit_bonus`` can be fully swallowed when ``videos_used_this_period``
+        was already >= the limit (e.g. after the FREE base was lowered). This clamps
+        ``videos_used_this_period`` so the just-purchased ``qty`` always yields ``qty``
+        usable videos. Only ever lowers videos_used — the ``>`` guard makes it a no-op
+        for users who aren't maxed, so it is safe for all plans. Call AFTER
+        ``video_limit_bonus`` has been incremented so ``self.video_limit`` is current.
+        """
+        if self.videos_used_this_period > self.video_limit - qty:
+            self.videos_used_this_period = max(0, self.video_limit - qty)
+
     def roll_video_period_if_due(self, db: Session) -> bool:
         """Lazily reset the monthly video counter when Stripe won't.
 
