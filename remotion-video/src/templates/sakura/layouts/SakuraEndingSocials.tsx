@@ -123,7 +123,6 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
     (Array.isArray(socials) ? socials.length > 0 : Object.keys(socials).length > 0);
 
   const boxW = p ? 480 : 420;
-  const boxH = p ? 96 : 84;
 
   return (
     <SakuraScene
@@ -271,13 +270,18 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
           ))}
         </svg>
 
-        {/* CTA box with corner blossoms */}
+        {/* CTA box with corner blossoms — auto-sizes to hug the text so the
+            crimson border always contains it, capped so it can't run off-frame */}
         {ctaText ? (
           <div
             style={{
               position: "relative",
-              width: boxW,
-              height: boxH,
+              width: "auto",
+              height: "auto",
+              minWidth: p ? 320 : 300,
+              maxWidth: p ? "82%" : boxW,
+              padding: p ? "20px 34px" : "16px 30px",
+              boxSizing: "border-box",
               border: `1.8px solid ${crimson}`,
               display: "flex",
               alignItems: "center",
@@ -288,10 +292,10 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
             }}
           >
             {[
-              { left: -12, top: -12, rot: 0 },
-              { left: boxW - 10, top: -12, rot: 90 },
-              { left: -12, top: boxH - 10, rot: -90 },
-              { left: boxW - 10, top: boxH - 10, rot: 180 },
+              { pos: { left: -12, top: -12 }, rot: 0 },
+              { pos: { right: -12, top: -12 }, rot: 90 },
+              { pos: { left: -12, bottom: -12 }, rot: -90 },
+              { pos: { right: -12, bottom: -12 }, rot: 180 },
             ].map((c, i) => (
               <svg
                 key={i}
@@ -300,8 +304,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
                 viewBox="0 0 22 22"
                 style={{
                   position: "absolute",
-                  left: c.left,
-                  top: c.top,
+                  ...c.pos,
                   overflow: "visible",
                   transform: `scale(${cornerPetalScale(i)})`,
                 }}
@@ -317,6 +320,8 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
                 letterSpacing: "0.5em",
                 textTransform: "uppercase",
                 textIndent: "0.5em",
+                textAlign: "center",
+                lineHeight: 1.25,
               }}
             >
               {ctaText}
@@ -324,7 +329,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
           </div>
         ) : null}
 
-        {/* Website */}
+        {/* Website — constrained + wrapping so a long URL stays in-frame */}
         {websiteUrl ? (
           <div
             style={{
@@ -332,6 +337,10 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
               fontSize: websitePx,
               color: SAKURA.gold,
               letterSpacing: "0.35em",
+              maxWidth: p ? "88%" : "70%",
+              textAlign: "center",
+              overflowWrap: "anywhere",
+              wordBreak: "break-word",
               opacity: websiteReveal,
               marginBottom: hasSocials || socialHandles.length ? 30 : 0,
             }}
