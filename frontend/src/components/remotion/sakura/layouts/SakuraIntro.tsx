@@ -190,7 +190,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
         {/* Kanji title */}
         <div
           style={{
-            fontFamily: SAKURA_DISPLAY_FONT,
+            fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
             fontWeight: 700,
             fontSize: titlePx,
             color: petal,
@@ -240,7 +240,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
         {tagline ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontStyle: "italic",
               fontSize: taglinePx,
               color: ink,
@@ -259,7 +259,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
         {author ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: authorPx,
               color: hexToRgba(ink, 0.32),
               letterSpacing: "0.6em",

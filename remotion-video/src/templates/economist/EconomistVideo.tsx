@@ -263,6 +263,7 @@ export const EconomistVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 disableFade={skipFade}
                 sceneIndex={index}
                 sceneCount={resolvedScenes.length}
+                fontFamily={layoutProps.fontFamily}
               >
                 <LayoutComponent {...layoutProps} />
               </EconomistChrome>

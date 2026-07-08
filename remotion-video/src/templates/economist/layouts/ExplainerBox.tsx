@@ -23,7 +23,8 @@ export const ExplainerBox: React.FC<{
   accentColor: string;
   fontSize: number;
   isPortrait: boolean;
-}> = ({ frame, delay, left, bottom, width, text, keys, accentColor, fontSize, isPortrait }) => {
+  fontFamily?: string;
+}> = ({ frame, delay, left, bottom, width, text, keys, accentColor, fontSize, isPortrait, fontFamily }) => {
   if (!text) return null;
   const kickerSize = Math.round(fontSize * 0.62);
   const keySize = Math.round(fontSize * 0.72);
@@ -66,7 +67,7 @@ export const ExplainerBox: React.FC<{
           <span style={{ width: 18, height: 4, background: accentColor }} />
           <span
             style={{
-              fontFamily: ECONOMIST_SANS_FONT,
+              fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
               fontWeight: 700,
               fontSize: kickerSize,
               letterSpacing: 1.2,
@@ -82,7 +83,7 @@ export const ExplainerBox: React.FC<{
             <span style={{ width: 15, height: 3.5, background: k.color, borderRadius: 1, flex: "0 0 auto" }} />
             <span
               style={{
-                fontFamily: ECONOMIST_SANS_FONT,
+                fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                 fontWeight: 700,
                 fontSize: keySize,
                 color: ECONOMIST_COLORS.ink,
@@ -95,7 +96,7 @@ export const ExplainerBox: React.FC<{
       </div>
       <div
         style={{
-          fontFamily: ECONOMIST_SERIF_FONT,
+          fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
           fontStyle: "italic",
           fontSize,
           lineHeight: 1.4,

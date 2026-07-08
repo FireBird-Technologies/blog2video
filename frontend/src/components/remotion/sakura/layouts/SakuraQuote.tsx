@@ -211,7 +211,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         {quoteRoman ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: romajiPx,
               color: hexToRgba(ink, 0.72),
               letterSpacing: "0.5em",
@@ -238,7 +238,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         {/* Translation */}
         <div
           style={{
-            fontFamily: SAKURA_BODY_FONT,
+            fontFamily: fontFamily ?? SAKURA_BODY_FONT,
             fontStyle: "italic",
             fontSize: translationPx,
             color: hexToRgba(ink, 0.82),
@@ -256,7 +256,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         {body ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: Math.round(translationPx * 0.8),
               color: hexToRgba(ink, 0.7),
               letterSpacing: "0.02em",
@@ -285,7 +285,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
           >
             <span
               style={{
-                fontFamily: SAKURA_BODY_FONT,
+                fontFamily: fontFamily ?? SAKURA_BODY_FONT,
                 fontSize: attributionPx,
                 color: hexToRgba(ink, 0.5),
                 letterSpacing: "0.4em",
