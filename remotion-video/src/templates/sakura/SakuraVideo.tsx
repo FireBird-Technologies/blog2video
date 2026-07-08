@@ -255,6 +255,7 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             index,
             layoutKey,
             resolved[index + 1].layoutKey,
+            data.accentColor || "#C0143C",
           );
 
           return (
