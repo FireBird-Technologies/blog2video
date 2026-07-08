@@ -28,6 +28,9 @@ export default function AcceptInvite() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  // Bumped by "Try again" to re-fetch the invite — recovers a stale error page
+  // (e.g. the owner canceled then resent) without a full reload.
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Fetch invite details (public — works signed out / as any user) so we can always
   // show which project + email this link is for, then decide which UI to render.
@@ -69,7 +72,7 @@ export default function AcceptInvite() {
     return () => {
       cancelled = true;
     };
-  }, [token, user, authLoading, navigate]);
+  }, [token, user, authLoading, navigate, reloadKey]);
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
@@ -253,12 +256,20 @@ export default function AcceptInvite() {
           <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-8 text-center">
             <h2 className="text-xl font-semibold text-gray-900 mb-1.5">Invitation problem</h2>
             <p className="text-sm text-gray-500 mb-6">{message}</p>
-            <button
-              onClick={() => navigate(user ? "/dashboard" : "/")}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-[#7C3AED] hover:bg-[#6D28D9] rounded-lg"
-            >
-              {user ? "Go to dashboard" : "Go home"}
-            </button>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="px-5 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 hover:border-gray-400 rounded-lg"
+              >
+                Try again
+              </button>
+              <button
+                onClick={() => navigate(user ? "/dashboard" : "/")}
+                className="px-5 py-2.5 text-sm font-medium text-white bg-[#7C3AED] hover:bg-[#6D28D9] rounded-lg"
+              >
+                {user ? "Go to dashboard" : "Go home"}
+              </button>
+            </div>
           </div>
         )}
       </div>

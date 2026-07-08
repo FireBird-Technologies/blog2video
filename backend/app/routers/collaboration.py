@@ -6,6 +6,7 @@ owner's quota (see app/services/access.py::project_owner).
 """
 
 import logging
+import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -25,7 +26,7 @@ from app.models.project_member import (
     MemberRole,
     MemberStatus,
 )
-from app.services.access import get_accessible_project, is_owner
+from app.services.access import get_accessible_project, is_owner, project_owner
 from app.services.email import email_service, EmailServiceError
 
 logger = logging.getLogger(__name__)
@@ -99,18 +100,40 @@ def list_members(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List members of a project. Any member (owner or collaborator) may view."""
-    get_accessible_project(project_id, user, db)  # 404 if no access
+    """List members of a project, owner first. Any member may view."""
+    project = get_accessible_project(project_id, user, db)  # 404 if no access
+    owner = project_owner(project, db)
+
     members = (
         db.query(ProjectMember)
         .filter(
             ProjectMember.project_id == project_id,
             ProjectMember.status.in_([MemberStatus.PENDING, MemberStatus.ACCEPTED]),
+            # Exclude any owner row (OWNER role, or a member row for the owner's
+            # user/email) — the owner is synthesized below, so keep it out here to
+            # avoid a duplicate.
+            ProjectMember.role != MemberRole.OWNER,
+            (ProjectMember.user_id != owner.id) | (ProjectMember.user_id.is_(None)),
+            ProjectMember.invited_email != owner.email.lower(),
         )
         .order_by(ProjectMember.created_at.asc())
         .all()
     )
-    return [_member_to_out(m, user.id, db) for m in members]
+
+    # The owner isn't (reliably) a ProjectMember row — synthesize one so they always
+    # appear once. id=0 marks a non-actionable synthetic row (owners can't be revoked).
+    owner_out = MemberOut(
+        id=0,
+        email=owner.email,
+        role=MemberRole.OWNER.value,
+        status=MemberStatus.ACCEPTED.value,
+        user_id=owner.id,
+        name=owner.name,
+        picture=owner.picture,
+        created_at=project.created_at,
+        is_you=(owner.id == user.id),
+    )
+    return [owner_out] + [_member_to_out(m, user.id, db) for m in members]
 
 
 @router.post("", response_model=MemberOut, status_code=201)
@@ -155,6 +178,12 @@ def invite_member(
         # the cap; re-sending a still-pending invite doesn't change the count.
         if existing.status != MemberStatus.PENDING and active_count >= 5:
             raise HTTPException(status_code=409, detail="Maximum of 5 collaborators reached.")
+        # Rotate the token when reopening a revoked/rejected invite so the resent
+        # link is a brand-new URL. Otherwise the invitee's browser could still be
+        # sitting on the old (canceled) invite page — same URL, no remount — and
+        # would keep showing the stale "canceled" error for a now-valid invite.
+        if existing.status != MemberStatus.PENDING:
+            existing.invite_token = uuid.uuid4().hex
         existing.status = MemberStatus.PENDING
         existing.role = MemberRole.EDITOR
         existing.error_message = None
@@ -289,7 +318,7 @@ def invite_by_token(
     if not member:
         raise HTTPException(status_code=404, detail="Invite not found")
     if member.status == MemberStatus.REVOKED:
-        raise HTTPException(status_code=410, detail="This invite has been revoked.")
+        raise HTTPException(status_code=410, detail="Your invite was canceled. Contact the project owner to get another invite.")
 
     project = db.query(Project).filter(Project.id == member.project_id, Project.is_active == True).first()  # noqa: E712
     if not project:
@@ -318,7 +347,7 @@ def accept_invite(
         raise HTTPException(status_code=404, detail="Invite not found")
 
     if member.status == MemberStatus.REVOKED:
-        raise HTTPException(status_code=410, detail="This invite has been revoked.")
+        raise HTTPException(status_code=410, detail="Your invite was canceled. Contact the project owner to get another invite.")
 
     if member.invited_email.lower() != user.email.lower():
         raise HTTPException(
@@ -354,7 +383,7 @@ def reject_invite(
         raise HTTPException(status_code=404, detail="Invite not found")
 
     if member.status == MemberStatus.REVOKED:
-        raise HTTPException(status_code=410, detail="This invite has been revoked.")
+        raise HTTPException(status_code=410, detail="Your invite was canceled. Contact the project owner to get another invite.")
 
     if member.invited_email.lower() != user.email.lower():
         raise HTTPException(

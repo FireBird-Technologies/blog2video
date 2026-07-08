@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import {
   Member,
@@ -34,6 +34,21 @@ export default function ShareProjectModal({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<Member | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [resendingId, setResendingId] = useState<number | null>(null);
+  const [resentId, setResentId] = useState<number | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const openMenu = (id: number, e: React.MouseEvent<HTMLButtonElement>) => {
+    if (openMenuId === id) {
+      setOpenMenuId(null);
+      return;
+    }
+    const r = e.currentTarget.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    setOpenMenuId(id);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,9 +66,40 @@ export default function ShareProjectModal({
     if (open) {
       setError(null);
       setEmail("");
+      setOpenMenuId(null);
       load();
     }
   }, [open, load]);
+
+  // Close the row action menu on any outside click.
+  useEffect(() => {
+    if (openMenuId === null) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [openMenuId]);
+
+  const handleResend = async (m: Member) => {
+    setOpenMenuId(null);
+    setResendingId(m.id);
+    setError(null);
+    try {
+      await inviteMember(projectId, m.email);
+      setResentId(m.id);
+      setTimeout(() => setResentId((cur) => (cur === m.id ? null : cur)), 2500);
+    } catch (err) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        "Could not resend the invite.";
+      setError(detail);
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   const handleInvite = async () => {
     const trimmed = email.trim();
@@ -140,7 +186,10 @@ export default function ShareProjectModal({
           </div>
         )}
 
-        <div className="max-h-64 overflow-y-auto -mx-1 px-1">
+        <div
+          className="max-h-64 overflow-y-auto -mx-1 px-1"
+          onScroll={() => openMenuId !== null && setOpenMenuId(null)}
+        >
           {loading ? (
             <p className="text-sm text-gray-400 py-4 text-center">Loading…</p>
           ) : (
@@ -173,14 +222,30 @@ export default function ShareProjectModal({
                     {m.role === "owner" ? "Owner" : m.status === "pending" ? "Pending" : "Editor"}
                   </span>
                   {isOwner && m.role !== "owner" && (
-                    <button
-                      type="button"
-                      onClick={() => setPendingRemoval(m)}
-                      className="text-xs text-gray-400 hover:text-red-600 flex-shrink-0"
-                      title="Remove access"
-                    >
-                      Remove
-                    </button>
+                    <div className="flex-shrink-0">
+                      {resentId === m.id ? (
+                        <span className="text-[11px] text-green-600">Sent ✓</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => openMenu(m.id, e)}
+                          disabled={resendingId === m.id}
+                          className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                          title="More options"
+                          aria-label="More options"
+                        >
+                          {resendingId === m.id ? (
+                            <span className="text-[11px]">…</span>
+                          ) : (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                              <circle cx="8" cy="3" r="1.4" />
+                              <circle cx="8" cy="8" r="1.4" />
+                              <circle cx="8" cy="13" r="1.4" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </li>
               ))}
@@ -209,14 +274,68 @@ export default function ShareProjectModal({
         document.body
       )}
 
+      {openMenuId !== null && menuPos && (() => {
+        const m = members.find((x) => x.id === openMenuId);
+        if (!m) return null;
+        return ReactDOM.createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[110] w-40 bg-white border border-gray-200 rounded-lg shadow-xl py-1"
+            style={{ top: menuPos.top, right: menuPos.right }}
+            role="menu"
+          >
+            {m.status === "pending" ? (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => handleResend(m)}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  Resend invite
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    setPendingRemoval(m);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                >
+                  Cancel invite
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpenMenuId(null);
+                  setPendingRemoval(m);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+              >
+                Remove collaborator
+              </button>
+            )}
+          </div>,
+          document.body,
+        );
+      })()}
+
       <ConfirmDeleteModal
         open={pendingRemoval !== null}
         onClose={() => setPendingRemoval(null)}
-        title="Remove collaborator?"
+        title={pendingRemoval?.status === "pending" ? "Cancel invite?" : "Remove collaborator?"}
         subtitle={pendingRemoval ? pendingRemoval.name || pendingRemoval.email : undefined}
-        warningMessage="They'll lose access to this video immediately. You can re-invite them later."
-        confirmLabel="Remove"
-        confirmLoadingLabel="Removing…"
+        warningMessage={
+          pendingRemoval?.status === "pending"
+            ? "Their invite link will stop working. You can invite them again later."
+            : "They'll lose access to this video immediately. You can re-invite them later."
+        }
+        confirmLabel={pendingRemoval?.status === "pending" ? "Cancel invite" : "Remove"}
+        confirmLoadingLabel={pendingRemoval?.status === "pending" ? "Canceling…" : "Removing…"}
         iconVariant="warning"
         onConfirm={handleConfirmRemove}
       />
