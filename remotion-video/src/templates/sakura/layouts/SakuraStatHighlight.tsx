@@ -61,6 +61,9 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
 
   const statPx = titleFontSize ?? (p ? 190 : 240);
   const contextPx = descriptionFontSize ?? (p ? 28 : 24);
+  // Stat label (gold caps caption under the number) scales off the context/body
+  // size so it tracks the display-text slider.
+  const statLabelPx = Math.max(16, Math.round(contextPx * 1.0));
 
   const cx = width / 2;
   const cy = height / 2 - (p ? 40 : 30);
@@ -359,7 +362,7 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
           <div
             style={{
               fontFamily: SAKURA_BODY_FONT,
-              fontSize: p ? 26 : 26,
+              fontSize: statLabelPx,
               color: SAKURA.gold,
               letterSpacing: "0.4em",
               textTransform: "uppercase",

@@ -669,7 +669,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
                 </MeasuredChart>
               </div>
             ) : (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: bodyFont, color: "rgba(26,10,15,0.50)", fontSize: descSize, fontStyle: "italic", opacity: ra }}>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: bodyFont, color: hexToRgba(ink, 0.5), fontSize: descSize, fontStyle: "italic", opacity: ra }}>
                 No data — add data by editing this scene
               </div>
             )}
