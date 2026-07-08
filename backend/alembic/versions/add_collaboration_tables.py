@@ -1,7 +1,7 @@
 """Add collaboration: project_members table, project draft columns, edit-history attribution.
 
 Revision ID: add_collaboration
-Revises: add_caption_offset_to_projects
+Revises: clamp_stranded_free_video_usage
 Create Date: 2026-07-02
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = "add_collaboration"
-down_revision: Union[str, Sequence[str], None] = "add_caption_offset_to_projects"
+down_revision: Union[str, Sequence[str], None] = "clamp_stranded_free_video_usage"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
