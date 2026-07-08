@@ -25,7 +25,7 @@ import type {
   TransitionPresentation,
   TransitionPresentationComponentProps,
 } from "@remotion/transitions";
-import { SAKURA, SoftPetal, hexToRgba, sakuraRand } from "./sakuraStyle";
+import { SAKURA, SoftPetal, hexToRgba, sakuraRand, deriveDarkWash } from "./sakuraStyle";
 
 // Overlap length (frames) of every Sakura boundary. The two composition wrappers
 // reuse this to size the TransitionSeries overlap and subtract it from the total
@@ -563,12 +563,15 @@ const IrisWipe: React.FC<{ t: number }> = ({ t }) => {
 };
 
 /** Organic sumi ink dissolve: a STATIC turbulence-displaced blob grows via scale. */
-const InkBleed: React.FC<{ t: number }> = ({ t }) => {
+const InkBleed: React.FC<{ t: number; accentColor?: string }> = ({ t, accentColor }) => {
   const { width, height } = useVideoConfig();
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const grow = easeOut(interpolate(t, [0, 0.7], [0, 1], clamp));
   const fade = interpolate(t, [0.72, 1], [1, 0], clamp);
   const maxR = Math.hypot(width, height) * 0.62;
+  // Ink tints from the accent's hue but renders dark (same wash the scene grounds
+  // use); a missing accent falls back to exactly the reference plum.
+  const ink = deriveDarkWash(accentColor).center;
   return (
     <AbsoluteFill style={{ pointerEvents: "none", opacity: fade }}>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
@@ -580,7 +583,7 @@ const InkBleed: React.FC<{ t: number }> = ({ t }) => {
           </filter>
         </defs>
         <g filter={`url(#ink-${uid})`}>
-          <circle cx={width / 2} cy={height / 2} r={maxR * grow} fill={hexToRgba(SAKURA.plum, 0.95)} />
+          <circle cx={width / 2} cy={height / 2} r={maxR * grow} fill={hexToRgba(ink, 0.95)} />
         </g>
       </svg>
     </AbsoluteFill>
@@ -702,11 +705,12 @@ const SoftBlur: React.FC<{ t: number }> = ({ t }) => {
 // ─── Effect overlay registry (progress-driven) ───────────────────────────────
 
 /** Paints the chosen petal/craft/geometric overlay for the given effect + progress. */
-const EffectOverlay: React.FC<{ effect: SakuraTransition; seed: number; t: number }> = ({
-  effect,
-  seed,
-  t,
-}) => {
+const EffectOverlay: React.FC<{
+  effect: SakuraTransition;
+  seed: number;
+  t: number;
+  accentColor?: string;
+}> = ({ effect, seed, t, accentColor }) => {
   switch (effect) {
     case "petal_vortex":
       return <PetalVortex seed={seed} t={t} />;
@@ -727,7 +731,7 @@ const EffectOverlay: React.FC<{ effect: SakuraTransition; seed: number; t: numbe
     case "iris_wipe":
       return <IrisWipe t={t} />;
     case "ink_bleed":
-      return <InkBleed t={t} />;
+      return <InkBleed t={t} accentColor={accentColor} />;
     case "brush_swipe":
       return <BrushSwipe t={t} />;
     case "diagonal_panel":
@@ -749,6 +753,7 @@ const EffectOverlay: React.FC<{ effect: SakuraTransition; seed: number; t: numbe
 interface SakuraPresentationProps extends Record<string, unknown> {
   effect: SakuraTransition;
   seed: number;
+  accentColor?: string;
 }
 
 /**
@@ -761,7 +766,7 @@ const SakuraPresentationComponent: React.FC<
   TransitionPresentationComponentProps<SakuraPresentationProps>
 > = ({ children, presentationDirection, presentationProgress, passedProps }) => {
   const t = easeInOut(presentationProgress);
-  const { effect, seed } = passedProps;
+  const { effect, seed, accentColor } = passedProps;
 
   if (presentationDirection === "exiting") {
     // Outgoing scene fades out — gone a touch before the overlay peaks.
@@ -777,7 +782,7 @@ const SakuraPresentationComponent: React.FC<
       {/* Overlay runs on the SAME eased clock (`t`) as the scene crossfade above,
           so petals and the fade stay locked together — a raw-progress overlay
           desynced from an eased fade was what read as broken/glitchy. */}
-      <EffectOverlay effect={effect} seed={seed} t={t} />
+      <EffectOverlay effect={effect} seed={seed} t={t} accentColor={accentColor} />
     </AbsoluteFill>
   );
 };
@@ -785,9 +790,10 @@ const SakuraPresentationComponent: React.FC<
 const makeSakuraPresentation = (
   effect: SakuraTransition,
   seed: number,
+  accentColor?: string,
 ): TransitionPresentation<SakuraPresentationProps> => ({
   component: SakuraPresentationComponent,
-  props: { effect, seed },
+  props: { effect, seed, accentColor },
 });
 
 // ─── Selection (Chronicle-style, deterministic) ──────────────────────────────
@@ -831,14 +837,15 @@ export const pickSakuraTransition = (
   fromIdx: number,
   fromLayout: string | undefined,
   toLayout: string | undefined,
+  accentColor?: string,
 ): SakuraTransitionChoice => {
   const seed = seedFor(fromIdx);
   if (HERO_LAYOUTS_FROM.has(fromLayout ?? "")) {
-    return { presentation: makeSakuraPresentation("petal_curtain", seed), frames: framesForEffect("petal_curtain") };
+    return { presentation: makeSakuraPresentation("petal_curtain", seed, accentColor), frames: framesForEffect("petal_curtain") };
   }
   if (HERO_LAYOUTS_TO.has(toLayout ?? "")) {
-    return { presentation: makeSakuraPresentation("fade", seed), frames: framesForEffect("fade") };
+    return { presentation: makeSakuraPresentation("fade", seed, accentColor), frames: framesForEffect("fade") };
   }
   const effect = POOL[fromIdx % POOL.length];
-  return { presentation: makeSakuraPresentation(effect, seed), frames: framesForEffect(effect) };
+  return { presentation: makeSakuraPresentation(effect, seed, accentColor), frames: framesForEffect(effect) };
 };

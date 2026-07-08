@@ -14,6 +14,7 @@ import {
   hexToRgba,
   readableTextColor,
   petalTint,
+  deriveDarkWash,
 } from "../sakuraStyle";
 
 export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
@@ -47,6 +48,10 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
   // crimson → the reference blush), so the original pink+gold intro look is
   // preserved while custom accent colors still shift the petal tint.
   const petal = petalTint(accentColor);
+  // Hero-image overlays tint from the user's bgColor (same wash the quote scene
+  // uses), so changing the background color re-tints the intro's dark ground
+  // instead of it staying accent/plum-driven.
+  const darkWash = deriveDarkWash(bgColor); // { center, edge }
 
   const kanjiTitle = (props as any).kanjiTitle ?? title ?? "桜";
   const romanTitle = (props as any).romanTitle ?? "";
@@ -122,24 +127,24 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
           pointerEvents: "none",
         }}
       />
-      {/* Accent tint: the palette's main color washed over the photo. */}
+      {/* Background tint: the chosen bgColor's dark wash washed over the photo. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: crimson,
+          background: darkWash.center,
           mixBlendMode: "color",
           opacity: bgReveal * 0.4,
           pointerEvents: "none",
         }}
       />
-      {/* Plum→void vignette + accent multiply so the image settles into the
-          scene and the centered title always stays readable over it. */}
+      {/* Background-tinted vignette so the image settles into the scene and the
+          centered title always stays readable over it. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: `radial-gradient(120% 120% at 50% 50%, transparent 0%, ${hexToRgba(SAKURA.plum, 0.5)} 55%, ${hexToRgba(SAKURA.void, 0.86)} 100%), linear-gradient(0deg, ${hexToRgba(SAKURA.void, 0.7)}, transparent 30%, transparent 70%, ${hexToRgba(SAKURA.void, 0.7)})`,
+          background: `radial-gradient(120% 120% at 50% 50%, transparent 0%, ${hexToRgba(darkWash.center, 0.5)} 55%, ${hexToRgba(darkWash.edge, 0.86)} 100%), linear-gradient(0deg, ${hexToRgba(darkWash.edge, 0.7)}, transparent 30%, transparent 70%, ${hexToRgba(darkWash.edge, 0.7)})`,
           pointerEvents: "none",
         }}
       />

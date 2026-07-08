@@ -214,6 +214,7 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
             index,
             layoutKey,
             resolved[index + 1].layoutKey,
+            accentColor,
           );
 
           return (
