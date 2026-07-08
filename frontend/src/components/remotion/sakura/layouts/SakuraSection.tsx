@@ -7,6 +7,7 @@ import {
   SAKURA_BODY_FONT,
   SakuraScene,
   useSakuraFrame,
+  SAKURA_TEMPO,
   KamonWatermark,
   SoftPetal,
   GrowingSakuraTree,
@@ -44,6 +45,10 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
 
   const titlePx = titleFontSize ?? (p ? 58 : 64);
   const bodyPx = descriptionFontSize ?? (p ? 26 : 22);
+  // Chapter eyebrow (vertical kanji + roman label) scales off the body size so
+  // it tracks the display-text slider.
+  const chapterKanjiPx = Math.max(14, Math.round(bodyPx * 0.85));
+  const chapterLabelPx = Math.max(13, Math.round(bodyPx * 0.73));
 
   // Left accent bar draws down
   const barGrow = interpolate(frame, [0, 16], [0, 1], {
@@ -99,7 +104,13 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
 
   // Twin windswept cherry trees root in the two bottom corners and grow inward
   // on a slant across the frame.
-  const treeGrow = interpolate(frame, [6, dur - 24], [0, 1], {
+  // `frame` is the tempo-scaled clock (useSakuraFrame, 0.8x) but `dur` is in real
+  // frames, so ending the growth at `dur - 24` means grow=1 only lands at real
+  // frame ~1.25*(dur-24) — past the scene's exit fade, so the tree never fully
+  // bloomed. Convert the end into tempo space and finish ~1s (30 real frames)
+  // before the dur-16 exit fade so the tree fully expands with room to settle.
+  const treeGrowEnd = Math.round((dur - 46) * SAKURA_TEMPO);
+  const treeGrow = interpolate(frame, [6, treeGrowEnd], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 2.2),
@@ -123,7 +134,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
               <div
                 style={{
                   fontFamily: SAKURA_DISPLAY_FONT,
-                  fontSize: p ? 22 : 19,
+                  fontSize: chapterKanjiPx,
                   color: crimson,
                   letterSpacing: "0.25em",
                   writingMode: "vertical-rl",
@@ -145,7 +156,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
             <div
               style={{
                 fontFamily: SAKURA_BODY_FONT,
-                fontSize: p ? 19 : 16,
+                fontSize: chapterLabelPx,
                 color: hexToRgba(ink, 0.6),
                 letterSpacing: "0.5em",
                 textTransform: "uppercase",
@@ -308,6 +319,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
                 : { x: width * 0.05, y: height * 0.2, w: width * 0.58, h: height * 0.62 }
             }
             textFadeOpacity={0.16}
+            dur={dur}
           />
           <GrowingSakuraTree
             width={width}
@@ -328,6 +340,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
                 : { x: width * 0.05, y: height * 0.2, w: width * 0.58, h: height * 0.62 }
             }
             textFadeOpacity={0.16}
+            dur={dur}
           />
           {/* Left accent band: crimson → deepBlush → transparent */}
           <div

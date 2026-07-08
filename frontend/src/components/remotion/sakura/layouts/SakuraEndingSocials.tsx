@@ -14,6 +14,7 @@ import {
   SoftPetal,
   hexToRgba,
   readableTextColor,
+  deriveLightWash,
 } from "../sakuraStyle";
 
 export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
@@ -41,6 +42,9 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
   // falls back to light washi. Matches the other dark Sakura scenes.
   const crimson = accentColor || SAKURA.crimson;
   const ink = readableTextColor(textColor, "dark");
+  // Tagline uses a lighter shade of the user's background color (pale tint of the
+  // bg hue), so it recolors with the bg instead of the fixed blush.
+  const taglineColor = deriveLightWash(bgColor).center;
 
   const brandName = (props as any).brandName ?? title ?? "";
   const tagline = (props as any).tagline ?? narration ?? "";
@@ -53,6 +57,11 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
 
   const titlePx = titleFontSize ?? (p ? 80 : 64);
   const taglinePx = descriptionFontSize ?? (p ? 26 : 20);
+  // CTA line, website URL and social handles all scale off the tagline size so
+  // they track the display-text slider.
+  const ctaPx = Math.max(15, Math.round(taglinePx * 0.95));
+  const websitePx = Math.max(13, Math.round(taglinePx * 0.88));
+  const handlePx = Math.max(12, Math.round(taglinePx * 0.8));
 
   const cx = width / 2;
   const cy = height / 2;
@@ -228,7 +237,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
             style={{
               fontFamily: SAKURA_BODY_FONT,
               fontSize: taglinePx,
-              color: SAKURA.blush,
+              color: taglineColor,
               letterSpacing: "0.45em",
               textTransform: "uppercase",
               textIndent: "0.45em",
@@ -303,7 +312,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
             <div
               style={{
                 fontFamily: SAKURA_BODY_FONT,
-                fontSize: p ? 24 : 20,
+                fontSize: ctaPx,
                 color: ink,
                 letterSpacing: "0.5em",
                 textTransform: "uppercase",
@@ -320,7 +329,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
           <div
             style={{
               fontFamily: SAKURA_DETAIL_FONT,
-              fontSize: p ? 22 : 18,
+              fontSize: websitePx,
               color: SAKURA.gold,
               letterSpacing: "0.35em",
               opacity: websiteReveal,
@@ -366,7 +375,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
                 key={i}
                 style={{
                   fontFamily: SAKURA_BODY_FONT,
-                  fontSize: p ? 20 : 16,
+                  fontSize: handlePx,
                   color: hexToRgba(ink, 0.5),
                   letterSpacing: "0.2em",
                 }}
