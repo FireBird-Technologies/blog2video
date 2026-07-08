@@ -48,6 +48,11 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
 
   const titlePx = titleFontSize ?? (p ? 44 : 48);
   const bodyPx = descriptionFontSize ?? (p ? 24 : 22);
+  // Decorative marks (big faint kanji, the 対 glyph, the "VS" label) scale off
+  // the body size so they track the display-text slider with everything else.
+  const markKanjiPx = Math.max(40, Math.round(bodyPx * 3.6));
+  const versusKanjiPx = Math.max(32, Math.round(bodyPx * 2.7));
+  const versusLabelPx = Math.max(12, Math.round(bodyPx * 0.85));
 
   // Left slides from the left, right slides from the right — they close in
   const leftProgress = interpolate(frame, [4, 24], [0, 1], {
@@ -108,7 +113,7 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
         style={{
           fontFamily: SAKURA_DISPLAY_FONT,
           fontWeight: 700,
-          fontSize: p ? 80 : 96,
+          fontSize: markKanjiPx,
           color: hexToRgba(crimson, 0.9),
           lineHeight: 1,
           textShadow: `0 0 40px ${hexToRgba(crimson, 0.2)}`,
@@ -218,7 +223,7 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
               y={p ? 14 : 12}
               textAnchor="middle"
               fontFamily={SAKURA_DISPLAY_FONT}
-              fontSize={p ? 66 : 58}
+              fontSize={versusKanjiPx}
               fontWeight={700}
               fill={crimson}
             >
@@ -231,7 +236,7 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
             y={cy + medR + (p ? 44 : 40)}
             textAnchor="middle"
             fontFamily={SAKURA_BODY_FONT}
-            fontSize={p ? 22 : 18}
+            fontSize={versusLabelPx}
             letterSpacing="0.4em"
             fill={SAKURA.gold}
             opacity={vsReveal}

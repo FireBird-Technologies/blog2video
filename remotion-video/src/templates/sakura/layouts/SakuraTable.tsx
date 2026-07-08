@@ -11,12 +11,12 @@ import {
   CornerBlossoms,
   KamonWatermark,
   SakuraVineFrame,
+  hexToRgba,
 } from "../sakuraStyle";
 
 const SAKURA_TABLE_MAX_ROWS = 20;
 const TABLE_MAX_COLS = 6;
 
-const INK_DIM = "rgba(26,10,15,0.60)";
 const POSITIVE_COLOR = "#3B6E50";
 const NEGATIVE_COLOR = SAKURA.crimson;
 const GRID_STROKE = "rgba(26,10,15,0.16)";
@@ -208,7 +208,7 @@ export const SakuraTable: React.FC<SceneLayoutProps> = ({
             {title}
           </div>
           {tickerTitle && (
-            <div style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: Math.round(descSize * 0.95), letterSpacing: "0.08em", textTransform: "uppercase", color: INK_DIM, marginTop: Math.round(height * 0.006) }}>
+            <div style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: Math.round(descSize * 0.95), letterSpacing: "0.08em", textTransform: "uppercase", color: hexToRgba(ink, 0.6), marginTop: Math.round(height * 0.006) }}>
               {tickerTitle}
             </div>
           )}
@@ -276,7 +276,7 @@ export const SakuraTable: React.FC<SceneLayoutProps> = ({
                   ))
                 : null}
               {rawRows.length === 0 && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: `${Math.round(height * 0.04)}px`, fontFamily: bodyFont, fontSize: descSize, color: INK_DIM, fontStyle: "italic" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: `${Math.round(height * 0.04)}px`, fontFamily: bodyFont, fontSize: descSize, color: hexToRgba(ink, 0.6), fontStyle: "italic" }}>
                   No entries — add data by editing this scene
                 </div>
               )}
@@ -298,7 +298,7 @@ export const SakuraTable: React.FC<SceneLayoutProps> = ({
         </div>
 
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.012), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(descSize * 0.88), letterSpacing: "0.02em", color: INK_DIM, lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
+          <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.012), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(descSize * 0.88), letterSpacing: "0.02em", color: hexToRgba(ink, 0.6), lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
             {tickerFootnote || narration}
           </div>
         )}

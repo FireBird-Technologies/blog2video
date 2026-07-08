@@ -57,6 +57,9 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
   const taglinePx = descriptionFontSize ?? (p ? 52 : 67);
   // Roman title scales with the kanji title so they grow/shrink together.
   const romanPx = Math.max(14, Math.round(titlePx * 0.19));
+  // Author byline is a faint micro-label; scale it off the tagline (the
+  // description-slider-driven sibling) so it tracks the display-text size.
+  const authorPx = Math.max(12, Math.round(taglinePx * 0.28));
 
   // Kanji blooms in
   const kanjiSpring = spring({ frame, fps, config: { damping: 18, stiffness: 60 } });
@@ -252,7 +255,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
           <div
             style={{
               fontFamily: SAKURA_BODY_FONT,
-              fontSize: p ? 18 : 15,
+              fontSize: authorPx,
               color: hexToRgba(ink, 0.32),
               letterSpacing: "0.6em",
               textTransform: "uppercase",

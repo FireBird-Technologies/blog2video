@@ -7,6 +7,7 @@ import {
   SAKURA_BODY_FONT,
   SakuraScene,
   useSakuraFrame,
+  SAKURA_TEMPO,
   KamonWatermark,
   BrushUnderline,
   GrowingSakuraTree,
@@ -44,6 +45,9 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
 
   const titlePx = titleFontSize ?? (p ? 60 : 58);
   const bodyPx = descriptionFontSize ?? (p ? 28 : 24);
+  // Eyebrow (gold caps kicker) scales off the body size so it tracks the
+  // display-text slider.
+  const eyebrowPx = Math.max(14, Math.round(bodyPx * 0.71));
 
   // Eyebrow — pops in with a tiny bounce
   const eyebrowSpring = spring({ frame, fps, config: { damping: 9, stiffness: 130 }, from: 0, to: 1 });
@@ -74,7 +78,13 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
 
   // Cherry tree grows step-by-step alongside the copy: starts as the headline
   // lands and keeps unfurling slowly across most of the scene — then a gentle sway.
-  const treeGrow = interpolate(frame, [HEAD_START, dur - 24], [0, 1], {
+  // `frame` is the tempo-scaled clock (useSakuraFrame, 0.8x) but `dur` is in real
+  // frames, so ending the growth at `dur - 24` means grow=1 only lands at real
+  // frame ~1.25*(dur-24) — past the scene's exit fade, so the tree never fully
+  // bloomed. Convert the end into tempo space and finish ~1s (30 real frames)
+  // before the dur-16 exit fade so the tree fully expands with room to settle.
+  const treeGrowEnd = Math.round((dur - 46) * SAKURA_TEMPO);
+  const treeGrow = interpolate(frame, [HEAD_START, treeGrowEnd], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 2.2),
@@ -245,7 +255,7 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
           <div
             style={{
               fontFamily: SAKURA_BODY_FONT,
-              fontSize: p ? 20 : 17,
+              fontSize: eyebrowPx,
               color: SAKURA.gold,
               letterSpacing: "0.55em",
               textTransform: "uppercase",
