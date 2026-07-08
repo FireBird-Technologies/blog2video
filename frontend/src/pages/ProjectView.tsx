@@ -800,9 +800,21 @@ export default function ProjectView() {
           if (detail?.id) {
             setOwnerCraftedDetails((prev) => ({ ...prev, [detail.id]: detail }));
           }
+          if (!detail?.frontend_files || !detail?.frontend_entry_rel) {
+            console.warn(
+              "[ProjectView] Owner-scoped crafted detail arrived without a bundle:",
+              { templateId, id: detail?.id, hasFiles: !!detail?.frontend_files, entry: detail?.frontend_entry_rel },
+            );
+          }
           return detail ?? null;
         })
-        .catch(() => null)
+        .catch((err) => {
+          console.error(
+            "[ProjectView] Owner-scoped crafted detail fetch failed (collaborator preview will stay loading):",
+            { templateId, status: err?.response?.status, detail: err?.response?.data },
+          );
+          return null;
+        })
         .finally(() => {
           ownerCraftedDetailInFlight.current.delete(templateId);
         });
@@ -815,7 +827,17 @@ export default function ProjectView() {
   // Unified accessors: owner-scoped on a shared project, own-scoped otherwise.
   const craftedTemplates = useMemo<CraftedTemplateItem[]>(() => {
     if (!useOwnerScopedAssets) return ownCraftedTemplates;
-    return ownerCraftedTemplates.map((item) => ({ ...item, ...(ownerCraftedDetails[item.id] || {}) }));
+    const merged = ownerCraftedTemplates.map((item) => ({ ...item, ...(ownerCraftedDetails[item.id] || {}) }));
+    // A crafted template the project is assigned to may NOT appear in the owner's
+    // entitled list (e.g. entitlement lapsed after the project was created, or the
+    // list hasn't arrived yet). ensureOwnerCraftedTemplateDetail still fetches its
+    // full detail into ownerCraftedDetails; surface those orphaned details here so
+    // the preview can resolve frontend_files instead of spinning forever.
+    const listed = new Set(merged.map((item) => item.id));
+    for (const [id, detail] of Object.entries(ownerCraftedDetails)) {
+      if (!listed.has(id)) merged.push(detail);
+    }
+    return merged;
   }, [useOwnerScopedAssets, ownCraftedTemplates, ownerCraftedTemplates, ownerCraftedDetails]);
   const craftedTemplatesLoading = useOwnerScopedAssets ? ownerCraftedLoading : ownCraftedTemplatesLoading;
   const ensureCraftedTemplateDetail = useOwnerScopedAssets
@@ -825,10 +847,18 @@ export default function ProjectView() {
   useEffect(() => {
     if (!project?.template?.startsWith("crafted_")) return;
     const found = craftedTemplates.find((ct) => ct.id === project.template);
+    console.log("[ProjectView] crafted ensure effect", {
+      template: project.template,
+      useOwnerScopedAssets,
+      foundInList: !!found,
+      foundHasFiles: !!found?.frontend_files,
+      willFetch: !found?.frontend_files,
+      craftedTemplateIds: craftedTemplates.map((c) => c.id),
+    });
     if (!found?.frontend_files) {
       void ensureCraftedTemplateDetail(project.template);
     }
-  }, [project?.template, craftedTemplates, ensureCraftedTemplateDetail]);
+  }, [project?.template, craftedTemplates, ensureCraftedTemplateDetail, useOwnerScopedAssets]);
 
   const craftedTemplateLogoUrl = useMemo(() => {
     if (!project?.template?.startsWith("crafted_")) return null;

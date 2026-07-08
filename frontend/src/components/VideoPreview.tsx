@@ -1853,9 +1853,18 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       ? compiledCrafted
       : config.component;
 
+  // When a precompiled/owner-scoped crafted detail is supplied (e.g. a collaborator
+  // viewing an owner's crafted template they are NOT entitled to), the global,
+  // entitlement-gated CraftedTemplatesContext is empty — so `craftedItem` is null
+  // and `craftedTemplatesLoading` never resolves for us. Gate on the EFFECTIVE
+  // item (which falls back to precompiledCraftedDetail) and ignore the context's
+  // loading flag on that path; otherwise the loader spins forever.
+  const craftedStillLoading = precompiledCraftedDetail
+    ? (isCompilingCrafted || !compiledCrafted)
+    : (craftedTemplatesLoading || !effectiveCraftedItem || isCompilingCrafted || !compiledCrafted);
   const isPreviewLoading =
     (isCustom && isCompiling) ||
-    (isCrafted && (craftedTemplatesLoading || !craftedItem || isCompilingCrafted || !compiledCrafted)) ||
+    (isCrafted && craftedStillLoading) ||
     isPreloadingMedia ||
     !mediaReady;
 
