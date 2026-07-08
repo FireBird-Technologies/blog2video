@@ -2555,10 +2555,8 @@ export default function ProjectView() {
   }
 
   const openCraftCustomTemplateFromProjectSettings = () => {
-    if (!isPro) {
-      setShowUpgrade(true);
-      return;
-    }
+    // Creation is open to all plans; the dashboard creator enforces the per-plan
+    // template-creation cap (1 free + purchased slots) via can_create_custom_template.
     const style = normalizeVideoStyle(project.video_style);
     setShowTemplateChangeModal(false);
     const params = new URLSearchParams();
@@ -4399,13 +4397,11 @@ export default function ProjectView() {
                           variant="default"
                           isPro={isPro}
                           onClick={() => {
-                            if (!isPro) { setShowUpgrade(true); return; }
                             setShowGetMoreTemplates(true);
                           }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
-                              if (!isPro) { setShowUpgrade(true); return; }
                               setShowGetMoreTemplates(true);
                             }
                           }}
@@ -4418,10 +4414,6 @@ export default function ProjectView() {
                               key={cid}
                               type="button"
                               onClick={() => {
-                                if (!isPro) {
-                                  setShowUpgrade(true);
-                                  return;
-                                }
                                 setTemplateChangeDraft(cid);
                               }}
                               className={`text-left rounded-lg overflow-hidden border-2 transition-all ${
@@ -4444,14 +4436,6 @@ export default function ProjectView() {
                                     thumbnailMode
                                   />
                                 </div>
-                                {!isPro && (
-                                  <div
-                                    className="pointer-events-none absolute top-1 left-1 z-20 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white shadow-sm"
-                                    aria-hidden
-                                  >
-                                    Pro
-                                  </div>
-                                )}
                               </div>
                               <div className={`px-2 py-1 ${isSel ? "bg-purple-50/80" : "bg-white/80"}`}>
                                 <div className="text-[10px] font-semibold text-gray-800 truncate">{ct.name}</div>
