@@ -234,7 +234,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
         {tagline ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: taglinePx,
               color: taglineColor,
               letterSpacing: "0.45em",
@@ -314,7 +314,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
             ))}
             <div
               style={{
-                fontFamily: SAKURA_BODY_FONT,
+                fontFamily: fontFamily ?? SAKURA_BODY_FONT,
                 fontSize: ctaPx,
                 color: ink,
                 letterSpacing: "0.5em",
@@ -333,7 +333,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
         {websiteUrl ? (
           <div
             style={{
-              fontFamily: SAKURA_DETAIL_FONT,
+              fontFamily: fontFamily ?? SAKURA_DETAIL_FONT,
               fontSize: websitePx,
               color: SAKURA.gold,
               letterSpacing: "0.35em",
@@ -383,7 +383,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
               <span
                 key={i}
                 style={{
-                  fontFamily: SAKURA_BODY_FONT,
+                  fontFamily: fontFamily ?? SAKURA_BODY_FONT,
                   fontSize: handlePx,
                   color: hexToRgba(ink, 0.5),
                   letterSpacing: "0.2em",

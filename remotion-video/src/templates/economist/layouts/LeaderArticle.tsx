@@ -39,6 +39,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -164,7 +165,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
             <span style={{ width: 13, height: 13, background: accentColor }} />
             <span
               style={{
-                fontFamily: ECONOMIST_SANS_FONT,
+                fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                 fontWeight: 800,
                 fontSize: isPortrait ? 22 : 19,
                 letterSpacing: 3,
@@ -192,7 +193,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
         <div style={{ overflow: "hidden" }}>
           <div
             style={{
-              fontFamily: ECONOMIST_SERIF_FONT,
+              fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
               fontWeight: 900,
               fontSize: titleSize,
               lineHeight: 1.04,
@@ -212,7 +213,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
         {standfirst && (
           <div
             style={{
-              fontFamily: ECONOMIST_SERIF_FONT,
+              fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
               fontStyle: "italic",
               fontSize: isPortrait ? 26 : 24,
               lineHeight: 1.42,
@@ -234,7 +235,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
             position: "absolute",
             left: 56,
             bottom: 48,
-            fontFamily: ECONOMIST_SANS_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
             fontWeight: 700,
             fontSize: 14,
             letterSpacing: 1.6,
@@ -266,7 +267,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
       {/* Lead statement — the hero, revealed sentence by sentence. */}
       <div
         style={{
-          fontFamily: ECONOMIST_SERIF_FONT,
+          fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
           fontWeight: 500,
           fontSize: leadFs,
           lineHeight: isLongLead ? 1.44 : 1.3,
@@ -328,7 +329,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
                 }}
               >
                 <span style={{ flexShrink: 0, width: 11, height: 11, marginTop: 4, background: accentColor, transform: "rotate(45deg)" }} />
-                <span style={{ fontFamily: ECONOMIST_SERIF_FONT, fontSize: isPortrait ? 27 : 25, lineHeight: 1.3, color: ECONOMIST_COLORS.ink }}>
+                <span style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontSize: isPortrait ? 27 : 25, lineHeight: 1.3, color: ECONOMIST_COLORS.ink }}>
                   {pt}
                 </span>
               </div>

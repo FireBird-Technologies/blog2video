@@ -151,7 +151,7 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
       </svg>
       <p
         style={{
-          fontFamily: SAKURA_BODY_FONT,
+          fontFamily: fontFamily ?? SAKURA_BODY_FONT,
           fontSize: bodyPx,
           color: hexToRgba(ink, 0.75),
           lineHeight: 1.7,
@@ -235,7 +235,7 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
             x={cx}
             y={cy + medR + (p ? 44 : 40)}
             textAnchor="middle"
-            fontFamily={SAKURA_BODY_FONT}
+            fontFamily={fontFamily ?? SAKURA_BODY_FONT}
             fontSize={versusLabelPx}
             letterSpacing="0.4em"
             fill={SAKURA.gold}

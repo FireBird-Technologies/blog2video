@@ -133,7 +133,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
               <div
                 style={{
-                  fontFamily: SAKURA_DISPLAY_FONT,
+                  fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
                   fontSize: chapterKanjiPx,
                   color: crimson,
                   letterSpacing: "0.25em",
@@ -155,7 +155,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
           {chapterLabel ? (
             <div
               style={{
-                fontFamily: SAKURA_BODY_FONT,
+                fontFamily: fontFamily ?? SAKURA_BODY_FONT,
                 fontSize: chapterLabelPx,
                 color: hexToRgba(ink, 0.6),
                 letterSpacing: "0.5em",
@@ -195,7 +195,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
       {/* Body */}
       <p
         style={{
-          fontFamily: SAKURA_BODY_FONT,
+          fontFamily: fontFamily ?? SAKURA_BODY_FONT,
           fontSize: bodyPx,
           color: hexToRgba(ink, 0.75),
           lineHeight: 1.8,

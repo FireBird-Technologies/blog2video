@@ -26,6 +26,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -76,7 +77,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
             const reveal = redactionReveal(frame, 0, 14);
             return (
               <div style={{ position: "relative", display: "inline-block" }}>
-                <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 26 : 19, letterSpacing: 2.4, textTransform: "uppercase", color: ECONOMIST_COLORS.muted, clipPath: reveal.clipPath }}>
+                <div style={{ fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 26 : 19, letterSpacing: 2.4, textTransform: "uppercase", color: ECONOMIST_COLORS.muted, clipPath: reveal.clipPath }}>
                   {sectionLabel}
                 </div>
                 <span style={{ position: "absolute", top: 0, bottom: 0, left: `${reveal.barLeftPct.toFixed(2)}%`, width: `${reveal.barWidthPct}%`, background: accentColor, opacity: reveal.barOpacity }} />
@@ -84,11 +85,11 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
             );
           })()}
           <div style={{ width: 64, height: 6, background: accentColor, margin: `${isPortrait ? 20 : 22}px 0`, ...ruleDraw(frame, 12, 16) }} />
-          <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: noImgHeadline, lineHeight: 1.02, letterSpacing: -noImgHeadline * 0.014, color: textColor, ...headline }}>
+          <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: noImgHeadline, lineHeight: 1.02, letterSpacing: -noImgHeadline * 0.014, color: textColor, ...headline }}>
             {title}
           </div>
           {caption && (
-            <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 38 : 30, lineHeight: 1.4, color: ECONOMIST_COLORS.muted, marginTop: isPortrait ? 24 : 26, maxWidth: isPortrait ? "100%" : "82%", opacity: capOp }}>
+            <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 38 : 30, lineHeight: 1.4, color: ECONOMIST_COLORS.muted, marginTop: isPortrait ? 24 : 26, maxWidth: isPortrait ? "100%" : "82%", opacity: capOp }}>
               {caption}
             </div>
           )}
@@ -97,7 +98,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: isPortrait ? 30 : 34, opacity: capOp }}>
             <EditorialDivider width={isPortrait ? 220 : 300} progress={capOp} accentColor={accentColor} height={16} />
             {credit && (
-              <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: isPortrait ? 22 : 17, letterSpacing: 0.5, color: ECONOMIST_COLORS.muted, whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontSize: isPortrait ? 22 : 17, letterSpacing: 0.5, color: ECONOMIST_COLORS.muted, whiteSpace: "nowrap" }}>
                 {credit}
               </span>
             )}
@@ -120,8 +121,8 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
 
       {/* Masthead + kicker, top-left. */}
       <div style={{ position: "absolute", top: margin, left: margin, opacity: headOp, display: "flex", alignItems: "center", gap: 16 }}>
-        {brandWordmark && <EconomistMasthead wordmark={brandWordmark} width={isPortrait ? 170 : 190} accentColor={accentColor} />}
-        <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: 18, letterSpacing: 2, textTransform: "uppercase", color: hasImage ? "rgba(255,255,255,0.85)" : ECONOMIST_COLORS.muted, textShadow }}>
+        {brandWordmark && <EconomistMasthead wordmark={brandWordmark} width={isPortrait ? 170 : 190} accentColor={accentColor} fontFamily={fontFamily} />}
+        <span style={{ fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: 18, letterSpacing: 2, textTransform: "uppercase", color: hasImage ? "rgba(255,255,255,0.85)" : ECONOMIST_COLORS.muted, textShadow }}>
           {sectionLabel}
         </span>
       </div>
@@ -131,11 +132,11 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
           collide on long deks. */}
       <div style={{ position: "absolute", left: margin, bottom: isPortrait ? height * 0.1 : margin, width: isPortrait ? width - margin * 2 : width * 0.62 }}>
         <div style={{ width: 60, height: 6, background: accentColor, marginBottom: 20, ...ruleDraw(frame, 12, 16) }} />
-        <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: headlineSize, lineHeight: 1.03, letterSpacing: -headlineSize * 0.012, color: ink, textShadow, ...headline }}>
+        <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: headlineSize, lineHeight: 1.03, letterSpacing: -headlineSize * 0.012, color: ink, textShadow, ...headline }}>
           {title}
         </div>
         {caption && (
-          <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 28 : 26, lineHeight: 1.4, color: "rgba(255,255,255,0.92)", textShadow, marginTop: 18, maxWidth: isPortrait ? "100%" : "92%", opacity: capOp }}>
+          <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 28 : 26, lineHeight: 1.4, color: "rgba(255,255,255,0.92)", textShadow, marginTop: 18, maxWidth: isPortrait ? "100%" : "92%", opacity: capOp }}>
             {caption}
           </div>
         )}
@@ -144,7 +145,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
       {/* Credit alone, pressed in bottom-right. */}
       {credit && (
         <div style={{ position: "absolute", right: margin, bottom: margin, maxWidth: "34%", textAlign: "right", opacity: capStamp.opacity, transform: capStamp.transform, transformOrigin: "right bottom", filter: capStamp.filter }}>
-          <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: 17, letterSpacing: 0.5, color: "rgba(255,255,255,0.7)", textShadow }}>
+          <div style={{ fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontSize: 17, letterSpacing: 0.5, color: "rgba(255,255,255,0.7)", textShadow }}>
             {credit}
           </div>
         </div>
