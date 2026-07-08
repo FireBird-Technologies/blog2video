@@ -41,6 +41,7 @@ import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from ".
 import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layouts";
 import type { MagazineLayoutType } from "../components/remotion/magazine/types";
 import { planMagazineBoundaries, resolveMagazineLayout } from "../components/remotion/magazine/MagazineVideoComposition";
+import { computeSakuraVideoTotalFrames } from "../components/remotion/sakura/SakuraVideoComposition";
 
 const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
 const MAGAZINE_EXTRA_HOLD = 42;
@@ -1588,6 +1589,23 @@ export default function TemplateStudio() {
         accentColor,
       );
       return Math.max(totalFrames, fps * 2);
+    }
+    if (selectedTemplateId === "sakura") {
+      // Sakura is a TransitionSeries whose neighbouring scenes OVERLAP by the transition
+      // length, so its real length is the raw sum MINUS the overlaps. Use the SAME
+      // calculator the composition uses, otherwise the Player's declared duration is
+      // longer than the content and the scenes race by / a tail is clipped.
+      const per = getSceneDurationFrames(durationSeconds, fps, speed);
+      const sakuraScenes = layouts.map((layout, i) => ({
+        id: i,
+        order: i,
+        title: "",
+        narration: "",
+        layout,
+        layoutProps: {},
+        durationSeconds: per / fps,
+      }));
+      return Math.max(computeSakuraVideoTotalFrames(sakuraScenes), fps * 2);
     }
     return n * getSceneDurationFrames(durationSeconds, fps, speed);
   }, [

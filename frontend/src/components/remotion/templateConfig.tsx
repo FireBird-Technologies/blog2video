@@ -24,6 +24,7 @@ import { EconomistVideoComposition } from "./economist/EconomistVideoComposition
 import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
 import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
 import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
+import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -40,6 +41,7 @@ import {
   RemotionEconomistVideoComposition,
   RemotionStickman2VideoComposition,
   RemotionMagazineVideoComposition,
+  RemotionSakuraVideoComposition,
   RemotionStickmanFootballVideoComposition,
 } from "./remotionAdapters";
 
@@ -329,6 +331,22 @@ const STICKMAN_FOOTBALL_LAYOUTS = new Set([
   "corner_kick",
 ]);
 
+const SAKURA_LAYOUTS = new Set([
+  "sakura_intro",
+  "sakura_section",
+  "sakura_quote",
+  "sakura_two_column_detail",
+  "sakura_stat_highlight",
+  "sakura_list_scene",
+  "sakura_text_narration",
+  "sakura_ending_socials",
+  // Canonical ending id the backend emits; aliased to sakura_ending_socials in the
+  // layout registry. Must be a valid layout so VideoPreview doesn't fall it back.
+  "ending_socials",
+  "sakura_data_visualization",
+  "sakura_ticker",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -538,6 +556,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  sakura: {
+    component: SakuraVideoComposition as React.ComponentType<any>,
+    heroLayout: "sakura_intro",
+    fallbackLayout: "sakura_section",
+    validLayouts: SAKURA_LAYOUTS,
+    defaultColors: {
+      accent: "#C0143C",
+      bg: "#FDF6F0",
+      text: "#2A0A12",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -594,6 +625,8 @@ export function getTemplateConfig(
                                 ? RemotionStickman2VideoComposition
                                 : id === "magazine"
                                   ? RemotionMagazineVideoComposition
+                                : id === "sakura"
+                                  ? RemotionSakuraVideoComposition
                                 : id === "stickman_football"
                                   ? RemotionStickmanFootballVideoComposition
                     : null;
