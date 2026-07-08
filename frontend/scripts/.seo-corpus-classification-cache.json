@@ -1,0 +1,1370 @@
+{
+  "blog:new-template-finance-publication@0c2854fcddbb61a6": {
+    "keep": false,
+    "reason": "describes other users, not exclusively Blog2Video"
+  },
+  "blog:whats-new-in-blog2video-six-features@d7d158f3a01dfa2e": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video features"
+  },
+  "blog:free-stock-visualizer-price-history-financials@de6082241ad1435a": {
+    "keep": false,
+    "reason": "describes a free stock visualizer, not Blog2Video"
+  },
+  "blog:ai-linkedin-carousel-generator-from-existing-content@40f32966232eb534": {
+    "keep": false,
+    "reason": "describes LinkedIn carousel, not Blog2Video"
+  },
+  "blog:how-to-turn-a-link-into-a-powerpoint-with-ai@19e7ff7231c06dc1": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "blog:blog2video-just-shipped-june-2026@0f7114bcdca9b11f": {
+    "keep": false,
+    "reason": "describes AI avatars and automation"
+  },
+  "blog:ai-ppt-generator-for-articles-pdfs-and-docs@365c3468f0b924e2": {
+    "keep": false,
+    "reason": "describes AI PPT generator, not Blog2Video"
+  },
+  "blog:blog2video-embed-preview-no-render-needed@3e0d70a1365fae50": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's new embed feature"
+  },
+  "blog:blog2video-just-shipped-april-2026@c8fe02e864d67023": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video features"
+  },
+  "blog:blog2video-vs-heygen@c2e9f479341972bb": {
+    "keep": false,
+    "reason": "compares Blog2Video against HeyGen"
+  },
+  "blog:faceless-videos-for-writers-and-marketers@30a78ec960a17512": {
+    "keep": false,
+    "reason": "describes faceless videos, not Blog2Video"
+  },
+  "blog:blog2video-vs-veed@49d7eb6d0c7d8c5e": {
+    "keep": false,
+    "reason": "compares Blog2Video to VEED"
+  },
+  "blog:ai-videos-are-slop-unless-they-are-relevant@1414209695a5fa67": {
+    "keep": false,
+    "reason": "describes AI videos in general"
+  },
+  "blog:instant-branded-templates-for-video-editors-and-agencies@05ccf894a7166a11": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "blog:video-editors-generate-branded-templates-instantly@4278e413a3474833": {
+    "keep": false,
+    "reason": "describes a workflow not specific to Blog2Video"
+  },
+  "blog:turn-blog-posts-into-video@7c87852ed1bb9928": {
+    "keep": false,
+    "reason": "describes workflow, not exclusive Blog2Video features"
+  },
+  "blog:what-is-a-blog-video@e11725a0c0bd82c7": {
+    "keep": false,
+    "reason": "describes blog videos generally, not Blog2Video"
+  },
+  "blog:create-summary-videos-from-pdfs@600a5a201a778123": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video doesn't offer"
+  },
+  "blog:custom-video-template-from-your-website@9d4a984fccdaee82": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "blog:why-custom-video-templates-matter-for-content-teams@9def3e48d2d8c430": {
+    "keep": false,
+    "reason": "describes generic vs custom templates, not Blog2Video"
+  },
+  "blog:translate-blog-to-video-50-languages@337750967260db42": {
+    "keep": false,
+    "reason": "describes a new feature not in Blog2Video"
+  },
+  "blog:translate-blog-to-video-in-any-language@c2ed4914fe5b2ff2": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "blog:blog2video-vs-chatgpt-vs-claude-for-making-videos@b8ed829dd045a48d": {
+    "keep": false,
+    "reason": "compares Blog2Video to ChatGPT and Claude"
+  },
+  "blog:blog2video-vs-notebooklm@0ac6a693934708cd": {
+    "keep": false,
+    "reason": "compares Blog2Video to NotebookLM"
+  },
+  "blog:blog-to-video-before-after@e21e3d1b1203d9dd": {
+    "keep": false,
+    "reason": "describes manual workflow and compares"
+  },
+  "blog:how-to-turn-a-blog-post-into-a-video@cb42235ddb15fdf4": {
+    "keep": true,
+    "reason": "Step-by-step guide on Blog2Video's workflow"
+  },
+  "blog:best-ai-tools-to-convert-articles-into-videos@6b156b1942088c56": {
+    "keep": false,
+    "reason": "describes other article-to-video tools"
+  },
+  "blog:pdf-to-video-fastest-workflow-for-educators@40574f35c3f4fe32": {
+    "keep": false,
+    "reason": "describes PDF to video, not Blog2Video"
+  },
+  "blog:how-technical-bloggers-can-repurpose-posts-into-youtube-videos@d962bcde17b4e76e": {
+    "keep": false,
+    "reason": "describes YouTube, not Blog2Video"
+  },
+  "blog:medium-post-to-video-workflow@bf2ba0e04db86baa": {
+    "keep": false,
+    "reason": "describes workflow not specific to Blog2Video"
+  },
+  "blog:substack-newsletter-to-video-workflow@9a66d02f427ca7ee": {
+    "keep": false,
+    "reason": "mentions Substack, not exclusively about Blog2Video"
+  },
+  "blog:blog-to-youtube-shorts-strategy@28f1d08f0ce2a794": {
+    "keep": false,
+    "reason": "describes YouTube Shorts strategy"
+  },
+  "blog:how-to-turn-documentation-into-product-walkthrough-videos@1b59705742ec24ea": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video doesn't offer"
+  },
+  "blog:how-to-convert-research-papers-into-explainer-videos@066e9174d9ee2e2e": {
+    "keep": false,
+    "reason": "describes a workflow not specific to Blog2Video"
+  },
+  "blog:how-to-preserve-code-snippets-in-ai-generated-videos@9dd1e5c9763f52d4": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "blog:content-repurposing-workflow-for-solo-founders@74cfce91ee8f1c93": {
+    "keep": false,
+    "reason": "describes content repurposing, not Blog2Video"
+  },
+  "blog:programmatic-video-generation-for-content-marketers@2c646cb9a29f5904": {
+    "keep": false,
+    "reason": "describes other AI video creation methods"
+  },
+  "blog:best-templates-for-explainer-videos@5a64df8ab61b7aa9": {
+    "keep": false,
+    "reason": "describes template choice, not Blog2Video"
+  },
+  "blog:how-to-repurpose-blog-content-into-videos@59ec423b0a9b4cff": {
+    "keep": false,
+    "reason": "generic content repurposing strategy"
+  },
+  "blog:blog-to-youtube-strategy-for-written-first-creators@c7706b9c7b60e0f8": {
+    "keep": false,
+    "reason": "describes YouTube strategy, not Blog2Video"
+  },
+  "blog:ai-video-generator-for-bloggers-buying-guide@ab05bdde99d0f79b": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "blog:how-to-create-a-narrated-video-from-a-blog-post@ae45a6a9f527fc46": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "blog:how-to-use-ai-voiceover-for-blog-content@a2d0215d302ad572": {
+    "keep": false,
+    "reason": "describes AI voiceover, not Blog2Video"
+  },
+  "blog:automated-video-from-url-guide@87c1f098956ea2b1": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video doesn't offer"
+  },
+  "blog:how-to-turn-an-article-into-a-video@5ab72f6af64c7572": {
+    "keep": false,
+    "reason": "describes a generic workflow, not exclusive to Blog2Video"
+  },
+  "blog:how-to-turn-a-url-into-a-video@e8724e7d80055a38": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video doesn't offer"
+  },
+  "blog:how-to-convert-docx-to-video@8487cb80e8598dfc": {
+    "keep": false,
+    "reason": "describes a docx-to-video workflow"
+  },
+  "blog:how-to-convert-pdf-to-video@a52757cfaa8ae7dc": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "blog:how-to-turn-a-powerpoint-into-a-video@37b3a3e52e628ea0": {
+    "keep": false,
+    "reason": "describes a PPTX-to-video workflow, not Blog2Video"
+  },
+  "blog:how-to-use-an-ai-scene-editor@eb8b6174ad722a14": {
+    "keep": false,
+    "reason": "describes AI scene editor, not Blog2Video"
+  },
+  "blog:how-to-turn-diagrams-into-explainer-videos@f3ac0433feba3e3f": {
+    "keep": false,
+    "reason": "describes a process not specific to Blog2Video"
+  },
+  "blog:how-to-create-custom-branded-video-templates@7a7a6af4ac3e73fe": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video templates"
+  },
+  "blog:how-to-convert-a-blog-archive-into-videos@6fbac00509c95827": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "blog:blog-to-video-tools-compared@8be928c62eba1390": {
+    "keep": false,
+    "reason": "compares Blog2Video to other tools"
+  },
+  "blog:video-seo-ranking-traffic-blog2video@a620f4ebbf33a1ae": {
+    "keep": false,
+    "reason": "describes SEO, not Blog2Video"
+  },
+  "blog:custom-templates-for-brands@7ca21afdd9fdd16c": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's custom templates"
+  },
+  "blog:new-template-newscast@15a57c347bb4a281": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's newscast template"
+  },
+  "blog:automatic-call-to-action-end-of-video@f3ee47457c48853a": {
+    "keep": false,
+    "reason": "describes a new feature, not exclusively about Blog2Video"
+  },
+  "blog:video-duration-control@f21bf596f2da51a0": {
+    "keep": false,
+    "reason": "describes a new feature, but also discusses industry context"
+  },
+  "blog:how-devrel-teams-can-turn-docs-into-videos@c14ee12d6c8bd726": {
+    "keep": false,
+    "reason": "describes a workflow not specific to Blog2Video"
+  },
+  "blog:blog2video-vs-seedance@828d46885220134c": {
+    "keep": false,
+    "reason": "compares Blog2Video against Seedance"
+  },
+  "blog:zoom-recording-to-summary-video@755052f80332befe": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "blog:microsoft-teams-recording-to-video@7098a669c3735f17": {
+    "keep": false,
+    "reason": "describes Microsoft Teams features"
+  },
+  "blog:google-meet-recording-to-video@f795c2a12fe2e219": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "blog:loom-recording-to-summary-video@ab411deaab6702b6": {
+    "keep": false,
+    "reason": "mentions Loom, compares against Blog2Video"
+  },
+  "blog:fireflies-recording-to-summary-video@3189ae48d584c12f": {
+    "keep": false,
+    "reason": "mentions Fireflies.ai, not Blog2Video"
+  },
+  "blog:blog2video-ultimate-competitor-comparison-2026@2dd1346a6b0fb257": {
+    "keep": false,
+    "reason": "compares Blog2Video against other tools"
+  },
+  "blog:video-minutes-per-month-pricing-comparison-2026@166872c9bed91f51": {
+    "keep": false,
+    "reason": "compares Blog2Video to other AI video tools"
+  },
+  "blog:bloghub-product-hunt-for-blogs@a3888c72553d3744": {
+    "keep": false,
+    "reason": "describes BlogHub, not Blog2Video"
+  },
+  "blog:claude-chat-to-video@fd257bf9c1658f56": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "blog:gemini-chat-to-video@f90dfb2b66c39e53": {
+    "keep": false,
+    "reason": "mentions Blog2Video, but describes Gemini functionality"
+  },
+  "blog:how-we-make-custom-branded-video-templates@fc7a0a678871df52": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's process"
+  },
+  "blog:how-to-increase-your-audience-on-linkedin@32191457a81bf3c2": {
+    "keep": false,
+    "reason": "describes LinkedIn, not Blog2Video"
+  },
+  "blog:blog2video-mcp-server-chatgpt@3e74d0742fdee163": {
+    "keep": false,
+    "reason": "mentions ChatGPT and describes an integration"
+  },
+  "blog:blog2video-mcp-server-claude@312af98c6d485b9e": {
+    "keep": false,
+    "reason": "mentions Claude, compares to n8n"
+  },
+  "blog:blog2video-mcp-server-gemini@a2c2967fd968a95c": {
+    "keep": false,
+    "reason": "mentions Google Gemini, compares to other products"
+  },
+  "blog:chatgpt-conversation-to-video@a6291b8aac92d155": {
+    "keep": false,
+    "reason": "mentions ChatGPT and Blog2Video"
+  },
+  "blog:blog2video-mcp-server-n8n@2d97190e7de757c0": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video MCP server and n8n integration"
+  },
+  "blog:blog2video-mcp-server-deepseek@eae5a6eaf9653fb7": {
+    "keep": false,
+    "reason": "describes DeepSeek and its capabilities"
+  },
+  "blog:blog2video-mcp-server-mistral@cc6487646480fc58": {
+    "keep": false,
+    "reason": "describes connecting to Mistral AI"
+  },
+  "blog:blog2video-mcp-server-kimi@a388c3e419af074c": {
+    "keep": false,
+    "reason": "mentions Kimi K2, Moonshot AI"
+  },
+  "blog:blog2video-mcp-server-qwen@f7edaa62d5298571": {
+    "keep": false,
+    "reason": "describes connecting Blog2Video to Qwen"
+  },
+  "blog:how-to-grow-your-substack-newsletter@ccc4129ba27b54b2": {
+    "keep": false,
+    "reason": "mentions Substack and YouTube"
+  },
+  "blog:why-finance-newsletters-are-switching-to-blog2video@1698d9d3efd63c35": {
+    "keep": false,
+    "reason": "describes other AI video tools"
+  },
+  "marketing:/blog-to-video-ai@422028b352c3dfaa": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video functionality"
+  },
+  "marketing:/ai-blog-to-video@792d61de6a7a43d6": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video features"
+  },
+  "marketing:/blog-to-video-generator@d4adddab59825ac9": {
+    "keep": false,
+    "reason": "compares against other products"
+  },
+  "marketing:/blog-to-video@b896904aa86a5ab1": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video features"
+  },
+  "marketing:/how-to-turn-a-blog-post-into-a-youtube-video@04c54ae3e8b41ce9": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/article-to-video@7f98e4fe74994def": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video features"
+  },
+  "marketing:/url-to-video@98e1c4c4712e6ef6": {
+    "keep": false,
+    "reason": "describes URL to video, not Blog2Video"
+  },
+  "marketing:/pdf-to-video@ed3630d55c14f841": {
+    "keep": false,
+    "reason": "describes PDF-to-video, not exclusive to Blog2Video"
+  },
+  "marketing:/pptx-to-video@3867ecc60c58b662": {
+    "keep": false,
+    "reason": "describes PPTX to video, not exclusive to Blog2Video"
+  },
+  "marketing:/docx-to-video@c99ae9a07bffb6fa": {
+    "keep": false,
+    "reason": "describes DOCX to video, not Blog2Video"
+  },
+  "marketing:/ai-video-generator-for-bloggers@256d81238593f71a": {
+    "keep": true,
+    "reason": "entirely about Blog2Video functionality"
+  },
+  "marketing:/blog-to-youtube-video@194c90f82da564f0": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video functionality"
+  },
+  "marketing:/blog-to-shorts@1fd3a05ae55fa7f5": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/linkedin-carousel-generator@59616d8f3d3459f0": {
+    "keep": false,
+    "reason": "describes a LinkedIn carousel generator"
+  },
+  "marketing:/for-technical-bloggers@7e89378f3c6c0d74": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/for-technical-writers@211582e7505146bb": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video and its functionality"
+  },
+  "marketing:/for-educators@56e3d97a02076307": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's educational use"
+  },
+  "marketing:/for-newsletters@5e5e37529d22ebff": {
+    "keep": true,
+    "reason": "entirely about Blog2Video workflow"
+  },
+  "marketing:/for-researchers@1a42edbb39d42756": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video and its workflow"
+  },
+  "marketing:/for-medium-writers@a1d96e5e4164e292": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/for-substack-writers@c0a5fcbd3c411389": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video and Substack"
+  },
+  "marketing:/ai-scene-editor@f6e8cf3065ec35dc": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's AI scene editor"
+  },
+  "marketing:/code-snippet-to-video@fae88c59eb95cdd9": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's functionality"
+  },
+  "marketing:/bulk-blog-to-video@66b37b04c6efbfe2": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/diagram-to-video@b2e7b72085094f70": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/custom-branded-video-templates@3b639352607eeced": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video templating workflow"
+  },
+  "marketing:/multilingual-video-generation@3f2c3c8515b328b0": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video multilingual features"
+  },
+  "marketing:/templates/geometric-explainer@e739de92fa94dbb9": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's Geometric Explainer template"
+  },
+  "marketing:/templates/nightfall@f804c18ea7544127": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video templates"
+  },
+  "marketing:/templates/gridcraft@9bbd00e16df733d5": {
+    "keep": true,
+    "reason": "Exclusively about Blog2Video templates"
+  },
+  "marketing:/templates/spotlight@77162d82da9f27b2": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's Spotlight template"
+  },
+  "marketing:/templates/whiteboard@7979b501b6df00bf": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's Stick Man template"
+  },
+  "marketing:/templates/newspaper@d9eecc4a01c3426d": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's Newspaper template"
+  },
+  "marketing:/templates/matrix@04a6cb4ea1ac068a": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video templates"
+  },
+  "marketing:/templates/blackswan@dc70bdd50e78fcc4": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video templates"
+  },
+  "marketing:/templates/mosaic@fd98e92fab3c6483": {
+    "keep": true,
+    "reason": "Completely about Blog2Video templates"
+  },
+  "marketing:/templates/newscast@4351bde4c020ca52": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's Newscast template"
+  },
+  "marketing:/templates/bloomberg@191f96d214a923c9": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video templates"
+  },
+  "marketing:/templates/economist@22385bc37df95c5b": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video templates"
+  },
+  "marketing:/templates/stickman_2@d3caf89f5f842039": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video template"
+  },
+  "marketing:/templates/stickman_football@0107d74e99c8a953": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video templates"
+  },
+  "marketing:/templates/chronicle@d717f253e8d573c2": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video templates"
+  },
+  "marketing:/templates/custom@d32190621973726f": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's Custom Templates"
+  },
+  "marketing:/pdf-to-course-video@81475a624da6be1a": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/docx-to-linkedin-video@fae8cfe338f46d5a": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "marketing:/url-to-linkedin-video@ae5bbc78c22f9943": {
+    "keep": false,
+    "reason": "describes URL to LinkedIn workflow, not Blog2Video"
+  },
+  "marketing:/url-to-tiktok-video@c450b8b05f9493fc": {
+    "keep": false,
+    "reason": "describes TikTok workflow, not exclusive to Blog2Video"
+  },
+  "marketing:/pptx-to-youtube-video@bd9b59bbdd1ddc54": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does NOT offer"
+  },
+  "marketing:/for-medium-writers/blog-to-video@4b27ec19990d8421": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/for-substack-writers/blog-to-video@60884a87d538e2c6": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/for-technical-writers/docx-to-video@8f66a267e7e1a982": {
+    "keep": false,
+    "reason": "compares against other products"
+  },
+  "marketing:/for-educators/pptx-to-video@e1f32e77253db1df": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/for-researchers/pdf-to-video@3babae5a1e601ddd": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/article-to-linkedin-video@46381e8d5ffc1d72": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "marketing:/for-newsletters/url-to-video@612aa42aa6a4cba4": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/article-to-youtube-video@1e4feff8ff4b4762": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/blog-to-linkedin-video@76550a7416d945dc": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/pdf-to-youtube-video@4153c5c8782f5c1f": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/docx-to-youtube-video@42bc36d19c840c6a": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/for-technical-bloggers/blog-to-shorts@9721bfdca9ad87c8": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does NOT offer"
+  },
+  "marketing:/for-medium-writers/article-to-video@579af30ceb01151b": {
+    "keep": false,
+    "reason": "describes generic AI video generators"
+  },
+  "marketing:/for-substack-writers/url-to-video@a449e15feb1a6919": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video does not offer"
+  },
+  "marketing:/convert-political-blog-to-video@c9c15a775bc57833": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/convert-healthcare-blog-to-video@2d95db50a920f60e": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/convert-engineering-blog-to-video@12b1c38492dedfdc": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/convert-finance-blog-to-video@23955dfc765f44c0": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/convert-coding-blog-to-video@8f611fe65585e199": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video and its functionality"
+  },
+  "marketing:/convert-tutorial-blog-to-video@30dbd2451e79058f": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video functionality"
+  },
+  "marketing:/video-seo-checklist@b30ad4692582faa7": {
+    "keep": false,
+    "reason": "describes video SEO, not Blog2Video"
+  },
+  "marketing:/measurement-playbook@4c3b60a27eaa91f1": {
+    "keep": false,
+    "reason": "describes SEO tools, not Blog2Video"
+  },
+  "marketing:/distribution-flywheel@3832a2337995392d": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video workflow"
+  },
+  "marketing:/youtube-seo-checklist@ae9c81e4d8b1bf55": {
+    "keep": false,
+    "reason": "mentions YouTube SEO, not Blog2Video"
+  },
+  "marketing:/for-finance-publishers@bf7b124a3a3747b0": {
+    "keep": true,
+    "reason": "Entirely about Blog2Video's offerings"
+  },
+  "marketing:/blog2video-vs-lumen5@018782ecf92036be": {
+    "keep": false,
+    "reason": "compares Blog2Video to Lumen5"
+  },
+  "marketing:/blog2video-vs-pictory@6765c55d775d0af4": {
+    "keep": false,
+    "reason": "compares Blog2Video to Pictory"
+  },
+  "marketing:/blog2video-vs-invideo@77c5de9fdb22d4e0": {
+    "keep": false,
+    "reason": "compares Blog2Video to InVideo"
+  },
+  "marketing:/blog2video-vs-descript@48ea7b724abb994b": {
+    "keep": false,
+    "reason": "compares Blog2Video to Descript"
+  },
+  "marketing:/lumen5-alternative@c23e6f9e46be1604": {
+    "keep": false,
+    "reason": "compares against Lumen5"
+  },
+  "marketing:/pictory-alternative@5b24472db59d10b1": {
+    "keep": false,
+    "reason": "compares against Pictory"
+  },
+  "marketing:/heygen-alternative@002a9b4ff0cd4d6f": {
+    "keep": false,
+    "reason": "compares against HeyGen"
+  },
+  "marketing:/heygen-alternative-for-newsletter-writers@6bcc5f304f9d7807": {
+    "keep": false,
+    "reason": "compares against HeyGen"
+  },
+  "marketing:/heygen-alternative-for-substack-writers@f6e413ebd7508f9f": {
+    "keep": false,
+    "reason": "mentions HeyGen and compares"
+  },
+  "marketing:/pictory-alternative-for-newsletter-writers@5258fc9e50bd5aa4": {
+    "keep": false,
+    "reason": "compares against Pictory"
+  },
+  "marketing:/pictory-alternative-for-substack-writers@cde6f411479b6803": {
+    "keep": false,
+    "reason": "names and compares against Pictory"
+  },
+  "marketing:/lumen5-alternative-for-technical-bloggers@1fe25dd7b1c02a43": {
+    "keep": false,
+    "reason": "compares against Lumen5"
+  },
+  "marketing:/lumen5-alternative-for-substack-writers@8213a06dc9d04edb": {
+    "keep": false,
+    "reason": "names and compares Lumen5"
+  },
+  "marketing:/veed-alternative@502e64409b22cc02": {
+    "keep": false,
+    "reason": "compares against VEED"
+  },
+  "blog:whats-new-in-blog2video-six-features@d7d158f3a01dfa2e@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video features"
+  },
+  "blog:ai-linkedin-carousel-generator-from-existing-content@40f32966232eb534@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's LinkedIn carousel feature"
+  },
+  "blog:new-template-finance-publication@0c2854fcddbb61a6@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's finance publication template"
+  },
+  "blog:how-to-turn-a-link-into-a-powerpoint-with-ai@19e7ff7231c06dc1@104edda5": {
+    "keep": true,
+    "reason": "URL-to-PowerPoint is a Blog2Video feature"
+  },
+  "blog:free-stock-visualizer-price-history-financials@de6082241ad1435a@104edda5": {
+    "keep": false,
+    "reason": "describes a feature Blog2Video lacks"
+  },
+  "blog:ai-ppt-generator-for-articles-pdfs-and-docs@365c3468f0b924e2@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's content-to-slides feature"
+  },
+  "blog:blog2video-just-shipped-april-2026@c8fe02e864d67023@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video features"
+  },
+  "blog:blog2video-vs-heygen@c2e9f479341972bb@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "blog:faceless-videos-for-writers-and-marketers@30a78ec960a17512@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's faceless video feature"
+  },
+  "blog:instant-branded-templates-for-video-editors-and-agencies@05ccf894a7166a11@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video feature: branded templates"
+  },
+  "blog:blog2video-vs-veed@49d7eb6d0c7d8c5e@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "blog:blog2video-embed-preview-no-render-needed@3e0d70a1365fae50@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video feature"
+  },
+  "blog:ai-videos-are-slop-unless-they-are-relevant@1414209695a5fa67@104edda5": {
+    "keep": true,
+    "reason": "discusses relevance of AI videos, not a Blog2Video feature"
+  },
+  "blog:video-editors-generate-branded-templates-instantly@4278e413a3474833@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's branded template feature"
+  },
+  "blog:what-is-a-blog-video@e11725a0c0bd82c7@104edda5": {
+    "keep": true,
+    "reason": "explains Blog2Video feature"
+  },
+  "blog:blog2video-just-shipped-june-2026@0f7114bcdca9b11f@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video features"
+  },
+  "blog:create-summary-videos-from-pdfs@600a5a201a778123@104edda5": {
+    "keep": true,
+    "reason": "PDF-to-video is a Blog2Video feature"
+  },
+  "blog:custom-video-template-from-your-website@9d4a984fccdaee82@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "blog:why-custom-video-templates-matter-for-content-teams@9def3e48d2d8c430@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video feature: custom video templates"
+  },
+  "blog:turn-blog-posts-into-video@7c87852ed1bb9928@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video workflow for repurposing content"
+  },
+  "blog:translate-blog-to-video-50-languages@337750967260db42@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature: multilingual video generation"
+  },
+  "blog:blog2video-vs-chatgpt-vs-claude-for-making-videos@b8ed829dd045a48d@104edda5": {
+    "keep": false,
+    "reason": "compares against competitors"
+  },
+  "blog:blog2video-vs-notebooklm@0ac6a693934708cd@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "blog:translate-blog-to-video-in-any-language@c2ed4914fe5b2ff2@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video language features"
+  },
+  "blog:blog-to-video-before-after@e21e3d1b1203d9dd@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video workflow"
+  },
+  "blog:medium-post-to-video-workflow@bf2ba0e04db86baa@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video workflow"
+  },
+  "blog:pdf-to-video-fastest-workflow-for-educators@40574f35c3f4fe32@104edda5": {
+    "keep": true,
+    "reason": "PDF-to-video is a Blog2Video feature"
+  },
+  "blog:how-technical-bloggers-can-repurpose-posts-into-youtube-videos@d962bcde17b4e76e@104edda5": {
+    "keep": true,
+    "reason": "repurposing blog posts into YouTube videos is a Blog2Video feature"
+  },
+  "blog:how-to-turn-a-blog-post-into-a-video@cb42235ddb15fdf4@104edda5": {
+    "keep": true,
+    "reason": "step-by-step guide to Blog2Video feature"
+  },
+  "blog:blog-to-youtube-shorts-strategy@28f1d08f0ce2a794@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's use-case"
+  },
+  "blog:how-to-turn-documentation-into-product-walkthrough-videos@1b59705742ec24ea@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video feature: turning docs into videos"
+  },
+  "blog:substack-newsletter-to-video-workflow@9a66d02f427ca7ee@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video workflow"
+  },
+  "blog:how-to-convert-research-papers-into-explainer-videos@066e9174d9ee2e2e@104edda5": {
+    "keep": true,
+    "reason": "explains Blog2Video workflow for converting research papers"
+  },
+  "blog:programmatic-video-generation-for-content-marketers@2c646cb9a29f5904@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's structured video generation"
+  },
+  "blog:content-repurposing-workflow-for-solo-founders@74cfce91ee8f1c93@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's content workflow"
+  },
+  "blog:best-ai-tools-to-convert-articles-into-videos@6b156b1942088c56@104edda5": {
+    "keep": false,
+    "reason": "evaluates article-to-video tools, not Blog2Video"
+  },
+  "blog:how-to-preserve-code-snippets-in-ai-generated-videos@9dd1e5c9763f52d4@104edda5": {
+    "keep": true,
+    "reason": "guides on preserving code in Blog2Video videos"
+  },
+  "blog:how-to-repurpose-blog-content-into-videos@59ec423b0a9b4cff@104edda5": {
+    "keep": true,
+    "reason": "content repurposing is a Blog2Video feature"
+  },
+  "blog:best-templates-for-explainer-videos@5a64df8ab61b7aa9@104edda5": {
+    "keep": true,
+    "reason": "explains Blog2Video's template feature"
+  },
+  "blog:how-to-create-a-narrated-video-from-a-blog-post@ae45a6a9f527fc46@104edda5": {
+    "keep": true,
+    "reason": "step-by-step guide to Blog2Video feature"
+  },
+  "blog:blog-to-youtube-strategy-for-written-first-creators@c7706b9c7b60e0f8@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's workflow for blog-to-video"
+  },
+  "blog:how-to-use-ai-voiceover-for-blog-content@a2d0215d302ad572@104edda5": {
+    "keep": true,
+    "reason": "AI voiceover is a Blog2Video feature"
+  },
+  "blog:automated-video-from-url-guide@87c1f098956ea2b1@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's URL-to-video feature"
+  },
+  "blog:ai-video-generator-for-bloggers-buying-guide@ab05bdde99d0f79b@104edda5": {
+    "keep": true,
+    "reason": "focuses on Blog2Video's core feature of source fidelity"
+  },
+  "blog:how-to-turn-an-article-into-a-video@5ab72f6af64c7572@104edda5": {
+    "keep": true,
+    "reason": "article-to-video is a Blog2Video feature"
+  },
+  "blog:how-to-convert-docx-to-video@8487cb80e8598dfc@104edda5": {
+    "keep": true,
+    "reason": "DOCX-to-video is a Blog2Video feature"
+  },
+  "blog:how-to-turn-a-url-into-a-video@e8724e7d80055a38@104edda5": {
+    "keep": true,
+    "reason": "URL-to-video is a Blog2Video feature"
+  },
+  "blog:how-to-turn-a-powerpoint-into-a-video@37b3a3e52e628ea0@104edda5": {
+    "keep": true,
+    "reason": "PPTX-to-video is a Blog2Video feature"
+  },
+  "blog:how-to-use-an-ai-scene-editor@eb8b6174ad722a14@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's AI scene editor feature"
+  },
+  "blog:how-to-convert-pdf-to-video@a52757cfaa8ae7dc@104edda5": {
+    "keep": true,
+    "reason": "PDF-to-video is a Blog2Video feature"
+  },
+  "blog:how-to-convert-a-blog-archive-into-videos@6fbac00509c95827@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's workflow"
+  },
+  "blog:how-to-turn-diagrams-into-explainer-videos@f3ac0433feba3e3f@104edda5": {
+    "keep": true,
+    "reason": "explains Blog2Video's workflow for diagram videos"
+  },
+  "blog:blog-to-video-tools-compared@8be928c62eba1390@104edda5": {
+    "keep": false,
+    "reason": "compares against competitors"
+  },
+  "blog:how-to-create-custom-branded-video-templates@7a7a6af4ac3e73fe@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video feature"
+  },
+  "blog:new-template-newscast@15a57c347bb4a281@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "blog:video-seo-ranking-traffic-blog2video@a620f4ebbf33a1ae@104edda5": {
+    "keep": true,
+    "reason": "promotes Blog2Video for adding video to blog posts"
+  },
+  "blog:automatic-call-to-action-end-of-video@f3ee47457c48853a@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "blog:video-duration-control@f21bf596f2da51a0@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "blog:custom-templates-for-brands@7ca21afdd9fdd16c@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "blog:how-devrel-teams-can-turn-docs-into-videos@c14ee12d6c8bd726@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video workflow for turning docs into videos"
+  },
+  "blog:blog2video-vs-seedance@828d46885220134c@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "blog:google-meet-recording-to-video@f795c2a12fe2e219@104edda5": {
+    "keep": false,
+    "reason": "primarily about Google Meet, not Blog2Video"
+  },
+  "blog:zoom-recording-to-summary-video@755052f80332befe@104edda5": {
+    "keep": false,
+    "reason": "describes a capability Blog2Video lacks"
+  },
+  "blog:microsoft-teams-recording-to-video@7098a669c3735f17@104edda5": {
+    "keep": false,
+    "reason": "primarily about Microsoft Teams"
+  },
+  "blog:fireflies-recording-to-summary-video@3189ae48d584c12f@104edda5": {
+    "keep": false,
+    "reason": "describes Fireflies.ai, not Blog2Video"
+  },
+  "blog:video-minutes-per-month-pricing-comparison-2026@166872c9bed91f51@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "blog:blog2video-ultimate-competitor-comparison-2026@2dd1346a6b0fb257@104edda5": {
+    "keep": false,
+    "reason": "compares against multiple competitors"
+  },
+  "blog:loom-recording-to-summary-video@ab411deaab6702b6@104edda5": {
+    "keep": false,
+    "reason": "primarily describes Loom, not Blog2Video"
+  },
+  "blog:bloghub-product-hunt-for-blogs@a3888c72553d3744@104edda5": {
+    "keep": false,
+    "reason": "describes a competitor product"
+  },
+  "blog:chatgpt-conversation-to-video@a6291b8aac92d155@104edda5": {
+    "keep": false,
+    "reason": "primarily about ChatGPT, not Blog2Video"
+  },
+  "blog:gemini-chat-to-video@f90dfb2b66c39e53@104edda5": {
+    "keep": false,
+    "reason": "primarily describes Gemini, not Blog2Video"
+  },
+  "blog:how-we-make-custom-branded-video-templates@fc7a0a678871df52@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's workflow"
+  },
+  "blog:claude-chat-to-video@fd257bf9c1658f56@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video workflow"
+  },
+  "blog:how-to-increase-your-audience-on-linkedin@32191457a81bf3c2@104edda5": {
+    "keep": true,
+    "reason": "promotes Blog2Video's content-to-video feature"
+  },
+  "blog:blog2video-mcp-server-n8n@2d97190e7de757c0@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's MCP server and n8n integration"
+  },
+  "blog:blog2video-mcp-server-chatgpt@3e74d0742fdee163@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's MCP server feature"
+  },
+  "blog:blog2video-mcp-server-gemini@a2c2967fd968a95c@104edda5": {
+    "keep": false,
+    "reason": "describes a non-Blog2Video capability (AI ecosystem integration)"
+  },
+  "blog:blog2video-mcp-server-claude@312af98c6d485b9e@104edda5": {
+    "keep": false,
+    "reason": "primarily about connecting to Claude, not a Blog2Video feature"
+  },
+  "blog:blog2video-mcp-server-mistral@cc6487646480fc58@104edda5": {
+    "keep": false,
+    "reason": "describes connecting to Mistral, not a Blog2Video feature"
+  },
+  "blog:blog2video-mcp-server-kimi@a388c3e419af074c@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's MCP server feature"
+  },
+  "blog:blog2video-mcp-server-qwen@f7edaa62d5298571@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video MCP server and Qwen integration"
+  },
+  "blog:how-to-grow-your-substack-newsletter@ccc4129ba27b54b2@104edda5": {
+    "keep": false,
+    "reason": "about Substack, not Blog2Video"
+  },
+  "blog:blog2video-mcp-server-deepseek@eae5a6eaf9653fb7@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's MCP server and integration"
+  },
+  "marketing:/blog-to-video-ai@422028b352c3dfaa@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's AI feature"
+  },
+  "blog:why-finance-newsletters-are-switching-to-blog2video@1698d9d3efd63c35@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video features and use case"
+  },
+  "marketing:/blog-to-video-generator@d4adddab59825ac9@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's workflow and features"
+  },
+  "marketing:/ai-blog-to-video@792d61de6a7a43d6@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's AI blog-to-video feature"
+  },
+  "marketing:/blog-to-video@b896904aa86a5ab1@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's features"
+  },
+  "marketing:/url-to-video@98e1c4c4712e6ef6@104edda5": {
+    "keep": true,
+    "reason": "URL-to-video is a Blog2Video feature"
+  },
+  "marketing:/article-to-video@7f98e4fe74994def@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's article-to-video feature"
+  },
+  "marketing:/how-to-turn-a-blog-post-into-a-youtube-video@04c54ae3e8b41ce9@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's feature for turning blog posts into videos"
+  },
+  "marketing:/docx-to-video@c99ae9a07bffb6fa@104edda5": {
+    "keep": true,
+    "reason": "DOCX-to-video is a Blog2Video feature"
+  },
+  "marketing:/pdf-to-video@ed3630d55c14f841@104edda5": {
+    "keep": true,
+    "reason": "PDF-to-video is a Blog2Video feature"
+  },
+  "marketing:/pptx-to-video@3867ecc60c58b662@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's PPTX-to-video feature"
+  },
+  "marketing:/blog-to-youtube-video@194c90f82da564f0@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's blog-to-video feature"
+  },
+  "marketing:/ai-video-generator-for-bloggers@256d81238593f71a@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's AI video generation for bloggers"
+  },
+  "marketing:/for-technical-bloggers@7e89378f3c6c0d74@104edda5": {
+    "keep": true,
+    "reason": "technical blog repurposing is a Blog2Video feature"
+  },
+  "marketing:/linkedin-carousel-generator@59616d8f3d3459f0@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's LinkedIn carousel feature"
+  },
+  "marketing:/for-technical-writers@211582e7505146bb@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's doc-to-video feature"
+  },
+  "marketing:/for-educators@56e3d97a02076307@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's educational content conversion feature"
+  },
+  "marketing:/for-researchers@1a42edbb39d42756@104edda5": {
+    "keep": true,
+    "reason": "explains Blog2Video's research video feature"
+  },
+  "marketing:/blog-to-shorts@1fd3a05ae55fa7f5@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's blog-to-short-form feature"
+  },
+  "marketing:/for-medium-writers@a1d96e5e4164e292@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's workflow for Medium posts"
+  },
+  "marketing:/for-newsletters@5e5e37529d22ebff@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's newsletter-to-video feature"
+  },
+  "marketing:/for-substack-writers@c0a5fcbd3c411389@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video workflow for Substack"
+  },
+  "marketing:/code-snippet-to-video@fae88c59eb95cdd9@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's code snippet video generation feature"
+  },
+  "marketing:/custom-branded-video-templates@3b639352607eeced@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's custom branded video templates feature"
+  },
+  "marketing:/multilingual-video-generation@3f2c3c8515b328b0@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video multilingual feature"
+  },
+  "marketing:/bulk-blog-to-video@66b37b04c6efbfe2@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's batch workflow"
+  },
+  "marketing:/templates/geometric-explainer@e739de92fa94dbb9@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "marketing:/ai-scene-editor@f6e8cf3065ec35dc@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's AI scene editing feature"
+  },
+  "marketing:/diagram-to-video@b2e7b72085094f70@104edda5": {
+    "keep": true,
+    "reason": "diagram-to-video is a Blog2Video feature"
+  },
+  "marketing:/templates/nightfall@f804c18ea7544127@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "marketing:/templates/spotlight@77162d82da9f27b2@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video template feature"
+  },
+  "marketing:/templates/newspaper@d9eecc4a01c3426d@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's Newspaper template"
+  },
+  "marketing:/templates/gridcraft@9bbd00e16df733d5@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's Gridcraft template feature"
+  },
+  "marketing:/templates/newscast@4351bde4c020ca52@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "marketing:/templates/whiteboard@7979b501b6df00bf@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video template feature"
+  },
+  "marketing:/templates/blackswan@dc70bdd50e78fcc4@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video template feature"
+  },
+  "marketing:/templates/matrix@04a6cb4ea1ac068a@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video template feature"
+  },
+  "marketing:/templates/mosaic@fd98e92fab3c6483@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's mosaic template feature"
+  },
+  "marketing:/templates/bloomberg@191f96d214a923c9@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video template feature"
+  },
+  "marketing:/templates/economist@22385bc37df95c5b@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "marketing:/templates/custom@d32190621973726f@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "marketing:/templates/stickman_football@0107d74e99c8a953@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video template feature"
+  },
+  "marketing:/pdf-to-course-video@81475a624da6be1a@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's PDF-to-video feature"
+  },
+  "marketing:/templates/stickman_2@d3caf89f5f842039@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video template feature"
+  },
+  "marketing:/docx-to-linkedin-video@fae8cfe338f46d5a@104edda5": {
+    "keep": true,
+    "reason": "DOCX-to-video is a Blog2Video feature"
+  },
+  "marketing:/templates/chronicle@d717f253e8d573c2@104edda5": {
+    "keep": true,
+    "reason": "describes a Blog2Video template feature"
+  },
+  "marketing:/pptx-to-youtube-video@bd9b59bbdd1ddc54@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's pptx-to-video feature"
+  },
+  "marketing:/url-to-linkedin-video@ae5bbc78c22f9943@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's URL-to-video feature"
+  },
+  "marketing:/url-to-tiktok-video@c450b8b05f9493fc@104edda5": {
+    "keep": true,
+    "reason": "URL-to-video is a Blog2Video feature"
+  },
+  "marketing:/for-technical-writers/docx-to-video@8f66a267e7e1a982@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's DOCX-to-video feature"
+  },
+  "marketing:/for-substack-writers/blog-to-video@60884a87d538e2c6@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's workflow for Substack content"
+  },
+  "marketing:/for-researchers/pdf-to-video@3babae5a1e601ddd@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's PDF-to-video feature"
+  },
+  "marketing:/for-educators/pptx-to-video@e1f32e77253db1df@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's pptx-to-video feature"
+  },
+  "marketing:/article-to-linkedin-video@46381e8d5ffc1d72@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's article-to-video feature"
+  },
+  "marketing:/for-medium-writers/blog-to-video@4b27ec19990d8421@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's workflow and features"
+  },
+  "marketing:/article-to-youtube-video@1e4feff8ff4b4762@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's article-to-video feature"
+  },
+  "marketing:/blog-to-linkedin-video@76550a7416d945dc@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's LinkedIn video feature"
+  },
+  "marketing:/for-newsletters/url-to-video@612aa42aa6a4cba4@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's URL-to-video feature"
+  },
+  "marketing:/docx-to-youtube-video@42bc36d19c840c6a@104edda5": {
+    "keep": true,
+    "reason": "DOCX-to-video is a Blog2Video feature"
+  },
+  "marketing:/for-substack-writers/url-to-video@a449e15feb1a6919@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's URL-to-video feature"
+  },
+  "marketing:/for-medium-writers/article-to-video@579af30ceb01151b@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's article-to-video feature"
+  },
+  "marketing:/convert-political-blog-to-video@c9c15a775bc57833@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's political blog conversion feature"
+  },
+  "marketing:/for-technical-bloggers/blog-to-shorts@9721bfdca9ad87c8@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's technical blog to shorts feature"
+  },
+  "marketing:/convert-engineering-blog-to-video@12b1c38492dedfdc@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's engineering video conversion feature"
+  },
+  "marketing:/convert-finance-blog-to-video@23955dfc765f44c0@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's finance content conversion feature"
+  },
+  "marketing:/convert-coding-blog-to-video@8f611fe65585e199@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's coding blog conversion feature"
+  },
+  "marketing:/pdf-to-youtube-video@4153c5c8782f5c1f@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's PDF-to-video feature"
+  },
+  "marketing:/video-seo-checklist@b30ad4692582faa7@104edda5": {
+    "keep": true,
+    "reason": "video SEO checklist for Blog2Video"
+  },
+  "marketing:/distribution-flywheel@3832a2337995392d@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video workflow and features"
+  },
+  "marketing:/convert-tutorial-blog-to-video@30dbd2451e79058f@104edda5": {
+    "keep": true,
+    "reason": "tutorial blog to video is a Blog2Video feature"
+  },
+  "marketing:/measurement-playbook@4c3b60a27eaa91f1@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video workflow and features"
+  },
+  "marketing:/youtube-seo-checklist@ae9c81e4d8b1bf55@104edda5": {
+    "keep": true,
+    "reason": "YouTube SEO checklist for Blog2Video videos"
+  },
+  "marketing:/blog2video-vs-lumen5@018782ecf92036be@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/blog2video-vs-invideo@77c5de9fdb22d4e0@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/for-finance-publishers@bf7b124a3a3747b0@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's custom branding feature"
+  },
+  "marketing:/blog2video-vs-pictory@6765c55d775d0af4@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/blog2video-vs-descript@48ea7b724abb994b@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/lumen5-alternative@c23e6f9e46be1604@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/pictory-alternative@5b24472db59d10b1@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/heygen-alternative-for-newsletter-writers@6bcc5f304f9d7807@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor + newsletter feature"
+  },
+  "marketing:/pictory-alternative-for-substack-writers@cde6f411479b6803@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/heygen-alternative@002a9b4ff0cd4d6f@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/heygen-alternative-for-substack-writers@f6e413ebd7508f9f@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor + Substack focus"
+  },
+  "marketing:/pictory-alternative-for-newsletter-writers@5258fc9e50bd5aa4@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/veed-alternative@502e64409b22cc02@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  },
+  "marketing:/convert-healthcare-blog-to-video@2d95db50a920f60e@104edda5": {
+    "keep": true,
+    "reason": "describes Blog2Video's healthcare content conversion feature"
+  },
+  "marketing:/lumen5-alternative-for-substack-writers@8213a06dc9d04edb@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor + newsletter feature"
+  },
+  "marketing:/lumen5-alternative-for-technical-bloggers@1fe25dd7b1c02a43@104edda5": {
+    "keep": false,
+    "reason": "compares against a competitor"
+  }
+}
