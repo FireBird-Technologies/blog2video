@@ -385,12 +385,14 @@ def get_pipeline_status(
     db: Session = Depends(get_db),
 ):
     """Poll this endpoint to get pipeline progress."""
+    from app.services.access import get_member
     progress = _pipeline_progress.get(project_id, {})
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user.id)
-        .first()
-    )
+    # Owner or accepted collaborator may poll progress. (Note: this endpoint has
+    # a legacy branch that surfaces a removed-project error only to the initiating
+    # user, handled below, so we resolve access manually rather than 404-ing here.)
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if project is not None and project.user_id != user.id and get_member(project_id, user.id, db) is None:
+        project = None
 
     if not project:
         # Generation failed and DB row was removed; show last error once for this user.
@@ -1208,6 +1210,17 @@ async def _generate_script(
     # Clear existing scenes for this project (moved here so it runs in the
     # same fresh transaction as the new scene inserts).
     db.query(Scene).filter(Scene.project_id == project.id).delete()
+
+    # Scene-scoped edit history cascade-deletes with the scenes above. But scene
+    # deletion and reordering are tracked as PROJECT-level rows (scene_deleted /
+    # scene_order) that reference scene ids by value, so they don't cascade — drop
+    # them explicitly. A full script regen is a brand-new set of scenes; those old
+    # entries would reference now-nonexistent scene ids and revert to no-ops.
+    from app.models.Project_edit_history import ProjectEditHistory
+    db.query(ProjectEditHistory).filter(
+        ProjectEditHistory.project_id == project.id,
+        ProjectEditHistory.field_name.in_(["scene_deleted", "scene_order"]),
+    ).delete(synchronize_session=False)
     db.flush()
 
     is_custom = is_custom_template(template_id)
@@ -1926,6 +1939,13 @@ async def render_video_endpoint(
     """
     project = _get_project(project_id, user.id, db)
 
+    # Only one long-running job per project across all types: reject a render if a
+    # template change / script regen / voice change is in progress (another user may
+    # have started one). include_render=False so an active render is handled below by
+    # this endpoint's own re-render / already-rendering logic instead.
+    from app.routers.projects import _assert_no_active_job
+    _assert_no_active_job(project_id, db, include_render=False)
+
     # Render at 720p for whiteboard (stickman) and newspaper templates
     resolution = "720p" if project.template in ("whiteboard", "newspaper","newscast") else "1080p"
 
@@ -1952,24 +1972,22 @@ async def render_video_endpoint(
             detail="This project no longer has access to its crafted template.",
         )
 
-    # Align per-video credits with Stripe (same as project creation) before any limit check.
-    user_row = db.query(User).filter(User.id == user.id).first()
-    if not user_row:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    user_row.roll_video_period_if_due(db)
-    user_row.sync_video_limit_bonus(db)
-    user_row = db.query(User).filter(User.id == user.id).first()
-    if not user_row:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    # Owner pays: a re-render is billed to the project OWNER, not the acting
+    # collaborator. Align the owner's per-video credits with Stripe before the check.
+    from app.services.access import project_owner, video_limit_message
+    payer = project_owner(project, db)
+    payer.roll_video_period_if_due(db)
+    payer.sync_video_limit_bonus(db)
+    db.refresh(payer)
 
-    # Re-render: deduct a video count (same as creating a new video)
+    # Re-render: deduct a video count from the owner (same as creating a new video)
     if force_render:
-        if not user_row.can_create_video:
+        if not payer.can_create_video:
             raise HTTPException(
                 status_code=403,
-                detail="Video limit reached. Re-rendering counts as a new video. Upgrade your plan or buy more credits to continue."
+                detail=video_limit_message(payer, user, "re-render"),
             )
-        user_row.videos_used_this_period += 1
+        payer.videos_used_this_period += 1
         db.commit()
 
     # Don't restart if already rendering (guard by DB status so stale shared payloads
@@ -2009,7 +2027,26 @@ async def render_video_endpoint(
     # while workspace prep is still running.
     project.status = ProjectStatus.RENDERING
     db.commit()
+
+    # Seed a fresh progress record (progress=0, new run id) FIRST. This overwrites any
+    # stale dict left by a previous completed render (progress=100/done=true).
     render_run_id = seed_render_progress(project_id, user.id, phase_message="Preparing workspace...")
+
+    # Only now tell live collaborators a render started, so when they reload and poll
+    # /render-status they read the freshly-seeded 0% progress — not the previous run's
+    # stale 100%/done snapshot. Broadcast after the seed to close that race. This
+    # handler runs on the event loop, so await the broadcast directly. Exclude the
+    # acting user — they already entered the rendering view locally.
+    try:
+        from app.routers.collab_ws import collab_manager
+        await collab_manager.broadcast(
+            project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+        )
+    except Exception as broadcast_err:
+        logger.warning(
+            "[RENDER] Failed to broadcast render-start reload for project %s: %s",
+            project_id, broadcast_err,
+        )
 
     # Rebuild workspace in thread pool so the event loop is not blocked (file I/O, copy, etc.).
     loop = asyncio.get_event_loop()
@@ -2235,14 +2272,9 @@ def download_video_endpoint(
     2. Falls back to local storage if R2 is not available.
     3. Returns 202 if still rendering or 404 if missing.
     """
-    # 1. Fetch project and verify ownership
-    project = db.query(Project).filter(
-        Project.id == project_id, 
-        Project.user_id == user.id
-    ).first()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    # 1. Fetch project and verify access (owner or accepted collaborator)
+    from app.services.access import get_accessible_project
+    project = get_accessible_project(project_id, user, db)
 
     # 2. Case A: Video is stored on Cloudflare R2
     if project.r2_video_url:
@@ -2281,15 +2313,17 @@ def download_video_endpoint(
 
 
 def _get_project(project_id: int, user_id: int, db: Session) -> Project:
-    """Helper to get a project owned by the user, or raise 404."""
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user_id)
-        .first()
-    )
-    if not project:
+    """Helper to get a project the user may access (owner or collaborator), or 404."""
+    from app.models.user import User as _User
+    from app.services.access import get_accessible_project
+
+    acting = db.query(_User).filter(_User.id == user_id).first()
+    if acting is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, user_id, db):
+    project = get_accessible_project(project_id, acting, db)
+    # Crafted-template entitlement is held by the OWNER (who bought/created it),
+    # so validate against the owner rather than the acting collaborator.
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, project.user_id, db):
         raise HTTPException(
             status_code=403,
             detail="Access to this project's crafted template has been revoked.",

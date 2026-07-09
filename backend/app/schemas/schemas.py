@@ -171,6 +171,9 @@ class ProjectRegenerateScriptJobOut(BaseModel):
     id: int
     project_id: int
     user_id: int
+    # The collaborator who initiated this regen. Only they may approve/regenerate the
+    # review; the frontend compares it to the current user to gate those controls.
+    initiated_by_user_id: Optional[int] = None
     status: str
     current_step: str = "analyzing_instruction"
     total_scenes: int
@@ -334,6 +337,8 @@ class TemplateRatingSubmit(BaseModel):
 
 class ProjectOut(BaseModel):
     id: int
+    # Owner user id — lets the frontend tell owners from collaborators.
+    user_id: int
     name: str
     blog_url: Optional[str] = None
     blog_content: Optional[str] = None
@@ -376,6 +381,17 @@ class ProjectOut(BaseModel):
     custom_template_missing: bool = False
     brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None
+    # True when the project has ≥1 member (invited/pending or accepted). Gates the
+    # per-scene comment affordance in the UI.
+    is_shared: bool = False
+    # True when the project OWNER is on a paid plan (standard/pro). On a shared
+    # project the owner pays, so the frontend gates Pro-only features (custom/crafted
+    # templates, paid voices) on the OWNER's plan for collaborators — not their own.
+    owner_is_pro: bool = False
+    # The project OWNER's display name. Populated for every project (owner + shared)
+    # so a collaborator's settings pop-ups can attribute the templates/voices they see
+    # as belonging to the owner (e.g. "Alice's custom templates").
+    owner_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []
@@ -473,6 +489,10 @@ class ProjectListOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     scene_count: int = 0
+    # Collaboration: the acting user's role on this project ("owner"/"editor").
+    # Lets the frontend split "My videos" from "Shared with me".
+    role: str = "owner"
+    owner_name: Optional[str] = None
 
     class Config:
         from_attributes = True

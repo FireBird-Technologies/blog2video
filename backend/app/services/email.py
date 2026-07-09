@@ -798,6 +798,41 @@ class EmailService:
             from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
         )
 
+    def send_collab_invite_email(
+        self, to_email: str, inviter_name: str, project_name: str, accept_link: str
+    ) -> None:
+        """Invite a collaborator to co-edit a specific video/project."""
+        first_name = (inviter_name or "").split()[0] if inviter_name else "Someone"
+        proj = project_name or "a video"
+        subject = f"{first_name} invited you to collaborate on “{proj}” on Blog2Video"
+
+        text_content = (
+            f"{first_name} invited you to collaborate on the video “{proj}” on Blog2Video.\n\n"
+            f"You'll be able to edit the video together. Open the invite to accept "
+            f"(sign in with this email address, {to_email}):\n\n"
+            f"{accept_link}\n\n"
+            f"Team Blog2Video\n"
+        )
+        html_content = self._build_html(
+            headline=f"{html.escape(first_name)} invited you to collaborate",
+            body_paragraph=(
+                f"You've been invited to co-edit the video "
+                f"<strong style=\"color:#111827;\">“{html.escape(proj)}”</strong> on Blog2Video. "
+                f"You'll be able to edit the video together. "
+                f"Accept the invite by signing in with this email address "
+                f"(<strong style=\"color:#111827;\">{html.escape(to_email)}</strong>)."
+            ),
+            cta_label="Accept invite",
+            cta_url=accept_link,
+        )
+        self.provider.send_email(
+            to=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
     def send_blast_email(self, user_email: str, user_name: str, subject: str, body: str) -> None:
         first_name = (user_name or "").split()[0] if user_name else "there"
         unsubscribe_url = self._make_unsubscribe_url(user_email)

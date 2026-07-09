@@ -29,20 +29,18 @@ async def chat_edit(
     Only modifies the specific scenes requested -- voiceover and remotion code
     for untouched scenes are preserved.
     """
-    # Chat editing is a Pro/Standard feature
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+    # Resolve access first (owner or accepted collaborator), then gate on the
+    # OWNER's plan — chat editing is a paid feature paid for by the project owner,
+    # so a FREE collaborator inherits the owner's entitlement on a shared project.
+    from app.services.access import get_accessible_project, project_owner
+
+    project = get_accessible_project(project_id, user, db)
+    payer = project_owner(project, db)
+    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
             detail="AI chat editing is available on the Pro or Standard plan. Upgrade to edit your videos.",
         )
-
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user.id)
-        .first()
-    )
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
 
     scenes = project.scenes
     if not scenes:
@@ -140,13 +138,8 @@ def get_chat_history(
     db: Session = Depends(get_db),
 ):
     """Get the chat history for a project."""
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user.id)
-        .first()
-    )
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    from app.services.access import get_accessible_project
+    project = get_accessible_project(project_id, user, db)
 
     messages = (
         db.query(ChatMessage)

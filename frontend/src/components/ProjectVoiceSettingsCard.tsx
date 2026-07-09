@@ -8,7 +8,7 @@ import VoiceItem, {
   subtitleForSavedVoice,
 } from "./VoiceItem";
 import {
-  getMyVoices,
+  getProjectVoices,
   changeProjectVoice,
   deleteProjectVoiceover,
   BACKEND_URL,
@@ -46,6 +46,14 @@ interface Props {
    * page-level progress modal can take over (it survives tab switches/refresh).
    */
   onOperationStarted: (op: { kind: "voice_change" | "delete"; total: number }) => void;
+  /** Disable the voice add/change/delete triggers (e.g. another job is running). */
+  disabled?: boolean;
+  /**
+   * On a shared project, a possessive form of the OWNER's name (e.g. "Alice's" or
+   * "the owner's") used to attribute the listed voices to the owner. Empty/undefined
+   * on the user's own projects — no attribution shown then.
+   */
+  ownerAssetLabel?: string;
 }
 
 interface VoiceDisplay {
@@ -77,6 +85,8 @@ export default function ProjectVoiceSettingsCard({
   onError,
   onUpgrade,
   onOperationStarted,
+  disabled = false,
+  ownerAssetLabel = "",
 }: Props) {
   const [savedVoices, setSavedVoices] = useState<SavedVoiceFromAPI[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(true);
@@ -110,7 +120,13 @@ export default function ProjectVoiceSettingsCard({
   useEffect(() => {
     let active = true;
     setLoadingVoices(true);
-    getMyVoices()
+    // Always resolve voices via the project-scoped endpoint: it returns the
+    // OWNER's saved voices (correct for a collaborator on a shared project) and
+    // the caller's own for the owner (owner resolves to self). Using it
+    // unconditionally — instead of switching on `ownerScoped`, which only
+    // becomes known after the project payload lands — avoids a second fetch when
+    // that flag flips, so the voice list populates in one pass.
+    getProjectVoices(projectId)
       .then((res) => {
         if (active) setSavedVoices(res.data);
       })
@@ -124,7 +140,7 @@ export default function ProjectVoiceSettingsCard({
       active = false;
       audioRef.current?.pause();
     };
-  }, []);
+  }, [projectId]);
 
   const stopPreview = () => {
     audioRef.current?.pause();
@@ -327,7 +343,7 @@ export default function ProjectVoiceSettingsCard({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                disabled={deleting}
+                disabled={deleting || disabled}
                 className="px-4 py-2.5 text-xs font-semibold rounded-xl transition-colors text-red-600 bg-red-50 hover:bg-red-100 border border-red-200/60 disabled:opacity-50 flex items-center gap-2"
               >
                 {deleting ? (
@@ -343,7 +359,7 @@ export default function ProjectVoiceSettingsCard({
             <button
               type="button"
               onClick={openModal}
-              disabled={deleting}
+              disabled={deleting || disabled}
               className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50"
             >
               {hasVoiceover ? "Change voice" : "Add voiceover"}
@@ -440,15 +456,26 @@ export default function ProjectVoiceSettingsCard({
                     }}
                   />
 
+                  {/* Owner attribution — on a shared project the listed voices belong
+                      to the project owner, not the collaborator viewing them. */}
+                  {ownerAssetLabel && (
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1.5">
+                      {ownerAssetLabel} voices
+                    </p>
+                  )}
                   {/* User's saved + custom voices */}
                   {loadingVoices ? (
                     <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
                       <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
-                      <p className="text-[11px] text-gray-500">Loading your voices…</p>
+                      <p className="text-[11px] text-gray-500">
+                        {ownerAssetLabel ? `Loading ${ownerAssetLabel} voices…` : "Loading your voices…"}
+                      </p>
                     </div>
                   ) : savedVoices.length === 0 ? (
                     <p className="text-[11px] text-gray-500 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
-                      No saved voices. Add voices from the Voices page to use them here.
+                      {ownerAssetLabel
+                        ? `${ownerAssetLabel.charAt(0).toUpperCase()}${ownerAssetLabel.slice(1)} account has no saved voices yet.`
+                        : "No saved voices. Add voices from the Voices page to use them here."}
                     </p>
                   ) : (
                     savedVoices.map((saved) => {

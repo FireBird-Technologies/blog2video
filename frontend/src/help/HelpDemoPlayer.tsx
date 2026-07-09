@@ -358,6 +358,10 @@ const DEMO_SCENE: Scene = {
 
 const DEMO_PROJECT: Project = {
   id: 101,
+  // Demo project has no real owner — it's shown to everyone. Sentinel id
+  // never matches a real user, so `project.user_id === user?.id` is always
+  // false (viewer is treated as a non-owner collaborator).
+  user_id: -1,
   name: "AI Search Explainer",
   blog_url: "https://yourblog.com/how-ai-search-works",
   blog_content: null,

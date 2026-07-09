@@ -12,6 +12,12 @@ interface Props {
   previousScenes: RegenerateScriptPreviewScene[] | null;
   /** True while the Proceed request is in flight. */
   verifying?: boolean;
+  /**
+   * Whether the current user may act on the review (Proceed / Regenerate). Only the
+   * collaborator who initiated the regen can; others see a read-only comparison and a
+   * "waiting for the reviewer" note. Defaults to true.
+   */
+  canReview?: boolean;
   onProceed: () => void;
   onRegenerate: () => void;
 }
@@ -51,6 +57,7 @@ export default function VerifyScriptModal({
   newScenes,
   previousScenes,
   verifying,
+  canReview = true,
   onProceed,
   onRegenerate,
 }: Props) {
@@ -213,14 +220,22 @@ export default function VerifyScriptModal({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={onRegenerate}
-              disabled={verifying}
-              className={`${footerBtn} border border-purple-200 text-purple-700 hover:bg-purple-50`}
-            >
-              Regenerate
-            </button>
+            {/* Only the initiator can act; others just browse the comparison and wait. */}
+            {!canReview && (
+              <span className="text-xs text-gray-500 mr-1">
+                Waiting for the collaborator who started this to review…
+              </span>
+            )}
+            {canReview && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                disabled={verifying}
+                className={`${footerBtn} border border-purple-200 text-purple-700 hover:bg-purple-50`}
+              >
+                Regenerate
+              </button>
+            )}
             {!isLast ? (
               <>
                 <button
@@ -241,14 +256,16 @@ export default function VerifyScriptModal({
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={onProceed}
-                disabled={verifying || loading}
-                className={`${footerBtn} text-white bg-purple-600 hover:bg-purple-700`}
-              >
-                {verifying ? "Proceeding…" : "Proceed"}
-              </button>
+              canReview && (
+                <button
+                  type="button"
+                  onClick={onProceed}
+                  disabled={verifying || loading}
+                  className={`${footerBtn} text-white bg-purple-600 hover:bg-purple-700`}
+                >
+                  {verifying ? "Proceeding…" : "Proceed"}
+                </button>
+              )
             )}
           </div>
         </footer>

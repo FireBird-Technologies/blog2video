@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, inspect, text, update
+from sqlalchemy import func, inspect, text, update, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -191,9 +191,38 @@ def _build_review_state(project: Project, user: User, db: Session) -> ReviewStat
 
 
 def _prepare_project_response(project: Project, user: User, db: Session) -> Project:
+    from app.models.user import PlanTier
     _inject_custom_theme(project)
     project.review_state = _build_review_state(project, user, db)
+    project.is_shared = _project_is_shared(project, db)
+    # Expose the OWNER's paid-plan status so a collaborator gates Pro-only features
+    # (custom/crafted templates, paid voices) on the owner's plan — the owner pays.
+    # Also expose the owner's display name so a collaborator's settings pop-ups can
+    # attribute the owner's templates/voices to them.
+    owner = db.query(User).filter(User.id == project.user_id).first()
+    project.owner_is_pro = bool(owner and owner.plan in (PlanTier.STANDARD, PlanTier.PRO))
+    project.owner_name = owner.name if owner else None
     return project
+
+
+def _project_is_shared(project: Project, db: Session) -> bool:
+    """True when the project has ≥1 member other than the owner.
+
+    Counts any invited member regardless of status (pending or accepted), excluding
+    the owner's own OWNER membership row, so the comment affordance appears as soon
+    as someone is invited.
+    """
+    from app.models.project_member import ProjectMember, MemberRole, MemberStatus
+    return (
+        db.query(ProjectMember.id)
+        .filter(
+            ProjectMember.project_id == project.id,
+            ProjectMember.role != MemberRole.OWNER,
+            ProjectMember.status != MemberStatus.REVOKED,
+        )
+        .first()
+        is not None
+    )
 
 # ─── Constants ────────────────────────────────────────────
 _MAX_UPLOAD_FILES = 5
@@ -749,6 +778,13 @@ def _run_project_template_change_job(job_id: int) -> None:
         db.commit()
         if not finalized.rowcount:
             logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s already reaped; skipping completion", job_id)
+        else:
+            # Done — everyone in the room reloads to see the finished template + layouts.
+            # We can't exclude the actor here (the job stores the payer/owner, not the
+            # collaborator who triggered it), and the actor's own client is polling the
+            # job to completion anyway, so a redundant reload is harmless.
+            from app.routers.collab_ws import broadcast_project_reload
+            broadcast_project_reload(project.id)
     except Exception as e:
         logger.exception("[PROJECT_TEMPLATE_CHANGE] job=%s failed: %s", job_id, e)
         # Don't clobber a reaper that already failed/reverted this job.
@@ -760,6 +796,20 @@ def _run_project_template_change_job(job_id: int) -> None:
             job.status = "failed"
             job.error_message = str(e)
             job.completed_at = datetime.utcnow()
+            # Return the reserved video credit to the OWNER (job.user_id is the payer)
+            # and revert the project to its pre-change template/scenes, so a failed
+            # template change never leaves the owner charged for a video that wasn't
+            # produced. Mirrors the reaper's revert+refund, which only fires for jobs
+            # still in an active status (this one is now 'failed').
+            try:
+                _refund_video_credit(db, job.user_id)
+                project = db.query(Project).filter(Project.id == job.project_id).first()
+                if project is not None:
+                    _restore_template_change_snapshot(db, project, job.scene_snapshot)
+            except Exception:
+                logger.exception(
+                    "[PROJECT_TEMPLATE_CHANGE] job=%s refund/revert after failure failed", job_id
+                )
             db.commit()
     finally:
         stall_recovery.clear("template", job_id)
@@ -886,6 +936,8 @@ def update_project(
                 detail="Captions require a voiceover. Add a voice to this video first.",
             )
 
+    from app.services.edit_tracker import new_change_set_id
+    _proj_change_set = new_change_set_id()
     for field, value in update_data.items():
         old_value = getattr(project, field)
 
@@ -896,12 +948,28 @@ def update_project(
             old_value=old_value,
             new_value=value,
             is_ai_assisted=False,
+            user_id=user.id,
+            change_set_id=_proj_change_set,
         )
 
         setattr(project, field, value)
 
+    from app.services.edit_tracker import prune_project_history
+    prune_project_history(db, project.id)
+
     db.commit()
     db.refresh(project)
+
+    # Push each change live to any collaborators connected on this project.
+    from app.routers.collab_ws import broadcast_project_edit
+    from app.services.collab_draft import PROJECT_EDITABLE_FIELDS
+    for field, value in update_data.items():
+        if field in PROJECT_EDITABLE_FIELDS:
+            broadcast_project_edit(
+                project.id, field, value,
+                user_id=user.id, name=user.name, change_set_id=_proj_change_set,
+            )
+
     return _prepare_project_response(project, user, db)
 
 
@@ -916,22 +984,50 @@ async def change_project_template_regenerate_layouts(
     db: Session = Depends(get_db),
 ):
     project = _get_user_project(project_id, user.id, db)
-    user.roll_video_period_if_due(db)
-    user.sync_video_limit_bonus(db)
-    if not user.can_create_video:
+    # Only one long-running job per project across all types (another user may have
+    # started a template change, script/voice regen, or render).
+    _assert_no_active_job(project.id, db)
+    # Owner pays: on a shared project the video-credit quota is charged to the
+    # OWNER, not the acting collaborator (a FREE collaborator regenerating a PRO
+    # owner's video consumes the owner's allotment).
+    from app.services.access import project_owner, video_limit_message
+    payer = project_owner(project, db)
+    payer.roll_video_period_if_due(db)
+    payer.sync_video_limit_bonus(db)
+    if not payer.can_create_video:
         raise HTTPException(
             status_code=403,
-            detail=f"Video limit reached ({user.video_limit}). Upgrade to continue regenerating videos.",
+            detail=video_limit_message(payer, user, "change the template"),
         )
-    target_template = validate_template_id(body.template, db=db, user_id=user.id)
+    # Custom/crafted templates are OWNER-scoped. On a shared project the collaborator
+    # picks from the OWNER's templates (that's what the picker shows), so resolve the
+    # target against the OWNER, not the acting user.
+    #
+    # A custom/crafted template the owner does NOT own must FAIL loudly here rather
+    # than silently downgrade to "default": validate_template_id() returns "default"
+    # for an inaccessible custom template, which would otherwise (a) change the
+    # project to the wrong template and (b) leave the owner charged a video credit.
+    # This check runs BEFORE the credit is deducted below, so a rejection charges
+    # nothing — the owner's video count is preserved.
+    requested_template = (body.template or "").strip()
+    if is_custom_template(requested_template) or is_crafted_template(requested_template):
+        owns_requested = (
+            _load_custom_template_data(requested_template, db=db, user_id=project.user_id)
+            is not None
+        )
+        if not owns_requested:
+            raise HTTPException(
+                status_code=403,
+                detail="This project's owner does not have access to the selected template.",
+            )
+    target_template = validate_template_id(body.template, db=db, user_id=project.user_id)
     if target_template == project.template:
         raise HTTPException(status_code=400, detail="Project is already using this template.")
-    # Custom templates are usable on any plan (incl. Free) — gated by video credits and
-    # the template-creation cap, not subscription tier. See create_project.
-    if is_crafted_template(target_template) and not validate_crafted_template_access(target_template, user.id, db):
+    # Belt-and-suspenders: crafted templates additionally gate on an active entitlement.
+    if is_crafted_template(target_template) and not validate_crafted_template_access(target_template, project.user_id, db):
         raise HTTPException(
             status_code=403,
-            detail="You do not have access to this crafted template.",
+            detail="This project's owner does not have access to this crafted template.",
         )
 
     active_job = (
@@ -949,21 +1045,46 @@ async def change_project_template_regenerate_layouts(
             detail="A template-change regeneration job is already running for this project.",
         )
 
-    total_scenes = db.query(Scene).filter(Scene.project_id == project.id).count()
+    total_scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project.id, Scene.is_active == True)  # noqa: E712
+        .count()
+    )
     job = ProjectTemplateChangeJob(
         project_id=project.id,
-        user_id=user.id,
+        # The job's user is the PAYER (project owner). Charge and refund both key off
+        # this, so a collaborator's edits consume the owner's allotment, and any
+        # refund on failure returns to the owner.
+        user_id=payer.id,
         target_template=target_template,
         status="queued",
         total_scenes=total_scenes,
         processed_scenes=0,
     )
     db.add(job)
-    user.videos_used_this_period += 1
+    payer.videos_used_this_period += 1
     # Surface "generating" state during relayout via existing status pipeline.
     project.status = ProjectStatus.GENERATING
+    # Log a non-revertable history entry for the template change (visibility only).
+    from app.services.edit_tracker import log_project_event, prune_project_history
+    log_project_event(
+        db, project_id=project.id,
+        label=f"Template changed to {target_template}",
+        user_id=user.id,
+    )
+    prune_project_history(db, project.id)
     db.commit()
     db.refresh(job)
+
+    # Tell live collaborators to refetch so they see the "generating" state as the
+    # template regeneration begins (it rewrites colors + every scene's layout).
+    # Exclude the acting user — they already transitioned locally. This endpoint is
+    # async (runs on the event loop), so await the broadcast directly rather than via
+    # the sync helper (run_coroutine_threadsafe is for calls from OTHER threads).
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project.id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
 
     # Match pipeline behavior: run in asyncio-managed executor.
     loop = asyncio.get_event_loop()
@@ -1318,6 +1439,72 @@ def _seconds_since(dt: datetime | None) -> float:
     if dt is None:
         return float("inf")
     return (datetime.utcnow() - dt).total_seconds()
+
+
+def _assert_no_active_job(project_id: int, db: Session, *, include_render: bool = True) -> None:
+    """Enforce one long-running job per project across ALL job types.
+
+    Only one of {template change, script regeneration, voice change / voiceover
+    delete, render} may run for a project at a time. If any is currently active
+    (and not stalled past its threshold), reject the new request with 409 so a
+    second collaborator's concurrent start is refused rather than clobbering the
+    first. Stale/orphaned jobs (no heartbeat past the stall threshold) are treated
+    as inactive — the boot/stall reapers clean those up.
+
+    ``include_render=False`` skips the render-in-progress check — used by the render
+    endpoint itself, which owns its own re-render/already-rendering handling and must
+    not be blocked by its own RENDERING status.
+    """
+    # Template change
+    tpl = (
+        db.query(ProjectTemplateChangeJob)
+        .filter(
+            ProjectTemplateChangeJob.project_id == project_id,
+            ProjectTemplateChangeJob.status.in_(_ACTIVE_TEMPLATE_CHANGE_STATUSES),
+        )
+        .order_by(ProjectTemplateChangeJob.id.desc())
+        .first()
+    )
+    if tpl and _seconds_since(tpl.updated_at) < settings.STALL_THRESHOLD_TEMPLATE_SECONDS:
+        raise HTTPException(status_code=409, detail="A job is already running for this project.")
+
+    # Script regeneration (includes the awaiting_review pause — still an open job)
+    script = (
+        db.query(ProjectRegenerateScriptJob)
+        .filter(
+            ProjectRegenerateScriptJob.project_id == project_id,
+            ProjectRegenerateScriptJob.status.in_(_ACTIVE_REGENERATE_SCRIPT_STATUSES),
+        )
+        .order_by(ProjectRegenerateScriptJob.id.desc())
+        .first()
+    )
+    if script:
+        # awaiting_review has no worker heartbeat, so it never "stalls" — always block.
+        if script.status == "awaiting_review" or _seconds_since(script.updated_at) < settings.STALL_THRESHOLD_SCRIPT_SECONDS:
+            raise HTTPException(status_code=409, detail="A job is already running for this project.")
+
+    # Voice change / voiceover delete (shared ProjectVoiceChangeJob table + in-memory bar)
+    voice = (
+        db.query(ProjectVoiceChangeJob)
+        .filter(
+            ProjectVoiceChangeJob.project_id == project_id,
+            ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES),
+        )
+        .order_by(ProjectVoiceChangeJob.id.desc())
+        .first()
+    )
+    if voice and _seconds_since(voice.updated_at) < settings.STALL_THRESHOLD_VOICE_SECONDS:
+        raise HTTPException(status_code=409, detail="A job is already running for this project.")
+    from app.services import voice_change_progress
+    vprog = voice_change_progress.get(project_id)
+    if vprog and not vprog.get("done", True):
+        raise HTTPException(status_code=409, detail="A job is already running for this project.")
+
+    # Render
+    if include_render:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if project is not None and project.status == ProjectStatus.RENDERING and not project.r2_video_url:
+            raise HTTPException(status_code=409, detail="A job is already running for this project.")
 
 
 def _refund_video_credit(db: Session, user_id: int) -> None:
@@ -2165,6 +2352,13 @@ def _run_regenerate_script_stage_b(job_id: int) -> None:
         db.commit()
         if not finalized.rowcount:
             logger.warning("[REGENERATE_SCRIPT_JOB] stage B job=%s already reaped; skipping completion", job_id)
+        else:
+            # Done — everyone in the room reloads to see the regenerated script + audio.
+            # We can't exclude the actor (the job stores the payer/owner, not the
+            # collaborator who triggered it), and the actor is polling to completion
+            # anyway, so a redundant reload is harmless.
+            from app.routers.collab_ws import broadcast_project_reload
+            broadcast_project_reload(project.id)
 
         # Success — the new audio is committed, drop the backup.
         _cleanup_audio_backup(job_project_id, job_id)
@@ -2238,6 +2432,10 @@ async def regenerate_script(
 
     project = _get_user_project(project_id, user.id, db)
 
+    # Only one long-running job per project across all types (another user may have
+    # started a template change, voice regen, or render).
+    _assert_no_active_job(project.id, db)
+
     active_job = (
         db.query(ProjectRegenerateScriptJob)
         .filter(
@@ -2250,17 +2448,24 @@ async def regenerate_script(
     if active_job:
         raise HTTPException(status_code=409, detail="A script regeneration job is already running for this project.")
 
-    user.roll_video_period_if_due(db)
-    user.sync_video_limit_bonus(db)
-    if not user.can_create_video:
+    # Owner pays: on a shared project the video credit is charged to the OWNER, not
+    # the acting collaborator.
+    from app.services.access import project_owner, video_limit_message
+    payer = project_owner(project, db)
+    payer.roll_video_period_if_due(db)
+    payer.sync_video_limit_bonus(db)
+    if not payer.can_create_video:
         raise HTTPException(
             status_code=403,
-            detail=f"Video limit reached ({user.video_limit}). Upgrade to continue regenerating.",
+            detail=video_limit_message(payer, user, "regenerate the script"),
         )
 
+    # Snapshot only ACTIVE scenes — soft-deleted scenes are hidden from the user, so the
+    # awaiting-review comparison must show them on neither side (the "new" scenes come
+    # from the active-only project.scenes relationship).
     scenes = (
         db.query(Scene)
-        .filter(Scene.project_id == project.id)
+        .filter(Scene.project_id == project.id, Scene.is_active == True)  # noqa: E712
         .order_by(Scene.order)
         .all()
     )
@@ -2290,7 +2495,10 @@ async def regenerate_script(
 
     job = ProjectRegenerateScriptJob(
         project_id=project.id,
-        user_id=user.id,
+        # Payer = project owner. Charge and refund both key off this.
+        user_id=payer.id,
+        # The collaborator who initiated the regen — only they may approve/regenerate.
+        initiated_by_user_id=user.id,
         status="queued",
         current_step="analyzing_instruction",
         total_scenes=0,
@@ -2301,11 +2509,25 @@ async def regenerate_script(
     db.add(job)
     project.status = ProjectStatus.SCRIPT_REGENERATING
     # Reserve the video credit upfront (same as new-project creation) so a concurrent
-    # generation can't double-spend the user's last credit. Refunded on any failure
-    # (in-job exception or crash recovery); kept once the regeneration succeeds.
-    user.videos_used_this_period += 1
+    # generation can't double-spend the last credit. Refunded on any failure (in-job
+    # exception or crash recovery); kept once the regeneration succeeds.
+    payer.videos_used_this_period += 1
+    # Log a non-revertable history entry for the script regeneration.
+    from app.services.edit_tracker import log_project_event, prune_project_history
+    log_project_event(
+        db, project_id=project.id, label="Script regenerated", user_id=user.id,
+    )
+    prune_project_history(db, project.id)
     db.commit()
     db.refresh(job)
+
+    # Tell live collaborators to refetch so they see the script regeneration start.
+    # Exclude the acting user — they already transitioned locally. Async endpoint →
+    # await the broadcast directly (see change_project_template_regenerate_layouts).
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project.id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
 
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
@@ -2337,7 +2559,11 @@ def get_regenerate_script_status(
 
 
 def _get_awaiting_review_job(project_id: int, user_id: int, db: Session) -> ProjectRegenerateScriptJob:
-    """Fetch the latest regenerate-script job for the project, asserting it is paused for review."""
+    """Fetch the latest regenerate-script job for the project, asserting it is paused for review.
+
+    Only the collaborator who INITIATED the regeneration may approve/regenerate it, so
+    other collaborators viewing the review can't act on someone else's pending script.
+    """
     _ = _get_user_project(project_id, user_id, db)
     job = (
         db.query(ProjectRegenerateScriptJob)
@@ -2349,6 +2575,13 @@ def _get_awaiting_review_job(project_id: int, user_id: int, db: Session) -> Proj
         raise HTTPException(
             status_code=409,
             detail="No script regeneration is awaiting review for this project.",
+        )
+    # Enforce actor-only review. Legacy jobs (created before this column existed) have
+    # a null initiator — fall back to allowing any editor so they aren't permanently stuck.
+    if job.initiated_by_user_id is not None and job.initiated_by_user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the collaborator who started this script regeneration can review it.",
         )
     return job
 
@@ -2405,6 +2638,14 @@ async def verify_regenerate_script(
     db.commit()
     db.refresh(job)
 
+    # Tell live collaborators to refetch as scene/voiceover generation begins.
+    # Exclude the acting user — they already transitioned locally. Async endpoint →
+    # await the broadcast directly.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
+
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _run_regenerate_script_stage_b, job.id)
     return job
@@ -2449,6 +2690,14 @@ async def reject_regenerate_script(
         project.status = ProjectStatus.SCRIPT_REGENERATING
     db.commit()
     db.refresh(job)
+
+    if project:
+        # Exclude the acting user — they already transitioned locally. Async endpoint →
+        # await the broadcast directly.
+        from app.routers.collab_ws import collab_manager
+        await collab_manager.broadcast(
+            project.id, {"type": "project_reloaded"}, exclude_user_id=user.id
+        )
 
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _run_regenerate_script_stage_a, job.id)
@@ -2881,22 +3130,48 @@ def list_projects(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all projects for the current user. Single query with scene count subquery."""
+    """List projects the user owns OR collaborates on. Scene count via subquery."""
+    from app.models.project_member import ProjectMember, MemberStatus
+    from app.models.user import User as _User
+
     scene_counts = (
         db.query(Scene.project_id, func.count(Scene.id).label("cnt"))
+        .filter(Scene.is_active == True)  # noqa: E712  exclude soft-deleted scenes
         .group_by(Scene.project_id)
         .subquery()
     )
+
+    # Project ids where the user is an accepted collaborator (excludes their own
+    # OWNER rows, which are covered by the ownership filter below).
+    shared_ids = {
+        pid
+        for (pid,) in db.query(ProjectMember.project_id).filter(
+            ProjectMember.user_id == user.id,
+            ProjectMember.status == MemberStatus.ACCEPTED,
+        )
+    }
+
     rows = (
         db.query(
             Project,
             func.coalesce(scene_counts.c.cnt, 0).label("scene_count"),
         )
         .outerjoin(scene_counts, Project.id == scene_counts.c.project_id)
-        .filter(Project.user_id == user.id, Project.is_active == True)  # noqa: E712
+        .filter(
+            Project.is_active == True,  # noqa: E712
+            or_(Project.user_id == user.id, Project.id.in_(shared_ids) if shared_ids else False),
+        )
         .order_by(Project.created_at.desc())
         .all()
     )
+
+    # Resolve owner display names for shared projects (for "Shared by X" labels).
+    owner_ids = {p.user_id for p, _ in rows if p.user_id != user.id}
+    owner_names = {
+        u.id: u.name
+        for u in db.query(_User).filter(_User.id.in_(owner_ids)).all()
+    } if owner_ids else {}
+
     return [
         ProjectListOut(
             id=p.id,
@@ -2906,6 +3181,8 @@ def list_projects(
             created_at=p.created_at,
             updated_at=p.updated_at,
             scene_count=int(scene_count),
+            role="owner" if p.user_id == user.id else "editor",
+            owner_name=None if p.user_id == user.id else owner_names.get(p.user_id),
         )
         for p, scene_count in rows
     ]
@@ -2990,7 +3267,8 @@ def delete_project(
     db: Session = Depends(get_db),
 ):
     """Manually delete a project row from DB and remove all project storage."""
-    project = _get_user_project(project_id, user.id, db)
+    # Owner-only: collaborators may edit but must not delete a shared project.
+    project = _get_user_project(project_id, user.id, db, required_role="owner")
 
     # Ensure any active render subprocess is terminated before deleting files/DB row.
     try:
@@ -3170,10 +3448,13 @@ def delete_asset(
 MANUAL_TRACKED_FIELDS = {
     "title",
     "display_text",
-    "remotion_code",
+    "remotion_code",  # carries per-scene font sizes, colors, and layout in its descriptor JSON
     "narration_text",
+    "visual_description",
+    "duration_seconds",
     "extra_hold_seconds",
     "bgm_volume",
+    "preferred_layout",
 }
 
 
@@ -3247,6 +3528,11 @@ def update_scene(
         raise HTTPException(status_code=404, detail="Scene not found")
 
     update_data = data.model_dump(exclude_unset=True)
+    # Group every field changed by this one request into a single change-set so
+    # they preview and revert atomically, attributed to the acting user.
+    from app.services.edit_tracker import new_change_set_id
+    change_set_id = new_change_set_id()
+    _broadcast_changes: list[tuple[str, object]] = []
     for key, value in update_data.items():
         if key not in MANUAL_TRACKED_FIELDS:
             continue
@@ -3256,6 +3542,19 @@ def update_scene(
                 parsed_descriptor = json.loads(value)
                 if isinstance(parsed_descriptor, dict):
                     value = json.dumps(_sanitize_descriptor_for_data_viz(parsed_descriptor))
+                    # Skip when the descriptor is semantically unchanged: the frontend
+                    # always re-sends remotion_code even for a title-only edit, and
+                    # re-serialization (key order / whitespace / sanitization) can
+                    # differ from the stored string. Compare parsed dicts, not strings,
+                    # so we don't record a spurious remotion_code edit.
+                    old_raw = getattr(scene, key)
+                    try:
+                        old_parsed = json.loads(old_raw) if old_raw else None
+                    except Exception:
+                        old_parsed = None
+                    new_parsed = json.loads(value)
+                    if old_parsed == new_parsed:
+                        continue
             except Exception:
                 pass
 
@@ -3269,12 +3568,28 @@ def update_scene(
             old_value=old_value,
             new_value=value,
             is_ai_assisted=False,
+            user_id=user.id,
+            change_set_id=change_set_id,
         )
 
         setattr(scene, key, value)
+        _broadcast_changes.append((key, value))
+
+    from app.services.edit_tracker import prune_project_history
+    prune_project_history(db, project.id)
 
     db.commit()
     db.refresh(scene)
+
+    # Push each change live to any collaborators connected on this project.
+    from app.routers.collab_ws import broadcast_scene_edit
+    from app.services.collab_draft import SCENE_EDITABLE_FIELDS
+    for key, value in _broadcast_changes:
+        if key in SCENE_EDITABLE_FIELDS:
+            broadcast_scene_edit(
+                project.id, scene.id, key, value,
+                user_id=user.id, name=user.name, change_set_id=change_set_id,
+            )
 
     # Keep remotion-workspace in sync so preview/render use latest props
     try:
@@ -3311,6 +3626,8 @@ def bulk_update_scene_typography(
         .all()
     )
 
+    from app.services.edit_tracker import new_change_set_id
+    _typo_change_set = new_change_set_id()
     for scene in scenes:
         if not scene.remotion_code:
             continue
@@ -3344,6 +3661,8 @@ def bulk_update_scene_typography(
                         old_value=scene.remotion_code,
                         new_value=json.dumps(_sanitize_descriptor_for_data_viz(descriptor)),
                         is_ai_assisted=False,
+                        user_id=user.id,
+                        change_set_id=_typo_change_set,
                     )
         scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
@@ -3368,38 +3687,63 @@ def delete_scene(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a scene and renumber remaining scenes. Rebuilds Remotion workspace."""
+    """Soft-delete a scene (mark inactive), tracked so it can be reverted/redone.
+
+    The scene row and its voiceover/image assets are kept in the DB; the deletion is
+    recorded in the edit history as an ``is_active`` True→False change, so it shows in
+    the history panel and un-delete is a normal one-field revert. ``order`` is left
+    untouched (gaps allowed) so a revert restores the scene to its original position.
+    """
     from app.services.remotion import rebuild_workspace
+    from app.services.edit_tracker import new_change_set_id, prune_project_history
 
     project = _get_user_project(project_id, user.id, db)
 
     scene = (
         db.query(Scene)
-        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id, Scene.is_active == True)  # noqa: E712
         .first()
     )
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
 
-    db.delete(scene)
+    scene.is_active = False
+    # Track the deletion in the GLOBAL (project) history, not the scene's own history —
+    # a deleted scene has no reachable scene tab, so its restore control must live in
+    # Global Edits. The scene_id it targets is carried in the JSON value (ProjectEditHistory
+    # has no scene_id column); the revert engine restores is_active from it. old/new encode
+    # active→deleted so revert un-deletes and redo re-deletes.
+    from app.services.edit_tracker import track_project_edit
+    track_project_edit(
+        db,
+        project_id=project_id,
+        field_name="scene_deleted",
+        old_value=json.dumps({"scene_id": scene_id, "is_active": True, "title": scene.title}),
+        new_value=json.dumps({"scene_id": scene_id, "is_active": False, "title": scene.title}),
+        user_id=user.id,
+        change_set_id=new_change_set_id(),
+    )
+    prune_project_history(db, project.id)
     db.commit()
 
     remaining = (
         db.query(Scene)
-        .filter(Scene.project_id == project_id)
+        .filter(Scene.project_id == project_id, Scene.is_active == True)  # noqa: E712
         .order_by(Scene.order)
         .all()
     )
-    for i, s in enumerate(remaining, 1):
-        s.order = i
-    db.commit()
-    for s in remaining:
-        db.refresh(s)
-
     try:
         rebuild_workspace(project, remaining, db)
     except Exception as e:
         print(f"[PROJECTS] Warning: Failed to rebuild workspace after scene delete for project {project_id}: {e}")
+
+    # A soft-delete removes the scene from every collaborator's list — a structural
+    # change the field-level edit broadcast can't express, so trigger a re-sync.
+    try:
+        from app.routers.collab_ws import broadcast_project_reload
+        broadcast_project_reload(project_id, exclude_user_id=user.id)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: delete broadcast failed for project {project_id}: {e}")
 
     return None
 
@@ -3900,45 +4244,110 @@ def reorder_scenes(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Reorder scenes by updating their order values."""
+    """Reorder scenes by updating their order values.
+
+    The client only knows about ACTIVE scenes and sends their new positions. To keep
+    ``order`` globally unique across ALL scenes (active + soft-deleted) — required
+    because renders key audio files on ``scene.order`` (``audio_scene_{order}.mp3``)
+    and a soft-deleted scene must never collide with an active one — we renumber the
+    FULL scene set. Each inactive scene keeps its relative position (it stays wedged
+    just after the scene it currently follows), so a reverted scene reappears in place.
+    """
     from app.models.scene import Scene
-    from app.services.remotion import rebuild_workspace
-    
+    from app.services.edit_tracker import (
+        track_project_edit,
+        new_change_set_id,
+        prune_project_history,
+    )
+
     project = _get_user_project(project_id, user.id, db)
-    
-    # Get all scenes for this project
-    scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
-    scene_map = {s.id: s for s in scenes}
-    
-    # Validate all scene_ids belong to project
+
+    # ALL scenes (active + inactive) — we renumber the whole set to keep order unique.
+    all_scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
+    scene_map = {s.id: s for s in all_scenes}
+
+    # Snapshot the current global order (all scenes, keyed by id) so the reorder can be
+    # tracked and reverted back to exactly this ordering. Titles are captured too so the
+    # history UI can show which scene moved where (titles don't change on reorder).
+    old_order_map = {s.id: s.order for s in all_scenes}
+    title_map = {s.id: (s.title or "") for s in all_scenes}
+    # Which scenes are active — the history UI lists only active scenes (soft-deleted
+    # ones are hidden), while orders still cover ALL scenes for an accurate revert.
+    active_map = {s.id: bool(s.is_active) for s in all_scenes}
+
+    # Validate every requested id is an ACTIVE scene of this project (the client only
+    # reorders active scenes; inactive ones are not addressable).
     for item in data.scene_orders:
-        if item.scene_id not in scene_map:
+        target = scene_map.get(item.scene_id)
+        if target is None or not target.is_active:
             raise HTTPException(status_code=404, detail=f"Scene {item.scene_id} not found")
-    
-    # Update orders
-    for item in data.scene_orders:
-        scene_map[item.scene_id].order = item.order
-    
-    # Ensure sequential ordering (1, 2, 3...)
-    sorted_scenes = sorted(scenes, key=lambda s: s.order)
-    for i, scene in enumerate(sorted_scenes, 1):
+
+    # New rank for each active scene from the request (its position among active
+    # scenes only, 1..N in the client's requested order).
+    active_new_rank = {item.scene_id: item.order for item in data.scene_orders}
+
+    # Build the new active order (list of active scene ids, best-first).
+    active_scenes = [s for s in all_scenes if s.is_active]
+    active_ordered = sorted(active_scenes, key=lambda s: active_new_rank.get(s.id, s.order))
+
+    # Anchor each inactive scene to the active scene it currently follows, so it keeps
+    # its relative position across the reorder. Using the OLD global order, find, for
+    # each inactive scene, the nearest active scene that precedes it; the inactive
+    # scene will be re-inserted right after that same active scene's new position
+    # (inactive scenes before any active one go to the front).
+    old_global = sorted(all_scenes, key=lambda s: s.order)
+    anchor_after: dict[int, list[Scene]] = {}  # active scene id (or 0=front) -> inactive scenes
+    last_active_id = 0
+    for s in old_global:
+        if s.is_active:
+            last_active_id = s.id
+        else:
+            anchor_after.setdefault(last_active_id, []).append(s)
+
+    # Interleave: front-anchored inactive scenes, then each active scene followed by
+    # the inactive scenes anchored to it, then renumber the whole sequence uniquely.
+    sequenced: list[Scene] = list(anchor_after.get(0, []))
+    for a in active_ordered:
+        sequenced.append(a)
+        sequenced.extend(anchor_after.get(a.id, []))
+    for i, scene in enumerate(sequenced, 1):
         scene.order = i
-    
+
+    # Track the reorder as a single revertable project-level history entry. old/new hold
+    # {"orders": {scene_id: order}, "titles": {scene_id: title}} over ALL scenes; revert
+    # restores the old orders and the UI uses titles to show which scene moved where. This
+    # is project-scoped (not tied to one scene) so it survives as long as the project does
+    # and reverts every scene's order together. No-op reorders are skipped (old == new) —
+    # titles are identical on both sides, so only the orders differing triggers a record.
+    new_order_map = {s.id: s.order for s in all_scenes}
+    track_project_edit(
+        db,
+        project_id=project_id,
+        field_name="scene_order",
+        old_value=json.dumps({"orders": old_order_map, "titles": title_map, "active": active_map}),
+        new_value=json.dumps({"orders": new_order_map, "titles": title_map, "active": active_map}),
+        user_id=user.id,
+        change_set_id=new_change_set_id(),
+    )
+    prune_project_history(db, project.id)
+
     db.commit()
-    
-    # Refresh all scenes
-    for scene in sorted_scenes:
+    for scene in sequenced:
         db.refresh(scene)
 
-    # Ensure the per-project Remotion workspace reflects the new order
-    # (rendering uses the workspace files; without this, renders can use stale data.json/audio copies)
+    active_sorted = [s for s in sequenced if s.is_active]
+
+    # Reordering only updates the scenes' `order` in the DB. The Remotion workspace is
+    # rebuilt from the DB at render time, so we deliberately do NOT rebuild it here.
+
+    # Broadcast the structural change so collaborators re-sync their scene list.
     try:
-        rebuild_workspace(project, sorted_scenes, db)
+        from app.routers.collab_ws import broadcast_project_reload
+        broadcast_project_reload(project_id, exclude_user_id=user.id)
     except Exception as e:
-        # Don't fail the reorder if workspace rebuild fails; UI can still reflect DB order.
-        print(f"[PROJECTS] Warning: Failed to rebuild workspace after reorder for project {project_id}: {e}")
-    
-    return sorted_scenes
+        print(f"[PROJECTS] Warning: reorder broadcast failed for project {project_id}: {e}")
+
+    return active_sorted
 
 
 @router.post("/{project_id}/scenes/{scene_id}/regenerate", response_model=SceneOut)
@@ -3965,15 +4374,24 @@ async def regenerate_scene(
     from app.services.remotion import rebuild_workspace
     
     project = _get_user_project(project_id, user.id, db)
-    
+
+    # Owner pays: the AI-editing entitlement/limit is charged to the project OWNER,
+    # so a FREE collaborator inherits the owner's plan on a shared project.
+    from app.services.access import project_owner
+    from app.services.edit_tracker import new_change_set_id
+    payer = project_owner(project, db)
+    # Group every field this AI regeneration touches into one change-set, attributed
+    # to the acting user, so the whole regen previews and reverts as a single unit.
+    _regen_change_set = new_change_set_id()
+
     # Check usage limits
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         if project.ai_assisted_editing_count >= 3:
             raise HTTPException(
                 status_code=403,
                 detail="AI editing limit reached (3 uses per project). Upgrade to Pro or Standard for unlimited AI edits."
             )
-    
+
     scene = (
         db.query(Scene)
         .filter(Scene.id == scene_id, Scene.project_id == project_id)
@@ -4070,6 +4488,8 @@ async def regenerate_scene(
                         new_value=scene.narration_text,
                         is_ai_assisted=True,
                         user_instruction=narration_text,
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
     else:
         # Prefer existing display_text when present; otherwise fall back to narration_text.
@@ -4147,7 +4567,9 @@ async def regenerate_scene(
             new_value=scene.remotion_code,
             is_ai_assisted=True,
             user_instruction=f"Variant switch to {normalized_layout}",
-        )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
             project.ai_assisted_editing_count += 1
@@ -4205,7 +4627,9 @@ async def regenerate_scene(
             new_value=scene.remotion_code,
             is_ai_assisted=True,
             user_instruction=f"Layout switch to {normalized_layout}",
-        )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
             project.ai_assisted_editing_count += 1
@@ -4351,6 +4775,8 @@ async def regenerate_scene(
                         new_value=new_visual_description,
                         is_ai_assisted=True,
                         user_instruction=description,
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
         
         # Update display_text only; narration_text remains the narration script.
@@ -4365,7 +4791,9 @@ async def regenerate_scene(
                             new_value=new_display_text,
                             is_ai_assisted=True,
                             user_instruction=narration_text,
-                        )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
         # If variant switch + description: stamp the variant override after AI regen
         if is_variant_switch and normalized_layout:
             if normalized_layout == "intro":
@@ -4389,6 +4817,8 @@ async def regenerate_scene(
                         new_value=scene.remotion_code,
                         is_ai_assisted=True,
                         user_instruction=description,
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
         db.commit()
     else:
@@ -4403,6 +4833,8 @@ async def regenerate_scene(
                         new_value=new_visual_description,
                         is_ai_assisted=True,
                         user_instruction=description,
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
         if hasattr(scene, "display_text"):
             scene.display_text = new_display_text
@@ -4415,7 +4847,9 @@ async def regenerate_scene(
                             new_value=new_display_text,
                             is_ai_assisted=True,
                             user_instruction=narration_text,
-                        )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
         db.commit()
 
     # Regenerate voiceover only if requested
@@ -4458,7 +4892,9 @@ async def regenerate_scene(
                 new_value=expanded_voiceover,
                 is_ai_assisted=True,
                 user_instruction="AI-expanded narration for voiceover",
-            )
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
+                    )
             db.commit()
 
         track_scene_edit(
@@ -4470,6 +4906,8 @@ async def regenerate_scene(
                         new_value="regenerated",
                         is_ai_assisted=not verbatim,
                         user_instruction="Regenerated voiceover via API",
+                        user_id=user.id,
+                        change_set_id=_regen_change_set,
                     )
         db.commit()
 
@@ -4488,16 +4926,19 @@ async def regenerate_scene(
     return scene
 
 
-def _get_user_project(project_id: int, user_id: int, db: Session) -> Project:
-    """Get a project owned by the given user, or raise 404."""
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user_id, Project.is_active == True)  # noqa: E712
-        .first()
-    )
-    if not project:
+def _get_user_project(project_id: int, user_id: int, db: Session, *, required_role: str = "editor") -> Project:
+    """Get a project the user may access (owner or accepted collaborator), or 404.
+
+    Delegates to the membership-aware access resolver so all ~35 call sites gain
+    collaborator support. ``required_role="owner"`` for owner-only actions.
+    """
+    from app.services.access import get_accessible_project
+    from app.models.user import User as _User
+
+    user = db.query(_User).filter(_User.id == user_id).first()
+    if user is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    return project
+    return get_accessible_project(project_id, user, db, required_role=required_role)
 
 
 async def _run_voice_change(project_id: int, job_id: int) -> None:
@@ -4625,7 +5066,17 @@ async def _run_voice_change(project_id: int, job_id: int) -> None:
         db.commit()
         if finalized.rowcount:
             _cleanup_audio_backup(project_id, job_id)
+            # Read the acting user BEFORE finish() so we can exclude them from the reload
+            # (their progress modal already soft-reloads on completion; a hard reload
+            # races their auth re-check and can spuriously log them out).
+            actor_id = (voice_change_progress.get(project_id) or {}).get("user_id")
             voice_change_progress.finish(project_id)
+            # Other collaborators reload to see the regenerated audio. Async background
+            # task (runs on the loop) → await the broadcast directly.
+            from app.routers.collab_ws import collab_manager
+            await collab_manager.broadcast(
+                project_id, {"type": "project_reloaded"}, exclude_user_id=actor_id
+            )
         else:
             logger.warning("[VOICE-CHANGE] job=%s already reaped; skipping completion", job_id)
             voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
@@ -4690,6 +5141,10 @@ async def change_project_voice(
 
     project = _get_user_project(project_id, user.id, db)
 
+    # Only one long-running job per project across all types (another user may have
+    # started a template change, script regen, or render).
+    _assert_no_active_job(project_id, db)
+
     # Don't start a second regeneration while one is already running. Check the DB job
     # (survives worker restarts) as well as the in-memory bar.
     active_job = (
@@ -4707,19 +5162,22 @@ async def change_project_voice(
     if existing and not existing.get("done", True):
         raise HTTPException(status_code=409, detail="A voice change is already in progress.")
 
+    user_row = db.query(User).filter(User.id == user.id).first()
+    if not user_row:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Owner pays: bill the OWNER's quota, not the acting collaborator's. ``user_row``
+    # (the actor) is still used below for voice-tuning gating + preference.
+    from app.services.access import project_owner, video_limit_message
+    payer = project_owner(project, db)
     # Align per-video credits with Stripe before the limit check (same as render).
-    user_row = db.query(User).filter(User.id == user.id).first()
-    if not user_row:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    user_row.roll_video_period_if_due(db)
-    user_row.sync_video_limit_bonus(db)
-    user_row = db.query(User).filter(User.id == user.id).first()
-    if not user_row:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    if not user_row.can_create_video:
+    payer.roll_video_period_if_due(db)
+    payer.sync_video_limit_bonus(db)
+    db.refresh(payer)
+    if not payer.can_create_video:
         raise HTTPException(
             status_code=403,
-            detail="Video limit reached. Changing the voice counts as a new video. Upgrade your plan or buy more credits to continue.",
+            detail=video_limit_message(payer, user, "change the voice"),
         )
 
     scenes = (
@@ -4755,28 +5213,46 @@ async def change_project_voice(
     if body.custom_voice_id is not None:
         project.custom_voice_id = body.custom_voice_id.strip() or None
     # Apply voice tuning when provided (Pro/Standard only; _resolve_voice_tuning raises 403 otherwise).
-    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(body.voice_emotion, user_row)
+    # Gate on the PAYER (owner) — on a shared project the owner's plan decides whether paid voice
+    # features are available, so a Free collaborator can use them on a paid owner's project.
+    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(body.voice_emotion, payer)
     project.voice_emotion = voice_tuning
     if voice_tuning_pref is not None:
         user_row.preferred_voice_emotion = voice_tuning_pref
 
-    # Deduct one video credit and mark the project as voice-regenerating.
-    user_row.videos_used_this_period += 1
+    # Deduct one video credit from the OWNER and mark the project as voice-regenerating.
+    payer.videos_used_this_period += 1
     project.status = ProjectStatus.VOICE_REGENERATING
     job = ProjectVoiceChangeJob(
         project_id=project_id,
-        user_id=user.id,
+        # Payer = project owner. Charge and refund both key off this.
+        user_id=payer.id,
         status="queued",
         total_scenes=len(scenes),
         processed_scenes=0,
         voice_snapshot=voice_snapshot,
     )
     db.add(job)
+    # Log a non-revertable history entry for the audio regeneration (attributed to actor).
+    from app.services.edit_tracker import log_project_event, prune_project_history
+    log_project_event(
+        db, project_id=project_id, label="Audio regenerated (voice change)", user_id=user.id,
+    )
+    prune_project_history(db, project_id)
     db.commit()
     db.refresh(job)
 
-    # Seed progress and kick off regeneration in the background.
-    voice_change_progress.start(project_id, len(scenes))
+    # Tell live collaborators to refetch so they see the voice regeneration start.
+    # Exclude the acting user — they already transitioned locally. Async endpoint →
+    # await the broadcast directly.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
+
+    # Seed progress and kick off regeneration in the background. Record the acting
+    # user so the completion reload can exclude them (their modal handles completion).
+    voice_change_progress.start(project_id, len(scenes), user_id=user.id)
     background_tasks.add_task(_run_voice_change, project_id, job.id)
 
     return {"started": True, "total": len(scenes)}
@@ -4994,7 +5470,17 @@ async def _run_delete_voiceover(project_id: int, job_id: int) -> None:
         db.commit()
         if finalized.rowcount:
             _cleanup_audio_backup(project_id, backup_id)
+            # Read the acting user BEFORE finish() so we can exclude them from the reload
+            # (their progress modal already soft-reloads; a hard reload races their auth
+            # re-check and can spuriously log them out).
+            actor_id = (voice_change_progress.get(project_id) or {}).get("user_id")
             voice_change_progress.finish(project_id)
+            # Other collaborators reload to see the voiceover removed. Async background
+            # task (runs on the loop) → await the broadcast directly.
+            from app.routers.collab_ws import collab_manager
+            await collab_manager.broadcast(
+                project_id, {"type": "project_reloaded"}, exclude_user_id=actor_id
+            )
         else:
             logger.warning("[DELETE-VOICEOVER] job=%s already reaped; skipping completion", job_id)
             voice_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
@@ -5048,6 +5534,10 @@ async def delete_project_voiceover(
     # Already muted — nothing to do.
     if getattr(project, "voice_gender", None) == "none":
         return {"started": False, "total": 0}
+
+    # Only one long-running job per project across all types (another user may have
+    # started a template change, script/voice regen, or render).
+    _assert_no_active_job(project_id, db)
 
     # Don't strip audio while a voice change or another delete is running.
     active_job = (
@@ -5123,7 +5613,16 @@ async def delete_project_voiceover(
     db.commit()
     db.refresh(job)
 
-    voice_change_progress.start(project_id, len(scenes), kind="delete")
+    # Tell live collaborators to refetch so they see the voiceover removal start.
+    # Exclude the acting user — they already transitioned locally. Async endpoint →
+    # await the broadcast directly.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
+
+    # Record the acting user so the completion reload can exclude them.
+    voice_change_progress.start(project_id, len(scenes), kind="delete", user_id=user.id)
     background_tasks.add_task(_run_delete_voiceover, project_id, job.id)
     return {"started": True, "total": len(scenes)}
 

@@ -43,6 +43,19 @@ engine = create_engine(
     connect_args=connect_args,
     **engine_kwargs,
 )
+
+if IS_SQLITE:
+    # SQLite disables foreign-key enforcement per-connection by default, so
+    # ON DELETE CASCADE would not fire — deleting a project would orphan its
+    # members, edit history, comments, etc. Turn it on for every connection.
+    from sqlalchemy import event
+
+    @event.listens_for(engine, "connect")
+    def _sqlite_fk_pragma(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -283,6 +296,11 @@ def _migrate_sqlite(eng) -> None:
             "user_instruction": "TEXT",
             "is_ai_assisted": "BOOLEAN DEFAULT 0",
             "edited_at": "DATETIME",
+            "user_id": "INTEGER",
+            "change_set_id": "TEXT",
+            "target": "TEXT DEFAULT 'published'",
+            "reverted": "BOOLEAN DEFAULT 0",
+            "revert_of_change_set_id": "TEXT",
         }
         with eng.begin() as conn:
             for col_name, col_def in seh_migrations.items():
@@ -301,6 +319,11 @@ def _migrate_sqlite(eng) -> None:
             "new_value": "TEXT",
             "is_ai_assisted": "BOOLEAN DEFAULT 0",
             "edited_at": "DATETIME",
+            "user_id": "INTEGER",
+            "change_set_id": "TEXT",
+            "target": "TEXT DEFAULT 'published'",
+            "reverted": "BOOLEAN DEFAULT 0",
+            "revert_of_change_set_id": "TEXT",
         }
         with eng.begin() as conn:
             for col_name, col_def in peh_migrations.items():
@@ -399,6 +422,88 @@ def _migrate_sqlite(eng) -> None:
                     text("ALTER TABLE project_voice_change_jobs ADD COLUMN voice_snapshot TEXT")
                 )
 
+    # ─── Project members (collaboration ACL) ─────────────────────────
+    if "project_members" in insp.get_table_names():
+        pm_cols = {c["name"] for c in insp.get_columns("project_members")}
+        pm_migrations = {
+            "user_id": "INTEGER",
+            "invited_email": "VARCHAR(320)",
+            "role": "VARCHAR(20) DEFAULT 'editor'",
+            "status": "VARCHAR(20) DEFAULT 'pending'",
+            "invited_by_id": "INTEGER",
+            "invite_token": "VARCHAR(64)",
+            "error_message": "VARCHAR(500)",
+            "created_at": "DATETIME",
+            "accepted_at": "DATETIME",
+        }
+        with eng.begin() as conn:
+            for col_name, col_def in pm_migrations.items():
+                if col_name not in pm_cols:
+                    conn.execute(
+                        text(f"ALTER TABLE project_members ADD COLUMN {col_name} {col_def}")
+                    )
+
+    # ─── Scene comments (threaded replies) ───────────────────────────
+    if "scene_comments" in insp.get_table_names():
+        sc_cols = {c["name"] for c in insp.get_columns("scene_comments")}
+        # Nullable self-reference to the parent comment (null = root comment).
+        sc_migrations = {"parent_id": "INTEGER"}
+        with eng.begin() as conn:
+            for col_name, col_def in sc_migrations.items():
+                if col_name not in sc_cols:
+                    conn.execute(
+                        text(f"ALTER TABLE scene_comments ADD COLUMN {col_name} {col_def}")
+                    )
+
+
+def _backfill_owner_members(eng) -> None:
+    """Ensure every project has an OWNER ProjectMember row for its ``user_id``.
+
+    Idempotent: only inserts rows for projects that don't already have an OWNER
+    member. Runs after tables exist. Used on SQLite; the Alembic migration does
+    the equivalent for Postgres.
+    """
+    import uuid
+
+    insp = inspect(eng)
+    names = insp.get_table_names()
+    if "projects" not in names or "project_members" not in names:
+        return
+
+    with eng.begin() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT p.id AS project_id, p.user_id AS user_id, u.email AS email
+                FROM projects p
+                JOIN users u ON u.id = p.user_id
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM project_members m
+                    WHERE m.project_id = p.id AND m.role = 'owner'
+                )
+                """
+            )
+        ).fetchall()
+        for r in rows:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO project_members
+                        (project_id, user_id, invited_email, role, status,
+                         invited_by_id, invite_token, created_at, accepted_at)
+                    VALUES
+                        (:pid, :uid, :email, 'owner', 'accepted',
+                         :uid, :token, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """
+                ),
+                {
+                    "pid": r.project_id,
+                    "uid": r.user_id,
+                    "email": r.email,
+                    "token": uuid.uuid4().hex,
+                },
+            )
+
 
 def init_db():
     """
@@ -434,6 +539,7 @@ def init_db():
         ReferralSignup,
         SupportConversation,
         SupportMessage,
+        ProjectMember,
     )
     from app.models.subscription import seed_plans
 
@@ -443,6 +549,8 @@ def init_db():
         Base.metadata.create_all(bind=engine)
         # Add new columns to existing tables without destructive changes.
         _migrate_sqlite(engine)
+        # Ensure every existing project has an OWNER collaboration member row.
+        _backfill_owner_members(engine)
 
     # Seed subscription plans (idempotent) for all databases.
     db = SessionLocal()
