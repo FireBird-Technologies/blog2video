@@ -3230,9 +3230,19 @@ export default function ProjectView() {
     }
   };
 
+  // A collaborator blocked by a FREE owner can't fix it by upgrading their own plan,
+  // so show the soft "Oops" warning instead of the self-upgrade modal.
+  const ownerBlocksProFeature = useOwnerScopedAssets && !effectiveIsPro;
+  const notifyOwnerBlocked = () =>
+    showError(
+      "The project owner is on the Free plan, so AI image generation isn't available here. Ask the owner to upgrade.",
+      { variant: "warning" },
+    );
+
   const handleGenerateSceneImageClick = (sceneId: number) => {
-    if (!isPro) {
-      setShowAiImageUpgradeModal(true);
+    if (!effectiveIsPro) {
+      if (ownerBlocksProFeature) notifyOwnerBlocked();
+      else setShowAiImageUpgradeModal(true);
       return;
     }
     setGenerateImageError(null);
@@ -5024,6 +5034,7 @@ export default function ProjectView() {
         projectId={projectId}
         projectName={project.name}
         isOwner={project.user_id === user?.id}
+        onLeft={() => navigate("/dashboard", { replace: true })}
       />
 
       {/* Edit history + comments (opens from any tab). */}
@@ -6169,7 +6180,9 @@ export default function ProjectView() {
                       open
                       scene={imageGenScene}
                       project={project}
-                      isPro={isPro}
+                      isPro={effectiveIsPro}
+                      ownerBlocked={ownerBlocksProFeature}
+                      onOwnerBlocked={notifyOwnerBlocked}
                       onClose={() => setImageGenModalSceneId(null)}
                       onUpgrade={() => setShowAiImageUpgradeModal(true)}
                       onGenerateStart={() => {

@@ -581,6 +581,7 @@ _always_allowed = [
     "https://www.blog2video.app",
     "https://muhammad-mehdi-backend-b2v.hf.space",
     "https://blog2video.pages.dev",
+    "https://blog2video-prod-frontend.pages.dev",
     # MCP — Claude clients
     "https://claude.ai",
     "https://app.anthropic.com",

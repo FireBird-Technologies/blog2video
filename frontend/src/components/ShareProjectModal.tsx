@@ -5,6 +5,7 @@ import {
   listMembers,
   inviteMember,
   revokeMember,
+  leaveProject,
 } from "../api/collaboration";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
 
@@ -15,6 +16,8 @@ interface Props {
   projectName: string;
   /** Whether the current user owns the project (only owners can invite/revoke). */
   isOwner: boolean;
+  /** Called after the current user leaves the project — navigate away from it. */
+  onLeft?: () => void;
 }
 
 /**
@@ -27,6 +30,7 @@ export default function ShareProjectModal({
   projectId,
   projectName,
   isOwner,
+  onLeft,
 }: Props) {
   const [members, setMembers] = useState<Member[]>([]);
   const [email, setEmail] = useState("");
@@ -34,6 +38,7 @@ export default function ShareProjectModal({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<Member | null>(null);
+  const [pendingLeave, setPendingLeave] = useState<Member | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [resendingId, setResendingId] = useState<number | null>(null);
@@ -131,6 +136,19 @@ export default function ShareProjectModal({
     }
   };
 
+  const handleConfirmLeave = async () => {
+    try {
+      await leaveProject(projectId);
+    } catch {
+      setError("Failed to leave the project.");
+      throw new Error("leave failed"); // keep the confirm modal open on failure
+    }
+    // Access is gone — close the dialog and let the parent navigate away.
+    setPendingLeave(null);
+    onClose();
+    onLeft?.();
+  };
+
   if (!open) return null;
 
   // Owner is not a collaborator; cap collaborators at 5.
@@ -149,11 +167,12 @@ export default function ShareProjectModal({
         aria-labelledby="share-title"
       >
         <h3 id="share-title" className="text-base font-semibold text-gray-900 mb-1">
-          Share “{projectName}”
+          {isOwner ? `Share “${projectName}”` : `“${projectName}”`}
         </h3>
         <p className="text-sm text-gray-500 mb-3">
-          Invite people to co-edit this video. Collaborators can edit scenes; only you can finalise
-          and delete.
+          {isOwner
+            ? "Invite people to co-edit this video. Collaborators can edit scenes; only you can finalise and delete."
+            : "You’re a collaborator on this video. You can edit scenes or leave the project from below menu."}
         </p>
 
         {isOwner && (
@@ -221,7 +240,9 @@ export default function ShareProjectModal({
                   >
                     {m.role === "owner" ? "Owner" : m.status === "pending" ? "Pending" : "Editor"}
                   </span>
-                  {isOwner && m.role !== "owner" && (
+                  {/* Owner manages others; a collaborator only gets a menu on their
+                      own row (to leave). The owner row never has a menu. */}
+                  {m.role !== "owner" && (isOwner || m.is_you) && (
                     <div className="flex-shrink-0">
                       {resentId === m.id ? (
                         <span className="text-[11px] text-green-600">Sent ✓</span>
@@ -254,13 +275,11 @@ export default function ShareProjectModal({
         </div>
 
         <div className="flex items-center justify-between gap-3 mt-5">
-          {isOwner ? (
-            <p className="text-xs text-amber-600 flex-1 min-w-0">
-              Collaborators can use your credits when regenerating or editing this video.
-            </p>
-          ) : (
-            <span className="flex-1" />
-          )}
+          <p className="text-xs text-amber-600 flex-1 min-w-0">
+            {isOwner
+              ? "Collaborators can use your credits when regenerating or editing this video."
+              : "Regenerating or editing this video uses the owner’s credits and plan."}
+          </p>
           <button
             type="button"
             onClick={onClose}
@@ -284,7 +303,19 @@ export default function ShareProjectModal({
             style={{ top: menuPos.top, right: menuPos.right }}
             role="menu"
           >
-            {m.status === "pending" ? (
+            {m.is_you && !isOwner ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpenMenuId(null);
+                  setPendingLeave(m);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+              >
+                Leave project
+              </button>
+            ) : m.status === "pending" ? (
               <>
                 <button
                   type="button"
@@ -338,6 +369,18 @@ export default function ShareProjectModal({
         confirmLoadingLabel={pendingRemoval?.status === "pending" ? "Canceling…" : "Removing…"}
         iconVariant="warning"
         onConfirm={handleConfirmRemove}
+      />
+
+      <ConfirmDeleteModal
+        open={pendingLeave !== null}
+        onClose={() => setPendingLeave(null)}
+        title="Leave project?"
+        subtitle={projectName}
+        warningMessage="You'll lose access to this video immediately. The owner can re-invite you later."
+        confirmLabel="Leave"
+        confirmLoadingLabel="Leaving…"
+        iconVariant="warning"
+        onConfirm={handleConfirmLeave}
       />
     </>
   );

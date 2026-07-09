@@ -88,9 +88,17 @@ export default function SceneEditor({
   }, [selectedImage]);
 
   const isPro = user?.plan === "pro" || user?.plan === "standard";
+  // Owner pays: AI editing is gated on the OWNER's plan and metered per-project,
+  // so a Free collaborator inherits a paid owner's unlimited edits (and vice versa).
+  const isCollaborator = user != null && project.user_id !== user.id;
+  const effectiveIsPro = isCollaborator ? (project.owner_is_pro ?? false) : isPro;
   const aiUsageCount = project.ai_assisted_editing_count || 0;
-  const canUseAI = isPro || aiUsageCount < 3;
-  const remainingAI = isPro ? "Unlimited" : `${3 - aiUsageCount} remaining`;
+  const canUseAI = effectiveIsPro || aiUsageCount < 3;
+  const remainingAI = effectiveIsPro ? "Unlimited" : `${3 - aiUsageCount} remaining`;
+  // A collaborator can't lift the limit by upgrading — the owner must.
+  const aiLimitMessage = isCollaborator
+    ? "The project owner's AI-Assisted Editing limit has been reached. Ask the owner to upgrade."
+    : "The limit for AI-Assisted Editing has been reached.";
 
   // Load layouts when entering AI edit mode
   useEffect(() => {
@@ -149,7 +157,11 @@ export default function SceneEditor({
 
   const handleStartAIEdit = (scene: Scene) => {
     if (!canUseAI) {
-      showError("AI editing limit reached. Upgrade to Pro for unlimited edits.");
+      showError(
+        isCollaborator
+          ? "The project owner's AI editing limit has been reached. Ask the owner to upgrade."
+          : "AI editing limit reached. Upgrade to Pro for unlimited edits.",
+      );
       return;
     }
     setEditingSceneId(scene.id);
@@ -259,7 +271,7 @@ export default function SceneEditor({
         )}
         {editMode === "ai" && !canUseAI && (
           <div className="text-xs font-medium text-red-600">
-            The limit for AI-Assisted Editing has been reached.
+            {aiLimitMessage}
           </div>
         )}
       </div>
@@ -424,7 +436,7 @@ export default function SceneEditor({
           </h3>
           {!canUseAI && (
             <p className="text-sm font-medium text-red-600">
-              The limit for AI-Assisted Editing has been reached.
+              {aiLimitMessage}
             </p>
           )}
           {scenes.map((scene) => (

@@ -7,8 +7,13 @@ export interface GenerateSceneImageModalProps {
   onClose: () => void;
   scene: Scene;
   project: Project;
+  /** Owner-scoped: true when the project OWNER is on a paid plan. */
   isPro: boolean;
+  /** True when the blocker is the OWNER's free plan, not the viewer's own. */
+  ownerBlocked?: boolean;
   onUpgrade: () => void;
+  /** Shown instead of the self-upgrade prompt when `ownerBlocked`. */
+  onOwnerBlocked?: () => void;
   onImageReady: (imageBase64: string, refinedPrompt: string) => void;
   onGenerateStart?: () => void;
   onGenerateError?: (message: string) => void;
@@ -20,7 +25,9 @@ export default function GenerateSceneImageModal({
   scene,
   project,
   isPro,
+  ownerBlocked,
   onUpgrade,
+  onOwnerBlocked,
   onImageReady,
   onGenerateStart,
   onGenerateError,
@@ -43,6 +50,12 @@ export default function GenerateSceneImageModal({
 
   if (!open) return null;
 
+  // A collaborator blocked by the owner's free plan can't act on an upgrade prompt.
+  const promptForAccess = () => {
+    if (ownerBlocked) onOwnerBlocked?.();
+    else onUpgrade();
+  };
+
   const handleGenerate = async () => {
     const desc = imageDescription.trim();
     if (desc.length < 3) {
@@ -50,7 +63,7 @@ export default function GenerateSceneImageModal({
       return;
     }
     if (!isPro) {
-      onUpgrade();
+      promptForAccess();
       return;
     }
 
@@ -69,7 +82,7 @@ export default function GenerateSceneImageModal({
           ? (err as { response?: { status?: number } }).response?.status
           : 0;
       if (status === 403) {
-        onUpgrade();
+        promptForAccess();
         return;
       }
       const msg =
