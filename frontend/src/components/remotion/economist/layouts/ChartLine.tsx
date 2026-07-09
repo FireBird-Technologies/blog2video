@@ -52,6 +52,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -204,7 +205,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
         />
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 700,
             fontSize: titleSize,
             lineHeight: 1.06,
@@ -218,7 +219,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
         {narration && (
           <div
             style={{
-              fontFamily: ECONOMIST_SANS_FONT,
+              fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
               fontWeight: 400,
               fontSize: subSize,
               lineHeight: 1.3,
@@ -245,7 +246,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontFamily: ECONOMIST_SANS_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
             fontWeight: 700,
             fontSize: isPortrait ? 30 : 24,
             color: textColor,
@@ -294,7 +295,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
                 x={innerR}
                 y={y + 6 + labelDy}
                 textAnchor="end"
-                fontFamily={ECONOMIST_SANS_FONT}
+                fontFamily={fontFamily ?? ECONOMIST_SANS_FONT}
                 fontSize={subSize}
                 fill={ECONOMIST_COLORS.muted}
                 opacity={tickT}
@@ -386,7 +387,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
               x={sx(i)}
               y={plotB + 26 + (1 - easeOutQuint(tickT)) * 8}
               textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"}
-              fontFamily={ECONOMIST_SANS_FONT}
+              fontFamily={fontFamily ?? ECONOMIST_SANS_FONT}
               fontSize={subSize}
               fill={ECONOMIST_COLORS.muted}
               opacity={tickT}
@@ -416,7 +417,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
                   x={plotR + 14}
                   y={l.y + subSize * 0.34}
                   textAnchor="start"
-                  fontFamily={ECONOMIST_SANS_FONT}
+                  fontFamily={fontFamily ?? ECONOMIST_SANS_FONT}
                   fontWeight={700}
                   fontSize={subSize}
                   fill={l.color}
@@ -446,7 +447,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
                 position: "absolute",
                 left: x,
                 top: above ? y - subSize * 2.0 : y + subSize * 0.7,
-                fontFamily: ECONOMIST_SANS_FONT,
+                fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                 fontWeight: 700,
                 fontSize: subSize,
                 lineHeight: 1.15,
@@ -473,6 +474,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
         accentColor={accentColor}
         fontSize={Math.round(subSize * (isPortrait ? 0.8 : 0.85))}
         isPortrait={isPortrait}
+        fontFamily={fontFamily}
       />
     </AbsoluteFill>
   );

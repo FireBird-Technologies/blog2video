@@ -25,6 +25,7 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -116,7 +117,7 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
       <div style={{ overflow: "hidden", margin: `${isPortrait ? 30 : 36}px 0` }}>
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 900,
             fontSize: nameSize,
             lineHeight: 1.0,
@@ -138,7 +139,7 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
       {sub && (
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontStyle: "italic",
             fontSize: isPortrait ? 44 : 34,
             lineHeight: 1.45,

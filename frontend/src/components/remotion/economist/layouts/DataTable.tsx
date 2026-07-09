@@ -29,6 +29,7 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -98,7 +99,7 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
         <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 700,
             fontSize: titleSize,
             lineHeight: 1.05,
@@ -112,7 +113,7 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
         {narration && (
           <div
             style={{
-              fontFamily: ECONOMIST_SANS_FONT,
+              fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
               fontSize: subSize,
               color: ECONOMIST_COLORS.muted,
               marginTop: 8,
@@ -159,7 +160,7 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
               <div
                 style={{
                   width: rankW,
-                  fontFamily: ECONOMIST_SANS_FONT,
+                  fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                   fontWeight: 700,
                   fontSize: rowFont * 0.8,
                   color: ECONOMIST_COLORS.muted,
@@ -176,13 +177,13 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
                   {String(i + 1).padStart(2, "0")}
                 </span>
               </div>
-              <div style={{ width: nameW, fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 600, fontSize: rowFont, color: textColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div style={{ width: nameW, fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 600, fontSize: rowFont, color: textColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {r.label}
               </div>
               <div style={{ width: barW, paddingRight: 16 }}>
                 <div style={{ width: `${barPct.toFixed(2)}%`, height: rowFont * 0.66, background: accentColor }} />
               </div>
-              <div style={{ width: valueW, textAlign: "right", fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: rowFont, color: textColor, opacity: valOp }}>
+              <div style={{ width: valueW, textAlign: "right", fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: rowFont, color: textColor, opacity: valOp }}>
                 {countUpValue(fmtValue(r.value, unit), frame, s + 8)}
               </div>
             </div>
@@ -202,6 +203,7 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
         accentColor={accentColor}
         fontSize={Math.round(subSize * (isPortrait ? 0.8 : 0.85))}
         isPortrait={isPortrait}
+        fontFamily={fontFamily}
       />
     </AbsoluteFill>
   );

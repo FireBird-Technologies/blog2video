@@ -427,6 +427,79 @@ export const templateProfiles: TemplateProfile[] = [
     ],
   },
   {
+    slug: "sakura",
+    name: "Sakura",
+    description:
+      "A serene Japanese-aesthetic template — cherry-blossom pinks, kanji titling, and washi-paper textures for calm, reflective storytelling.",
+    bestFor: "Cultural pieces, seasonal essays, mindful and lifestyle content, and reflective long-form storytelling.",
+    differentiator:
+      "Wraps your writing in a hand-crafted hanami aesthetic — drifting petals, kanji-and-roman titling, and soft plum-washi palettes — giving quiet, considered content a poetic identity no generic AI theme can match.",
+    styleFit: "Best for calm, cultural, and story-driven content that benefits from a gentle, contemplative mood.",
+    previewSceneKey: "preview-sakura",
+    layouts: [
+      "sakura_intro",
+      "sakura_section",
+      "sakura_quote",
+      "sakura_two_column_detail",
+      "sakura_stat_highlight",
+      "sakura_list_scene",
+      "sakura_text_narration",
+      "sakura_ending_socials",
+      "sakura_data_visualization",
+    ],
+    longDescription:
+      "The Sakura template renders your writing as a serene Japanese-inspired spread, with cherry-blossom pinks, kanji-and-roman titling, drifting petals, and soft washi-paper textures. Layouts like Sakura Intro, Section, Quote, Stat Highlight, List Scene, and Two-Column Detail are purpose-built for calm, reflective content where mood and craft matter as much as the message. Signature petal-gust transitions carry the eye between scenes, giving cultural essays, seasonal writing, and mindful storytelling a poetic, hand-made feel instead of a generic AI look.",
+    idealFor: [
+      "Cultural and travel storytelling",
+      "Seasonal and nature-themed essays",
+      "Mindfulness, wellness, and lifestyle content",
+      "Reflective personal-brand and narrative pieces",
+      "Calm, story-first educational writing",
+    ],
+    exampleTopics: [
+      "The brief, brilliant season of the cherry blossom",
+      "A slow-living guide to spring in Kyoto",
+      "What hanami teaches us about impermanence",
+    ],
+  },
+  {
+    slug: "magazine",
+    name: "Magazine",
+    description:
+      "A polished print-editorial template in the style of a glossy feature magazine — bold cover mastheads, pull quotes, and structured feature spreads.",
+    bestFor: "Long-form features, profiles, essays, interviews, and narrative journalism.",
+    differentiator:
+      "Renders your article as a designed magazine feature — TIME-style cover, ruled columns, by-the-numbers panels, and 3D page-turn transitions — giving narrative writing the authority of a printed spread instead of a generic slideshow.",
+    styleFit: "Best for long-form, narrative-driven writing that deserves an editorial, print-magazine treatment.",
+    previewSceneKey: "preview-magazine",
+    layouts: [
+      "magazine_cover",
+      "feature",
+      "by_the_numbers",
+      "editorial_quote",
+      "interview_qa",
+      "timeline_journey",
+      "colorblock",
+      "comparison",
+      "text_narration",
+      "magazine_data_visualization",
+    ],
+    longDescription:
+      "The Magazine template turns written features into a designed print spread, complete with a bold cover masthead, ruled multi-column body copy, pull quotes, by-the-numbers stat panels, and Q&A interview layouts. Cinematic 3D page-turn transitions carry the reader from cover to feature to closing spread, so long-form articles read like a glossy magazine feature rather than a generic AI video. Layouts like Magazine Cover, Feature, Editorial Quote, Interview Q&A, Timeline Journey, and By the Numbers are built for profiles, essays, and narrative journalism where craft and editorial authority matter.",
+    idealFor: [
+      "Long-form features and cover stories",
+      "Profiles and interviews",
+      "Personal essays and opinion pieces",
+      "Narrative journalism and reporting",
+      "Brand and founder storytelling",
+    ],
+    exampleTopics: [
+      "The quiet revolution reshaping how we work",
+      "A profile of the team behind the redesign",
+      "The year in review, told as a feature",
+    ],
+  },
+  {
     slug: "custom",
     name: "Custom Templates",
     description:
