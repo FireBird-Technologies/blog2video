@@ -2050,5 +2050,13 @@
   "marketing:/veed-alternative@502e64409b22cc02@98282f29": {
     "keep": false,
     "reason": "compares against a competitor"
+  },
+  "marketing:/templates/magazine@0aaf562d60b8043a@98282f29": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
+  },
+  "marketing:/templates/sakura@c91c0d859824094b@98282f29": {
+    "keep": true,
+    "reason": "describes a Blog2Video template feature"
   }
 }
