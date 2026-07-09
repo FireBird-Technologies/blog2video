@@ -205,6 +205,51 @@ async def _periodic_paid_tier_cleanup():
             db.close()
 
 
+async def _periodic_monthly_allotment_reset():
+    """Reset the monthly video allotment for ANNUAL and LIFETIME subscribers.
+
+    MONTHLY subscribers are reset by Stripe's ``invoice.paid`` webhook each
+    month. Annual subscribers get that webhook only once a YEAR, and lifetime
+    buyers never (no recurring subscription), so without this their allotment
+    would never refresh mid-year. This task rolls every such user forward by
+    whole **calendar months** elapsed since their ``period_start`` anchor.
+
+    Safe to run repeatedly: ``roll_video_period_if_due`` is idempotent — once a
+    user is current, re-running it is a no-op. Runs hourly so a reset lands
+    within an hour of the user's monthly anniversary regardless of restarts.
+    (Single-instance deploy, so no leader election is needed.)
+    """
+    while True:
+        # Sleep first so startup isn't blocked; the lazy per-request reset covers
+        # the initial window before the first tick.
+        await asyncio.sleep(3600)  # hourly
+        db = SessionLocal()
+        try:
+            # Only paid tiers can be annual/lifetime; roll_video_period_if_due
+            # re-checks the exact eligibility and skips monthly subscribers.
+            candidates = (
+                db.query(User)
+                .filter(User.plan.in_([PlanTier.STANDARD, PlanTier.PRO]))
+                .all()
+            )
+            reset_count = 0
+            for user in candidates:
+                try:
+                    if user.roll_video_period_if_due(db):
+                        reset_count += 1
+                except Exception as e:
+                    # One bad user must not abort the whole sweep.
+                    print(f"[BILLING] Monthly reset failed for user {user.id}: {e}")
+                    db.rollback()
+            if reset_count:
+                print(f"[BILLING] Monthly allotment reset for {reset_count} annual/lifetime user(s)")
+        except Exception as e:
+            print(f"[BILLING] Monthly allotment reset sweep error: {e}")
+            db.rollback()
+        finally:
+            db.close()
+
+
 from app.constants import FREE_PREMADE_VOICE_IDS as KNOWN_PREMADE_VOICE_IDS
 from app.services.email import email_service
 
@@ -413,6 +458,7 @@ async def lifespan(app: FastAPI):
     free_cleanup = None
     paid_cleanup = None
     support_cleanup = None
+    monthly_reset = None
 
     # Raise the open-file-descriptor soft limit toward the hard limit. Headless
     # Chrome + node subprocesses (Remotion) plus HTTP connection pools can blow
@@ -458,6 +504,7 @@ async def lifespan(app: FastAPI):
     try:
         free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
         paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
+        monthly_reset = asyncio.create_task(_periodic_monthly_allotment_reset())
         update_email_sender = asyncio.create_task(_periodic_update_email_sender())
         from app.support.cleanup import periodic_support_cleanup
         support_cleanup = asyncio.create_task(periodic_support_cleanup())
@@ -486,6 +533,8 @@ async def lifespan(app: FastAPI):
             free_cleanup.cancel()
         if paid_cleanup:
             paid_cleanup.cancel()
+        if monthly_reset:
+            monthly_reset.cancel()
         if update_email_sender:
             update_email_sender.cancel()
         if support_cleanup:
