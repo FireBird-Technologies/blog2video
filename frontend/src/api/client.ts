@@ -142,6 +142,8 @@ export interface Asset {
 
 export interface Project {
   id: number;
+  // Owner user id — lets the editor tell owners from collaborators.
+  user_id: number;
   name: string;
   blog_url: string | null;
   blog_content: string | null;
@@ -187,6 +189,16 @@ export interface Project {
   custom_template_missing?: boolean;
   brand_logo_url?: string | null;
   review_state?: ReviewState | null;
+  /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
+  is_shared?: boolean;
+  /**
+   * True when the project OWNER is on a paid plan. On a shared project the owner
+   * pays, so collaborators gate Pro-only features (custom/crafted templates, paid
+   * voices) on this rather than their own plan.
+   */
+  owner_is_pro?: boolean;
+  /** The project OWNER's display name — used to attribute owner-scoped templates/voices in a collaborator's UI. */
+  owner_name?: string | null;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -211,6 +223,9 @@ export interface ProjectListItem {
   created_at: string;
   updated_at: string;
   scene_count: number;
+  // Collaboration: acting user's role ("owner" | "editor") + owner display name.
+  role?: string;
+  owner_name?: string | null;
 }
 
 export interface ChatMessage {
@@ -1747,6 +1762,42 @@ export const getTemplateCode = (templateId: number) =>
   api.get<{ component_code: string | null; intro_code: string | null; outro_code: string | null; content_codes: string[] | null }>(
     `/custom-templates/${templateId}/code`
   );
+
+// ─── Project-scoped (owner-resolved) reads for shared projects ─────
+// On a shared project, a collaborator must see the OWNER's templates/voices,
+// not their own. These authorize via project membership on the backend and
+// resolve against the project owner. The frontend routes through them only
+// when the viewer is a collaborator (project.user_id !== user.id).
+
+export const listProjectCustomTemplates = (projectId: number) =>
+  api.get<CustomTemplateItem[]>(`/projects/${projectId}/custom-templates`);
+
+export const getProjectTemplateCode = (projectId: number, templateId: number) =>
+  api.get<{ component_code: string | null; intro_code: string | null; outro_code: string | null; content_codes: string[] | null }>(
+    `/projects/${projectId}/custom-templates/${templateId}/code`
+  );
+
+export const listProjectCraftedTemplates = (
+  projectId: number,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateSummary[]>(
+    `/projects/${projectId}/crafted-templates`,
+    craftedRequestConfig(opts),
+  );
+
+export const getProjectCraftedTemplateDetail = (
+  projectId: number,
+  templateId: string,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateDetail>(
+    `/projects/${projectId}/crafted-templates/${encodeURIComponent(templateId)}`,
+    craftedRequestConfig(opts),
+  );
+
+export const getProjectVoices = (projectId: number) =>
+  api.get<SavedVoiceFromAPI[]>(`/projects/${projectId}/voices`);
 
 // ─── Brand asset uploads ────────────────────────────────────
 

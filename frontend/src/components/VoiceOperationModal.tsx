@@ -6,6 +6,9 @@ interface Props {
   /** Reload the project once the operation finishes. */
   onComplete: () => void | Promise<unknown>;
   onError: (message: string) => void;
+  /** Fired whenever a voice add/change/delete op starts or stops, so the page can
+   *  disable other job triggers while one is running. */
+  onRunningChange?: (running: boolean) => void;
   /**
    * Seed to show the modal instantly when an operation is kicked off locally
    * (otherwise the modal still appears within one poll via the mount check).
@@ -22,8 +25,16 @@ interface Props {
  * "kind") and, if so, shows the matching modal and resumes polling. Renders nothing
  * when no operation is active.
  */
-export default function VoiceOperationModal({ projectId, onComplete, onError, kickstart }: Props) {
+export default function VoiceOperationModal({ projectId, onComplete, onError, onRunningChange, kickstart }: Props) {
   const [visible, setVisible] = useState(false);
+
+  // Report visibility (== "an op is running") up to the page. Keep the callback in a
+  // ref so this effect doesn't re-fire when the parent passes a new function identity.
+  const onRunningChangeRef = useRef(onRunningChange);
+  onRunningChangeRef.current = onRunningChange;
+  useEffect(() => {
+    onRunningChangeRef.current?.(visible);
+  }, [visible]);
   const [kind, setKind] = useState<string>("voice_change");
   const [total, setTotal] = useState(0);
   const [completed, setCompleted] = useState(0);

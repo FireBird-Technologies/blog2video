@@ -49,6 +49,7 @@ export interface Asset {
 
 export interface Project {
   id: number;
+  user_id: number;
   name: string;
   blog_url: string;
   blog_content: string | null;
@@ -79,6 +80,12 @@ export interface Project {
   caption_offset?: number;
   custom_template_missing?: boolean;
   review_state?: ReviewState | null;
+  /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
+  is_shared?: boolean;
+  /** True when the project OWNER is on a paid plan — collaborators gate Pro-only features on this. */
+  owner_is_pro?: boolean;
+  /** The project OWNER's display name — used to attribute owner-scoped templates/voices in a collaborator's UI. */
+  owner_name?: string | null;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -93,6 +100,9 @@ export interface ProjectListItem {
   created_at: string;
   updated_at: string;
   scene_count: number;
+  // Collaboration: acting user's role on this project ("owner" | "editor").
+  role?: string;
+  owner_name?: string | null;
 }
 
 export interface ProjectTemplateChangeJob {
@@ -113,6 +123,8 @@ export interface ProjectRegenerateScriptJob {
   id: number;
   project_id: number;
   user_id: number;
+  /** The collaborator who initiated this regen — only they may approve/regenerate the review. */
+  initiated_by_user_id?: number | null;
   status: "queued" | "running" | "awaiting_review" | "completed" | "failed";
   current_step?: "analyzing_instruction" | "generating_script" | "verify" | "generating_scenes";
   total_scenes: number;

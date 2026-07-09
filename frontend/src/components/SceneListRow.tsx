@@ -15,6 +15,10 @@ interface Props {
   onToggleExpand: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** When provided, shows a Comment button beside Edit. Omit to hide it (unshared project). */
+  onComment?: () => void;
+  /** Number of comments on this scene, shown as a badge on the Comment button. */
+  commentCount?: number;
   /** Drag handle handlers — pass undefined to disable reordering (e.g. inside help videos). */
   onDragHandleStart?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragHandleEnd?: () => void;
@@ -37,6 +41,8 @@ export default function SceneListRow({
   onToggleExpand,
   onEdit,
   onDelete,
+  onComment,
+  commentCount = 0,
   onDragHandleStart,
   onDragHandleEnd,
   onDragOver,
@@ -97,13 +103,38 @@ export default function SceneListRow({
 
               <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                 <div className="flex items-center gap-1.5">
+
+
+                  {onComment && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onComment();
+                      }}
+                      className="relative inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors flex-shrink-0"
+                      title="Comment on this scene"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 20l1.3-3.5A7.6 7.6 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <span className="hidden sm:inline-block text-xs font-medium">Comment</span>
+                      {commentCount > 0 && (
+                        <span className="absolute top-0 right-1 -translate-y-1/2 translate-x-1/2 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold shadow-sm">
+                          {commentCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       onEdit();
                     }}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors flex-shrink-0 ${
+                    className={`inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors flex-shrink-0 ${
                       highlightEdit ? "ring-2 ring-purple-400" : ""
                     }`}
                     title="Edit scene"
@@ -112,7 +143,7 @@ export default function SceneListRow({
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
-                    <span className="inline-block text-xs font-medium">Edit</span>
+                    <span className="hidden sm:inline-block text-xs font-medium">Edit</span>
                   </button>
 
                   <div className="flex items-center gap-1.5">

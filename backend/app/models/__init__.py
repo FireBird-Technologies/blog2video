@@ -8,6 +8,7 @@ from app.models.custom_template import CustomTemplate
 from app.models.brand_kit import BrandKit
 from app.models.Project_edit_history import ProjectEditHistory
 from app.models.scene_edit_history import SceneEditHistory
+from app.models.scene_comment import SceneComment
 from app.models.template_version import TemplateVersion
 from app.models.saved_voice import SavedVoice
 from app.models.custom_voice import CustomVoice
@@ -20,6 +21,7 @@ from app.models.project_voice_change_job import ProjectVoiceChangeJob
 from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.models.referral import Referral, ReferralSignup, ReferralInvite
+from app.models.project_member import ProjectMember, MemberRole, MemberStatus, ROLE_RANK
 from app.models.survey import SurveyResponse
 from app.models.crafted_template import CraftedTemplate
 from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
@@ -39,10 +41,11 @@ __all__ = [
 
     "User", "Project", "Scene", "Asset", "ChatMessage",
     "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
-    "ProjectEditHistory", "SceneEditHistory", "Review", "TemplateRating", "TemplateVersion",
+    "ProjectEditHistory", "SceneEditHistory", "SceneComment", "Review", "TemplateRating", "TemplateVersion",
     "ProjectTemplateChangeJob", "ProjectRegenerateScriptJob", "ProjectVoiceChangeJob",
     "UpdateEmail", "UpdateEmailSend",
     "Referral", "ReferralSignup", "ReferralInvite", "SurveyResponse", "CraftedTemplate", "CraftedTemplateEntitlement",
+    "ProjectMember", "MemberRole", "MemberStatus", "ROLE_RANK",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "MCPClient", "MCPAuthCode",

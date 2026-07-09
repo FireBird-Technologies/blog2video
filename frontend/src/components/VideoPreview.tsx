@@ -12,6 +12,7 @@ import {
   BACKEND_URL,
   Project,
   getTemplateCode,
+  getProjectTemplateCode,
   getValidLayouts,
   type CraftedTemplateDetail,
   type CraftedTemplateItem,
@@ -340,6 +341,13 @@ interface VideoPreviewProps {
    * which require an authenticated user and are unavailable on public preview pages.
    */
   precompiledCraftedDetail?: CraftedTemplateDetail | null;
+  /**
+   * On a *shared* project a collaborator does not own the custom template, so
+   * the owner-only `/custom-templates/:id/code` endpoint 404s for them. When set
+   * (the project id), custom template code is fetched via the project-scoped,
+   * owner-resolved endpoint instead. Undefined for owners / public previews.
+   */
+  ownerScopedProjectId?: number;
 }
 
 interface SceneInput {
@@ -1126,6 +1134,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     initialFrame,
     hideControls = false,
     precompiledCraftedDetail,
+    ownerScopedProjectId,
   },
   ref
 ) {
@@ -1327,7 +1336,11 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
 
     setIsCompiling(true);
     try {
-      const data = precompiledTemplateData || (await getTemplateCode(templateId)).data;
+      const data =
+        precompiledTemplateData ||
+        (ownerScopedProjectId != null
+          ? (await getProjectTemplateCode(ownerScopedProjectId, templateId)).data
+          : (await getTemplateCode(templateId)).data);
       const map: CompiledSceneMap = {};
 
       // Compile intro
@@ -1354,7 +1367,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     } finally {
       setIsCompiling(false);
     }
-  }, [isCustom, project.template, precompiledTemplateData]);
+  }, [isCustom, project.template, precompiledTemplateData, ownerScopedProjectId]);
 
   useEffect(() => {
     compileCustomTemplate();
@@ -1840,9 +1853,18 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       ? compiledCrafted
       : config.component;
 
+  // When a precompiled/owner-scoped crafted detail is supplied (e.g. a collaborator
+  // viewing an owner's crafted template they are NOT entitled to), the global,
+  // entitlement-gated CraftedTemplatesContext is empty — so `craftedItem` is null
+  // and `craftedTemplatesLoading` never resolves for us. Gate on the EFFECTIVE
+  // item (which falls back to precompiledCraftedDetail) and ignore the context's
+  // loading flag on that path; otherwise the loader spins forever.
+  const craftedStillLoading = precompiledCraftedDetail
+    ? (isCompilingCrafted || !compiledCrafted)
+    : (craftedTemplatesLoading || !effectiveCraftedItem || isCompilingCrafted || !compiledCrafted);
   const isPreviewLoading =
     (isCustom && isCompiling) ||
-    (isCrafted && (craftedTemplatesLoading || !craftedItem || isCompilingCrafted || !compiledCrafted)) ||
+    (isCrafted && craftedStillLoading) ||
     isPreloadingMedia ||
     !mediaReady;
 

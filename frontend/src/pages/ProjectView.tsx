@@ -34,6 +34,9 @@ import {
   getMe,
   getTemplates,
   listCustomTemplates,
+  listProjectCustomTemplates,
+  listProjectCraftedTemplates,
+  getProjectCraftedTemplateDetail,
   changeProjectTemplateRegenerateLayouts,
   getProjectTemplateChangeStatus,
   regenerateScript,
@@ -46,12 +49,18 @@ import {
   generateEmbedToken,
   type TemplateMeta,
   type CraftedTemplateItem,
+  type CraftedTemplateDetail,
   type CustomTemplateItem,
   getBgmTracks,
   type BgmTrack,
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
+import { CollabProvider } from "../components/CollabContext";
+import CollabToolbar from "../components/CollabToolbar";
+import EditHistoryPanel from "../components/EditHistoryPanel";
+import ShareProjectModal from "../components/ShareProjectModal";
+import type { CollabEdit } from "../hooks/useCollabSocket";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import { useNoticeModal } from "../contexts/NoticeModalContext";
@@ -80,6 +89,8 @@ import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
 import VoiceOperationModal from "../components/VoiceOperationModal";
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
+import SceneCommentModal from "../components/SceneCommentModal";
+import { listComments } from "../api/collaboration";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
@@ -703,21 +714,208 @@ export default function ProjectView() {
   // any stale "awaiting_review" reads while this is set — otherwise the UI bounces back to
   // the verify step. Reset whenever a fresh stage-A run starts (initiate / regenerate).
   const regenerateScriptProceededRef = useRef(false);
-  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
+  // Guards the one-time preview load while parked on "awaiting_review" so the poll can
+  // keep running (to catch the transition out of review, e.g. when another collaborator
+  // approves) without re-fetching the before/after preview every tick.
+  const regenerateScriptPreviewLoadedRef = useRef(false);
+  const {
+    craftedTemplates: ownCraftedTemplates,
+    loading: ownCraftedTemplatesLoading,
+    ensureCraftedTemplateDetail: ensureOwnCraftedTemplateDetail,
+  } = useCraftedTemplates();
+
+  // On a *shared* project, a collaborator must see the OWNER's custom/crafted
+  // templates and voices — not their own. The context above is user-scoped, so
+  // for a collaborator we source crafted templates from the project-scoped
+  // (owner-resolved) endpoints instead. Owners keep the plain global context.
+  const useOwnerScopedAssets =
+    project != null && user != null && project.user_id !== user.id;
+
+  // Pro-gating for shared-project assets keys off the OWNER's plan, not the acting
+  // collaborator's — the owner pays, so a Free collaborator can use the owner's
+  // custom/crafted templates and paid voices. On own projects this is just `isPro`.
+  const effectiveIsPro = useOwnerScopedAssets ? (project?.owner_is_pro ?? false) : isPro;
+
+  // On a shared project the custom/crafted templates and voices in the settings
+  // pop-ups belong to the OWNER, not the collaborator — attribute them so it's
+  // clear whose assets these are. A possessive form of the owner's name, or a
+  // generic "the owner's" when the name is unavailable. Empty on own projects.
+  const ownerAssetLabel = useOwnerScopedAssets
+    ? (() => {
+        const name = (project?.owner_name || "").trim();
+        if (!name) return "the owner's";
+        return name.endsWith("s") ? `${name}'` : `${name}'s`;
+      })()
+    : "";
+
+  // Whether the current user may use Pro-gated background music, keyed off the OWNER's
+  // plan on a shared project (the owner pays). True on own projects when the user is Pro.
+  const canUseBgm = effectiveIsPro;
+
+  // Clicked a locked BGM control. On a personal project the free user is prompted to
+  // upgrade (checkout modal). On a shared project whose OWNER is free, the collaborator
+  // can't buy the owner's plan, so ask them to have the owner upgrade instead.
+  const handleBgmLockedClick = () => {
+    if (useOwnerScopedAssets) {
+      const owner = (project?.owner_name || "").trim();
+      showError(
+        `Background music is a paid feature. Ask ${owner || "the project owner"} to upgrade their plan to enable it for this shared project.`,
+        { variant: "warning" },
+      );
+    } else {
+      setShowUpgrade(true);
+    }
+  };
+
+  const [ownerCraftedTemplates, setOwnerCraftedTemplates] = useState<CraftedTemplateItem[]>([]);
+  const [ownerCraftedLoading, setOwnerCraftedLoading] = useState(false);
+  // Lazily-fetched full crafted packages for the shared-project (owner-scoped)
+  // path, keyed by template id — mirrors the context's in-memory detail cache.
+  const [ownerCraftedDetails, setOwnerCraftedDetails] = useState<Record<string, CraftedTemplateItem>>({});
+  const ownerCraftedDetailInFlight = useRef<Map<string, Promise<CraftedTemplateItem | null>>>(new Map());
+
+  // Positively-known owner: skip the owner-scoped crafted fetch (owners use the
+  // cached global CraftedTemplatesContext). `project` may still be loading, in
+  // which case `isKnownOwner` is false and we pre-fetch — a collaborator then has
+  // the data ready the moment the project payload arrives, and an owner only pays
+  // one cheap summaries request that the memo below simply ignores. This keeps the
+  // slow (collaborator) path fast without waiting for the project round-trip.
+  const isKnownOwner =
+    project != null && user != null && project.user_id === user.id;
+
+  useEffect(() => {
+    if (!projectId || isKnownOwner) {
+      setOwnerCraftedTemplates([]);
+      setOwnerCraftedDetails({});
+      return;
+    }
+    let cancelled = false;
+    setOwnerCraftedLoading(true);
+    listProjectCraftedTemplates(projectId)
+      .then((r) => {
+        if (!cancelled) setOwnerCraftedTemplates((r.data as CraftedTemplateItem[]) || []);
+      })
+      .catch(() => {
+        if (!cancelled) setOwnerCraftedTemplates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setOwnerCraftedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, isKnownOwner]);
+
+  const ensureOwnerCraftedTemplateDetail = useCallback(
+    async (templateId: string): Promise<CraftedTemplateItem | null> => {
+      if (!projectId || !templateId?.startsWith("crafted_")) return null;
+      const existing = ownerCraftedDetails[templateId];
+      if (existing?.frontend_files) return existing;
+      const inFlight = ownerCraftedDetailInFlight.current.get(templateId);
+      if (inFlight) return inFlight;
+      const req = getProjectCraftedTemplateDetail(projectId, templateId)
+        .then((res) => {
+          const detail = res.data as CraftedTemplateItem;
+          if (detail?.id) {
+            setOwnerCraftedDetails((prev) => ({ ...prev, [detail.id]: detail }));
+          }
+          if (!detail?.frontend_files || !detail?.frontend_entry_rel) {
+            console.warn(
+              "[ProjectView] Owner-scoped crafted detail arrived without a bundle:",
+              { templateId, id: detail?.id, hasFiles: !!detail?.frontend_files, entry: detail?.frontend_entry_rel },
+            );
+          }
+          return detail ?? null;
+        })
+        .catch((err) => {
+          console.error(
+            "[ProjectView] Owner-scoped crafted detail fetch failed (collaborator preview will stay loading):",
+            { templateId, status: err?.response?.status, detail: err?.response?.data },
+          );
+          return null;
+        })
+        .finally(() => {
+          ownerCraftedDetailInFlight.current.delete(templateId);
+        });
+      ownerCraftedDetailInFlight.current.set(templateId, req);
+      return req;
+    },
+    [projectId, ownerCraftedDetails]
+  );
+
+  // Unified accessors: owner-scoped on a shared project, own-scoped otherwise.
+  const craftedTemplates = useMemo<CraftedTemplateItem[]>(() => {
+    if (!useOwnerScopedAssets) return ownCraftedTemplates;
+    const merged = ownerCraftedTemplates.map((item) => ({ ...item, ...(ownerCraftedDetails[item.id] || {}) }));
+    // A crafted template the project is assigned to may NOT appear in the owner's
+    // entitled list (e.g. entitlement lapsed after the project was created, or the
+    // list hasn't arrived yet). ensureOwnerCraftedTemplateDetail still fetches its
+    // full detail into ownerCraftedDetails; surface those orphaned details here so
+    // the preview can resolve frontend_files instead of spinning forever.
+    const listed = new Set(merged.map((item) => item.id));
+    for (const [id, detail] of Object.entries(ownerCraftedDetails)) {
+      if (!listed.has(id)) merged.push(detail);
+    }
+    return merged;
+  }, [useOwnerScopedAssets, ownCraftedTemplates, ownerCraftedTemplates, ownerCraftedDetails]);
+  const craftedTemplatesLoading = useOwnerScopedAssets ? ownerCraftedLoading : ownCraftedTemplatesLoading;
+  const ensureCraftedTemplateDetail = useOwnerScopedAssets
+    ? ensureOwnerCraftedTemplateDetail
+    : ensureOwnCraftedTemplateDetail;
 
   useEffect(() => {
     if (!project?.template?.startsWith("crafted_")) return;
     const found = craftedTemplates.find((ct) => ct.id === project.template);
+    console.log("[ProjectView] crafted ensure effect", {
+      template: project.template,
+      useOwnerScopedAssets,
+      foundInList: !!found,
+      foundHasFiles: !!found?.frontend_files,
+      willFetch: !found?.frontend_files,
+      craftedTemplateIds: craftedTemplates.map((c) => c.id),
+    });
     if (!found?.frontend_files) {
       void ensureCraftedTemplateDetail(project.template);
     }
-  }, [project?.template, craftedTemplates, ensureCraftedTemplateDetail]);
+  }, [project?.template, craftedTemplates, ensureCraftedTemplateDetail, useOwnerScopedAssets]);
 
   const craftedTemplateLogoUrl = useMemo(() => {
     if (!project?.template?.startsWith("crafted_")) return null;
     const found = craftedTemplates.find((ct) => ct.id === project.template);
     return resolveCraftedTemplateLogoUrl(found);
   }, [project?.template, craftedTemplates]);
+
+  // On a shared project, feed the owner-resolved crafted detail directly to
+  // VideoPreview so it bypasses the (user-scoped, entitlement-gated) context —
+  // which would 403 for a collaborator. Only pass a detail with a compiled
+  // bundle; otherwise leave undefined so VideoPreview keeps its loading state.
+  const ownerScopedCraftedDetail = useMemo<CraftedTemplateDetail | null>(() => {
+    if (!useOwnerScopedAssets || !project?.template?.startsWith("crafted_")) return null;
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    if (found?.frontend_files && found?.frontend_entry_rel) {
+      return found as CraftedTemplateDetail;
+    }
+    return null;
+  }, [useOwnerScopedAssets, project?.template, craftedTemplates]);
+
+  // The custom-template list already carries each template's intro/content/outro
+  // code (from _serialize_template), so when the project uses a custom template we
+  // can hand that code straight to VideoPreview as `precompiledTemplateData` and
+  // skip its separate `getTemplateCode`/`getProjectTemplateCode` round-trip — the
+  // preview compiles as soon as the list (loaded in parallel with the project) is
+  // in, instead of waiting on an extra fetch.
+  const currentCustomTemplateCode = useMemo(() => {
+    const m = project?.template?.match(/^custom_(\d+)$/);
+    if (!m) return undefined;
+    const id = parseInt(m[1], 10);
+    const tpl = customTemplatesList.find((ct) => ct.id === id);
+    if (!tpl || !tpl.intro_code) return undefined;
+    return {
+      intro_code: tpl.intro_code,
+      content_codes: tpl.content_codes ?? null,
+      outro_code: tpl.outro_code ?? null,
+    };
+  }, [project?.template, customTemplatesList]);
 
   const displayLogoUrl = project?.logo_r2_url || craftedTemplateLogoUrl;
 
@@ -735,6 +933,7 @@ export default function ProjectView() {
       setPlaybackSpeedDraft(Math.min(2.5, Math.max(0.5, Number.isFinite(current) ? current : 1)));
       setBgmTrackDraft(project.bgm_track_id ?? null);
       setBgmVolumeDraft(project.bgm_volume ?? 0.10);
+      if ((project.bgm_volume ?? 0) > 0) setLastNonZeroProjectBgm(project.bgm_volume as number);
       setCaptionsEnabledDraft(project.captions_enabled ?? false);
       setCaptionFontFamilyDraft(project.caption_font_family ?? "inter");
       setCaptionFontSizeDraft(project.caption_font_size ? Number(project.caption_font_size) || 36 : 36);
@@ -765,6 +964,9 @@ export default function ProjectView() {
       // deps the draft goes stale and the toggle shows the wrong state until a hard refresh.
       project?.captions_enabled,
       project?.caption_font_family, project?.caption_font_size, project?.caption_offset,
+      // Re-seed the Music card when a collaborator changes the track or volume, so the
+      // controls don't sit on a stale draft while the preview plays the new track.
+      project?.bgm_track_id, project?.bgm_volume,
       project?.scenes?.some((s) => !!s.voiceover_path)]);
 
   useEffect(() => {
@@ -789,6 +991,8 @@ export default function ProjectView() {
   const [voiceOpKickstart, setVoiceOpKickstart] = useState<
     { kind: "voice_change" | "delete"; total: number } | null
   >(null);
+  // True while a voiceover add/change/delete op is running (reported by VoiceOperationModal).
+  const [voiceOpRunning, setVoiceOpRunning] = useState(false);
 
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
@@ -862,6 +1066,7 @@ export default function ProjectView() {
   const [embedLoading, setEmbedLoading] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
   const [showShareDropdown, setShowShareDropdown] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [showPreviewLinkModal, setShowPreviewLinkModal] = useState(false);
   const [previewLinkUrl, setPreviewLinkUrl] = useState<string | null>(null);
   const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
@@ -900,6 +1105,9 @@ export default function ProjectView() {
     }
   }, [project?.scenes?.[0]?.id]);
   const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
+  const [commentScene, setCommentScene] = useState<Scene | null>(null);
+  const [commentCounts, setCommentCounts] = useState<Record<number, number>>({});
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [imageAdjustSceneId, setImageAdjustSceneId] = useState<number | null>(null);
   const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
   const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
@@ -976,6 +1184,9 @@ export default function ProjectView() {
 
   const reviewState = project?.review_state ?? null;
   const isFirstProject = reviewState?.project_sequence === 1;
+  // Review prompts are for the project owner only — a collaborator viewing a shared
+  // project should never be asked to review it.
+  const isProjectOwner = project != null && user != null && project.user_id === user.id;
   const clearReviewPopupTimer = useCallback(() => {
     if (reviewPopupTimerRef.current) {
       clearTimeout(reviewPopupTimerRef.current);
@@ -1063,6 +1274,7 @@ export default function ProjectView() {
     clearReviewPopupTimer();
     if (
       !project?.id ||
+      !isProjectOwner ||
       !reviewState ||
       reviewState.has_review_for_project ||
       !pipelineFinished ||
@@ -1079,6 +1291,7 @@ export default function ProjectView() {
     return clearReviewPopupTimer;
   }, [
     project?.id,
+    isProjectOwner,
     reviewState?.has_review_for_project,
     pipelineFinished,
     isFirstProject,
@@ -1319,6 +1532,67 @@ export default function ProjectView() {
     [projectId, showError],
   );
 
+  // ─── Collaboration: apply a peer's live edit into local state ──
+  const handleRemoteCollabEdit = useCallback((edit: CollabEdit) => {
+    setProject((prev) => {
+      if (!prev) return prev;
+      if (edit.scope === "project") {
+        const next = { ...prev, [edit.field]: edit.value } as typeof prev;
+        if (edit.field === "bgm_track_id") {
+          // bgm_track_url is derived server-side from the track id, so it isn't part
+          // of the broadcast. Re-resolve it here or the preview keeps the old audio.
+          const trackId = edit.value as string | null;
+          next.bgm_track_url = trackId
+            ? bgmTracks.find((t) => t.track_id === trackId)?.r2_url ?? null
+            : null;
+        }
+        return next;
+      }
+      if (edit.scope === "scene" && edit.scene_id != null) {
+        return {
+          ...prev,
+          scenes: prev.scenes.map((s) =>
+            s.id === edit.scene_id ? ({ ...s, [edit.field]: edit.value } as typeof s) : s
+          ),
+        };
+      }
+      return prev;
+    });
+  }, [bgmTracks]);
+
+  // A change-set was reverted — refetch authoritative state.
+  const handleCollabDraftResolved = useCallback(() => {
+    loadProject();
+  }, [loadProject]);
+
+  // A bulk job finished elsewhere (render complete, template change, script/voice
+  // regen, voiceover add/delete). These rewrite too much state to reconcile
+  // field-by-field, so force a full page reload to pick up authoritative state.
+  const handleCollabRemoteReload = useCallback(() => {
+    window.location.reload();
+  }, []);
+
+  // Per-scene comment counts (badge on the Comment button). Only fetched for shared
+  // projects, where the comment affordance is shown.
+  const loadCommentCounts = useCallback(async () => {
+    if (!projectId || !project?.is_shared) {
+      setCommentCounts({});
+      return;
+    }
+    try {
+      const res = await listComments(projectId);
+      const counts: Record<number, number> = {};
+      for (const c of res.data) counts[c.scene_id] = (counts[c.scene_id] ?? 0) + 1;
+      setCommentCounts(counts);
+    } catch {
+      /* non-critical */
+    }
+  }, [projectId, project?.is_shared]);
+
+  useEffect(() => {
+    loadCommentCounts();
+  }, [loadCommentCounts]);
+
   const handlePreviewPlaybackSpeedChange = useCallback(
     async (speed: number) => {
       if (!project) return;
@@ -1450,13 +1724,19 @@ export default function ProjectView() {
         }
         setRegenerateScriptJob(job);
         if (job.status === "awaiting_review") {
-          // Paused for verification — stop polling, load the new scenes, and fetch the previous
-          // scenes so the verify popup can show the before/after comparison.
-          stopRegenerateScriptPolling();
-          await loadProject();
-          setRegenerateScriptJob(job);
-          loadRegenerateScriptPreview();
+          // Paused for verification — show the new scenes and the before/after preview.
+          // Keep polling (don't stop): the reviewer might be another collaborator, so
+          // this client must track the transition out of review (approve/regenerate)
+          // rather than waiting only on a broadcast reload. Load the project + preview
+          // once (guarded) so we don't refetch every tick.
+          if (!regenerateScriptPreviewLoadedRef.current) {
+            regenerateScriptPreviewLoadedRef.current = true;
+            await loadProject();
+            setRegenerateScriptJob(job);
+            loadRegenerateScriptPreview();
+          }
         } else if (job.status === "completed") {
+          regenerateScriptPreviewLoadedRef.current = false;
           regenerateScriptProceededRef.current = false;
           setRegenScriptPreviousScenes(null);
           stopRegenerateScriptPolling();
@@ -1467,6 +1747,7 @@ export default function ProjectView() {
           await loadProject();
           setRegenerateScriptJob(null);
         } else if (job.status === "failed") {
+          regenerateScriptPreviewLoadedRef.current = false;
           regenerateScriptProceededRef.current = false;
           setRegenScriptPreviousScenes(null);
           stopRegenerateScriptPolling();
@@ -1495,7 +1776,15 @@ export default function ProjectView() {
         if (!cancelled) setTemplateMetas(r.data || []);
       })
       .catch(() => {});
-    listCustomTemplates()
+    // Always fetch the OWNER-resolved custom templates via the project-scoped
+    // endpoint. It returns the owner's templates for a collaborator and the
+    // caller's own for the owner (owner resolves to self), so it's correct for
+    // both — and, crucially, it needs only `projectId` (known at mount), so it
+    // fires in PARALLEL with the project load instead of waiting for the project
+    // payload to arrive and flip `useOwnerScopedAssets`. That removes the serial
+    // round-trip (and the previous wrong-then-right double fetch) that made the
+    // template picker slow to populate for collaborators.
+    (projectId ? listProjectCustomTemplates(projectId) : listCustomTemplates())
       .then((r) => {
         if (!cancelled) setCustomTemplatesList(r.data || []);
       })
@@ -1507,7 +1796,7 @@ export default function ProjectView() {
       cancelled = true;
       stopTemplateRelayoutPolling();
     };
-  }, [stopTemplateRelayoutPolling]);
+  }, [stopTemplateRelayoutPolling, projectId]);
 
   useEffect(() => {
     const refreshTemplateJob = async () => {
@@ -1531,11 +1820,17 @@ export default function ProjectView() {
         const res = await getRegenerateScriptStatus(projectId);
         if (!res.data) return;
         setRegenerateScriptJob(res.data);
-        if (res.data.status === "queued" || res.data.status === "running") {
+        if (
+          res.data.status === "queued" ||
+          res.data.status === "running" ||
+          res.data.status === "awaiting_review"
+        ) {
+          // Poll in all three active states. For "awaiting_review" this is what lets a
+          // COLLABORATOR viewing the review step track the transition out of review when
+          // the actor (or another collaborator) approves/regenerates — otherwise they'd
+          // sit on the review popup forever (they don't drive it). The poll loads the
+          // before/after preview once (guarded) and keeps running until the status flips.
           startRegenerateScriptPolling();
-        } else if (res.data.status === "awaiting_review") {
-          // Resume the verify popup on reload / navigating back into the project.
-          loadRegenerateScriptPreview();
         }
       } catch {
         // ignore
@@ -1809,6 +2104,16 @@ export default function ProjectView() {
       setRendered(true);
       setRendering(false);
       onRenderStarted?.();
+      return;
+    }
+
+    // Only one job per project at a time: don't start a new render while a template
+    // change / script regen / voice op is running (the server would 409 anyway). A
+    // re-render while already rendering is handled by the resume path above.
+    if (anyJobRunning && !(forceReRender && project?.status === "rendering")) {
+      onRenderStarted?.();
+      setRendering(false);
+      showError("A job is already running for this project. Please wait for it to finish.");
       return;
     }
 
@@ -2413,6 +2718,7 @@ export default function ProjectView() {
     try {
       const res = await regenerateScript(project.id, { user_instruction: instruction });
       regenerateScriptProceededRef.current = false; // fresh run — the verify pause is expected
+      regenerateScriptPreviewLoadedRef.current = false; // reload the preview when the new review is reached
       setRegenerateScriptJob(res.data);
       startRegenerateScriptPolling();
     } catch (err) {
@@ -2453,6 +2759,7 @@ export default function ProjectView() {
     try {
       const res = await rejectRegenerateScript(project.id, { user_instruction: instruction });
       regenerateScriptProceededRef.current = false; // re-run reaches the verify pause again
+      regenerateScriptPreviewLoadedRef.current = false; // reload the preview when the new review is reached
       setRegenerateScriptJob(res.data);
       startRegenerateScriptPolling();
     } catch (err) {
@@ -2586,14 +2893,17 @@ export default function ProjectView() {
     project.status
   );
   const showInlineReviewPrompt = Boolean(
-    inlineReviewSubmitted ||
-      (
-        !reviewState?.has_review_for_project &&
+    isProjectOwner &&
+    (
+      inlineReviewSubmitted ||
         (
-          reviewState?.should_show_inline ||
-          (isFirstProject && firstProjectPopupDismissed)
+          !reviewState?.has_review_for_project &&
+          (
+            reviewState?.should_show_inline ||
+            (isFirstProject && firstProjectPopupDismissed)
+          )
         )
-      )
+    )
   );
 
   // ─── Distribute blog images across scenes (match VideoPreview logic) ────────────────
@@ -3026,6 +3336,22 @@ export default function ProjectView() {
     regenerateScriptJob?.status === "awaiting_review" ||
     project.status === "script_regenerating";
   const statusForBadge = templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
+
+  // Only the collaborator who initiated the regen may approve/regenerate the review.
+  // Legacy jobs have no initiator recorded — allow any editor so they aren't stuck.
+  const isRegenScriptReviewer =
+    regenerateScriptJob?.initiated_by_user_id == null ||
+    regenerateScriptJob.initiated_by_user_id === user?.id;
+
+  // Only one long-running job per project at a time (matches the backend's cross-type
+  // 409 guard). While any job is running, every other job trigger is disabled so a
+  // collaborator can't start a second one that the server would just reject.
+  const anyJobRunning =
+    templateRelayoutRunning ||
+    regenerateScriptRunning ||
+    voiceOpRunning ||
+    rendering ||
+    project.status === "rendering";
   const renderGenerationLoader = (mode: "pipeline" | "template-relayout" | "regenerate-script" = "pipeline") => {
     const relayoutProgressRaw =
       templateRelayoutJob && templateRelayoutJob.total_scenes > 0
@@ -3389,6 +3715,21 @@ export default function ProjectView() {
 
         {/* Main content (hidden while rendering or saving to cloud) */}
         {!rendering && !saving && (
+          <CollabProvider
+            projectId={projectId}
+            projectName={project.name}
+            isOwner={project.user_id === user?.id}
+            onRemoteEdit={handleRemoteCollabEdit}
+            onRemoteComment={loadCommentCounts}
+            onRemoteReload={handleCollabRemoteReload}
+            onRemoteRevoked={(message) =>
+              showNotice(
+                message || "Oops, your access has been revoked, you cannot access the project.",
+                { title: "Access revoked", onClose: () => navigate("/dashboard", { replace: true }) },
+              )
+            }
+            onDraftResolved={handleCollabDraftResolved}
+          >
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-3">
@@ -3399,6 +3740,8 @@ export default function ProjectView() {
                 <StatusBadge status={statusForBadge} />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Collaboration header controls: presence + invite. */}
+                <CollabToolbar />
                 {/* Video format (landscape / portrait) — left of download */}
                 <div className="flex items-center shrink-0" data-action="aspect-ratio">
                   <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
@@ -3587,7 +3930,7 @@ export default function ProjectView() {
                       }
                       setShowReRenderWarning(true);
                     }}
-                    disabled={rendering || missingCustomTemplate}
+                    disabled={anyJobRunning || missingCustomTemplate}
                     className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3612,7 +3955,7 @@ export default function ProjectView() {
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
-                      {embedLoading ? "Loading..." : "Share"}
+                      {embedLoading ? "Loading..." : "Share & Invite"}
                       <svg className="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                       </svg>
@@ -3621,6 +3964,7 @@ export default function ProjectView() {
                 )}
               </div>
             </div>
+
 
             {/* Video player area + Chat */}
             <div className="flex flex-1 min-h-0">
@@ -3665,6 +4009,9 @@ export default function ProjectView() {
                         onCaptionSettingsChange={handleCaptionSettingsChange}
                         captionsSaving={savingCaptions}
                         captionSettingsKey={captionSettingsKey}
+                        ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+                        precompiledCraftedDetail={ownerScopedCraftedDetail}
+                        precompiledTemplateData={currentCustomTemplateCode}
                       />
                     </div>
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
@@ -3707,6 +4054,7 @@ export default function ProjectView() {
               </div>
             </div>
           </div>
+          </CollabProvider>
         )}
       </div>
     );
@@ -3743,6 +4091,7 @@ export default function ProjectView() {
           setVoiceOpKickstart(null);
           showError(msg);
         }}
+        onRunningChange={setVoiceOpRunning}
         kickstart={voiceOpKickstart}
       />
 
@@ -4198,7 +4547,7 @@ export default function ProjectView() {
       {/* Verify-step "Regenerate": re-run the script (optionally with an edited instruction),
           pre-filled with the instruction the paused job used. */}
       <RegenerateScriptModal
-        open={showRegenerateScriptRetry}
+        open={showRegenerateScriptRetry && isRegenScriptReviewer}
         projectName={project?.name}
         initialInstruction={regenerateScriptJob?.user_instruction ?? ""}
         confirmLabel="Regenerate"
@@ -4219,6 +4568,7 @@ export default function ProjectView() {
         newScenes={project?.scenes ?? []}
         previousScenes={regenScriptPreviousScenes}
         verifying={regenerateScriptVerifying}
+        canReview={isRegenScriptReviewer}
         onProceed={handleVerifyRegenerateScript}
         onRegenerate={() => setShowRegenerateScriptRetry(true)}
       />
@@ -4332,7 +4682,9 @@ export default function ProjectView() {
 
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">
-                    All {templateChangePickerTab === "builtin" ? "built-in" : templateChangePickerTab === "custom" ? "custom" : "designer"} templates
+                    All{" "}
+                    {ownerAssetLabel && templateChangePickerTab !== "builtin" ? `${ownerAssetLabel} ` : ""}
+                    {templateChangePickerTab === "builtin" ? "built-in" : templateChangePickerTab === "custom" ? "custom" : "designer"} templates
                   </p>
                   <div className="border border-gray-200/60 rounded-xl p-4 max-h-[240px] overflow-y-auto bg-gray-50/40">
                     {templateChangePickerTab === "builtin" ? (
@@ -4530,7 +4882,7 @@ export default function ProjectView() {
                 </button>
                 <button
                   type="button"
-                  disabled={templateChangeDraft === assignedTemplateId || templateRelayoutRunning}
+                  disabled={templateChangeDraft === assignedTemplateId || anyJobRunning}
                   onClick={() => {
                     if (templateChangeDraft === assignedTemplateId) return;
                     setTemplateRelayoutPendingId(templateChangeDraft);
@@ -4568,6 +4920,20 @@ export default function ProjectView() {
                 return { top: rect.bottom + 8, left };
               })()}
             >
+              <button
+                type="button"
+                onClick={() => {
+                  setShowShareDropdown(false);
+                  setInviteOpen(true);
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5"
+              >
+                <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                Invite collaborators
+              </button>
+              <div className="border-t border-gray-100 my-0.5" />
               <button
                 type="button"
                 disabled={embedLoading}
@@ -4651,6 +5017,26 @@ export default function ProjectView() {
           document.body
         )}
 
+      {/* Invite collaborators — opened from the Share menu. */}
+      <ShareProjectModal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        projectId={projectId}
+        projectName={project.name}
+        isOwner={project.user_id === user?.id}
+      />
+
+      {/* Edit history + comments (opens from any tab). */}
+      <EditHistoryPanel
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        projectId={project.id}
+        scenes={project.scenes.map((s) => ({ id: s.id, order: s.order, title: s.title }))}
+        isOwner={project.user_id === user?.id}
+        currentUserId={user?.id}
+        onReverted={handleCollabDraftResolved}
+      />
+
       {showSlidesExportMenu &&
         !missingCustomTemplate &&
         ReactDOM.createPortal(
@@ -4678,7 +5064,7 @@ export default function ProjectView() {
                 type="button"
                 data-action="render-button"
                 data-action-download="download-video"
-                disabled={downloading || sceneExporting}
+                disabled={downloading || sceneExporting || (!rendered && anyJobRunning)}
                 onClick={() => {
                   setShowSlidesExportMenu(false);
                   if (!rendered) {
@@ -4804,6 +5190,9 @@ export default function ProjectView() {
                         logoPositionOverride={logoPosition}
                         initialFrame={getSceneExportGlobalFrame(project, idx, safeFraction)}
                         hideControls
+                        ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+                        precompiledCraftedDetail={ownerScopedCraftedDetail}
+                        precompiledTemplateData={currentCustomTemplateCode}
                       />
                     </div>
                     <div className="mt-3">
@@ -4953,8 +5342,21 @@ export default function ProjectView() {
           locale={{ back: "Back", close: "Close", last: "Done", next: "Next", skip: "Skip" }}
         />
       )}
-      {/* Pill tabs */}
-      <ProjectTabs tabs={tabs} active={activeTab} onChange={handleTabChange} containerDataTour="tabs-container" />
+      {/* Pill tabs + edit-history trigger. On small screens the button wraps to the
+          next row and right-aligns; on ≥sm it sits inline on the right. */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <ProjectTabs tabs={tabs} active={activeTab} onChange={handleTabChange} containerDataTour="tabs-container" />
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(true)}
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors shrink-0 ml-auto"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Edit history
+        </button>
+      </div>
 
       {/* Tab content */}
       <div>
@@ -4977,7 +5379,7 @@ export default function ProjectView() {
             }}
             onRegenerateScript={() => setShowRegenerateScriptConfirm(true)}
             isRegenerating={regenerateScriptRunning}
-            disabled={!["generated", "done"].includes(project.status)}
+            disabled={anyJobRunning || !["generated", "done"].includes(project.status)}
             onEditScene={(scene) => setSceneEditModal(scene)}
           />
         )}
@@ -5041,6 +5443,8 @@ export default function ProjectView() {
                         onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
                         onEdit={() => setSceneEditModal(scene)}
                         onDelete={() => setSceneToDelete(scene)}
+                        onComment={project.is_shared ? () => setCommentScene(scene) : undefined}
+                        commentCount={commentCounts[scene.id] ?? 0}
                         onDragHandleStart={(e) => {
                           setDraggedSceneId(scene.id);
                           e.dataTransfer.setData("text/plain", String(scene.id));
@@ -5722,13 +6126,26 @@ export default function ProjectView() {
                   document.body
                 )}
 
+                {/* Per-scene comments (shared projects only) */}
+                <SceneCommentModal
+                  open={commentScene != null}
+                  onClose={() => setCommentScene(null)}
+                  projectId={project.id}
+                  sceneId={commentScene?.id ?? 0}
+                  sceneTitle={commentScene?.title ?? ""}
+                  currentUserId={user?.id}
+                  ownerId={project.user_id}
+                  onChanged={loadCommentCounts}
+                />
+
+
                 {/* Delete scene confirmation modal */}
                 <ConfirmDeleteModal
                   open={sceneToDelete != null}
                   onClose={() => setSceneToDelete(null)}
                   title="Delete this scene?"
                   subtitle={sceneToDelete?.title}
-                  warningMessage="This cannot be undone."
+                  warningMessage="You can restore this scene later from Edit History."
                   onConfirm={async () => {
                     if (!sceneToDelete) return;
                     try {
@@ -5861,7 +6278,7 @@ export default function ProjectView() {
             projectName={project?.name}
             templateMetas={templateMetas}
             previewCompileScope={user?.id != null ? String(user.id) : undefined}
-            disabled={submittingTemplateRelayout || templateRelayoutRunning || missingCustomTemplate}
+            disabled={submittingTemplateRelayout || anyJobRunning || missingCustomTemplate}
             onChangeTemplate={() => {
               setTemplateChangeDraft(assignedTemplateId);
               setTemplateChangePickerTab(
@@ -5885,10 +6302,12 @@ export default function ProjectView() {
                 voiceAccent={project.voice_accent}
                 customVoiceId={project.custom_voice_id}
                 voiceEmotion={project.voice_emotion ?? null}
-                isPro={isPro}
+                isPro={effectiveIsPro}
                 onError={(msg) => showError(msg)}
                 onUpgrade={() => setShowUpgrade(true)}
                 onOperationStarted={(op) => setVoiceOpKickstart(op)}
+                disabled={anyJobRunning}
+                ownerAssetLabel={ownerAssetLabel}
               />
 
               {/* 3. Playback Speed */}
@@ -5937,7 +6356,7 @@ export default function ProjectView() {
                   <div className="flex justify-end mt-auto">
                     <button
                       type="button"
-                      disabled={savingPlaybackSpeed}
+                      disabled={savingPlaybackSpeed || anyJobRunning}
                       onClick={async () => {
                         setSavingPlaybackSpeed(true);
                         try {
@@ -6078,7 +6497,7 @@ export default function ProjectView() {
                     ) : <div />}
                     <button
                       type="button"
-                      disabled={savingCaptions || !hasVoiceover}
+                      disabled={savingCaptions || !hasVoiceover || anyJobRunning}
                       onClick={async () => {
                         setSavingCaptions(true);
                         try {
@@ -6167,7 +6586,7 @@ export default function ProjectView() {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    disabled={savingColors}
+                    disabled={savingColors || anyJobRunning}
                     onClick={async () => {
                       setSavingColors(true);
                       try {
@@ -6277,7 +6696,7 @@ export default function ProjectView() {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    disabled={savingFontFamily}
+                    disabled={savingFontFamily || anyJobRunning}
                     onClick={async () => {
                       setSavingFontFamily(true);
                       try {
@@ -6345,7 +6764,7 @@ export default function ProjectView() {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  disabled={savingGlobalTypography}
+                  disabled={savingGlobalTypography || anyJobRunning}
                   onClick={async () => {
                     setSavingGlobalTypography(true);
                     try {
@@ -6579,14 +6998,33 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
-                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below. Premium only. */}
-                {isPro && bgmTracks.length > 0 && (
-                  <div className="glass-card p-5">
+                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below.
+                    Premium feature: gated on the OWNER's plan (effectiveIsPro). For non-Pro it's shown but disabled —
+                    clicking opens the upgrade flow (own project) or asks the owner to upgrade (shared project). */}
+                {bgmTracks.length > 0 && (
+                  <div className="glass-card p-5 relative">
+                    {!canUseBgm && (
+                      // Transparent overlay: clicking anywhere on the (visually dimmed, non-interactive)
+                      // card triggers the upgrade prompt instead of operating the track/volume controls.
+                      <button
+                        type="button"
+                        onClick={handleBgmLockedClick}
+                        className="absolute inset-0 z-10 cursor-pointer"
+                        aria-label="Background music is a premium feature — upgrade to enable"
+                      />
+                    )}
                     <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-base font-medium text-gray-900">Music</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-medium text-gray-900">Music</h2>
+                        {!canUseBgm && (
+                          <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
+                            Premium
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[11px] text-gray-400">Project default — fine-tune per scene below</span>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                    <div className={`flex flex-col sm:flex-row sm:items-end gap-3${!canUseBgm ? " opacity-50" : ""}`}>
                       <div className="flex-1">
                         <label className="text-[11px] text-gray-500 mb-1 block">Track</label>
                         <BgmTrackDropdown
@@ -6594,6 +7032,7 @@ export default function ProjectView() {
                           value={bgmTrackDraft}
                           onChange={setBgmTrackDraft}
                           triggerSize="md"
+                          disabled={anyJobRunning}
                         />
                       </div>
                       {bgmTrackDraft && (
@@ -6636,13 +7075,14 @@ export default function ProjectView() {
                             </button>
                             <button
                               type="button"
+                              disabled={anyJobRunning}
                               onClick={() => {
                                 const v = bgmVolumeDraft === 0 ? (lastNonZeroProjectBgm || 0.10) : 0;
                                 if (bgmVolumeDraft > 0) setLastNonZeroProjectBgm(bgmVolumeDraft);
                                 setBgmVolumeDraft(v);
                                 if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
                               }}
-                              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors ${bgmVolumeDraft === 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${bgmVolumeDraft === 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
                               title={bgmVolumeDraft === 0 ? "Unmute music for all scenes" : "Mute music for all scenes"}
                             >
                               {bgmVolumeDraft === 0 ? (
@@ -6657,20 +7097,21 @@ export default function ProjectView() {
                               min={0}
                               max={100}
                               step={1}
+                              disabled={anyJobRunning}
                               value={Math.round(bgmVolumeDraft * 100)}
                               onChange={(e) => {
                                 const v = Number(e.target.value) / 100;
                                 setBgmVolumeDraft(v);
                                 if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
                               }}
-                              className="flex-1 accent-purple-600 cursor-pointer"
+                              className="flex-1 accent-purple-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                           </div>
                         </div>
                       )}
                       <button
                         type="button"
-                        disabled={savingBgm}
+                        disabled={savingBgm || anyJobRunning}
                         onClick={async () => {
                           setSavingBgm(true);
                           try {

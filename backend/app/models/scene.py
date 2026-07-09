@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, Float, ForeignKey, DateTime
+from sqlalchemy import String, Text, Integer, Float, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -8,7 +8,9 @@ class Scene(Base):
     __tablename__ = "scenes"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
     order: Mapped[int] = mapped_column(Integer, nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     narration_text: Mapped[str] = mapped_column(Text, nullable=False)
@@ -25,6 +27,10 @@ class Scene(Base):
     # Optional hint for template_scene_gen: layout ID or arrangement name suggested by script generator.
     preferred_layout: Mapped[str | None] = mapped_column(String(64), nullable=True)
     scene_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "intro"/"content"/"outro"; NULL = "content"
+    # Soft-delete flag — False means the scene was deleted by the user. The row (and
+    # its voiceover/image assets) is kept so the deletion can be reverted from the
+    # edit history. Deleted scenes are filtered out of serving/render/count paths.
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )
@@ -32,3 +38,4 @@ class Scene(Base):
     # Relationships
     project = relationship("Project", back_populates="scenes")
     edit_history = relationship("SceneEditHistory", back_populates="scene", cascade="all, delete-orphan", passive_deletes=True,)
+    comments = relationship("SceneComment", back_populates="scene", cascade="all, delete-orphan", passive_deletes=True,)

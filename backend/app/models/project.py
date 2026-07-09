@@ -104,7 +104,7 @@ class Project(Base):
 
     # Soft-delete flag — False means the project has been deactivated (files purged)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )
@@ -114,12 +114,27 @@ class Project(Base):
 
     # Relationships
     user = relationship("User", back_populates="projects")
+    members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     crafted_template = relationship("CraftedTemplate", back_populates="projects")
-    scenes = relationship("Scene", back_populates="project", cascade="all, delete-orphan", order_by="Scene.order")
+    # Only active (non-soft-deleted) scenes are exposed here, so deleted scenes vanish
+    # from every project-serializing endpoint and from renders using project.scenes.
+    # Internal paths that must see deleted scenes (revert/un-delete) query Scene directly.
+    # NOTE: because this relationship is filtered, ORM delete-orphan would NOT cascade to
+    # soft-deleted rows on project delete — the scenes.project_id FK carries an explicit
+    # ondelete="CASCADE" (see scene.py) so the DB cleans up ALL scene rows regardless.
+    scenes = relationship(
+        "Scene",
+        back_populates="project",
+        primaryjoin="and_(Scene.project_id==Project.id, Scene.is_active==True)",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="Scene.order",
+    )
     assets = relationship("Asset", back_populates="project", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="project", cascade="all, delete-orphan", order_by="ChatMessage.created_at")
     project_edit_history = relationship("ProjectEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     scene_edit_history = relationship("SceneEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
+    scene_comments = relationship("SceneComment", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     reviews = relationship("Review", back_populates="project", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)

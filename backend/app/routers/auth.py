@@ -59,6 +59,37 @@ class UserOut(BaseModel):
 AuthResponse.model_rebuild()
 
 
+def _bind_pending_collab_invites(user: User, db: Session) -> None:
+    """Link collaboration invites addressed to this user's email to their account.
+
+    Invites can be created before the invitee has an account (invite-by-email).
+    On login we attach the ``user_id`` to any unbound pending rows for that email
+    so they surface in the invitee's pending-invites list. Acceptance is still an
+    explicit action; this only binds identity.
+    """
+    try:
+        from app.models.project_member import ProjectMember, MemberStatus
+
+        rows = (
+            db.query(ProjectMember)
+            .filter(
+                ProjectMember.invited_email == user.email,
+                ProjectMember.user_id.is_(None),
+                ProjectMember.status == MemberStatus.PENDING,
+            )
+            .all()
+        )
+        changed = False
+        for row in rows:
+            row.user_id = user.id
+            changed = True
+        if changed:
+            db.commit()
+    except Exception as e:
+        logger.warning("[COLLAB] Failed to bind pending invites for %s: %s", user.email, e)
+        db.rollback()
+
+
 def _apply_referral_bonus(ref_code: str, new_user: User, db: Session) -> None:
     try:
         referral = db.query(Referral).filter_by(code=ref_code, is_active=True).first()
@@ -199,6 +230,10 @@ def google_login(
     if created_new_user and ref_code:
         _apply_referral_bonus(ref_code, user, db)
 
+    # Bind any collaboration invites addressed to this email to the user account,
+    # so pending invites created before the user existed show up for them to accept.
+    _bind_pending_collab_invites(user, db)
+
     ensure_free_voices_for_user(db, user.id)
 
     token = create_access_token(user.id)
@@ -301,12 +336,22 @@ def delete_account(
             _delete_project_storage(proj)
             db.delete(proj)
 
-        # 4. Delete saved voices, custom voices, custom templates
+        # 4. Remove this user's collaborator memberships on OTHER people's projects
+        #    (their own projects were deleted above, cascading those member rows).
+        #    Match by bound user_id or by the invited email for still-pending invites,
+        #    so no ghost collaborator entry is left behind.
+        from app.models.project_member import ProjectMember
+        db.query(ProjectMember).filter(
+            (ProjectMember.user_id == user.id)
+            | (ProjectMember.invited_email == (user.email or "").lower())
+        ).delete(synchronize_session=False)
+
+        # 5. Delete saved voices, custom voices, custom templates
         db.query(SavedVoice).filter(SavedVoice.user_id == user.id).delete()
         db.query(CustomVoice).filter(CustomVoice.user_id == user.id).delete()
         db.query(CustomTemplate).filter(CustomTemplate.user_id == user.id).delete()
 
-        # 5. Soft-delete user — normalize usage before plan becomes FREE (read plan first)
+        # 6. Soft-delete user — normalize usage before plan becomes FREE (read plan first)
         was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
         if was_paid:
             # Paid users already had (or could have had) the free grant; do not let a low
