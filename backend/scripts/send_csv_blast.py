@@ -59,8 +59,15 @@ The script only runs from the folder it lives in, or via a full path.
 ═══════════════════════════════════════════════════════════════════════════
 NOTES
 ═══════════════════════════════════════════════════════════════════════════
-• "Recipients : N" = the REAL count (everyone in the CSV is emailed).
+• "Recipients : N" = the REAL count (everyone still on the list is emailed).
   "Preview : ..." only shows the first 5 addresses — it is NOT a limit.
+• Unsubscribes are honoured: before sending, every CSV address is checked
+  against the app's `users` table and anyone with email_unsubscribed = true is
+  dropped ("Unsub skip : N" shows how many). This needs DATABASE_URL in
+  backend/.env (already there). If the DB can't be reached the script ABORTS
+  rather than risk emailing opted-out users. Addresses NOT in the users table
+  (cold leads) are still emailed. Use --skip-unsub-check to bypass this entirely
+  (only for pure cold-lead lists with no existing app users).
 • The API key is read from backend/.env (RESEND_API_KEY). Override the file
   with  --env-file /path/to/.env  if needed.
 • Test safely first: put only your own email in recipients.csv and --send,
@@ -172,6 +179,66 @@ def read_recipients(csv_path: str, email_column: str) -> list[str]:
         if skipped:
             print(f"  ({skipped} row(s) skipped — missing or malformed email)")
     return recipients
+
+
+# ─── Unsubscribe suppression (query the app's users table directly) ──────────
+
+
+def fetch_unsubscribed(emails: list[str]) -> set[str]:
+    """Return the lowercased subset of `emails` whose user has unsubscribed.
+
+    Opens its own short-lived SQLAlchemy connection to DATABASE_URL (already
+    loaded from backend/.env by load_env) and runs ONE query against the
+    `users` table — it does NOT import the Blog2Video app package, matching this
+    script's self-contained design.
+
+    Only addresses that exist in `users` AND have email_unsubscribed = true are
+    returned. Addresses not in the table are absent from the result (so the
+    caller still sends to them — cold leads who were never app users).
+
+    Aborts (SystemExit) if DATABASE_URL is unset or the DB can't be reached, so
+    the suppression check can never silently be skipped and re-email opted-out
+    users.
+    """
+    db_url = os.environ.get("DATABASE_URL", "").strip()
+    if not db_url:
+        raise SystemExit(
+            "DATABASE_URL is not set — cannot check for unsubscribed users. "
+            "Set it in backend/.env, or pass --skip-unsub-check to send without "
+            "the suppression check (only for pure cold leads)."
+        )
+
+    # Lazy imports so --help / dry-run without the packages still work, matching
+    # the lazy `import resend` in send_one().
+    from sqlalchemy import bindparam, create_engine, text  # type: ignore
+
+    # Mirror database.py: Neon (postgres) requires SSL when the URL omits it.
+    connect_args: dict = {}
+    if db_url.startswith("postgres") and "sslmode" not in db_url:
+        connect_args["sslmode"] = "require"
+
+    lowered = {e.strip().lower() for e in emails}
+    engine = None
+    try:
+        engine = create_engine(db_url, connect_args=connect_args)
+        query = text(
+            "SELECT lower(email) FROM users "
+            "WHERE email_unsubscribed = true AND lower(email) IN :emails"
+        ).bindparams(bindparam("emails", expanding=True))
+        with engine.connect() as conn:
+            rows = conn.execute(query, {"emails": list(lowered)}).fetchall()
+        return {row[0] for row in rows}
+    except SystemExit:
+        raise
+    except Exception as exc:  # noqa: BLE001 — never send if the check couldn't run
+        raise SystemExit(
+            f"Could not reach the database to check unsubscribes: {exc}. "
+            "Aborting so opted-out users are not emailed. "
+            "(Pass --skip-unsub-check to send without the check.)"
+        )
+    finally:
+        if engine is not None:
+            engine.dispose()
 
 
 # ─── Subject / body resolution ───────────────────────────────────────────────
@@ -336,6 +403,13 @@ def main() -> None:
     parser.add_argument(
         "--yes", action="store_true", help="Skip the final confirmation prompt (with --send)."
     )
+    parser.add_argument(
+        "--skip-unsub-check",
+        action="store_true",
+        help="Do NOT check the database for unsubscribed users before sending. "
+        "Only for blasting pure cold leads with no DB access — never use this "
+        "for a list that may contain existing app users.",
+    )
     args = parser.parse_args()
 
     from_email = args.from_email
@@ -350,12 +424,28 @@ def main() -> None:
     if args.limit > 0:
         recipients = recipients[: args.limit]
 
+    # Drop anyone who has unsubscribed (checked against the app's users table).
+    # Runs on dry-run too, so the printed counts are accurate and connectivity
+    # is verified before any real send. Aborts if the DB can't be reached.
+    unsub_skipped = 0
+    if args.skip_unsub_check:
+        print("⚠ --skip-unsub-check: NOT checking the database for unsubscribed users.")
+    else:
+        unsubscribed = fetch_unsubscribed(recipients)
+        if unsubscribed:
+            recipients = [e for e in recipients if e.strip().lower() not in unsubscribed]
+            unsub_skipped = len(unsubscribed)
+        if not recipients:
+            raise SystemExit("All recipients are unsubscribed — nothing to send.")
+
     subject, body = resolve_subject_and_body(args)
 
     api_key = os.environ.get("RESEND_API_KEY", "")
 
     print("\n" + "=" * 64)
     print(f"Recipients : {len(recipients)}")
+    if not args.skip_unsub_check:
+        print(f"Unsub skip : {unsub_skipped}")
     print(f"From       : {from_email}")
     print(f"Subject    : {subject}")
     print("Body       :")

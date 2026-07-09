@@ -5,6 +5,8 @@ import {
   Sequence,
   staticFile,
   CalculateMetadataFunction,
+  delayRender,
+  continueRender,
 } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { SAKURA_LAYOUT_REGISTRY as LAYOUT_REGISTRY, SakuraLayoutType, SceneLayoutProps } from "./layouts";
@@ -60,6 +62,35 @@ interface VideoProps extends Record<string, unknown> {
 }
 
 const FPS = 30;
+
+// The Sakura scene fonts (Noto Serif JP display + Shippori Mincho body) load asynchronously from
+// their @fontsource CSS. Without gating, the render captures frame 0 while the fallback serif is
+// still showing, then snaps to the real JP fonts a few frames in — a visible jerk at the very start
+// of the first scene. Hold the render (delayRender) until both fonts + weights are ready, mirroring
+// how captions gate on ensureCaptionFontLoaded. Resolves immediately in environments without the
+// Font Loading API. Weights match the @fontsource imports in sakuraStyle (JP: 400/700, body: 400/600).
+const useSakuraFontsLoaded = (): void => {
+  const [handle] = useState(() => delayRender("sakura-fonts"));
+  useEffect(() => {
+    const fontsApi = (typeof document !== "undefined" ? document.fonts : undefined) as
+      | FontFaceSet
+      | undefined;
+    if (!fontsApi) {
+      continueRender(handle);
+      return;
+    }
+    const load = (spec: string) => fontsApi.load(spec).catch(() => undefined);
+    Promise.all([
+      load('400 40px "Noto Serif JP"'),
+      load('700 40px "Noto Serif JP"'),
+      load('400 40px "Shippori Mincho"'),
+      load('600 40px "Shippori Mincho"'),
+    ])
+      .then(() => fontsApi.ready)
+      .catch(() => undefined)
+      .finally(() => continueRender(handle));
+  }, [handle]);
+};
 
 // Silent visual "hold" (~3s @ 30fps) appended to the END of every non-last Sakura scene's visual
 // window so each page gets a beat to breathe before its transition. Carries NO voiceover and NO
@@ -136,6 +167,14 @@ export const calculateSakuraMetadata: CalculateMetadataFunction<VideoProps> =
 export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
 
+  // Gate the render until the JP scene fonts are ready so the first scene doesn't jerk on font swap.
+  useSakuraFontsLoaded();
+
+  // Gate the render on the data.json fetch. Without this, the renderer captures frame 0 while
+  // `data` is still null — the "Loading..." placeholder below — and only snaps to the hero once the
+  // async fetch resolves a few frames in, so every downloaded mp4 opens with a visible jerk. The
+  // delayRender handle holds frame 0 until the JSON has loaded (or the fallback is set on error).
+  const [dataHandle] = useState(() => delayRender("sakura-data"));
   useEffect(() => {
     fetch(staticFile(dataUrl.replace(/^\//, "")))
       .then((res) => res.json())
@@ -148,8 +187,9 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: "#2A0A12",
           scenes: [],
         });
-      });
-  }, [dataUrl]);
+      })
+      .finally(() => continueRender(dataHandle));
+  }, [dataUrl, dataHandle]);
 
   if (!data) {
     return (

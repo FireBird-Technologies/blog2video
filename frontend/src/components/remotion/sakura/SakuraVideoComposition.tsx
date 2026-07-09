@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Audio, Sequence } from "remotion";
+import { AbsoluteFill, Audio, Sequence, delayRender, continueRender } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { SAKURA_LAYOUT_REGISTRY as LAYOUT_REGISTRY, SakuraLayoutType, SceneLayoutProps } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
@@ -46,6 +46,35 @@ export interface SakuraVideoCompositionProps {
 }
 
 const FPS = 30;
+
+// The Sakura scene fonts (Noto Serif JP display + Shippori Mincho body) load asynchronously from
+// their @fontsource CSS. Without gating, the render captures frame 0 while the fallback serif is
+// still showing, then snaps to the real JP fonts a few frames in — a visible jerk at the very start
+// of the first scene. Hold the render (delayRender) until both fonts + weights are ready, mirroring
+// how captions gate on ensureCaptionFontLoaded. Resolves immediately in environments without the
+// Font Loading API. Weights match the @fontsource imports in sakuraStyle (JP: 400/700, body: 400/600).
+const useSakuraFontsLoaded = (): void => {
+  const [handle] = React.useState(() => delayRender("sakura-fonts"));
+  React.useEffect(() => {
+    const fontsApi = (typeof document !== "undefined" ? document.fonts : undefined) as
+      | FontFaceSet
+      | undefined;
+    if (!fontsApi) {
+      continueRender(handle);
+      return;
+    }
+    const load = (spec: string) => fontsApi.load(spec).catch(() => undefined);
+    Promise.all([
+      load('400 40px "Noto Serif JP"'),
+      load('700 40px "Noto Serif JP"'),
+      load('400 40px "Shippori Mincho"'),
+      load('600 40px "Shippori Mincho"'),
+    ])
+      .then(() => fontsApi.ready)
+      .catch(() => undefined)
+      .finally(() => continueRender(handle));
+  }, [handle]);
+};
 
 // Silent visual "hold" (~3s @ 30fps) appended to the END of every non-last Sakura scene's visual
 // window so each page gets a beat to breathe before its transition. Carries NO voiceover and NO
@@ -123,6 +152,9 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
   captionFontSize,
   captionOffset,
 }) => {
+  // Gate the render until the JP scene fonts are ready so the first scene doesn't jerk on font swap.
+  useSakuraFontsLoaded();
+
   const resolved = resolveScenes(scenes);
 
   // Absolute scene start frames (for voiceover audio), accounting for overlaps.

@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Audio, Sequence, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Sequence, useCurrentFrame, delayRender, continueRender } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { LogoOverlay } from "./default/../LogoOverlay";
 import {
@@ -2199,6 +2199,35 @@ export interface RemotionSakuraVideoCompositionProps {
   fontFamily?: string;
 }
 
+// The Sakura scene fonts (Noto Serif JP display + Shippori Mincho body) load asynchronously from
+// their @fontsource CSS. Without gating, the render captures frame 0 while the fallback serif is
+// still showing, then snaps to the real JP fonts a few frames in — a visible jerk at the very start
+// of the first scene. Hold the render (delayRender) until both fonts + weights are ready, mirroring
+// how captions gate on ensureCaptionFontLoaded. Resolves immediately in environments without the
+// Font Loading API. Weights match the @fontsource imports in sakuraStyle (JP: 400/700, body: 400/600).
+const useSakuraFontsLoaded = (): void => {
+  const [handle] = React.useState(() => delayRender("sakura-fonts"));
+  React.useEffect(() => {
+    const fontsApi = (typeof document !== "undefined" ? document.fonts : undefined) as
+      | FontFaceSet
+      | undefined;
+    if (!fontsApi) {
+      continueRender(handle);
+      return;
+    }
+    const load = (spec: string) => fontsApi.load(spec).catch(() => undefined);
+    Promise.all([
+      load('400 40px "Noto Serif JP"'),
+      load('700 40px "Noto Serif JP"'),
+      load('400 40px "Shippori Mincho"'),
+      load('600 40px "Shippori Mincho"'),
+    ])
+      .then(() => fontsApi.ready)
+      .catch(() => undefined)
+      .finally(() => continueRender(handle));
+  }, [handle]);
+};
+
 export const RemotionSakuraVideoComposition: React.FC<
   RemotionSakuraVideoCompositionProps
 > = ({
@@ -2214,6 +2243,9 @@ export const RemotionSakuraVideoComposition: React.FC<
   fontFamily,
 }) => {
   const FPS = 30;
+
+  // Gate the render until the JP scene fonts are ready so the first scene doesn't jerk on font swap.
+  useSakuraFontsLoaded();
 
   // Silent visual "hold" (~3s @ 30fps) appended to the END of every non-last Sakura scene's visual
   // window so each page gets a beat to breathe before its transition. Carries NO voiceover — audio
