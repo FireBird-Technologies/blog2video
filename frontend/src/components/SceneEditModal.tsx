@@ -4196,11 +4196,13 @@ export default function SceneEditModal({
 
   const scrapedImageItems = availableImageItems;
 
-  // A collaborator blocked by the owner's free plan can't act on an upgrade prompt.
+  // A collaborator blocked by the owner's free plan can't act on an upgrade prompt,
+  // so show the soft "Oops" warning rather than a hard red error.
   const ownerBlocksProFeature = isCollaborator && !effectiveIsPro;
   const notifyOwnerBlocked = () =>
     showError(
       "The project owner is on the Free plan, so AI image generation isn't available here. Ask the owner to upgrade.",
+      { variant: "warning" },
     );
 
   const handleGenerateImageClick = () => {
