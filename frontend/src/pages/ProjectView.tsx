@@ -3231,12 +3231,12 @@ export default function ProjectView() {
   };
 
   // A collaborator blocked by a FREE owner can't fix it by upgrading their own plan,
-  // so show an explanatory notice instead of the self-upgrade modal.
+  // so show the soft "Oops" warning instead of the self-upgrade modal.
   const ownerBlocksProFeature = useOwnerScopedAssets && !effectiveIsPro;
   const notifyOwnerBlocked = () =>
-    showNotice(
+    showError(
       "The project owner is on the Free plan, so AI image generation isn't available here. Ask the owner to upgrade.",
-      { title: "Not available on this project" },
+      { variant: "warning" },
     );
 
   const handleGenerateSceneImageClick = (sceneId: number) => {
