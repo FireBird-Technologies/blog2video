@@ -61,18 +61,28 @@ interface VideoProps extends Record<string, unknown> {
 
 const FPS = 30;
 
+// Silent visual "hold" (~3s @ 30fps) appended to the END of every non-last Sakura scene's visual
+// window so each page gets a beat to breathe before its transition. Carries NO voiceover and NO
+// caption — audio/captions stay on the base scene window; only the TransitionSeries.Sequence length
+// and the total duration grow by it. Last scene gets no hold. 90 > max transition overlap (75), so
+// the hold always fully clears the boundary. Mirror byte-identical across all three Sakura trees.
+const SAKURA_EXTRA_HOLD_FRAMES = 45;
+
 interface ResolvedScene {
   scene: SceneData;
   layoutKey: SakuraLayoutType;
-  durationFrames: number;
+  durationFrames: number; // base window — drives audio, captions, boundary cap
+  sequenceFrames: number; // base + silent hold — drives the visual TransitionSeries.Sequence + total
 }
 
 const resolveScenes = (scenes: SceneData[], playbackSpeed: number): ResolvedScene[] =>
-  scenes.map((scene) => {
+  scenes.map((scene, index, arr) => {
     const layoutKey: SakuraLayoutType =
       scene.layout in LAYOUT_REGISTRY ? scene.layout : ("sakura_section" as SakuraLayoutType);
     const durationFrames = getSceneDurationFrames(scene.durationSeconds, FPS, playbackSpeed);
-    return { scene, layoutKey, durationFrames };
+    const sequenceFrames =
+      index === arr.length - 1 ? durationFrames : durationFrames + SAKURA_EXTRA_HOLD_FRAMES;
+    return { scene, layoutKey, durationFrames, sequenceFrames };
   });
 
 // A TransitionSeries transition may not exceed either neighbouring sequence.
@@ -95,7 +105,7 @@ const boundaryFrames = (resolved: ResolvedScene[], index: number): number => {
 
 const computeTotalFrames = (resolved: ResolvedScene[]): number => {
   if (resolved.length === 0) return FPS * 5;
-  let total = resolved.reduce((sum, s) => sum + s.durationFrames, 0);
+  let total = resolved.reduce((sum, s) => sum + s.sequenceFrames, 0);
   for (let i = 0; i < resolved.length - 1; i++) {
     total -= boundaryFrames(resolved, i);
   }
@@ -158,7 +168,7 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const sceneStartFrames: number[] = [];
   resolved.forEach((s, i) => {
     sceneStartFrames[i] = runningFrame;
-    runningFrame += s.durationFrames;
+    runningFrame += s.sequenceFrames;
     if (i < resolved.length - 1) {
       runningFrame -= boundaryFrames(resolved, i);
     }
@@ -240,7 +250,7 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           const sequence = (
             <TransitionSeries.Sequence
               key={`seq-${scene.id}-${index}`}
-              durationInFrames={r.durationFrames}
+              durationInFrames={r.sequenceFrames}
             >
               <LayoutComponent {...layoutProps} />
             </TransitionSeries.Sequence>

@@ -2215,15 +2215,25 @@ export const RemotionSakuraVideoComposition: React.FC<
 }) => {
   const FPS = 30;
 
+  // Silent visual "hold" (~3s @ 30fps) appended to the END of every non-last Sakura scene's visual
+  // window so each page gets a beat to breathe before its transition. Carries NO voiceover — audio
+  // stays on the base scene window; only the TransitionSeries.Sequence length grows by it. Last
+  // scene gets no hold. 90 > max transition overlap (75), so the hold always fully clears the
+  // boundary. Mirror byte-identical across all three Sakura trees. This component has no local total;
+  // its window comes from computeSakuraVideoTotalFrames, which grows by the same holds.
+  const SAKURA_EXTRA_HOLD_FRAMES = 45;
+
   // Resolve per-scene layout + duration frames once (shared by the render and the
   // audio-start computation so they stay in sync).
-  const resolved = scenes.map((scene) => {
+  const resolved = scenes.map((scene, index, arr) => {
     const layoutKey: RemotionSakuraLayoutType =
       (scene.layout as RemotionSakuraLayoutType) in REMOTION_SAKURA_LAYOUT_REGISTRY
         ? (scene.layout as RemotionSakuraLayoutType)
         : ("sakura_section" as RemotionSakuraLayoutType);
     const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
-    return { scene, layoutKey, durationFrames };
+    const sequenceFrames =
+      index === arr.length - 1 ? durationFrames : durationFrames + SAKURA_EXTRA_HOLD_FRAMES;
+    return { scene, layoutKey, durationFrames, sequenceFrames };
   });
 
   // A TransitionSeries transition may not exceed either neighbouring sequence, and
@@ -2247,7 +2257,7 @@ export const RemotionSakuraVideoComposition: React.FC<
   const sceneStartFrames: number[] = [];
   resolved.forEach((s, i) => {
     sceneStartFrames[i] = runningFrame;
-    runningFrame += s.durationFrames;
+    runningFrame += s.sequenceFrames;
     if (i < resolved.length - 1) {
       runningFrame -= boundaryFrames(i);
     }
@@ -2280,7 +2290,7 @@ export const RemotionSakuraVideoComposition: React.FC<
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FDF6F0", fontFamily }}>
       <TransitionSeries>
         {resolved.map((s, index) => {
-          const { scene, layoutKey, durationFrames } = s;
+          const { scene, layoutKey, durationFrames, sequenceFrames } = s;
           const LayoutComponent =
             REMOTION_SAKURA_LAYOUT_REGISTRY[layoutKey] ??
             REMOTION_SAKURA_LAYOUT_REGISTRY.sakura_section;
@@ -2289,7 +2299,7 @@ export const RemotionSakuraVideoComposition: React.FC<
           const sequence = (
             <TransitionSeries.Sequence
               key={`seq-${scene.id}-${index}`}
-              durationInFrames={durationFrames}
+              durationInFrames={sequenceFrames}
             >
               <LayoutComponent {...layoutProps} />
             </TransitionSeries.Sequence>
