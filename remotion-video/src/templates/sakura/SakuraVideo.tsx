@@ -5,6 +5,8 @@ import {
   Sequence,
   staticFile,
   CalculateMetadataFunction,
+  delayRender,
+  continueRender,
 } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { SAKURA_LAYOUT_REGISTRY as LAYOUT_REGISTRY, SakuraLayoutType, SceneLayoutProps } from "./layouts";
@@ -61,18 +63,57 @@ interface VideoProps extends Record<string, unknown> {
 
 const FPS = 30;
 
+// The Sakura scene fonts (Noto Serif JP display + Shippori Mincho body) load asynchronously from
+// their @fontsource CSS. Without gating, the render captures frame 0 while the fallback serif is
+// still showing, then snaps to the real JP fonts a few frames in — a visible jerk at the very start
+// of the first scene. Hold the render (delayRender) until both fonts + weights are ready, mirroring
+// how captions gate on ensureCaptionFontLoaded. Resolves immediately in environments without the
+// Font Loading API. Weights match the @fontsource imports in sakuraStyle (JP: 400/700, body: 400/600).
+const useSakuraFontsLoaded = (): void => {
+  const [handle] = useState(() => delayRender("sakura-fonts"));
+  useEffect(() => {
+    const fontsApi = (typeof document !== "undefined" ? document.fonts : undefined) as
+      | FontFaceSet
+      | undefined;
+    if (!fontsApi) {
+      continueRender(handle);
+      return;
+    }
+    const load = (spec: string) => fontsApi.load(spec).catch(() => undefined);
+    Promise.all([
+      load('400 40px "Noto Serif JP"'),
+      load('700 40px "Noto Serif JP"'),
+      load('400 40px "Shippori Mincho"'),
+      load('600 40px "Shippori Mincho"'),
+    ])
+      .then(() => fontsApi.ready)
+      .catch(() => undefined)
+      .finally(() => continueRender(handle));
+  }, [handle]);
+};
+
+// Silent visual "hold" (~3s @ 30fps) appended to the END of every non-last Sakura scene's visual
+// window so each page gets a beat to breathe before its transition. Carries NO voiceover and NO
+// caption — audio/captions stay on the base scene window; only the TransitionSeries.Sequence length
+// and the total duration grow by it. Last scene gets no hold. 90 > max transition overlap (75), so
+// the hold always fully clears the boundary. Mirror byte-identical across all three Sakura trees.
+const SAKURA_EXTRA_HOLD_FRAMES = 45;
+
 interface ResolvedScene {
   scene: SceneData;
   layoutKey: SakuraLayoutType;
-  durationFrames: number;
+  durationFrames: number; // base window — drives audio, captions, boundary cap
+  sequenceFrames: number; // base + silent hold — drives the visual TransitionSeries.Sequence + total
 }
 
 const resolveScenes = (scenes: SceneData[], playbackSpeed: number): ResolvedScene[] =>
-  scenes.map((scene) => {
+  scenes.map((scene, index, arr) => {
     const layoutKey: SakuraLayoutType =
       scene.layout in LAYOUT_REGISTRY ? scene.layout : ("sakura_section" as SakuraLayoutType);
     const durationFrames = getSceneDurationFrames(scene.durationSeconds, FPS, playbackSpeed);
-    return { scene, layoutKey, durationFrames };
+    const sequenceFrames =
+      index === arr.length - 1 ? durationFrames : durationFrames + SAKURA_EXTRA_HOLD_FRAMES;
+    return { scene, layoutKey, durationFrames, sequenceFrames };
   });
 
 // A TransitionSeries transition may not exceed either neighbouring sequence.
@@ -95,7 +136,7 @@ const boundaryFrames = (resolved: ResolvedScene[], index: number): number => {
 
 const computeTotalFrames = (resolved: ResolvedScene[]): number => {
   if (resolved.length === 0) return FPS * 5;
-  let total = resolved.reduce((sum, s) => sum + s.durationFrames, 0);
+  let total = resolved.reduce((sum, s) => sum + s.sequenceFrames, 0);
   for (let i = 0; i < resolved.length - 1; i++) {
     total -= boundaryFrames(resolved, i);
   }
@@ -126,6 +167,14 @@ export const calculateSakuraMetadata: CalculateMetadataFunction<VideoProps> =
 export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
 
+  // Gate the render until the JP scene fonts are ready so the first scene doesn't jerk on font swap.
+  useSakuraFontsLoaded();
+
+  // Gate the render on the data.json fetch. Without this, the renderer captures frame 0 while
+  // `data` is still null — the "Loading..." placeholder below — and only snaps to the hero once the
+  // async fetch resolves a few frames in, so every downloaded mp4 opens with a visible jerk. The
+  // delayRender handle holds frame 0 until the JSON has loaded (or the fallback is set on error).
+  const [dataHandle] = useState(() => delayRender("sakura-data"));
   useEffect(() => {
     fetch(staticFile(dataUrl.replace(/^\//, "")))
       .then((res) => res.json())
@@ -138,8 +187,9 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: "#2A0A12",
           scenes: [],
         });
-      });
-  }, [dataUrl]);
+      })
+      .finally(() => continueRender(dataHandle));
+  }, [dataUrl, dataHandle]);
 
   if (!data) {
     return (
@@ -158,7 +208,7 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const sceneStartFrames: number[] = [];
   resolved.forEach((s, i) => {
     sceneStartFrames[i] = runningFrame;
-    runningFrame += s.durationFrames;
+    runningFrame += s.sequenceFrames;
     if (i < resolved.length - 1) {
       runningFrame -= boundaryFrames(resolved, i);
     }
@@ -240,7 +290,7 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           const sequence = (
             <TransitionSeries.Sequence
               key={`seq-${scene.id}-${index}`}
-              durationInFrames={r.durationFrames}
+              durationInFrames={r.sequenceFrames}
             >
               <LayoutComponent {...layoutProps} />
             </TransitionSeries.Sequence>
