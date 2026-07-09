@@ -2772,8 +2772,16 @@ export default function SceneEditModal({
   }, [selectedImageFile]);
 
   const isPro = user?.plan === "pro" || user?.plan === "standard";
+  // Owner pays: AI editing and AI image generation are gated on the OWNER's plan,
+  // so a Free collaborator inherits a paid owner's entitlement (and vice versa).
+  const isCollaborator = user != null && project.user_id !== user.id;
+  const effectiveIsPro = isCollaborator ? (project.owner_is_pro ?? false) : isPro;
   const aiUsageCount = project.ai_assisted_editing_count || 0;
-  const canUseAI = isPro || aiUsageCount < 3;
+  const canUseAI = effectiveIsPro || aiUsageCount < 3;
+  // A collaborator can't lift the limit by upgrading — the owner must.
+  const aiLimitMessage = isCollaborator
+    ? "The project owner's AI-Assisted Editing limit has been reached. Ask the owner to upgrade."
+    : "The limit for AI-Assisted Editing has been reached.";
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
   const isCraftedTemplate = (project.template || "").startsWith("crafted_");
@@ -4188,9 +4196,17 @@ export default function SceneEditModal({
 
   const scrapedImageItems = availableImageItems;
 
+  // A collaborator blocked by the owner's free plan can't act on an upgrade prompt.
+  const ownerBlocksProFeature = isCollaborator && !effectiveIsPro;
+  const notifyOwnerBlocked = () =>
+    showError(
+      "The project owner is on the Free plan, so AI image generation isn't available here. Ask the owner to upgrade.",
+    );
+
   const handleGenerateImageClick = () => {
-    if (!isPro) {
-      setShowAiImageUpgradeModal(true);
+    if (!effectiveIsPro) {
+      if (ownerBlocksProFeature) notifyOwnerBlocked();
+      else setShowAiImageUpgradeModal(true);
       return;
     }
     setShowImageGenModal(true);
@@ -4495,12 +4511,12 @@ export default function SceneEditModal({
             </div>
             {editMode === "ai" && canUseAI && (
               <p className="mt-2 text-xs text-gray-600 font-medium">
-                AI edits remaining: {isPro ? "Unlimited" : `${Math.max(0, 3 - aiUsageCount)} of 3 this period`}
+                AI edits remaining: {effectiveIsPro ? "Unlimited" : `${Math.max(0, 3 - aiUsageCount)} of 3 for this project`}
               </p>
             )}
             {editMode === "ai" && !canUseAI && (
               <p className="mt-2 text-xs font-medium text-red-600">
-                You've used all your AI edits for this period.
+                {aiLimitMessage}
               </p>
             )}
           </div>
@@ -6341,7 +6357,12 @@ export default function SceneEditModal({
       open={showImageGenModal}
       scene={scene}
       project={project}
-      isPro={isPro}
+      isPro={effectiveIsPro}
+      ownerBlocked={ownerBlocksProFeature}
+      onOwnerBlocked={() => {
+        setShowImageGenModal(false);
+        notifyOwnerBlocked();
+      }}
       onClose={() => setShowImageGenModal(false)}
       onUpgrade={() => {
         setShowImageGenModal(false);

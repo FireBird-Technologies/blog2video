@@ -98,6 +98,24 @@ def is_owner(project: Project, user: User) -> bool:
     return project.user_id == user.id
 
 
+def feature_owner_gate_message(payer: User, acting_user: User, feature: str) -> str:
+    """Paid-feature 403 text that names whose plan is blocking.
+
+    On a shared project the OWNER pays, so a collaborator blocked by a FREE owner
+    cannot fix it by upgrading their own plan — tell them to ask the owner instead.
+    ``feature`` is a short noun phrase like "AI image generation".
+    """
+    if payer.id == acting_user.id:
+        return (
+            f"{feature[0].upper()}{feature[1:]} is available on the Pro or Standard plan. "
+            "Upgrade to unlock."
+        )
+    return (
+        f"The project owner is on the Free plan, so {feature} isn't available here. "
+        "Ask the owner to upgrade."
+    )
+
+
 def video_limit_message(payer: User, acting_user: User, action: str) -> str:
     """Limit-reached message that names whose quota is exhausted.
 

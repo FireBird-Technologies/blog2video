@@ -26,7 +26,7 @@ from app.models.project_member import (
     MemberRole,
     MemberStatus,
 )
-from app.services.access import get_accessible_project, is_owner, project_owner
+from app.services.access import get_accessible_project, get_member, is_owner, project_owner
 from app.services.email import email_service, EmailServiceError
 
 logger = logging.getLogger(__name__)
@@ -224,6 +224,52 @@ def invite_member(
     return _member_to_out(member, user.id, db)
 
 
+def _kick_user(project_id: int, user_id: Optional[int], message: str) -> None:
+    """Notify a user's live collaboration sockets, then disconnect them. Best-effort."""
+    if user_id is None:
+        return
+    try:
+        from app.routers.collab_ws import collab_manager
+
+        collab_manager.notify_and_kick_user_from_sync(
+            project_id,
+            user_id,
+            {"type": "access_revoked", "message": message},
+        )
+    except Exception as e:
+        logger.warning("[COLLAB] Failed to notify/kick user %s: %s", user_id, e)
+
+
+# Declared BEFORE ``/{member_id}`` so the literal "me" is never parsed as an int id.
+@router.delete("/me", status_code=204)
+def leave_project(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Leave a project you were invited to (self-service; collaborators only)."""
+    project = get_accessible_project(project_id, user, db)
+
+    if is_owner(project, user):
+        raise HTTPException(
+            status_code=400, detail="The project owner can't leave their own project."
+        )
+
+    member = get_member(project_id, user.id, db)
+    if member is None:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    if member.role == MemberRole.OWNER:
+        raise HTTPException(
+            status_code=400, detail="The project owner can't leave their own project."
+        )
+
+    member.status = MemberStatus.REVOKED
+    db.commit()
+
+    _kick_user(project_id, member.user_id, "You have left the project.")
+    return None
+
+
 @router.delete("/{member_id}", status_code=204)
 def revoke_member(
     project_id: int,
@@ -247,21 +293,11 @@ def revoke_member(
     member.status = MemberStatus.REVOKED
     db.commit()
 
-    # Notify any live collaboration sockets this user has, then disconnect them.
-    try:
-        from app.routers.collab_ws import collab_manager
-        if member.user_id is not None:
-            collab_manager.notify_and_kick_user_from_sync(
-                project_id,
-                member.user_id,
-                {
-                    "type": "access_revoked",
-                    "message": "Oops, your access has been revoked, you cannot access the project.",
-                },
-            )
-    except Exception as e:
-        logger.warning("[COLLAB] Failed to notify/kick revoked user %s: %s", member.user_id, e)
-
+    _kick_user(
+        project_id,
+        member.user_id,
+        "Oops, your access has been revoked, you cannot access the project.",
+    )
     return None
 
 

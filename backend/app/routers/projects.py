@@ -3768,7 +3768,7 @@ def generate_scene_image(
     """Generate an AI image from the user's image description (+ optional scene context).
 
     Returns base64 image and refined prompt. No DB write; use POST .../image when the user keeps it.
-    Pro/Standard only. Aspect ratio follows the scene layout."""
+    Requires the project OWNER to be on Pro/Standard. Aspect ratio follows the scene layout."""
     import json
     from app.models.scene import Scene
     from app.models.user import PlanTier
@@ -3782,13 +3782,20 @@ def generate_scene_image(
     from app.services.scene_image_context import build_scene_context_for_image
     from app.services.template_service import get_fallback_layout
 
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+    project = _get_user_project(project_id, user.id, db)
+
+    # Owner pays: gate on the OWNER's plan, so a FREE collaborator inherits a PRO
+    # owner's entitlement on a shared project (and a PRO collaborator gains nothing
+    # on a FREE owner's project).
+    from app.services.access import project_owner, feature_owner_gate_message
+
+    payer = project_owner(project, db)
+    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
-            detail="AI image generation is available on the Pro or Standard plan. Upgrade to unlock.",
+            detail=feature_owner_gate_message(payer, user, "AI image generation"),
         )
 
-    project = _get_user_project(project_id, user.id, db)
     scene = (
         db.query(Scene)
         .filter(Scene.id == scene_id, Scene.project_id == project_id)
@@ -4350,6 +4357,22 @@ def reorder_scenes(
     return active_sorted
 
 
+def _broadcast_scene_regen(project_id: int, actor_user_id: int) -> None:
+    """Tell live collaborators to refetch after an AI scene regeneration.
+
+    A regen rewrites the scene descriptor (layout), narration and/or voiceover at
+    once — too much to reconcile field-by-field the way a manual ``update_scene``
+    edit is, so collaborators reload authoritative state. The acting user is
+    excluded: they already have the response body.
+
+    Called from every exit path of ``regenerate_scene`` (variant switch, layout
+    switch, and the full AI path), which each ``return`` separately.
+    """
+    from app.routers.collab_ws import broadcast_project_reload
+
+    broadcast_project_reload(project_id, exclude_user_id=actor_user_id)
+
+
 @router.post("/{project_id}/scenes/{scene_id}/regenerate", response_model=SceneOut)
 async def regenerate_scene(
     project_id: int,
@@ -4571,7 +4594,8 @@ async def regenerate_scene(
                         change_set_id=_regen_change_set,
                     )
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
-        if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        # Metered against the OWNER, who pays (see the gate at the top of this function).
+        if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
             project.ai_assisted_editing_count += 1
         db.commit()
         print(f"[REGENERATE] Variant switch → {normalized_layout} (counts as AI edit)")
@@ -4580,6 +4604,7 @@ async def regenerate_scene(
         scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
         rebuild_workspace(project, scenes, db)
         db.refresh(scene)
+        _broadcast_scene_regen(project_id, user.id)
         return scene
 
     # Pure layout switch for built-in templates: no description → skip AI, just swap layout
@@ -4631,7 +4656,8 @@ async def regenerate_scene(
                         change_set_id=_regen_change_set,
                     )
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
-        if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        # Metered against the OWNER, who pays (see the gate at the top of this function).
+        if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
             project.ai_assisted_editing_count += 1
         db.commit()
         print(f"[REGENERATE] Layout switch → {normalized_layout} (counts as AI edit)")
@@ -4639,6 +4665,7 @@ async def regenerate_scene(
         scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
         rebuild_workspace(project, scenes, db)
         db.refresh(scene)
+        _broadcast_scene_regen(project_id, user.id)
         return scene
 
     # Regenerate visual_description only if description is provided
@@ -4911,18 +4938,21 @@ async def regenerate_scene(
                     )
         db.commit()
 
-    # Increment usage count only when AI was actually used
+    # Increment usage count only when AI was actually used. The limit is charged to
+    # the OWNER (see the gate above), so meter on the payer's plan — not the acting
+    # collaborator's, or a Free collaborator would burn the counter on a Pro project.
     used_ai = needs_layout_regen or should_regenerate_voiceover
-    if used_ai and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+    if used_ai and payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         project.ai_assisted_editing_count += 1
 
     db.commit()
-    
+
     # Rebuild Remotion workspace
     scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
     rebuild_workspace(project, scenes, db)
-    
+
     db.refresh(scene)
+    _broadcast_scene_regen(project_id, user.id)
     return scene
 
 

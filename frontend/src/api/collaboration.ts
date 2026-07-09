@@ -69,6 +69,10 @@ export const inviteMember = (projectId: number, email: string) =>
 export const revokeMember = (projectId: number, memberId: number) =>
   api.delete(`/projects/${projectId}/members/${memberId}`);
 
+/** Leave a project you were invited to. Collaborators only — the owner can't leave. */
+export const leaveProject = (projectId: number) =>
+  api.delete(`/projects/${projectId}/members/me`);
+
 // ─── Invites (invitee side) ───────────────────────────────
 
 export const listMyInvites = () => api.get<PendingInvite[]>(`/collab/invites`);
