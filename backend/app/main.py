@@ -215,14 +215,17 @@ async def _periodic_monthly_allotment_reset():
     whole **calendar months** elapsed since their ``period_start`` anchor.
 
     Safe to run repeatedly: ``roll_video_period_if_due`` is idempotent — once a
-    user is current, re-running it is a no-op. Runs hourly so a reset lands
-    within an hour of the user's monthly anniversary regardless of restarts.
-    (Single-instance deploy, so no leader election is needed.)
+    user is current, re-running it is a no-op. Runs once shortly after startup
+    (so users stuck under the old behavior are healed at deploy) and hourly
+    thereafter, so a reset lands within an hour of the user's monthly
+    anniversary regardless of restarts. (Single-instance deploy, so no leader
+    election is needed.)
     """
+    # Small grace so the first sweep doesn't contend with the rest of startup,
+    # then run the sweep immediately (before the first hourly sleep) so already-
+    # stuck users are caught at deploy rather than an hour later.
+    await asyncio.sleep(10)
     while True:
-        # Sleep first so startup isn't blocked; the lazy per-request reset covers
-        # the initial window before the first tick.
-        await asyncio.sleep(3600)  # hourly
         db = SessionLocal()
         try:
             # Only paid tiers can be annual/lifetime; roll_video_period_if_due
@@ -248,6 +251,8 @@ async def _periodic_monthly_allotment_reset():
             db.rollback()
         finally:
             db.close()
+        # Sleep AFTER the sweep so the first run happens at startup, not an hour in.
+        await asyncio.sleep(3600)  # hourly
 
 
 from app.constants import FREE_PREMADE_VOICE_IDS as KNOWN_PREMADE_VOICE_IDS
