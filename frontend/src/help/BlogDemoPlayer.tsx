@@ -2,6 +2,11 @@ import { useMemo, useState, useEffect } from "react";
 import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { computeEconomistVideoTotalFrames } from "../components/remotion/economist/EconomistVideoComposition";
+import { computeSakuraVideoTotalFrames } from "../components/remotion/sakura/SakuraVideoComposition";
+import {
+  planMagazineBoundaries,
+  resolveMagazineLayout,
+} from "../components/remotion/magazine/MagazineVideoComposition";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -1979,6 +1984,303 @@ const SCENE_SETS: Record<string, SceneSet> = {
       },
     ],
   },
+  // Sakura + Magazine each walk through EVERY layout in the template — one scene
+  // per layout with real props — so the marketing live-preview showcases the full
+  // range and each layout's signature animation, matching economist/stickman.
+  "preview-sakura": {
+    template: "sakura",
+    scenes: [
+      {
+        id: 1, order: 1, title: "桜", durationSeconds: 5,
+        narration: "Sakura Intro opens on a vertical kanji title that resolves into a roman subtitle and tagline, petals drifting across the plum-washi field.",
+        layout: "sakura_intro",
+        layoutProps: {
+          kanjiTitle: "桜",
+          romanTitle: "SAKURA",
+          tagline: "The brief, brilliant season of the cherry blossom.",
+          author: "A Field Almanac",
+        },
+      },
+      {
+        id: 2, order: 2, title: "The First Bloom", durationSeconds: 7,
+        narration: "Section is the workhorse chapter page: a vertical kanji eyebrow, a bold headline, and body copy that settles in beside it.",
+        layout: "sakura_section",
+        layoutProps: {
+          chapterKanji: "春",
+          chapterLabel: "HARU · SPRING",
+          headline: "The first bloom is a whole season announcing itself",
+          body: "For a few short days the oldest trees turn from bare branch to blushing canopy. The bloom moves north with the warming air, a soft pink wave that has been charted, celebrated, and waited for over a thousand springs.",
+        },
+      },
+      {
+        id: 3, order: 3, title: "A Quiet Kicker", durationSeconds: 6,
+        narration: "Text Narration leads with a gold eyebrow kicker, then animates a headline in word by word above a calm block of body copy.",
+        layout: "sakura_text_narration",
+        layoutProps: {
+          eyebrow: "ON IMPERMANENCE",
+          headline: "Beauty is felt most keenly when it cannot last",
+          body: "The blossom's power lies in its brevity. A single warm week draws crowds beneath the trees, and a single gust ends it — which is precisely why it is treasured.",
+        },
+      },
+      {
+        id: 4, order: 4, title: "Signs of the Season", durationSeconds: 7,
+        narration: "List Scene reveals items one at a time down the page, each with a small blossom marker — ideal for steps, signs, or a numbered rundown.",
+        layout: "sakura_list_scene",
+        layoutProps: {
+          headline: "Signs of the Season",
+          items: [
+            "The first buds swell along the oldest branches",
+            "Petals open from the south-facing side first",
+            "A soft pink haze settles over the hillsides",
+            "Warm afternoons draw the crowds beneath the trees",
+            "The wind carries the first drifting blossoms",
+          ],
+        },
+      },
+      {
+        id: 5, order: 5, title: "In Full Bloom", durationSeconds: 5,
+        narration: "Stat Highlight counts a single hero figure up into place with a label and a line of context — the story told in one number.",
+        layout: "sakura_stat_highlight",
+        layoutProps: {
+          stat: "72%",
+          statLabel: "In Full Bloom",
+          context: "of the trees reach peak flowering in the same week.",
+        },
+      },
+      {
+        id: 6, order: 6, title: "The Proverb", durationSeconds: 6,
+        narration: "Quote sets a large calligraphic line, its roman reading, and a translation, with the attribution swept in beneath.",
+        layout: "sakura_quote",
+        layoutProps: {
+          quote: "花は桜木、人は武士",
+          quoteRoman: "Hana wa sakuragi, hito wa bushi",
+          quoteTranslation: "Among flowers, the cherry blossom; among people, the noble spirit.",
+          attribution: "Old Japanese proverb",
+        },
+      },
+      {
+        id: 7, order: 7, title: "Two Ways to Watch", durationSeconds: 8,
+        narration: "Two-Column Detail closes two facing panels together — a yin/yang comparison with kanji marks, headlines, and body on each side.",
+        layout: "sakura_two_column_detail",
+        layoutProps: {
+          leftKanji: "静",
+          leftHeadline: "The Quiet Way",
+          leftBody: "Arrive at dawn, before the crowds, when the light is soft and the petals are still wet with dew.",
+          rightKanji: "宴",
+          rightHeadline: "The Festive Way",
+          rightBody: "Spread a mat beneath the branches at midday, share food and sake, and let the afternoon drift with the petals.",
+        },
+      },
+      {
+        id: 8, order: 8, title: "The Bloom, Charted", durationSeconds: 7,
+        narration: "Data Visualization animates a chart in the sakura house style, tracing the figures line by line with a summary caption.",
+        layout: "sakura_data_visualization",
+        layoutProps: {
+          chartType: "line",
+          subtitle: "Peak-bloom dates, Kyoto",
+          chartTable: {
+            headers: ["Decade", "Peak day"],
+            rows: [
+              ["1950s", "16"],
+              ["1970s", "13"],
+              ["1990s", "10"],
+              ["2010s", "7"],
+              ["2020s", "5"],
+            ],
+          },
+          chartSummary: "Peak bloom now arrives __eleven days earlier__ than it did in the 1950s.",
+        },
+      },
+      {
+        id: 9, order: 9, title: "The Ledger", durationSeconds: 6,
+        narration: "Ticker lays out a clean ruled table with a highlighted column — the exact figures behind the season.",
+        layout: "sakura_ticker",
+        layoutProps: {
+          tickerTitle: "BLOOM WATCH",
+          tickerHighlightCol: 2,
+          tickerTable: {
+            headers: ["City", "First bud", "Full bloom"],
+            rows: [
+              ["Fukuoka", "Mar 18", "Mar 27"],
+              ["Kyoto", "Mar 24", "Apr 3"],
+              ["Tokyo", "Mar 22", "Apr 1"],
+              ["Sendai", "Apr 5", "Apr 12"],
+            ],
+          },
+          tickerFootnote: "Dates are seasonal averages.",
+        },
+      },
+      {
+        id: 10, order: 10, title: "Hanami Journal", durationSeconds: 5,
+        narration: "Ending Socials closes with the brand name, a call to action, the website, and social handles fading in beneath.",
+        layout: "sakura_ending_socials",
+        layoutProps: {
+          brandName: "Hanami Journal",
+          tagline: "Follow the bloom, season after season.",
+          ctaText: "Read the almanac",
+          websiteUrl: "hanamijournal.jp",
+          socialHandles: ["@hanamijournal", "@sakurawatch"],
+        },
+      },
+    ],
+  },
+  "preview-magazine": {
+    template: "magazine",
+    scenes: [
+      {
+        id: 1, order: 1, title: "The Quiet Revolution", durationSeconds: 7,
+        narration: "Magazine Cover opens the issue with a TIME-style masthead, cover line, and dateline — the unmistakable look of a printed feature magazine.",
+        layout: "magazine_cover",
+        layoutProps: {},
+      },
+      {
+        id: 2, order: 2, title: "A Working Theory of Print", durationSeconds: 7,
+        narration: "Text Narration is the reading page: a section kicker over a bold headline, with body copy flowing into justified magazine columns.",
+        layout: "text_narration",
+        layoutProps: { sectionLabel: "ESSAY" },
+      },
+      {
+        id: 3, order: 3, title: "It starts with the grid, and ends with the reader.", durationSeconds: 7,
+        narration: "Editorial Quote sets a large serif pull-quote centre stage with a hairline rule and an attribution beneath.",
+        layout: "editorial_quote",
+        layoutProps: { attribution: "Mara Voss, Editor" },
+      },
+      {
+        id: 4, order: 4, title: "A spread should feel inevitable", durationSeconds: 7,
+        narration: "Colorblock splits the page into a bold accent panel and a profile card — a striking break between sections.",
+        layout: "colorblock",
+        layoutProps: {
+          leftQuote: "A spread should feel inevitable — as if it could not have been set any other way.",
+          panelLabel: "Expert Profile",
+          panelHeading: "Mara Voss",
+          panelSubline: "Art Director",
+          panelTag: "Editor Since 2014",
+        },
+      },
+      {
+        id: 5, order: 5, title: "The Shape of Things to Come", durationSeconds: 8,
+        narration: "Feature is the anchor spread: a section label, a long body column, and a set of key points that stamp in one by one.",
+        layout: "feature",
+        layoutProps: {
+          sectionLabel: "FEATURE",
+          body: "On a wet Tuesday in a converted east-London warehouse, eleven people are arguing about a margin. It is the kind of room where the future of a magazine is decided one hairline rule at a time — where a redesign is less a grand gesture than a thousand small, stubborn judgements. By lunch the page reads as if it could not have been set any other way, which is exactly the point: the craft is invisible when it lands, and glaring when it does not.",
+          keyPoints: [
+            { value: "Attention is the scarce resource" },
+            { value: "Craft outlasts ornament" },
+            { value: "Detail is the whole job" },
+          ],
+        },
+      },
+      {
+        id: 6, order: 6, title: "Where does a redesign begin?", durationSeconds: 8,
+        narration: "Interview Q&A stages a conversation as a two-speaker column layout, each exchange revealing question then answer.",
+        layout: "interview_qa",
+        layoutProps: {
+          leftSpeaker: "Mara Voss",
+          rightSpeaker: "Art Director",
+          exchanges: [
+            { q: "Where does a redesign actually begin?", a: "It begins long before anything is drawn. We spent weeks simply reading the old magazine, page by page, asking where the eye stalled and where it flew." },
+            { q: "What was the hardest constraint?", a: "Type, always. A magazine lives or dies on its body text. The headline can sing, but the body must disappear into the reading." },
+            { q: "How do you know when it's finished?", a: "There's a moment when a spread stops feeling designed and starts feeling inevitable. That is the signal to stop." },
+          ],
+        },
+      },
+      {
+        id: 7, order: 7, title: "By the Numbers", durationSeconds: 7,
+        narration: "By the Numbers surfaces the headline figures of the story as a grid of large stats with labels.",
+        layout: "by_the_numbers",
+        layoutProps: {
+          stats: [
+            { value: "2.4M", label: "Monthly readers" },
+            { value: "98%", label: "Renewal rate" },
+            { value: "150+", label: "Countries" },
+            { value: "47", label: "Issues in print" },
+          ],
+        },
+      },
+      {
+        id: 8, order: 8, title: "Growth in Readership", durationSeconds: 7,
+        narration: "Data Visualization draws a chart in the magazine house style, animating the trend line with a summary caption beneath.",
+        layout: "magazine_data_visualization",
+        layoutProps: {
+          chartType: "line",
+          chartTable: {
+            headers: ["Year", "Readers (M)"],
+            rows: [
+              ["2019", "0.6"],
+              ["2020", "0.9"],
+              ["2021", "1.3"],
+              ["2022", "1.7"],
+              ["2023", "2.0"],
+              ["2024", "2.4"],
+            ],
+          },
+          chartSummary: "Readership __quadrupled__ in five years, with the steepest gains following the 2021 redesign.",
+        },
+      },
+      {
+        id: 9, order: 9, title: "The Ledger", durationSeconds: 7,
+        narration: "Ticker lays out structured figures in a clean ruled table with a highlighted column and a footnote.",
+        layout: "magazine_ticker",
+        layoutProps: {
+          tickerTitle: "FIGURES",
+          tickerHighlightCol: 2,
+          tickerTable: {
+            headers: ["Quarter", "Revenue", "Change"],
+            rows: [
+              ["Q1", "4.2", "12"],
+              ["Q2", "4.8", "14"],
+              ["Q3", "4.5", "-6"],
+              ["Q4", "5.6", "24"],
+            ],
+          },
+          tickerFootnote: "Figures in millions, unaudited.",
+        },
+      },
+      {
+        id: 10, order: 10, title: "A Short History", durationSeconds: 7,
+        narration: "Timeline Journey walks a vertical timeline of milestones, each date and label sliding into place in turn.",
+        layout: "timeline_journey",
+        layoutProps: {
+          milestones: [
+            { date: "2014", label: "Founded as a quarterly zine", desc: "Stapled, photocopied, mailed to a few hundred subscribers." },
+            { date: "2018", label: "First newsstand edition", desc: "A glossy relaunch lands on shelves nationwide." },
+            { date: "2021", label: "The full redesign", desc: "New masthead, new grid, a sharper editorial voice." },
+            { date: "2024", label: "Two million readers", desc: "Print and digital combined cross the milestone." },
+          ],
+        },
+      },
+      {
+        id: 11, order: 11, title: "Before and After", durationSeconds: 7,
+        narration: "Comparison sets two columns of points side by side — a clean before/after or versus framing.",
+        layout: "comparison",
+        layoutProps: {
+          leftHeader: "Before",
+          rightHeader: "After",
+          leftPoints: [
+            { value: "Columns ran too wide to read comfortably" },
+            { value: "Heavy rules cast shadows across the page" },
+            { value: "A cramped grid left the eye no room to rest" },
+          ],
+          rightPoints: [
+            { value: "Type is set with generous air" },
+            { value: "Rules reduced to clean hairlines" },
+            { value: "A flexible grid guides the eye without friction" },
+          ],
+        },
+      },
+      {
+        id: 12, order: 12, title: "Atlas Review", durationSeconds: 7,
+        narration: "Ending Socials closes the issue with a call to action, the website, and the publication's social handles.",
+        layout: "ending_socials",
+        layoutProps: {
+          ctaButtonText: "Read the full issue",
+          websiteLink: "atlasreview.com",
+          showWebsiteButton: true,
+        },
+      },
+    ],
+  },
 };
 
 const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string }> = {
@@ -1995,6 +2297,8 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
   mosaic: { accent: "#C26240", bg: "#EAE4DA", text: "#2A2A28" },
   blackswan: { accent: "#00E5FF", bg: "#000000", text: "#DFFFFF" },
   economist: { accent: "#E3120B", bg: "#F6F4EE", text: "#1A1A1A" },
+  sakura: { accent: "#C0143C", bg: "#FDF6F0", text: "#2A0A12" },
+  magazine: { accent: "#E63946", bg: "#FDFCFB", text: "#1A1A1A" },
   stickman_football: { accent: "#869358", bg: "#FFFFFF", text: "#111111" },
   stickman_2: { accent: "#FFFFFF", bg: "#000000", text: "#FFFFFF" },
 };
@@ -2013,6 +2317,8 @@ const TEMPLATE_LABELS: Record<string, string> = {
   mosaic: "Mosaic",
   blackswan: "BlackSwan",
   economist: "The Economist",
+  sakura: "Sakura",
+  magazine: "Magazine",
   stickman_football: "Stickman Football",
   stickman_2: "Stickman 2",
 };
@@ -2047,8 +2353,19 @@ export default function BlogDemoPlayer({
     if (templateId === "economist") {
       return computeEconomistVideoTotalFrames(scenes as any, 1);
     }
+    // Sakura also overlaps neighbouring scenes with its petal-gust transitions.
+    if (templateId === "sakura") {
+      return computeSakuraVideoTotalFrames(scenes as any);
+    }
+    // Magazine uses black-bridged 3D page-turn boundaries; its planner returns the
+    // true timeline length (same math the composition uses to schedule scenes).
+    if (templateId === "magazine") {
+      const per = scenes.map((s) => Math.max(1, Math.round((Number(s.durationSeconds) || 5) * fps)));
+      const layoutKeys = scenes.map((s) => resolveMagazineLayout(s.layout));
+      return Math.max(1, planMagazineBoundaries(layoutKeys, per, colors.accent).totalFrames);
+    }
     return scenes.reduce((sum, s) => sum + Math.round(s.durationSeconds * fps), 0) + 60;
-  }, [scenes, templateId]);
+  }, [scenes, templateId, colors]);
 
   const inputProps: any = {
     scenes,

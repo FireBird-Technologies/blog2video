@@ -21,6 +21,7 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -51,11 +52,11 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
       {/* Header — tab, title and subtitle rise in with a stagger. */}
       <div style={{ marginTop: isPortrait ? 60 : 0 }}>
         <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
-        <div style={{ fontFamily: ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: titleSize, lineHeight: 1.04, color: textColor, letterSpacing: -titleSize * 0.012, ...textRise(frame, 4) }}>
+        <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: titleSize, lineHeight: 1.04, color: textColor, letterSpacing: -titleSize * 0.012, ...textRise(frame, 4) }}>
           {title}
         </div>
         {narration && (
-          <div style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: Math.round(titleSize * (isPortrait ? 0.5 : 0.42)), color: ECONOMIST_COLORS.muted, marginTop: 8, ...textRise(frame, 12) }}>
+          <div style={{ fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontSize: Math.round(titleSize * (isPortrait ? 0.5 : 0.42)), color: ECONOMIST_COLORS.muted, marginTop: 8, ...textRise(frame, 12) }}>
             {narration}
           </div>
         )}
@@ -94,14 +95,14 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
                 start={s}
                 fontSize={valueSize}
                 color={textColor}
-                fontFamily={ECONOMIST_SERIF_FONT}
+                fontFamily={fontFamily ?? ECONOMIST_SERIF_FONT}
                 fontWeight={900}
                 letterSpacing={-valueSize * 0.02}
               />
               <div style={{ width: isPortrait ? 84 : 56, height: isPortrait ? 6 : 4, background: accentColor, margin: "16px 0 12px", ...ruleDraw(frame, s + 8, 12) }} />
               <div
                 style={{
-                  fontFamily: ECONOMIST_SANS_FONT,
+                  fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                   fontWeight: 700,
                   fontSize: isPortrait ? 38 : 23,
                   letterSpacing: 0.6,
@@ -118,13 +119,13 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
               {(d || cmpVal) && (
                 <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginTop: 6, opacity: deltaSlide.opacity, transform: deltaSlide.transform }}>
                   {d && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 34 : 21, color: deltaColor }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontWeight: 700, fontSize: isPortrait ? 34 : 21, color: deltaColor }}>
                       {(up || down) && <TrendGlyph direction={trendDir} size={isPortrait ? 24 : 14} color={deltaColor} />}
                       {d.replace(/^[+\-−]/, "")}
                     </span>
                   )}
                   {cmpVal && (
-                    <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 400, fontSize: isPortrait ? 30 : 18, color: ECONOMIST_COLORS.muted }}>
+                    <span style={{ fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontWeight: 400, fontSize: isPortrait ? 30 : 18, color: ECONOMIST_COLORS.muted }}>
                       {cmpLab} <span style={{ fontWeight: 700 }}>{cmpVal}</span>
                     </span>
                   )}

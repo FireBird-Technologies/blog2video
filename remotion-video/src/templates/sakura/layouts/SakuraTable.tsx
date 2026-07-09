@@ -65,6 +65,7 @@ export const SakuraTable: React.FC<SceneLayoutProps> = ({
   const dur = sceneDurationInFrames ?? durationInFrames;
   const p = aspectRatio === "portrait" || height > width;
   const bodyFont = fontFamily || SAKURA_BODY_FONT;
+  const displayFont = fontFamily || SAKURA_DISPLAY_FONT;
   const ink = textColor || SAKURA.ink;
   const accent = accentColor || SAKURA.crimson;
 
@@ -204,7 +205,7 @@ export const SakuraTable: React.FC<SceneLayoutProps> = ({
     >
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${p ? "8%" : "6%"} ${p ? "6%" : "7%"}`, minHeight: 0, gap: 0 }}>
         <div style={{ opacity: titleA, flexShrink: 0, marginBottom: Math.round(height * 0.016), textAlign: "center" }}>
-          <div style={{ fontFamily: SAKURA_DISPLAY_FONT, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink }}>
+          <div style={{ fontFamily: displayFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink }}>
             {title}
           </div>
           {tickerTitle && (

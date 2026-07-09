@@ -34,6 +34,7 @@ interface EconomistChromeProps {
   sceneIndex?: number;
   /** Total scene count (for the footer progress dots). */
   sceneCount?: number;
+  fontFamily?: string;
   children?: React.ReactNode;
 }
 
@@ -48,6 +49,7 @@ export const EconomistChrome: React.FC<EconomistChromeProps> = ({
   disableFade = false,
   sceneIndex,
   sceneCount,
+  fontFamily,
   children,
 }) => {
   const frame = useCurrentFrame();
@@ -134,6 +136,7 @@ export const EconomistChrome: React.FC<EconomistChromeProps> = ({
           wordmark={wordmark}
           sceneIndex={sceneIndex}
           sceneCount={sceneCount}
+          fontFamily={fontFamily}
         />
       )}
     </AbsoluteFill>
@@ -149,6 +152,7 @@ interface ChromeFurnitureProps {
   wordmark?: string;
   sceneIndex?: number;
   sceneCount?: number;
+  fontFamily?: string;
 }
 
 /** The top masthead strip + bottom dateline/progress strip. */
@@ -161,6 +165,7 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
   wordmark,
   sceneIndex,
   sceneCount,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
 
@@ -203,7 +208,7 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
           {wordmarkText ? (
             <span
               style={{
-                fontFamily: ECONOMIST_SERIF_FONT,
+                fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
                 fontWeight: 700,
                 fontSize: isPortrait ? 26 : 26,
                 letterSpacing: 0.4,
@@ -222,7 +227,7 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
               <span style={{ width: 28, height: 5, background: accentColor }} />
               <span
                 style={{
-                  fontFamily: ECONOMIST_SANS_FONT,
+                  fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                   fontWeight: 700,
                   fontSize: isPortrait ? 21 : 22,
                   letterSpacing: 2,
@@ -299,7 +304,7 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
             <span style={{ width: 28, height: 2, background: ECONOMIST_COLORS.rule }} />
             <span
               style={{
-                fontFamily: ECONOMIST_SANS_FONT,
+                fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                 fontWeight: 700,
                 fontSize: isPortrait ? 20 : 20,
                 letterSpacing: 2,
@@ -312,7 +317,7 @@ const ChromeFurniture: React.FC<ChromeFurnitureProps> = ({
           </span>
 
           {/* Right — editorial page folio "02 / 11". */}
-          <SceneFolio sceneIndex={sceneIndex} sceneCount={sceneCount} accentColor={accentColor} />
+          <SceneFolio sceneIndex={sceneIndex} sceneCount={sceneCount} accentColor={accentColor} fontFamily={fontFamily} />
         </div>
       </div>
     </>
@@ -323,10 +328,11 @@ interface SceneFolioProps {
   sceneIndex?: number;
   sceneCount?: number;
   accentColor: string;
+  fontFamily?: string;
 }
 
 /** An editorial page-number folio: "02 / 11" — current in accent, total in muted. */
-const SceneFolio: React.FC<SceneFolioProps> = ({ sceneIndex, sceneCount, accentColor }) => {
+const SceneFolio: React.FC<SceneFolioProps> = ({ sceneIndex, sceneCount, accentColor, fontFamily }) => {
   const frame = useCurrentFrame();
   if (!sceneCount || sceneCount <= 0) return null;
   const cur = String((sceneIndex ?? 0) + 1).padStart(2, "0");
@@ -334,7 +340,7 @@ const SceneFolio: React.FC<SceneFolioProps> = ({ sceneIndex, sceneCount, accentC
   return (
     <span
       style={{
-        fontFamily: ECONOMIST_SANS_FONT,
+        fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
         fontWeight: 700,
         fontSize: 20,
         letterSpacing: 2,

@@ -30,6 +30,7 @@ interface ColumnProps {
   isPortrait: boolean;
   /** Which edge the column's items slide in from: -1 = left, 1 = right. */
   slideSign: 1 | -1;
+  fontFamily?: string;
 }
 const ProsConsColumn: React.FC<ColumnProps> = ({
   label,
@@ -39,6 +40,7 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
   textColor,
   isPortrait,
   slideSign,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const headReveal = redactionReveal(frame, Math.max(0, startFrame - 8), 14);
@@ -61,7 +63,7 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
           <span style={{ color, fontSize: numSize, lineHeight: 1 }}>▶</span>
           <span
             style={{
-              fontFamily: ECONOMIST_SANS_FONT,
+              fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
               fontWeight: 800,
               fontSize: numSize,
               letterSpacing: 1,
@@ -108,7 +110,7 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
                 height: numSize,
                 background: color,
                 color: "#fff",
-                fontFamily: ECONOMIST_SANS_FONT,
+                fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                 fontWeight: 700,
                 fontSize: numSize * 0.56,
                 display: "flex",
@@ -124,7 +126,7 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
             </div>
             <div
               style={{
-                fontFamily: ECONOMIST_SERIF_FONT,
+                fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
                 fontSize: bodySize,
                 lineHeight: 1.4,
                 color: textColor,
@@ -132,7 +134,7 @@ const ProsConsColumn: React.FC<ColumnProps> = ({
             >
               <span
                 style={{
-                  fontFamily: ECONOMIST_SANS_FONT,
+                  fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                   fontWeight: 700,
                   fontSize: leadSize,
                   letterSpacing: 0.3,
@@ -162,6 +164,7 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -182,7 +185,7 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
       <div style={{ maxWidth: isPortrait ? "100%" : "82%" }}>
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 900,
             fontSize: titleSize,
             lineHeight: 1.04,
@@ -200,7 +203,7 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
       {intro && (
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontSize: isPortrait ? 32 : 25,
             lineHeight: 1.5,
             color: ECONOMIST_COLORS.muted,
@@ -223,8 +226,8 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
           gap: isPortrait ? 48 : 72,
         }}
       >
-        <ProsConsColumn label={prosLabel} color={PROS_BLUE} items={pros} startFrame={12} textColor={textColor} isPortrait={isPortrait} slideSign={-1} />
-        <ProsConsColumn label={consLabel} color={accentColor} items={cons} startFrame={isPortrait ? 12 + pros.length * 6 + 14 : 24} textColor={textColor} isPortrait={isPortrait} slideSign={isPortrait ? -1 : 1} />
+        <ProsConsColumn label={prosLabel} color={PROS_BLUE} items={pros} startFrame={12} textColor={textColor} isPortrait={isPortrait} slideSign={-1} fontFamily={fontFamily} />
+        <ProsConsColumn label={consLabel} color={accentColor} items={cons} startFrame={isPortrait ? 12 + pros.length * 6 + 14 : 24} textColor={textColor} isPortrait={isPortrait} slideSign={isPortrait ? -1 : 1} fontFamily={fontFamily} />
       </div>
 
     </AbsoluteFill>

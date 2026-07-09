@@ -47,6 +47,7 @@ interface BarHeaderProps {
   width: number;
   /** Current frame — drives staggered text-rise entrances. */
   frame: number;
+  fontFamily?: string;
 }
 const BarHeader: React.FC<BarHeaderProps> = ({
   title,
@@ -58,6 +59,7 @@ const BarHeader: React.FC<BarHeaderProps> = ({
   top,
   width,
   frame,
+  fontFamily,
 }) => {
   const subSize = Math.round(titleSize * 0.56);
   return (
@@ -74,7 +76,7 @@ const BarHeader: React.FC<BarHeaderProps> = ({
       />
       <div
         style={{
-          fontFamily: ECONOMIST_SERIF_FONT,
+          fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
           fontWeight: 700,
           fontSize: titleSize,
           lineHeight: 1.06,
@@ -88,7 +90,7 @@ const BarHeader: React.FC<BarHeaderProps> = ({
       {subtitle && (
         <div
           style={{
-            fontFamily: ECONOMIST_SANS_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
             fontSize: subSize,
             lineHeight: 1.3,
             color: ECONOMIST_COLORS.muted,
@@ -114,6 +116,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -188,6 +191,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
         top={innerT}
         width={innerR - innerL}
         frame={frame}
+        fontFamily={fontFamily}
       />
 
       {/* Chart canvas in one squeezing wrapper (covers both variants). */}
@@ -235,7 +239,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
                   return (
                     <g key={i}>
                       <line x1={plotL} x2={lineX2} y1={y} y2={y} stroke={isZero ? ECONOMIST_COLORS.zero : ECONOMIST_COLORS.grid} strokeWidth={isZero ? 1.5 : 1} />
-                      <text x={innerR} y={y + 6 + (1 - easeOutQuint(tickT)) * 6} textAnchor="end" fontFamily={ECONOMIST_SANS_FONT} fontSize={subSize} fill={ECONOMIST_COLORS.muted} opacity={tickT}>
+                      <text x={innerR} y={y + 6 + (1 - easeOutQuint(tickT)) * 6} textAnchor="end" fontFamily={fontFamily ?? ECONOMIST_SANS_FONT} fontSize={subSize} fill={ECONOMIST_COLORS.muted} opacity={tickT}>
                         {fmtTick(t)}{unit}
                       </text>
                     </g>
@@ -267,7 +271,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
                           x={x + barW / 2}
                           y={isNeg ? baseY + h + subSize + 4 : y - 8}
                           textAnchor="middle"
-                          fontFamily={ECONOMIST_SANS_FONT}
+                          fontFamily={fontFamily ?? ECONOMIST_SANS_FONT}
                           fontWeight={700}
                           fontSize={subSize}
                           fill={textColor}
@@ -282,7 +286,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
                           {fmtValue(d.value, unit)}
                         </text>
                       )}
-                      <text x={x + barW / 2} y={plotB + 26 + (1 - easeOutQuint(xLabT)) * 8} textAnchor="middle" fontFamily={ECONOMIST_SANS_FONT} fontSize={Math.round(subSize * 0.92)} fill={ECONOMIST_COLORS.muted} opacity={xLabT}>
+                      <text x={x + barW / 2} y={plotB + 26 + (1 - easeOutQuint(xLabT)) * 8} textAnchor="middle" fontFamily={fontFamily ?? ECONOMIST_SANS_FONT} fontSize={Math.round(subSize * 0.92)} fill={ECONOMIST_COLORS.muted} opacity={xLabT}>
                         {d.label}
                       </text>
                     </g>
@@ -331,7 +335,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
                         x={barL - 16}
                         y={cy + subSize * 0.34}
                         textAnchor="end"
-                        fontFamily={ECONOMIST_SANS_FONT}
+                        fontFamily={fontFamily ?? ECONOMIST_SANS_FONT}
                         fontWeight={600}
                         fontSize={subSize}
                         fill={textColor}
@@ -346,7 +350,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
                           x={end + 12}
                           y={cy + subSize * 0.34}
                           textAnchor="start"
-                          fontFamily={ECONOMIST_SANS_FONT}
+                          fontFamily={fontFamily ?? ECONOMIST_SANS_FONT}
                           fontWeight={700}
                           fontSize={subSize}
                           fill={textColor}
@@ -381,6 +385,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
         accentColor={accentColor}
         fontSize={Math.round(subSize * (isPortrait ? 0.8 : 0.85))}
         isPortrait={isPortrait}
+        fontFamily={fontFamily}
       />
     </AbsoluteFill>
   );

@@ -22,6 +22,7 @@ interface EconomistMastheadProps {
   singleLine?: boolean;
   /** A light diagonal sweep across the wordmark; 0..1 progress, or undefined for none. */
   sweep?: number;
+  fontFamily?: string;
   style?: React.CSSProperties;
 }
 
@@ -32,6 +33,7 @@ export const EconomistMasthead: React.FC<EconomistMastheadProps> = ({
   textColor = "#FFFFFF",
   singleLine = false,
   sweep,
+  fontFamily,
   style,
 }) => {
   // No brand wordmark → hide the flag entirely rather than print the homage
@@ -65,7 +67,7 @@ export const EconomistMasthead: React.FC<EconomistMastheadProps> = ({
       {twoLine && (
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 600,
             fontSize: line1Font,
             lineHeight: 1,
@@ -78,7 +80,7 @@ export const EconomistMasthead: React.FC<EconomistMastheadProps> = ({
       )}
       <div
         style={{
-          fontFamily: ECONOMIST_SERIF_FONT,
+          fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
           fontWeight: 600,
           fontSize: line2Font,
           lineHeight: 1.02,

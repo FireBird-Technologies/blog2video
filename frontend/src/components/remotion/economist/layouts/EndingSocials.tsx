@@ -57,6 +57,7 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
             width={isPortrait ? 360 : 420}
             accentColor={accentColor}
             sweep={mastheadSweep > 0 && mastheadSweep < 1 ? mastheadSweep : undefined}
+            fontFamily={fontFamily}
           />
         </div>
       )}
@@ -66,7 +67,7 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
       {closing && (
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontStyle: "italic",
             fontSize: isPortrait ? 38 : 40,
             lineHeight: 1.35,
@@ -128,11 +129,11 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
                   boxShadow: glow > 0.01 ? `0 10px 28px rgba(227,18,11,${(0.18 * glow).toFixed(3)})` : "none",
                 }}
               >
-                <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontWeight: 800, fontSize: isPortrait ? 27 : 25, letterSpacing: 0.5 }}>
+                <span style={{ fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontWeight: 800, fontSize: isPortrait ? 27 : 25, letterSpacing: 0.5 }}>
                   {c.ctaButtonText || c.websiteLink}
                 </span>
                 {c.showWebsiteButton && c.websiteLink && c.ctaButtonText && (
-                  <span style={{ fontFamily: ECONOMIST_SANS_FONT, fontSize: 18, opacity: 0.85, marginTop: 2 }}>{c.websiteLink}</span>
+                  <span style={{ fontFamily: fontFamily ?? ECONOMIST_SANS_FONT, fontSize: 18, opacity: 0.85, marginTop: 2 }}>{c.websiteLink}</span>
                 )}
               </div>
             );
