@@ -1198,6 +1198,9 @@ export const uploadLogo = (projectId: number, file: File) => {
   );
 };
 
+export const deleteLogo = (projectId: number) =>
+  api.delete<{ detail: string }>(`/projects/${projectId}/logo`);
+
 export interface ProjectLogoUpdate {
   logo_position?: string;
   logo_size?: number;
