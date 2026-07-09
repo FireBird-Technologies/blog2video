@@ -748,6 +748,25 @@ export default function ProjectView() {
       })()
     : "";
 
+  // Whether the current user may use Pro-gated background music, keyed off the OWNER's
+  // plan on a shared project (the owner pays). True on own projects when the user is Pro.
+  const canUseBgm = effectiveIsPro;
+
+  // Clicked a locked BGM control. On a personal project the free user is prompted to
+  // upgrade (checkout modal). On a shared project whose OWNER is free, the collaborator
+  // can't buy the owner's plan, so ask them to have the owner upgrade instead.
+  const handleBgmLockedClick = () => {
+    if (useOwnerScopedAssets) {
+      const owner = (project?.owner_name || "").trim();
+      showError(
+        `Background music is a paid feature. Ask ${owner || "the project owner"} to upgrade their plan to enable it for this shared project.`,
+        { variant: "warning" },
+      );
+    } else {
+      setShowUpgrade(true);
+    }
+  };
+
   const [ownerCraftedTemplates, setOwnerCraftedTemplates] = useState<CraftedTemplateItem[]>([]);
   const [ownerCraftedLoading, setOwnerCraftedLoading] = useState(false);
   // Lazily-fetched full crafted packages for the shared-project (owner-scoped)
@@ -6113,7 +6132,7 @@ export default function ProjectView() {
                   onClose={() => setSceneToDelete(null)}
                   title="Delete this scene?"
                   subtitle={sceneToDelete?.title}
-                  warningMessage="This cannot be undone."
+                  warningMessage="You can restore this scene later from Edit History."
                   onConfirm={async () => {
                     if (!sceneToDelete) return;
                     try {
@@ -6966,14 +6985,33 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
-                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below. Premium only. */}
-                {isPro && bgmTracks.length > 0 && (
-                  <div className="glass-card p-5">
+                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below.
+                    Premium feature: gated on the OWNER's plan (effectiveIsPro). For non-Pro it's shown but disabled —
+                    clicking opens the upgrade flow (own project) or asks the owner to upgrade (shared project). */}
+                {bgmTracks.length > 0 && (
+                  <div className="glass-card p-5 relative">
+                    {!canUseBgm && (
+                      // Transparent overlay: clicking anywhere on the (visually dimmed, non-interactive)
+                      // card triggers the upgrade prompt instead of operating the track/volume controls.
+                      <button
+                        type="button"
+                        onClick={handleBgmLockedClick}
+                        className="absolute inset-0 z-10 cursor-pointer"
+                        aria-label="Background music is a premium feature — upgrade to enable"
+                      />
+                    )}
                     <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-base font-medium text-gray-900">Music</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-medium text-gray-900">Music</h2>
+                        {!canUseBgm && (
+                          <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
+                            Premium
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[11px] text-gray-400">Project default — fine-tune per scene below</span>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                    <div className={`flex flex-col sm:flex-row sm:items-end gap-3${!canUseBgm ? " opacity-50" : ""}`}>
                       <div className="flex-1">
                         <label className="text-[11px] text-gray-500 mb-1 block">Track</label>
                         <BgmTrackDropdown

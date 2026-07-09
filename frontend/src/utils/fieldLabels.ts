@@ -18,6 +18,9 @@ const FIELD_LABELS: Record<string, string> = {
   extra_hold_seconds: "Hold time",
   bgm_volume: "Music volume",
   preferred_layout: "Layout",
+  is_active: "Scene",
+  scene_deleted: "Scene",
+  scene_order: "Scene order",
   // Project-level
   name: "Project name",
   accent_color: "Accent color",

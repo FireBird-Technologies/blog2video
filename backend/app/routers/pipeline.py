@@ -1210,6 +1210,17 @@ async def _generate_script(
     # Clear existing scenes for this project (moved here so it runs in the
     # same fresh transaction as the new scene inserts).
     db.query(Scene).filter(Scene.project_id == project.id).delete()
+
+    # Scene-scoped edit history cascade-deletes with the scenes above. But scene
+    # deletion and reordering are tracked as PROJECT-level rows (scene_deleted /
+    # scene_order) that reference scene ids by value, so they don't cascade — drop
+    # them explicitly. A full script regen is a brand-new set of scenes; those old
+    # entries would reference now-nonexistent scene ids and revert to no-ops.
+    from app.models.Project_edit_history import ProjectEditHistory
+    db.query(ProjectEditHistory).filter(
+        ProjectEditHistory.project_id == project.id,
+        ProjectEditHistory.field_name.in_(["scene_deleted", "scene_order"]),
+    ).delete(synchronize_session=False)
     db.flush()
 
     is_custom = is_custom_template(template_id)

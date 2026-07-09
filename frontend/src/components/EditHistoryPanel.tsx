@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import {
   ChangeSet,
@@ -70,6 +70,7 @@ function FieldChangeRow({
   revertable,
   busy,
   onRevert,
+  activeSceneIds,
 }: {
   change: FieldChange;
   /** Whether the current user may revert/redo this field (owner or its author). */
@@ -80,18 +81,136 @@ function FieldChangeRow({
   /** This field's revert/redo is in flight. */
   busy: boolean;
   onRevert: (rowId: number) => void;
+  /** Ids of the CURRENTLY active scenes — used to filter a reorder entry so it lists
+   *  only scenes that still exist (not ones deleted after the reorder happened). */
+  activeSceneIds: Set<number>;
 }) {
-  const leaves = diffFieldValue(change.old_value, change.new_value);
+  // Scene deletion is tracked in Global Edits as a `scene_deleted` project row whose
+  // JSON value is {scene_id, is_active, title}. (Legacy: `is_active` scene rows.) Render
+  // a plain "Scene deleted / restored" line instead of a raw JSON/boolean value delta.
+  const isSceneDelete = change.field_name === "scene_deleted" || change.field_name === "is_active";
+  // Scene reorder is tracked as a scene_order project row whose value is
+  // {orders: {id: order}, titles: {id: title}} (older rows: a flat {id: order} map).
+  // Show the resulting scene order (title + number) instead of the raw JSON.
+  const isReorder = change.field_name === "scene_order";
+  const [reorderExpanded, setReorderExpanded] = useState(false);
+  // Build the scene list (title + re-ranked order) for one side of the reorder. Scenes
+  // no longer active (deleted since the reorder) are excluded via the live active-scene
+  // set — not the stale `active` snapshot in the payload. Survivors are re-ranked 1..N.
+  const reorderRowsFor = (raw: string | null): { title: string; order: number }[] => {
+    if (!isReorder) return [];
+    try {
+      const p = JSON.parse(raw ?? "");
+      const orders: Record<string, number> = p?.orders ?? p ?? {};
+      const titles: Record<string, string> = p?.titles ?? {};
+      return Object.entries(orders)
+        .filter(([id]) => activeSceneIds.has(Number(id)))
+        .map(([id, order]) => ({
+          rawOrder: Number(order),
+          title: (titles[id] ?? "").trim() || `Scene ${order}`,
+        }))
+        .sort((a, b) => a.rawOrder - b.rawOrder)
+        .map((r, i) => ({ title: r.title, order: i + 1 }));
+    } catch {
+      return [];
+    }
+  };
+  // Show BOTH orders: previous (old_value) and current (new_value).
+  const reorderPrevRows = reorderRowsFor(change.old_value);
+  const reorderCurrRows = reorderRowsFor(change.new_value);
+  const REORDER_PREVIEW = 2;
+  const reorderPrevVisible = reorderExpanded ? reorderPrevRows : reorderPrevRows.slice(0, REORDER_PREVIEW);
+  const reorderCurrVisible = reorderExpanded ? reorderCurrRows : reorderCurrRows.slice(0, REORDER_PREVIEW);
+  const reorderHidden = Math.max(reorderPrevRows.length, reorderCurrRows.length) - REORDER_PREVIEW;
+  // Title of the affected scene, carried in the scene_deleted JSON payload.
+  const sceneTitle = ((): string | null => {
+    if (change.field_name !== "scene_deleted") return null;
+    try {
+      const p = JSON.parse(change.new_value ?? "");
+      const t = p && typeof p === "object" ? p.title : null;
+      return typeof t === "string" && t.trim() ? t.trim() : null;
+    } catch {
+      return null;
+    }
+  })();
+  const leaves = isSceneDelete || isReorder ? [] : diffFieldValue(change.old_value, change.new_value);
   return (
     <li>
       <span className="font-medium text-gray-700">
         {fieldLabel(change.field_name)}
       </span>
-      <div className="mt-0.5 space-y-0.5 pl-1">
-        {leaves.map((lf, i) => (
-          <ValueDelta key={i} change={lf} />
-        ))}
-      </div>
+      {isSceneDelete ? (
+        <div className="mt-0.5 pl-1 text-gray-600">
+          {"Scene deleted"}
+          {sceneTitle && (
+            <span className="text-gray-500">
+              {": "}
+              <span className="font-medium text-gray-700">“{sceneTitle}”</span>
+            </span>
+          )}
+        </div>
+      ) : isReorder ? (
+        <div className="mt-0.5 pl-1 text-gray-600">
+          <div className="text-gray-500">Scenes reordered</div>
+          {(reorderPrevRows.length > 0 || reorderCurrRows.length > 0) && (
+            <>
+              <div className="mt-1 grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-0.5">
+                    Previous
+                  </div>
+                  <ol className="space-y-0.5">
+                    {reorderPrevVisible.map((r) => (
+                      <li key={r.order} className="flex gap-1.5">
+                        <span className="text-gray-400 tabular-nums">{r.order}.</span>
+                        <span className="text-gray-700 truncate">{r.title}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div>
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-0.5">
+                    Current
+                  </div>
+                  <ol className="space-y-0.5">
+                    {reorderCurrVisible.map((r) => (
+                      <li key={r.order} className="flex gap-1.5">
+                        <span className="text-gray-400 tabular-nums">{r.order}.</span>
+                        <span className="text-gray-700 truncate">{r.title}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+              {reorderHidden > 0 && !reorderExpanded && (
+                <button
+                  type="button"
+                  onClick={() => setReorderExpanded(true)}
+                  className="mt-1 text-[11px] font-medium text-[#7C3AED] hover:text-[#6D28D9]"
+                >
+                  Show {reorderHidden} more
+                </button>
+              )}
+              {reorderExpanded &&
+                Math.max(reorderPrevRows.length, reorderCurrRows.length) > REORDER_PREVIEW && (
+                  <button
+                    type="button"
+                    onClick={() => setReorderExpanded(false)}
+                    className="mt-1 text-[11px] font-medium text-gray-400 hover:text-gray-600"
+                  >
+                    Show less
+                  </button>
+                )}
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="mt-0.5 space-y-0.5 pl-1">
+          {leaves.map((lf, i) => (
+            <ValueDelta key={i} change={lf} />
+          ))}
+        </div>
+      )}
       {canAct && revertable && change.id != null && (
         <div className="mt-1 pl-1">
           {change.stale ? (
@@ -173,6 +292,10 @@ export default function EditHistoryPanel({
   const [reverting, setReverting] = useState<Set<number>>(new Set());
   const [selectOpen, setSelectOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
+
+  // Ids of the currently-active scenes (the `scenes` prop is the backend's active-only
+  // list). A reorder entry uses this to list only scenes that still exist.
+  const activeSceneIds = useMemo(() => new Set(scenes.map((s) => s.id)), [scenes]);
 
   // Clamp the active scene index if the scene list changes (e.g. a scene deleted).
   const safeIndex = scenes.length ? Math.min(sceneIndex, scenes.length - 1) : 0;
@@ -326,6 +449,7 @@ export default function EditHistoryPanel({
                             revertable={cs.revertable}
                             busy={c.id != null && reverting.has(c.id)}
                             onRevert={(rowId) => handleRevertFields([rowId])}
+                            activeSceneIds={activeSceneIds}
                           />
                         ))}
                       </ul>

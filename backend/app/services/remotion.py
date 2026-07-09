@@ -687,6 +687,11 @@ def write_remotion_data(
     Includes layout descriptors in the scene data for data-driven rendering.
     Returns the path to data.json.
     """
+    # Soft-deleted scenes must never appear in a render. This is the single choke
+    # point for every render/workspace build (rebuild_workspace, render-still,
+    # _rebuild_workspace_safe, pipeline), so filter here regardless of caller.
+    scenes = [s for s in scenes if getattr(s, "is_active", True)]
+
     template_id = validate_template_id(getattr(project, "template", "default"))
     workspace = provision_workspace(project.id, template_id)
     public_dir = os.path.join(workspace, "public")

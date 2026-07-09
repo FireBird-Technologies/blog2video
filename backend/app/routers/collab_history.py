@@ -156,6 +156,12 @@ def _row_field_keys(row) -> list[tuple]:
     """
     scope = getattr(row, "scene_id", None)
     scope = scope if scope is not None else "__project__"
+    # A scene_deleted row is project-scoped but targets one scene (id in its JSON value).
+    # Key it per target scene so deleting scene A then scene B doesn't make A's restore
+    # look stale — each deleted scene is independently revertable.
+    if row.field_name == "scene_deleted":
+        payload = _try_json(row.new_value) or {}
+        return [("__project__", "scene_deleted", payload.get("scene_id"))]
     leaves = _changed_leaves(row)
     if leaves:
         return [(scope, row.field_name, path) for path in leaves]
@@ -428,6 +434,10 @@ def revert_fields(
     # Apply each row's own direction: reverted rows redo (new_value), others revert.
     scene_broadcasts: list[tuple[int, str, object]] = []
     proj_broadcasts: list[tuple[str, object]] = []
+    # NOTE: do NOT add `Scene.is_active == True` here. Reverting a scene deletion
+    # (an is_active True→False edit) needs the soft-deleted scene row to be present
+    # so the loop below can set is_active back to True. Filtering it out would break
+    # un-delete (the scene wouldn't be found and the revert would silently no-op).
     scenes_by_id = {s.id: s for s in db.query(Scene).filter(Scene.project_id == project_id).all()}
     for r in scene_rows:
         scene = scenes_by_id.get(r.scene_id)
@@ -443,10 +453,35 @@ def revert_fields(
             coerced = _coerce(r.new_value if use_new else r.old_value, old_live)
         setattr(scene, r.field_name, coerced)
         scene_broadcasts.append((r.scene_id, r.field_name, coerced))
+    reorder_reverted = False
+    structural_scene_change = False
     for r in proj_rows:
+        use_new = bool(getattr(r, "reverted", False))
+        # A scene reorder is stored as a project-level row (not a Project attribute).
+        # Its JSON value is {"orders": {scene_id: order}, "titles": {scene_id: title}}
+        # over ALL scenes (older rows stored a flat {scene_id: order} map — still read).
+        # Restore the whole ordering instead of setattr-ing a nonexistent Project field.
+        if r.field_name == "scene_order":
+            payload = _try_json(r.old_value if not use_new else r.new_value) or {}
+            order_map = payload.get("orders", payload)  # nested new / flat legacy
+            for sid, order in order_map.items():
+                s = scenes_by_id.get(int(sid))
+                if s is not None:
+                    s.order = int(order)
+            reorder_reverted = True
+            continue
+        # A scene deletion is stored as a project-level row (so its restore control is in
+        # Global Edits) whose JSON value carries the target scene_id + is_active. Apply
+        # is_active to that scene: revert un-deletes (old.is_active=True), redo re-deletes.
+        if r.field_name == "scene_deleted":
+            payload = _try_json(r.old_value if not use_new else r.new_value) or {}
+            s = scenes_by_id.get(int(payload.get("scene_id", -1)))
+            if s is not None:
+                s.is_active = bool(payload.get("is_active", True))
+            structural_scene_change = True
+            continue
         if not hasattr(project, r.field_name):
             continue
-        use_new = bool(getattr(r, "reverted", False))
         old_live = getattr(project, r.field_name, None)
         coerced = _coerce(r.new_value if use_new else r.old_value, old_live)
         setattr(project, r.field_name, coerced)
@@ -461,17 +496,34 @@ def revert_fields(
     _rebuild_workspace_safe(project, db)
 
     # Push the applied values live to any collaborators connected on this project.
-    from app.routers.collab_ws import broadcast_project_edit, broadcast_scene_edit
-    for sid, field, value in scene_broadcasts:
-        broadcast_scene_edit(
-            project_id, sid, field, value,
-            user_id=user.id, name=user.name, change_set_id=None,
-        )
-    for field, value in proj_broadcasts:
-        broadcast_project_edit(
-            project_id, field, value,
-            user_id=user.id, name=user.name, change_set_id=None,
-        )
+    # STRUCTURAL reverts — a scene un-delete/re-delete (is_active) or a scene reorder
+    # (scene_order) — change which scenes exist or their order, which the field-level
+    # edit broadcast can't express (and an is_active patch would no-op on a scene absent
+    # from the client's array). For those, trigger a full re-sync instead of per-field
+    # patches.
+    from app.routers.collab_ws import (
+        broadcast_project_edit,
+        broadcast_scene_edit,
+        broadcast_project_reload,
+    )
+    structural = (
+        reorder_reverted
+        or structural_scene_change
+        or any(field == "is_active" for _sid, field, _v in scene_broadcasts)
+    )
+    if structural:
+        broadcast_project_reload(project_id, exclude_user_id=user.id)
+    else:
+        for sid, field, value in scene_broadcasts:
+            broadcast_scene_edit(
+                project_id, sid, field, value,
+                user_id=user.id, name=user.name, change_set_id=None,
+            )
+        for field, value in proj_broadcasts:
+            broadcast_project_edit(
+                project_id, field, value,
+                user_id=user.id, name=user.name, change_set_id=None,
+            )
 
     rows = (
         list(db.query(SceneEditHistory).filter(SceneEditHistory.project_id == project_id).all())

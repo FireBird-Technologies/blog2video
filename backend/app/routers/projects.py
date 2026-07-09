@@ -1045,7 +1045,11 @@ async def change_project_template_regenerate_layouts(
             detail="A template-change regeneration job is already running for this project.",
         )
 
-    total_scenes = db.query(Scene).filter(Scene.project_id == project.id).count()
+    total_scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project.id, Scene.is_active == True)  # noqa: E712
+        .count()
+    )
     job = ProjectTemplateChangeJob(
         project_id=project.id,
         # The job's user is the PAYER (project owner). Charge and refund both key off
@@ -2456,9 +2460,12 @@ async def regenerate_script(
             detail=video_limit_message(payer, user, "regenerate the script"),
         )
 
+    # Snapshot only ACTIVE scenes — soft-deleted scenes are hidden from the user, so the
+    # awaiting-review comparison must show them on neither side (the "new" scenes come
+    # from the active-only project.scenes relationship).
     scenes = (
         db.query(Scene)
-        .filter(Scene.project_id == project.id)
+        .filter(Scene.project_id == project.id, Scene.is_active == True)  # noqa: E712
         .order_by(Scene.order)
         .all()
     )
@@ -3129,6 +3136,7 @@ def list_projects(
 
     scene_counts = (
         db.query(Scene.project_id, func.count(Scene.id).label("cnt"))
+        .filter(Scene.is_active == True)  # noqa: E712  exclude soft-deleted scenes
         .group_by(Scene.project_id)
         .subquery()
     )
@@ -3679,38 +3687,63 @@ def delete_scene(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a scene and renumber remaining scenes. Rebuilds Remotion workspace."""
+    """Soft-delete a scene (mark inactive), tracked so it can be reverted/redone.
+
+    The scene row and its voiceover/image assets are kept in the DB; the deletion is
+    recorded in the edit history as an ``is_active`` True→False change, so it shows in
+    the history panel and un-delete is a normal one-field revert. ``order`` is left
+    untouched (gaps allowed) so a revert restores the scene to its original position.
+    """
     from app.services.remotion import rebuild_workspace
+    from app.services.edit_tracker import new_change_set_id, prune_project_history
 
     project = _get_user_project(project_id, user.id, db)
 
     scene = (
         db.query(Scene)
-        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id, Scene.is_active == True)  # noqa: E712
         .first()
     )
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
 
-    db.delete(scene)
+    scene.is_active = False
+    # Track the deletion in the GLOBAL (project) history, not the scene's own history —
+    # a deleted scene has no reachable scene tab, so its restore control must live in
+    # Global Edits. The scene_id it targets is carried in the JSON value (ProjectEditHistory
+    # has no scene_id column); the revert engine restores is_active from it. old/new encode
+    # active→deleted so revert un-deletes and redo re-deletes.
+    from app.services.edit_tracker import track_project_edit
+    track_project_edit(
+        db,
+        project_id=project_id,
+        field_name="scene_deleted",
+        old_value=json.dumps({"scene_id": scene_id, "is_active": True, "title": scene.title}),
+        new_value=json.dumps({"scene_id": scene_id, "is_active": False, "title": scene.title}),
+        user_id=user.id,
+        change_set_id=new_change_set_id(),
+    )
+    prune_project_history(db, project.id)
     db.commit()
 
     remaining = (
         db.query(Scene)
-        .filter(Scene.project_id == project_id)
+        .filter(Scene.project_id == project_id, Scene.is_active == True)  # noqa: E712
         .order_by(Scene.order)
         .all()
     )
-    for i, s in enumerate(remaining, 1):
-        s.order = i
-    db.commit()
-    for s in remaining:
-        db.refresh(s)
-
     try:
         rebuild_workspace(project, remaining, db)
     except Exception as e:
         print(f"[PROJECTS] Warning: Failed to rebuild workspace after scene delete for project {project_id}: {e}")
+
+    # A soft-delete removes the scene from every collaborator's list — a structural
+    # change the field-level edit broadcast can't express, so trigger a re-sync.
+    try:
+        from app.routers.collab_ws import broadcast_project_reload
+        broadcast_project_reload(project_id, exclude_user_id=user.id)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: delete broadcast failed for project {project_id}: {e}")
 
     return None
 
@@ -4211,45 +4244,110 @@ def reorder_scenes(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Reorder scenes by updating their order values."""
+    """Reorder scenes by updating their order values.
+
+    The client only knows about ACTIVE scenes and sends their new positions. To keep
+    ``order`` globally unique across ALL scenes (active + soft-deleted) — required
+    because renders key audio files on ``scene.order`` (``audio_scene_{order}.mp3``)
+    and a soft-deleted scene must never collide with an active one — we renumber the
+    FULL scene set. Each inactive scene keeps its relative position (it stays wedged
+    just after the scene it currently follows), so a reverted scene reappears in place.
+    """
     from app.models.scene import Scene
-    from app.services.remotion import rebuild_workspace
-    
+    from app.services.edit_tracker import (
+        track_project_edit,
+        new_change_set_id,
+        prune_project_history,
+    )
+
     project = _get_user_project(project_id, user.id, db)
-    
-    # Get all scenes for this project
-    scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
-    scene_map = {s.id: s for s in scenes}
-    
-    # Validate all scene_ids belong to project
+
+    # ALL scenes (active + inactive) — we renumber the whole set to keep order unique.
+    all_scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
+    scene_map = {s.id: s for s in all_scenes}
+
+    # Snapshot the current global order (all scenes, keyed by id) so the reorder can be
+    # tracked and reverted back to exactly this ordering. Titles are captured too so the
+    # history UI can show which scene moved where (titles don't change on reorder).
+    old_order_map = {s.id: s.order for s in all_scenes}
+    title_map = {s.id: (s.title or "") for s in all_scenes}
+    # Which scenes are active — the history UI lists only active scenes (soft-deleted
+    # ones are hidden), while orders still cover ALL scenes for an accurate revert.
+    active_map = {s.id: bool(s.is_active) for s in all_scenes}
+
+    # Validate every requested id is an ACTIVE scene of this project (the client only
+    # reorders active scenes; inactive ones are not addressable).
     for item in data.scene_orders:
-        if item.scene_id not in scene_map:
+        target = scene_map.get(item.scene_id)
+        if target is None or not target.is_active:
             raise HTTPException(status_code=404, detail=f"Scene {item.scene_id} not found")
-    
-    # Update orders
-    for item in data.scene_orders:
-        scene_map[item.scene_id].order = item.order
-    
-    # Ensure sequential ordering (1, 2, 3...)
-    sorted_scenes = sorted(scenes, key=lambda s: s.order)
-    for i, scene in enumerate(sorted_scenes, 1):
+
+    # New rank for each active scene from the request (its position among active
+    # scenes only, 1..N in the client's requested order).
+    active_new_rank = {item.scene_id: item.order for item in data.scene_orders}
+
+    # Build the new active order (list of active scene ids, best-first).
+    active_scenes = [s for s in all_scenes if s.is_active]
+    active_ordered = sorted(active_scenes, key=lambda s: active_new_rank.get(s.id, s.order))
+
+    # Anchor each inactive scene to the active scene it currently follows, so it keeps
+    # its relative position across the reorder. Using the OLD global order, find, for
+    # each inactive scene, the nearest active scene that precedes it; the inactive
+    # scene will be re-inserted right after that same active scene's new position
+    # (inactive scenes before any active one go to the front).
+    old_global = sorted(all_scenes, key=lambda s: s.order)
+    anchor_after: dict[int, list[Scene]] = {}  # active scene id (or 0=front) -> inactive scenes
+    last_active_id = 0
+    for s in old_global:
+        if s.is_active:
+            last_active_id = s.id
+        else:
+            anchor_after.setdefault(last_active_id, []).append(s)
+
+    # Interleave: front-anchored inactive scenes, then each active scene followed by
+    # the inactive scenes anchored to it, then renumber the whole sequence uniquely.
+    sequenced: list[Scene] = list(anchor_after.get(0, []))
+    for a in active_ordered:
+        sequenced.append(a)
+        sequenced.extend(anchor_after.get(a.id, []))
+    for i, scene in enumerate(sequenced, 1):
         scene.order = i
-    
+
+    # Track the reorder as a single revertable project-level history entry. old/new hold
+    # {"orders": {scene_id: order}, "titles": {scene_id: title}} over ALL scenes; revert
+    # restores the old orders and the UI uses titles to show which scene moved where. This
+    # is project-scoped (not tied to one scene) so it survives as long as the project does
+    # and reverts every scene's order together. No-op reorders are skipped (old == new) —
+    # titles are identical on both sides, so only the orders differing triggers a record.
+    new_order_map = {s.id: s.order for s in all_scenes}
+    track_project_edit(
+        db,
+        project_id=project_id,
+        field_name="scene_order",
+        old_value=json.dumps({"orders": old_order_map, "titles": title_map, "active": active_map}),
+        new_value=json.dumps({"orders": new_order_map, "titles": title_map, "active": active_map}),
+        user_id=user.id,
+        change_set_id=new_change_set_id(),
+    )
+    prune_project_history(db, project.id)
+
     db.commit()
-    
-    # Refresh all scenes
-    for scene in sorted_scenes:
+    for scene in sequenced:
         db.refresh(scene)
 
-    # Ensure the per-project Remotion workspace reflects the new order
-    # (rendering uses the workspace files; without this, renders can use stale data.json/audio copies)
+    active_sorted = [s for s in sequenced if s.is_active]
+
+    # Reordering only updates the scenes' `order` in the DB. The Remotion workspace is
+    # rebuilt from the DB at render time, so we deliberately do NOT rebuild it here.
+
+    # Broadcast the structural change so collaborators re-sync their scene list.
     try:
-        rebuild_workspace(project, sorted_scenes, db)
+        from app.routers.collab_ws import broadcast_project_reload
+        broadcast_project_reload(project_id, exclude_user_id=user.id)
     except Exception as e:
-        # Don't fail the reorder if workspace rebuild fails; UI can still reflect DB order.
-        print(f"[PROJECTS] Warning: Failed to rebuild workspace after reorder for project {project_id}: {e}")
-    
-    return sorted_scenes
+        print(f"[PROJECTS] Warning: reorder broadcast failed for project {project_id}: {e}")
+
+    return active_sorted
 
 
 @router.post("/{project_id}/scenes/{scene_id}/regenerate", response_model=SceneOut)
