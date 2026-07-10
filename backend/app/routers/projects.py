@@ -293,15 +293,40 @@ def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
     return sanitize_chart_descriptor(descriptor)
 
 
-def _normalize_video_style(video_style: str | None) -> str:
+def _normalize_video_style(
+    video_style: str | None,
+    db: Session | None = None,
+    user_id: int | None = None,
+) -> str:
     """Normalize and validate video style.
 
     Accepts "auto" — the pipeline resolves it to explainer/promotional/storytelling
     between scraping and script generation.
+
+    Also accepts a saved style preference encoded as ``manual_guide_<preference_id>``.
+    When one is supplied, ``db`` + ``user_id`` are required so we can verify the
+    preference exists and belongs to the requesting user; the pipeline later loads
+    its text and uses it as the script-generation guide (see pipeline._generate_script).
     """
     style = (video_style or "").strip().lower()
     if not style:
         return "auto"
+    if style.startswith("manual_guide_"):
+        suffix = style[len("manual_guide_"):]
+        if not suffix.isdigit():
+            raise HTTPException(status_code=422, detail="Invalid preference selection.")
+        if db is None or user_id is None:
+            raise HTTPException(status_code=422, detail="Invalid preference selection.")
+        from app.models.preference import Preference
+        pref = (
+            db.query(Preference.id)
+            .filter(Preference.id == int(suffix), Preference.user_id == user_id)
+            .first()
+        )
+        if pref is None:
+            raise HTTPException(status_code=404, detail="Selected preference not found.")
+        # Canonical form uses the raw (unlowered) digits — safe since it is all digits.
+        return f"manual_guide_{int(suffix)}"
     if style not in _VALID_VIDEO_STYLES:
         raise HTTPException(
             status_code=422,
@@ -846,7 +871,7 @@ def create_project(
         )
     crafted_pk = _crafted_template_pk(template_id, db)
     colors = get_preview_colors(template_id)
-    normalized_video_style = _normalize_video_style(data.video_style)
+    normalized_video_style = _normalize_video_style(data.video_style, db=db, user_id=user.id)
     voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
     project = Project(
         user_id=user.id,
@@ -2822,7 +2847,7 @@ def create_projects_bulk(
                 detail="You do not have access to one or more crafted templates in this bulk request.",
             )
         colors = get_preview_colors(template_id)
-        normalized_video_style = _normalize_video_style(data.video_style)
+        normalized_video_style = _normalize_video_style(data.video_style, db=db, user_id=user.id)
         voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
         if voice_tuning_pref is not None:
             user.preferred_voice_emotion = voice_tuning_pref
@@ -2950,7 +2975,7 @@ def create_project_from_upload(
             detail="You do not have access to this crafted template.",
         )
     colors = get_preview_colors(template_id)
-    normalized_video_style = _normalize_video_style(video_style)
+    normalized_video_style = _normalize_video_style(video_style, db=db, user_id=user.id)
     resolved_voice_tuning, resolved_voice_tuning_pref = _resolve_voice_tuning(voice_emotion, user)
     logger.info(
         "[PROJECTS] Creating project from upload: template='%s', validated='%s'",

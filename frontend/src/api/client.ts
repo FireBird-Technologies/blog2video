@@ -1956,6 +1956,31 @@ export const createCustomVoiceClone = (formData: FormData) =>
 export const deleteSavedVoice = (id: number) =>
   api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
 
+// ─── Style preferences (user-saved guide documents) ─────────────
+
+export interface PreferenceFromAPI {
+  id: number;
+  style_name: string;
+  content?: string;  // omitted by the list endpoint, present on create
+  created_at: string;
+}
+
+export const getMyPreferences = () =>
+  api.get<PreferenceFromAPI[]>("/preferences");
+
+export const createPreference = (formData: FormData) =>
+  api.post<PreferenceFromAPI>("/preferences", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const updatePreference = (
+  id: number,
+  payload: { style_name?: string; content?: string },
+) => api.put<PreferenceFromAPI>(`/preferences/${id}`, payload);
+
+export const deletePreference = (id: number) =>
+  api.delete<{ ok: boolean }>(`/preferences/${id}`);
+
 // ─── Embed API ────────────────────────────────────────────
 
 export const generateEmbedToken = (projectId: number) =>

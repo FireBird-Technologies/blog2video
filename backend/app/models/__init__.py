@@ -12,6 +12,7 @@ from app.models.scene_comment import SceneComment
 from app.models.template_version import TemplateVersion
 from app.models.saved_voice import SavedVoice
 from app.models.custom_voice import CustomVoice
+from app.models.preference import Preference
 from app.models.prebuilt_voice import PrebuiltVoice
 from app.models.review import Review
 from app.models.template_rating import TemplateRating
@@ -40,7 +41,7 @@ from app.models.mcp_oauth import MCPClient, MCPAuthCode
 __all__ = [
 
     "User", "Project", "Scene", "Asset", "ChatMessage",
-    "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
+    "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice", "Preference",
     "ProjectEditHistory", "SceneEditHistory", "SceneComment", "Review", "TemplateRating", "TemplateVersion",
     "ProjectTemplateChangeJob", "ProjectRegenerateScriptJob", "ProjectVoiceChangeJob",
     "UpdateEmail", "UpdateEmailSend",

@@ -40,7 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, preferences, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -629,6 +629,7 @@ app.include_router(crafted_templates.router)
 app.include_router(project_shared_assets.router)
 app.include_router(free_templates.router)
 app.include_router(saved_voices.router)
+app.include_router(preferences.router)
 app.include_router(voice.router)
 app.include_router(template_studio.router)
 app.include_router(background_music.router)

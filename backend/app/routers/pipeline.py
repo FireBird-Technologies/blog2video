@@ -803,6 +803,35 @@ async def _generate_script(
     requested_video_length = getattr(project, "video_length", "auto") or "auto"
     video_style = getattr(project, "video_style", "explainer") or "explainer"
 
+    # Style preference: when the user picked a saved preference in the form, the
+    # style is stored as ``manual_guide_<preference_id>``. Load its guide text and
+    # feed it through the same user_instruction path the regenerate-script flow uses
+    # — the preference fully overrides the base style (explainer is a neutral base
+    # for the two-stage generator; the guide constraints drive the output).
+    if video_style.startswith("manual_guide_") and not (user_instruction or "").strip():
+        from app.models.preference import Preference
+        try:
+            pref_id = int(video_style.rsplit("_", 1)[-1])
+        except ValueError:
+            pref_id = 0
+        pref = (
+            db.query(Preference)
+            .filter(Preference.id == pref_id, Preference.user_id == project.user_id)
+            .first()
+        ) if pref_id else None
+        if pref and (pref.content or "").strip():
+            user_instruction = pref.content
+            logger.info(
+                "[PIPELINE] Project %s: using style preference %s (%s) as script guide",
+                getattr(project, "id", "?"), pref_id, pref.style_name,
+            )
+        else:
+            logger.warning(
+                "[PIPELINE] Project %s: style preference %s not found or empty; falling back to explainer",
+                getattr(project, "id", "?"), pref_id,
+            )
+        video_style = "explainer"
+
     def _effective_video_length_for_content(
         blog_content: str | None, requested: str, style: str
     ) -> str:

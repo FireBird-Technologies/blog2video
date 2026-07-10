@@ -25,6 +25,7 @@ import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
 import MyVoices from "./MyVoices";
+import MyPreferences from "./MyPreferences";
 import type { VideoStyleId } from "../constants/videoStyles";
 import { primeBlogUrlFormStep2Prefetch } from "../api/blogUrlFormStep2Prefetch";
 
@@ -86,8 +87,9 @@ export default function Dashboard() {
   const isPro = user?.plan === "pro" || user?.plan === "standard";
   const templatesRequested = searchParams.get("tab") === "templates";
   const voicesRequested = searchParams.get("tab") === "voices";
-  const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices">(
-    voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
+  const preferencesRequested = searchParams.get("tab") === "preferences";
+  const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices" | "preferences">(
+    preferencesRequested ? "preferences" : voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
   );
 
   useEffect(() => {
@@ -181,6 +183,7 @@ export default function Dashboard() {
     const tab = searchParams.get("tab");
     if (tab === "templates") setActiveTab("templates");
     else if (tab === "voices") setActiveTab("voices");
+    else if (tab === "preferences") setActiveTab("preferences");
   }, [searchParams]);
 
   // Open BlogUrlForm modal at step 2 with Designer Templates pre-selected
@@ -197,7 +200,7 @@ export default function Dashboard() {
 
   // Leaving Projects (tab or URL) should close the new-project modal so returning does not reopen it.
   useEffect(() => {
-    if (activeTab === "templates" || activeTab === "voices") {
+    if (activeTab === "templates" || activeTab === "voices" || activeTab === "preferences") {
       setShowModal(false);
     }
   }, [activeTab]);
@@ -412,7 +415,8 @@ export default function Dashboard() {
     projects.length === 0 &&
     searchParams.get("show_form") !== "0" &&
     searchParams.get("tab") !== "templates" &&
-    searchParams.get("tab") !== "voices";
+    searchParams.get("tab") !== "voices" &&
+    searchParams.get("tab") !== "preferences";
 
   if (emptyOnboarding) {
     return (
@@ -489,7 +493,7 @@ export default function Dashboard() {
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
-        {(["projects", "templates", "voices"] as const).map((tab) => (
+        {(["projects", "templates", "voices", "preferences"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -499,7 +503,7 @@ export default function Dashboard() {
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {tab === "projects" ? "Projects" : tab === "templates" ? "My Templates" : "Voices"}
+            {tab === "projects" ? "Projects" : tab === "templates" ? "My Templates" : tab === "voices" ? "Voices" : "Preferences"}
           </button>
         ))}
       </div>
@@ -509,6 +513,8 @@ export default function Dashboard() {
         <CustomTemplates />
       ) : activeTab === "voices" ? (
         <MyVoices />
+      ) : activeTab === "preferences" ? (
+        <MyPreferences />
       ) : (
       <>
       {/* Header */}

@@ -6,13 +6,13 @@ import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
 import { classifyUrl, classifyUrlScrapability } from "../utils/urlScrapability";
-import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
+import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, getMyPreferences, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice, type PreferenceFromAPI } from "../api/client";
 import {
   primeBlogUrlFormStep2Prefetch,
   fetchBlogUrlFormBuiltinTemplatesDeduped,
   fetchBlogUrlFormAvailabilityDeduped,
 } from "../api/blogUrlFormStep2Prefetch";
-import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
+import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, isManualGuideStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
@@ -930,6 +930,26 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
   const styleManuallySet = useRef(false);
+  // Saved style preferences — appended to the style row as extra pills; selecting
+  // one sets videoStyle to `manual_guide_<id>` (see constants/videoStyles.ts).
+  const [stylePreferences, setStylePreferences] = useState<PreferenceFromAPI[]>([]);
+  const [stylePreferencesLoading, setStylePreferencesLoading] = useState(true);
+  // Custom-style dropdown (the "Custom" pill's arrow opens the saved-preference list).
+  const [customStyleOpen, setCustomStyleOpen] = useState(false);
+  const customStyleRef = useRef<HTMLDivElement | null>(null);
+  // The saved preference backing the current videoStyle, if it's a manual_guide_<id>.
+  const selectedPreference = isManualGuideStyle(videoStyle)
+    ? stylePreferences.find((p) => `manual_guide_${p.id}` === videoStyle) ?? null
+    : null;
+
+  useEffect(() => {
+    if (!customStyleOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!customStyleRef.current?.contains(e.target as Node)) setCustomStyleOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [customStyleOpen]);
   /** Genre dropdown filter — populated dynamically from all templates' meta.genres. "" = show all. */
   const [genre, setGenre] = useState<string>(initialGenre ?? "");
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
@@ -1175,6 +1195,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         if (mounted) setBgmTracks(r.data);
       })
       .catch(() => {});
+    setStylePreferencesLoading(true);
+    getMyPreferences()
+      .then((r) => {
+        if (mounted) setStylePreferences(r.data ?? []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setStylePreferencesLoading(false);
+      });
     setMyVoicesLoading(true);
     getMyVoices()
       .then((r) => {
@@ -2774,7 +2803,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
               Video Style
             </label>
-            <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
+            <div className="flex flex-wrap items-center gap-0.5 p-0.5 bg-gray-100/60 rounded-xl justify-center">
               {VIDEO_STYLES.map((s) => {
                 const isSelected = videoStyle === s.id;
                 return (
@@ -2785,7 +2814,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       styleManuallySet.current = true;
                       setVideoStyle(s.id);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                    className={`px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                       isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
                     }`}
                   >
@@ -2793,6 +2822,71 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   </button>
                 );
               })}
+              {stylePreferences.length > 0 && (
+                <div className="relative" ref={customStyleRef}>
+                  <button
+                    type="button"
+                    onClick={() => setCustomStyleOpen((o) => !o)}
+                    aria-haspopup="listbox"
+                    aria-expanded={customStyleOpen}
+                    title={
+                      selectedPreference
+                        ? `Uses your saved guide "${selectedPreference.style_name}" to generate the script`
+                        : "Pick one of your saved style guides"
+                    }
+                    className={`flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                      selectedPreference
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    <span className="max-w-[80px] truncate">
+                      {selectedPreference ? selectedPreference.style_name : "Custom"}
+                    </span>
+                    <svg
+                      className={`h-3 w-3 shrink-0 transition-transform ${customStyleOpen ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {customStyleOpen && (
+                    <div
+                      role="listbox"
+                      className="absolute right-0 top-full z-30 mt-1 max-h-60 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                    >
+                      {stylePreferences.map((pref) => {
+                        const id = `manual_guide_${pref.id}` as VideoStyleId;
+                        const isSelected = videoStyle === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              styleManuallySet.current = true;
+                              setVideoStyle(id);
+                              setCustomStyleOpen(false);
+                            }}
+                            className={`block w-full truncate px-3 py-2 text-left text-[11px] font-medium transition-colors ${
+                              isSelected
+                                ? "bg-purple-50 text-purple-600"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            {pref.style_name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3557,7 +3651,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         return next;
                       });
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                    className={`px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                       isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
                     }`}
                   >
@@ -4777,7 +4871,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const modalWidth = "max-w-xl";
 
   const isStep2TemplatesPending =
-    step === 2 && (builtinTemplatesLoading || templateAvailabilityLoading || !sessionBuiltinInitDone);
+    step === 2 &&
+    (builtinTemplatesLoading ||
+      templateAvailabilityLoading ||
+      stylePreferencesLoading ||
+      !sessionBuiltinInitDone);
 
   // Constant form size: min-height so layout doesn’t jump between steps
   const stepContentWrapper = (

@@ -625,3 +625,31 @@ class SavedVoiceOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ─── Style preferences (user-saved guide documents used for script generation) ─
+
+class PreferenceSummaryOut(BaseModel):
+    """Lightweight shape for the style-row picker — omits the full document text."""
+    id: int
+    style_name: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PreferenceOut(BaseModel):
+    id: int
+    style_name: str
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PreferenceUpdate(BaseModel):
+    """Partial update — only provided fields are changed."""
+    style_name: Optional[str] = None
+    content: Optional[str] = None

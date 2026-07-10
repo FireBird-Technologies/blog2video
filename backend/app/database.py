@@ -522,6 +522,7 @@ def init_db():
         Project,
         CustomVoice,
         SavedVoice,
+        Preference,
         Scene,
         Subscription,
         SubscriptionPlan,
