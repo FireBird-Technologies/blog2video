@@ -360,6 +360,30 @@ def test_change_language__accepts_language_name(client, db_session, paid_user, a
     assert project.content_language == "es"
 
 
+def test_change_language__history_label_uses_language_name_not_code(
+    client, db_session, paid_user, auth
+):
+    """The edit-history modal renders the label verbatim, so it must say "Urdu", not "ur"."""
+    from app.models.Project_edit_history import ProjectEditHistory
+
+    project = _make_project(db_session, paid_user)
+    resp = client.post(
+        f"/api/projects/{project.id}/change-language",
+        headers=auth(paid_user), json={"content_language": "ur"},
+    )
+    assert resp.status_code == 200
+
+    entry = (
+        db_session.query(ProjectEditHistory)
+        .filter(ProjectEditHistory.project_id == project.id)
+        .order_by(ProjectEditHistory.id.desc())
+        .first()
+    )
+    # log_project_event stores the human label in `field_name` (see edit_tracker.py).
+    assert entry is not None
+    assert entry.field_name == "Language changed to Urdu"
+
+
 def test_change_language__same_language__400_and_no_charge(client, db_session, paid_user, auth):
     project = _make_project(db_session, paid_user, language="en")
     before = paid_user.videos_used_this_period

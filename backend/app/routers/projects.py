@@ -6174,7 +6174,10 @@ async def change_project_language(
     language_regenerating); poll ``/language-change-status`` for progress.
     """
     from app.services import language_change_progress
-    from app.services.language_detection import normalize_preferred_language_code
+    from app.services.language_detection import (
+        get_language_for_prompt,
+        normalize_preferred_language_code,
+    )
     from app.services.access import project_owner, video_limit_message
 
     # Editor role: any accepted collaborator may trigger a language change.
@@ -6229,9 +6232,14 @@ async def change_project_language(
     )
     db.add(job)
     # Log a non-revertable history entry, attributed to the ACTOR (not the payer).
+    # Show the human-readable language ("Urdu"), not the ISO code ("ur") — the history
+    # modal renders this label verbatim. Unknown codes fall through to the code itself.
     from app.services.edit_tracker import log_project_event, prune_project_history
     log_project_event(
-        db, project_id=project_id, label=f"Language changed to {new_code}", user_id=user.id,
+        db,
+        project_id=project_id,
+        label=f"Language changed to {get_language_for_prompt(new_code)}",
+        user_id=user.id,
     )
     prune_project_history(db, project_id)
     db.commit()
