@@ -170,6 +170,8 @@ export interface Project {
   aspect_ratio: string;
   video_style?: VideoStyleId;
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
+  /** ISO 639-1 content language ('en', 'es'). Null = auto-detected from the source. */
+  content_language?: string | null;
   playback_speed?: number;
   bgm_track_id?: string | null;
   bgm_volume?: number;
@@ -1334,6 +1336,44 @@ export const changeProjectVoice = (
 
 export const getVoiceChangeStatus = (projectId: number) =>
   api.get<VoiceChangeStatus>(`/projects/${projectId}/voice-change-status`);
+
+export interface LanguageChangeStartResponse {
+  started: boolean;
+  /** Scene count x 2 (translate pass + voiceover pass). */
+  total: number;
+  content_language: string;
+}
+
+export interface LanguageChangeStatus {
+  active: boolean;
+  done: boolean;
+  error: string | null;
+  total: number;
+  completed: number;
+  progress: number;
+  /** Which pass is running: "translating" then "voiceover". */
+  phase?: "translating" | "voiceover";
+  status: string;
+  r2_video_url: string | null;
+  kind?: string;
+  content_language: string | null;
+}
+
+/**
+ * Translate the whole project into a new language and regenerate every voiceover.
+ * Layouts, image assignments, colors, chart data and links are preserved — only the
+ * prose changes language.
+ *
+ * Any editor may trigger this, but it counts as a new video and deducts one credit
+ * from the project OWNER. Runs in the background — poll getLanguageChangeStatus.
+ */
+export const changeProjectLanguage = (projectId: number, contentLanguage: string) =>
+  api.post<LanguageChangeStartResponse>(`/projects/${projectId}/change-language`, {
+    content_language: contentLanguage,
+  });
+
+export const getLanguageChangeStatus = (projectId: number) =>
+  api.get<LanguageChangeStatus>(`/projects/${projectId}/language-change-status`);
 
 /**
  * Remove the project's voiceover and make the video mute. Does NOT deduct a video

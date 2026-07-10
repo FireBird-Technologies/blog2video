@@ -88,6 +88,11 @@ import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../component
 import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
 import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
 import VoiceOperationModal from "../components/VoiceOperationModal";
+import LanguageChangeTracker, {
+  type LanguageChangeProgress,
+} from "../components/LanguageChangeTracker";
+import ProjectLanguageSettingsCard from "../components/ProjectLanguageSettingsCard";
+import { getLanguageName } from "../constants/languages";
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
 import SceneCommentModal from "../components/SceneCommentModal";
@@ -998,6 +1003,12 @@ export default function ProjectView() {
   >(null);
   // True while a voiceover add/change/delete op is running (reported by VoiceOperationModal).
   const [voiceOpRunning, setVoiceOpRunning] = useState(false);
+  const [languageOpKickstart, setLanguageOpKickstart] = useState<
+    { kind: "language_change"; total: number } | null
+  >(null);
+  // True while a language change is running (reported by LanguageChangeTracker).
+  const [languageOpRunning, setLanguageOpRunning] = useState(false);
+  const [languageProgress, setLanguageProgress] = useState<LanguageChangeProgress | null>(null);
 
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
@@ -3364,7 +3375,13 @@ export default function ProjectView() {
     regenerateScriptJob?.status === "queued" ||
     regenerateScriptJob?.status === "awaiting_review" ||
     project.status === "script_regenerating";
-  const statusForBadge = templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
+  // Same reasoning as script_regenerating above: keep the loader up between a reload and
+  // the tracker's first poll, so the editor doesn't flash mid-translation.
+  const languageChangeRunning = languageOpRunning || project.status === "language_regenerating";
+  // The language change keeps its own badge ("Translating the project") rather than
+  // collapsing into the generic "Regenerating".
+  const statusForBadge =
+    templateRelayoutRunning || regenerateScriptRunning ? "regenerating" : project.status;
 
   // Only the collaborator who initiated the regen may approve/regenerate the review.
   // Legacy jobs have no initiator recorded — allow any editor so they aren't stuck.
@@ -3379,9 +3396,20 @@ export default function ProjectView() {
     templateRelayoutRunning ||
     regenerateScriptRunning ||
     voiceOpRunning ||
+    languageChangeRunning ||
     rendering ||
     project.status === "rendering";
-  const renderGenerationLoader = (mode: "pipeline" | "template-relayout" | "regenerate-script" = "pipeline") => {
+  const renderGenerationLoader = (
+    mode: "pipeline" | "template-relayout" | "regenerate-script" | "language-change" = "pipeline"
+  ) => {
+    // Language change runs two passes over the scenes; the backend reports which one is
+    // active via `phase`, and `progress` already spans both (total = 2 x scene count).
+    const LANGUAGE_STEPS = [
+      { id: "translating", label: "Translating scenes" },
+      { id: "voiceover", label: "Regenerating voiceovers" },
+    ] as const;
+    const languageStepIdx = languageProgress?.phase === "voiceover" ? 1 : 0;
+    const languageBarProgress = Math.max(6, Math.min(98, languageProgress?.progress ?? 0));
     const relayoutProgressRaw =
       templateRelayoutJob && templateRelayoutJob.total_scenes > 0
         ? (templateRelayoutJob.processed_scenes / templateRelayoutJob.total_scenes) * 100
@@ -3418,15 +3446,16 @@ export default function ProjectView() {
     const regenScriptProgress = regenScriptCompleted
       ? 100
       : REGEN_SCRIPT_PROGRESS[Math.min(regenScriptStepIdx, REGEN_SCRIPT_PROGRESS.length - 1)];
-    const stepLabels =
-      mode === "template-relayout" || mode === "regenerate-script"
-        ? []
-        : PIPELINE_STEPS.map((s) => s.label);
-    const currentStepIdx =
-      mode === "template-relayout" || mode === "regenerate-script"
-        ? 0
-        : Math.max(0, pipelineStep - 1);
-    const progress = mode === "template-relayout" ? relayoutProgress : smoothProgress;
+    const isCustomStepMode =
+      mode === "template-relayout" || mode === "regenerate-script" || mode === "language-change";
+    const stepLabels = isCustomStepMode ? [] : PIPELINE_STEPS.map((s) => s.label);
+    const currentStepIdx = isCustomStepMode ? 0 : Math.max(0, pipelineStep - 1);
+    const progress =
+      mode === "template-relayout"
+        ? relayoutProgress
+        : mode === "language-change"
+        ? languageBarProgress
+        : smoothProgress;
 
     return (
       <div
@@ -3443,11 +3472,16 @@ export default function ProjectView() {
               ? "Regenerating script"
               : mode === "template-relayout"
               ? "Regenerating scene layouts"
+              : mode === "language-change"
+              ? `Translating to ${
+                  getLanguageName(languageProgress?.contentLanguage ?? project.content_language) ||
+                  "a new language"
+                }`
               : "Generating your video"}
           </h2>
           <p className="text-xs text-gray-400 mb-8">{project.name}</p>
 
-          {mode !== "regenerate-script" && (
+          {mode !== "regenerate-script" && mode !== "language-change" && (
             <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
               <div
                 className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
@@ -3503,7 +3537,60 @@ export default function ProjectView() {
             </div>
           )}
 
-          {mode !== "template-relayout" && mode !== "regenerate-script" && (
+          {/* Language change: progress bar over two independent step circles
+              (translate every scene, then regenerate every voiceover). */}
+          {mode === "language-change" && (
+            <div className="mb-8 mt-2">
+              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6 overflow-hidden">
+                <div
+                  className="h-full bg-purple-600 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${languageBarProgress}%` }}
+                />
+              </div>
+              <div className="flex items-start justify-center gap-12 sm:gap-20">
+                {LANGUAGE_STEPS.map(({ id, label }, i) => {
+                  const isDone = i < languageStepIdx;
+                  const isActive = i === languageStepIdx;
+                  return (
+                    <div key={id} className="flex flex-col items-center gap-2 w-24 sm:w-28">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                          isDone
+                            ? "bg-green-100 text-green-600"
+                            : isActive
+                            ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {isDone ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <span
+                        className={`text-[11px] sm:text-xs font-medium text-center leading-tight ${
+                          isDone ? "text-green-600" : isActive ? "text-purple-600" : "text-gray-400"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {languageProgress && languageProgress.total > 0 && (
+                <p className="mt-4 text-[11px] text-gray-400 tabular-nums">
+                  {languageProgress.completed} of {languageProgress.total} steps •{" "}
+                  {languageProgress.progress}%
+                </p>
+              )}
+            </div>
+          )}
+
+          {!isCustomStepMode && (
             <div className="flex items-center justify-between mb-8">
               {stepLabels.map((label, i) => {
                 const isActive = i === currentStepIdx;
@@ -4122,6 +4209,22 @@ export default function ProjectView() {
         }}
         onRunningChange={setVoiceOpRunning}
         kickstart={voiceOpKickstart}
+      />
+      <LanguageChangeTracker
+        projectId={projectId}
+        onComplete={async () => {
+          await loadProject();
+          setLanguageOpKickstart(null);
+          setLanguageProgress(null);
+        }}
+        onError={(msg) => {
+          setLanguageOpKickstart(null);
+          setLanguageProgress(null);
+          showError(msg);
+        }}
+        onRunningChange={setLanguageOpRunning}
+        onProgress={setLanguageProgress}
+        kickstart={languageOpKickstart}
       />
 
       {showReviewPopup && ReactDOM.createPortal(
@@ -5307,9 +5410,10 @@ export default function ProjectView() {
         )}
 
       {/* Upper area: loader when running, editor when complete */}
-      {pipelineRunning || templateRelayoutRunning || regenerateScriptRunning ? (
+      {pipelineRunning || templateRelayoutRunning || regenerateScriptRunning || languageChangeRunning ? (
         renderGenerationLoader(
-          regenerateScriptRunning ? "regenerate-script"
+          languageChangeRunning ? "language-change"
+          : regenerateScriptRunning ? "regenerate-script"
           : templateRelayoutRunning ? "template-relayout"
           : "pipeline"
         )
@@ -6589,6 +6693,20 @@ export default function ProjectView() {
                 onOperationStarted={(op) => setVoiceOpKickstart(op)}
                 disabled={anyJobRunning}
                 ownerAssetLabel={ownerAssetLabel}
+              />
+
+              <ProjectLanguageSettingsCard
+                projectId={project.id}
+                contentLanguage={project.content_language}
+                // Only the owner's own quota is knowable client-side. For a
+                // collaborator the backend's 403 names whose limit was hit.
+                canCreateVideo={
+                  useOwnerScopedAssets ? true : (user?.can_create_video ?? true)
+                }
+                isCollaborator={useOwnerScopedAssets}
+                onError={(msg, options) => showError(msg, options)}
+                onOperationStarted={(op) => setLanguageOpKickstart(op)}
+                disabled={anyJobRunning}
               />
 
               {/* 3. Playback Speed */}
