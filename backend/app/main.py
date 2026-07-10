@@ -493,10 +493,12 @@ async def lifespan(app: FastAPI):
                 recover_orphaned_regenerate_script_jobs,
                 reap_orphaned_template_change_jobs,
                 reap_orphaned_voice_change_jobs,
+                reap_orphaned_language_change_jobs,
             )
             recover_orphaned_regenerate_script_jobs()
             reap_orphaned_template_change_jobs()
             reap_orphaned_voice_change_jobs()
+            reap_orphaned_language_change_jobs()
         except Exception as e:
             print(f"[STARTUP] Orphaned-job recovery failed: {e}")
     except Exception as e:
