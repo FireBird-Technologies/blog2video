@@ -50,6 +50,16 @@ import ManifestPropEditor from "../components/template-studio/ManifestPropEditor
 const IMAGE_ADJUST_ZOOM_MIN = 0.1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 
+// Length limits for the AI-generation text inputs. These MUST match the backend
+// Pydantic `Field(min_length=…, max_length=…)` constraints so the UI blocks/warns
+// before the request 422s. See backend/app/routers/template_studio.py:
+//   AiLayoutCreateRequest.layout_description  → min 10,  max 2000
+//   PlanTemplateRequest/…create.design_doc    → min 50,  max 40000
+const LAYOUT_DESC_MIN = 10;
+const LAYOUT_DESC_MAX = 2000;
+const DESIGN_DOC_MIN = 50;
+const DESIGN_DOC_MAX = 40000;
+
 type AspectRatio = "landscape" | "portrait";
 
 function clampFocusPct(value: number): number {
@@ -540,6 +550,86 @@ function ImageAttachRow({
           Attach image (optional)
         </button>
       )}
+    </div>
+  );
+}
+
+// Optional HTML/SVG markup input for the Rebuild flow: paste directly, or upload a
+// file (read client-side into the same textarea). Sent to the backend as the plain-
+// text `html_example` / `svg_example` field, which threads it into the rebuild prompt.
+function MarkupExampleRow({
+  value,
+  onChange,
+  label,
+  accept,
+  uploadLabel,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+  accept: string;
+  uploadLabel: string;
+  placeholder: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      onChange(await file.text());
+    } catch {
+      /* ignore unreadable file */
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: "10px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+        <FieldLabel>{label}</FieldLabel>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display: "none" }} />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            style={{
+              padding: "4px 8px", fontSize: "10px", fontFamily: FONT,
+              background: T.surfaceAlt, border: `1px dashed ${T.border}`,
+              borderRadius: "6px", color: T.textSub, cursor: "pointer",
+            }}
+          >
+            {uploadLabel}
+          </button>
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              style={{
+                padding: "4px 8px", fontSize: "10px", fontFamily: FONT,
+                background: "transparent", border: `1px solid ${T.border}`,
+                borderRadius: "6px", color: T.textSub, cursor: "pointer",
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+      <textarea
+        className="studio-input"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={5}
+        spellCheck={false}
+        style={{
+          ...inputBase, resize: "vertical" as const, background: T.surfaceAlt,
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontSize: "11px", lineHeight: "1.5", marginTop: "4px",
+        }}
+      />
     </div>
   );
 }
@@ -1119,6 +1209,9 @@ export default function TemplateStudio() {
   // ── Rebuild mode state ──────────────────────────────────────────────────────
   const [aiMode, setAiMode]             = useState<"code-only" | "rebuild">("code-only");
   const [rebuildProps, setRebuildProps] = useState<PropDef[]>([]);
+  const [rebuildHtml, setRebuildHtml]   = useState("");
+  const [rebuildSvg, setRebuildSvg]     = useState("");
+  const [rebuildSvgUsage, setRebuildSvgUsage] = useState("");
   const [rebuildLoading, setRebuildLoading] = useState(false);
   const [rebuildError, setRebuildError]     = useState("");
   const [rebuildStatus, setRebuildStatus]   = useState("");
@@ -1771,6 +1864,9 @@ export default function TemplateStudio() {
     }
     try {
       setRebuildLoading(true); setRebuildError(""); setRebuildStatus("");
+      const htmlExample = rebuildHtml.trim() || undefined;
+      const svgExample = rebuildSvg.trim() || undefined;
+      const svgUsage = svgExample ? (rebuildSvgUsage.trim() || undefined) : undefined;
       const result = aiLayoutImage
         ? await rebuildTemplateLayoutFile({
             template_id: selectedTemplateId,
@@ -1778,12 +1874,18 @@ export default function TemplateStudio() {
             instruction: aiInstruction.trim(),
             extra_props: rebuildProps,
             image: aiLayoutImage,
+            html_example: htmlExample,
+            svg_example: svgExample,
+            svg_usage: svgUsage,
           })
         : await rebuildTemplateLayout({
             template_id: selectedTemplateId,
             layout_id: selectedLayout,
             instruction: aiInstruction.trim(),
             extra_props: rebuildProps,
+            html_example: htmlExample,
+            svg_example: svgExample,
+            svg_usage: svgUsage,
           });
       const data = result.data;
       setAiPreviewSessionId(data.session_id);
@@ -1805,6 +1907,14 @@ export default function TemplateStudio() {
   const handleCreateLayout = async () => {
     if (!selectedTemplateId || !newLayoutId.trim() || !newBaseLayoutId || !newLayoutDesc.trim()) {
       setNewLayoutError("Fill in all required fields.");
+      return;
+    }
+    if (newLayoutDesc.trim().length < LAYOUT_DESC_MIN) {
+      setNewLayoutError(`Layout description must be at least ${LAYOUT_DESC_MIN} characters.`);
+      return;
+    }
+    if (newLayoutDesc.length > LAYOUT_DESC_MAX) {
+      setNewLayoutError(`Layout description is too long (max ${LAYOUT_DESC_MAX.toLocaleString()} characters).`);
       return;
     }
     try {
@@ -1859,8 +1969,12 @@ export default function TemplateStudio() {
       setNewTemplateError("Template id must be snake_case starting with a letter.");
       return;
     }
-    if (newTemplateDoc.trim().length < 50) {
+    if (newTemplateDoc.trim().length < DESIGN_DOC_MIN) {
       setNewTemplateError("Design doc is too short. Describe the visual style and layouts.");
+      return;
+    }
+    if (newTemplateDoc.length > DESIGN_DOC_MAX) {
+      setNewTemplateError(`Design doc is too long (max ${DESIGN_DOC_MAX.toLocaleString()} characters).`);
       return;
     }
     try {
@@ -2798,6 +2912,62 @@ export default function TemplateStudio() {
                     label="Reference image (optional)"
                   />
 
+                  {/* Rebuild: HTML + SVG design references */}
+                  {aiMode === "rebuild" && (
+                    <>
+                      <MarkupExampleRow
+                        value={rebuildHtml}
+                        onChange={setRebuildHtml}
+                        label="HTML example (optional)"
+                        accept=".html,text/html"
+                        uploadLabel="Upload .html"
+                        placeholder="Paste HTML to redesign this layout to match it…"
+                      />
+                      <MarkupExampleRow
+                        value={rebuildSvg}
+                        onChange={setRebuildSvg}
+                        label="SVG example (optional)"
+                        accept=".svg,image/svg+xml"
+                        uploadLabel="Upload .svg"
+                        placeholder="Paste an SVG graphic to embed in this layout…"
+                      />
+                      {rebuildSvg.trim() && (
+                        <div style={{ marginBottom: "10px" }}>
+                          <FieldLabel>How should this SVG be used? (optional)</FieldLabel>
+                          <input
+                            className="studio-input"
+                            placeholder="e.g. use as a full-bleed background"
+                            value={rebuildSvgUsage}
+                            onChange={(e) => setRebuildSvgUsage(e.target.value.slice(0, 600))}
+                            maxLength={600}
+                            style={{ ...inputBase, background: T.surfaceAlt, marginTop: "4px" }}
+                          />
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
+                            {[
+                              { label: "Background", phrase: "Use as a full-bleed background behind the content." },
+                              { label: "Icon", phrase: "Use as an icon accompanying the title." },
+                              { label: "Corner accent", phrase: "Place as a decorative accent in a corner." },
+                              { label: "Divider", phrase: "Use as a divider between sections." },
+                            ].map((preset) => (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                onClick={() => setRebuildSvgUsage(preset.phrase)}
+                                style={{
+                                  padding: "4px 10px", fontSize: "10px", fontFamily: FONT,
+                                  background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                                  borderRadius: "999px", color: T.textSub, cursor: "pointer",
+                                }}
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {/* Rebuild: extra props editor */}
                   {aiMode === "rebuild" && (
                     <div>
@@ -2965,15 +3135,31 @@ export default function TemplateStudio() {
                   </div>
 
                   <div>
-                    <FieldLabel>Layout description</FieldLabel>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <FieldLabel>Layout description</FieldLabel>
+                      <span style={{
+                        fontSize: "10px", fontFamily: FONT,
+                        color: (newLayoutDesc.length >= LAYOUT_DESC_MAX ||
+                                (newLayoutDesc.trim().length > 0 && newLayoutDesc.trim().length < LAYOUT_DESC_MIN))
+                          ? "#dc2626" : T.textMuted,
+                      }}>
+                        {newLayoutDesc.length} / {LAYOUT_DESC_MAX}
+                      </span>
+                    </div>
                     <textarea
                       className="studio-input"
                       placeholder="Describe the visual style and purpose of this layout…"
                       value={newLayoutDesc}
-                      onChange={(e) => setNewLayoutDesc(e.target.value)}
+                      onChange={(e) => setNewLayoutDesc(e.target.value.slice(0, LAYOUT_DESC_MAX))}
+                      maxLength={LAYOUT_DESC_MAX}
                       rows={4}
                       style={{ ...inputBase, resize: "vertical" as const, lineHeight: "1.6", background: T.surfaceAlt }}
                     />
+                    {newLayoutDesc.trim().length > 0 && newLayoutDesc.trim().length < LAYOUT_DESC_MIN && (
+                      <p style={{ margin: "4px 0 0", fontSize: "10px", color: "#dc2626", fontFamily: FONT }}>
+                        Add at least {LAYOUT_DESC_MIN} characters ({newLayoutDesc.trim().length} so far).
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -3002,7 +3188,7 @@ export default function TemplateStudio() {
 
                   <button
                     type="button" className="btn-primary"
-                    disabled={newLayoutLoading || !newLayoutId.trim() || !newBaseLayoutId || !newLayoutDesc.trim()}
+                    disabled={newLayoutLoading || !newLayoutId.trim() || !newBaseLayoutId || newLayoutDesc.trim().length < LAYOUT_DESC_MIN}
                     onClick={handleCreateLayout}
                   >
                     <IconWand />
@@ -3040,6 +3226,14 @@ export default function TemplateStudio() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                       <FieldLabel>Design doc</FieldLabel>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{
+                          fontSize: "10px", fontFamily: FONT,
+                          color: (newTemplateDoc.length >= DESIGN_DOC_MAX ||
+                                  (newTemplateDoc.trim().length > 0 && newTemplateDoc.trim().length < DESIGN_DOC_MIN))
+                            ? "#dc2626" : T.textMuted,
+                        }}>
+                          {newTemplateDoc.length.toLocaleString()} / {DESIGN_DOC_MAX.toLocaleString()}
+                        </span>
                         {newTemplateDocFileName && (
                           <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: FONT }}>
                             {newTemplateDocFileName}
@@ -3074,7 +3268,8 @@ export default function TemplateStudio() {
                       className="studio-input"
                       placeholder={`Describe the template.`}
                       value={newTemplateDoc}
-                      onChange={(e) => { setNewTemplateDoc(e.target.value); if (newTemplateDocFileName) setNewTemplateDocFileName(""); }}
+                      onChange={(e) => { setNewTemplateDoc(e.target.value.slice(0, DESIGN_DOC_MAX)); if (newTemplateDocFileName) setNewTemplateDocFileName(""); }}
+                      maxLength={DESIGN_DOC_MAX}
                       rows={16}
                       style={{ ...inputBase, resize: "vertical" as const, lineHeight: "1.55", background: T.surfaceAlt, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "11px" }}
                     />
@@ -3139,7 +3334,7 @@ export default function TemplateStudio() {
                     disabled={
                       Boolean(newTemplateBusy) ||
                       !newTemplateId.trim() ||
-                      newTemplateDoc.trim().length < 50 ||
+                      newTemplateDoc.trim().length < DESIGN_DOC_MIN ||
                       Boolean(newTemplateReview)
                     }
                     onClick={handleAnalyzeTemplateDoc}

@@ -171,6 +171,14 @@ class AiLayoutRebuildRequest(BaseModel):
     extra_props: list[PropDef] = Field(default_factory=list, max_length=20)
     image_base64: str | None = None
     image_mime_type: str | None = None
+    # Optional HTML / SVG mock to drive the redesign. Text-only — threaded into the
+    # rebuild prompt, so they work on either LLM backend. Full pages/graphics get
+    # large; reject beyond the cap rather than silently truncate.
+    html_example: str | None = Field(default=None, max_length=60000)
+    svg_example: str | None = Field(default=None, max_length=60000)
+    # How the SVG should be used (e.g. "use as a full-bleed background"). Only
+    # meaningful alongside svg_example; steers where/how the graphic is applied.
+    svg_usage: str | None = Field(default=None, max_length=600)
 
 
 class AiLayoutCreateRequest(BaseModel):
@@ -1842,11 +1850,39 @@ def _build_rebuild_gemini_prompt(
     instruction: str,
     current_tsx: str,
     all_props: list[dict],
+    html_example: str | None = None,
+    svg_example: str | None = None,
+    svg_usage: str | None = None,
 ) -> str:
     props_desc = "\n".join(
         f"  - {f['key']} ({f.get('type', 'string')}): {f.get('description', f.get('label', ''))}"
         for f in all_props
     )
+    markup_block = ""
+    html_snippet = (html_example or "").strip()
+    if html_snippet:
+        markup_block += (
+            "\n--- HTML design reference ---\n"
+            "Reproduce the visual structure, hierarchy, spacing, colors, and typography of the\n"
+            "following HTML as closely as possible in TSX. This HTML is a static mock: convert it\n"
+            "to a Remotion component. Do NOT emit raw HTML/CSS files or <style> tags — translate it\n"
+            "to inline React style objects. Keep the template's animation patterns and preserve the\n"
+            "`title` / `narration` props (see rules above).\n"
+            f"{html_snippet}\n"
+        )
+    svg_snippet = (svg_example or "").strip()
+    if svg_snippet:
+        usage = (svg_usage or "").strip()
+        usage_line = f"Apply this SVG as follows: {usage}.\n" if usage else ""
+        markup_block += (
+            "\n--- SVG design reference ---\n"
+            "Incorporate the following SVG graphic into the layout. Embed it as inline JSX SVG\n"
+            "(convert HTML attributes to React ones — e.g. class -> className, stroke-width ->\n"
+            "strokeWidth) rather than an <img>/data-URI. Size and place it to fit the composition,\n"
+            "and keep the `title` / `narration` props visible (see rules above).\n"
+            f"{usage_line}"
+            f"{svg_snippet}\n"
+        )
     return (
         "You are rebuilding a React TSX layout component used in a Remotion video template system.\n"
         "Return ONLY the full updated TSX file contents — no markdown fences, explanations, or extra text.\n\n"
@@ -1862,7 +1898,8 @@ def _build_rebuild_gemini_prompt(
         "titleFontSize, descriptionFontSize, stats, ...extra }} = props;`\n"
         "then access extra props like `extra.myProp`.\n\n"
         "For object_array props (items with label and value): render BOTH — e.g. show item.label as caption and item.value as main text.\n\n"
-        "Use the current file content provided below as the starting point.\n"
+        f"{markup_block}"
+        "\nUse the current file content provided below as the starting point.\n"
     )
 
 
@@ -2057,7 +2094,10 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
 
     all_fields = existing_fields + _props_to_schema_fields(payload.extra_props)
     gemini_prompt = _build_rebuild_gemini_prompt(
-        template_id, layout_id, payload.instruction, current_tsx, all_fields
+        template_id, layout_id, payload.instruction, current_tsx, all_fields,
+        html_example=payload.html_example,
+        svg_example=payload.svg_example,
+        svg_usage=payload.svg_usage,
     )
     new_tsx = _call_code_edit(
         instruction=gemini_prompt,
@@ -2408,6 +2448,9 @@ def rebuild_layout_file(
     layout_id: str = Form(...),
     instruction: str = Form(...),
     extra_props_json: str = Form("[]"),
+    html_example: str | None = Form(default=None),
+    svg_example: str | None = Form(default=None),
+    svg_usage: str | None = Form(default=None),
     image: UploadFile | None = File(default=None),
     user: User = Depends(get_current_user),
 ):
@@ -2424,6 +2467,9 @@ def rebuild_layout_file(
         extra_props=extra_props,
         image_base64=b64,
         image_mime_type=mime,
+        html_example=(html_example or None),
+        svg_example=(svg_example or None),
+        svg_usage=(svg_usage or None),
     )
     return rebuild_layout(payload, user=user)
 

@@ -813,6 +813,11 @@ export interface RebuildLayoutRequest {
   extra_props: PropDef[];
   image_base64?: string | null;
   image_mime_type?: string | null;
+  // Optional HTML / SVG mock to drive the redesign (paste or read from a file).
+  html_example?: string | null;
+  svg_example?: string | null;
+  // How the SVG should be used (e.g. "use as a full-bleed background").
+  svg_usage?: string | null;
 }
 
 export interface RebuildLayoutResponse {
@@ -835,12 +840,18 @@ export const rebuildTemplateLayoutFile = (payload: {
   instruction: string;
   extra_props: PropDef[];
   image: File;
+  html_example?: string | null;
+  svg_example?: string | null;
+  svg_usage?: string | null;
 }) => {
   const formData = new FormData();
   formData.append("template_id", payload.template_id);
   formData.append("layout_id", payload.layout_id);
   formData.append("instruction", payload.instruction);
   formData.append("extra_props_json", JSON.stringify(payload.extra_props || []));
+  if (payload.html_example) formData.append("html_example", payload.html_example);
+  if (payload.svg_example) formData.append("svg_example", payload.svg_example);
+  if (payload.svg_usage) formData.append("svg_usage", payload.svg_usage);
   formData.append("image", payload.image);
   return api.post<RebuildLayoutResponse>("/template-studio/ai-layout/rebuild-file", formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -1186,6 +1197,9 @@ export const uploadLogo = (projectId: number, file: File) => {
     { headers: { "Content-Type": "multipart/form-data" } }
   );
 };
+
+export const deleteLogo = (projectId: number) =>
+  api.delete<{ detail: string }>(`/projects/${projectId}/logo`);
 
 export interface ProjectLogoUpdate {
   logo_position?: string;
