@@ -935,6 +935,7 @@ export default function ProjectView() {
       setPlaybackSpeedDraft(Math.min(2.5, Math.max(0.5, Number.isFinite(current) ? current : 1)));
       setBgmTrackDraft(project.bgm_track_id ?? null);
       setBgmVolumeDraft(project.bgm_volume ?? 0.10);
+      if ((project.bgm_volume ?? 0) > 0) setLastNonZeroProjectBgm(project.bgm_volume as number);
       setCaptionsEnabledDraft(project.captions_enabled ?? false);
       setCaptionFontFamilyDraft(project.caption_font_family ?? "inter");
       setCaptionFontSizeDraft(project.caption_font_size ? Number(project.caption_font_size) || 36 : 36);
@@ -965,6 +966,9 @@ export default function ProjectView() {
       // deps the draft goes stale and the toggle shows the wrong state until a hard refresh.
       project?.captions_enabled,
       project?.caption_font_family, project?.caption_font_size, project?.caption_offset,
+      // Re-seed the Music card when a collaborator changes the track or volume, so the
+      // controls don't sit on a stale draft while the preview plays the new track.
+      project?.bgm_track_id, project?.bgm_volume,
       project?.scenes?.some((s) => !!s.voiceover_path)]);
 
   useEffect(() => {
@@ -1535,7 +1539,16 @@ export default function ProjectView() {
     setProject((prev) => {
       if (!prev) return prev;
       if (edit.scope === "project") {
-        return { ...prev, [edit.field]: edit.value } as typeof prev;
+        const next = { ...prev, [edit.field]: edit.value } as typeof prev;
+        if (edit.field === "bgm_track_id") {
+          // bgm_track_url is derived server-side from the track id, so it isn't part
+          // of the broadcast. Re-resolve it here or the preview keeps the old audio.
+          const trackId = edit.value as string | null;
+          next.bgm_track_url = trackId
+            ? bgmTracks.find((t) => t.track_id === trackId)?.r2_url ?? null
+            : null;
+        }
+        return next;
       }
       if (edit.scope === "scene" && edit.scene_id != null) {
         return {
@@ -1547,7 +1560,7 @@ export default function ProjectView() {
       }
       return prev;
     });
-  }, []);
+  }, [bgmTracks]);
 
   // A change-set was reverted — refetch authoritative state.
   const handleCollabDraftResolved = useCallback(() => {
