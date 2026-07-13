@@ -456,10 +456,11 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           bgColor: data.bgColor || "#FAFAF8",
           textColor: data.textColor || "#111111",
           aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
-          imageUrl:
-            imageUrlFromAssets ??
-            scene.imageUrl ??
-            (typeof lp.imageUrl === "string" ? lp.imageUrl : undefined),
+          // Never fall back to lp.imageUrl here: it's an LLM-authored field with no
+          // real source image to draw from, so it's either absent or a hallucinated
+          // placeholder (e.g. https://example.com/...). Only assignedImage / the
+          // resolved asset pipeline can produce a real, fetchable URL.
+          imageUrl: imageUrlFromAssets ?? scene.imageUrl,
           imageObjectPosition,
   imageZoom,
           fontFamily: resolvedFontFamily || undefined,
