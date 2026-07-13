@@ -167,6 +167,29 @@ def _make_openrouter_lm(model: str, temperature: float, max_tokens: int) -> dspy
     )
 
 
+def _make_openrouter_codegen_lm(model: str, temperature: float, max_tokens: int) -> dspy.LM:
+    """OpenRouter LM for custom-template codegen (GLM in local/dev).
+
+    Mirrors _make_openrouter_lm but drops the Qwen-tuned provider order and the
+    DeepSeek fallback — those are wrong for GLM. Lets OpenRouter pick GLM's own
+    serving providers and falls back to a smaller GLM if the primary is down.
+    """
+    return _ProviderLoggingLM(
+        model,
+        api_key=settings.OPEN_ROUTER_KEY,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        fallbacks=["openrouter/z-ai/glm-4.7"],
+        extra_body={
+            "provider": {
+                "allow_fallbacks": True,
+                "require_parameters": True,
+                "data_collection": "deny",
+            }
+        },
+    )
+
+
 def _make_default_lm(model: str, temperature: float, max_tokens: int) -> dspy.LM:
     factory = _make_anthropic_lm if _IS_PRODUCTION else _make_openrouter_lm
     return factory(model, temperature, max_tokens)
@@ -186,10 +209,12 @@ def ensure_dspy_configured():
 
 
 def get_custom_lm() -> dspy.LM:
-    """Claude Sonnet 4.6 via Anthropic for custom-template Remotion codegen (app.services.code_generator).
+    """Custom-template Remotion codegen LM (app.services.code_generator).
 
-    Always routes through the Anthropic API directly, regardless of environment —
-    Remotion code generation requires Claude-quality output even in local/dev.
+    Production keeps Claude Sonnet 4.6 via Anthropic (Claude-quality TSX). Local/dev
+    uses GLM via OpenRouter (settings.CUSTOM_TEMPLATE_LM) so devs iterate without
+    burning the Anthropic key. Swap the two by changing ENVIRONMENT, like every
+    other LM path.
     """
     global _codegen_lm
     if _codegen_lm is not None:
@@ -197,12 +222,19 @@ def get_custom_lm() -> dspy.LM:
     with _codegen_lm_lock:
         if _codegen_lm is not None:
             return _codegen_lm
-        _codegen_lm = _make_anthropic_lm(
-            "anthropic/claude-sonnet-4-6",
-            temperature=0.7,
-            max_tokens=12000,
-            api_key=_custom_anthropic_key(),
-        )
+        if _IS_PRODUCTION:
+            _codegen_lm = _make_anthropic_lm(
+                "anthropic/claude-sonnet-4-6",
+                temperature=0.7,
+                max_tokens=12000,
+                api_key=_custom_anthropic_key(),
+            )
+        else:
+            _codegen_lm = _make_openrouter_codegen_lm(
+                settings.CUSTOM_TEMPLATE_LM,
+                temperature=0.7,
+                max_tokens=12000,
+            )
         return _codegen_lm
 
 

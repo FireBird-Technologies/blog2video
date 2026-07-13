@@ -1297,9 +1297,16 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         f"| content_pool={_content_pool} | outro={_outro_artifact}"
     )
 
-    # Step 3: Generate ALL scenes in parallel
-    tasks = [
-        _generate_single_scene(
+    # Step 3: Generate ALL scenes in parallel. Each scene's kwargs are kept
+    # alongside its task (not just the coroutine) so a scene that fails FINAL
+    # validation below can be individually regenerated — dspy.Refine always
+    # returns its best-scoring attempt even when every attempt scored 0.0 (it
+    # never raises), so a scene can silently come back invalid despite Refine
+    # "succeeding". Retrying only the failed scene(s) is far cheaper than
+    # failing the whole batch and forcing the user to regenerate all 9 scenes
+    # (burning quota) to get past one bad one.
+    scene_kwargs: list[dict] = [
+        dict(
             brand_context=brand_context,
             design_system=design_system,
             scene_type="intro",
@@ -1330,8 +1337,8 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             f"(archetype={arch['id']!r}) -> composition={_comp!r} artifact={_scene_artifact!r}"
             f"{' [+brief-hint]' if _brief_hint else ''}"
         )
-        tasks.append(
-            _generate_single_scene(
+        scene_kwargs.append(
+            dict(
                 brand_context=brand_context,
                 design_system=design_system,
                 scene_type="content",
@@ -1348,8 +1355,8 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
                 ),
             ),
         )
-    tasks.append(
-        _generate_single_scene(
+    scene_kwargs.append(
+        dict(
             brand_context=brand_context,
             design_system=design_system,
             scene_type="outro",
@@ -1369,7 +1376,7 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         ),
     )
 
-    scene_tuples = await asyncio.gather(*tasks)
+    scene_tuples = await asyncio.gather(*(_generate_single_scene(**kw) for kw in scene_kwargs))
     scenes = [code for code, _ in scene_tuples]
     # Each entry is a dict {"landscape": "W / H", "portrait": "W / H"}
     scene_aspect_ratios: list[dict[str, str]] = [ar for _, ar in scene_tuples]
@@ -1380,12 +1387,75 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         line_count = code.count("\n") + 1
         print(f"[F7-DEBUG] [CODEGEN] Scene {i} ({label}): {line_count} lines")
 
-    # Final validation pass
+    # Final validation pass. dspy.Refine (inside _generate_single_scene) always
+    # returns its best-scoring attempt even when every attempt scored 0.0 — it
+    # never raises on a failing scene, so a syntactically-broken scene can come
+    # back here despite Refine "succeeding". Rather than failing the ENTIRE
+    # 9-scene batch (which burns the user's quota + discards 8 good scenes) over
+    # one bad scene, regenerate just the failing scene(s) a few more times —
+    # each retry uses a fresh temperature=1.0 rollout, so it isn't the same
+    # deterministic failure repeating.
+    def _log_failed_scene(scene_idx: int, label: str, code: str, error: str, attempt_label: str) -> None:
+        """Print the validator error AND the actual LLM output around the
+        failure point, so a broken generation is diagnosable from server logs
+        alone instead of having to query the DB for what the model wrote."""
+        print(f"[F7-DEBUG] [CODEGEN] Scene {scene_idx} ({label}) {attempt_label}: {error}")
+        # esbuild errors include "<stdin>:LINE:COL" — pull the line number out and
+        # print a few lines of context around it so the offending token is visible.
+        m = re.search(r"<stdin>:(\d+):(\d+)", error)
+        if m:
+            line_no = int(m.group(1))
+            lines = code.split("\n")
+            lo, hi = max(0, line_no - 4), min(len(lines), line_no + 3)
+            snippet = "\n".join(
+                f"{'>>> ' if j + 1 == line_no else '    '}{j + 1:4d} | {lines[j]}"
+                for j in range(lo, hi)
+            )
+            print(f"[F7-DEBUG] [CODEGEN] LLM output around the failure (scene {scene_idx}):\n{snippet}")
+        else:
+            # No line info (e.g. "Code is empty" or a non-esbuild failure) —
+            # print what the model actually returned, truncated so logs stay readable.
+            preview = code[:1000] + ("..." if len(code) > 1000 else "") if code else "(empty string)"
+            print(f"[F7-DEBUG] [CODEGEN] LLM raw output for scene {scene_idx} ({len(code)} chars):\n{preview}")
+
     scene_types_simple = ["intro"] + ["content"] * num_content + ["outro"]
-    for i, code in enumerate(scenes):
-        valid, err = validate_component_code(code, scene_type=scene_types_simple[i])
+    MAX_SCENE_RETRIES = 3
+    for i in range(len(scenes)):
+        valid, err = validate_component_code(scenes[i], scene_type=scene_types_simple[i])
+        if valid:
+            continue
+        _log_failed_scene(i, scene_labels[i], scenes[i], err, "failed final validation (initial attempt)")
+        for retry in range(1, MAX_SCENE_RETRIES + 1):
+            # DSPy's LM caches on the request signature (model+prompt+params), and
+            # dspy.Refine's internal rollout_id sequence (0, 1, ...) restarts from
+            # the same base every time _generate_single_scene is called fresh — so
+            # calling it again with IDENTICAL kwargs just replays the cached broken
+            # completion instead of asking the model again (confirmed: 4 straight
+            # attempts returned the byte-identical 397-line output). Appending a
+            # retry nonce to scene_purpose changes the prompt text, which busts the
+            # cache key and forces a genuinely new completion.
+            retry_kwargs = {
+                **scene_kwargs[i],
+                "scene_purpose": (
+                    f"{scene_kwargs[i]['scene_purpose']} "
+                    f"| [retry {retry}: the previous attempt had a syntax error, "
+                    "double-check every React.createElement(...) call and object "
+                    "literal is well-formed with no stray characters]"
+                ),
+            }
+            code, ar = await _generate_single_scene(**retry_kwargs)
+            valid, err = validate_component_code(code, scene_type=scene_types_simple[i])
+            scenes[i] = code
+            scene_aspect_ratios[i] = ar
+            if valid:
+                print(f"[F7-DEBUG] [CODEGEN] Scene {i} ({scene_labels[i]}) recovered on retry {retry}")
+                break
+            _log_failed_scene(i, scene_labels[i], code, err, f"failed final validation (retry {retry}/{MAX_SCENE_RETRIES})")
         if not valid:
-            raise RuntimeError(f"Scene {i} ({scene_types_simple[i]}) failed validation after Refine: {err}")
+            raise RuntimeError(
+                f"Scene {i} ({scene_types_simple[i]}) failed validation after "
+                f"{MAX_SCENE_RETRIES} retries: {err}"
+            )
 
     intro_code = scenes[0]
     outro_code = scenes[-1]
