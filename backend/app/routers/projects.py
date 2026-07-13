@@ -3945,6 +3945,7 @@ def generate_scene_image(
         get_image_aspect_for_layout,
         get_openai_size,
         get_gemini_image_config,
+        get_glm_size,
     )
     from app.services.scene_image_context import build_scene_context_for_image
     from app.services.template_service import get_fallback_layout
@@ -3985,7 +3986,7 @@ def generate_scene_image(
     if not provider:
         raise HTTPException(
             status_code=503,
-            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY or GEMINI_API_KEY)",
+            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY, GEMINI_API_KEY, or GLM_API_KEY)",
         )
 
     layout_id = get_fallback_layout(project.template)
@@ -4013,6 +4014,13 @@ def generate_scene_image(
         logger.info(
             "[GENERATE_IMAGE] provider=openai layout=%r template=%r project_aspect=%r image_aspect=%r size=%s",
             layout_id, project.template, project_aspect, aspect_ratio, openai_size,
+        )
+    elif provider_name == "glm":
+        glm_size = get_glm_size(aspect_ratio)
+        gen_kwargs = {"size": glm_size}
+        logger.info(
+            "[GENERATE_IMAGE] provider=glm layout=%r template=%r project_aspect=%r image_aspect=%r size=%s",
+            layout_id, project.template, project_aspect, aspect_ratio, glm_size,
         )
     else:
         gemini_config = get_gemini_image_config(aspect_ratio)
