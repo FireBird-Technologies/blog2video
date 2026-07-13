@@ -156,6 +156,11 @@ class Settings(BaseSettings):
     STALL_THRESHOLD_SCRIPT_SECONDS: int = int(
         os.environ.get("STALL_THRESHOLD_SCRIPT_SECONDS", "1200")
     )
+    # Language change does two full passes over the scenes (translate, then TTS), so it
+    # is slower than a voice-only change.
+    STALL_THRESHOLD_LANGUAGE_SECONDS: int = int(
+        os.environ.get("STALL_THRESHOLD_LANGUAGE_SECONDS", "1200")
+    )
 
 
     # Email

@@ -146,6 +146,15 @@ class ProjectVoiceChange(BaseModel):
     voice_emotion: Optional[str] = None
 
 
+class ProjectLanguageChange(BaseModel):
+    """Body for translating a project into a new language.
+
+    ``content_language`` accepts an ISO 639-1 code ('es') or a language name
+    ('Spanish'); it is normalized server-side by ``normalize_preferred_language_code``.
+    """
+    content_language: str
+
+
 class ProjectTemplateChangeRequest(BaseModel):
     template: str
 
