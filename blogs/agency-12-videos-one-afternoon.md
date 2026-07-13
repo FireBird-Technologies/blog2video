@@ -9,6 +9,8 @@ hero_image_alt: "Agency workflow illustration showing 12 client blog posts conve
 
 # How to Produce 12 Client Videos in One Afternoon (Without a Video Team)
 
+> **TL;DR:** One account manager with no video experience can turn 12 client blog posts into branded, client-ready videos in a single ~5.5-hour afternoon. This post gives the exact step-by-step workflow, per-video time estimates, and the ~89% margin math.
+
 This is a workflow post, not a theory post. The premise is testable: a single account manager with no video experience can produce 12 client-ready videos in one working afternoon using an AI video workflow.
 
 Here's exactly how it works, with time estimates for each step.

@@ -9,6 +9,8 @@ hero_image_alt: "Nonfiction author turning book big ideas into shareable short-f
 
 # Turning Your Book's Big Ideas Into Shareable Video: A Workflow for Authors
 
+> **TL;DR:** A step-by-step workflow for nonfiction authors to turn a single idea from their book into a shareable video, from source material to published post — with no studio, team, or prior video experience.
+
 Most author video advice focuses on the result: "you should be posting on YouTube." Very little of it explains the actual process — what you open, what you paste where, what decisions you make along the way, how long it takes.
 
 This is a workflow piece. It covers the exact steps, in order, for turning an idea from your book into a shareable video — from source material to published post. It assumes no prior video production experience.

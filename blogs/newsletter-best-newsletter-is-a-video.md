@@ -9,6 +9,8 @@ hero_image_alt: "Newsletter issue transformed into a professional finance video 
 
 # Your Best Newsletter Is Already a Video — You Just Haven't Made It Yet
 
+> **TL;DR:** Finance and business newsletter writers pour 6+ hours into their best pieces, then watch them disappear after the send. Your newsletter is already a video script — here's how to publish it as video and give it a second life.
+
 You spent four hours on last Thursday's issue. A markets breakdown, a thesis, a data visualization you built yourself, a conclusion worth reading twice. It went out to 3,200 subscribers. 34% opened it. You got 18 replies.
 
 Then it was over.

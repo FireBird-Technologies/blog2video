@@ -9,6 +9,8 @@ hero_image_alt: "Blog2Video template guide for nonfiction book launch video type
 
 # Which Blog2Video Template Fits a Book Launch? A Guide for Nonfiction Authors
 
+> **TL;DR:** A practical guide to choosing the right Blog2Video template for each type of book launch video — thesis videos, framework demos, research breakdowns, origin stories, and social clips.
+
 The visual template you choose for your book launch video isn't just an aesthetic decision. It's a positioning decision — it tells the viewer in the first 3 seconds what kind of content this is and whether to keep watching.
 
 Different types of book launch video content warrant different template choices. Here's a practical guide for matching your video type to the right visual style.

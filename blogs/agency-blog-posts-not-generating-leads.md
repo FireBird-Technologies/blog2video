@@ -9,6 +9,8 @@ hero_image_alt: "Blog posts failing to generate leads compared with video distri
 
 # Why Your Clients' Blog Posts Aren't Generating Leads (And the One Fix That Doesn't Require More Writing)
 
+> **TL;DR:** Client blog posts underperform not because the writing is weak, but because text-only content never reaches the video-first channels (YouTube, LinkedIn, email) where buyers actually spend time. The fix is repurposing existing posts into video — no new writing required.
+
 Your client approved the blog post. You published it. You shared it on social. Six months later, it has 80 organic visits per month and zero attributable pipeline.
 
 This is the most common conversation in content marketing, and most agencies respond to it the same way: better SEO, more posts, better distribution. All of those are valid. But they all require more writing.
