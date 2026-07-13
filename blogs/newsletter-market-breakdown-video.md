@@ -9,6 +9,8 @@ hero_image_alt: "Structured weekly market breakdown video format for finance new
 
 # What Your Finance Subscribers Want to Watch: Turning Your Market Breakdown Into a 3-Minute Video
 
+> **TL;DR:** Your subscribers already love reading your market breakdowns. Here's how to convert that same analysis into a 3-minute video that reaches new audiences on YouTube and LinkedIn.
+
 Your subscribers open your newsletter because they want your analysis. They're busy people — they chose your take over the hundreds of other finance opinions in their inbox. That's the highest form of trust a reader can extend.
 
 Now consider what those same people are doing the other 23 hours of the day they didn't spend reading your newsletter. They're on LinkedIn scrolling while commuting. They're watching YouTube at 1.5x speed during lunch. They're in the format where content comes to them, not the format where they have to seek it out.

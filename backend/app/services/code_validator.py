@@ -6,6 +6,69 @@ for dangerous APIs and required structure.
 """
 
 import re
+import shutil
+import subprocess
+
+from app.config import settings
+
+# ─── Real parser gate ───────────────────────────────────────
+# The regex checks below (brace/paren balance etc.) are heuristics — they can't
+# catch a syntactically-invalid stray token that doesn't unbalance anything,
+# e.g. a stray `n` glued onto the front of a line right before `React.createElement(`.
+# That kind of corruption compiles clean past every regex check here yet fails
+# esbuild/Babel at bundle time with "Expected X but found Y" — a class of failure
+# SceneErrorBoundary explicitly can't catch (the module never finishes compiling).
+# Feed the code through the SAME esbuild binary the render pipeline bundles with
+# (remotion-video/node_modules/.bin/esbuild) in `transform` mode (no bundling, no
+# resolving imports — just parse + JSX transform) so this check catches exactly
+# what would otherwise blank the scene at render/preview time.
+_ESBUILD_PATH_CACHE: str | None | bool = False  # False = not looked up yet
+
+
+def _find_esbuild() -> str | None:
+    global _ESBUILD_PATH_CACHE
+    if _ESBUILD_PATH_CACHE is not False:
+        return _ESBUILD_PATH_CACHE  # type: ignore[return-value]
+
+    import os
+
+    candidates = [
+        os.path.join(settings.REMOTION_PROJECT_PATH, "node_modules", ".bin", "esbuild"),
+        shutil.which("esbuild"),
+    ]
+    for c in candidates:
+        if c and os.path.isfile(c) and os.access(c, os.X_OK):
+            _ESBUILD_PATH_CACHE = c
+            return c
+    _ESBUILD_PATH_CACHE = None
+    return None
+
+
+def _parse_check(code: str) -> tuple[bool, str | None]:
+    """Run the code through esbuild's parser (transform, no bundling) to catch
+    real syntax errors the regex heuristics below miss. Returns (True, None) if
+    esbuild isn't available (fails open — this is a defense-in-depth extra, not
+    the only gate) or if the code parses cleanly; (False, message) on a genuine
+    syntax error.
+    """
+    esbuild = _find_esbuild()
+    if not esbuild:
+        return True, None
+    try:
+        proc = subprocess.run(
+            [esbuild, "--loader=jsx", "--format=esm"],
+            input=code,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return True, None  # fail open — don't block generation on a tooling hiccup
+    if proc.returncode != 0:
+        # esbuild's stderr is human-readable and already includes the offending
+        # line/column — surface it directly so a failed generation is diagnosable.
+        return False, f"Syntax error (esbuild): {proc.stderr.strip()[:500]}"
+    return True, None
 
 # ─── Dangerous APIs that must never appear ───────────────────
 # Only block things that are genuinely dangerous in a sandboxed
@@ -47,8 +110,20 @@ def clean_code(raw: str) -> str:
     code = re.sub(r"^```(?:tsx|jsx|javascript|js|typescript|ts)?\s*\n?", "", code)
     code = re.sub(r"\n?```\s*$", "", code)
 
-    # Remove import lines (AI often adds these despite instructions)
-    code = re.sub(r"^import\s+.*?[;\n]", "", code, flags=re.MULTILINE)
+    # Remove ES import STATEMENTS the AI sometimes adds despite instructions
+    # (globals are pre-injected). Only match true top-level import statements —
+    # `import x from "..."`, `import { a } from "..."`, `import "..."`, or a
+    # bare `import Name;`. Crucially this must NOT eat a dynamic `import(...)`
+    # call, nor a wrapped expression continuation line that merely begins with
+    # the token `import` (e.g. `React` on its own line after a `(`), which the
+    # old `^import\s+.*?[;\n]` deleted — corrupting balanced parens and yielding
+    # esbuild "Expected ")" but found ...".
+    code = re.sub(
+        r'^[ \t]*import\b(?![ \t]*\()[^\n;]*?(?:from[ \t]+[\'"][^\'"]+[\'"])?[ \t]*;?[ \t]*(?:\n|$)',
+        "",
+        code,
+        flags=re.MULTILINE,
+    )
 
     # Remove export lines
     code = re.sub(r"^export\s+(?:default\s+)?", "", code, flags=re.MULTILINE)
@@ -64,6 +139,12 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
     """
     if not code or not code.strip():
         return False, "Code is empty"
+
+    # Real parser gate — catches syntax corruption (stray tokens, malformed JSX)
+    # that the regex heuristics below cannot, before wasting time on them.
+    parse_ok, parse_err = _parse_check(code)
+    if not parse_ok:
+        return False, parse_err
 
     # Dangerous API check
     for regex, name in DANGEROUS_REGEX:
@@ -81,6 +162,16 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
             depth -= 1
     if depth != 0:
         return False, "Unbalanced braces in code"
+
+    # Structural: balanced parentheses and square brackets. Braces alone are not
+    # enough — an unbalanced '(' compiles to esbuild 'Expected ")"' and blanks
+    # the whole video, so reject it here BEFORE the code is ever stored/rendered.
+    # (A char-level count is approximate — parens inside strings/comments can skew
+    # it — but generated scene code rarely puts unmatched parens in literals, and
+    # catching the common corruption is worth the rare false positive.)
+    for open_ch, close_ch, label in (("(", ")", "parentheses"), ("[", "]", "square brackets")):
+        if code.count(open_ch) != code.count(close_ch):
+            return False, f"Unbalanced {label} in code"
 
     # Must declare SceneComponent
     if not re.search(r"const\s+SceneComponent\s*=", code):

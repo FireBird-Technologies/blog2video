@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     GEMINI_CODE_MODEL: str = "gemini-3.5-flash"
     # Used when a reference image is attached (vision-guided layout editing / rebuild).
     GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-3.5-flash"
+    # GLM image generation via z.ai (GLM-Image, the 16B model). Requires a z.ai
+    # API key — the OpenRouter key above does NOT serve GLM image models. Reached
+    # through the OpenAI-compatible endpoint at https://api.z.ai/api/paas/v4/.
+    # Override GLM_IMAGE_MODEL in .env only if z.ai ships a newer GLM image model.
+    GLM_API_KEY: str = ""
+    GLM_IMAGE_MODEL: str = "glm-image"
 
     # Template studio access password. Kept server-side so it doesn't leak in
     # the JS bundle. Empty disables the gate (any password passes — useful for
@@ -41,9 +47,12 @@ class Settings(BaseSettings):
     # GEMINI_CODE_MODEL_WITH_IMAGE). Defaults: gemini-3.5-flash; override in .env if needed.
     CLAUDE_CODE_MODEL: str = "claude-sonnet-4-6"
 
-    # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini") and DSPY_IMAGE_LM in env
+    # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini" | "glm") and DSPY_IMAGE_LM in env
     IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
     DSPY_IMAGE_LM: str =  "openai/gpt-4o-mini"
+
+    # Custom-template Remotion codegen in local/dev: GLM via OpenRouter (prod still uses Claude).
+    CUSTOM_TEMPLATE_LM: str = os.environ.get("CUSTOM_TEMPLATE_LM", "openrouter/z-ai/glm-5.2")
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
@@ -146,6 +155,11 @@ class Settings(BaseSettings):
     )
     STALL_THRESHOLD_SCRIPT_SECONDS: int = int(
         os.environ.get("STALL_THRESHOLD_SCRIPT_SECONDS", "1200")
+    )
+    # Language change does two full passes over the scenes (translate, then TTS), so it
+    # is slower than a voice-only change.
+    STALL_THRESHOLD_LANGUAGE_SECONDS: int = int(
+        os.environ.get("STALL_THRESHOLD_LANGUAGE_SECONDS", "1200")
     )
 
 

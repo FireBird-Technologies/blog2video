@@ -102,6 +102,31 @@ def get_openai_size(aspect_ratio: str) -> str:
     return OPENAI_SIZE_LANDSCAPE
 
 
+# GLM-Image sizes: each side 512-2048 and divisible by 32.
+GLM_SIZE_BY_ASPECT: dict[str, str] = {
+    "16:9": "1344x768",
+    "9:16": "768x1344",
+    "1:1": "1024x1024",
+    "3:2": "1248x832",
+    "2:3": "832x1248",
+    "4:3": "1152x896",
+    "3:4": "896x1152",
+}
+GLM_SIZE_LANDSCAPE = "1344x768"
+
+
+def get_glm_size(aspect_ratio: str) -> str:
+    """
+    Map aspect ratio string to a GLM-Image size (WxH), each side 512-2048 and
+    divisible by 32. Falls back to landscape 16:9 for unknown ratios.
+    """
+    if not aspect_ratio:
+        return GLM_SIZE_LANDSCAPE
+    ar = aspect_ratio.strip().lower()
+    ar = GEMINI_ASPECT_NORMALIZE.get(ar, ar)
+    return GLM_SIZE_BY_ASPECT.get(ar, GLM_SIZE_LANDSCAPE)
+
+
 def get_gemini_image_config(aspect_ratio: str) -> dict:
     """
     Return config dict for Gemini image generation: aspectRatio (and optional imageSize).

@@ -9,6 +9,8 @@ hero_image_alt: "One book chapter repurposed into six months of weekly author vi
 
 # How to Turn One Chapter of Your Book Into 6 Months of Video Content
 
+> **TL;DR:** A single chapter of a well-structured nonfiction book holds enough distinct ideas to fuel six months of video content. Here's the framework for breaking one chapter into a steady stream of videos, posts, and clips.
+
 Most nonfiction authors think about video once — during launch — and then stop. They produce a trailer, maybe a few social posts, do a couple of podcast appearances, and then move on. Six months later the book is quiet, the sales have plateaued, and the 70,000 words they spent two years writing are sitting in a published document doing very little.
 
 The opportunity they missed: a single chapter of a well-structured nonfiction book contains enough distinct ideas, arguments, and insights to fuel six months of video content. Not by stretching the content thin, but by breaking a single piece of well-developed thinking into its natural components.
